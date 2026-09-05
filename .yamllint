@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# yamllint configuration. It exists because the README tells a reader to run "yamllint .", and
+# without this file that command uses yamllint's stock defaults and fails on a clean tree over the
+# single rule waived below. A documented command that does not work is worse than an undocumented
+# one: it is the first thing a contributor tries.
+#
+# Deliberately minimal. Every rule of the "default" profile stays on except the one that genuinely
+# clashes with how this repository is written, and it was found by running the linter rather than by
+# copying the sibling repository's waivers wholesale -- three of the four it carries are not needed
+# here.
+
+extends: default
+
+rules:
+  # The comments in this repository carry the reasoning behind each value, and reasoning does not fit
+  # in eighty columns. They are wrapped at a hundred, which is the width the rest of the files use.
+  # Every other rule of the profile stays on, "document-start" included: the one file that was
+  # missing its "---" got it rather than the rule being turned off for the whole tree.
+  line-length: disable
