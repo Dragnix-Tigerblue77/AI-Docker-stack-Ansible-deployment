@@ -26,6 +26,13 @@
         # serves on the test bench until the target is Swarm.
         AIS_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
 
+        # Whatever the role named above needs is the CALLER's to provide: this role cannot know what
+        # that is, since the role is chosen by a variable, and neither of its asserts can check for it.
+        # Both homelab roles read "APT_cache_lifetime", and neither defaults it -- it lives in that
+        # repository's own playbook vars. Declared here so a caller who is not that playbook does not
+        # discover it as an undefined variable, mid-deployment, inside a role from another repository.
+        APT_cache_lifetime: 3600
+
         # The time zone handed to every container. A caller that already carries its own -- the
         # homelab repository has "server_time_zone" in "group_vars/all.yaml" -- passes it here rather
         # than restating it, so the stack's containers and the host running them tell the same time.

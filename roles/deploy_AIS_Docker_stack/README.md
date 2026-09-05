@@ -68,10 +68,22 @@ charge, et ce rôle-là doit :
    maîtresse de la passerelle, jetons. `/tmp` est le premier endroit où tout compte de la machine regarde,
    et `--diff` imprimerait le fichier *entier* dans la sortie du run, donc dans tout ce qui la capture.
 
-`Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du dépôt
-`Homelab_Ansible_deployment` remplissent ce contrat tous les deux, sans modification. Les deux rendent
-en plus deux faits que les issues de service voudront lire : `Docker_stack_first_deployment`, qui dit si
-le stack est déployé pour la première fois sur cette machine, et `Docker_stack_deployment_state`.
+Et une quatrième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
+exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `assert` ne peuvent le deviner —
+le rôle de déploiement est désigné par une variable, donc son contenu est inconnu au moment où les
+vérifications tournent.
+
+Ce n'est pas théorique. `Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du
+dépôt `Homelab_Ansible_deployment` remplissent tous les deux les trois obligations ci-dessus **sans
+modification** — mais tous les deux lisent aussi `APT_cache_lifetime`, qui n'a de défaut ni dans l'un ni
+dans l'autre. Elle vit dans les `vars:` du `playbook.CHSONP.yaml` de ce dépôt, donc elle est en portée
+quand c'est lui qui appelle, et **absente partout ailleurs**. Un appelant qui ne la déclare pas échoue au
+déploiement, sur une variable non définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui
+n'apparaît nulle part dans l'appel qu'il a écrit.
+
+Les deux rôles rendent en plus deux faits que les issues de service voudront lire :
+`Docker_stack_first_deployment`, qui dit si le stack est déployé pour la première fois sur cette machine,
+et `Docker_stack_deployment_state`.
 
 Ce que ce squelette ne fait pas
 -------------------------------
