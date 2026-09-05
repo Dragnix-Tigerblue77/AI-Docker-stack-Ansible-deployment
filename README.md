@@ -62,11 +62,24 @@ pas textuels. Le template se **rend** et le résultat se **parse** :
 
 ```bash
 yamllint .
+ansible-lint
 ansible-playbook --syntax-check playbook.AIS.example.yaml
+python3 .github/scripts/check_compose_template.py
 ```
 
-Puis, pour le template lui-même, rendre les deux états -- réseau publié renseigné et non renseigné -- et
-comparer les objets parsés, pas les fichiers.
+Le dernier est celui qui compte pour le template. Il le rend dans ses **deux** états -- réseau publié
+renseigné et non renseigné -- parse les deux, compare les objets parsés plutôt que les fichiers, et tient
+chaque bloc de service aux conventions que le modèle commenté du template documente : image épinglée,
+limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et tout réseau ou volume
+référencé effectivement déclaré.
+
+L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
+fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
+rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
+
+Aujourd'hui `services:` est vide, donc les contrôles de convention ne portent sur rien. C'est voulu : ils
+sont câblés maintenant pour mordre au premier bloc de service, plutôt qu'écrits après coup, une fois la
+convention déjà cassée.
 
 ## Licence
 
