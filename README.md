@@ -11,14 +11,16 @@ agents et connecteurs y vivront dans un seul stack.
 
 ## Ce que contient ce dépôt
 
-Un rôle, et le playbook d'exemple qui montre comment l'appeler.
+Un rôle, le playbook d'exemple qui montre comment l'appeler, et de quoi vérifier les deux.
 
 ```
-playbook.AIS.example.yaml            l'appel du rôle, commenté
-roles/deploy_AIS_Docker_stack/       le rôle : le docker-compose du stack et ses variables
+playbook.AIS.example.yaml                     l'appel du rôle, commenté
+roles/deploy_AIS_Docker_stack/                le rôle : le docker-compose du stack et ses variables
+.ansible-lint                                 ce que « conforme » veut dire ici
+.github/scripts/check_compose_template.py     rend le template et le tient à ses conventions
 ```
 
-C'est tout, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
+Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
 mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
 `Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
