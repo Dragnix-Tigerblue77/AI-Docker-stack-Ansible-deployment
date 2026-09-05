@@ -1,0 +1,103 @@
+# AIS stack -- Artificial Intelligence Stack.
+#
+# This file is RENDERED onto the managed node: what is read here is a template, what lands there is
+# an ordinary compose file. It deliberately carries no SPDX header, for the same reason
+# "roles/*/templates/" is exempt on the homelab side: the header would end up copied into the
+# deployed file, which is not a source file of this repository.
+#
+# No format "version:": the key has been obsolete since Compose v2, and Swarm never read it.
+
+# Each service issue adds its block here, on the commented model below, and its variables in
+# "defaults/main.yml".
+#
+# The mapping is empty until one lands. That is valid YAML, and it renders and parses, but
+# "docker compose config" refuses a stack with no service: this skeleton describes what one adds
+# INTO, it does not deploy on its own. See the README's "Ce que ce squelette ne fait pas".
+services: {}
+
+{% raw %}
+  # ------------------------------------------------------------------------------------------------
+  # The model to copy. It describes no real service: it carries the conventions #31 sets, at the
+  # place where they get forgotten.
+  #
+  # It is a fragment OF THIS TEMPLATE, not of the rendered file: it shows itself as it is typed,
+  # Jinja expressions included. Hence the "raw" block around it, without which it would render each
+  # variable's VALUE -- and "- False" for an unset published network.
+  # ------------------------------------------------------------------------------------------------
+  #
+  # service_name:
+  #   # Pinned by version, never ":latest" -- nor the implicit tag, which IS ":latest".
+  #   # Without this, a redeployment months later installs a version nobody chose, and the failure
+  #   # that follows has no diff to show.
+  #   image: vendor/image:1.2.3
+  #
+  #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
+  #   # Compose and Swarm honour. "restart: unless-stopped", "mem_limit:" and "cpus:" work in Compose
+  #   # and are IGNORED by Swarm -- silently, which is the worst of both worlds. Writing under
+  #   # "deploy:" from the start means the move to Swarm does not reopen this file.
+  #   deploy:
+  #     restart_policy:
+  #       # "any", never "on-failure". When a container turns unhealthy the orchestrator stops it
+  #       # cleanly, the process exits 0, and "on-failure" never replaces a task that exited cleanly:
+  #       # the service sits at 0 replicas, the reverse proxy stops building its router, and the URL
+  #       # answers a bare 404 with nothing logged anywhere.
+  #       condition: any
+  #     resources:
+  #       limits:
+  #         # Mandatory on EVERY service. Without a limit, one container running away takes all the
+  #         # others down by OOM, and the kernel log names the victim, not the culprit. An AI stack is
+  #         # exactly the ground where that happens: a model held in memory, a worker handed a
+  #         # document too large.
+  #         memory: 512M
+  #
+  #   # No "ports:" for an internal service: it is reached over the stack's network, under its
+  #   # service name. Only a web interface meant for a human is exposed, and it goes through the
+  #   # caller's reverse proxy -- never through a port published on the host.
+  #   #
+  #   # No "container_name:" either: Swarm ignores it, and a hostname that only exists under Compose
+  #   # is a dependency that breaks at the moment of the switch.
+  #   #
+  #   # A host port that IS allocated must dodge Chromium's restricted list: a restricted port is
+  #   # refused inside the browser, before the connection leaves it, so the service stays healthy and
+  #   # its logs stay empty.
+  #
+  #   # The image often ships one, better than anything written here: Docker inherits it as long as
+  #   # the service declares none. Only write one to do better, not to do the same.
+  #   healthcheck:
+  #     test: ["CMD", "…"]
+  #     interval: 30s
+  #     timeout: 30s
+  #     start_period: 10s
+  #     retries: 3
+  #
+  #   environment:
+  #     TZ: "{{ AIS_server_time_zone }}"
+  #
+  #   # A secret is never written in clear text here. Two forms are possible, one or the other
+  #   # depending on the caller's orchestrator: a native secret mounted under "/run/secrets/", or a
+  #   # variable drawn from an unversioned ".env". What is forbidden is the literal value.
+  #
+  #   networks:
+  #     - {{ AIS_internal_Docker_network_name }}
+  #     # And this one IN ADDITION, only for a service with a web interface meant for a human: it is
+  #     # how the caller's reverse proxy reaches it. Only write it inside a block conditioned on
+  #     # "AIS_published_Docker_network_name is string": on a caller that has not set the pair, the
+  #     # network is not declared and the service would not start.
+  #     - {{ AIS_published_Docker_network_name }}
+{% endraw %}
+
+# No volume until a service asks for one: a volume declared that nobody mounts is a volume nobody
+# backs up and nobody deletes. Each service issue declares its own alongside its block.
+volumes: {}
+
+networks:
+  # Internal to the stack: created and destroyed with it, reachable from nowhere else. It is what
+  # lets a service publish no port.
+  {{ AIS_internal_Docker_network_name }}:
+{% if AIS_published_Docker_network_definition is string %}
+
+  # The published network belongs to the caller, not to this stack: they create it, name it, and
+  # attach their reverse proxy to it. We only hook onto it, hence the "external: true" its definition
+  # carries. Nothing attaches to it until a service has a web interface.
+  {{ AIS_published_Docker_network_definition }}
+{% endif %}
