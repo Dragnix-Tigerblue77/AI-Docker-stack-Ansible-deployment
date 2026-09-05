@@ -65,6 +65,24 @@ def render(context):
     return template.render(**context)
 
 
+def mapping(container, key):
+    """The mapping under `key`, treating a key present but empty as an absent one.
+
+    YAML makes no difference between a key that is absent and one written with nothing under it:
+
+        resources:            ->  {"resources": {"limits": None}}
+          limits:
+
+    ".get('limits', {})" answers None there, because the key IS present -- the default never fires --
+    and the next ".get" raises AttributeError. Three places in this file had that shape and crashed
+    on a service block someone was in the middle of writing, which is exactly when this script gets
+    run. A traceback is the worst possible answer at that moment: it hides the finding the check
+    exists to report.
+    """
+    value = container.get(key)
+    return value if isinstance(value, dict) else {}
+
+
 def volume_source(volume):
     """The declared volume a mount refers to, or None when it refers to none.
 
@@ -97,19 +115,25 @@ def volume_source(volume):
 def check_conventions(document, state, failures):
     """Hold one rendered document to what the template's own commented model promises."""
     services = document.get("services") or {}
-    declared_networks = set((document.get("networks") or {}).keys())
-    declared_volumes = set((document.get("volumes") or {}).keys())
+    declared_networks = set(mapping(document, "networks"))
+    declared_volumes = set(mapping(document, "volumes"))
 
     for name, service in services.items():
         where = f"[{state}] service {name!r}"
-        deploy = service.get("deploy") or {}
+        # A service key written with nothing under it parses as None, not as an empty mapping.
+        service = service if isinstance(service, dict) else {}
+        deploy = mapping(service, "deploy")
 
         # Pinned by version, never ":latest" -- nor the implicit tag, which IS ":latest". A digest
         # counts as pinned. The registry host may carry a colon for its port, so the tag is whatever
         # follows the last colon AFTER the last slash.
-        image = service.get("image", "")
+        image = service.get("image") or ""
         last_segment = image.rsplit("/", 1)[-1]
-        if "@" not in image:
+        if not image:
+            # Said separately rather than folded into the tag check below: "image '' carries no tag"
+            # is a true sentence about a service that has no image at all, and a confusing one.
+            failures.append(f"{where}: declares no image")
+        elif "@" not in image:
             if ":" not in last_segment:
                 failures.append(f"{where}: image {image!r} carries no tag, which means ':latest'")
             elif last_segment.rsplit(":", 1)[-1] == "latest":
@@ -117,12 +141,12 @@ def check_conventions(document, state, failures):
 
         # A memory limit on every service. Without one, a container running away takes the others
         # down by OOM and the kernel log names the victim rather than the culprit.
-        if not (deploy.get("resources") or {}).get("limits", {}).get("memory"):
+        if not mapping(mapping(deploy, "resources"), "limits").get("memory"):
             failures.append(f"{where}: no deploy.resources.limits.memory")
 
         # "any", never "on-failure": the orchestrator stops an unhealthy container CLEANLY, so it
         # exits 0, and "on-failure" never replaces a task that exited cleanly.
-        condition = (deploy.get("restart_policy") or {}).get("condition")
+        condition = mapping(deploy, "restart_policy").get("condition")
         if condition != "any":
             failures.append(f"{where}: deploy.restart_policy.condition is {condition!r}, expected 'any'")
 
