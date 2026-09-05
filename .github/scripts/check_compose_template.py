@@ -65,6 +65,35 @@ def render(context):
     return template.render(**context)
 
 
+def volume_source(volume):
+    """The declared volume a mount refers to, or None when it refers to none.
+
+    Compose accepts two syntaxes for a mount and this has to read both, because the long one is the
+    form the documentation recommends and the only one that carries options:
+
+        - AIS_data:/data:rw                                     the short one, a string
+        - {type: volume, source: AIS_data, target: /data}       the long one, a mapping
+
+    Reading the long form as a string is how the first version of this script turned every mount
+    written that way into "references undeclared volume \"{\'type\'\"" -- a false positive, which is
+    worse than no check at all: it is what teaches a reader to run the script and ignore it.
+
+    A bind mount and a tmpfs name no declared volume, so both answer None rather than a name that
+    would never be found in "volumes:".
+    """
+    if isinstance(volume, dict):
+        # "type" defaults to "volume" when the mount has a source and does not say otherwise.
+        if volume.get("type", "volume") != "volume":
+            return None
+        return volume.get("source")
+    source = str(volume).split(":", 1)[0]
+    # A bind mount names a path rather than a declared volume. An anonymous volume is written as the
+    # target alone, so it has no source to declare either.
+    if source.startswith((".", "/")) or source == str(volume):
+        return None
+    return source
+
+
 def check_conventions(document, state, failures):
     """Hold one rendered document to what the template's own commented model promises."""
     services = document.get("services") or {}
@@ -103,13 +132,17 @@ def check_conventions(document, state, failures):
 
         # The Definition of Done of #31: everything a service references has to be declared. The
         # orchestrator only says otherwise at deployment time.
+        # "networks:" is a list of names, or a mapping of name to options (aliases, an address).
+        # Iterating a dict yields its keys, so one loop reads both forms.
         for network in service.get("networks") or []:
             if network not in declared_networks:
                 failures.append(f"{where}: references undeclared network {network!r}")
+
         for volume in service.get("volumes") or []:
-            source = str(volume).split(":", 1)[0]
-            # A bind mount names a path rather than a declared volume.
-            if not source.startswith((".", "/")) and source not in declared_volumes:
+            source = volume_source(volume)
+            # None means the mount names no declared volume: a bind mount, a tmpfs, or a form with
+            # no source at all. There is nothing to look up, so there is nothing to complain about.
+            if source is not None and source not in declared_volumes:
                 failures.append(f"{where}: references undeclared volume {source!r}")
 
 
