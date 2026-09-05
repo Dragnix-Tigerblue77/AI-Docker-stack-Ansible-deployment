@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# ansible-lint configuration. "safety" profile: every rule of the profile is enforced, and the
+# families that clash with this repository's conventions are waived explicitly below rather than by
+# lowering the profile.
+#
+# This file arrives with the first role rather than with the repository hygiene issue (#32), which
+# lays down the CI: it does not decide THAT we lint, it says what "compliant" means here. The naming
+# conventions it allows are the ones #31 sets, and without it the repository's first commit would be
+# refused by its own linter.
+profile: safety
+
+# Variables are named in Capitalised_Snake_Case (AIS_Docker_stack_name, Docker_compose_file_name...).
+# Widening the pattern keeps the rule ACTIVE: a name with a space, a dash or a leading digit is still
+# an error, and that is exactly the class of typo nobody proofreads.
+var_naming_pattern: "^[a-zA-Z_][a-zA-Z0-9_]*$"
+
+skip_list:
+  # Role variables are not prefixed with the role name: the prefix would be
+  # "deploy_AIS_Docker_stack_", longer than most of the variables it would qualify. They carry the
+  # STACK's name, "AIS_", which is what the caller has in mind.
+  - var-naming[no-role-prefix]
+  # Role names carry capitals, "AIS" being an acronym. Lowercasing it would make it unreadable before
+  # it made it compliant.
+  - role-name
+  # Task names are built around the stack they act on, so the Jinja template lands mid-name:
+  # "Deploy the {{ AIS_Docker_stack_name }} Docker stack". Same waiver, for the same reason, as the
+  # homelab repository's.
+  - name[template]

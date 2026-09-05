@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+galaxy_info:
+  author: tigerblue77
+  description: Renders the AIS stack compose file and delegates its deployment to the role the caller names
+
+  license: AGPL-3.0-only
+
+  min_ansible_version: "2.19"
+
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+
+  galaxy_tags: []
+
+dependencies: []

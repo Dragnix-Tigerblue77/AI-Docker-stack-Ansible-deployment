@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# EXAMPLE playbook: it shows how the role is called, it is not meant to be run as-is.
+#
+# This repository holds one role. The inventory, the FQDNs, the reverse proxy labels, the published
+# network and the role that actually deploys the stack all belong to the caller -- that is what lets
+# two people deploy the same stack onto two estates with nothing in common, without forking.
+#
+# The group name below therefore exists only in this example: put your inventory's own there.
+
+- name: "Deploy the AIS stack"
+  hosts: AIS_servers
+  become: true
+
+  roles:
+    - role: deploy_AIS_Docker_stack
+      vars:
+        # MANDATORY. The role renders the stack's compose file, it does not deploy it: this parameter
+        # names the role that does. That role has to render "{{ Docker_compose_file_name }}.j2" from
+        # ITS OWN CALLER's "templates/" -- that is, from the AIS role's -- and read the three other
+        # variables "tasks/main.yml" hands it. The README spells the contract out.
+        #
+        # Here: the Swarm role of the "Homelab_Ansible_deployment" repository, which meets it as-is.
+        # "Docker/deploy_Docker_compose_stack", from the same repository, meets it too -- that is what
+        # serves on the test bench until the target is Swarm.
+        AIS_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+
+        # The time zone handed to every container. A caller that already carries its own -- the
+        # homelab repository has "server_time_zone" in "group_vars/all.yaml" -- passes it here rather
+        # than restating it, so the stack's containers and the host running them tell the same time.
+        AIS_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
+
+        # The published network, created and named by the caller, the one their reverse proxy listens
+        # on. The two are set together. Until a service of the stack has a web interface, leaving them
+        # at "false" is the right call: nothing attaches to it.
+        #
+        # AIS_published_Docker_network_name: "{{ DMZ_Docker_network_name }}"
+        # AIS_published_Docker_network_definition: "{{ DMZ_Docker_network_definition }}"

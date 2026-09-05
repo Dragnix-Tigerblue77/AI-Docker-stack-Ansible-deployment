@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# tasks file for roles/deploy_AIS_Docker_stack
+
+# Both checks are made HERE, up front and outside any condition, rather than left to whatever reads
+# the variable. It is the lesson of the homelab repository's "retrieve_value_or_create_Docker_secret":
+# a parameter read behind a condition that almost never holds is a parameter nobody notices is
+# missing, until the day it is missing on a fresh machine.
+- name: "Check the AIS stack parameters"
+  ansible.builtin.assert:
+    that:
+      - AIS_Docker_stack_deployment_role_name is defined
+      - AIS_Docker_stack_deployment_role_name is string
+      - AIS_Docker_stack_deployment_role_name | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_Docker_stack_deployment_role_name" is mandatory: this role renders the AIS stack's
+      compose file but does not deploy it, and it is the caller that names the role which does.
+      It has no default because having one would presuppose an orchestrator, which #31 forbids.
+      See the "Le contrat du rôle de déploiement" section of the README.
+
+- name: "Check the published network parameters are consistent"
+  ansible.builtin.assert:
+    that:
+      - (AIS_published_Docker_network_name is string) == (AIS_published_Docker_network_definition is string)
+    quiet: true
+    fail_msg: >-
+      "AIS_published_Docker_network_name" and "AIS_published_Docker_network_definition" are set
+      together or not at all: the name attaches a service to the published network, the definition
+      declares it in the rendered file's "networks:" block. Setting only one produces a compose file
+      that either references an undeclared network, or declares one nobody uses -- and in the first
+      case the orchestrator only says so at deployment time.
+
+# The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
+# not contain. The four variables below are the contract: they carry the names the homelab
+# repository's deployment roles expect, unprefixed, because they are theirs and not ours.
+#
+# Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
+# level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
+# homelab repository -- a task connecting as an account other than the one its "vars:" announced,
+# and reporting "ok".
+- name: "Deploy the {{ AIS_Docker_stack_name }} Docker stack"
+  ansible.builtin.include_role:
+    name: "{{ AIS_Docker_stack_deployment_role_name }}"
+  vars:
+    Docker_stack_name: "{{ AIS_Docker_stack_name }}"
+    Docker_compose_file_name: "{{ AIS_Docker_compose_file_name }}"
+    Docker_compose_file_destination_directory: "{{ AIS_Docker_compose_file_destination_directory }}"
+    Docker_compose_file_destination_path: "{{ AIS_Docker_compose_file_destination_path }}"
