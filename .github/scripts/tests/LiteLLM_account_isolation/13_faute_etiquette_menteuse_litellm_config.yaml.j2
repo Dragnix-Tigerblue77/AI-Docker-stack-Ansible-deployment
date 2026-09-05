@@ -1,0 +1,20 @@
+# ATTENDU: 2 CONTIENT: annonce le compte -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# Deux choses a la fois : l'entree est etiquetee "dragnix" alors que sa cle est celle de
+# tigerblue77 (nom ET access_group), et le fichier est un TEMPLATE Jinja -- ce que la lecture
+# ligne a ligne doit avaler sans broncher la ou "yaml.safe_load" s'arreterait.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+    model_info:
+      access_groups: ["dragnix"]
+
+  - model_name: gen-code-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GROQ_API_KEY_DRAGNIX
+
+general_settings:
+  master_key: "{{ AIS_LiteLLM_master_key }}"

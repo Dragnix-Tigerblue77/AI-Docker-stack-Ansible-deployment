@@ -1,0 +1,24 @@
+# ATTENDU: 1 CONTIENT: fait replier -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# Encore le meme repli, en style flot eclate sur plusieurs lignes -- la troisieme ecriture d'une
+# seule et meme chose. Elle echappait elle aussi a la lecture ligne a ligne, et le correctif
+# propose pour la fixture 14 ne l'aurait pas rattrapee : c'est ce qui a decide l'analyse YAML.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+
+router_settings:
+  fallbacks: [
+    {
+      "gen-chat-dragnix": [
+        "gen-chat-tigerblue77"
+      ]
+    }
+  ]

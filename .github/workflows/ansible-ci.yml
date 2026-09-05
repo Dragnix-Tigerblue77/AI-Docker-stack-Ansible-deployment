@@ -1,0 +1,162 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Les contrôles de qualité, sur chaque pull request. La détection de secrets vit dans son propre
+# workflow ("gitleaks.yml") parce qu'elle n'a ni le même outillage ni la même raison d'exister.
+#
+# ! Aucun de ces jobs ne peut être rendu OBLIGATOIRE avant fusion : l'organisation est sur un plan
+#   qui n'autorise ni ruleset ni protection de branche sur un dépôt privé ("GET /repos/.../rulesets"
+#   répond 403 « Upgrade to GitHub Pro or make this repository public »). Ils informent le
+#   relecteur ; ils ne gardent pas la porte. C'est une limite du plan, pas de la configuration.
+#
+# Pas de "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" ici, contrairement au dépôt homelab :
+# ce dépôt n'a pas de runner auto-hébergé, et une indirection qu'aucune variable ne renseigne est
+# une ligne que le prochain lecteur devra aller vérifier pour rien.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Installer l'outillage
+        run: pip install -r requirements.txt
+
+      - name: Lancer yamllint
+        run: yamllint .
+
+  ansible-lint:
+    name: ansible-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Installer l'outillage
+        run: pip install -r requirements.txt
+
+      # Pas d'"ansible-galaxy collection install" : le rôle de #31 n'utilise que
+      # "ansible.builtin.assert" et "ansible.builtin.include_role", donc aucune collection tierce.
+      # Le jour où une issue de service en introduira une, elle apportera son "requirements.yml"
+      # et la ligne d'installation qui va avec -- c'est le bon moment pour les écrire, pas
+      # aujourd'hui où elles n'auraient rien à installer.
+      - name: Lancer ansible-lint
+        run: ansible-lint
+
+  syntax-check:
+    name: ansible-playbook --syntax-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Installer l'outillage
+        run: pip install -r requirements.txt
+
+      # Les playbooks sont DÉCOUVERTS, pas nommés. Un nom en dur ("playbook.AIS.example.yaml")
+      # obligerait à revenir ici au premier renommage, et surtout il resterait vert en silence si
+      # le fichier changeait de nom -- le pire des deux, un contrôle qui coche sa case sans rien
+      # lire.
+      #
+      # ! Tant que #31 n'a pas atterri, ce dépôt n'a aucun playbook et cette étape ne vérifie donc
+      #   RIEN. Elle le dit alors dans une annotation "::warning::" visible sur la page du run,
+      #   plutôt que de rendre un vert muet : un contrôle vide qui se tait est un contrôle qu'on
+      #   croit avoir. Elle devient effective toute seule le jour où le playbook existe.
+      - name: Vérifier la syntaxe de chaque playbook
+        run: |
+          shopt -s nullglob
+          playbooks=(playbook.*.yaml playbook.*.yml)
+          if [ ${#playbooks[@]} -eq 0 ]; then
+            echo "::warning title=Aucun playbook::Aucun fichier playbook.*.y(a)ml : cette étape n'a rien vérifié. Elle deviendra effective quand #31 aura atterri."
+            exit 0
+          fi
+          for playbook in "${playbooks[@]}"; do
+            echo "--- $playbook"
+            ansible-playbook --syntax-check "$playbook"
+          done
+
+  maison:
+    name: contrôles maison
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Un seul job pour les contrôles de ".github/scripts/". Actions facture au job et arrondit
+    # chacun à la minute : deux scripts qui s'exécutent en une seconde chacun coûteraient deux
+    # minutes, et paieraient un "checkout" et un "setup-python" chacun. Un troisième contrôle est
+    # donc gratuit à ajouter ici.
+    #
+    # "check_no_inventory_data.py" n'importe rien hors de la bibliothèque standard.
+    # "check_LiteLLM_account_isolation.py", lui, lit PyYAML : c'est la seule dépendance de ces
+    # contrôles, et elle a été prise sciemment (la raison est écrite dans son en-tête et dans
+    # "requirements.txt"). L'étape d'installation ci-dessous est ce qu'elle coûte.
+    #
+    # Le prix est réel et vaut d'être dit : la liste des contrôles d'une pull request porte une
+    # ligne au lieu de deux, donc une croix rouge ne dit plus LEQUEL a échoué sans ouvrir le run.
+    # Une étape qui échoue s'y nomme encore, ce qui était l'essentiel de ce que deux jobs
+    # achetaient.
+    #
+    # "!cancelled()" : ce sont des contrôles indépendants qui partagent un runner, pas un pipeline.
+    # Sans lui, le premier échec masquerait l'état des suivants.
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      # Le python3 d'ubuntu-latest n'est épinglé par personne ; une seule installation sert les
+      # deux scripts.
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Installer l'outillage
+        run: pip install -r requirements.txt
+
+      - name: "Isolation des comptes LiteLLM : vérifier le contrôle lui-même"
+        run: python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
+
+      - name: "Isolation des comptes LiteLLM : lire la configuration du dépôt"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_LiteLLM_account_isolation.py
+
+      - name: "Données d'inventaire en dur : vérifier le contrôle lui-même"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_no_inventory_data.py --selftest
+
+      - name: "Données d'inventaire en dur : lire le dépôt"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_no_inventory_data.py

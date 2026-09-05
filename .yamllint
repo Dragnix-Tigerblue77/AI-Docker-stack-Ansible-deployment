@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Configuration yamllint pour la CI, tenue alignée avec ".ansible-lint".
+# Reprise de celle de "Homelab_Ansible_deployment" : les mêmes fichiers y sont écrits avec les
+# mêmes conventions, et deux configurations divergentes voudraient dire qu'un même bloc YAML est
+# valide dans un dépôt et pas dans l'autre.
+extends: default
+
+rules:
+  # Les lignes longues sont des expressions Jinja, des étiquettes Traefik et des one-liners de
+  # Compose : les couper nuirait plus à la lecture que la limite ne l'aide. Le squelette de rôle de
+  # #31 en a déjà à 129 caractères.
+  line-length: disable
+
+  # Les commentaires de ce dépôt sont alignés sur le bloc qu'ils documentent, pas sur la ligne qui
+  # les suit.
+  comments-indentation: disable
+
+  # ! Les quatre réglages ci-dessous ne sont pas des préférences : ansible-lint REFUSE d'offrir son
+  #   mode "--fix" si sa propre configuration yamllint n'est pas retrouvée à l'identique (« Found
+  #   incompatible custom yamllint configuration »), et il sort en erreur plutôt que de se rabattre
+  #   sur un défaut. Les changer, c'est perdre "ansible-lint --fix" sans que rien ne le dise ici.
+  comments:
+    min-spaces-from-content: 1
+    require-starting-space: true
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+  # Un workflow GitHub Actions a besoin d'une clé littéralement nommée "on", que YAML 1.1 lit comme
+  # un booléen. Seules les CLÉS sont exemptées : une VALEUR "yes"/"no"/"off" reste refusée.
+  truthy:
+    check-keys: false

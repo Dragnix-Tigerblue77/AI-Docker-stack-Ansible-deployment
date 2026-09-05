@@ -1,0 +1,19 @@
+# ATTENDU: 1 CONTIENT: litellm_settings -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# Les cles de repli se declarent aussi bien sous "router_settings" que sous "litellm_settings".
+# Ne surveiller que la premiere laisserait une porte grande ouverte, dans la section meme ou la
+# documentation de LiteLLM place plusieurs de ses exemples.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+
+litellm_settings:
+  context_window_fallbacks:
+    - gen-chat-dragnix: ["gen-chat-tigerblue77"]

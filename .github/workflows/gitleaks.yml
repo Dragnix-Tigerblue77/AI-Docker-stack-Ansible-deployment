@@ -1,0 +1,159 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Détection de secrets sur chaque pull request. Adapté du workflow homonyme de
+# "Homelab_Ansible_deployment" : les lignes exécutables en viennent telles quelles, les commentaires
+# non -- ceux d'origine décrivent un dépôt qui a un ".gitleaksignore", un dump SQL en git-lfs et un
+# historique de credentials à purger, dont rien n'existe ici.
+#
+# ! Ce workflow CONSTATE, il ne bloque pas. L'organisation est sur un plan qui n'autorise ni ruleset
+#   ni protection de branche sur un dépôt privé ("GET /repos/.../rulesets" -> 403 « Upgrade to
+#   GitHub Pro or make this repository public »), donc aucun contrôle de CI ne peut être rendu
+#   obligatoire avant fusion. Le garde-fou qui refuse vraiment est ".githooks/pre-commit".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # À relever à la main depuis https://github.com/gitleaks/gitleaks/releases : Dependabot n'a
+      # pas d'écosystème pour un téléchargement de release brut. L'empreinte va avec la version et
+      # se relève dans le "gitleaks_<version>_checksums.txt" de la même release.
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      # La vérification d'empreinte n'est pas de la cérémonie : sans elle, ce job exécute en
+      # confiance un binaire téléchargé sur le réseau à chaque exécution, et c'est le seul job du
+      # dépôt dont le rôle est justement de ne rien croire sur parole.
+      - name: Installer gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      # "dir" lit l'arbre de travail, pas l'historique. C'est le bon mode ici : le dépôt n'a qu'un
+      # commit d'origine et aucun passif à purger, donc scanner l'historique ne dirait rien de plus
+      # tout en coûtant plus cher à chaque exécution.
+      #
+      # ! Ce job ne voit PAS le ".env" qu'un développeur aurait sur sa machine : "actions/checkout"
+      #   ne matérialise que ce qui est suivi par git. C'est la raison pour laquelle il est vert
+      #   ici alors que "gitleaks dir ." lancé en local sur un arbre contenant un vrai ".env" sort
+      #   en 1 -- "dir" ne lit pas le ".gitignore". Les deux comportements sont corrects ; c'est le
+      #   critère d'acceptation qui doit dire de quel côté il se place.
+      - name: Chercher des secrets dans l'arbre de travail
+        run: ./gitleaks dir . --no-banner --redact
+
+  hook:
+    name: le hook pre-commit refuse-t-il un secret ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    # La Definition of Done de #32 demande qu'« un commit contenant volontairement une fausse clé
+    # soit refusé par le hook, pas seulement signalé par la CI ». Ce job en fait une preuve qui se
+    # rejoue toute seule, plutôt qu'une vérification faite une fois à la main puis oubliée : le
+    # hook est un fichier comme un autre, et rien d'autre ici ne remarquerait qu'il a cessé de
+    # mordre.
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      - name: Installer gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+      # ! La fausse clé est FABRIQUÉE ICI, à l'exécution, et n'est écrite nulle part dans le dépôt.
+      #   Deux raisons, et chacune suffirait :
+      #     - une clé littérale dans ce fichier serait trouvée par le job "gitleaks" ci-dessus, qui
+      #       lit l'arbre de travail : le test rendrait rouge le contrôle qu'il teste ;
+      #     - gitleaks filtre ses trouvailles sur l'ENTROPIE. Un remplissage constant
+      #       ("AIzaSy" suivi de zéros) n'est pas détecté -- mesuré, « no leaks found », commit
+      #       accepté. Un test écrit avec une fausse clé trop régulière conclurait donc à tort que
+      #       le hook ne marche pas. Tirer les caractères au hasard donne l'entropie d'une vraie.
+      - name: Un commit portant une fausse clé doit être refusé
+        run: |
+          set -uo pipefail
+          scratch="$(mktemp -d)"
+          # Le mode du fichier VERSIONNE est verifie ici, avant la copie : un "chmod +x" sur la
+          # copie rendrait ce job vert dans le cas meme ou le hook a cesse de mordre, celui ou son
+          # bit executable a ete perdu.
+          test -x .githooks/pre-commit \
+            || { echo "::error title=Hook non executable::.githooks/pre-commit a perdu son bit executable ; git ne le lancerait pas."; exit 1; }
+          cp -p .githooks/pre-commit "$scratch/pre-commit-sous-test"
+          cd "$scratch"
+          git init -q .
+          git config user.email "ci@example.invalid"
+          git config user.name "CI"
+          mkdir -p .githooks
+          mv pre-commit-sous-test .githooks/pre-commit
+          git config core.hooksPath .githooks
+          echo "socle" > socle.txt
+          git add socle.txt .githooks
+          git commit -q -m "socle"
+
+          # ! "tr -dc ... < /dev/urandom | head -c 33" sort en 141 : "head" ferme le tube des qu'il
+          #   a ses 33 octets, "tr" prend un SIGPIPE, et "pipefail" remonte l'echec -- l'etape
+          #   echouait donc AVANT d'avoir teste quoi que ce soit (mesure : exit 141, aucune sortie).
+          #   Borner la source et terminer par "cut", qui lit tout son flux, supprime le signal.
+          faux_secret="AIzaSy$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-33)"
+          printf 'GEMINI_API_KEY=%s\n' "$faux_secret" > conf.txt
+          git add conf.txt
+
+          if git commit -q -m "fausse cle"; then
+            echo "::error title=Le hook ne mord plus::Un commit portant une fausse clé a été ACCEPTÉ par .githooks/pre-commit."
+            exit 1
+          fi
+
+          if git log --oneline | grep -q "fausse cle"; then
+            echo "::error title=Le hook ne mord plus::Le commit a été créé malgré le refus annoncé."
+            exit 1
+          fi
+
+          echo "Le hook a refusé le commit et aucun objet n'a été créé."
+
+      # Le pendant du test précédent : un hook qui refuserait TOUT passerait le test ci-dessus sans
+      # rien prouver. Celui-ci vérifie qu'un commit ordinaire n'est pas bloqué.
+      - name: Un commit sans secret doit passer
+        if: ${{ !cancelled() }}
+        run: |
+          set -uo pipefail
+          scratch="$(mktemp -d)"
+          # Le mode du fichier VERSIONNE est verifie ici, avant la copie : un "chmod +x" sur la
+          # copie rendrait ce job vert dans le cas meme ou le hook a cesse de mordre, celui ou son
+          # bit executable a ete perdu.
+          test -x .githooks/pre-commit \
+            || { echo "::error title=Hook non executable::.githooks/pre-commit a perdu son bit executable ; git ne le lancerait pas."; exit 1; }
+          cp -p .githooks/pre-commit "$scratch/pre-commit-sous-test"
+          cd "$scratch"
+          git init -q .
+          git config user.email "ci@example.invalid"
+          git config user.name "CI"
+          mkdir -p .githooks
+          mv pre-commit-sous-test .githooks/pre-commit
+          git config core.hooksPath .githooks
+          echo "rien de sensible ici" > lisez-moi.txt
+          git add lisez-moi.txt .githooks
+          git commit -q -m "commit ordinaire"
+          echo "Le hook a laissé passer un commit ordinaire."

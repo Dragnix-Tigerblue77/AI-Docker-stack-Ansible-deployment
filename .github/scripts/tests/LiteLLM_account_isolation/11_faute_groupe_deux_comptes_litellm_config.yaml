@@ -1,0 +1,14 @@
+# ATTENDU: 1 CONTIENT: regroupe des deploiements -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# Le vecteur invisible, et le motif reel du controle : un seul model_name, deux cles. Aucune ligne
+# "fallbacks" n'a ete ecrite, et pourtant le cooldown automatique fera se relayer les deux comptes.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77

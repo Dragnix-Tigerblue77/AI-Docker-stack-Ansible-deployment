@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Secrets, et rien d'autre. Ce fichier est le premier des trois garde-fous de #32 : il empêche
+# un "git add ." d'indexer un secret, le hook ".githooks/pre-commit" refuse le commit s'il y en a
+# un quand même, et le workflow "gitleaks" le constate après coup sur la pull request.
+#
+# ! Aucun de ces trois n'est bloquant côté GitHub : l'organisation est sur un plan qui n'autorise
+# ni ruleset ni protection de branche sur un dépôt privé ("GET /repos/.../rulesets" répond 403
+# « Upgrade to GitHub Pro or make this repository public »). Le hook local est donc le seul des
+# trois qui refuse réellement quelque chose -- et "git commit --no-verify" le contourne.
+
+# ---------------------------------------------------------------------------------------------
+# Fichiers d'environnement
+# ---------------------------------------------------------------------------------------------
+# L'AIS n'utilise PAS de fichier ".env" : le rôle de #31 interpole les valeurs directement dans le
+# "docker-compose" rendu, écrit en 0600 sur le nœud géré et jamais versionné -- c'est aussi ce que
+# font les 36 templates du dépôt "Homelab_Ansible_deployment", dont aucun n'a de "env_file:".
+# Les motifs ci-dessous n'en restent pas moins utiles : ils couvrent le ".env" qu'un humain crée
+# pour lancer un conteneur à la main pendant une mise au point, qui est exactement le fichier que
+# personne ne pense à supprimer avant de committer.
+#
+# ! L'ordre est porteur : remonter une ligne "!" au-dessus du motif qu'elle annule la neutralise.
+*.env
+.env
+.env.*
+# ... sauf l'exemple, s'il en apparaît un un jour.
+!.env.example
+!*.env.example
+# ... et sauf un template Jinja qui RENDRAIT un fichier d'environnement : sans cette ligne,
+# ".env.*" avale "roles/*/templates/.env.j2" et "git status" ne le montre même pas
+# (mesuré : "git check-ignore -v" -> ".gitignore:.env.*").
+!.env*.j2
+
+# ---------------------------------------------------------------------------------------------
+# Clés, certificats, mots de passe
+# ---------------------------------------------------------------------------------------------
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+# Le mot de passe du vault Ansible, jamais le vault lui-même : un vault chiffré est FAIT pour être
+# versionné. Ne pas élargir ce motif en "vault*", qui exclurait le contenu qu'on veut suivre.
+.vault_pass
+
+# ---------------------------------------------------------------------------------------------
+# Données de service et artefacts locaux
+# ---------------------------------------------------------------------------------------------
+# "storage/" est le répertoire de persistance par défaut de Qdrant (#3) : un test lancé à la main
+# depuis la racine du dépôt le crée ici.
+storage/
+.ansible/
+*.retry
+__pycache__/
+.venv/

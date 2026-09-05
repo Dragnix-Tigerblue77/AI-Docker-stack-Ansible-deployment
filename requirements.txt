@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# Outillage Python de developpement et de CI (pip install -r requirements.txt).
+# Les versions sont epinglees pour que le resultat d'un lint soit reproductible, et alignees sur
+# celles de "Homelab_Ansible_deployment" : les deux depots ecrivent le meme YAML avec les memes
+# conventions, et deux versions differentes voudraient dire deux verdicts differents sur un meme
+# fichier. Dependabot (ecosysteme pip) les tient a jour ; c'est ".github/dependabot.yml" qui le
+# lui demande, et sans ce fichier-la rien ne bougerait.
+#
+# Pas de "reuse" ici : #32 reporte "reuse lint" tant que le depot n'est pas publie. Les en-tetes
+# SPDX, eux, sont bien poses sur chaque fichier -- c'est ce que fait la PR #31 et c'est l'usage des
+# depots voisins. Ils ne sont donc VERIFIES par personne pour l'instant, et cela se voit deja
+# ailleurs : "Dell_iDRAC_fan_controller_Docker" pose des en-tetes sans controle et 12 de ses
+# fichiers en sont depourvus.
+ansible-core==2.19.11
+ansible-lint==26.6.0
+yamllint==1.38.0
+
+# Lu par ".github/scripts/check_LiteLLM_account_isolation.py". C'est la seule dependance que ces
+# controles se paient, et elle a ete achetee sciemment : la version ligne a ligne du controle ne
+# voyait pas un repli inter-comptes ecrit en style bloc -- la forme meme que produit tout
+# serialiseur YAML. Un garde-fou qui depend du style d'ecriture de ce qu'il surveille n'en est pas
+# un, et une etape "pip install" dans un job coute moins qu'un contournement de quota.
+PyYAML==6.0.3

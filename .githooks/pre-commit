@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Refuse un commit qui contient un secret. C'est le SEUL garde-fou de ce dépôt qui refuse
+# réellement quelque chose : la CI ne fait que constater après coup, et l'organisation est sur un
+# plan qui n'autorise ni ruleset ni protection de branche sur un dépôt privé, donc aucun contrôle
+# de CI ne peut être rendu bloquant ("GET /repos/.../rulesets" -> 403 « Upgrade to GitHub Pro »).
+#
+# Installation, une fois par clone -- un hook n'est pas versionné, c'est le RÉPERTOIRE qui l'est :
+#
+#     git config core.hooksPath .githooks
+#
+# ! "git commit --no-verify" contourne ce hook sans rien dire. C'est une propriété de git, pas un
+#   défaut à corriger ici : le contournement est un geste délibéré, et le workflow "gitleaks" le
+#   rattrape à la pull request suivante.
+#
+# ! La commande est "gitleaks git --staged", et non "gitleaks protect --staged" :
+#   - "protect" est masqué depuis la v8.19.0 ("Hidden: true" dans "cmd/protect.go"), absent de
+#     "--help", et il fonctionne encore sans le moindre avertissement -- ce qui est précisément ce
+#     qui le rend piégeux : rien ne préviendra le jour où il disparaîtra ;
+#   - "git --staged" est la forme documentée ("scan staged commits (good for pre-commit)").
+#
+# ! Une fausse clé de test doit avoir une VRAIE entropie. gitleaks filtre ses trouvailles sur
+#   l'entropie de la chaîne, donc "AIzaSy" suivi de trente-cinq zéros n'est PAS détecté (mesuré :
+#   « no leaks found », commit accepté) alors qu'une chaîne de même forme et d'entropie normale
+#   l'est. Quiconque teste ce hook avec un remplissage constant en conclura à tort qu'il ne marche
+#   pas -- et quiconque teste avec une vraie clé vient de la coller dans son historique de shell.
+
+# ! Ne PAS écrire "--pre-commit" sans "--staged" : mesuré, cette forme rate un secret déjà indexé
+#   et sort en 0. C'est le pire des deux mondes, un hook qui rassure sans rien voir.
+
+set -uo pipefail
+
+# Le binaire peut venir du PATH, ou avoir été déposé à la racine du dépôt par la même commande
+# "curl | tar" que le workflow de CI. Les deux sont acceptés pour qu'un contributeur n'ait pas à
+# choisir entre installer un paquet et suivre la CI à la lettre.
+if command -v gitleaks > /dev/null 2>&1; then
+    GITLEAKS_BINARY="gitleaks"
+elif [ -x "./gitleaks" ]; then
+    GITLEAKS_BINARY="./gitleaks"
+else
+    # ! Échec FERMÉ, délibérément. Un "command -v gitleaks || exit 0" rendrait le hook silencieux
+    #   chez quiconque ne l'a pas installé -- c'est-à-dire chez la personne qui en a le plus besoin,
+    #   qui croirait alors être protégée. Un hook de sécurité qui se désactive tout seul est pire
+    #   qu'un hook absent, parce qu'il ment.
+    printf '%s\n' "pre-commit : gitleaks est introuvable, le commit est refusé." >&2
+    printf '%s\n' "  Installer :  https://github.com/gitleaks/gitleaks/releases  (version épinglée par la CI : 8.30.1)" >&2
+    printf '%s\n' "  ou déposer le binaire à la racine du dépôt sous le nom « gitleaks »." >&2
+    printf '%s\n' "  Contourner sciemment, en dernier recours :  git commit --no-verify" >&2
+    exit 1
+fi
+
+# "--redact" : le rapport d'un secret ne doit pas réécrire ce secret dans un terminal, un
+# historique de shell ou une capture d'écran collée dans une issue.
+if ! "$GITLEAKS_BINARY" git --staged --redact --no-banner; then
+    printf '\n%s\n' "pre-commit : gitleaks a trouvé un secret dans ce qui est indexé. Commit refusé." >&2
+    printf '%s\n' "  Retirer la valeur du fichier, PUIS la révoquer chez le fournisseur : une valeur qui a" >&2
+    printf '%s\n' "  seulement été retirée d'un fichier reste valide tant qu'elle n'a pas été régénérée." >&2
+    exit 1
+fi
+
+exit 0

@@ -1,0 +1,29 @@
+# ATTENDU: 0 -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# La forme correcte : chaque model_name n'appartient qu'a un compte, et le seul repli reste a
+# l'interieur des cles d'une seule personne.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+    model_info:
+      access_groups: ["dragnix"]
+
+  - model_name: gen-code-dragnix
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GROQ_API_KEY_DRAGNIX
+    model_info:
+      access_groups: ["dragnix"]
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: fournisseur/identifiant
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+    model_info:
+      access_groups: ["tigerblue77"]
+
+router_settings:
+  fallbacks:
+    - gen-chat-dragnix: ["gen-code-dragnix"]
