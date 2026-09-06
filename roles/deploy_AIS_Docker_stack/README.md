@@ -55,6 +55,18 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 
+Et celles que #2 apporte, pour le `model_list` de tigerblue77 (voir plus bas pourquoi Dragnix n'a pas
+les siennes ici) :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_GitHub_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
+
 Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
@@ -202,6 +214,44 @@ test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `
 comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
 les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
 *pré-authentifiée* visant précisément la base déployée ici.
+
+Le `model_list` de tigerblue77 (#2, périmètre v1)
+--------------------------------------------------
+
+`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
+d'entrées à travers Gemini, GitHub Models, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute
+en dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé.
+
+**Un seul compte pour l'instant, et c'est un choix assumé, pas un oubli.** Dragnix ajoute les siennes
+lui-même depuis `/ui` (voir `AIS_LiteLLM_UI_password` plus haut) : même modèle que ses autres bases
+auto-hébergées, déployées vides puis peuplées en direct. #2 demande davantage -- équipes et clés
+virtuelles créées par tâches Ansible idempotentes via l'API de LiteLLM, `rpm_limit` / `tpm_limit` par
+clé, la segmentation `sci-*` / `gen-*`, le test négatif inter-comptes exécutable -- et c'est un travail
+réel qui reste ouvert sur #2 ; il n'est délibérément pas tenté ici. Chaque entrée porte déjà
+`model_info.access_groups: ["tigerblue77"]`, pour que ce travail ait une chose de moins à reprendre.
+
+**La clé d'API décide du compte, jamais le nom du modèle.** `check_LiteLLM_account_isolation.py` (#32)
+attribue chaque entrée à un compte par le nom de sa variable d'environnement -- `os.environ/GEMINI_
+API_KEY_TIGERBLUE77` appartient à `TIGERBLUE77` -- et non par le `model_name` ou par
+`access_groups`, qui ne sont que des étiquettes. C'est pour cette convention que les six clés de
+tigerblue77 sont exposées au conteneur sous ce nom précis plutôt que sous leur nom usuel (`GITHUB_
+TOKEN` devient `GITHUB_API_KEY_TIGERBLUE77`, par exemple) : LiteLLM ne se soucie pas du nom de la
+variable, seul ce contrôle en a besoin.
+
+**OmniRoute n'appartient à personne, et c'est voulu.** Son `api_key` est une chaîne littérale, jamais
+`os.environ/...` -- ce que la règle « aucun secret en clair, jamais » de ce dépôt rend sans ambiguïté :
+une valeur littérale ne peut être qu'un marqueur pour un service qui n'a besoin d'aucune information
+d'authentification, jamais un oubli. `check_LiteLLM_account_isolation.py` reconnaît maintenant cette
+forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, donc aucun à protéger.
+
+**Aucun Redis.** Le cache de réponses et l'état de cooldown partagé entre workers du POC en avaient
+besoin, mais aucune issue n'a encore déployé ce service -- ni #1 ni #2 n'en a le périmètre. Laissé de
+côté plutôt que pointé vers un hôte qui n'existe pas ; une issue de suivi propose de l'ajouter.
+
+**Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
+derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --
+mais rien ne confirme qu'il soit réellement retiré, et il ne figure qu'en dernier recours dans les
+cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 

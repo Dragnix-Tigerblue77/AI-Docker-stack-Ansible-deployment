@@ -154,6 +154,25 @@ AIS_LiteLLM_UI_username: "admin"
 # AIS_LiteLLM_UI_password:
 
 # --------------------------------------------------------------------------------------------------
+# LiteLLM routing -- tigerblue77's own provider keys (#2, v1 scope)
+# --------------------------------------------------------------------------------------------------
+
+# tigerblue77's own provider keys, MANDATORY and without a default like every other secret this role
+# interpolates. Each is exposed to the "litellm" container under a "<PROVIDER>_API_KEY_TIGERBLUE77"
+# name -- not a style choice: "check_LiteLLM_account_isolation.py" (#32) uses exactly that
+# "_API_KEY_<ACCOUNT>" suffix to decide which account an entry of "LiteLLM_config.yaml.j2" belongs to,
+# and an entry it cannot attribute is refused, not silently let through.
+#
+# Dragnix's own keys are deliberately absent here: he adds them himself from "/ui" (see
+# "AIS_LiteLLM_UI_password" above), so there is nothing for this role to vault on his behalf.
+# AIS_LiteLLM_Gemini_API_key_tigerblue77:
+# AIS_LiteLLM_GitHub_API_key_tigerblue77:
+# AIS_LiteLLM_Mistral_API_key_tigerblue77:
+# AIS_LiteLLM_Cerebras_API_key_tigerblue77:
+# AIS_LiteLLM_Groq_API_key_tigerblue77:
+# AIS_LiteLLM_OpenRouter_API_key_tigerblue77:
+
+# --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)
 # --------------------------------------------------------------------------------------------------
 
