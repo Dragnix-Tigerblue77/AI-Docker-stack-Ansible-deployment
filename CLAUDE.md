@@ -106,11 +106,17 @@ material, and the licensing clause in `CONTRIBUTING.md` is what keeps a contribu
 both. What is worth knowing in this file is the trap: a contribution merged without that clause
 cannot be offered under the commercial arm afterwards without going back to its author, one by one.
 
-Every authored source file carries an SPDX header. Three do not, each on purpose: `LICENSE`, which is
-the FSF's own text; `roles/*/templates/`, which is rendered onto the managed node, where the header
-would end up copied into the deployed compose file; and `.claude/settings.json`, JSON having no
-comment syntax. Nothing checks any of it -- `reuse lint` is deferred for as long as the repository is
-unpublished, and `requirements.txt` says so -- the header is a habit here, not a gate.
+Every authored source file carries an SPDX header, and **`reuse lint` checks it in CI** (#52) -- the
+header is a gate here, not a habit. Two families cannot carry one and are declared in `REUSE.toml`
+instead, each with its reason: `roles/*/templates/`, rendered onto the managed node where a header
+would end up copied into the deployed compose file, and `**/*.json`, JSON having no comment syntax.
+`LICENSE` is a symlink to `LICENSES/AGPL-3.0-only.txt`, so the file REUSE requires and the file
+GitHub reads for the repository's licence badge are the same bytes.
+
+**The gate has one hole, and it is the one that matters for #35.** `reuse lint` does not ask a
+root file named `LICENSE*` for a header at all -- it reads those as licence texts. Measured: a
+`LICENSE-COMMERCIAL.md` passes identically with a header and without one. So when the commercial arm
+lands, nothing will check *its* header; that one stays a matter of review.
 
 **A template change is not verified until the template has been rendered and the result parsed.**
 Reading the diff is not verification, and neither is `git` reporting "Auto-merging": the conflicts

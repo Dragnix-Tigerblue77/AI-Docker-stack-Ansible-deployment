@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+
+version = 1
+SPDX-PackageName = "AI-Docker-stack-Ansible-deployment"
+SPDX-PackageDownloadLocation = "https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment"
+
+# Every file this repository can annotate carries its two SPDX lines in its own header, which is what
+# the REUSE specification asks for. The two groups below cannot, and each is declared here rather
+# than left uncovered -- an uncovered file is one "reuse lint" reports, and a report nobody can act
+# on is how a check gets disabled.
+
+# Rendered onto the managed node rather than kept here: a header in one of these does not stay in
+# this repository, it ends up in the deployed "docker-compose.yml", in a file the operator reads on
+# the target. The same reasoning as "Homelab_Ansible_deployment", which declares the same path.
+[[annotations]]
+path = "roles/**/templates/**"
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# JSON has no comment syntax at all: a "#" line is not a comment there, it is a parse error.
+#
+# There IS another way -- REUSE reads a sidecar "<file>.license" -- so this is a choice rather than
+# a necessity, and it is worth saying which: a sidecar is a second file whose entire content is a
+# header, sitting next to every JSON the repository will ever hold. Declaring the extension once
+# here costs one rule, and it is what "Homelab_Ansible_deployment" does for the same reason.
+#
+# It covers a file that does not exist on "main" yet -- ".claude/settings.json", which #22 brings --
+# and that is deliberate: without it, enabling "reuse lint" here would turn that open pull request
+# red on a file its author would have to grow a sidecar for.
+
+# There is deliberately NO rule for "roles/**/files/**", which the homelab repository does declare:
+# no role here has a "files/" directory yet. The JSON rule above is different precisely because the
+# file it covers is already written, in a pull request that is open today.
+[[annotations]]
+path = ["**/*.json"]
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"

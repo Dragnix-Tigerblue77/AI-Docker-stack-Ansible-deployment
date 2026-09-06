@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: fall back on -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: fall back on
 ---
 # The SAME cross-account fallback as fixture 10, written in BLOCK style. The first version of the
 # check, which read lines, did not see it: its regex demanded brackets. Yet that is the form every

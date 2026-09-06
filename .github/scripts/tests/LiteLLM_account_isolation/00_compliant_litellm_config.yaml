@@ -1,4 +1,6 @@
-# EXPECTED: 0 -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 0
 ---
 # The correct form: each model_name belongs to one account only, and the single fallback stays
 # inside the keys of one single person.

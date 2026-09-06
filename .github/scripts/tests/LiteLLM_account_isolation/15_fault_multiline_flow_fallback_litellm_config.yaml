@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: fall back on -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: fall back on
 ---
 # The same fallback again, in flow style spread over several lines -- the third writing of one and
 # the same thing. It too escaped the line-by-line reading, and the fix proposed for fixture 14
