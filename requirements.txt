@@ -6,12 +6,6 @@
 # and two different versions would mean two different verdicts on one same file. Dependabot (pip
 # ecosystem) keeps them up to date; it is ".github/dependabot.yml" that asks it to, and without that
 # file nothing would move.
-#
-# No "reuse" here: #32 defers "reuse lint" for as long as the repository is not published. The SPDX
-# headers themselves ARE applied on every file -- that is what PR #31 does and it is the practice of
-# the neighbouring repositories. They are therefore CHECKED by nobody for now, and that is already
-# visible elsewhere: "Dell_iDRAC_fan_controller_Docker" applies headers with no checker at all and
-# 12 of its files carry none.
 ansible-core==2.19.11
 ansible-lint==26.6.0
 yamllint==1.38.0
@@ -20,10 +14,15 @@ yamllint==1.38.0
 # used has its text under "LICENSES/". Nothing else in this CI can see a file added without a header.
 #
 # It was deferred by #32, on the reasoning that a root "LICENSE" is enough while the repository is
-# unpublished. #52 reopened it for a reason the neighbouring repository makes concrete: SPDX headers
-# have been the rule here since #31, verified by nobody -- and
-# "Dell_iDRAC_fan_controller_Docker" does exactly that, with 12 of its files having quietly lost
-# theirs. The difference between the two repositories is not discipline, it is this job.
+# unpublished. #52 reopened it for a reason the neighbouring repositories make concrete -- measured
+# on 2026-09-06 rather than quoted from their documentation, which was a file behind:
+#
+#   * "Dell_iDRAC_fan_controller_Docker" applies headers with no checker. Twelve of its git-tracked
+#     files carry none, among them NOTICE, README.md and .env.example. ("reuse lint" would report
+#     eleven of those twelve: it does not ask LICENSE itself to carry a header.)
+#   * "Homelab_Ansible_deployment" runs "reuse lint" in CI and reports 600 / 600.
+#
+# The difference between the two is not discipline, it is this job.
 reuse==6.2.0
 
 # Read by ".github/scripts/check_LiteLLM_account_isolation.py". It is the only dependency these

@@ -367,7 +367,7 @@ def run_selftest():
     tested, not assumed". That is what this function does, and it is also what gives the file a
     value TODAY, before #2 has produced the slightest real configuration to read.
 
-    Each fixture announces on its first line the number of problems expected AND a fragment that
+    Each fixture announces, in its first few lines, the number of problems expected AND a fragment
     the first of them has to contain. Comparing a NUMBER alone was not enough: half of the watched
     surface could disappear without the count moving.
     """
@@ -385,10 +385,14 @@ def run_selftest():
     for name in names:
         path = os.path.join(SELFTEST_DIRECTORY, name)
         # The declaration is looked for in the first few lines rather than on line 1, so that a
-        # fixture can carry a NORMAL SPDX header like every other file of the repository. It used to
-        # share line 1 with those two tags, and "reuse lint" did not see a licence there: a tag has
-        # to start its line to be read. Measured -- the nine fixtures were the only files the tool
-        # reported.
+        # fixture can carry a NORMAL SPDX header like every other file of the repository.
+        #
+        # It used to share line 1 with both SPDX tags, and "reuse lint" saw a copyright there but no
+        # licence. The reason is NOT that a tag must start its line -- measured, a tag placed mid-line
+        # after a "--" IS read. It is that a tag's value runs to the END of its line: the copyright
+        # tag swallowed "/ SPDX-License-Identifier: AGPL-3.0-only" as part of the holder's name, so
+        # no licence tag was left. Two tags cannot share one line. The nine fixtures were the only
+        # files the tool reported.
         with open(path, encoding="utf-8") as handle:
             head = "".join(handle.readline() for _ in range(6))
         expected = re.search(r"EXPECTED\s*:\s*(\d+)", head)

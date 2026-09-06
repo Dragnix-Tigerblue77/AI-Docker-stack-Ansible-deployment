@@ -97,7 +97,11 @@ TOP_LEVEL_DOMAINS = {
 
 # The paths the check does not read, with their reason.
 SKIPPED_PATHS = {
-    "LICENSE": "upstream AGPL text, neither written nor modifiable here",
+        # ! "LICENSE" is a SYMLINK to "LICENSES/AGPL-3.0-only.txt" since #52, and the target is NOT
+    #   skipped: the check reads the whole AGPL text on every run. It passes because "fsf.org" and
+    #   "www.gnu.org" are in ALLOWED_HOSTS, which is a real reason and not luck -- but it is worth
+    #   knowing that the licence text is scanned rather than assuming this entry still covers it.
+    "LICENSE": "upstream AGPL text, neither written nor editable here",
     ".git": "git's internal data",
     # None of this is versioned, and all of it exists on a contributor's machine. Without these
     # lines, the command CONTRIBUTING.md asks to run goes red over thousands of files from the very
