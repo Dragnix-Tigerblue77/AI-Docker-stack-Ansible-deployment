@@ -49,8 +49,9 @@ remplir, la liste complète des variables et les raisons derrière les choix du 
 ## Où en est le stack
 
 `services:` est **vide**. Le squelette décrit ce dans quoi on ajoute ; chaque issue de service y ajoutera
-son bloc et ses variables. Le fichier se rend et se parse, mais un stack sans service ne démarre rien --
-`docker compose config` le refuse, et c'est normal jusqu'à la première issue de service.
+son bloc et ses variables. Le fichier se rend, se parse, et `docker compose config` l'accepte (code 0) --
+mais un stack sans service ne démarre rien : c'est `docker compose up` qui refuse, avec `no service
+selected`. C'est normal jusqu'à la première issue de service.
 
 Le modèle commenté en tête du template porte les conventions qu'un bloc de service doit tenir : image
 épinglée par version, limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié

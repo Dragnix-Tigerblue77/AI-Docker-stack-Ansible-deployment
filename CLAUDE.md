@@ -18,7 +18,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What the repository is, how the role is called, how to verify a template change | `README.md` |
 | The contract the deployment role must meet, and every variable of the role | `roles/deploy_AIS_Docker_stack/README.md` |
 | What a variable means and why its default is what it is | `roles/deploy_AIS_Docker_stack/defaults/main.yml` |
-| What a service block must carry | the commented model at the top of `templates/AIS.docker-compose.yml.j2` |
+| What a service block must carry | the commented model at the top of `roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2` |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
@@ -143,15 +143,21 @@ python3 .github/scripts/check_no_inventory_data.py
 gitleaks dir . --no-banner --redact
 ```
 
-Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody has
-ever seen is a check nobody believes.
+Two of the three home-made checks know how to verify themselves with `--selftest` -- a check whose
+failure nobody has ever seen is a check nobody believes. `check_compose_template.py` has none: it
+verifies the template rather than itself, and giving it one is #58.
 
-**`ansible-lint --fix` works, and stays working only because `.yamllint` keeps five settings aligned
-with ansible-lint's own yamllint profile** (`comments.min-spaces-from-content`, `comments-indentation`,
-`braces.max-spaces-inside` and the two `octal-values`). Changing any of them is choosing to lose
-`--fix`: ansible-lint refuses with "Found incompatible custom yamllint configuration", says so in a
-*warning* and carries on linting, so the capability disappears with nothing failing. That is how it
-went unnoticed until #48 raised the profile. The reason is written in `.yamllint` itself.
+**`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
+own yamllint profile on six settings**: `comments.min-spaces-from-content`, `comments-indentation`,
+`braces.max-spaces-inside`, the two `octal-values`, and `braces.min-spaces-inside`. Only the first
+five are written out in `.yamllint`; the sixth holds because `extends: default` already supplies the
+required 0, which is exactly why it is easy to break by overriding it without noticing.
+
+Changing any of the six is choosing to lose `--fix`. On a plain run ansible-lint says so in a
+*warning* -- "Found incompatible custom yamllint configuration" -- and carries on linting, so CI stays
+green and the capability disappears with nothing failing. `--fix` itself is louder: it logs the same
+thing as an ERROR and exits 3 without fixing anything. That is how it went unnoticed until #48 raised
+the profile. The reason is written in `.yamllint` itself.
 
 **`--fix` is not a no-op on a clean tree, though**, so run it on a clean tree, read the diff, and
 keep only what you meant. Measured on this repository today: it strips a blank line from both
@@ -184,9 +190,12 @@ role's README rather than frozen into the role.
 
 ## Invariants -- things that look wrong and are not
 
-1. **`services: {}` is empty on purpose.** The skeleton describes what one adds *into*. It renders and
-   parses, but `docker compose config` refuses a stack with no service, and that is correct until the
-   first service issue lands.
+1. **`services: {}` is empty on purpose.** The skeleton describes what one adds *into*. It renders,
+   parses, and `docker compose config` accepts it -- exit 0, printing `services: {}` back. It is
+   `docker compose up` that refuses, with `no service selected` and exit 1. Written as a bare
+   `services:` with no value it would fail earlier still, at `config`, with `services must be a
+   mapping`: that is why the empty mapping is spelled `{}`. All correct until the first service
+   issue lands.
 2. **`false`, not `''`, means "not set".** ansible-core 2.19 rejects a bare truth test on a
    non-boolean, so the template writes `is string` to mean "set". Same idiom as the homelab
    repository's Docker and DNS roles.

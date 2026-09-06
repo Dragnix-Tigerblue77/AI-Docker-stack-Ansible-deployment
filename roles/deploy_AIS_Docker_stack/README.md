@@ -88,8 +88,8 @@ et `Docker_stack_deployment_state`.
 Ce que ce squelette ne fait pas
 -------------------------------
 
-- **Il ne se déploie pas seul.** `services:` est un mapping vide, et `docker compose config` refuse un
-  stack sans service. Le fichier se rend et se parse ; il ne démarre rien. La case « le rôle se déploie
+- **Il ne se déploie pas seul.** `services:` est un mapping vide : `docker compose config` l'accepte,
+  c'est `docker compose up` qui refuse, avec `no service selected`. Le fichier se rend et se parse ; il ne démarre rien. La case « le rôle se déploie
   sur la VM de test et les conteneurs démarrent » de #31 devient donc vérifiable avec la première issue
   de service, pas avec celle-ci.
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
