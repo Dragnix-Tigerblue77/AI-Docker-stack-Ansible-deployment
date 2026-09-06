@@ -89,10 +89,72 @@ note() {
 # It is a retry and not the first attempt on purpose: where the plain install works -- which is what
 # the CI's own "actions/setup-python" gives it, on a clean interpreter -- it is the honest one, and
 # leaving two copies of a package on the path is a cost worth paying only once it buys something.
+# ! WHICH INTERPRETER, and it is not the default one. "python3" here is 3.11, while the CI gives
+# itself 3.12 through actions/setup-python -- and "ansible-core" has declared "Requires-Python >=
+# 3.12" since 2.20. Installed against 3.11 it is simply refused, so a session used to start with no
+# ansible-core at all and no way to run "ansible-playbook --syntax-check", one of the six checks
+# that decide its push. CI never saw it: on 3.12 the install succeeds, so every job stayed green
+# over a gap that only existed where the repository is actually developed. That is #57.
+#
+# The image already carries 3.10, 3.11, 3.12 and 3.13 -- nothing has to be provisioned, the default
+# is just the wrong one. The version is read from the CI workflow rather than written here, for the
+# reason GITLEAKS_VERSION is: a second copy of a version number is a version number that drifts, and
+# the entire point is that the session runs the interpreter the pull request will meet.
+PYTHON_VERSION="$(sed -n 's/^ *python-version: *"\([^"]*\)".*/\1/p' .github/workflows/ansible-ci.yml | head -1)"
+PYTHON_BINARY="python3"
+
+if [ -z "$PYTHON_VERSION" ]; then
+    note "no python-version found in .github/workflows/ansible-ci.yml, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
+        "the interpreter the CI uses"
+elif command -v "python${PYTHON_VERSION}" > /dev/null 2>&1; then
+    PYTHON_BINARY="python${PYTHON_VERSION}"
+else
+    note "python${PYTHON_VERSION} is what the CI uses and it is absent from this image, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
+        "the interpreter the CI uses"
+fi
+
+# ! A virtual environment rather than "pip install" into the interpreter, because 3.12 here is a
+# distribution package and PEP 668 marks it externally managed: a plain install is refused, and
+# "--break-system-packages" would write into an interpreter apt also uses. The venv touches nothing
+# outside itself, and it costs about three seconds to create.
+#
+# It also settles the PyYAML problem the old code needed "--ignore-installed" for. The image carries
+# Debian's PyYAML 6.0.1 in /usr/lib/python3/dist-packages, installed by dpkg and therefore without
+# the RECORD file pip needs to remove it; a venv created without --system-site-packages simply does
+# not see it, so the pinned 6.0.3 installs normally rather than beside a copy it could not replace.
+VENV_PATH="$HOME/.cache/ansible-toolchain-venv"
+
+if [ ! -x "$VENV_PATH/bin/pip" ] || ! "$VENV_PATH/bin/python" -V 2>&1 | grep -q " ${PYTHON_VERSION:-0}"; then
+    rm -rf "$VENV_PATH"
+    if ! "$PYTHON_BINARY" -m venv "$VENV_PATH" 2> /dev/null; then
+        note "could not create a virtual environment with $PYTHON_BINARY, so nothing Python was installed." \
+            "the whole Python toolchain"
+        VENV_PATH=""
+    fi
+fi
+
 pip_install() {
-    pip install --quiet --disable-pip-version-check --root-user-action=ignore "$@" && return 0
-    printf '%s\n' "session-start: retrying the install with --ignore-installed (a distribution package is in the way)." >&2
-    pip install --quiet --disable-pip-version-check --root-user-action=ignore --ignore-installed "$@"
+    [ -n "$VENV_PATH" ] || return 1
+    "$VENV_PATH/bin/pip" install --quiet --disable-pip-version-check "$@"
+}
+
+pip_show_version() {
+    [ -n "$VENV_PATH" ] || return 1
+    "$VENV_PATH/bin/pip" show "$1" 2> /dev/null | sed -n 's/^Version: //p'
+}
+
+# ! The console scripts land in the venv's own bin, which is not on PATH, so they are linked into
+# the directory gitleaks already uses -- first on PATH in this image. Symlinks and not copies: the
+# script's shebang points at the venv's python, which is what makes it find its own packages.
+link_venv_binaries() {
+    [ -n "$VENV_PATH" ] || return 0
+    mkdir -p "$LOCAL_BINARIES_PATH" || return 0
+    for binary in "$VENV_PATH"/bin/*; do
+        case "${binary##*/}" in
+            python* | pip* | activate* | Activate*) continue ;;
+        esac
+        ln -sf "$binary" "$LOCAL_BINARIES_PATH/${binary##*/}"
+    done
 }
 
 # ! One "pip install" per pin, not one transaction over "requirements.txt", and that is #57. pip
@@ -130,11 +192,13 @@ else
         fi
     done
 
+    link_venv_binaries
+
     # Read back what is actually importable, since a dependency of one pin can have moved another.
     for pin in "${PINS_INSTALLED[@]}"; do
         name="${pin%%==*}"
         wanted="${pin##*==}"
-        got="$(pip show "$name" 2> /dev/null | sed -n 's/^Version: //p')"
+        got="$(pip_show_version "$name")"
         if [ -n "$got" ] && [ "$got" != "$wanted" ]; then
             note "$name is installed at $got, not the pinned $wanted -- another pin's dependencies moved it." \
                 "$name at its pinned version"
@@ -152,7 +216,7 @@ else
         # let an unpinned version pass for a pinned one. Both are read back and named.
         for pin in "${PINS_FAILED[@]}"; do
             name="${pin%%==*}"
-            got="$(pip show "$name" 2> /dev/null | sed -n 's/^Version: //p')"
+            got="$(pip_show_version "$name")"
             if [ -n "$got" ]; then
                 note "$pin was refused, but $name $got is present -- pulled in as another pin's dependency. Results here are NOT the pinned version's." \
                     "$name at its pinned version"
