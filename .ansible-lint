@@ -1,15 +1,22 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-# ansible-lint configuration. "safety" profile: every rule of the profile is enforced, and the
-# families that clash with this repository's conventions are waived explicitly below rather than by
-# lowering the profile.
+# ansible-lint configuration. "production" profile -- the strictest one ansible-lint offers, and the
+# last stop: every rule of the profile is enforced, and the families that clash with this
+# repository's conventions are waived explicitly below rather than by lowering the profile.
 #
 # This file arrives with the first role rather than with the repository hygiene issue (#32), which
 # lays down the CI: it does not decide THAT we lint, it says what "compliant" means here. The naming
 # conventions it allows are the ones #31 sets, and without it the repository's first commit would be
 # refused by its own linter.
-profile: safety
+#
+# It asked for "safety" until #32 wired the CI up, on the reasoning that "production" was the next
+# stop and could wait. Measured at that point: the tree ALREADY passed "production", so waiting
+# bought nothing and cost the one moment when raising the bar is free -- a single role, no service
+# block, nothing to retrofit. The rules the jump adds are the ones a second contributor forgets
+# (fully-qualified module names, an explicit "changed_when" on a command, a "name" on every play
+# and task), and each one is cheaper to honour from the first service than to backfill across ten.
+profile: production
 
 # Variables are named in Capitalised_Snake_Case (AIS_Docker_stack_name, Docker_compose_file_name...).
 # Widening the pattern keeps the rule ACTIVE: a name with a space, a dash or a leading digit is still
