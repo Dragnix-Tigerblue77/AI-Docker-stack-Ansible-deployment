@@ -18,7 +18,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What the repository is, how the role is called, how to verify a template change | `README.md` |
 | The contract the deployment role must meet, and every variable of the role | `roles/deploy_AIS_Docker_stack/README.md` |
 | What a variable means and why its default is what it is | `roles/deploy_AIS_Docker_stack/defaults/main.yml` |
-| What a service block must carry | the commented model at the top of `roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2` |
+| What a service block must carry | the commented model in `roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2`, below the service blocks |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
@@ -199,12 +199,11 @@ role's README rather than frozen into the role.
 
 ## Invariants -- things that look wrong and are not
 
-1. **`services: {}` is empty on purpose.** The skeleton describes what one adds *into*. It renders,
-   parses, and `docker compose config` accepts it -- exit 0, printing `services: {}` back. It is
-   `docker compose up` that refuses, with `no service selected` and exit 1. Written as a bare
-   `services:` with no value it would fail earlier still, at `config`, with `services must be a
-   mapping`: that is why the empty mapping is spelled `{}`. All correct until the first service
-   issue lands.
+1. **`services:` carries the gateway since #1, and the empty-mapping rule still applies to whoever
+   empties it.** `postgres` and `litellm` are the first two blocks; the rendered file passes
+   `docker compose config` and publishes no port. What has not changed is the spelling trap the
+   skeleton was written around: a bare `services:` with no value fails at `config` with `services
+   must be a mapping`, which is why the empty state is spelled `{}` and not left blank.
 2. **`false`, not `''`, means "not set".** ansible-core 2.19 rejects a bare truth test on a
    non-boolean, so the template writes `is string` to mean "set". Same idiom as the homelab
    repository's Docker and DNS roles.

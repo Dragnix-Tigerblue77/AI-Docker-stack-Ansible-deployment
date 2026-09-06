@@ -37,6 +37,23 @@ Variables du rôle
 | `AIS_published_Docker_network_name` | `false` | Le réseau publié de l'appelant, celui où écoute son reverse proxy. |
 | `AIS_published_Docker_network_definition` | `false` | La déclaration de ce même réseau, telle qu'elle doit apparaître dans le bloc `networks:`. |
 
+Et celles que #1 apporte, pour la passerelle et sa base :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `AIS_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
+| `AIS_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
+| `AIS_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
+| `AIS_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
+| `AIS_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `AIS_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
+| `AIS_PostgreSQL_database` · `AIS_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
+| `AIS_PostgreSQL_data_Docker_volume_name` | `AIS_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
+| `AIS_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
+| `AIS_environment_file_name` · `..._destination_path` | `.env` | Le fichier d'environnement, rendu `0600` depuis le vault. |
+| `AIS_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
+
 `false` et non `''` pour les deux derniers : ansible-core 2.19 refuse un test de vérité sur autre chose
 qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et DNS du dépôt
 `Homelab_Ansible_deployment`, repris tel quel plutôt que réinventé.
@@ -85,13 +102,55 @@ Les deux rôles rendent en plus deux faits que les issues de service voudront li
 `Docker_stack_first_deployment`, qui dit si le stack est déployé pour la première fois sur cette machine,
 et `Docker_stack_deployment_state`.
 
+La passerelle et sa base (#1)
+-----------------------------
+
+Deux services, et trois fichiers rendus sur le nœud : le `docker-compose`, un `.env` en `0600`, et la
+configuration de routage de LiteLLM montée en lecture seule.
+
+**Aucun port publié, et c'est le point central.** Le conteneur LiteLLM détient les clés Gemini / Groq /
+Mistral des *deux* comptes plus la clé maîtresse. Publié tel quel — sans TLS, sans authentification en
+frontal — il répond à tout ce qui se branche sur le LAN. Le port `4000` reste donc un port du réseau du
+stack. La conséquence est assumée : `/ui` n'est plus joignable depuis un navigateur du LAN, et son
+exposition éventuelle est une décision distincte, qui passerait par le reverse proxy de l'appelant.
+
+**La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
+d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
+portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
+rend inutile tout le travail d'isolation de #2.
+
+**Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
+inférieur à `AIS_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
+test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
+comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
+les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
+*pré-authentifiée* visant précisément la base déployée ici.
+
+### Deux points qui attendent la bascule Swarm
+
+Ils sont écrits ici pour ne pas être découverts à ce moment-là :
+
+1. **Le `.env` n'est lu que par Compose.** Compose le trouve parce qu'il est dans le *répertoire de
+   projet*, celui du fichier de compose — c'est pourquoi les deux chemins dérivent du même répertoire.
+   `docker stack deploy` interpole depuis l'environnement du *shell* : la bascule demandera soit un
+   `set -a; . ./.env`, soit des secrets natifs.
+2. **LiteLLM lit `os.environ/…`.** Les secrets Swarm se montent en fichiers, donc le passage demandera
+   soit un point d'entrée qui exporte le contenu du fichier, soit les variantes `*_FILE` là où elles
+   existent.
+
+`depends_on` relève du même registre : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
+donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
+l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
+d'essai.
+
 Ce que ce squelette ne fait pas
 -------------------------------
 
-- **Il ne se déploie pas seul.** `services:` est un mapping vide : `docker compose config` l'accepte,
-  c'est `docker compose up` qui refuse, avec `no service selected`. Le fichier se rend et se parse ; il ne démarre rien. La case « le rôle se déploie
-  sur la VM de test et les conteneurs démarrent » de #31 devient donc vérifiable avec la première issue
-  de service, pas avec celle-ci.
+- **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
+  `postgres` et `litellm`, le fichier rendu passe `docker compose config`, et aucun port n'apparaît dans
+  la configuration résolue. Ce qui reste à faire sur une vraie machine : la mesure sous charge des deux
+  limites mémoire, le test négatif d'exposition depuis une autre machine, la persistance après un
+  `down` / `up`, et l'idempotence sur un second passage.
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation

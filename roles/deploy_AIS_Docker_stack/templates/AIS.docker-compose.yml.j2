@@ -9,13 +9,141 @@
 
 # Each service issue adds its block here, on the commented model below, and its variables in
 # "defaults/main.yml".
-#
-# The mapping is empty until one lands. That is valid YAML, it renders and parses, and
-# "docker compose config" accepts it -- it is "docker compose up" that refuses, with "no service
-# selected". Written as a bare "services:" with no value it would not even reach that far. This
-# skeleton describes what one adds INTO, it does not deploy on its own. See the README's "Ce que ce
-# squelette ne fait pas".
-services: {}
+services:
+
+  # ------------------------------------------------------------------------------------------------
+  # PostgreSQL -- the gateway's store (#1). It holds the virtual keys, the teams and the usage
+  # ledger, which is the entire reason the gateway runs with a database rather than in file mode.
+  # ------------------------------------------------------------------------------------------------
+  postgres:
+    # Major pinned EXPLICITLY, never ":latest": a major bump imposes a pg_dump / restore, so it must
+    # never happen because a tag moved under us. Check the major is one the Prisma schema of the
+    # chosen LiteLLM version supports before raising it.
+    image: "postgres:{{ AIS_PostgreSQL_Docker_image_tag }}"
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+      # Drawn from the environment file this role renders 0600 beside the compose file. The literal
+      # value never appears here -- what is written in this file is readable by whoever can read the
+      # file.
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+
+    volumes:
+      # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
+      # of #1, not a hope. A bind mount would also tie the stack to a host path, which this
+      # repository does not get to choose.
+      - "{{ AIS_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+
+    healthcheck:
+      # "pg_isready" ships with the image, so this needs nothing the container does not already have.
+      #
+      # The user and the database are interpolated by ANSIBLE, at render time, rather than by the
+      # shell inside the container. Both forms work; this one has no shell and no "$$" escaping to be
+      # right about. Neither value is a secret -- they are ordinary defaults of this role -- so
+      # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
+      # thing between the probe and its answer.
+      test: ["CMD", "pg_isready", "-U", "{{ AIS_PostgreSQL_user }}", "-d", "{{ AIS_PostgreSQL_database }}"]
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+    deploy:
+      restart_policy:
+        # "any", never "on-failure": the orchestrator stops an unhealthy container cleanly, so the
+        # process exits 0, and "on-failure" never replaces a task that exited cleanly.
+        condition: any
+      resources:
+        limits:
+          # Starting value, to be recalled after measuring under load with "docker stats". What
+          # matters today is that a limit EXISTS: without one, a container running away takes the
+          # others down by OOM and the kernel log names the victim rather than the culprit.
+          memory: "{{ AIS_PostgreSQL_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
+  # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
+  #
+  # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
+  # the most sensitive component of the stack, and that is what dictates the absence of "ports:".
+  # ------------------------------------------------------------------------------------------------
+  litellm:
+    # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
+    # the deployment on an old image while looking current. The security floor and the date it was
+    # last verified live in "defaults/main.yml"; "tasks/main.yml" refuses a tag below the floor.
+    image: "ghcr.io/berriai/litellm:{{ AIS_LiteLLM_Docker_image_tag }}"
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+      # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
+      # container_name would work under Compose and break under Swarm, which names its own tasks.
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
+      # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
+      # isolation work of #2 pointless.
+      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY}"
+      STORE_MODEL_IN_DB: "True"
+
+    volumes:
+      # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
+      # model list; what this role renders is the file and its general settings.
+      - "{{ AIS_LiteLLM_config_file_destination_path }}:/app/config.yaml:ro"
+
+    command:
+      - "--config"
+      - "/app/config.yaml"
+      - "--port"
+      - "4000"
+      - "--num_workers"
+      - "{{ AIS_LiteLLM_number_of_workers }}"
+
+    # NO "ports:" block, deliberately. 4000 stays a port of the stack's network, never a port of the
+    # host: this container holds both accounts' provider keys and the master key, and published as-is
+    # -- no TLS, no front-end authentication -- it answers to anything that plugs into the LAN.
+    #
+    # The consequence is assumed: "/ui" is no longer reachable from a LAN browser. Exposing it is a
+    # separate decision, through the caller's reverse proxy with TLS and authentication, and through
+    # the host-port allocation rules -- not through a "ports:" line.
+
+    healthcheck:
+      # "/health" requires authentication; "/health/liveliness" does not. Written with the image's
+      # own Python rather than curl, whose presence is NOT guaranteed in the image -- a healthcheck
+      # calling a binary that is not there fails closed, and the service sits unhealthy for a reason
+      # that has nothing to do with the service.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness').read()"
+      interval: 30s
+      timeout: 10s
+      # The first run applies the Prisma migrations, which is the slow start this window covers.
+      start_period: 90s
+      retries: 3
+
+    # A Compose facility, and only that: SWARM IGNORES "depends_on". LiteLLM therefore has to
+    # tolerate a database that is not ready yet -- it is the restart policy that catches that case,
+    # not the start order. Kept because it spares the test bench a first failed start.
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          # Depends on "--num_workers": each worker replicates the configuration. With 88 threads on
+          # the target host the temptation to raise the worker count is real, and this limit is what
+          # bounds the experiment.
+          memory: "{{ AIS_LiteLLM_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
 
 {% raw %}
   # ------------------------------------------------------------------------------------------------
@@ -88,9 +216,10 @@ services: {}
   #     - {{ AIS_published_Docker_network_name }}
 {% endraw %}
 
-# No volume until a service asks for one: a volume declared that nobody mounts is a volume nobody
-# backs up and nobody deletes. Each service issue declares its own alongside its block.
-volumes: {}
+volumes:
+  # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance
+  # criterion rather than an assumption.
+  {{ AIS_PostgreSQL_data_Docker_volume_name }}:
 
 networks:
   # Internal to the stack: created and destroyed with it, reachable from nowhere else. It is what

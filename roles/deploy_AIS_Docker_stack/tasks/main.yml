@@ -20,6 +20,44 @@
       It has no default because having one would presuppose an orchestrator, which #31 forbids.
       See the "Le contrat du rôle de déploiement" section of the README.
 
+- name: "Check the AIS stack secrets are provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_PostgreSQL_password is defined
+      - AIS_PostgreSQL_password is string
+      - AIS_PostgreSQL_password | length > 0
+      - AIS_LiteLLM_master_key is defined
+      - AIS_LiteLLM_master_key is string
+      - AIS_LiteLLM_master_key | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_PostgreSQL_password" and "AIS_LiteLLM_master_key" are mandatory and have no default: a
+      default password is a password, and one shipped in a repository is a published one. The caller
+      renders both from its vault. "AIS_LiteLLM_master_key" is for administration only -- every
+      consumer gets its own virtual key instead (#2).
+
+# The floor is checked HERE rather than trusted to whoever edits the tag, because that is the edit
+# where it gets forgotten: raising an image tag feels like a version bump, not like a security
+# decision. Four critical CVEs in four months on this product in 2026 -- among them a
+# PRE-AUTHENTICATED SQL injection whose target is exactly the PostgreSQL service this role deploys.
+#
+# "is version" compares as versions and not as strings, so "1.100.0" is correctly greater than
+# "1.84.0" -- which a string comparison gets backwards, and which is the whole reason this is not a
+# "|| >=" on the raw tag.
+- name: "Check the LiteLLM image tag clears the security floor"
+  ansible.builtin.assert:
+    that:
+      - AIS_LiteLLM_Docker_image_tag is string
+      - AIS_LiteLLM_Docker_image_tag != "main-latest"
+      - AIS_LiteLLM_Docker_image_tag | regex_replace('^v', '') is version(AIS_LiteLLM_minimum_secure_version, '>=')
+    quiet: true
+    fail_msg: >-
+      "AIS_LiteLLM_Docker_image_tag" ({{ AIS_LiteLLM_Docker_image_tag }}) is below the security floor
+      "AIS_LiteLLM_minimum_secure_version" ({{ AIS_LiteLLM_minimum_secure_version }}), or is the
+      deprecated "main-latest" tag, which is no longer fed and freezes the deployment on an old image
+      while looking current. This container holds both accounts' provider keys and the master key.
+      Re-check the upstream security advisories and raise the tag -- never lower the floor.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
@@ -40,6 +78,34 @@
 # level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
 # homelab repository -- a task connecting as an account other than the one its "vars:" announced,
 # and reporting "ok".
+# Rendered BEFORE the stack is deployed, because the deployment role renders the compose file and
+# then hands it to the orchestrator: a file that arrives after that is a file the first start ran
+# without.
+#
+# "0600" and "no_log" are not belt and braces. The file holds the two secrets in clear text, and
+# "diff: false" is what keeps "--diff" from printing the whole of it into the run's output -- a leak
+# that outlives the run is worse than the file itself.
+- name: "Render the {{ AIS_Docker_stack_name }} stack environment file"
+  ansible.builtin.template:
+    src: "AIS.env.j2"
+    dest: "{{ AIS_environment_file_destination_path }}"
+    owner: "root"
+    group: "root"
+    mode: "0600"
+  no_log: true
+  diff: false
+
+# No secret in this one -- the gateway reads the master key and the database URL from its
+# environment, not from here -- so it is neither "no_log" nor undiffable. It is mounted read-only:
+# the gateway reads its routing configuration, it does not rewrite it.
+- name: "Render the {{ AIS_Docker_stack_name }} stack LiteLLM configuration"
+  ansible.builtin.template:
+    src: "LiteLLM_config.yaml.j2"
+    dest: "{{ AIS_LiteLLM_config_file_destination_path }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+
 - name: "Deploy the {{ AIS_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
     name: "{{ AIS_Docker_stack_deployment_role_name }}"
