@@ -21,7 +21,9 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What a service block must carry | the commented model at the top of `templates/AIS.docker-compose.yml.j2` |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
-| How to set a clone up, and what to run before pushing | `CONTRIBUTING.md` |
+| How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
+| What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
+| Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
 
 ## The vocabulary
 
@@ -56,7 +58,12 @@ because this repository is shared between two French speakers:
 | | |
 | --- | --- |
 | **French** | issues, pull requests, `README.md`, `CONTRIBUTING.md`, issue templates |
-| **English** | commit messages, code, comments, Ansible task names, error messages (`fail_msg`), PR closing keywords |
+| **English** | commit messages, code, comments, Ansible task names, error messages (`fail_msg`), PR closing keywords, `NOTICE`, `LICENSE-COMMERCIAL.md` |
+
+`NOTICE` and `LICENSE-COMMERCIAL.md` sit on the English side while `CONTRIBUTING.md` sits on the
+French one, and the split is not an oversight: the first two address a prospective licensee and stand
+beside the English licence text, whereas the third addresses the two people who work here. That is
+the same test as everywhere else -- who reads it -- applied to three files that look alike.
 
 In other words: anything a third party would read in the code or in a run's output stays in English,
 as in `Homelab_Ansible_deployment`. Only the conversation around the code is in French.
@@ -92,11 +99,18 @@ a bullet list of what changed.
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
 
-**Licence.** AGPL-3.0-only, with a commercial arm to be written (#35). Every authored source file
-carries an SPDX header. `roles/*/templates/` does **not**: it is rendered onto the managed node, and
-the header would end up copied into the deployed compose file. Nothing checks this yet -- `reuse lint`
-is deferred for as long as the repository is unpublished, and `requirements.txt` says so -- the header
-is a habit here, not a gate.
+**Licence.** Dual, and both arms exist since #35: AGPL-3.0-only for everyone, or a separately
+negotiated commercial licence. Do not re-explain either here -- `LICENSE-COMMERCIAL.md` says what the
+second arm covers and when it is needed, `NOTICE` carries the attribution and the third-party
+material, and the licensing clause in `CONTRIBUTING.md` is what keeps a contribution offerable under
+both. What is worth knowing in this file is the trap: a contribution merged without that clause
+cannot be offered under the commercial arm afterwards without going back to its author, one by one.
+
+Every authored source file carries an SPDX header. Three do not, each on purpose: `LICENSE`, which is
+the FSF's own text; `roles/*/templates/`, which is rendered onto the managed node, where the header
+would end up copied into the deployed compose file; and `.claude/settings.json`, JSON having no
+comment syntax. Nothing checks any of it -- `reuse lint` is deferred for as long as the repository is
+unpublished, and `requirements.txt` says so -- the header is a habit here, not a gate.
 
 **A template change is not verified until the template has been rendered and the result parsed.**
 Reading the diff is not verification, and neither is `git` reporting "Auto-merging": the conflicts
