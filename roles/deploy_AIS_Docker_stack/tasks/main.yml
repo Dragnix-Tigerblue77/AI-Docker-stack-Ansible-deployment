@@ -133,6 +133,30 @@
       first start and keeps them nowhere but its own volume -- unsuitable for production by its own
       documentation. The virtual key is LibreChat's own, never "AIS_LiteLLM_master_key" (#1).
 
+- name: "Check Dragnix's LibreChat account parameters are provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_LibreChat_Dragnix_email is defined
+      - AIS_LibreChat_Dragnix_email is string
+      - AIS_LibreChat_Dragnix_email | length > 0
+      - AIS_LibreChat_Dragnix_name is defined
+      - AIS_LibreChat_Dragnix_name is string
+      - AIS_LibreChat_Dragnix_name | length > 0
+      - AIS_LibreChat_Dragnix_username is defined
+      - AIS_LibreChat_Dragnix_username is string
+      - AIS_LibreChat_Dragnix_username | length > 0
+      - AIS_LibreChat_Dragnix_password is defined
+      - AIS_LibreChat_Dragnix_password is string
+      - AIS_LibreChat_Dragnix_password | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_LibreChat_Dragnix_email", "AIS_LibreChat_Dragnix_name", "AIS_LibreChat_Dragnix_username"
+      and "AIS_LibreChat_Dragnix_password" are mandatory and have no default (#76): this role does
+      not get to presuppose who runs the estate. They are Dragnix's own LibreChat account, created by
+      this role and granted the ADMIN role -- see the "Deploy Dragnix's LibreChat account" tasks below
+      for what that account is for and why it is not left to LibreChat's own "first user is admin"
+      behaviour.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
@@ -213,3 +237,101 @@
     Docker_compose_file_name: "{{ AIS_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ AIS_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ AIS_Docker_compose_file_destination_path }}"
+
+# Dragnix's LibreChat account (#76), created BY THE ROLE once the stack it belongs to is actually
+# running -- everything below needs a live "librechat" container, which is why it comes after the
+# deployment task rather than beside the other asserts.
+#
+# The container is found by its COMPOSE LABEL, "com.docker.compose.service", rather than by guessing
+# its name: Compose's own naming ("<project>-<service>-<n>") is not part of any contract this role
+# can rely on, while the label is applied unconditionally by Compose itself. This is verified working
+# end-to-end against a real "docker compose up" of this exact service, including the idempotent
+# re-run and the "already exists" case below.
+#
+# ! COMPOSE ONLY. Under Swarm, the node running THIS task is not necessarily the node hosting the
+# "librechat" container -- Swarm schedules the task onto any node of the cluster, and finding it
+# would mean querying the Swarm API for its current placement and then acting on that node, which
+# this role does not do. The task below finds nothing and skips cleanly in that case (see
+# "Skip cleanly" below) rather than acting on the wrong node's Docker daemon. Left for whoever brings
+# the Swarm target, per the README's "Le contrat du rôle de déploiement".
+#
+# ! Needs "community.docker" (see "requirements.yml") AND the "docker" Python SDK installed on the
+# MANAGED NODE: both modules talk to the Docker Engine API through it, not through the "docker" CLI.
+# Stated in the role's README rather than asserted here, because there is nothing to assert against
+# -- a missing SDK fails inside the module itself, with its own clear error.
+- name: "Find the running librechat container"
+  community.docker.docker_host_info:
+    containers: true
+    containers_filters:
+      label:
+        - "com.docker.compose.service=librechat"
+        - "com.docker.compose.project={{ AIS_Docker_stack_name | lower }}"
+  register: AIS_LibreChat_container_lookup
+
+# A "block" and a "when" at its level, not "meta: end_play": this role can be included alongside
+# others in a play it does not own, and ending the WHOLE PLAY over a container this role could not
+# find would take those other roles' tasks down with it -- exactly the kind of thing outside its
+# reach this role otherwise keeps hands off. Skipping only guards what actually depends on the
+# container.
+- name: "Deploy Dragnix's LibreChat account"
+  when: AIS_LibreChat_container_lookup.containers | length > 0
+  block:
+    # Every argument on the command line, none of them at an interactive prompt: LibreChat's own
+    # "create-user" CLI opens a NEW "readline" interface per question and closes it right after,
+    # which loses whatever of a piped multi-line stdin arrived in the same chunk as the first answer
+    # -- verified by reproducing the hang live, once, before writing this task. Passing the password
+    # as its 4th positional argument and "--email-verified=true" as a flag is what LibreChat's own
+    # script reads BEFORE it would prompt for either, so no prompt ever fires.
+    #
+    # Idempotent by inspection of its output rather than by checking for the account first:
+    # "create-user" itself refuses a duplicate email or username with "A user with that email or
+    # username already exists!" on stderr and exits 1, which is exactly the case "failed_when"
+    # excludes.
+    - name: "Create Dragnix's LibreChat account"
+      community.docker.docker_container_exec:
+        container: "{{ AIS_LibreChat_container_lookup.containers[0].Id }}"
+        argv:
+          - npm
+          - run
+          - create-user
+          - --
+          - "{{ AIS_LibreChat_Dragnix_email }}"
+          - "{{ AIS_LibreChat_Dragnix_name }}"
+          - "{{ AIS_LibreChat_Dragnix_username }}"
+          - "{{ AIS_LibreChat_Dragnix_password }}"
+          - "--email-verified=true"
+      register: AIS_LibreChat_Dragnix_account_creation
+      changed_when: AIS_LibreChat_Dragnix_account_creation.rc == 0
+      failed_when: >-
+        AIS_LibreChat_Dragnix_account_creation.rc != 0
+        and "already exists" not in AIS_LibreChat_Dragnix_account_creation.stdout
+
+    # Not "the first account is auto-admin": upstream reports of that behaviour not applying are
+    # exactly why #76 asked for it to be set explicitly rather than relied on. Setting it directly in
+    # MongoDB is idempotent on its own terms -- a document already at "ADMIN" reports
+    # "modifiedCount: 0", which is what "changed_when" reads below -- so running this against an
+    # account that is already admin is a safe no-op rather than an error.
+    - name: "Find the running librechat_mongodb container"
+      community.docker.docker_host_info:
+        containers: true
+        containers_filters:
+          label:
+            - "com.docker.compose.service=librechat_mongodb"
+            - "com.docker.compose.project={{ AIS_Docker_stack_name | lower }}"
+      register: AIS_LibreChat_mongodb_container_lookup
+
+    - name: "Grant Dragnix's LibreChat account the ADMIN role"
+      community.docker.docker_container_exec:
+        container: "{{ AIS_LibreChat_mongodb_container_lookup.containers[0].Id }}"
+        argv:
+          - mongosh
+          - "mongodb://localhost:27017/LibreChat"
+          - --quiet
+          - --eval
+          - >-
+            JSON.stringify(db.users.updateOne(
+              {email: "{{ AIS_LibreChat_Dragnix_email }}"},
+              {$set: {role: "ADMIN"}}
+            ))
+      register: AIS_LibreChat_Dragnix_admin_grant
+      changed_when: "'\"modifiedCount\":1' in AIS_LibreChat_Dragnix_admin_grant.stdout"
