@@ -96,5 +96,18 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
 
 ## Licence
 
-Ce dépôt est sous AGPL-3.0-only. En contribuant, vous acceptez que votre contribution soit
-distribuée sous cette licence.
+Le dépôt est en **double licence** : AGPL-3.0-only pour tout le monde, ou une licence commerciale
+négociée séparément — voir la section « Licence » du [`README`](README.md).
+
+> ⚠️ **La clause de licence des contributions n'est pas encore écrite.** Elle relève de #35, et elle
+> demande l'accord explicite de chaque titulaire de droits ; ce fichier ne peut pas la poser à leur
+> place.
+>
+> Ce paragraphe a d'abord affirmé que toute contribution était « distribuée sous AGPL-3.0-only ».
+> C'était faux, et faux dans le sens coûteux : une contribution reçue sous une clause AGPL seule
+> **ne peut plus être incluse dans l'arm commercial** sans retourner demander l'accord de son
+> auteur, contribution par contribution. C'est précisément ce que #35 cherche à éviter, et ce qui
+> n'est pas réparable à peu de frais après coup.
+>
+> En attendant #35, une contribution extérieure arrive donc sous AGPL seule **par défaut**, et pas
+> parce qu'un fichier l'a décidé.
