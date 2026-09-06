@@ -146,7 +146,15 @@ jobs:
       - name: Installer l'outillage
         run: pip install -r requirements.txt
 
+      # Ce contrôle-ci est arrivé avec #31, et jusqu'ici rien ne le lançait : le dépôt n'avait pas
+      # de workflow. Il rend et analyse le template de compose dans ses DEUX états, ce qu'aucun des
+      # autres jobs ne fait -- lire un diff n'est pas une vérification. Ses dépendances (jinja2,
+      # PyYAML) arrivent avec ansible-core, déjà installé ci-dessus.
+      - name: "Template de compose : le rendre, l'analyser, tenir ses conventions"
+        run: python3 .github/scripts/check_compose_template.py
+
       - name: "Isolation des comptes LiteLLM : vérifier le contrôle lui-même"
+        if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 
       - name: "Isolation des comptes LiteLLM : lire la configuration du dépôt"

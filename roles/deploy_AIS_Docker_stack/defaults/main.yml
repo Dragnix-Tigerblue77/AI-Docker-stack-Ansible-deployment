@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# defaults file for roles/deploy_AIS_Docker_stack
+
+# The stack name, which is its namespace to the orchestrator: Swarm labels its services with it and
+# Compose names its project after it, so it is what answers "is this stack already deployed on this
+# machine ?". Compose normalises project names to lowercase, which is inconsequential here but is
+# why the deployment role applies a "| lower".
+AIS_Docker_stack_name: "AIS"
+
+# The template's name, without its ".j2" suffix. The deployment role renders it from ITS OWN
+# CALLER's "templates/" -- that is, from this role's. It is what lets a repository ship a stack
+# without shipping the machinery that deploys it.
+AIS_Docker_compose_file_name: "AIS.docker-compose.yml"
+
+# Where the rendered file lands on the managed node. "/tmp/" is the historical default on the
+# homelab side, kept here so both repositories behave the same way.
+#
+# ! This file holds in clear text everything the template interpolates -- and as soon as the service
+# issues land, that includes API keys. The deployment role has to write it "0600" and with
+# "diff: false": "--diff" would print the WHOLE file into the run's output, and a leak that outlives
+# the run is worse than the file itself. The contract is spelled out in the README.
+AIS_Docker_compose_file_destination_directory: "/tmp/"
+AIS_Docker_compose_file_destination_path: "{{ AIS_Docker_compose_file_destination_directory }}{{ AIS_Docker_compose_file_name }}"
+
+# The time zone handed to every container through "TZ". The homelab repository carries its own in
+# "group_vars/all.yaml" under the name "server_time_zone", but this role cannot presuppose that its
+# caller has that variable: it is therefore restated here under a name of its own, with a neutral
+# default. A caller that already has one passes it as a parameter, with nothing to rename.
+AIS_server_time_zone: "Etc/UTC"
+
+# The network the stack's services reach each other over. It is declared by the stack, so it is
+# created and destroyed with it, and is reachable from nowhere else: that is what lets an internal
+# service publish no port at all.
+#
+# There is only one for now. #7 will settle the collector / actor split, and it is that decision
+# which says whether two or three are needed -- not this skeleton, which can only decline to
+# pre-empt it.
+AIS_internal_Docker_network_name: "AIS_internal"
+
+# The published network, the one the caller's reverse proxy reaches the few web-facing services
+# over. It does NOT belong to this repository: the caller creates and names it, and the stack only
+# attaches to it with "external: true".
+#
+# "false" rather than "''": ansible-core 2.19 refuses a bare truth test on a non-boolean, so the
+# template writes "is string" to mean "set". It is the idiom of the homelab repository's Docker and
+# DNS roles, taken as-is.
+#
+# The two go together: the NAME attaches a service, the DEFINITION declares the network in the
+# "networks:" block. "tasks/main.yml" refuses one without the other.
+AIS_published_Docker_network_name: false
+AIS_published_Docker_network_definition: false
+
+# The role that actually deploys the stack, named by the caller. MANDATORY, no default.
+#
+# This is what keeps #31's promise: "the role presupposes neither machine, nor domain, nor account,
+# nor orchestrator". A default pointing at the homelab repository's Swarm role would be exactly the
+# presupposition the issue forbids, and it would fail on a caller that does not have it -- on a role
+# name appearing nowhere in the call they wrote.
+#
+# The contract that role has to meet is in the README, under "Le contrat du rôle de déploiement".
+# Both "Docker/deploy_Docker_swarm_stack" and "Docker/deploy_Docker_compose_stack" of the homelab
+# repository meet it.
+# AIS_Docker_stack_deployment_role_name:

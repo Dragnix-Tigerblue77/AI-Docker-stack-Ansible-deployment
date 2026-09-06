@@ -41,8 +41,9 @@ pip install -r requirements.txt          # ansible-core, ansible-lint, yamllint 
 
 yamllint .
 ansible-lint
-ansible-playbook --syntax-check playbook.*.yaml           # quand un playbook existe
+ansible-playbook --syntax-check playbook.*.yaml
 
+python3 .github/scripts/check_compose_template.py
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
@@ -72,6 +73,7 @@ huit sont délibérément fautives ; le second à seize lignes construites en m�
 | --- | --- |
 | `check_LiteLLM_account_isolation.py` | Une configuration où le quota d'une personne peut payer l'appel d'une autre : un `model_name` qui regroupe deux comptes, un repli qui traverse une frontière de compte, une entrée dont l'étiquette ne dit pas la même chose que sa clé. |
 | `check_no_inventory_data.py` | Une adresse IP ou un nom de domaine écrit en dur. Ils appartiennent à l'inventaire de l'appelant : un rôle qui les porte cesse d'être réutilisable, et publie le homelab au passage. |
+| `check_compose_template.py` | Arrivé avec #31, il rend le template de compose dans ses **deux** états et analyse le résultat — lire un diff n'est pas une vérification. Rien ne le lançait jusqu'ici, faute de workflow ; c'est cette PR qui le branche. |
 
 Le second fonctionne par **liste blanche**, et c'est la seule forme possible : une liste noire
 devrait énumérer les domaines interdits, donc écrire le domaine du homelab dans un fichier
