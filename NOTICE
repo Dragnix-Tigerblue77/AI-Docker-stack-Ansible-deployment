@@ -1,0 +1,152 @@
+SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-License-Identifier: AGPL-3.0-only
+
+AI Docker stack Ansible deployment
+==================================
+
+Copyright (C) 2026 Tigerblue77.
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License, version 3, as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+The full licence text is in the LICENSE file next to this one, which
+holds a verbatim copy of it.
+
+A separate commercial licence, negotiated with the copyright holder, is
+available to parties who cannot meet the obligations of the AGPL.
+LICENSE-COMMERCIAL.md describes that offer; it is not itself a licence.
+Which of the two applies is the recipient's choice: taking this work
+under the AGPL requires no permission, no registration and no notice to
+anyone.
+
+
+Licence history
+---------------
+
+There is none, and that is worth stating rather than leaving a reader to
+look: the AGPL has been the licence here since the first commit
+(66da72d, 30 August 2026), which added the LICENSE file and a one-line
+README and nothing else. No copy of this work has ever been offered
+under any other terms. Nothing was relicensed, and nothing was withdrawn
+from anyone.
+
+
+Authorship
+----------
+
+No third party has contributed to this tree so far. Everything written
+for this repository is the copyright holder's own work, and the commits
+whose author field names a coding agent were produced on his instruction
+and on his behalf; that is the basis on which he offers the whole of it
+under both arms. Who wrote what is not maintained here -- the commit
+history is the authoritative record:
+
+    git shortlog -sne
+
+That will change with the first contribution from someone else, and this
+file is where it changes: the copyright line above becomes collective
+when one lands, and a contributor who would rather be named than covered
+by it says so in their pull request and is named here. Neither is a
+condition of contributing.
+
+This is also where a limit on the second arm would be recorded. A
+contribution can be merged without the grant below -- its author only
+has to say so before the merge -- and if one ever is, the part of the
+tree it covers is written down here, because a prospective commercial
+licensee has no other way to learn which part the commercial arm does
+not reach. Nothing of the sort has happened so far.
+
+CONTRIBUTING.md sets out the one thing that is a condition: the grant
+that keeps a contribution offerable under both arms. It can only speak
+for contributions submitted after it existed, which is why it was
+written before the first one arrived rather than after.
+
+
+Third-party material
+--------------------
+
+This repository carries none, with one exception, and it is the file
+next door. LICENSE is the Free Software Foundation's text of the AGPL,
+reproduced verbatim: it carries its own permission -- copy and
+distribute it verbatim, changing it is not allowed -- so it is the
+licence rather than material licensed by it, and it is not offered under
+the grant above.
+
+Everything else in a checkout is written for this repository and covered
+by that grant. Nothing is forked, nothing is vendored, and nothing is
+copied in from elsewhere: no upstream code under other terms, no seeded
+database dump, not even an Ansible collection -- the role uses "assert"
+and "include_role" from ansible.builtin and nothing else. The check
+scripts read jinja2 and PyYAML; they import them, they do not carry
+them, and those libraries reach you from their own distributor under
+their own terms rather than from here.
+
+What this repository DEPLOYS is a different question, and it is the one
+that grows.
+
+Today the answer is still none. "services:" in the stack's template,
+roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2, is an
+empty mapping, so a run of this role names no image and pulls none: the
+stack is the shape services are added into, and the first service issue
+has not landed.
+
+The compose file is where container images are named, and the
+orchestrator pulls each named image from that image's own registry at
+deployment time. They are not carried here, not redistributed here, and
+not covered by anything here. They are not covered works of this
+repository and this repository never distributes them, so nothing here
+places them under the AGPL: it governs this work and works based on it,
+and an image fetched from its own registry at deployment time is
+neither. This repository grants no rights over any of them, and could
+not: they are not its to grant. Every one of them keeps its own licence
+entirely, whatever that licence is -- and complying with it is the
+business of whoever deploys the stack, not something this repository
+does or can do on their behalf.
+
+No image is named in this file, and the template stays the place where
+they are named: each arrives there pinned by version, which is the
+authoritative record of what the stack pulls, and a second list here
+would drift away from it at the first bump. The exception would be an
+image whose own terms require a notice to travel alongside the software,
+which is what a file like this one is for.
+
+The role that deploys the stack is not here either.
+"AIS_Docker_stack_deployment_role_name" names it, the caller supplies
+it, and it is resolved from the caller's own roles_path. It belongs to
+whoever wrote it, under whatever terms they chose. That the stack can be
+deployed by a role this repository does not contain is the design rather
+than an omission, and it is why nothing in this file can speak for that
+role's licence.
+
+
+Attribution
+-----------
+
+Attribution is a licence obligation here, not a courtesy: AGPL-3.0
+sections 4 and 5 require the copyright notice and the licence notices to
+be kept intact in copies, and to be carried by modified versions.
+Keeping this file, the LICENSE file and the SPDX headers in the source
+files intact is what satisfies them.
+
+Nothing checks it automatically. "reuse lint" and a REUSE.toml are
+deliberately not wired up while the repository is unpublished (#32), so
+the headers are applied by hand and read by a human. Three files carry
+none, each on purpose:
+
+  * LICENSE, which is the upstream text above;
+
+  * roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2,
+    which is rendered onto the managed node -- a header there would end
+    up copied into the deployed compose file, which is not a source file
+    of this repository;
+
+  * .claude/settings.json, because JSON has no comment syntax at all.

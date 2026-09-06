@@ -93,10 +93,13 @@ Double licence, et les deux arms ne sont pas symétriques :
 Le choix est celui du destinataire. Prendre ce travail sous l'AGPL ne demande ni permission, ni
 enregistrement, ni notification à quiconque.
 
-> La page décrivant l'arm commercial (`LICENSE-COMMERCIAL.md`), le `NOTICE` et le `CONTRIBUTING.md` qui
-> permet à des contributions extérieures d'être offertes sous les deux arms restent à écrire ici. Ils
-> existent déjà, sous une forme directement transposable, dans `Dell_iDRAC_fan_controller_Docker` et
-> `Homelab_Ansible_deployment`.
+Trois fichiers portent le reste, et ils se renvoient l'un à l'autre :
+
+| Fichier | Ce qu'il dit |
+|---|---|
+| [`LICENSE-COMMERCIAL.md`](LICENSE-COMMERCIAL.md) | Ce que couvre l'arm commercial, dans quels cas il est nécessaire — presque jamais — et comment le demander. **Ce n'est pas une licence** : c'est la description d'une offre de négocier. |
+| [`NOTICE`](NOTICE) | Le titulaire, l'absence d'historique de licence, et le matériel tiers — au premier chef les images que le stack nommera, qui gardent chacune leur licence et ne deviennent pas des œuvres dérivées de ce dépôt. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | La clause qui permet à une contribution d'être offerte sous les **deux** arms. Elle est arrivée avant la première contribution extérieure, ce qui est la seule façon qu'elle avait de les couvrir toutes. |
 
 Chaque fichier source de ce dépôt porte un en-tête SPDX. Les templates n'en portent pas : ils sont rendus
 sur les nœuds gérés, et l'en-tête finirait recopié dans le `docker-compose` déployé.
