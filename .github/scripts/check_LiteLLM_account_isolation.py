@@ -2,74 +2,74 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Refuse toute configuration LiteLLM ou le quota d'une personne peut payer l'appel d'une autre.
+"""Refuse any LiteLLM configuration where one person's quota can pay for another's call.
 
-POURQUOI CE CONTROLE EXISTE
----------------------------
-La passerelle LiteLLM n'a de raison d'etre que si les quotas des deux comptes restent etanches.
-Or l'etancheite se perd de trois facons, et une seule se voit a la relecture (#2, specification 4) :
+WHY THIS CHECK EXISTS
+---------------------
+The LiteLLM gateway has no reason to exist unless the two accounts' quotas stay watertight. And
+that watertightness is lost in three ways, only one of which shows on a read-through (#2,
+specification 4):
 
-  1. un "fallbacks" qui cite explicitement un modele de l'autre personne -- visible ;
-  2. deux entrees de meme "model_name" portant des "api_key" differentes : le Router les traite
-     comme deux deploiements d'un meme groupe et repartit la charge entre elles -- invisible, aucune
-     ligne "fallbacks" n'a ete ecrite ;
-  3. le cooldown automatique : a l'interieur d'un groupe, un deploiement qui prend un 429 est mis
-     de cote et le trafic part vers les autres deploiements DU MEME GROUPE. Si le groupe contient
-     les deux comptes, les deux personnes se relaient des que l'une est epuisee. C'est le
-     comportement par defaut, il ne demande aucune configuration pour se produire, et c'est
-     exactement ce qu'un fournisseur appelle un contournement de quota.
+  1. a "fallbacks" that explicitly names a model belonging to the other person -- visible;
+  2. two entries with the same "model_name" carrying different "api_key" values: the Router treats
+     them as two deployments of a single group and spreads the load between them -- invisible, not
+     one "fallbacks" line has been written;
+  3. the automatic cooldown: inside a group, a deployment that takes a 429 is set aside and the
+     traffic goes to the other deployments OF THE SAME GROUP. If the group holds both accounts,
+     the two people relay each other the moment one is exhausted. That is the default behaviour,
+     it needs no configuration whatsoever to happen, and it is exactly what a provider calls a
+     quota circumvention.
 
-Le point 3 est le motif reel de ce fichier. Rien d'autre dans cette CI ne peut le voir : la
-configuration fautive est un YAML parfaitement valide, que yamllint et ansible-lint acceptent tous
-les deux sans une remarque. Le jour ou les 429 deviendront penibles, quelqu'un ajoutera un repli de
-bonne foi, et l'isolation disparaitra sans qu'aucun test n'echoue.
+Point 3 is the real motive for this file. Nothing else in this CI can see it: the offending
+configuration is perfectly valid YAML, which yamllint and ansible-lint both accept without a single
+remark. The day the 429s become tiresome, someone will add a fallback in good faith, and the
+isolation will disappear without one test failing.
 
-CE QUI FAIT FOI POUR L'IDENTITE D'UN COMPTE
--------------------------------------------
-Le nom de la variable d'environnement de la cle, et lui seul : "api_key: os.environ/GROQ_API_KEY_DRAGNIX"
-appartient au compte "DRAGNIX". C'est la cle qui depense le quota ; le suffixe du "model_name" et
-"model_info.access_groups" ne sont que des etiquettes, et une etiquette peut mentir.
+WHAT DECIDES AN ACCOUNT'S IDENTITY
+----------------------------------
+The name of the key's environment variable, and it alone: an "api_key" reading
+"os.environ/GROQ_API_KEY_DRAGNIX" belongs to the "DRAGNIX" account. It is the key that spends the
+quota; the "model_name" suffix and "model_info.access_groups" are only labels, and a label can lie.
 
-Ce script ne connait aucune liste de personnes : le compte est le segment qui suit "_API_KEY_" dans
-le nom de la variable, quel qu'il soit. Un troisieme compte, ou le projet facture "SCI" de #2,
-fonctionnent sans qu'une ligne d'ici ne change. Une entree dont la cle ne permet PAS de conclure
-(valeur litterale, variable Jinja, nom de variable hors convention) n'est pas ignoree en silence :
-elle est signalee, parce qu'une entree que le controle ne sait pas rattacher est exactement une
-entree sur laquelle il ne protege rien.
+This script knows no list of people: the account is the segment that follows "_API_KEY_" in the
+variable's name, whatever it is. A third account, or #2's "SCI" billed project, work without one
+line here changing. An entry whose key does NOT allow a conclusion (literal value, Jinja variable,
+variable name outside the convention) is not silently ignored: it is reported, because an entry the
+check cannot attribute is exactly an entry on which it protects nothing.
 
-POURQUOI ON ANALYSE LE YAML, ET PLUS LIGNE A LIGNE
----------------------------------------------------
-La premiere version de ce fichier lisait des lignes avec des expressions regulieres, pour n'avoir
-aucune dependance. Elle a ete remplacee apres mesure : le meme repli inter-comptes ecrit en style
-BLOC plutot qu'en style FLOT n'etait pas vu.
+WHY THE YAML IS PARSED, AND NO LONGER READ LINE BY LINE
+-------------------------------------------------------
+The first version of this file read lines with regular expressions, so as to carry no dependency.
+It was replaced after measurement: the same cross-account fallback written in BLOCK style rather
+than in FLOW style went unseen.
 
     router_settings:                     router_settings:
       fallbacks:                           fallbacks:
-        - a: ["b"]          <- vu            - a:             <- PAS vu
+        - a: ["b"]          <- seen          - a:             <- NOT seen
                                                  - b
 
-Les deux formes produisent le meme objet, "yamllint" les accepte toutes les deux, et la seconde est
-celle que produit tout serialiseur YAML -- donc le filtre "to_nice_yaml" d'Ansible, donc le style
-majoritaire du depot. Un garde-fou qui depend du style d'ecriture de ce qu'il surveille n'en est pas
-un. Le prix paye est une dependance a PyYAML et une etape "pip install" dans le job ; c'est le bon
-cote du compromis, et il est assume ici plutot que decouvert le jour d'un incident de quota.
+Both forms produce the same object, "yamllint" accepts them both, and the second is the one every
+YAML serialiser produces -- so Ansible's "to_nice_yaml" filter, so the repository's majority style.
+A guard rail that depends on the writing style of what it watches is not one. The price paid is a
+dependency on PyYAML and a "pip install" step in the job; that is the right side of the trade-off,
+and it is taken knowingly here rather than discovered on the day of a quota incident.
 
-Le fichier vise est un TEMPLATE Jinja rendu par un role Ansible, que "yaml.safe_load" refuserait :
-"{{ ... }}" ouvre une accolade que YAML lit comme un debut de dictionnaire. Le Jinja est donc
-neutralise avant l'analyse (voir "neutralise_jinja"). Si malgre cela un fichier reste illisible, il
-est SIGNALE et non saute : un fichier qu'on n'a pas su lire n'est pas un fichier conforme.
+The file being targeted is a Jinja TEMPLATE rendered by an Ansible role, which "yaml.safe_load"
+would refuse: "{{ ... }}" opens a brace that YAML reads as the start of a dictionary. The Jinja is
+therefore neutralised before the parsing (see "neutralise_jinja"). If a file stays unreadable even
+so, it is REPORTED and not skipped: a file nobody managed to read is not a compliant file.
 
-CE QU'IL NE FAIT PAS, DELIBEREMENT
-----------------------------------
-* Il ne lit pas l'etat reel de la passerelle. Une cle virtuelle creee a la main dans "/ui" lui est
-  invisible : c'est le test negatif executable de #2 qui couvre cela, pas un controle de fichier.
-* Il ne voit pas un repli passe dans le CORPS d'une requete ("extra_body={'fallbacks': [...]}").
-  Aucun controle de fichier ne le peut. La parade est "disable_fallbacks" sur les cles virtuelles.
-* Il ne voit plus ce qui est en COMMENTAIRE, puisqu'un analyseur YAML les jette. C'est un changement
-  par rapport a la version ligne a ligne, et c'est le bon sens : un repli commente n'est pas actif,
-  et l'ancienne version accusait une entree correcte a cause d'une cle revoquee gardee en trace.
-* Il ne rend pas un verdict sur un fichier qu'il n'a pas trouve. Tant que #2 n'a pas atterri, il
-  n'y a rien a lire, et il le dit plutot que de rendre un vert qui ne veut rien dire.
+WHAT IT DELIBERATELY DOES NOT DO
+--------------------------------
+* It does not read the gateway's actual state. A virtual key created by hand in "/ui" is invisible
+  to it: that is covered by #2's executable negative test, not by a file check.
+* It does not see a fallback passed in the BODY of a request ("extra_body={'fallbacks': [...]}").
+  No file check can. The counter to that is "disable_fallbacks" on the virtual keys.
+* It no longer sees what is COMMENTED OUT, since a YAML parser throws comments away. That is a
+  change from the line-by-line version, and it is the sound call: a commented-out fallback is not
+  active, and the old version accused a correct entry because of a revoked key kept on record.
+* It delivers no verdict on a file it has not found. Until #2 has landed there is nothing to read,
+  and it says so rather than returning a green that means nothing.
 """
 
 import argparse
@@ -81,12 +81,12 @@ try:
     import yaml
 except ImportError:  # pragma: no cover
     sys.stderr.write(
-        "PyYAML est requis par ce controle (voir requirements.txt) : pip install -r requirements.txt\n"
+        "PyYAML is required by this check (see requirements.txt): pip install -r requirements.txt\n"
     )
     raise SystemExit(2)
 
-# Les quatre cles de repli de LiteLLM. "fallbacks" seul ne suffit pas : les trois autres produisent
-# le meme effet par un autre chemin, et se declarent aussi bien sous "router_settings" que sous
+# LiteLLM's four fallback keys. "fallbacks" on its own is not enough: the three others produce the
+# same effect by another route, and are declared under "router_settings" just as readily as under
 # "litellm_settings".
 FALLBACK_KEYS = (
     "fallbacks",
@@ -96,7 +96,7 @@ FALLBACK_KEYS = (
 )
 SETTINGS_SECTIONS = ("router_settings", "litellm_settings")
 
-# "os.environ/GROQ_API_KEY_DRAGNIX" -> compte "DRAGNIX".
+# "os.environ/GROQ_API_KEY_DRAGNIX" -> account "DRAGNIX".
 ENVIRONMENT_REFERENCE = re.compile(r"^os\.environ/(?P<variable>[A-Za-z0-9_]+)$")
 ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY_(?P<account>[A-Za-z0-9_]+)$")
 
@@ -104,9 +104,9 @@ JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
 JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
 
-# Un fichier candidat est un YAML, rendu ou non par Jinja. Le NOM ne sert pas a le reconnaitre :
-# LiteLLM appelle sa configuration "config.yaml", et un controle qui exige "litellm" dans le nom
-# annoncerait tranquillement « aucune configuration trouvee » sur un depot qui en a une.
+# A candidate file is a YAML, rendered by Jinja or not. The NAME is not what identifies it: LiteLLM
+# calls its configuration "config.yaml", and a check demanding "litellm" in the name would quietly
+# announce "no configuration found" on a repository that has one.
 CANDIDATE_SUFFIXES = (".yml", ".yaml", ".yml.j2", ".yaml.j2")
 SKIPPED_DIRECTORIES = {".git", ".venv", "venv", "node_modules", "__pycache__", ".ansible"}
 
@@ -116,13 +116,12 @@ SELFTEST_DIRECTORY = os.path.join(
 
 
 def neutralise_jinja(text):
-    """Rend un template Jinja analysable par un lecteur YAML.
+    """Make a Jinja template parsable by a YAML reader.
 
-    Les expressions deviennent un scalaire ordinaire, les instructions et commentaires
-    disparaissent. Ce n'est pas un rendu : une boucle "{% for %}" ne produit pas ses elements, donc
-    ce qui est analyse est le SQUELETTE statique du fichier. C'est suffisant ici -- une entree de
-    "model_list" engendree par une boucle serait de toute facon indecidable a la lecture -- et c'est
-    dit plutot que suppose.
+    Expressions become an ordinary scalar, statements and comments disappear. This is not a render:
+    a "{% for %}" loop does not produce its elements, so what gets parsed is the file's static
+    SKELETON. That is enough here -- a "model_list" entry produced by a loop would be undecidable
+    on a read-through anyway -- and it is said rather than assumed.
     """
     text = JINJA_COMMENT.sub("", text)
     text = JINJA_STATEMENT.sub("", text)
@@ -132,32 +131,32 @@ def neutralise_jinja(text):
 
 
 def account_of_reference(value):
-    """Le compte proprietaire d'une "api_key", et pourquoi quand on ne peut pas conclure."""
+    """The account that owns an "api_key", and why when no conclusion can be drawn."""
     if not isinstance(value, str):
-        return None, "la valeur n'est pas une chaine"
+        return None, "the value is not a string"
     reference = ENVIRONMENT_REFERENCE.match(value.strip())
     if not reference:
         if "JINJA" in value:
-            return None, "la cle vient d'une variable Jinja, illisible ici"
-        return None, "la cle n'est pas lue par \"os.environ/...\""
+            return None, "the key comes from a Jinja variable, unreadable here"
+        return None, "the key is not read through \"os.environ/...\""
     account = ACCOUNT_FROM_VARIABLE.search(reference.group("variable"))
     if not account:
         return None, (
-            "le nom \"%s\" ne suit pas la convention \"<FOURNISSEUR>_API_KEY_<COMPTE>\" de #2"
+            "the name \"%s\" does not follow the \"<PROVIDER>_API_KEY_<ACCOUNT>\" convention of #2"
             % reference.group("variable")
         )
     return account.group("account"), None
 
 
 def normalise_fallbacks(section):
-    """Toutes les correspondances de repli d'une section, quelle que soit leur ecriture.
+    """Every fallback mapping of a section, however it is written.
 
-    Renvoie des (cle, source, [cibles]). La source vaut None pour "default_fallbacks", qui n'en a
-    pas : sa liste s'applique a TOUS les groupes a la fois.
+    Returns (key, source, [targets]). The source is None for "default_fallbacks", which has none:
+    its list applies to ALL the groups at once.
 
-    C'est ici que se paie l'analyse YAML : le style bloc, le style flot et le style flot eclate sur
-    plusieurs lignes arrivent tous les trois sous la meme forme, et il n'y a plus qu'un cas a
-    traiter au lieu de trois a rater.
+    This is where the YAML parsing pays for itself: block style, flow style and flow style spread
+    over several lines all three arrive in the same shape, and there is only one case left to
+    handle instead of three to miss.
     """
     found = []
     if not isinstance(section, dict):
@@ -182,7 +181,7 @@ def normalise_fallbacks(section):
 
 
 def read_entries(document):
-    """Les entrees de "model_list", sous une forme utilisable."""
+    """The "model_list" entries, in a usable shape."""
     entries = []
     model_list = document.get("model_list") if isinstance(document, dict) else None
     if not isinstance(model_list, list):
@@ -202,7 +201,7 @@ def read_entries(document):
 
 
 def check_document(path, document):
-    """Les manquements d'une configuration deja analysee."""
+    """The problems of an already parsed configuration."""
     problems = []
     entries = read_entries(document)
     if not entries:
@@ -214,8 +213,8 @@ def check_document(path, document):
         if account:
             accounts_seen.add(account)
 
-    # Regle 1 -- un "model_name" ne regroupe jamais deux comptes.
-    # C'est celle qui ferme le cooldown automatique, donc la plus importante des quatre.
+    # Rule 1 -- a "model_name" never groups two accounts together.
+    # This is the one that closes the automatic cooldown, so the most important of the four.
     by_name = {}
     for entry in entries:
         if isinstance(entry["model_name"], str):
@@ -231,29 +230,30 @@ def check_document(path, document):
             account_of_model[name] = accounts[0]
         elif len(accounts) > 1:
             problems.append(
-                "%s: le model_name \"%s\" regroupe des deploiements de plusieurs comptes (%s).\n"
-                "    Le Router les traite comme un seul groupe : il repartit la charge entre eux, et\n"
-                "    met automatiquement en cooldown celui qui prend un 429 pour router vers l'autre.\n"
-                "    Les deux personnes se relaient donc des que l'une est epuisee, sans qu'aucune\n"
-                "    ligne \"fallbacks\" n'ait ete ecrite. Donner un model_name distinct a chaque compte."
+                "%s: the model_name \"%s\" groups deployments from several accounts (%s).\n"
+                "    The Router treats them as a single group: it spreads the load between them, and\n"
+                "    automatically puts the one that takes a 429 into cooldown so as to route to the\n"
+                "    other. The two people therefore relay each other the moment one is exhausted,\n"
+                "    without one \"fallbacks\" line having been written. Give each account a distinct\n"
+                "    model_name."
                 % (path, name, ", ".join(accounts))
             )
 
-    # Regle 2 -- une entree que le controle ne sait pas rattacher est signalee, pas ignoree.
+    # Rule 2 -- an entry the check cannot attribute is reported, not ignored.
     for entry in entries:
         account, reason = account_of_reference(entry["api_key"])
         if account:
             continue
         problems.append(
-            "%s: l'entree \"%s\" n'a pas de compte identifiable : %s.\n"
-            "    Aucune des regles d'isolation ne peut s'appliquer a elle. Ecrire la cle sous la forme\n"
-            "    \"api_key: os.environ/<FOURNISSEUR>_API_KEY_<COMPTE>\", comme le prescrit #2."
+            "%s: the entry \"%s\" has no identifiable account: %s.\n"
+            "    None of the isolation rules can apply to it. Write the key in the form\n"
+            "    \"api_key: os.environ/<PROVIDER>_API_KEY_<ACCOUNT>\", as #2 prescribes."
             % (path, entry["model_name"], reason)
         )
 
-    # Regle 3 -- l'etiquette doit dire la meme chose que la cle.
-    # Une entree mal etiquetee n'est pas une faute de frappe : c'est ce qui rend la regle 4
-    # illisible, puisqu'un relecteur juge un repli sur le nom qu'il voit.
+    # Rule 3 -- the label has to say the same thing as the key.
+    # A mislabelled entry is not a typo: it is what makes rule 4 unreadable, since a reviewer
+    # judges a fallback on the name they see.
     for entry in entries:
         account, _ = account_of_reference(entry["api_key"])
         if not account or not isinstance(entry["model_name"], str):
@@ -261,27 +261,27 @@ def check_document(path, document):
         suffix = entry["model_name"].rsplit("-", 1)[-1].upper()
         if suffix != account and suffix in accounts_seen:
             problems.append(
-                "%s: le model_name \"%s\" annonce le compte \"%s\" mais sa cle appartient a \"%s\".\n"
-                "    L'etiquette ment : un relecteur qui juge un repli sur le nom qu'il lit se trompera."
+                "%s: the model_name \"%s\" announces account \"%s\" but its key belongs to \"%s\".\n"
+                "    The label lies: a reviewer judging a fallback on the name they read gets it wrong."
                 % (path, entry["model_name"], suffix, account)
             )
         for group in entry["access_groups"]:
             if group.upper() != account and group.upper() in accounts_seen:
                 problems.append(
-                    "%s: \"%s\" est dans l'access_group \"%s\" mais sa cle appartient a \"%s\".\n"
-                    "    La liste blanche d'une equipe donnerait acces a la cle de l'autre."
+                    "%s: \"%s\" is in the access_group \"%s\" but its key belongs to \"%s\".\n"
+                    "    One team's allow list would hand out access to the other's key."
                     % (path, entry["model_name"], group, account)
                 )
 
-    # Regle 4 -- les replis.
+    # Rule 4 -- the fallbacks.
     for section_name in SETTINGS_SECTIONS:
         section = document.get(section_name) if isinstance(document, dict) else None
         for key, source, targets in normalise_fallbacks(section):
             if source is None:
                 problems.append(
-                    "%s: \"%s.%s\" s'applique a TOUS les groupes de modeles a la fois, donc aussi a\n"
-                    "    ceux de l'autre compte : il traverse toutes les frontieres d'un coup. Ecrire les\n"
-                    "    replis un par un sous \"fallbacks\", ou ne pas en mettre."
+                    "%s: \"%s.%s\" applies to ALL the model groups at once, so also to those of the\n"
+                    "    other account: it crosses every boundary in one go. Write the fallbacks one by\n"
+                    "    one under \"fallbacks\", or have none at all."
                     % (path, section_name, key)
                 )
                 continue
@@ -292,46 +292,46 @@ def check_document(path, document):
                 target_account = account_of_model.get(target)
                 if target_account is not None and target_account != source_account:
                     problems.append(
-                        "%s: \"%s.%s\" fait replier \"%s\" (compte %s) sur \"%s\" (compte %s).\n"
-                        "    Un appel legitime de l'un consommerait le quota de l'autre. Un repli reste a\n"
-                        "    l'interieur des cles d'UNE SEULE personne."
+                        "%s: \"%s.%s\" makes \"%s\" (account %s) fall back on \"%s\" (account %s).\n"
+                        "    A legitimate call by one would spend the other's quota. A fallback stays\n"
+                        "    inside the keys of ONE SINGLE person."
                         % (path, section_name, key, source, source_account, target, target_account)
                     )
     return problems
 
 
 def load(path):
-    """(document, erreur). L'un des deux est None."""
+    """(document, error). One of the two is None."""
     try:
         with open(path, encoding="utf-8") as handle:
             raw = handle.read()
     except (OSError, UnicodeDecodeError) as error:
-        return None, "illisible (%s)" % error.__class__.__name__
+        return None, "unreadable (%s)" % error.__class__.__name__
     try:
         return yaml.safe_load(neutralise_jinja(raw)), None
     except yaml.YAMLError as error:
-        return None, "YAML invalide meme apres neutralisation du Jinja (%s)" % (
+        return None, "invalid YAML even once the Jinja is neutralised (%s)" % (
             str(error).splitlines()[0] if str(error) else error.__class__.__name__
         )
 
 
 def check_file(path):
-    """Les manquements d'un fichier. Un fichier illisible EST un manquement."""
+    """The problems of a file. A file that cannot be read IS a problem."""
     document, error = load(path)
     if error:
         if not is_litellm_configuration_by_text(path):
             return []
         return [
             "%s: %s.\n"
-            "    Un fichier que le controle ne sait pas lire n'est pas un fichier conforme : tant qu'il\n"
-            "    n'est pas analysable, l'isolation des comptes n'y est verifiee par personne."
+            "    A file the check cannot read is not a compliant file: for as long as it is not\n"
+            "    parsable, nobody at all is verifying the isolation of the accounts in it."
             % (path, error)
         ]
     return check_document(path, document)
 
 
 def is_litellm_configuration_by_text(path):
-    """Dernier recours quand l'analyse echoue : le fichier PARLE-t-il de model_list ?"""
+    """Last resort when the parsing fails: does the file TALK about model_list?"""
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             return "model_list" in handle.read()
@@ -340,7 +340,7 @@ def is_litellm_configuration_by_text(path):
 
 
 def configuration_files(root):
-    """Les fichiers qui declarent une "model_list", reconnus par leur CONTENU."""
+    """The files that declare a "model_list", recognised by their CONTENT."""
     paths = []
     for directory, subdirectories, files in os.walk(root):
         subdirectories[:] = [d for d in subdirectories if d not in SKIPPED_DIRECTORIES]
@@ -361,43 +361,42 @@ def configuration_files(root):
 
 
 def run_selftest():
-    """Prouve que le controle attrape ce qu'il pretend attraper.
+    """Prove that the check catches what it claims to catch.
 
-    La Definition of Done de #32 demande que le controle « echoue sur une configuration
-    deliberement fautive -- teste, pas suppose ». C'est ce que fait cette fonction, et c'est
-    aussi ce qui donne au fichier une valeur AUJOURD'HUI, avant que #2 n'ait produit la moindre
-    configuration reelle a lire.
+    #32's Definition of Done asks that the check "fail on a deliberately faulty configuration --
+    tested, not assumed". That is what this function does, and it is also what gives the file a
+    value TODAY, before #2 has produced the slightest real configuration to read.
 
-    Chaque fixture annonce en premiere ligne le nombre de manquements attendus ET un fragment que
-    le premier d'entre eux doit contenir. Comparer un NOMBRE seul ne suffisait pas : la moitie de
-    la surface surveillee pouvait disparaitre sans que le compte ne bouge.
+    Each fixture announces on its first line the number of problems expected AND a fragment that
+    the first of them has to contain. Comparing a NUMBER alone was not enough: half of the watched
+    surface could disappear without the count moving.
     """
     if not os.path.isdir(SELFTEST_DIRECTORY):
-        print("selftest: repertoire de fixtures introuvable : %s" % SELFTEST_DIRECTORY)
+        print("selftest: fixture directory not found: %s" % SELFTEST_DIRECTORY)
         return 1
 
     failures = 0
     names = sorted(name for name in os.listdir(SELFTEST_DIRECTORY)
                    if os.path.isfile(os.path.join(SELFTEST_DIRECTORY, name)))
     if not names:
-        print("selftest: aucune fixture")
+        print("selftest: no fixture")
         return 1
 
     for name in names:
         path = os.path.join(SELFTEST_DIRECTORY, name)
         with open(path, encoding="utf-8") as handle:
             first_line = handle.readline()
-        expected = re.search(r"ATTENDU\s*:\s*(\d+)", first_line)
-        fragment = re.search(r"CONTIENT\s*:\s*(.+?)\s*(?:--|$)", first_line)
+        expected = re.search(r"EXPECTED\s*:\s*(\d+)", first_line)
+        fragment = re.search(r"CONTAINS\s*:\s*(.+?)\s*(?:--|$)", first_line)
         if not expected:
-            print("selftest: %s n'annonce pas son nombre de manquements attendus" % name)
+            print("selftest: %s does not announce its expected number of problems" % name)
             failures += 1
             continue
         problems = check_file(path)
         count = int(expected.group(1))
         if len(problems) != count:
             failures += 1
-            print("selftest: %s -> %d manquement(s), %d attendu(s)" % (name, len(problems), count))
+            print("selftest: %s -> %d problem(s), %d expected" % (name, len(problems), count))
             for problem in problems:
                 print("    " + problem.splitlines()[0])
             continue
@@ -405,12 +404,12 @@ def run_selftest():
             wanted = fragment.group(1)
             if not any(wanted in problem for problem in problems):
                 failures += 1
-                print("selftest: %s -> le bon NOMBRE de manquements, mais aucun ne contient \"%s\""
+                print("selftest: %s -> the right NUMBER of problems, but none of them contains \"%s\""
                       % (name, wanted))
                 for problem in problems:
                     print("    " + problem.splitlines()[0])
                 continue
-        print("selftest: %s -> %d manquement(s), conforme" % (name, len(problems)))
+        print("selftest: %s -> %d problem(s), conforming" % (name, len(problems)))
     return 1 if failures else 0
 
 
@@ -419,9 +418,9 @@ def main():
     parser.add_argument(
         "--selftest",
         action="store_true",
-        help="verifie le controle contre ses fixtures au lieu de lire le depot",
+        help="verify the check against its fixtures instead of reading the repository",
     )
-    parser.add_argument("--root", default=".", help="racine du depot a parcourir")
+    parser.add_argument("--root", default=".", help="root of the repository to walk")
     arguments = parser.parse_args()
 
     if arguments.selftest:
@@ -429,12 +428,12 @@ def main():
 
     paths = configuration_files(arguments.root)
     if not paths:
-        # Vert, mais bavard : personne ne doit croire que ce controle a valide quoi que ce soit.
+        # Green, but talkative: nobody is to believe this check has validated anything at all.
         print(
-            "Aucune configuration LiteLLM trouvee : #2 ne l'a pas encore produite, il n'y a rien a\n"
-            "lire. Ce controle deviendra effectif sans qu'on y touche le jour ou le fichier existera,\n"
-            "quel que soit son nom -- il est reconnu a sa \"model_list\", pas a son nom de fichier.\n"
-            "Sa capacite a detecter une faute est verifiee des maintenant par \"--selftest\"."
+            "No LiteLLM configuration found: #2 has not produced it yet, so there is nothing to\n"
+            "read. This check becomes effective without anyone touching it the day the file exists,\n"
+            "whatever its name -- it is recognised by its \"model_list\", not by its file name.\n"
+            "Its ability to spot a fault is verified right now by \"--selftest\"."
         )
         return 0
 
@@ -443,12 +442,12 @@ def main():
         problems.extend(check_file(path))
 
     if problems:
-        print("Isolation des comptes LiteLLM : %d manquement(s).\n" % len(problems))
+        print("LiteLLM account isolation: %d problem(s).\n" % len(problems))
         for problem in problems:
             print(problem + "\n")
         return 1
 
-    print("Isolation des comptes LiteLLM : %d fichier(s) lu(s), aucun manquement." % len(paths))
+    print("LiteLLM account isolation: %d file(s) read, no problem." % len(paths))
     return 0
 
 

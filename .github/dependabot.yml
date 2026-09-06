@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-# Sans ce fichier, Dependabot ne tourne pas : les versions epinglees de "requirements.txt" et les
-# actions epinglees des workflows resteraient figees, et le commentaire de "requirements.txt" qui
-# annonce le contraire serait faux.
+# Without this file, Dependabot does not run: the pinned versions of "requirements.txt" and the
+# pinned actions of the workflows would stay frozen, and the comment in "requirements.txt" that
+# announces the contrary would be false.
 #
-# ! Il n'y a pas d'ecosysteme Dependabot pour un telechargement de release brut : la version de
-#   gitleaks epinglee dans "gitleaks.yml" -- et son empreinte SHA-256, qui va avec -- se relevent
-#   a la main sur la page des releases du projet.
+# ! There is no Dependabot ecosystem for a raw release download: the gitleaks version pinned in
+#   "gitleaks.yml" -- and its SHA-256 checksum, which goes with it -- are bumped by hand from the
+#   project's releases page.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -15,7 +15,7 @@ updates:
     schedule:
       interval: "weekly"
 
-  # Les workflows epinglent "actions/checkout@v5" et "actions/setup-python@v5".
+  # The workflows pin "actions/checkout@v5" and "actions/setup-python@v5".
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

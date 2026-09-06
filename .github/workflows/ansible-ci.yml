@@ -1,17 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-# Les contrôles de qualité, sur chaque pull request. La détection de secrets vit dans son propre
-# workflow ("gitleaks.yml") parce qu'elle n'a ni le même outillage ni la même raison d'exister.
+# The quality checks, on every pull request. Secret detection lives in its own workflow
+# ("gitleaks.yml") because it has neither the same tooling nor the same reason to exist.
 #
-# ! Aucun de ces jobs ne peut être rendu OBLIGATOIRE avant fusion : l'organisation est sur un plan
-#   qui n'autorise ni ruleset ni protection de branche sur un dépôt privé ("GET /repos/.../rulesets"
-#   répond 403 « Upgrade to GitHub Pro or make this repository public »). Ils informent le
-#   relecteur ; ils ne gardent pas la porte. C'est une limite du plan, pas de la configuration.
+# ! None of these jobs can be made REQUIRED before merging: the organisation is on a plan that
+#   allows neither a ruleset nor a branch protection on a private repository
+#   ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
+#   public"). They inform the reviewer; they do not guard the door. That is a limit of the plan,
+#   not of the configuration.
 #
-# Pas de "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" ici, contrairement au dépôt homelab :
-# ce dépôt n'a pas de runner auto-hébergé, et une indirection qu'aucune variable ne renseigne est
-# une ligne que le prochain lecteur devra aller vérifier pour rien.
+# No "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" here, unlike the homelab repository: this
+# repository has no self-hosted runner, and an indirection that no variable ever fills in is a line
+# the next reader will have to go and check for nothing.
 
 on:
   push:
@@ -31,19 +32,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Récupérer le dépôt
+      - name: Check the repository out
         uses: actions/checkout@v5
 
-      - name: Installer Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Installer l'outillage
+      - name: Install the tooling
         run: pip install -r requirements.txt
 
-      - name: Lancer yamllint
+      - name: Run yamllint
         run: yamllint .
 
   ansible-lint:
@@ -51,24 +52,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Récupérer le dépôt
+      - name: Check the repository out
         uses: actions/checkout@v5
 
-      - name: Installer Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Installer l'outillage
+      - name: Install the tooling
         run: pip install -r requirements.txt
 
-      # Pas d'"ansible-galaxy collection install" : le rôle de #31 n'utilise que
-      # "ansible.builtin.assert" et "ansible.builtin.include_role", donc aucune collection tierce.
-      # Le jour où une issue de service en introduira une, elle apportera son "requirements.yml"
-      # et la ligne d'installation qui va avec -- c'est le bon moment pour les écrire, pas
-      # aujourd'hui où elles n'auraient rien à installer.
-      - name: Lancer ansible-lint
+      # No "ansible-galaxy collection install": the role of #31 uses only "ansible.builtin.assert"
+      # and "ansible.builtin.include_role", so no third-party collection at all. The day a service
+      # issue brings one in, it will bring its "requirements.yml" and the install line that goes
+      # with it -- that is the right moment to write them, not today, when they would have nothing
+      # to install.
+      - name: Run ansible-lint
         run: ansible-lint
 
   syntax-check:
@@ -76,33 +77,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Récupérer le dépôt
+      - name: Check the repository out
         uses: actions/checkout@v5
 
-      - name: Installer Python
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Installer l'outillage
+      - name: Install the tooling
         run: pip install -r requirements.txt
 
-      # Les playbooks sont DÉCOUVERTS, pas nommés. Un nom en dur ("playbook.AIS.example.yaml")
-      # obligerait à revenir ici au premier renommage, et surtout il resterait vert en silence si
-      # le fichier changeait de nom -- le pire des deux, un contrôle qui coche sa case sans rien
-      # lire.
+      # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.AIS.example.yaml") would
+      # mean coming back here on the first rename, and above all it would stay green in silence if
+      # the file were renamed -- the worse of the two, a check that ticks its box without reading
+      # anything.
       #
-      # ! Tant que #31 n'a pas atterri, ce dépôt n'a aucun playbook et cette étape ne vérifie donc
-      #   RIEN. Elle le dit alors dans une annotation "::warning::" visible sur la page du run,
-      #   plutôt que de rendre un vert muet : un contrôle vide qui se tait est un contrôle qu'on
-      #   croit avoir. Elle devient effective toute seule le jour où le playbook existe.
-      - name: Vérifier la syntaxe de chaque playbook
+      # ! The glob can legitimately match nothing -- it did until #31 landed and brought
+      #   "playbook.AIS.example.yaml". In that case the step says so in a "::warning::" annotation
+      #   visible on the run's page, rather than handing back a mute green: an empty check that
+      #   keeps quiet is a check one only believes one has. It needs no edit either way.
+      - name: Check the syntax of every playbook
         run: |
           shopt -s nullglob
           playbooks=(playbook.*.yaml playbook.*.yml)
           if [ ${#playbooks[@]} -eq 0 ]; then
-            echo "::warning title=Aucun playbook::Aucun fichier playbook.*.y(a)ml : cette étape n'a rien vérifié. Elle deviendra effective quand #31 aura atterri."
+            echo "::warning title=No playbook::No playbook.*.y(a)ml file: this step verified nothing. It will become effective once #31 has landed."
             exit 0
           fi
           for playbook in "${playbooks[@]}"; do
@@ -110,61 +111,58 @@ jobs:
             ansible-playbook --syntax-check "$playbook"
           done
 
-  maison:
-    name: contrôles maison
+  home-made-checks:
+    name: home-made checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Un seul job pour les contrôles de ".github/scripts/". Actions facture au job et arrondit
-    # chacun à la minute : deux scripts qui s'exécutent en une seconde chacun coûteraient deux
-    # minutes, et paieraient un "checkout" et un "setup-python" chacun. Un troisième contrôle est
-    # donc gratuit à ajouter ici.
+    # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
+    # one up to the minute: three scripts each running in a second would cost three minutes, and
+    # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.
     #
-    # "check_no_inventory_data.py" n'importe rien hors de la bibliothèque standard.
-    # "check_LiteLLM_account_isolation.py", lui, lit PyYAML : c'est la seule dépendance de ces
-    # contrôles, et elle a été prise sciemment (la raison est écrite dans son en-tête et dans
-    # "requirements.txt"). L'étape d'installation ci-dessous est ce qu'elle coûte.
+    # "check_no_inventory_data.py" imports nothing outside the standard library.
+    # "check_LiteLLM_account_isolation.py" reads PyYAML: it is the only dependency of these checks,
+    # and it was taken knowingly (the reason is written in its header and in "requirements.txt").
+    # The install step below is what it costs.
     #
-    # Le prix est réel et vaut d'être dit : la liste des contrôles d'une pull request porte une
-    # ligne au lieu de deux, donc une croix rouge ne dit plus LEQUEL a échoué sans ouvrir le run.
-    # Une étape qui échoue s'y nomme encore, ce qui était l'essentiel de ce que deux jobs
-    # achetaient.
+    # The price is real and worth stating: the check list of a pull request carries one line instead
+    # of three, so a red cross no longer says WHICH one failed without opening the run. A step that
+    # fails still names itself in there, which was the essential part of what separate jobs bought.
     #
-    # "!cancelled()" : ce sont des contrôles indépendants qui partagent un runner, pas un pipeline.
-    # Sans lui, le premier échec masquerait l'état des suivants.
+    # "!cancelled()": these are independent checks sharing a runner, not a pipeline. Without it, the
+    # first failure would hide the state of the ones after it.
     steps:
-      - name: Récupérer le dépôt
+      - name: Check the repository out
         uses: actions/checkout@v5
 
-      # Le python3 d'ubuntu-latest n'est épinglé par personne ; une seule installation sert les
-      # deux scripts.
-      - name: Installer Python
+      # The python3 of ubuntu-latest is pinned by nobody; a single installation serves both scripts.
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Installer l'outillage
+      - name: Install the tooling
         run: pip install -r requirements.txt
 
-      # Ce contrôle-ci est arrivé avec #31, et jusqu'ici rien ne le lançait : le dépôt n'avait pas
-      # de workflow. Il rend et analyse le template de compose dans ses DEUX états, ce qu'aucun des
-      # autres jobs ne fait -- lire un diff n'est pas une vérification. Ses dépendances (jinja2,
-      # PyYAML) arrivent avec ansible-core, déjà installé ci-dessus.
-      - name: "Template de compose : le rendre, l'analyser, tenir ses conventions"
+      # This check arrived with #31, and until now nothing was running it: the repository had no
+      # workflow. It renders and parses the compose template in BOTH of its states, which none of
+      # the other jobs does -- reading a diff is not verification. Its dependencies (jinja2,
+      # PyYAML) arrive with ansible-core, already installed above.
+      - name: "Compose template: render it, parse it, hold it to its conventions"
         run: python3 .github/scripts/check_compose_template.py
 
-      - name: "Isolation des comptes LiteLLM : vérifier le contrôle lui-même"
+      - name: "LiteLLM account isolation: check the check itself"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 
-      - name: "Isolation des comptes LiteLLM : lire la configuration du dépôt"
+      - name: "LiteLLM account isolation: read the repository's configuration"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_account_isolation.py
 
-      - name: "Données d'inventaire en dur : vérifier le contrôle lui-même"
+      - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py --selftest
 
-      - name: "Données d'inventaire en dur : lire le dépôt"
+      - name: "Hard-coded inventory data: read the repository"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py

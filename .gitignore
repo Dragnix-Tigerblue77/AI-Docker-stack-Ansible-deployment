@@ -1,39 +1,39 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-# Secrets, et rien d'autre. Ce fichier est le premier des trois garde-fous de #32 : il empêche
-# un "git add ." d'indexer un secret, le hook ".githooks/pre-commit" refuse le commit s'il y en a
-# un quand même, et le workflow "gitleaks" le constate après coup sur la pull request.
+# Secrets, and nothing else. This file is the first of #32's three guards: it stops a "git add ."
+# from staging a secret, the ".githooks/pre-commit" hook refuses the commit when one is staged
+# anyway, and the "gitleaks" workflow reports it after the fact on the pull request.
 #
-# ! Aucun de ces trois n'est bloquant côté GitHub : l'organisation est sur un plan qui n'autorise
-# ni ruleset ni protection de branche sur un dépôt privé ("GET /repos/.../rulesets" répond 403
-# « Upgrade to GitHub Pro or make this repository public »). Le hook local est donc le seul des
-# trois qui refuse réellement quelque chose -- et "git commit --no-verify" le contourne.
+# ! None of the three blocks anything on GitHub's side: the account is on a plan that allows neither
+# a ruleset nor a branch protection on a private repository ("GET /repos/.../rulesets" answers 403
+# "Upgrade to GitHub Pro or make this repository public"). The local hook is therefore the only one
+# of the three that really refuses anything -- and "git commit --no-verify" bypasses it.
 
 # ---------------------------------------------------------------------------------------------
-# Fichiers d'environnement
+# Environment files
 # ---------------------------------------------------------------------------------------------
-# L'AIS n'utilise PAS de fichier ".env" : le rôle de #31 interpole les valeurs directement dans le
-# "docker-compose" rendu, écrit en 0600 sur le nœud géré et jamais versionné -- c'est aussi ce que
-# font les 36 templates du dépôt "Homelab_Ansible_deployment", dont aucun n'a de "env_file:".
-# Les motifs ci-dessous n'en restent pas moins utiles : ils couvrent le ".env" qu'un humain crée
-# pour lancer un conteneur à la main pendant une mise au point, qui est exactement le fichier que
-# personne ne pense à supprimer avant de committer.
+# The AIS uses NO ".env" file: the role of #31 interpolates the values directly into the rendered
+# "docker-compose", written 0600 on the managed node and never versioned -- which is also what the
+# 36 templates of "Homelab_Ansible_deployment" do, not one of which has an "env_file:".
+# The patterns below are useful all the same: they cover the ".env" a human creates to start a
+# container by hand while debugging, which is exactly the file nobody thinks of deleting before
+# committing.
 #
-# ! L'ordre est porteur : remonter une ligne "!" au-dessus du motif qu'elle annule la neutralise.
+# ! The order is load-bearing: moving a "!" line above the pattern it cancels neutralises it.
 *.env
 .env
 .env.*
-# ... sauf l'exemple, s'il en apparaît un un jour.
+# ... except the example, should one ever appear.
 !.env.example
 !*.env.example
-# ... et sauf un template Jinja qui RENDRAIT un fichier d'environnement : sans cette ligne,
-# ".env.*" avale "roles/*/templates/.env.j2" et "git status" ne le montre même pas
-# (mesuré : "git check-ignore -v" -> ".gitignore:.env.*").
+# ... and except a Jinja template that would RENDER an environment file: without this line,
+# ".env.*" swallows "roles/*/templates/.env.j2" and "git status" does not even show it
+# (measured: "git check-ignore -v" -> ".gitignore:.env.*").
 !.env*.j2
 
 # ---------------------------------------------------------------------------------------------
-# Clés, certificats, mots de passe
+# Keys, certificates, passwords
 # ---------------------------------------------------------------------------------------------
 *.key
 *.pem
@@ -42,15 +42,15 @@
 *.pfx
 id_rsa*
 id_ed25519*
-# Le mot de passe du vault Ansible, jamais le vault lui-même : un vault chiffré est FAIT pour être
-# versionné. Ne pas élargir ce motif en "vault*", qui exclurait le contenu qu'on veut suivre.
+# The Ansible vault password, never the vault itself: an encrypted vault is MADE to be versioned.
+# Do not widen this pattern to "vault*", which would exclude the very content we want to track.
 .vault_pass
 
 # ---------------------------------------------------------------------------------------------
-# Données de service et artefacts locaux
+# Service data and local artefacts
 # ---------------------------------------------------------------------------------------------
-# "storage/" est le répertoire de persistance par défaut de Qdrant (#3) : un test lancé à la main
-# depuis la racine du dépôt le crée ici.
+# "storage/" is Qdrant's default persistence directory (#3): a test started by hand from the
+# repository root creates it here.
 storage/
 .ansible/
 *.retry

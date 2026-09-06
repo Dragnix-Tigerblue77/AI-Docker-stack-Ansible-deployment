@@ -2,142 +2,142 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Refuse une adresse IP ou un nom de domaine ecrit en dur dans le depot.
+"""Refuse an IP address or a domain name hardcoded into the repository.
 
-POURQUOI CE CONTROLE EXISTE
----------------------------
-Le role de ce depot est parametrable : c'est l'appelant qui fournit l'inventaire, les FQDN, les
-etiquettes Traefik et le reseau (#22, #31, #33). Une adresse ou un nom d'hote ecrit ici n'est donc
-pas seulement une fuite d'information sur le homelab -- c'est une regression fonctionnelle, puisque
-le role cesse d'etre reutilisable par quelqu'un d'autre. Rien d'autre dans cette CI ne peut le
-voir : un FQDN en dur est du YAML valide, et yamllint comme ansible-lint le laissent passer.
+WHY THIS CHECK EXISTS
+---------------------
+This repository's role is parameterisable: it is the caller that supplies the inventory, the FQDNs,
+the Traefik labels and the network (#22, #31, #33). An address or a host name written here is
+therefore not only a leak of information about the homelab -- it is a functional regression, since
+the role stops being reusable by anyone else. Nothing else in this CI can see it: a hardcoded FQDN
+is valid YAML, and yamllint and ansible-lint alike let it through.
 
-POURQUOI UNE LISTE BLANCHE, ET NON UNE LISTE NOIRE
---------------------------------------------------
-C'est la seule forme possible. Une liste noire devrait enumerer les domaines interdits -- donc
-ECRIRE le domaine du homelab dans un fichier versionne, ce qui est exactement ce que la regle
-interdit. Le controle est donc a l'envers : tout ce qui ressemble a un hote est refuse, sauf les
-quelques hotes amont que le depot doit citer pour fonctionner, chacun avec sa raison ci-dessous.
+WHY AN ALLOWLIST, AND NOT A DENYLIST
+------------------------------------
+It is the only possible shape. A denylist would have to enumerate the forbidden domains -- so to
+WRITE the homelab's domain into a versioned file, which is exactly what the rule forbids. The check
+is therefore the other way round: everything that looks like a host is refused, except the few
+upstream hosts the repository has to name in order to work, each with its reason below.
 
-Le corollaire est assume : la liste blanche grandira. C'est voulu. Ajouter un hote amont est un
-geste d'une ligne, qui laisse une trace dans un diff et demande sa justification ; c'est
-precisement le controle qu'on cherche a avoir sur cette categorie de valeur.
+The corollary is accepted: the allowlist will grow. That is intended. Adding an upstream host is a
+one-line gesture, which leaves a trace in a diff and asks for its justification; that is precisely
+the control one wants to have over this category of value.
 
-CE QU'IL NE FAIT PAS
---------------------
-* Il ne voit pas un nom d'hote SANS point ("chsonvdsw01"), que #22 nomme pourtant en premier.
-  Aucune regle mecanique ne distingue un tel nom d'un mot ordinaire ; c'est une relecture humaine.
-* Il ne lit pas les issues. gitleaks non plus, et le secret scanning de GitHub demanderait un plan
-  que l'organisation n'a pas. Le contenu des issues reste une vigilance humaine.
+WHAT IT DOES NOT DO
+-------------------
+* It does not see a host name WITHOUT a dot ("chsonvdsw01"), which #22 nonetheless names first. No
+  mechanical rule tells such a name from an ordinary word; that one is a human read-through.
+* It does not read the issues. Neither does gitleaks, and GitHub's secret scanning would want a
+  plan the organisation does not have. The content of the issues remains a human vigilance.
 
-COMMENT UN NOM EST RECONNU
---------------------------
-Un jeton "label.label[.label]" dont le DERNIER label figure dans TOP_LEVEL_DOMAINS. Cette liste est
-volontairement courte et ne cherche pas a etre exhaustive : elle evite les extensions de fichier
-qui sont aussi des domaines de premier niveau et qui feraient hurler le controle sur tout le depot
--- ".sh" (Sainte-Helene), ".py" (Paraguay), ".md" (Moldavie), ".io" pour un fichier, ".pl", ".so".
-Un domaine en ".sh" passerait donc au travers ; c'est le prix a payer pour que le controle ne crie
-pas sur "functions.sh", et c'est le bon cote du compromis pour un depot qui n'en aura pas.
+HOW A NAME IS RECOGNISED
+------------------------
+A "label.label[.label]" token whose LAST label appears in TOP_LEVEL_DOMAINS. That list is
+deliberately short and does not try to be exhaustive: it keeps out the file extensions that are
+also top-level domains and that would make the check scream over the whole repository -- ".sh"
+(Saint Helena), ".py" (Paraguay), ".md" (Moldova), ".io" for a file, ".pl", ".so". A domain in
+".sh" would therefore slip through; that is the price to pay for a check that does not shout at
+"functions.sh", and it is the right side of the trade-off for a repository that will not have one.
 """
 
 import os
 import re
 import sys
 
-# Les hotes amont que ce depot a le droit de nommer. Chaque entree porte sa raison : sans elle,
-# la liste devient un fourre-tout et le controle ne veut plus rien dire.
+# The upstream hosts this repository is allowed to name. Every entry carries its reason: without it,
+# the list becomes a catch-all and the check no longer means anything.
 ALLOWED_HOSTS = {
-    "github.com": "telechargement des releases et des actions",
-    "raw.githubusercontent.com": "contenu brut d'un depot public",
-    "api.github.com": "API GitHub",
-    "objects.githubusercontent.com": "redirection de telechargement des releases",
-    "docs.github.com": "documentation citee en commentaire",
-    "pypi.org": "installation des outils de requirements.txt",
-    "files.pythonhosted.org": "artefacts servis par PyPI",
-    "galaxy.ansible.com": "collections Ansible",
-    "ghcr.io": "registre d'images",
-    "docker.io": "registre d'images",
-    "hub.docker.com": "registre d'images",
-    "quay.io": "registre d'images",
-    "docs.litellm.ai": "documentation de la passerelle, citee en commentaire",
-    "ai.google.dev": "conditions d'utilisation Gemini, citees dans #2",
-    "fsf.org": "texte de la licence",
-    "www.gnu.org": "texte de la licence",
-    "spdx.org": "identifiants de licence",
-    "reuse.software": "specification des en-tetes de licence",
+    "github.com": "downloading releases and actions",
+    "raw.githubusercontent.com": "raw content of a public repository",
+    "api.github.com": "GitHub API",
+    "objects.githubusercontent.com": "release download redirection",
+    "docs.github.com": "documentation cited in a comment",
+    "pypi.org": "installation of the tools in requirements.txt",
+    "files.pythonhosted.org": "artefacts served by PyPI",
+    "galaxy.ansible.com": "Ansible collections",
+    "ghcr.io": "image registry",
+    "docker.io": "image registry",
+    "hub.docker.com": "image registry",
+    "quay.io": "image registry",
+    "docs.litellm.ai": "gateway documentation, cited in a comment",
+    "ai.google.dev": "Gemini terms of use, cited in #2",
+    "fsf.org": "licence text",
+    "www.gnu.org": "licence text",
+    "spdx.org": "licence identifiers",
+    "reuse.software": "specification of the licence headers",
 }
 
-# Les adresses qui ne designent aucune machine et qu'un fichier de configuration doit pouvoir
-# ecrire : elles ne disent rien du homelab.
+# The addresses that designate no machine and that a configuration file has to be able to write:
+# they say nothing about the homelab.
 ALLOWED_ADDRESSES = {
-    "0.0.0.0": "ecouter sur toutes les interfaces",
-    "127.0.0.1": "boucle locale",
-    "255.255.255.255": "diffusion",
-    "::1": "boucle locale IPv6",
+    "0.0.0.0": "listen on every interface",
+    "127.0.0.1": "loopback",
+    "255.255.255.255": "broadcast",
+    "::1": "IPv6 loopback",
 }
 
-# Volontairement courte : voir la docstring. Toute extension de fichier utilisee dans ce depot en
-# est tenue a l'ecart, meme quand elle est un vrai domaine de premier niveau.
+# Deliberately short: see the docstring. Every file extension used in this repository is kept out of
+# it, even when it is a genuine top-level domain.
 TOP_LEVEL_DOMAINS = {
-    # Generiques
+    # Generic
     "com", "net", "org", "io", "dev", "ai", "cloud", "info", "tech", "xyz", "tv", "cc",
-    # Pays et regions plausibles pour ce foyer et ses fournisseurs
+    # Countries and regions plausible for this household and its providers
     "fr", "eu", "be", "ch", "de", "uk", "nl", "es", "it", "nf", "re", "pm", "yt", "ovh",
     "co", "me",
-    # Pseudo-domaines de reseau local : ce sont EUX qu'un homelab ecrit par accident
+    # Local-network pseudo-domains: THESE are the ones a homelab writes by accident
     "lan", "local", "home", "internal", "intranet", "box", "arpa",
 }
 
-# Les domaines de premier niveau qui sont aussi des MOTS ordinaires -- "email", "services",
-# "tools", "network", "systems", "digital", "zone", "host", "site", "space", "link", "live",
-# "app", "online", "website" -- sont deliberement absents. Mesure : les inclure fait refuser
-# "git config user.email" dans un workflow de ce depot, et la meme collision se produirait sur
-# n'importe quel identifiant pointe. Ce sont aussi les TLD les moins plausibles pour le domaine
-# d'un foyer : on perd donc peu de couverture et on gagne beaucoup de precision.
+# The top-level domains that are also ordinary WORDS -- "email", "services", "tools", "network",
+# "systems", "digital", "zone", "host", "site", "space", "link", "live", "app", "online",
+# "website" -- are deliberately absent. Measured: including them makes "git config user.email" in
+# a workflow of this repository be refused, and the same collision would happen on any dotted
+# identifier. They are also the least plausible TLDs for a household's domain: little coverage is
+# lost, and much precision is gained.
 
-# Les chemins que le controle ne lit pas, avec leur raison.
+# The paths the check does not read, with their reason.
 SKIPPED_PATHS = {
-    "LICENSE": "texte amont de l'AGPL, ni ecrit ni modifiable ici",
-    ".git": "donnees internes de git",
-    # Rien de tout cela n'est versionne, et tout cela existe sur la machine d'un contributeur.
-    # Sans ces lignes, la commande que CONTRIBUTING.md demande de lancer part en rouge sur des
-    # milliers de fichiers des le premier "python3 -m venv .venv" (mesure : 1457 manquements).
-    ".venv": "environnement virtuel local, non versionne",
-    "venv": "environnement virtuel local, non versionne",
-    "node_modules": "dependances locales, non versionnees",
-    "__pycache__": "cache Python",
-    ".ansible": "cache d'ansible-lint",
-    ".mypy_cache": "cache local",
-    ".pytest_cache": "cache local",
+    "LICENSE": "upstream AGPL text, neither written nor modifiable here",
+    ".git": "git's internal data",
+    # None of this is versioned, and all of it exists on a contributor's machine. Without these
+    # lines, the command CONTRIBUTING.md asks to run goes red over thousands of files from the very
+    # first "python3 -m venv .venv" (measured: 1457 findings).
+    ".venv": "local virtual environment, not versioned",
+    "venv": "local virtual environment, not versioned",
+    "node_modules": "local dependencies, not versioned",
+    "__pycache__": "Python cache",
+    ".ansible": "ansible-lint's cache",
+    ".mypy_cache": "local cache",
+    ".pytest_cache": "local cache",
 }
 
-# Une region que le controle saute, delimitee dans le fichier lui-meme. Elle existe pour UN cas :
-# un bloc dont le contenu EST un contre-exemple, comme les cas de verification plus bas -- ce
-# fichier se lit lui-meme, et sans cela il refuserait ses propres cas de test.
+# A region the check skips, delimited in the file itself. It exists for ONE case: a block whose
+# content IS a counter-example, like the verification cases further down -- this file reads itself,
+# and without this it would refuse its own test cases.
 #
-# ! C'est une exemption bornee, pas un fichier exclu. La difference est le fond du sujet : sauter le
-#   fichier entier ferait de lui le seul endroit du depot ou une vraie adresse passerait inapercue,
-#   et ce serait le fichier du controle. Une region delimitee, elle, se voit dans un diff, et le
-#   compte des regions traversees est imprime a chaque execution pour qu'elles ne se multiplient
-#   pas en silence.
+# ! This is a bounded exemption, not an excluded file. The difference is the heart of the matter:
+#   skipping the whole file would make it the one place in the repository where a real address would
+#   go unnoticed, and it would be the check's own file. A delimited region, on the other hand, shows
+#   up in a diff, and the count of the regions traversed is printed on every run so that they do not
+#   multiply in silence.
 #
-# Les deux marqueurs sont assembles en deux morceaux, et ce n'est pas une coquetterie : ecrits d'une
-# piece, ils ouvriraient une region sur leur propre ligne de definition -- le controle sauterait
-# alors les deux lignes qui le configurent, sans que rien ne le dise. Mesure.
+# The two markers are assembled from two pieces, and that is not an affectation: written whole, they
+# would open a region on their own definition line -- the check would then skip the two lines that
+# configure it, with nothing to say so. Measured.
 IGNORE_START = "CONTROLE-" + "IgnoreStart"
 IGNORE_END = "CONTROLE-" + "IgnoreEnd"
 
-# Un jeton qui ressemble a un nom d'hote. Le dernier label est filtre ensuite contre
-# TOP_LEVEL_DOMAINS ; la regex seule ne distingue pas un nom de fichier d'un nom d'hote.
+# A token that looks like a host name. The last label is then filtered against TOP_LEVEL_DOMAINS;
+# the regex alone does not tell a file name from a host name.
 #
-# ! Ne pas ecrire de domaine d'exemple dans ce fichier, meme en commentaire : le controle se
-#   lit lui-meme et le refuserait, ce qui est le comportement voulu (mesure).
+# ! Do not write an example domain in this file, not even in a comment: the check reads itself
+#   and would refuse it, which is the intended behaviour (measured).
 HOSTNAME = re.compile(r"\b(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}\b")
 
 IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
-# IPv6 : uniquement les formes qui ne peuvent pas etre autre chose. Exiger un "::" ou huit groupes
-# ecarte "20:25:30", qui est une heure, et "12:34:56:78", qui est une adresse MAC tronquee.
+# IPv6: only the forms that cannot be anything else. Requiring a "::" or eight groups rules out
+# "20:25:30", which is a time of day, and "12:34:56:78", which is a truncated MAC address.
 IPV6 = re.compile(
     r"(?<![0-9A-Za-z:])(?:"
     r"(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}"
@@ -166,49 +166,49 @@ def is_binary(path):
 
 
 def findings_in_line(line, file_names=frozenset()):
-    """Les manquements d'une ligne : (categorie, valeur)."""
+    """The findings of one line: (category, value)."""
     found = []
 
     for match in IPV4.finditer(line):
         value = match.group(0)
         if is_ipv4(value) and value not in ALLOWED_ADDRESSES:
-            found.append(("adresse IPv4", value))
+            found.append(("IPv4 address", value))
 
     for match in IPV6.finditer(line):
         value = match.group(0)
         if value not in ALLOWED_ADDRESSES:
-            found.append(("adresse IPv6", value))
+            found.append(("IPv6 address", value))
 
     for match in HOSTNAME.finditer(line):
         value = match.group(0)
         if is_ipv4(value):
-            continue  # deja traite au-dessus, et une IP n'est pas un nom
+            continue  # already handled above, and an IP is not a name
         if value.rsplit(".", 1)[-1].lower() not in TOP_LEVEL_DOMAINS:
             continue
         if value.lower() in ALLOWED_HOSTS:
             continue
         if value in file_names:
             continue
-        found.append(("nom de domaine", value))
+        found.append(("domain name", value))
 
     return found
 
 
 def repository_file_names(root):
-    """Les noms de fichiers presents dans l'arbre.
+    """The file names present in the tree.
 
-    Ils servent a ne pas confondre un fichier avec un hote : un README en «.org», un logo en
-    «.ai», un Dockerfile en «.dev» portent tous un suffixe qui est un vrai domaine de premier
-    niveau, et aucun n'est une adresse.
+    They serve to avoid mistaking a file for a host: a README in ".org", a logo in ".ai", a
+    Dockerfile in ".dev" all carry a suffix that is a genuine top-level domain, and none of them
+    is an address.
 
-    Le compromis assume est symetrique : un fichier que quelqu'un nommerait comme un domaine
-    echapperait au controle. C'est un cas qu'on n'a jamais vu, contre des faux positifs qu'on
-    aurait a chaque ajout de fichier.
+    The trade-off is accepted and symmetrical: a file someone named like a domain would escape the
+    check. That is a case nobody has ever seen, against false positives one would get on every
+    file added.
 
-    ! Les exemples ci-dessus sont ecrits en toutes lettres plutot qu'en "nom.suffixe" parce que ce
-      fichier se lit lui-meme : les ecrire normalement les ferait refuser. Encadrer le paragraphe
-      d'une region ignoree aurait marche aussi, et aurait ete pire -- une exemption de plus, pour
-      un commentaire.
+    ! The examples above are spelled out in words rather than as "name.suffix" because this file
+      reads itself: writing them normally would have them refused. Wrapping the paragraph in an
+      ignored region would have worked too, and would have been worse -- one more exemption, for
+      a comment.
     """
     names = set()
     for directory, subdirectories, files in os.walk(root):
@@ -229,45 +229,45 @@ def walk(root):
             yield path, relative
 
 
-# Les cas de verification, construits EN MEMOIRE et non dans des fichiers de fixtures.
-# La raison est directe : une fixture contenant une adresse devrait etre exclue du parcours pour
-# que le controle reste vert, et ce repertoire exclu deviendrait le seul endroit du depot ou une
-# vraie fuite passerait inapercue. Un cas en memoire ne cree pas cet angle mort.
+# The verification cases, built IN MEMORY rather than in fixture files.
+# The reason is direct: a fixture containing an address would have to be excluded from the walk for
+# the check to stay green, and that excluded directory would become the one place in the repository
+# where a real leak would go unnoticed. An in-memory case does not create that blind spot.
 # CONTROLE-IgnoreStart
 SELFTEST_CASES = (
-    # (ligne, nombre de manquements attendus, ce que le cas prouve)
-    ("  serveur: 192.168.1.42", 1, "une adresse privee est refusee"),
-    ("  bind: 0.0.0.0", 0, "ecouter sur toutes les interfaces reste permis"),
-    ("  boucle: 127.0.0.1", 0, "la boucle locale reste permise"),
-    ("  hote: 2001:0db8:85a3:0000:0000:8a2e:0370:7334", 1, "une IPv6 complete est refusee"),
-    ("  abrege: fe80::1ff:fe23:4567", 1, "une IPv6 abregee est refusee"),
-    ("  heure: 20:25:30", 0, "une heure n'est pas une IPv6"),
-    ("  version: 8.30.1", 0, "un numero de version n'est pas une adresse"),
-    ("  fichier: requirements.txt", 0, "un nom de fichier n'est pas un domaine"),
-    ("  script: functions.sh", 0, "une extension qui est aussi un TLD ne compte pas"),
-    ("  module: ansible.builtin.assert", 0, "un nom de module n'est pas un domaine"),
-    ("  cle: os.environ/GEMINI_API_KEY_DRAGNIX", 0, "une variable n'est pas un domaine"),
-    ("  playbook: playbook.AIS.example.yaml", 0, "un nom de playbook n'est pas un domaine"),
-    ("  regle: traefik.http.routers.ais.rule", 0, "une etiquette Traefik n'est pas un domaine"),
-    ("  url: https://github.com/gitleaks/gitleaks", 0, "un hote amont de la liste blanche passe"),
-    ("  fqdn: ais.un-domaine-quelconque.fr", 1, "un FQDN hors liste blanche est refuse"),
-    ("  # commente: ais.un-domaine-quelconque.fr", 1, "un commentaire est lu comme le reste"),
+    # (line, number of findings expected, what the case proves)
+    ("  serveur: 192.168.1.42", 1, "a private address is refused"),
+    ("  bind: 0.0.0.0", 0, "listening on every interface stays allowed"),
+    ("  boucle: 127.0.0.1", 0, "the loopback stays allowed"),
+    ("  hote: 2001:0db8:85a3:0000:0000:8a2e:0370:7334", 1, "a full IPv6 is refused"),
+    ("  abrege: fe80::1ff:fe23:4567", 1, "an abbreviated IPv6 is refused"),
+    ("  heure: 20:25:30", 0, "a time of day is not an IPv6"),
+    ("  version: 8.30.1", 0, "a version number is not an address"),
+    ("  fichier: requirements.txt", 0, "a file name is not a domain"),
+    ("  script: functions.sh", 0, "an extension that is also a TLD does not count"),
+    ("  module: ansible.builtin.assert", 0, "a module name is not a domain"),
+    ("  cle: os.environ/GEMINI_API_KEY_DRAGNIX", 0, "a variable is not a domain"),
+    ("  playbook: playbook.AIS.example.yaml", 0, "a playbook name is not a domain"),
+    ("  regle: traefik.http.routers.ais.rule", 0, "a Traefik label is not a domain"),
+    ("  url: https://github.com/gitleaks/gitleaks", 0, "an upstream host in the allowlist passes"),
+    ("  fqdn: ais.un-domaine-quelconque.fr", 1, "an FQDN outside the allowlist is refused"),
+    ("  # commente: ais.un-domaine-quelconque.fr", 1, "a comment is read like the rest"),
 )
 # CONTROLE-IgnoreEnd
 
 
 def run_selftest():
-    """Prouve que le controle refuse ce qu'il pretend refuser, et accepte le reste.
+    """Prove that the check refuses what it claims to refuse, and accepts the rest.
 
-    Un controle dont personne n'a jamais vu l'echec est un controle que personne ne croit -- et
-    celui-ci porte une liste blanche, donc son risque propre est de tout laisser passer en silence.
+    A check whose failure nobody has ever seen is a check nobody believes -- and this one carries
+    an allowlist, so its own risk is to let everything through in silence.
     """
     failures = 0
     for line, expected, purpose in SELFTEST_CASES:
         found = findings_in_line(line)
         if len(found) != expected:
             failures += 1
-            print("selftest: ECHEC (%s) -- %d manquement(s), %d attendu(s) : %s"
+            print("selftest: FAILED (%s) -- %d finding(s), %d expected: %s"
                   % (purpose, len(found), expected, line.strip()))
         else:
             print("selftest: ok -- %s" % purpose)
@@ -288,16 +288,16 @@ def main():
             with open(path, encoding="utf-8") as handle:
                 lines = handle.read().splitlines()
         except OSError as error:
-            problems.append((relative, 0, "fichier illisible", error.__class__.__name__))
+            problems.append((relative, 0, "unreadable file", error.__class__.__name__))
             continue
         except UnicodeDecodeError:
-            # ! Signale, et non saute en silence. Un fichier que ce controle ne sait pas decoder
-            #   est un fichier ou une adresse peut se cacher sans que personne ne la voie : c'est
-            #   le seul angle mort qu'il ne doit pas s'accorder a lui-meme. Mesure : un fichier
-            #   latin-1 contenant une adresse privee passait « aucun manquement », exit 0.
+            # ! Reported, and not skipped in silence. A file this check cannot decode is a file
+            #   where an address can hide without anyone seeing it: it is the one blind spot it
+            #   must not grant itself. Measured: a latin-1 file containing a private address came
+            #   back "no finding", exit 0.
             problems.append((
-                relative, 0, "fichier non-UTF-8",
-                "non decodable, donc non verifie ; le convertir en UTF-8",
+                relative, 0, "non-UTF-8 file",
+                "not decodable, therefore not checked; convert it to UTF-8",
             ))
             continue
 
@@ -319,38 +319,38 @@ def main():
                 problems.append((relative, number, category, value))
 
         if ignoring:
-            # Une region jamais refermee avale tout le reste du fichier. Sans ce controle-ci, la
-            # suppression accidentelle d'un marqueur de fin desactive silencieusement la moitie
-            # d'un fichier -- et le compte des regions, lui, n'aurait pas bouge.
+            # A region never closed again swallows the whole rest of the file. Without this check
+            # here, accidentally deleting an end marker silently disables half a file -- and the
+            # count of the regions, for its part, would not have moved.
             problems.append((
-                relative, opened_at, "region ignoree jamais refermee",
-                "tout le reste du fichier a ete saute ; ajouter le marqueur de fin",
+                relative, opened_at, "ignored region never closed again",
+                "the whole rest of the file was skipped; add the end marker",
             ))
 
     if ignored_regions:
-        # Imprime sur les DEUX chemins, vert comme rouge : une region ignoree est une exemption, et
-        # une exemption qui ne se voit qu'a moitie du temps finit par en couvrir d'autres.
-        print("%d region(s) explicitement ignoree(s) :" % len(ignored_regions))
+        # Printed on BOTH paths, green as well as red: an ignored region is an exemption, and an
+        # exemption that is only visible half the time ends up covering others.
+        print("%d explicitly ignored region(s):" % len(ignored_regions))
         for relative, number in ignored_regions:
             print("  %s:%d" % (relative, number))
         print("")
 
     if problems:
-        print("Donnees d'inventaire ecrites en dur : %d manquement(s).\n" % len(problems))
+        print("Hardcoded inventory data: %d finding(s).\n" % len(problems))
         for relative, number, category, value in problems:
             print("%s:%d: %s \"%s\"" % (relative, number, category, value))
         print(
-            "\nCes valeurs appartiennent a l'inventaire de l'appelant, pas a ce depot : un role qui\n"
-            "les porte cesse d'etre reutilisable, et publie le homelab au passage. Les passer en\n"
-            "variable.\n"
+            "\nThese values belong to the caller's inventory, not to this repository: a role that\n"
+            "carries them stops being reusable, and publishes the homelab on the way. Pass\n"
+            "them as variables.\n"
             "\n"
-            "S'il s'agit d'un hote AMONT que le depot doit legitimement citer, l'ajouter a\n"
-            "ALLOWED_HOSTS dans %s AVEC SA RAISON, dans le meme commit."
+            "If this is an UPSTREAM host the repository legitimately has to name, add it to\n"
+            "ALLOWED_HOSTS in %s WITH ITS REASON, in the same commit."
             % os.path.relpath(os.path.abspath(__file__), os.path.abspath(root))
         )
         return 1
 
-    print("Aucune adresse IP ni nom de domaine en dur.")
+    print("No hardcoded IP address or domain name.")
     return 0
 
 

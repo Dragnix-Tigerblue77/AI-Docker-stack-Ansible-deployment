@@ -1,15 +1,15 @@
-# ATTENDU: 1 CONTIENT: fait replier -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: fall back on -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
 ---
-# Le vecteur visible : un repli qui cite un modele de l'autre personne.
+# The visible vector: a fallback that names a model belonging to the other person.
 model_list:
   - model_name: gen-chat-dragnix
     litellm_params:
-      model: fournisseur/identifiant
+      model: provider/identifier
       api_key: os.environ/GEMINI_API_KEY_DRAGNIX
 
   - model_name: gen-chat-tigerblue77
     litellm_params:
-      model: fournisseur/identifiant
+      model: provider/identifier
       api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
 
 router_settings:
