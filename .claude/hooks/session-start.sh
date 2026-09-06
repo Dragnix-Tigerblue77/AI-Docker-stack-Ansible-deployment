@@ -95,11 +95,75 @@ pip_install() {
     pip install --quiet --disable-pip-version-check --root-user-action=ignore --ignore-installed "$@"
 }
 
-if pip_install -r requirements.txt; then
-    printf 'ansible-core, ansible-lint, yamllint and PyYAML: %s\n' "$(yamllint --version 2> /dev/null || echo installed)"
+# ! One "pip install" per pin, not one transaction over "requirements.txt", and that is #57. pip
+# resolves a requirements file as a single unit: ONE pin it cannot satisfy fails the whole thing, and
+# the other three are not installed either. Measured on this image -- "ansible-core==2.21.3" declares
+# "Requires-Python >= 3.12" and the image has 3.11, so pip answers "No matching distribution found"
+# and the session starts with no yamllint, no ansible-lint and no PyYAML, over a package the other
+# three do not need. Per pin, the same session keeps everything except ansible-core.
+#
+# CI is unaffected either way, which is exactly why this is worth doing here: "actions/setup-python"
+# gives it 3.12, so the transaction succeeds there and the failure is invisible to every job.
+#
+# The cost is honest and small: installing one by one drops pip's cross-package resolution. A pin
+# whose own dependencies pull a DIFFERENT version of another pin would go unnoticed, so the versions
+# actually installed are read back below and any drift from the file is reported rather than assumed
+# away.
+#
+# The pins are read from the file with a regular expression rather than parsed: this runs before
+# anything is installed, so the step that installs PyYAML cannot itself depend on PyYAML.
+PYTHON_PINS=()
+while IFS= read -r pin; do
+    PYTHON_PINS+=("$pin")
+done < <(sed -n 's/^\([A-Za-z0-9_.-]*==[A-Za-z0-9_.+-]*\).*/\1/p' requirements.txt)
+
+if [ ${#PYTHON_PINS[@]} -eq 0 ]; then
+    note "no \"name==version\" pin found in requirements.txt, so nothing was installed." "the whole Python toolchain"
 else
-    note "pip install -r requirements.txt failed. yamllint, ansible-lint, --syntax-check and the home-made checks are all unavailable." \
-        "the whole Python toolchain"
+    PINS_INSTALLED=()
+    PINS_FAILED=()
+    for pin in "${PYTHON_PINS[@]}"; do
+        if pip_install "$pin"; then
+            PINS_INSTALLED+=("$pin")
+        else
+            PINS_FAILED+=("$pin")
+        fi
+    done
+
+    # Read back what is actually importable, since a dependency of one pin can have moved another.
+    for pin in "${PINS_INSTALLED[@]}"; do
+        name="${pin%%==*}"
+        wanted="${pin##*==}"
+        got="$(pip show "$name" 2> /dev/null | sed -n 's/^Version: //p')"
+        if [ -n "$got" ] && [ "$got" != "$wanted" ]; then
+            note "$name is installed at $got, not the pinned $wanted -- another pin's dependencies moved it." \
+                "$name at its pinned version"
+        fi
+    done
+
+    if [ ${#PINS_FAILED[@]} -eq 0 ]; then
+        printf 'Python tooling: %d/%d pins installed (%s)\n' \
+            "${#PINS_INSTALLED[@]}" "${#PYTHON_PINS[@]}" "$(yamllint --version 2> /dev/null || echo 'yamllint absent')"
+    else
+        # ! A refused pin does not always mean the package is absent. Another pin's dependencies can
+        # pull a version of it that pip WILL accept -- ansible-lint brings an ansible-core it can
+        # live with -- so the tool works and only its version differs. Saying "not installed" there
+        # would send a reader hunting for something that is in front of them; saying nothing would
+        # let an unpinned version pass for a pinned one. Both are read back and named.
+        for pin in "${PINS_FAILED[@]}"; do
+            name="${pin%%==*}"
+            got="$(pip show "$name" 2> /dev/null | sed -n 's/^Version: //p')"
+            if [ -n "$got" ]; then
+                note "$pin was refused, but $name $got is present -- pulled in as another pin's dependency. Results here are NOT the pinned version's." \
+                    "$name at its pinned version"
+            else
+                note "$pin could not be installed, and $name is absent. Whatever depends on it cannot be run here." \
+                    "$name"
+            fi
+        done
+        printf 'Python tooling: %d/%d pins installed, %d refused\n' \
+            "${#PINS_INSTALLED[@]}" "${#PYTHON_PINS[@]}" "${#PINS_FAILED[@]}"
+    fi
 fi
 
 # 2. gitleaks ---------------------------------------------------------------------------------------

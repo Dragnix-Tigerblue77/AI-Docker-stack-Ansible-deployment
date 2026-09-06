@@ -227,12 +227,21 @@ and it enables `.githooks/` when both that directory and `gitleaks` are there. I
 idempotent, best-effort, and does nothing outside a remote session. See its own header for the
 detail, and its last line for which checks the session can actually be trusted to run.
 
-One thing it has to work around, real and measured:
+Two things it has to work around, both real and both measured. They share a shape: **pip resolves a
+requirements file as one unit, so a single pin it cannot satisfy takes the others down with it** --
+and CI never sees either, because `actions/setup-python` hands it a clean 3.12 interpreter.
 
-* **`pip install` needs `--ignore-installed` in this image.** It carries Debian's PyYAML 6.0.1 in
-  `/usr/lib/python3/dist-packages`, installed by dpkg and so without the `RECORD` file pip needs to
-  remove it. Without the retry, pip refuses the whole transaction -- ansible-core, ansible-lint and
-  yamllint included -- over one package nobody asked to change. CI does not hit this: its
-  `actions/setup-python` starts from a clean interpreter.
+* **`pip install` needs an `--ignore-installed` retry in this image.** It carries Debian's PyYAML
+  6.0.1 in `/usr/lib/python3/dist-packages`, installed by dpkg and so without the `RECORD` file pip
+  needs to remove it. Without the retry, pip refuses the whole transaction over one package nobody
+  asked to change.
+* **The pins are installed one at a time, not as a file (#57).** `ansible-core` is pinned to a
+  version requiring Python 3.12 while the image has 3.11, so the single transaction failed and the
+  session started with nothing at all. Per pin it keeps everything else, and says which one it lost.
+
+The second brings a cost worth knowing: installing one by one drops pip's cross-package resolution,
+so a pin's own dependencies can move another. The hook reads the installed versions back and names
+any drift -- **`ansible-lint` installs at its pinned version and works, on an `ansible-core` that is
+not the pinned one.** A lint run here is therefore not the same run CI makes.
 
 If a check could not be run, say so plainly rather than reporting it as passing.
