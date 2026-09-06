@@ -28,10 +28,17 @@ rules:
 
   # ! The five settings below are NOT preferences: ansible-lint REFUSES to offer its "--fix" mode
   #   unless it finds its own yamllint profile ("Found incompatible custom yamllint configuration",
-  #   then "Fix mode will not be available"). It says so in a warning and keeps linting, so the
-  #   capability disappears without anything failing -- which is how it went unnoticed until the
-  #   profile was raised to "production". Changing any of them is choosing to lose "ansible-lint
-  #   --fix"; that is a decision to write down here, not a side effect to discover.
+  #   then "Fix mode will not be available"). On a plain run it says so in a warning and keeps
+  #   linting, so the capability disappears without anything failing -- which is how it went
+  #   unnoticed until the profile was raised to "production"; "--fix" itself logs the same thing as
+  #   an ERROR and exits 3 without fixing anything. Changing any of them is choosing to lose
+  #   "ansible-lint --fix"; that is a decision to write down here, not a side effect to discover.
+  #
+  # ! There is a SIXTH requirement, "braces.min-spaces-inside: 0", and it is not written below on
+  #   purpose: "extends: default" already supplies 0, so restating it would be a second copy of a
+  #   value nobody sets. It is named here because that is exactly what makes it easy to lose --
+  #   overriding it under the "braces" key below costs "--fix" with no other symptom. Measured:
+  #   setting it to 1 makes ansible-lint answer "braces.min-spaces-inside must be 0".
   comments:
     min-spaces-from-content: 1
   comments-indentation: false

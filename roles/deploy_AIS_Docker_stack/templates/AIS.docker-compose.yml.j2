@@ -10,9 +10,11 @@
 # Each service issue adds its block here, on the commented model below, and its variables in
 # "defaults/main.yml".
 #
-# The mapping is empty until one lands. That is valid YAML, and it renders and parses, but
-# "docker compose config" refuses a stack with no service: this skeleton describes what one adds
-# INTO, it does not deploy on its own. See the README's "Ce que ce squelette ne fait pas".
+# The mapping is empty until one lands. That is valid YAML, it renders and parses, and
+# "docker compose config" accepts it -- it is "docker compose up" that refuses, with "no service
+# selected". Written as a bare "services:" with no value it would not even reach that far. This
+# skeleton describes what one adds INTO, it does not deploy on its own. See the README's "Ce que ce
+# squelette ne fait pas".
 services: {}
 
 {% raw %}
