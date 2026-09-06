@@ -78,26 +78,14 @@
 # level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
 # homelab repository -- a task connecting as an account other than the one its "vars:" announced,
 # and reporting "ok".
-# Rendered BEFORE the stack is deployed, because the deployment role renders the compose file and
-# then hands it to the orchestrator: a file that arrives after that is a file the first start ran
-# without.
+# The two secrets never appear in a file of their own: they are interpolated straight into the
+# compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
+# file to secure -- the compose file itself already carries the "0600" / "diff: false" contract the
+# deployment role owes it, in "Le contrat du rôle de déploiement" above, for exactly this reason.
 #
-# "0600" and "no_log" are not belt and braces. The file holds the two secrets in clear text, and
-# "diff: false" is what keeps "--diff" from printing the whole of it into the run's output -- a leak
-# that outlives the run is worse than the file itself.
-- name: "Render the {{ AIS_Docker_stack_name }} stack environment file"
-  ansible.builtin.template:
-    src: "AIS.env.j2"
-    dest: "{{ AIS_environment_file_destination_path }}"
-    owner: "root"
-    group: "root"
-    mode: "0600"
-  no_log: true
-  diff: false
-
-# No secret in this one -- the gateway reads the master key and the database URL from its
-# environment, not from here -- so it is neither "no_log" nor undiffable. It is mounted read-only:
-# the gateway reads its routing configuration, it does not rewrite it.
+# No secret in this one either -- the gateway reads the master key and the database URL from its
+# own container environment, not from here -- so it is neither "no_log" nor undiffable. It is
+# mounted read-only: the gateway reads its routing configuration, it does not rewrite it.
 - name: "Render the {{ AIS_Docker_stack_name }} stack LiteLLM configuration"
   ansible.builtin.template:
     src: "LiteLLM_config.yaml.j2"

@@ -51,7 +51,6 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_PostgreSQL_database` · `AIS_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
 | `AIS_PostgreSQL_data_Docker_volume_name` | `AIS_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `AIS_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
-| `AIS_environment_file_name` · `..._destination_path` | `.env` | Le fichier d'environnement, rendu `0600` depuis le vault. |
 | `AIS_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
 
 `false` et non `''` pour les deux derniers : ansible-core 2.19 refuse un test de vérité sur autre chose
@@ -105,14 +104,22 @@ et `Docker_stack_deployment_state`.
 La passerelle et sa base (#1)
 -----------------------------
 
-Deux services, et trois fichiers rendus sur le nœud : le `docker-compose`, un `.env` en `0600`, et la
-configuration de routage de LiteLLM montée en lecture seule.
+Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte les deux
+secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
+lecture seule et sans secret propre.
 
 **Aucun port publié, et c'est le point central.** Le conteneur LiteLLM détient les clés Gemini / Groq /
 Mistral des *deux* comptes plus la clé maîtresse. Publié tel quel — sans TLS, sans authentification en
 frontal — il répond à tout ce qui se branche sur le LAN. Le port `4000` reste donc un port du réseau du
 stack. La conséquence est assumée : `/ui` n'est plus joignable depuis un navigateur du LAN, et son
 exposition éventuelle est une décision distincte, qui passerait par le reverse proxy de l'appelant.
+
+**Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `AIS_PostgreSQL_password`
+et `AIS_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
+qui permet à la même forme de servir Compose et Swarm sans y toucher : Ansible rend ce fichier de la
+même façon quel que soit celui qui le lira ensuite. C'est aussi pourquoi le fichier compose porte déjà
+l'obligation `0600` / `diff: false` du contrat du rôle de déploiement : elle existe depuis #31,
+précisément pour le jour où le template interpolerait un secret.
 
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
@@ -126,19 +133,19 @@ comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier l
 les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
 *pré-authentifiée* visant précisément la base déployée ici.
 
-### Deux points qui attendent la bascule Swarm
+### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
-Ils sont écrits ici pour ne pas être découverts à ce moment-là :
+L'interpolation par Ansible plutôt que par un `.env` a réglé le premier problème d'elle-même : rendre
+le fichier compose est le travail d'Ansible, pas de l'orchestrateur, donc la bascule Compose → Swarm ne
+change rien à la façon dont les deux secrets y arrivent.
 
-1. **Le `.env` n'est lu que par Compose.** Compose le trouve parce qu'il est dans le *répertoire de
-   projet*, celui du fichier de compose — c'est pourquoi les deux chemins dérivent du même répertoire.
-   `docker stack deploy` interpole depuis l'environnement du *shell* : la bascule demandera soit un
-   `set -a; . ./.env`, soit des secrets natifs.
-2. **LiteLLM lit `os.environ/…`.** Les secrets Swarm se montent en fichiers, donc le passage demandera
-   soit un point d'entrée qui exporte le contenu du fichier, soit les variantes `*_FILE` là où elles
-   existent.
+Ce qui reste à traiter à ce moment-là : **LiteLLM lit `os.environ/…`** pour sa clé maîtresse et son URL
+de base, valeurs que le compose lui passe en clair via `environment:`. Swarm sait faire pareil, à
+l'identique -- ce n'est donc pas un blocage -- mais le jour de la bascule est le bon moment pour se
+demander si les secrets natifs de Swarm ne valent pas mieux que des variables en clair dans le fichier
+rendu, question que Compose ne se pose de toute façon pas.
 
-`depends_on` relève du même registre : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
+`depends_on` relève d'un registre voisin : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
 donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
 l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
 d'essai.

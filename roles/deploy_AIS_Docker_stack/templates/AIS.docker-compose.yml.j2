@@ -23,12 +23,14 @@ services:
 
     environment:
       TZ: "{{ AIS_server_time_zone }}"
-      # Drawn from the environment file this role renders 0600 beside the compose file. The literal
-      # value never appears here -- what is written in this file is readable by whoever can read the
-      # file.
-      POSTGRES_DB: "${POSTGRES_DB}"
-      POSTGRES_USER: "${POSTGRES_USER}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      # Interpolated by ANSIBLE, at render time -- not by Compose from a ".env" it would otherwise
+      # need in the project directory. It is what lets the same template serve Compose and Swarm
+      # unchanged: Ansible renders this file the same way regardless of which one reads it next. The
+      # literal value never appears anywhere else -- it is why the caller's deployment role has to
+      # write THIS file "0600" and with "diff: false".
+      POSTGRES_DB: "{{ AIS_PostgreSQL_database }}"
+      POSTGRES_USER: "{{ AIS_PostgreSQL_user }}"
+      POSTGRES_PASSWORD: "{{ AIS_PostgreSQL_password }}"
 
     volumes:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
@@ -81,11 +83,16 @@ services:
       TZ: "{{ AIS_server_time_zone }}"
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
-      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      #
+      # Interpolated by Ansible, like the two secrets below -- see the note on "POSTGRES_PASSWORD"
+      # above. LiteLLM itself still reads both from ITS OWN container environment at "os.environ/...",
+      # which "LiteLLM_config.yaml.j2" points at: what changes is where that environment variable gets
+      # its value from, never how LiteLLM consumes it.
+      DATABASE_URL: "postgresql://{{ AIS_PostgreSQL_user }}:{{ AIS_PostgreSQL_password }}@postgres:5432/{{ AIS_PostgreSQL_database }}"
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
-      LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY}"
+      LITELLM_MASTER_KEY: "{{ AIS_LiteLLM_master_key }}"
       STORE_MODEL_IN_DB: "True"
 
     volumes:
