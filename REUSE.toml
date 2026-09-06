@@ -1,0 +1,25 @@
+version = 1
+SPDX-PackageName = "AI-Docker-stack-Ansible-deployment"
+SPDX-PackageDownloadLocation = "https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment"
+
+# Every file this repository can annotate carries its two SPDX lines in its own header, which is what
+# the REUSE specification asks for. The two groups below cannot, and each is declared here rather
+# than left uncovered -- an uncovered file is one "reuse lint" reports, and a report nobody can act
+# on is how a check gets disabled.
+
+# Rendered onto the managed node rather than kept here: a header in one of these does not stay in
+# this repository, it ends up in the deployed "docker-compose.yml", in a file the operator reads on
+# the target. The same reasoning as "Homelab_Ansible_deployment", which declares the same path.
+[[annotations]]
+path = "roles/**/templates/**"
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# JSON has no comment syntax at all: a "#" line is not a comment there, it is a parse error. This
+# rule covers a file that does not exist on "main" yet -- ".claude/settings.json", which #22 brings
+# -- and that is deliberate. Without it, enabling "reuse lint" here would turn that pull request red
+# on a file whose author has no way of complying.
+[[annotations]]
+path = ["**/*.json"]
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"

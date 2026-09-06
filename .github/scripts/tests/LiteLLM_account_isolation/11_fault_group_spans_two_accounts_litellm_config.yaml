@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: groups deployments -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: groups deployments
 ---
 # The invisible vector, and the check's real motive: one single model_name, two keys. Not one
 # "fallbacks" line has been written, and yet the automatic cooldown will have the two accounts

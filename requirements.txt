@@ -16,6 +16,16 @@ ansible-core==2.19.11
 ansible-lint==26.6.0
 yamllint==1.38.0
 
+# Checks that every file carries a copyright line and an SPDX identifier, and that every identifier
+# used has its text under "LICENSES/". Nothing else in this CI can see a file added without a header.
+#
+# It was deferred by #32, on the reasoning that a root "LICENSE" is enough while the repository is
+# unpublished. #52 reopened it for a reason the neighbouring repository makes concrete: SPDX headers
+# have been the rule here since #31, verified by nobody -- and
+# "Dell_iDRAC_fan_controller_Docker" does exactly that, with 12 of its files having quietly lost
+# theirs. The difference between the two repositories is not discipline, it is this job.
+reuse==6.2.0
+
 # Read by ".github/scripts/check_LiteLLM_account_isolation.py". It is the only dependency these
 # checks pay for, and it was bought knowingly: the line-by-line version of the check did not see a
 # cross-account fallback written in block style -- the very form any YAML serialiser produces. A

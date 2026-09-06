@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: ALL the model groups -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: ALL the model groups
 ---
 # "default_fallbacks" applies to every group at once: it crosses every boundary in a single go,
 # including the ones that do not exist yet.

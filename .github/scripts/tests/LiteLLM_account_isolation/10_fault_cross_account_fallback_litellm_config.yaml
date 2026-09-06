@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: fall back on -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: fall back on
 ---
 # The visible vector: a fallback that names a model belonging to the other person.
 model_list:

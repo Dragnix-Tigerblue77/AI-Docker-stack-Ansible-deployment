@@ -1,4 +1,6 @@
-# EXPECTED: 1 CONTAINS: litellm_settings -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: litellm_settings
 ---
 # The fallback keys are declared under "router_settings" just as readily as under
 # "litellm_settings". Watching only the first would leave a door wide open, in the very section

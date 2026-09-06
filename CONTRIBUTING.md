@@ -49,6 +49,7 @@ python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
 
+reuse lint
 gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
 ```
 
@@ -90,9 +91,12 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
   contenu des issues n'est couvert par **aucun** filet automatique, c'est une vigilance humaine.
 * Les pull requests ne sont **jamais ouvertes en draft**. Ce qui n'est pas vérifié se dit dans le
   corps de la pull request.
-* En-tête SPDX sur chaque fichier. `reuse lint` n'est pas encore en CI, donc ces en-têtes ne sont
-  vérifiés par personne pour l'instant — et cela dérive : `Dell_iDRAC_fan_controller_Docker` pose
-  des en-têtes sans contrôle, et 12 de ses fichiers en sont dépourvus.
+* En-tête SPDX sur chaque fichier, **vérifié par `reuse lint` en CI** (#52). Les deux familles qui
+  n'en portent pas — les templates de rôle, rendus sur le nœud géré, et le JSON, qui n'a pas de
+  syntaxe de commentaire — sont déclarées dans `REUSE.toml`, chacune avec sa raison.
+  `LICENSE` est un **lien symbolique** vers `LICENSES/AGPL-3.0-only.txt` : le fichier que `reuse`
+  exige et celui dont GitHub tire le badge de licence sont ainsi les mêmes octets, pas deux copies
+  libres de diverger.
 
 ## Licence
 

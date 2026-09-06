@@ -1,4 +1,6 @@
-# EXPECTED: 2 CONTAINS: no identifiable account -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 2 CONTAINS: no identifiable account
 ---
 # A key the check cannot attribute to an account has to be REPORTED, not ignored: an unattributed
 # entry is exactly an entry on which none of the rules protects anything.

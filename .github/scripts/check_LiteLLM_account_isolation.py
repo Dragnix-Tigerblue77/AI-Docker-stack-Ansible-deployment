@@ -384,10 +384,15 @@ def run_selftest():
 
     for name in names:
         path = os.path.join(SELFTEST_DIRECTORY, name)
+        # The declaration is looked for in the first few lines rather than on line 1, so that a
+        # fixture can carry a NORMAL SPDX header like every other file of the repository. It used to
+        # share line 1 with those two tags, and "reuse lint" did not see a licence there: a tag has
+        # to start its line to be read. Measured -- the nine fixtures were the only files the tool
+        # reported.
         with open(path, encoding="utf-8") as handle:
-            first_line = handle.readline()
-        expected = re.search(r"EXPECTED\s*:\s*(\d+)", first_line)
-        fragment = re.search(r"CONTAINS\s*:\s*(.+?)\s*(?:--|$)", first_line)
+            head = "".join(handle.readline() for _ in range(6))
+        expected = re.search(r"EXPECTED\s*:\s*(\d+)", head)
+        fragment = re.search(r"CONTAINS\s*:\s*(.+?)\s*$", head, re.MULTILINE)
         if not expected:
             print("selftest: %s does not announce its expected number of problems" % name)
             failures += 1
