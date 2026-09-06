@@ -159,6 +159,57 @@ services:
 
     networks:
       - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
+  # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73). No provider key is ever
+  # connected to it: it is deliberately shared between every account, since there is no quota behind
+  # it to isolate. "check_LiteLLM_account_isolation.py" (#2) exempts it from the isolation rules for
+  # exactly this reason.
+  # ------------------------------------------------------------------------------------------------
+  omniroute:
+    # Explicit SemVer, never ":latest" and never the "-web" variant -- see "defaults/main.yml".
+    image: "diegosouzapw/omniroute:{{ AIS_OmniRoute_Docker_image_tag }}"
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+      # Overrides the image's own "CHANGEME" default, which upstream documents as deliberately weak
+      # to force a change -- never left as-is, same standard as "AIS_LiteLLM_UI_password" (#1).
+      INITIAL_PASSWORD: "{{ AIS_OmniRoute_dashboard_password }}"
+
+    volumes:
+      # Named, at the path the upstream Docker guide's own example mounts: "/app/data".
+      - "{{ AIS_OmniRoute_data_Docker_volume_name }}:/app/data:rw"
+
+    # Published, for the same reason as LiteLLM's "/ui" (#1): the dashboard needs to be reachable
+    # from a browser on the LAN, and "INITIAL_PASSWORD" above is what stands in front of it.
+    # "REQUIRE_API_KEY" is deliberately left at its default ("false"): this is the account-agnostic,
+    # keyless fallback every account's cascade falls back to (#2), by design.
+    ports:
+      - "20128:20128"
+
+    healthcheck:
+      # No "curl" guaranteed in a Node.js image any more than in LiteLLM's -- written with the
+      # runtime the image already has. "/livez" is the liveness endpoint the upstream Docker guide
+      # documents.
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - "require('http').get('http://localhost:20128/livez', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "{{ AIS_OmniRoute_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
 {% if AIS_Claude_code_tigerblue77_enabled %}
 
   # ------------------------------------------------------------------------------------------------
@@ -304,6 +355,8 @@ volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance
   # criterion rather than an assumption.
   {{ AIS_PostgreSQL_data_Docker_volume_name }}:
+  # OmniRoute's SQLite store (#73). Named, so it survives a container recreation.
+  {{ AIS_OmniRoute_data_Docker_volume_name }}:
 {% if AIS_Claude_code_tigerblue77_enabled %}
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.

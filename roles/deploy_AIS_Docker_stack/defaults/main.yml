@@ -154,6 +154,31 @@ AIS_LiteLLM_UI_username: "admin"
 # AIS_LiteLLM_UI_password:
 
 # --------------------------------------------------------------------------------------------------
+# OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)
+# --------------------------------------------------------------------------------------------------
+
+# Explicit SemVer, never ":latest" and never the "-web" variant (a desktop/PWA build this deployment
+# has no use for: it is consumed as a plain OpenAI-compatible API by LiteLLM, #2).
+#
+# ! Verified on 2026-09-06 against the upstream Docker Hub tags.
+AIS_OmniRoute_Docker_image_tag: "3.8.50"
+
+# The named volume OmniRoute's SQLite store lives in, at the path its own Docker guide documents
+# ("/app/data") -- not a bind mount, for the same reason as every other stateful service here.
+AIS_OmniRoute_data_Docker_volume_name: "AIS_OmniRoute_data"
+
+# Starting value. The image's own default heap (1024 MB) is documented as sufficient for light,
+# occasional traffic -- which is exactly what a last-resort fallback is -- but not for a primary
+# coding-agent workload. Recall this if OmniRoute ever stops being a fallback.
+AIS_OmniRoute_memory_limit: "2g"
+
+# MANDATORY, without a default: the image ships "CHANGEME" otherwise, documented upstream as
+# deliberately weak to force a change. Treated exactly like "AIS_LiteLLM_UI_password" (#1) -- the
+# port is published for the same reason (the dashboard needs a browser on the LAN), so this is the
+# one thing standing in front of it.
+# AIS_OmniRoute_dashboard_password:
+
+# --------------------------------------------------------------------------------------------------
 # Claude Code agent -- tigerblue77 (#13)
 # --------------------------------------------------------------------------------------------------
 

@@ -74,6 +74,11 @@
         # SQL injection aimed at the very database this stack deploys.
         # AIS_LiteLLM_Docker_image_tag: "v1.100.0"
 
+        # MANDATORY since #73, and without a default: the image ships "CHANGEME" otherwise, which
+        # upstream documents as deliberately weak. OmniRoute's port is published for the dashboard,
+        # same reasoning as LiteLLM's "/ui" (#1).
+        AIS_OmniRoute_dashboard_password: "{{ vault_AIS_OmniRoute_dashboard_password }}"
+
         # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants
         # the service finds every variable it needs in one place instead of discovering them one

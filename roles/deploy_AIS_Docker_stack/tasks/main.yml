@@ -83,6 +83,18 @@
       "AIS_Claude_code_tigerblue77_enabled" is true, and none of the three has a default: the first
       two are secrets, the third is a host path, and this role presupposes neither. See #13.
 
+- name: "Check the OmniRoute dashboard password is provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_OmniRoute_dashboard_password is defined
+      - AIS_OmniRoute_dashboard_password is string
+      - AIS_OmniRoute_dashboard_password | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_OmniRoute_dashboard_password" is mandatory and has no default: the image ships "CHANGEME"
+      otherwise, documented upstream as deliberately weak. Its port is published for the dashboard to
+      be reachable from the LAN (#73), so this password is the one thing standing in front of it.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
