@@ -152,3 +152,55 @@ AIS_LiteLLM_memory_limit: "2g"
 # reason the two secrets above do not.
 AIS_LiteLLM_UI_username: "admin"
 # AIS_LiteLLM_UI_password:
+
+# --------------------------------------------------------------------------------------------------
+# Claude Code agent -- tigerblue77 (#13)
+# --------------------------------------------------------------------------------------------------
+
+# Off by default. #31 requires every service to be enabled or disabled by a variable, and an agent
+# that reaches an individual's own Claude Code session is not something a fresh deployment should
+# start running unasked. It is also the FIRST service of this template that ships disabled: turning
+# it on is what switches "services:" from "{}" to a real mapping, in the template.
+AIS_Claude_code_tigerblue77_enabled: false
+
+# The image this service is BUILT ON, never installed a second time: it already carries the pinned
+# CLI, the non-root "node" user and the auto-updater switched off (see
+# "https://github.com/Dragnix-Tigerblue77/Claude-Code-Docker-container"). Pinned by tag AND digest,
+# per #13 -- never ":latest", and never the tag alone either.
+AIS_Claude_code_Docker_image_tag: "2.1.236"
+AIS_Claude_code_Docker_image_digest: "sha256:025264aeda3bf906a26d1f9282f69dcbbb169e7fb7e5a4406d42f90311d5e35a"
+
+# Where the Dockerfile this role renders from "templates/claude_code_tigerblue77.Dockerfile.j2" lands
+# on the managed node, next to the rendered compose file: "build:" needs an actual path on that
+# machine, not something read out of this repository at deploy time.
+AIS_Claude_code_tigerblue77_build_context_directory: "{{ AIS_Docker_compose_file_destination_directory }}claude_code_tigerblue77/"
+
+# MANDATORY when the service above is enabled, and without a default -- same reasoning as every other
+# secret this role interpolates. Created in the LiteLLM admin UI (#2, or by hand until #2 lands): the
+# model allow-list a virtual key carries is what stands between this container and every other
+# account's quota. NEVER the master key.
+# AIS_Claude_code_tigerblue77_virtual_key:
+
+# MANDATORY when the service above is enabled, and without a default. A personal access token, read
+# by both "gh" and git inside the container. #13 defers real repository access to the MCP GitHub
+# connector (#23); until that lands, this is how the agent reaches a repository at all.
+# AIS_Claude_code_tigerblue77_GitHub_token:
+
+# MANDATORY when the service above is enabled, and without a default: a host path is inventory data,
+# which this role does not get to presuppose. The caller's own working tree for this agent.
+# AIS_Claude_code_tigerblue77_workspace_directory:
+
+# The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
+# not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
+# subscription may ever sit behind it.
+AIS_Claude_code_tigerblue77_model: "claude-code"
+
+# Starting value, to be recalled after measuring under load. Higher than a bare agent's would be: the
+# image adds "gh", "ansible-core" and build tooling on top of the published Claude Code image.
+AIS_Claude_code_tigerblue77_memory_limit: "2g"
+
+# The named volume the WHOLE home directory lives in -- not only "~/.claude". "~/.claude.json" sits
+# BESIDE "~/.claude", never inside it: a volume on "~/.claude" alone persists half the session and
+# silently loses the other half on every recreation. See the upstream image's own README on this
+# trap, and #13's Definition of Done, which checks for it explicitly.
+AIS_Claude_code_tigerblue77_home_Docker_volume_name: "AIS_Claude_code_tigerblue77_home"

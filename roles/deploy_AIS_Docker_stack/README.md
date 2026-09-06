@@ -55,6 +55,21 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 
+Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
+`AIS_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
+| `AIS_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
+| `AIS_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
+| `AIS_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
+| `AIS_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
+| `AIS_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
+| `AIS_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
+| `AIS_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `AIS_Claude_code_tigerblue77_home_Docker_volume_name` | `AIS_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
+
 `false` et non `''` pour les deux derniers : ansible-core 2.19 refuse un test de vérité sur autre chose
 qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et DNS du dépôt
 `Homelab_Ansible_deployment`, repris tel quel plutôt que réinventé.
@@ -158,14 +173,58 @@ donc tolérer une base pas encore prête, et c'est la politique de redémarrage 
 l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
 d'essai.
 
+L'agent Claude Code -- tigerblue77 (#13)
+-----------------------------------------
+
+Construit **sur** l'image publiée par `Claude-Code-Docker-container`, jamais reconstruit depuis une
+base nue : cette image porte déjà le CLI épinglé, l'utilisateur non-root `node` et l'auto-updater
+désactivé, et repartir d'une base Node nue referait tout cela une seconde fois, avec le risque de le
+refaire différemment.
+
+**`build:`, pas `image:` seul, parce que ce compte a besoin de plus que l'agent.** `gh`, `ansible-core`
+et de l'outillage de compilation s'ajoutent par-dessus l'image publiée -- ce sont les outils du travail
+d'infrastructure de tigerblue77, pas des besoins de Claude Code lui-même. Le `Dockerfile` est **rendu**
+par ce rôle (`templates/claude_code_tigerblue77.Dockerfile.j2`) plutôt que copié tel quel : l'image dont
+il part reste ainsi une seule valeur dans `defaults/main.yml`, épinglée par tag et digest, plutôt qu'une
+seconde copie figée dans un fichier statique.
+
+**Le répertoire personnel monté est `/home/node` en entier, jamais `~/.claude` seul.** C'est le piège
+d'authentification que le dépôt amont documente sur lui-même : `~/.claude.json` vit À CÔTÉ de
+`~/.claude`, pas dedans, et un volume sur `~/.claude` seul perd la moitié de la session à chaque
+recréation du conteneur, sans qu'aucune erreur ne le signale. L'entrée du conteneur restaure ce fichier
+depuis la plus récente de ses propres sauvegardes si le volume est neuf.
+
+**Aucun montage de `docker.sock` dans cette issue.** #11 n'a pas encore conçu l'isolation qu'un agent
+doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce conteneur attend cette
+décision plutôt que de la devancer. `docker.io` est installé mais inerte : rien ne branche le socket
+tant que #11 n'a pas tranché.
+
+**Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
+dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
+l'un ou l'autre existe, `AIS_Claude_code_tigerblue77_GitHub_token` est ce qui permet à `gh` et à git de
+fonctionner à l'intérieur du conteneur.
+
+**Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
+la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
+l'alias `claude-code` que #2 résout dans LiteLLM. C'est le point de conformité de #13 : quoi que cet
+alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonnement.
+
+**Ce service ne dépend pas de #1 pour être mergé, seulement pour tourner.** Il se déploie et se rend
+indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réellement présent, que
+`ANTHROPIC_BASE_URL` doit pouvoir le résoudre.
+
 Ce que ce squelette ne fait pas
 -------------------------------
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
-  `postgres` et `litellm`, le fichier rendu passe `docker compose config`, et le seul port qui apparaît
-  dans la configuration résolue est le `4000` de LiteLLM, désormais publié à dessein. Ce qui reste à
-  faire sur une vraie machine : la mesure sous charge des deux limites mémoire, la persistance après un
-  `down` / `up`, et l'idempotence sur un second passage.
+  `postgres` et `litellm` **inconditionnellement**, et le fichier rendu passe `docker compose config`.
+  Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus quand `AIS_Claude_code_tigerblue77_enabled`
+  vaut `true` (`false` par défaut -- #31 exige que chaque service se déclare ainsi) ; dans les deux
+  états, le seul port qui apparaît dans la configuration résolue est le `4000` de LiteLLM, publié à
+  dessein. La case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient
+  donc vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur une vraie machine : la
+  mesure sous charge des limites mémoire, la persistance après un `down` / `up`, et l'idempotence sur
+  un second passage.
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation

@@ -48,18 +48,31 @@ PUBLISHED_NETWORK = {
     "AIS_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
 }
 
+# #13's service is off by default, which is exactly the branch "check_conventions" never exercises
+# unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
+# a defect inside it -- an undeclared volume, an unpinned image -- would render and parse cleanly
+# forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
+CLAUDE_CODE_TIGERBLUE77_ENABLED = {
+    "AIS_Claude_code_tigerblue77_enabled": True,
+    "AIS_Claude_code_tigerblue77_virtual_key": "sk-selftest",
+    "AIS_Claude_code_tigerblue77_GitHub_token": "ghp_selftest",
+    "AIS_Claude_code_tigerblue77_workspace_directory": "/srv/selftest/workspace",
+}
+
 
 def load_defaults():
     """Read the role's defaults, resolving those that interpolate the others.
 
     Several defaults are derived -- a destination path is a directory plus a file name -- and
     "yaml.safe_load" has no reason to notice: it hands back the "{{ ... }}" as the literal string it
-    is. Rendered into the template, that literal reaches the compose file, and a mount written that
-    way is read as naming a volume rather than a host path.
+    is. Rendered into the template, that literal reaches the compose file, and a mount or a build
+    context written that way is read as naming something else entirely.
 
-    This resolved one pair by hand while there was one pair. #1 added two more, and the by-hand form
-    reported them as undeclared volumes -- a finding about the CHECK, phrased as a finding about the
-    template, which is the shape that gets a real one waived. So it resolves every default now, by
+    This resolved one pair by hand while there was one pair. #1 and #13 each added another --
+    independently, on separate branches -- and the by-hand form reported the first as an undeclared
+    volume and would have carried the second's literal into "build.context" unnoticed, since nothing
+    here reads that key. Both are findings about the CHECK, phrased as findings about the template,
+    which is the shape that gets a real one waived. It resolves every default now, by
     rendering each one against the others until nothing moves.
     """
     defaults = yaml.safe_load((ROLE / "defaults" / "main.yml").read_text(encoding="utf-8"))
@@ -401,7 +414,11 @@ def main():
     failures = []
     documents = {}
 
-    for state, extra in (("published network unset", {}), ("published network set", PUBLISHED_NETWORK)):
+    for state, extra in (
+        ("published network unset", {}),
+        ("published network set", PUBLISHED_NETWORK),
+        ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
+    ):
         context = dict(defaults, **extra)
         try:
             rendered = render(context)
@@ -415,7 +432,7 @@ def main():
             continue
         check_conventions(documents[state], state, failures)
 
-    if len(documents) == 2:
+    if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
 
     if failures:
