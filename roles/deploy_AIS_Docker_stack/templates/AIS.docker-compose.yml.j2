@@ -251,6 +251,80 @@ services:
 
     networks:
       - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
+  # LibreChat -- the AIS's human-facing chat interface (#76).
+  # ------------------------------------------------------------------------------------------------
+  librechat:
+    # Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main") and
+    # never ":latest".
+    image: "ghcr.io/danny-avila/librechat:{{ AIS_LibreChat_Docker_image_tag }}"
+
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3080"
+      MONGO_URI: "mongodb://librechat_mongodb:27017/LibreChat"
+      # LibreChat's OWN "${VAR}" syntax inside "librechat.yaml" resolves this at runtime -- a
+      # dedicated virtual key (#2), never the master key LiteLLM's own container never lets leave it
+      # (#1). LibreChat is a consumer of the gateway like any other.
+      LIBRECHAT_LITELLM_VIRTUAL_KEY: "{{ AIS_LibreChat_LiteLLM_virtual_key }}"
+      # Closed on purpose: the port below is on the LAN, and open registration there would hand
+      # anyone on the network a seat on both accounts' quotas. See "defaults/main.yml".
+      ALLOW_REGISTRATION: "{{ AIS_LibreChat_allow_registration | string | lower }}"
+      # Without these four, LibreChat generates temporary values on first start and keeps them
+      # nowhere but its own volume -- unsuitable for production by its own documentation.
+      CREDS_KEY: "{{ AIS_LibreChat_creds_key }}"
+      CREDS_IV: "{{ AIS_LibreChat_creds_IV }}"
+      JWT_SECRET: "{{ AIS_LibreChat_JWT_secret }}"
+      JWT_REFRESH_SECRET: "{{ AIS_LibreChat_JWT_refresh_secret }}"
+
+    volumes:
+      # Read-only: this is the AIS's copy, not LibreChat's to rewrite.
+      - "{{ AIS_LibreChat_config_file_destination_path }}:/app/librechat.yaml:ro"
+      - "{{ AIS_LibreChat_uploads_Docker_volume_name }}:/app/uploads:rw"
+
+    # Published: this is the AIS's human-facing chat interface, same reasoning as LiteLLM's "/ui"
+    # (#1) and OmniRoute's dashboard (#73). "ALLOW_REGISTRATION: false" above is what stands between
+    # the LAN and an unauthenticated seat on both accounts' quotas.
+    ports:
+      - "3080:3080"
+
+    depends_on:
+      librechat_mongodb:
+        condition: service_started
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "{{ AIS_LibreChat_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
+  # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
+  # ------------------------------------------------------------------------------------------------
+  librechat_mongodb:
+    # Explicit major, verified against the upstream compose example.
+    image: "mongo:{{ AIS_MongoDB_LibreChat_Docker_image_tag }}"
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+
+    volumes:
+      - "{{ AIS_MongoDB_LibreChat_data_Docker_volume_name }}:/data/db:rw"
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "{{ AIS_MongoDB_LibreChat_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
 {% if AIS_Claude_code_tigerblue77_enabled %}
 
   # ------------------------------------------------------------------------------------------------
@@ -400,6 +474,10 @@ volumes:
   {{ AIS_OmniRoute_data_Docker_volume_name }}:
   # Qdrant's storage (#3). Named, so it survives a container recreation.
   {{ AIS_Qdrant_data_Docker_volume_name }}:
+  # LibreChat's uploaded attachments and its MongoDB store (#76). Named, so both survive a container
+  # recreation.
+  {{ AIS_LibreChat_uploads_Docker_volume_name }}:
+  {{ AIS_MongoDB_LibreChat_data_Docker_volume_name }}:
 {% if AIS_Claude_code_tigerblue77_enabled %}
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.

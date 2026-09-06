@@ -107,6 +107,32 @@
       though no port is published, as defence-in-depth against a compromised workload reaching it
       over the internal network.
 
+- name: "Check the LibreChat secrets are provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_LibreChat_LiteLLM_virtual_key is defined
+      - AIS_LibreChat_LiteLLM_virtual_key is string
+      - AIS_LibreChat_LiteLLM_virtual_key | length > 0
+      - AIS_LibreChat_creds_key is defined
+      - AIS_LibreChat_creds_key is string
+      - AIS_LibreChat_creds_key | length > 0
+      - AIS_LibreChat_creds_IV is defined
+      - AIS_LibreChat_creds_IV is string
+      - AIS_LibreChat_creds_IV | length > 0
+      - AIS_LibreChat_JWT_secret is defined
+      - AIS_LibreChat_JWT_secret is string
+      - AIS_LibreChat_JWT_secret | length > 0
+      - AIS_LibreChat_JWT_refresh_secret is defined
+      - AIS_LibreChat_JWT_refresh_secret is string
+      - AIS_LibreChat_JWT_refresh_secret | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_LibreChat_LiteLLM_virtual_key", "AIS_LibreChat_creds_key", "AIS_LibreChat_creds_IV",
+      "AIS_LibreChat_JWT_secret" and "AIS_LibreChat_JWT_refresh_secret" are mandatory and have no
+      default (#76). Without the four encryption/JWT secrets LibreChat generates temporary ones on
+      first start and keeps them nowhere but its own volume -- unsuitable for production by its own
+      documentation. The virtual key is LibreChat's own, never "AIS_LiteLLM_master_key" (#1).
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
@@ -139,6 +165,17 @@
   ansible.builtin.template:
     src: "LiteLLM_config.yaml.j2"
     dest: "{{ AIS_LiteLLM_config_file_destination_path }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+
+# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja of its own, only
+# LibreChat's own "${VAR}" syntax, which LibreChat itself resolves from its container's environment
+# at runtime -- Ansible has nothing to interpolate here.
+- name: "Deploy the LibreChat configuration"
+  ansible.builtin.copy:
+    src: "librechat/librechat.yaml"
+    dest: "{{ AIS_LibreChat_config_file_destination_path }}"
     owner: "root"
     group: "root"
     mode: "0644"

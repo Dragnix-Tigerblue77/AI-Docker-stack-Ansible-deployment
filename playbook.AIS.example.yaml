@@ -84,6 +84,18 @@
         # network.
         AIS_Qdrant_API_key: "{{ vault_AIS_Qdrant_API_key }}"
 
+        # MANDATORY since #76, and without a default: LibreChat is a consumer of the gateway like any
+        # other, and gets its own virtual key (#2) rather than the master key.
+        AIS_LibreChat_LiteLLM_virtual_key: "{{ vault_AIS_LibreChat_LiteLLM_virtual_key }}"
+
+        # MANDATORY since #76, all four, without a default: LibreChat generates temporary values on
+        # first start otherwise, and keeps them nowhere but its own volume -- unsuitable for
+        # production by its own documentation.
+        AIS_LibreChat_creds_key: "{{ vault_AIS_LibreChat_creds_key }}"
+        AIS_LibreChat_creds_IV: "{{ vault_AIS_LibreChat_creds_IV }}"
+        AIS_LibreChat_JWT_secret: "{{ vault_AIS_LibreChat_JWT_secret }}"
+        AIS_LibreChat_JWT_refresh_secret: "{{ vault_AIS_LibreChat_JWT_refresh_secret }}"
+
         # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants
         # the service finds every variable it needs in one place instead of discovering them one
