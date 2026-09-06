@@ -49,6 +49,13 @@ because forgetting them costs the same time every session.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
   the body is in French: GitHub recognises no other form. `Ferme #31` does nothing at all, and that
   is exactly what left #31 open after #34 had merged.
+* **Priorities are not ours to set.** An issue's `Priority` field is agreed between @tigerblue77 and
+  @Dragnix-23. A session may *propose* a change, with its argument -- in the chat, or as a row in the
+  roadmap's proposal table (#33) -- but it never writes the field itself. Only @tigerblue77 validating
+  it does. This holds **even when a document already announces the change**: #33 carried "Remontée de
+  Low à High" for #12 for a day, and the session that dutifully applied it to the field was still
+  wrong, because the announcement was a proposal nobody had validated. A roadmap records decisions; it
+  does not make them.
 
 ## Language
 
