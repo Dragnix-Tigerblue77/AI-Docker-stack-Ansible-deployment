@@ -389,10 +389,17 @@ def run_selftest():
         #
         # It used to share line 1 with both SPDX tags, and "reuse lint" saw a copyright there but no
         # licence. The reason is NOT that a tag must start its line -- measured, a tag placed mid-line
-        # after a "--" IS read. It is that a tag's value runs to the END of its line: the copyright
-        # tag swallowed "/ SPDX-License-Identifier: AGPL-3.0-only" as part of the holder's name, so
-        # no licence tag was left. Two tags cannot share one line. The nine fixtures were the only
-        # files the tool reported.
+        # after a "--" IS read. It is that a tag's value runs to the END of its line, so the
+        # copyright tag swallowed the licence tag that followed it on the same line as part of the
+        # holder's name, and no licence tag was left. Two tags cannot share one line. The nine
+        # fixtures were the only files the tool reported.
+        #
+        # ! The paragraph above quoted that malformed line in full, and "reuse lint" then read the
+        #   quotation as a REAL tag and failed on the prose that followed it as an invalid licence
+        #   expression -- the comment explaining the trap fell into it. REUSE's own escape hatch is
+        #   a REUSE-IgnoreStart / REUSE-IgnoreEnd pair, which is what the homelab repository uses in
+        #   its ".yamllint" for the same reason. Here the quotation is simply gone instead: not
+        #   naming the tag says the same thing and costs nothing.
         with open(path, encoding="utf-8") as handle:
             head = "".join(handle.readline() for _ in range(6))
         expected = re.search(r"EXPECTED\s*:\s*(\d+)", head)
