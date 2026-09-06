@@ -179,6 +179,29 @@ AIS_OmniRoute_memory_limit: "2g"
 # AIS_OmniRoute_dashboard_password:
 
 # --------------------------------------------------------------------------------------------------
+# Qdrant -- the AIS's vector engine (#3)
+# --------------------------------------------------------------------------------------------------
+
+# Explicit SemVer, never ":latest". The issue's own draft targeted "v1.13.4", eighteen months and six
+# minor versions behind by the time #3 was written -- exactly the trap this convention exists for.
+#
+# ! Verified on 2026-09-06 against the upstream GitHub releases.
+AIS_Qdrant_Docker_image_tag: "v1.19.1"
+
+# Named volume for "/qdrant/storage". Persistence across a container recreation is an acceptance
+# criterion of #3, not a hope.
+AIS_Qdrant_data_Docker_volume_name: "AIS_Qdrant_data"
+
+# Starting value, to be recalled after measuring under load. The corpus #3 sizes this against
+# (10,000-30,000 chunks, ~120 MB of vectors) is small; this is deliberately generous rather than tight.
+AIS_Qdrant_memory_limit: "1g"
+
+# MANDATORY, without a default: #3 requires an API key even though no port is published, as
+# defence-in-depth against a compromised workload on the internal network. No default on purpose --
+# same reasoning as every other secret this role interpolates.
+# AIS_Qdrant_API_key:
+
+# --------------------------------------------------------------------------------------------------
 # Claude Code agent -- tigerblue77 (#13)
 # --------------------------------------------------------------------------------------------------
 
