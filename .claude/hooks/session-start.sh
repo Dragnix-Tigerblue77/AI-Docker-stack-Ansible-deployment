@@ -8,7 +8,9 @@
 #
 # What it installs, and why each one is here rather than assumed present : every tool below is used
 # by a job of ".github/workflows/ansible-ci.yml" or ".github/workflows/gitleaks.yml", and none of
-# them ships in the remote image.
+# them ships in the remote image AT THE PINNED VERSION. PyYAML is the exception that matters and the
+# reason step 1 needs a retry : the image carries Debian's 6.0.1, which is not the 6.0.3 pinned and
+# cannot be removed to make way for it. See the comment on "pip_install".
 #
 #   1. requirements.txt   ansible-core, ansible-lint, yamllint, PyYAML -- the yamllint, ansible-lint,
 #                         syntax-check and home-made-checks jobs of ansible-ci.yml
@@ -110,11 +112,22 @@ if [ -z "$GITLEAKS_VERSION" ]; then
     note "no GITLEAKS_VERSION found in .github/workflows/gitleaks.yml, so gitleaks was not installed." "gitleaks"
 elif [ "$("$LOCAL_BINARIES_PATH/gitleaks" version 2> /dev/null)" = "$GITLEAKS_VERSION" ]; then
     printf 'gitleaks: %s already installed\n' "$GITLEAKS_VERSION"
-elif mkdir -p "$LOCAL_BINARIES_PATH" \
+# ! Unpacked into a temporary directory and moved into place only once it runs. Piping curl straight
+# into tar puts the binary at its final path as the bytes arrive, so a transfer cut in the middle --
+# which this environment's own notes list as a known proxy behaviour, on an 8 MB download -- leaves a
+# truncated file that is executable and broken. Step 3 below then reads it as "gitleaks is installed"
+# and switches core.hooksPath on, and every commit of the session fails inside the pre-commit hook.
+# "mv" within the same filesystem is atomic, so the final path is never a partial file.
+elif GITLEAKS_STAGING="$(mktemp -d)" \
     && curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-        | tar -xz -C "$LOCAL_BINARIES_PATH" gitleaks; then
+        | tar -xz -C "$GITLEAKS_STAGING" gitleaks \
+    && [ "$("$GITLEAKS_STAGING/gitleaks" version 2> /dev/null)" = "$GITLEAKS_VERSION" ] \
+    && mkdir -p "$LOCAL_BINARIES_PATH" \
+    && mv -f "$GITLEAKS_STAGING/gitleaks" "$LOCAL_BINARIES_PATH/gitleaks"; then
+    rm -rf "$GITLEAKS_STAGING"
     printf 'gitleaks: %s installed in %s\n' "$GITLEAKS_VERSION" "$LOCAL_BINARIES_PATH"
 else
+    rm -rf "${GITLEAKS_STAGING:-}"
     note "could not install gitleaks $GITLEAKS_VERSION from its GitHub release. The secret scanning job cannot be run locally, and the pre-commit hook would refuse every commit." \
         "gitleaks"
 fi
@@ -138,13 +151,19 @@ fi
 # required before merging on this plan, so ".githooks/pre-commit" is the only thing that refuses
 # anything.
 #
-# ! Guarded on gitleaks being installed, and that guard is the whole point. The pre-commit hook
+# ! Guarded on gitleaks actually RUNNING, and that guard is the whole point. The pre-commit hook
 # REFUSES the commit when gitleaks is absent, deliberately -- a security hook that disables itself
 # lies to the person who needs it most. Enabling it after a failed install would turn a missing tool
 # into a session that cannot commit at all, which is a worse trade than the one it protects against.
+#
+# ! It asks the binary, not the filesystem. "[ -x file ]" was the first version and it is a false
+# proxy in the one failure mode that leaves bytes behind : a truncated download unpacks to a file tar
+# has already made executable, so "-x" is true and the guard opens on a gitleaks that cannot run.
+# Step 2 now stages the download, which closes that hole at the source ; this asks anyway, because a
+# guard that protects the commit path should not depend on another step having been careful.
 if [ ! -d .githooks ]; then
     note "no .githooks/ directory, so core.hooksPath was left alone." "the pre-commit hook"
-elif [ ! -x "$LOCAL_BINARIES_PATH/gitleaks" ] && ! command -v gitleaks > /dev/null 2>&1; then
+elif ! "$LOCAL_BINARIES_PATH/gitleaks" version > /dev/null 2>&1 && ! gitleaks version > /dev/null 2>&1; then
     note "gitleaks is missing, so core.hooksPath was left alone: .githooks/pre-commit refuses every commit without it." \
         "the pre-commit hook"
 elif [ "$(git config --get core.hooksPath)" = ".githooks" ]; then
@@ -162,8 +181,10 @@ fi
 if [ ${#MISSING[@]} -eq 0 ]; then
     printf 'All CI-gating checks can be run in this session. See the "Commands" section of CLAUDE.md.\n'
 else
+    # ! IFS=';' and not IFS='; ' : bash joins "${array[*]}" with the FIRST character of IFS only, so
+    # the space in the two-character version was silently dropped. The space belongs in the format.
     printf 'NOT installed: %s. The checks depending on it cannot be run here -- say so rather than reporting them as passing. See "Working in a Claude Code web session" in CLAUDE.md.\n' \
-        "$(IFS='; '; printf '%s' "${MISSING[*]}")"
+        "$(IFS=';'; printf '%s' "${MISSING[*]}" | sed 's/;/; /g')"
 fi
 
 exit 0
