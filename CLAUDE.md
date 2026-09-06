@@ -229,21 +229,29 @@ and it enables `.githooks/` when both that directory and `gitleaks` are there. I
 idempotent, best-effort, and does nothing outside a remote session. See its own header for the
 detail, and its last line for which checks the session can actually be trusted to run.
 
-Two things it has to work around, both real and both measured. They share a shape: **pip resolves a
-requirements file as one unit, so a single pin it cannot satisfy takes the others down with it** --
-and CI never sees either, because `actions/setup-python` hands it a clean 3.12 interpreter.
+**A session runs the same toolchain CI does, and the work to get there is #57.** The hook installs
+the five pins into a virtual environment built on the interpreter the CI workflow names, so
+`ansible-lint` here reports `using ansible-core:2.21.3` -- the pinned one. Trust a green lint in a
+session; it is the same run.
 
-* **`pip install` needs an `--ignore-installed` retry in this image.** It carries Debian's PyYAML
-  6.0.1 in `/usr/lib/python3/dist-packages`, installed by dpkg and so without the `RECORD` file pip
-  needs to remove it. Without the retry, pip refuses the whole transaction over one package nobody
-  asked to change.
-* **The pins are installed one at a time, not as a file (#57).** `ansible-core` is pinned to a
-  version requiring Python 3.12 while the image has 3.11, so the single transaction failed and the
-  session started with nothing at all. Per pin it keeps everything else, and says which one it lost.
+Three things had to be got right for that, all measured, and none of them visible to CI, which gets
+a clean 3.12 interpreter from `actions/setup-python` and never meets any of them:
 
-The second brings a cost worth knowing: installing one by one drops pip's cross-package resolution,
-so a pin's own dependencies can move another. The hook reads the installed versions back and names
-any drift -- **`ansible-lint` installs at its pinned version and works, on an `ansible-core` that is
-not the pinned one.** A lint run here is therefore not the same run CI makes.
+* **The default interpreter is the wrong one.** `python3` is 3.11 here while the CI uses 3.12, and
+  `ansible-core` has declared `Requires-Python >= 3.12` since 2.20 -- so it was simply refused, and a
+  session started with no `ansible-core` and no `--syntax-check`. The image already carries 3.10,
+  3.11, 3.12 and 3.13: nothing needs provisioning, the default is just wrong. The version is read
+  from the workflow rather than written in the hook, so the two cannot drift.
+* **A virtual environment, not `pip install`.** 3.12 here is a distribution package and PEP 668
+  marks it externally managed, so a plain install is refused and `--break-system-packages` would
+  write into an interpreter apt also uses.
+* **The venv also settles the PyYAML problem** that once needed an `--ignore-installed` retry. The
+  image carries Debian's PyYAML 6.0.1 without the `RECORD` file pip needs to remove it; a venv
+  created without `--system-site-packages` never sees it, so the pinned 6.0.3 installs normally.
+
+The pins are still installed one at a time rather than as a file, and that guard keeps its value:
+pip resolves a requirements file as one unit, so one pin it cannot satisfy would take the other four
+down with it. The hook also reads the installed versions back and names any drift from the file --
+if a future pin is refused, the session loses that one tool and says so, rather than everything.
 
 If a check could not be run, say so plainly rather than reporting it as passing.
