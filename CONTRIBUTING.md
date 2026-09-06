@@ -94,7 +94,69 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
   vérifiés par personne pour l'instant — et cela dérive : `Dell_iDRAC_fan_controller_Docker` pose
   des en-têtes sans contrôle, et 12 de ses fichiers en sont dépourvus.
 
-## Licence
+## La licence de vos contributions
 
-Ce dépôt est sous AGPL-3.0-only. En contribuant, vous acceptez que votre contribution soit
-distribuée sous cette licence.
+Le dépôt est en **double licence** : [AGPL-3.0-only](LICENSE) pour tout le monde, ou une
+[licence commerciale](LICENSE-COMMERCIAL.md) négociée séparément avec le titulaire des droits.
+
+Une double licence ne tient que si **chaque ligne de l'arbre peut être offerte sous les deux arms**.
+Une seule contribution arrivée sous l'AGPL seule rendrait l'arm commercial impossible à accorder
+honnêtement à partir de là — et ça ne se répare pas à peu de frais : il faut retrouver son auteur et
+lui demander son accord, contribution par contribution.
+
+Donc, **en soumettant une contribution à ce dépôt, vous acceptez que** :
+
+1. votre contribution soit **licenciée au public sous la GNU Affero General Public License,
+   version 3** (`AGPL-3.0-only`), aux mêmes termes que le reste du projet ; et
+2. vous accordiez à **Tigerblue77** ([@tigerblue77](https://github.com/tigerblue77)) une licence
+   perpétuelle, mondiale, non exclusive, gratuite et irrévocable de reproduire, préparer des œuvres
+   dérivées de, afficher publiquement, sous-licencier et distribuer votre contribution **sous
+   d'autres termes également, y compris des termes commerciaux propriétaires** ; et
+3. vous ayez le droit d'accorder les deux — le travail est le vôtre, ou vous êtes autorisé à le
+   soumettre (politique de propriété intellectuelle de votre employeur comprise).
+
+### Ce que ce n'est pas
+
+- **Ce n'est pas une cession de droits d'auteur.** Vous gardez l'intégralité du droit d'auteur sur ce
+  que vous avez écrit. Vous pouvez relicencier, réutiliser ou vendre votre propre contribution
+  ailleurs, exactement comme vous le pouviez avant.
+- **Ce n'est pas exclusif.** Le point 2 donne au titulaire une licence *à côté* de la vôtre, pas *à
+  la place* de la vôtre.
+- **Ça ne met pas votre travail derrière un péage.** Tout ce que vous contribuez reste disponible
+  sous l'AGPL, et le reste : une licence accordée sur une copie ne peut pas être retirée à qui la
+  détient. Le point 2 permet seulement au titulaire d'offrir *en plus* le même code à une partie qui
+  paie pour des termes que l'AGPL ne peut pas lui donner.
+
+### Si vous contribuez régulièrement
+
+Ce dépôt est partagé, et le point 2 est écrit pour un pair autant que pour un contributeur de
+passage. Concrètement, pour quelqu'un qui commite ici toutes les semaines : vous restez titulaire de
+tout ce que vous écrivez, vous pouvez le reprendre ailleurs sans rien demander à personne, et la
+seule chose que vous accordez est le droit d'en faire **aussi** un autre usage — celui que l'AGPL
+seule interdirait.
+
+Le `NOTICE` est l'endroit où cela se voit : la ligne de copyright y devient collective à la première
+contribution extérieure, et qui préfère y être nommé plutôt que couvert par elle le dit dans sa pull
+request. Ni l'un ni l'autre n'est une condition pour contribuer.
+
+### Si le point 2 ne vous convient pas
+
+Dites-le dans votre pull request plutôt que de vous taire. Une contribution peut être fusionnée sans
+le point 2 — il suffit de le signaler avant la fusion — et la partie de l'arbre qu'elle couvre est
+alors inscrite dans le [`NOTICE`](NOTICE), parce qu'un licencié commercial n'a aucun autre moyen
+d'apprendre où l'arm commercial ne va pas. Une contribution qui ne peut pas être doublement
+licenciée vaut mieux repérée en relecture qu'après la fusion.
+
+### Sur le *sign-off*
+
+L'historique n'en porte aucun et rien ne l'impose. Le grant ci-dessus est ce qu'un *Developer
+Certificate of Origin* serait là pour certifier, et il s'applique qu'une ligne `Signed-off-by` soit
+présente ou non. Si cela change, ce sera annoncé ici, pas appliqué en silence.
+
+### Pourquoi cette clause arrive maintenant
+
+Parce qu'elle ne peut parler que des contributions soumises **après** son existence. À la date où
+elle est écrite, `git shortlog -sne` sur `main` ne nomme que deux auteurs : le titulaire des droits,
+et l'agent qui a commité pour lui et à sa demande. **Aucune contribution extérieure n'est encore
+arrivée**, donc la clause les couvre toutes — il n'y a rien derrière elle à rattraper. Écrite six
+mois plus tard, elle aurait laissé un trou.

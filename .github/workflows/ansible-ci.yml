@@ -33,10 +33,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check the repository out
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
@@ -53,10 +53,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check the repository out
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
@@ -78,10 +78,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check the repository out
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
@@ -132,11 +132,11 @@ jobs:
     # first failure would hide the state of the ones after it.
     steps:
       - name: Check the repository out
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # The python3 of ubuntu-latest is pinned by nobody; a single installation serves both scripts.
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
