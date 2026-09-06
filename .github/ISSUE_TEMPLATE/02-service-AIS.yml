@@ -1,0 +1,102 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Modèle d'issue pour l'ajout d'un service à l'AIS. Même structure que le modèle général, plus les
+# conventions que le bloc de service devra tenir : elles sont rappelées ici parce que c'est au moment
+# d'écrire l'issue qu'on choisit l'image et la limite mémoire, pas au moment de la relecture.
+#
+# Elles sont tenues par ".github/scripts/check_compose_template.py", et le modèle commenté en tête de
+# "roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2" en est la source.
+name: "Service de l'AIS"
+description: "Ajouter un service au stack : image, variables, réseau, exposition"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rappel : **un sujet par issue**, et **tout l'objectif vit dans la description**. Les
+        conventions du bloc de service sont tenues par `check_compose_template.py` — une issue qui
+        les contredit produira une PR rouge.
+
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: "Ce que ce service apporte à l'AIS, et ce qu'on pourra faire une fois qu'il tourne."
+    validations:
+      required: true
+
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte
+      description: "Pourquoi ce service plutôt qu'un autre, et ce qui a été comparé."
+    validations:
+      required: true
+
+  - type: textarea
+    id: specifications
+    attributes:
+      label: Spécifications
+      description: |
+        L'image et sa version épinglée, la limite mémoire, les variables à ajouter dans
+        `defaults/main.yml`, les volumes, et ce que le service doit joindre.
+      value: |
+        - **Image** : `vendor/image:1.2.3`
+        - **Limite mémoire** :
+        - **Variables** (`defaults/main.yml`) :
+        - **Volumes** :
+        - **Joint** :
+    validations:
+      required: true
+
+  - type: dropdown
+    id: exposition
+    attributes:
+      label: Exposition
+      description: |
+        Un service interne ne publie aucun port : il est joint sur le réseau du stack, sous son nom
+        de service. Seule une interface web destinée à un humain est exposée, et elle passe par le
+        reverse proxy de l'appelant — jamais par un port publié sur l'hôte.
+      options:
+        - "Interne : aucun port publié"
+        - "Interface web, via le reverse proxy de l'appelant"
+    validations:
+      required: true
+
+  - type: textarea
+    id: secrets
+    attributes:
+      label: Secrets et données sensibles
+      description: |
+        Les clés d'API et mots de passe que ce service demande, et par quel mécanisme ils arrivent.
+        **Aucun secret en clair**, ici pas plus qu'ailleurs : on nomme la variable, pas sa valeur.
+      value: "Aucun."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: "Les autres images ou approches envisagées si celle-ci ne tient pas."
+    validations:
+      required: false
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      value: |
+        - [ ] Le bloc de service est dans le template, ses variables dans `defaults/main.yml`
+        - [ ] `python3 .github/scripts/check_compose_template.py` passe
+        - [ ] Le README du rôle documente les nouvelles variables
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependances
+    attributes:
+      label: Dépendances
+      description: "Les issues qui doivent atterrir avant, ou « aucune »."
+    validations:
+      required: true

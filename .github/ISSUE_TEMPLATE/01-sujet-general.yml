@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Modèle d'issue général. La structure vient de #22 et vaut pour tout ce qui n'est pas le déploiement
+# d'un service de l'AIS, qui a son propre modèle.
+#
+# Aucune liste déroulante de priorité ici : la priorité est un champ du projet GitHub
+# (Urgent / High / Medium / Low), et la recopier dans le corps de l'issue créerait deux valeurs libres
+# de diverger.
+name: "Sujet général"
+description: "Tout ce qui n'est pas le déploiement d'un service de l'AIS"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rappel de la convention : **tout l'objectif de l'issue vit dans sa description**. Rien
+        d'essentiel dans les commentaires, et **un sujet par issue** — si un second apparaît, on scinde.
+
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: "Ce qu'on veut obtenir, en quelques phrases. Le résultat, pas la méthode."
+    validations:
+      required: true
+
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte
+      description: "Pourquoi maintenant, et ce qui a mené là. Ce qu'un lecteur doit savoir pour que la suite ait un sens."
+    validations:
+      required: true
+
+  - type: textarea
+    id: specifications
+    attributes:
+      label: Spécifications
+      description: |
+        Ce qu'il faut faire, assez précisément pour qu'un écart se voie en relecture. Fichiers
+        concernés, variables, comportement attendu.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: |
+        Les options envisagées si le choix n°1 échoue, et pourquoi elles arrivent après lui. Elles
+        font partie de la description : les retrouver ici évite de refaire l'analyse dans six mois.
+    validations:
+      required: false
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: "Ce qui doit être vrai pour fermer. Vérifiable, pas déclaratif."
+      value: |
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependances
+    attributes:
+      label: Dépendances
+      description: "Les issues qui doivent atterrir avant, celles que celle-ci débloque, ou « aucune »."
+    validations:
+      required: true

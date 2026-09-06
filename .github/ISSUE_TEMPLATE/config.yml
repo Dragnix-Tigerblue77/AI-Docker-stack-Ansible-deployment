@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Configuration des modèles d'issue.
+#
+# "blank_issues_enabled: false" : la structure Objectif / Contexte / Spécifications / Alternatives /
+# Definition of Done / Dépendances est ce que #22 retient, et un modèle qu'une issue vierge contourne
+# n'en est pas un. La règle « tout l'objectif d'une issue vit dans sa description » n'a de sens que si
+# la description a des cases à remplir.
+#
+# C'est un réglage à une ligne : le remettre à "true" rouvre l'issue vierge sans rien casser d'autre.
+blank_issues_enabled: false
