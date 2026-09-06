@@ -19,3 +19,24 @@ rules:
   # Every other rule of the profile stays on, "document-start" included: the one file that was
   # missing its "---" got it rather than the rule being turned off for the whole tree.
   line-length: disable
+
+  # A GitHub Actions workflow needs a key literally named "on", which YAML 1.1 reads as a boolean.
+  # This waiver arrives with the workflows themselves (#32) rather than ahead of them. Only KEYS are
+  # exempted: a "yes"/"no"/"off" VALUE is still refused, which is the case that actually bites.
+  truthy:
+    check-keys: false
+
+  # ! The five settings below are NOT preferences: ansible-lint REFUSES to offer its "--fix" mode
+  #   unless it finds its own yamllint profile ("Found incompatible custom yamllint configuration",
+  #   then "Fix mode will not be available"). It says so in a warning and keeps linting, so the
+  #   capability disappears without anything failing -- which is how it went unnoticed until the
+  #   profile was raised to "production". Changing any of them is choosing to lose "ansible-lint
+  #   --fix"; that is a decision to write down here, not a side effect to discover.
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
