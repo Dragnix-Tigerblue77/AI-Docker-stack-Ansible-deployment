@@ -137,16 +137,25 @@ be kept intact in copies, and to be carried by modified versions.
 Keeping this file, the LICENSE file and the SPDX headers in the source
 files intact is what satisfies them.
 
-Nothing checks it automatically. "reuse lint" and a REUSE.toml are
-deliberately not wired up while the repository is unpublished (#32), so
-the headers are applied by hand and read by a human. Three files carry
-none, each on purpose:
+"reuse lint" checks it on every pull request (#52), against a REUSE.toml
+that declares the two families which cannot carry a header in line, each
+with its reason:
 
-  * LICENSE, which is the upstream text above;
+  * roles/**/templates/**, rendered onto the managed node -- a header
+    there would end up copied into the deployed compose file, which is
+    not a source file of this repository;
 
-  * roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2,
-    which is rendered onto the managed node -- a header there would end
-    up copied into the deployed compose file, which is not a source file
-    of this repository;
+  * **/*.json, because JSON has no comment syntax at all. REUSE would
+    also accept a "<file>.license" sidecar for those; declaring the
+    extension once here is the choice made, rather than a second file
+    next to every JSON the repository will hold.
 
-  * .claude/settings.json, because JSON has no comment syntax at all.
+LICENSE is not an exception any more: it is a symbolic link to
+LICENSES/AGPL-3.0-only.txt, so the file REUSE requires and the file
+GitHub reads for the repository's licence badge are the same bytes.
+
+One thing the check does NOT cover, and it is worth knowing here rather
+than assuming otherwise: a root file whose name begins with LICENSE is
+read as a licence text and is never asked for a header. Measured -- a
+LICENSE-COMMERCIAL.md passes identically with one and without one. That
+file's own header is therefore a matter of review, not of CI.
