@@ -71,7 +71,8 @@ services:
   # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
   #
   # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
-  # the most sensitive component of the stack, and that is what dictates the absence of "ports:".
+  # the most sensitive component of the stack, which is exactly why its port is published under basic
+  # auth rather than left open behind nothing: see "AIS_LiteLLM_UI_password" in "defaults/main.yml".
   # ------------------------------------------------------------------------------------------------
   litellm:
     # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
@@ -94,6 +95,12 @@ services:
       # isolation work of #2 pointless.
       LITELLM_MASTER_KEY: "{{ AIS_LiteLLM_master_key }}"
       STORE_MODEL_IN_DB: "True"
+      # "/ui" is where each account's own provider keys get added, one at a time, by the person who
+      # holds them -- see the note on "AIS_LiteLLM_UI_password" in "defaults/main.yml" for why that is
+      # the deployment's model rather than a vaulted variable per provider. Basic auth in front of it
+      # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
+      UI_USERNAME: "{{ AIS_LiteLLM_UI_username }}"
+      UI_PASSWORD: "{{ AIS_LiteLLM_UI_password }}"
 
     volumes:
       # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
@@ -108,13 +115,14 @@ services:
       - "--num_workers"
       - "{{ AIS_LiteLLM_number_of_workers }}"
 
-    # NO "ports:" block, deliberately. 4000 stays a port of the stack's network, never a port of the
-    # host: this container holds both accounts' provider keys and the master key, and published as-is
-    # -- no TLS, no front-end authentication -- it answers to anything that plugs into the LAN.
-    #
-    # The consequence is assumed: "/ui" is no longer reachable from a LAN browser. Exposing it is a
-    # separate decision, through the caller's reverse proxy with TLS and authentication, and through
-    # the host-port allocation rules -- not through a "ports:" line.
+    # Published, and this reverses #1's own original call -- see "AIS_LiteLLM_UI_password" in
+    # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
+    # it has to be reachable with nothing more than a browser on the LAN, before the reverse proxy
+    # this stack does not own exists to do it instead. The cost is real and is not waived by this
+    # comment: no TLS, and basic auth (above) as the only thing standing between the master key's
+    # container and the LAN. Revisit the day a reverse proxy is in front of it.
+    ports:
+      - "4000:4000"
 
     healthcheck:
       # "/health" requires authentication; "/health/liveliness" does not. Written with the image's

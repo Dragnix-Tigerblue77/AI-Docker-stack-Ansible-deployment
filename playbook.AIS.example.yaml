@@ -46,17 +46,24 @@
         # AIS_published_Docker_network_definition: "{{ DMZ_Docker_network_definition }}"
 
         # MANDATORY since #1, and without a default: a default password is a password, and one
-        # shipped in a repository is a published one. Both come from the caller's vault -- here in
-        # the "ansible-vault encrypt_string" form, so the ciphertext lives in the playbook and the
+        # shipped in a repository is a published one. All three come from the caller's vault -- here
+        # in the "ansible-vault encrypt_string" form, so the ciphertext lives in the playbook and the
         # clear text nowhere.
         #
-        # The role renders them into a ".env" it writes 0600, with "no_log" and "diff: false".
+        # The role interpolates them straight into the rendered compose file -- never into a ".env":
+        # that file already carries the "0600" / "diff: false" contract the deployment role owes it.
         AIS_PostgreSQL_password: "{{ vault_AIS_PostgreSQL_password }}"
 
         # ADMINISTRATION ONLY. It is never handed to a consumer: Open WebUI, N8N, the Claude Code
         # container and the Discord bot each get their own virtual key, carrying their own model
         # allow-list, created in #2. A client holding this key makes that whole isolation pointless.
         AIS_LiteLLM_master_key: "{{ vault_AIS_LiteLLM_master_key }}"
+
+        # "/ui"'s own password, now that its port is published (see the role's README for why). Basic
+        # auth is not TLS, but it is the one thing standing between the LAN and the container that
+        # holds both accounts' provider keys plus the master key -- so it is vaulted like the two
+        # secrets above, not left to a default.
+        AIS_LiteLLM_UI_password: "{{ vault_AIS_LiteLLM_UI_password }}"
 
         # The gateway's image. Explicit SemVer, never "main-latest" -- deprecated and no longer fed.
         # The role refuses a tag below "AIS_LiteLLM_minimum_secure_version" (1.84.0), and refuses

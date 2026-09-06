@@ -139,3 +139,16 @@ AIS_LiteLLM_memory_limit: "2g"
 # #2 pointless.
 # AIS_PostgreSQL_password:
 # AIS_LiteLLM_master_key:
+
+# "/ui" is published (see "ports:" on the "litellm" service) so each account can add its OWN provider
+# keys by hand, from a browser on the LAN, rather than have them rendered from a vault: that decision
+# is deliberate, matches how the other self-hosted databases of this estate are already run --
+# deployed empty, populated live, backed up to their repository from time to time -- and it is not
+# this role's to second-guess. What this role owes it in exchange is basic auth in front of that
+# reachable port, which is the one thing "docker compose port litellm 4000" answering from the LAN
+# does not already give it.
+#
+# "AIS_LiteLLM_UI_username" has an ordinary default; "AIS_LiteLLM_UI_password" has none, for the same
+# reason the two secrets above do not.
+AIS_LiteLLM_UI_username: "admin"
+# AIS_LiteLLM_UI_password:

@@ -29,12 +29,17 @@
       - AIS_LiteLLM_master_key is defined
       - AIS_LiteLLM_master_key is string
       - AIS_LiteLLM_master_key | length > 0
+      - AIS_LiteLLM_UI_password is defined
+      - AIS_LiteLLM_UI_password is string
+      - AIS_LiteLLM_UI_password | length > 0
     quiet: true
     fail_msg: >-
-      "AIS_PostgreSQL_password" and "AIS_LiteLLM_master_key" are mandatory and have no default: a
-      default password is a password, and one shipped in a repository is a published one. The caller
-      renders both from its vault. "AIS_LiteLLM_master_key" is for administration only -- every
-      consumer gets its own virtual key instead (#2).
+      "AIS_PostgreSQL_password", "AIS_LiteLLM_master_key" and "AIS_LiteLLM_UI_password" are mandatory
+      and have no default: a default password is a password, and one shipped in a repository is a
+      published one. The caller renders all three from its vault. "AIS_LiteLLM_master_key" is for
+      administration only -- every consumer gets its own virtual key instead (#2).
+      "AIS_LiteLLM_UI_password" is the only thing standing between the LAN and "/ui" now that its port
+      is published, so it is held to the same standard as the other two.
 
 # The floor is checked HERE rather than trusted to whoever edits the tag, because that is the edit
 # where it gets forgotten: raising an image tag feels like a version bump, not like a security

@@ -52,6 +52,8 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_PostgreSQL_data_Docker_volume_name` | `AIS_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `AIS_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
 | `AIS_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
+| `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
+| `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 
 `false` et non `''` pour les deux derniers : ansible-core 2.19 refuse un test de vérité sur autre chose
 qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et DNS du dépôt
@@ -61,9 +63,10 @@ Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autre
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
 
-Aucun port hôte n'apparaît dans ce rôle, et c'est voulu : les services internes se joignent par le réseau
-du stack, et les rares interfaces web passent par le reverse proxy de l'appelant. Le jour où un port devra
-malgré tout être publié, il faudra qu'il esquive la liste `kRestrictedPorts` de Chromium -- un port
+Aucun port hôte n'apparaît dans ce rôle en dehors du `4000` de LiteLLM -- voir plus bas pourquoi celui-là
+est l'exception. Les autres services internes se joignent par le réseau du stack, et les rares interfaces
+web pensées pour passer par un reverse proxy le feront par celui de l'appelant. Le jour où un autre port
+devra malgré tout être publié, il faudra qu'il esquive la liste `kRestrictedPorts` de Chromium -- un port
 restreint est refusé *dans* le navigateur, avant que la connexion ne le quitte, donc le service reste sain
 et ses journaux restent vides.
 
@@ -108,11 +111,16 @@ Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui
 secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
 lecture seule et sans secret propre.
 
-**Aucun port publié, et c'est le point central.** Le conteneur LiteLLM détient les clés Gemini / Groq /
-Mistral des *deux* comptes plus la clé maîtresse. Publié tel quel — sans TLS, sans authentification en
-frontal — il répond à tout ce qui se branche sur le LAN. Le port `4000` reste donc un port du réseau du
-stack. La conséquence est assumée : `/ui` n'est plus joignable depuis un navigateur du LAN, et son
-exposition éventuelle est une décision distincte, qui passerait par le reverse proxy de l'appelant.
+**Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, actée dans la
+session qui a écrit cette phrase, à faire valider par tigerblue77 à la reprise de leur discussion.**
+Chaque compte ajoute ses propres clés fournisseur depuis `/ui`, à la main, plutôt que de les faire
+rendre depuis un vault : c'est le même modèle que les autres bases auto-hébergées de cette estate --
+déployées vides, peuplées en direct, sauvegardées de temps en temps dans leur dépôt -- et `/ui` doit donc
+être joignable depuis un simple navigateur du LAN, avant même qu'un reverse proxy existe pour le faire à
+sa place. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAME` / `UI_PASSWORD` (voir
+`AIS_LiteLLM_UI_password` plus haut) comme seule chose entre le LAN et le conteneur qui porte la clé
+maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
+pas une clause de style.
 
 **Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `AIS_PostgreSQL_password`
 et `AIS_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
@@ -154,9 +162,9 @@ Ce que ce squelette ne fait pas
 -------------------------------
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
-  `postgres` et `litellm`, le fichier rendu passe `docker compose config`, et aucun port n'apparaît dans
-  la configuration résolue. Ce qui reste à faire sur une vraie machine : la mesure sous charge des deux
-  limites mémoire, le test négatif d'exposition depuis une autre machine, la persistance après un
+  `postgres` et `litellm`, le fichier rendu passe `docker compose config`, et le seul port qui apparaît
+  dans la configuration résolue est le `4000` de LiteLLM, désormais publié à dessein. Ce qui reste à
+  faire sur une vraie machine : la mesure sous charge des deux limites mémoire, la persistance après un
   `down` / `up`, et l'idempotence sur un second passage.
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
