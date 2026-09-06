@@ -96,6 +96,14 @@ the homelab on the way. `check_no_inventory_data.py` is this rule, and it has a 
 everything the template interpolates, which is why the deployment role must write it `0600` and with
 `diff: false`.
 
+**No `.env` file, ever -- a secret a service needs is a variable passed to the role, interpolated by
+Ansible straight into the compose template, same as everything else in it.** A `.env` read by Compose
+through `${VAR}` is a second file to secure, a second path to keep in sync with the first, and a
+migration question at the Swarm switch that interpolating at render time never raises: Ansible renders
+the file the same way regardless of which one reads it next. #1 wrote one anyway, on its first pass --
+the issue's own example config used `${POSTGRES_PASSWORD}`, and that was read as licence rather than as
+an illustration to translate. It cost a second commit to undo.
+
 **Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
 
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
