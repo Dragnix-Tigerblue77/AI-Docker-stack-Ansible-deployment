@@ -367,7 +367,7 @@ def run_selftest():
     tested, not assumed". That is what this function does, and it is also what gives the file a
     value TODAY, before #2 has produced the slightest real configuration to read.
 
-    Each fixture announces on its first line the number of problems expected AND a fragment that
+    Each fixture announces, in its first few lines, the number of problems expected AND a fragment
     the first of them has to contain. Comparing a NUMBER alone was not enough: half of the watched
     surface could disappear without the count moving.
     """
@@ -384,10 +384,26 @@ def run_selftest():
 
     for name in names:
         path = os.path.join(SELFTEST_DIRECTORY, name)
+        # The declaration is looked for in the first few lines rather than on line 1, so that a
+        # fixture can carry a NORMAL SPDX header like every other file of the repository.
+        #
+        # It used to share line 1 with both SPDX tags, and "reuse lint" saw a copyright there but no
+        # licence. The reason is NOT that a tag must start its line -- measured, a tag placed mid-line
+        # after a "--" IS read. It is that a tag's value runs to the END of its line, so the
+        # copyright tag swallowed the licence tag that followed it on the same line as part of the
+        # holder's name, and no licence tag was left. Two tags cannot share one line. The nine
+        # fixtures were the only files the tool reported.
+        #
+        # ! The paragraph above quoted that malformed line in full, and "reuse lint" then read the
+        #   quotation as a REAL tag and failed on the prose that followed it as an invalid licence
+        #   expression -- the comment explaining the trap fell into it. REUSE's own escape hatch is
+        #   a REUSE-IgnoreStart / REUSE-IgnoreEnd pair, which is what the homelab repository uses in
+        #   its ".yamllint" for the same reason. Here the quotation is simply gone instead: not
+        #   naming the tag says the same thing and costs nothing.
         with open(path, encoding="utf-8") as handle:
-            first_line = handle.readline()
-        expected = re.search(r"EXPECTED\s*:\s*(\d+)", first_line)
-        fragment = re.search(r"CONTAINS\s*:\s*(.+?)\s*(?:--|$)", first_line)
+            head = "".join(handle.readline() for _ in range(6))
+        expected = re.search(r"EXPECTED\s*:\s*(\d+)", head)
+        fragment = re.search(r"CONTAINS\s*:\s*(.+?)\s*$", head, re.MULTILINE)
         if not expected:
             print("selftest: %s does not announce its expected number of problems" % name)
             failures += 1

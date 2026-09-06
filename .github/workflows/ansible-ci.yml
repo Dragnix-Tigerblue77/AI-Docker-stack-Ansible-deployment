@@ -47,6 +47,35 @@ jobs:
       - name: Run yamllint
         run: yamllint .
 
+  reuse:
+    name: REUSE compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Symlinks are checked out as symlinks, which matters here: "LICENSE" is one, pointing at
+      # "LICENSES/AGPL-3.0-only.txt", so that the file REUSE requires and the file GitHub reads for
+      # the repository's licence badge are the same bytes rather than two copies free to drift.
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # From requirements.txt rather than a bare "pip install reuse", so the version stays pinned in
+      # the one file Dependabot watches. It pulls in ansible-core for nothing here, which is what the
+      # yamllint job above already does and is cheaper than a second place to bump.
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      # Every authored file needs a copyright line and an SPDX identifier. The two groups that cannot
+      # carry one -- role templates, which are rendered onto the managed node, and JSON, which has no
+      # comment syntax -- are declared in REUSE.toml instead.
+      - name: Run reuse lint
+        run: reuse lint
+
   ansible-lint:
     name: ansible-lint
     runs-on: ubuntu-latest
