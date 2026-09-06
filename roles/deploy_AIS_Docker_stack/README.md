@@ -67,6 +67,15 @@ les siennes ici) :
 | `AIS_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `AIS_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
 
+Et celles que #71 apporte, pour Redis :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_Redis_Docker_image_tag` | `7-alpine` | Majeur explicite, jamais `:latest`. |
+| `AIS_Redis_data_Docker_volume_name` | `AIS_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
+| `AIS_Redis_memory_limit` | `256m` | Valeur de départ. |
+| `AIS_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
+
 Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
@@ -244,9 +253,14 @@ une valeur littérale ne peut être qu'un marqueur pour un service qui n'a besoi
 d'authentification, jamais un oubli. `check_LiteLLM_account_isolation.py` reconnaît maintenant cette
 forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, donc aucun à protéger.
 
-**Aucun Redis.** Le cache de réponses et l'état de cooldown partagé entre workers du POC en avaient
-besoin, mais aucune issue n'a encore déployé ce service -- ni #1 ni #2 n'en a le périmètre. Laissé de
-côté plutôt que pointé vers un hôte qui n'existe pas ; une issue de suivi propose de l'ajouter.
+**Redis, déployé par #71.** Le cache de réponses (préserve les quotas TPM des paliers gratuits) et
+l'état de cooldown partagé entre les workers de LiteLLM en avaient besoin ; ni #1 ni #2 n'en avait le
+périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement que la clé
+d'API de Qdrant (#3) : défense en profondeur sur un service interne, sans port publié. **Le
+cloisonnement du cache entre comptes n'est pas vérifié depuis cette session** -- documenté en amont
+comme limité à la clé/l'équipe/l'organisation par défaut, mais à confirmer sur le banc d'essai avant
+d'y faire confiance ; #79 est ouverte pour ça, voir aussi le commentaire dans
+`LiteLLM_config.yaml.j2`.
 
 **Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
 derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --

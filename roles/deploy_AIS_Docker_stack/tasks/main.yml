@@ -91,6 +91,18 @@
       "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
       Dragnix's own keys are deliberately absent: he adds them himself from "/ui".
 
+- name: "Check the Redis password is provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_Redis_password is defined
+      - AIS_Redis_password is string
+      - AIS_Redis_password | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_Redis_password" is mandatory and has no default (#71): without it, "--requirepass" would
+      be empty, which is no password at all -- defence in depth against a compromised workload on the
+      internal network, same standard as "AIS_Qdrant_API_key" (#3).
+
 - name: "Check the Claude Code agent (tigerblue77) parameters are provided"
   ansible.builtin.assert:
     that:

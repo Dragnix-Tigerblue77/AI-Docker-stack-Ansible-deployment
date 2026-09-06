@@ -68,6 +68,49 @@ services:
       - {{ AIS_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
+  # Redis -- LiteLLM's shared cooldown state and response cache backend (#71).
+  # ------------------------------------------------------------------------------------------------
+  redis:
+    # Major pinned explicitly, never ":latest" -- same reasoning as PostgreSQL above, applied to a
+    # smaller surface: a major bump can change eviction and persistence defaults.
+    image: "redis:{{ AIS_Redis_Docker_image_tag }}"
+
+    # No secret written on the command line: it would be visible in "docker inspect" / process
+    # listings on the host. Read from a file instead, itself rendered from the same vaulted variable
+    # every other secret in this role comes from.
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "{{ AIS_Redis_password }}"
+      - "--save"
+      - "60"
+      - "1"
+      - "--loglevel"
+      - "warning"
+
+    volumes:
+      - "{{ AIS_Redis_data_Docker_volume_name }}:/data:rw"
+
+    healthcheck:
+      # "redis-cli" ships with the image, so this needs nothing it does not already have -- unlike
+      # Qdrant (#3) or OmniRoute (#73), where the same reasoning ruled a healthcheck OUT instead.
+      test: ["CMD", "redis-cli", "-a", "{{ AIS_Redis_password }}", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "{{ AIS_Redis_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
   # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
   #
   # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
@@ -110,6 +153,10 @@ services:
       CEREBRAS_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
       GROQ_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
       OPENROUTER_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+      # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
+      # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
+      REDIS_URL: "redis://:{{ AIS_Redis_password }}@redis:6379"
+      REDIS_PASSWORD: "{{ AIS_Redis_password }}"
 
     volumes:
       # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
@@ -154,6 +201,8 @@ services:
     # not the start order. Kept because it spares the test bench a first failed start.
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
     deploy:
@@ -414,6 +463,9 @@ volumes:
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.
   {{ AIS_Claude_code_tigerblue77_home_Docker_volume_name }}:
 {% endif %}
+
+  # Redis's own persistence (#71) -- "--save 60 1" above is worthless without a volume behind it.
+  {{ AIS_Redis_data_Docker_volume_name }}:
 
 networks:
   # Internal to the stack: created and destroyed with it, reachable from nowhere else. It is what
