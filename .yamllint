@@ -19,3 +19,9 @@ rules:
   # Every other rule of the profile stays on, "document-start" included: the one file that was
   # missing its "---" got it rather than the rule being turned off for the whole tree.
   line-length: disable
+
+  # A GitHub Actions workflow needs a key literally named "on", which YAML 1.1 reads as a boolean.
+  # This waiver arrives with the workflows themselves (#32) rather than ahead of them. Only KEYS are
+  # exempted: a "yes"/"no"/"off" VALUE is still refused, which is the case that actually bites.
+  truthy:
+    check-keys: false

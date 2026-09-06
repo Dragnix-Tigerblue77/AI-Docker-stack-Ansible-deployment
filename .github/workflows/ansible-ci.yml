@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# The quality checks, on every pull request. Secret detection lives in its own workflow
+# ("gitleaks.yml") because it has neither the same tooling nor the same reason to exist.
+#
+# ! None of these jobs can be made REQUIRED before merging: the organisation is on a plan that
+#   allows neither a ruleset nor a branch protection on a private repository
+#   ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
+#   public"). They inform the reviewer; they do not guard the door. That is a limit of the plan,
+#   not of the configuration.
+#
+# No "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" here, unlike the homelab repository: this
+# repository has no self-hosted runner, and an indirection that no variable ever fills in is a line
+# the next reader will have to go and check for nothing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check the repository out
+        uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      - name: Run yamllint
+        run: yamllint .
+
+  ansible-lint:
+    name: ansible-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the repository out
+        uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      # No "ansible-galaxy collection install": the role of #31 uses only "ansible.builtin.assert"
+      # and "ansible.builtin.include_role", so no third-party collection at all. The day a service
+      # issue brings one in, it will bring its "requirements.yml" and the install line that goes
+      # with it -- that is the right moment to write them, not today, when they would have nothing
+      # to install.
+      - name: Run ansible-lint
+        run: ansible-lint
+
+  syntax-check:
+    name: ansible-playbook --syntax-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check the repository out
+        uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.AIS.example.yaml") would
+      # mean coming back here on the first rename, and above all it would stay green in silence if
+      # the file were renamed -- the worse of the two, a check that ticks its box without reading
+      # anything.
+      #
+      # ! The glob can legitimately match nothing -- it did until #31 landed and brought
+      #   "playbook.AIS.example.yaml". In that case the step says so in a "::warning::" annotation
+      #   visible on the run's page, rather than handing back a mute green: an empty check that
+      #   keeps quiet is a check one only believes one has. It needs no edit either way.
+      - name: Check the syntax of every playbook
+        run: |
+          shopt -s nullglob
+          playbooks=(playbook.*.yaml playbook.*.yml)
+          if [ ${#playbooks[@]} -eq 0 ]; then
+            echo "::warning title=No playbook::No playbook.*.y(a)ml file: this step verified nothing. It will become effective once #31 has landed."
+            exit 0
+          fi
+          for playbook in "${playbooks[@]}"; do
+            echo "--- $playbook"
+            ansible-playbook --syntax-check "$playbook"
+          done
+
+  home-made-checks:
+    name: home-made checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
+    # one up to the minute: three scripts each running in a second would cost three minutes, and
+    # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.
+    #
+    # "check_no_inventory_data.py" imports nothing outside the standard library.
+    # "check_LiteLLM_account_isolation.py" reads PyYAML: it is the only dependency of these checks,
+    # and it was taken knowingly (the reason is written in its header and in "requirements.txt").
+    # The install step below is what it costs.
+    #
+    # The price is real and worth stating: the check list of a pull request carries one line instead
+    # of three, so a red cross no longer says WHICH one failed without opening the run. A step that
+    # fails still names itself in there, which was the essential part of what separate jobs bought.
+    #
+    # "!cancelled()": these are independent checks sharing a runner, not a pipeline. Without it, the
+    # first failure would hide the state of the ones after it.
+    steps:
+      - name: Check the repository out
+        uses: actions/checkout@v5
+
+      # The python3 of ubuntu-latest is pinned by nobody; a single installation serves both scripts.
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      # This check arrived with #31, and until now nothing was running it: the repository had no
+      # workflow. It renders and parses the compose template in BOTH of its states, which none of
+      # the other jobs does -- reading a diff is not verification. Its dependencies (jinja2,
+      # PyYAML) arrive with ansible-core, already installed above.
+      - name: "Compose template: render it, parse it, hold it to its conventions"
+        run: python3 .github/scripts/check_compose_template.py
+
+      - name: "LiteLLM account isolation: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
+
+      - name: "LiteLLM account isolation: read the repository's configuration"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_LiteLLM_account_isolation.py
+
+      - name: "Hard-coded inventory data: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_no_inventory_data.py --selftest
+
+      - name: "Hard-coded inventory data: read the repository"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_no_inventory_data.py

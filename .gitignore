@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Secrets, and nothing else. This file is the first of #32's three guards: it stops a "git add ."
+# from staging a secret, the ".githooks/pre-commit" hook refuses the commit when one is staged
+# anyway, and the "gitleaks" workflow reports it after the fact on the pull request.
+#
+# ! None of the three blocks anything on GitHub's side: the account is on a plan that allows neither
+# a ruleset nor a branch protection on a private repository ("GET /repos/.../rulesets" answers 403
+# "Upgrade to GitHub Pro or make this repository public"). The local hook is therefore the only one
+# of the three that really refuses anything -- and "git commit --no-verify" bypasses it.
+
+# ---------------------------------------------------------------------------------------------
+# Environment files
+# ---------------------------------------------------------------------------------------------
+# The AIS uses NO ".env" file: the role of #31 interpolates the values directly into the rendered
+# "docker-compose", written 0600 on the managed node and never versioned -- which is also what the
+# 36 templates of "Homelab_Ansible_deployment" do, not one of which has an "env_file:".
+# The patterns below are useful all the same: they cover the ".env" a human creates to start a
+# container by hand while debugging, which is exactly the file nobody thinks of deleting before
+# committing.
+#
+# ! The order is load-bearing: moving a "!" line above the pattern it cancels neutralises it.
+*.env
+.env
+.env.*
+# ... except the example, should one ever appear.
+!.env.example
+!*.env.example
+# ... and except a Jinja template that would RENDER an environment file: without this line,
+# ".env.*" swallows "roles/*/templates/.env.j2" and "git status" does not even show it
+# (measured: "git check-ignore -v" -> ".gitignore:.env.*").
+!.env*.j2
+
+# ---------------------------------------------------------------------------------------------
+# Keys, certificates, passwords
+# ---------------------------------------------------------------------------------------------
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+# The Ansible vault password, never the vault itself: an encrypted vault is MADE to be versioned.
+# Do not widen this pattern to "vault*", which would exclude the very content we want to track.
+.vault_pass
+
+# ---------------------------------------------------------------------------------------------
+# Service data and local artefacts
+# ---------------------------------------------------------------------------------------------
+# "storage/" is Qdrant's default persistence directory (#3): a test started by hand from the
+# repository root creates it here.
+storage/
+.ansible/
+*.retry
+__pycache__/
+.venv/

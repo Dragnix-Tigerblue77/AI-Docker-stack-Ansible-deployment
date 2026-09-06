@@ -1,0 +1,19 @@
+# EXPECTED: 1 CONTAINS: litellm_settings -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# The fallback keys are declared under "router_settings" just as readily as under
+# "litellm_settings". Watching only the first would leave a door wide open, in the very section
+# where LiteLLM's documentation places several of its examples.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+
+litellm_settings:
+  context_window_fallbacks:
+    - gen-chat-dragnix: ["gen-chat-tigerblue77"]

@@ -1,0 +1,17 @@
+# EXPECTED: 1 CONTAINS: ALL the model groups -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# "default_fallbacks" applies to every group at once: it crosses every boundary in a single go,
+# including the ones that do not exist yet.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+
+router_settings:
+  default_fallbacks: ["gen-chat-tigerblue77"]

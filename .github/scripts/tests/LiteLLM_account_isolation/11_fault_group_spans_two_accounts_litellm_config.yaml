@@ -1,0 +1,15 @@
+# EXPECTED: 1 CONTAINS: groups deployments -- SPDX-FileCopyrightText: 2026 Tigerblue77 / SPDX-License-Identifier: AGPL-3.0-only
+---
+# The invisible vector, and the check's real motive: one single model_name, two keys. Not one
+# "fallbacks" line has been written, and yet the automatic cooldown will have the two accounts
+# relay each other.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
