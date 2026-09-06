@@ -177,7 +177,11 @@ jobs:
       # workflow. It renders and parses the compose template in BOTH of its states, which none of
       # the other jobs does -- reading a diff is not verification. Its dependencies (jinja2,
       # PyYAML) arrive with ansible-core, already installed above.
+      - name: "Compose template: check the check itself"
+        run: python3 .github/scripts/check_compose_template.py --selftest
+
       - name: "Compose template: render it, parse it, hold it to its conventions"
+        if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_compose_template.py
 
       - name: "LiteLLM account isolation: check the check itself"

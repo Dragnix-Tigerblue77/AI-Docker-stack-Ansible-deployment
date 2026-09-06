@@ -142,6 +142,7 @@ pip install -r requirements.txt                            # ansible-core, ansib
 yamllint .
 ansible-lint
 ansible-playbook --syntax-check playbook.AIS.example.yaml
+python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
@@ -150,9 +151,10 @@ python3 .github/scripts/check_no_inventory_data.py
 gitleaks dir . --no-banner --redact
 ```
 
-Two of the three home-made checks know how to verify themselves with `--selftest` -- a check whose
-failure nobody has ever seen is a check nobody believes. `check_compose_template.py` has none: it
-verifies the template rather than itself, and giving it one is #58.
+Each of the three home-made checks knows how to verify itself with `--selftest` -- a check whose
+failure nobody has ever seen is a check nobody believes. `check_compose_template.py` was the last
+without one (#58); its cases are Python literals rather than fixture files, because a fixture on disk
+is reachable by `ansible-lint --fix` and one of the LiteLLM ones was silently rewritten by it.
 
 **`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
 own yamllint profile on six settings**: `comments.min-spaces-from-content`, `comments-indentation`,

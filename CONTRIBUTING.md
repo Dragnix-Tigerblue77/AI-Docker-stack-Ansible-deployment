@@ -43,6 +43,7 @@ yamllint .
 ansible-lint
 ansible-playbook --syntax-check playbook.*.yaml
 
+python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py

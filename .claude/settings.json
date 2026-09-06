@@ -19,6 +19,7 @@
       "Bash(ansible-playbook --syntax-check:*)",
       "Bash(ansible --version)",
       "Bash(python3 .github/scripts/check_compose_template.py)",
+      "Bash(python3 .github/scripts/check_compose_template.py --selftest)",
       "Bash(python3 .github/scripts/check_LiteLLM_account_isolation.py)",
       "Bash(python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest)",
       "Bash(python3 .github/scripts/check_no_inventory_data.py)",

@@ -170,6 +170,213 @@ def check_conventions(document, state, failures):
                 failures.append(f"{where}: references undeclared volume {source!r}")
 
 
+def check_states(off, on, failures):
+    """Hold the two rendered states to differing by the published network and by nothing else.
+
+    This is what catches a Jinja conditional that quietly changes the services or the volumes along
+    with the network -- the failure mode where a feature being off produces a stack that no longer
+    says what it meant. It is a function rather than inline code so that "--selftest" can feed it a
+    pair it should reject; a check nobody has watched fail is a check nobody believes.
+    """
+    for key in ("services", "volumes"):
+        if off.get(key) != on.get(key):
+            failures.append(
+                f"turning the published network on changed {key!r}: it must change 'networks' only"
+            )
+    published = PUBLISHED_NETWORK["AIS_published_Docker_network_name"]
+    off_networks = set((off.get("networks") or {}).keys())
+    on_networks = set((on.get("networks") or {}).keys())
+    if published in off_networks:
+        failures.append(f"the published network {published!r} is declared while it is unset")
+    if on_networks - off_networks != {published}:
+        failures.append(
+            f"turning the published network on added {sorted(on_networks - off_networks)}, "
+            f"expected exactly ['{published}']"
+        )
+
+
+# ------------------------------------------------------------------------------------------------
+# Selftest
+# ------------------------------------------------------------------------------------------------
+# The two other checks under ".github/scripts/" carry one and CONTRIBUTING.md makes it a principle:
+# a check whose failure nobody has ever seen is a check nobody believes. This one had none, which
+# mattered more here than anywhere -- "services:" is an empty mapping, so every convention check
+# below runs over nothing and reports success without reading a single service. It is green because
+# there is nothing to judge, and that is indistinguishable from green because everything is right.
+#
+# ! The cases are built IN MEMORY rather than kept as fixture files, and that is deliberate. The
+# sibling check keeps its faulty configurations on disk, and one of them --
+# "15_fault_multiline_flow_fallback_litellm_config.yaml" -- was silently rewritten by
+# "ansible-lint --fix", which collapsed onto one line the multi-line flow mapping the fixture exists
+# to encode. Its name still says "multiline_flow", it no longer tests that, and the selftest kept
+# passing. A Python literal is not reachable by a YAML formatter.
+#
+# Every case names the substring the check must report, so a check that fails for the RIGHT reason
+# and a check that fails for another are not confused with each other.
+
+COMPLIANT_SERVICE = {
+    "image": "vendor/image:1.2.3",
+    "deploy": {
+        "restart_policy": {"condition": "any"},
+        "resources": {"limits": {"memory": "512M"}},
+    },
+}
+
+
+def service(**overrides):
+    """The compliant block with one thing changed, so each case differs from it by exactly that."""
+    block = {
+        "image": COMPLIANT_SERVICE["image"],
+        "deploy": {
+            "restart_policy": dict(COMPLIANT_SERVICE["deploy"]["restart_policy"]),
+            "resources": {"limits": dict(COMPLIANT_SERVICE["deploy"]["resources"]["limits"])},
+        },
+    }
+    for key, value in overrides.items():
+        if value is _ABSENT:
+            block.pop(key, None)
+        else:
+            block[key] = value
+    return block
+
+
+class _Absent:
+    """Marker for "this key is not in the block at all", which None cannot express here."""
+
+
+_ABSENT = _Absent()
+
+# (name, document, expected substring or None when the document must be accepted)
+CONVENTION_CASES = [
+    ("compliant service", {"services": {"svc": COMPLIANT_SERVICE}}, None),
+    ("image pinned on :latest", {"services": {"svc": service(image="vendor/image:latest")}},
+     "is pinned on ':latest'"),
+    ("image with no tag", {"services": {"svc": service(image="vendor/image")}},
+     "carries no tag"),
+    ("no image at all", {"services": {"svc": service(image=_ABSENT)}},
+     "declares no image"),
+    # A digest IS a pin, and a registry port is a colon that is not a tag separator. Both are
+    # accepted cases: a check that cried wolf on them would be a check people learn to ignore.
+    ("image pinned by digest", {"services": {"svc": service(image="vendor/image@sha256:abc123")}}, None),
+    ("registry carrying a port", {"services": {"svc": service(image="registry:5000/vendor/image:1.2.3")}}, None),
+    ("no memory limit", {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"}})}},
+     "no deploy.resources.limits.memory"),
+    # "limits:" written with nothing under it parses as None, which is what made three earlier
+    # versions of this file crash instead of reporting. A traceback hides the finding.
+    ("limits written empty",
+     {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"},
+                                          "resources": {"limits": None}})}},
+     "no deploy.resources.limits.memory"),
+    ("restart_policy on-failure",
+     {"services": {"svc": service(deploy={"restart_policy": {"condition": "on-failure"},
+                                          "resources": {"limits": {"memory": "512M"}}})}},
+     "expected 'any'"),
+    ("no restart_policy",
+     {"services": {"svc": service(deploy={"resources": {"limits": {"memory": "512M"}}})}},
+     "expected 'any'"),
+    ("container_name declared", {"services": {"svc": service(container_name="svc")}},
+     "declares container_name"),
+    ("service written empty", {"services": {"svc": None}}, "declares no image"),
+    ("undeclared network", {"services": {"svc": service(networks=["nope"])}},
+     "references undeclared network"),
+    ("declared network",
+     {"services": {"svc": service(networks=["AIS_internal"])}, "networks": {"AIS_internal": None}}, None),
+    # "networks:" as a mapping of name to options is the other legal form; iterating it yields the
+    # same names, so one loop must read both.
+    ("network as a mapping",
+     {"services": {"svc": service(networks={"AIS_internal": {"aliases": ["a"]}})},
+      "networks": {"AIS_internal": None}}, None),
+    ("undeclared volume, short syntax", {"services": {"svc": service(volumes=["data:/data:rw"])}},
+     "references undeclared volume"),
+    ("undeclared volume, long syntax",
+     {"services": {"svc": service(volumes=[{"type": "volume", "source": "data", "target": "/data"}])}},
+     "references undeclared volume"),
+    ("declared volume",
+     {"services": {"svc": service(volumes=["data:/data"])}, "volumes": {"data": None}}, None),
+    # A bind mount, a tmpfs and an anonymous volume name no declared volume, so there is nothing to
+    # look up and nothing to complain about. The long-syntax bind is the case that produced the
+    # false positive this script's own docstring records.
+    ("bind mount, short syntax", {"services": {"svc": service(volumes=["/srv/data:/data"])}}, None),
+    ("bind mount, long syntax",
+     {"services": {"svc": service(volumes=[{"type": "bind", "source": "/srv/data", "target": "/data"}])}},
+     None),
+    ("anonymous volume", {"services": {"svc": service(volumes=["/data"])}}, None),
+]
+
+# (name, off state, on state, expected substring or None)
+STATE_CASES = [
+    ("only the network differs",
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None}},
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None, "DMZ": None}},
+     None),
+    ("turning it on also changed the services",
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None}},
+     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
+     "changed 'services'"),
+    ("turning it on also changed the volumes",
+     {"services": {}, "volumes": {}, "networks": {"AIS_internal": None}},
+     {"services": {}, "volumes": {"data": None}, "networks": {"AIS_internal": None, "DMZ": None}},
+     "changed 'volumes'"),
+    ("published network declared while unset",
+     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
+     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
+     "is declared while it is unset"),
+    ("turning it on added something else too",
+     {"services": {}, "networks": {"AIS_internal": None}},
+     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None, "extra": None}},
+     "expected exactly ['DMZ']"),
+]
+
+
+def selftest():
+    """Confront the checks with cases whose verdict is known, and report every disagreement."""
+    problems = []
+
+    for name, document, expected in CONVENTION_CASES:
+        failures = []
+        try:
+            check_conventions(document, "selftest", failures)
+        except Exception as error:  # noqa: BLE001 - a crash IS the finding here
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, off, on, expected in STATE_CASES:
+        failures = []
+        try:
+            check_states(off, on, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    if problems:
+        print(f"{len(problems)} selftest problem(s):\n")
+        for problem in problems:
+            print(f"  {problem}")
+        print("\nThe check does not do what this file says it does. Fix the check, not the case.")
+        return 1
+
+    print(
+        f"check_compose_template selftest: {len(CONVENTION_CASES)} convention case(s) and "
+        f"{len(STATE_CASES)} two-state case(s) all judged as expected."
+    )
+    return 0
+
+
+def _verdict(name, failures, expected):
+    """Compare what the check said against what the case says it should have said."""
+    if expected is None:
+        if failures:
+            return [f"{name!r}: accepted case was refused -- {failures}"]
+        return []
+    if not failures:
+        return [f"{name!r}: faulty case was accepted, expected a failure mentioning {expected!r}"]
+    if not any(expected in failure for failure in failures):
+        return [f"{name!r}: refused for the wrong reason -- expected {expected!r}, got {failures}"]
+    return []
+
+
 def main():
     defaults = load_defaults()
     failures = []
@@ -189,26 +396,8 @@ def main():
             continue
         check_conventions(documents[state], state, failures)
 
-    # The two states have to differ by the published network and by nothing else. This is what
-    # catches a Jinja conditional that quietly changes the services or the volumes along with it --
-    # the failure mode where a feature being off produces a stack that no longer says what it meant.
     if len(documents) == 2:
-        off, on = documents["published network unset"], documents["published network set"]
-        for key in ("services", "volumes"):
-            if off.get(key) != on.get(key):
-                failures.append(
-                    f"turning the published network on changed {key!r}: it must change 'networks' only"
-                )
-        published = PUBLISHED_NETWORK["AIS_published_Docker_network_name"]
-        off_networks = set((off.get("networks") or {}).keys())
-        on_networks = set((on.get("networks") or {}).keys())
-        if published in off_networks:
-            failures.append(f"the published network {published!r} is declared while it is unset")
-        if on_networks - off_networks != {published}:
-            failures.append(
-                f"turning the published network on added {sorted(on_networks - off_networks)}, "
-                f"expected exactly ['{published}']"
-            )
+        check_states(documents["published network unset"], documents["published network set"], failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the AIS compose template:\n")
@@ -229,4 +418,6 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # "--selftest" checks the check; with no argument it checks the template. Deliberately not
+    # argparse: one flag, and this file is read far more often than it is invoked.
+    sys.exit(selftest() if "--selftest" in sys.argv[1:] else main())
