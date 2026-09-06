@@ -11,7 +11,7 @@
 # them ships in the remote image.
 #
 #   1. requirements.txt   ansible-core, ansible-lint, yamllint, PyYAML -- the yamllint, ansible-lint,
-#                         syntax-check and home-made-checks jobs
+#                         syntax-check and home-made-checks jobs of ansible-ci.yml
 #   2. gitleaks           its own workflow, and the ".githooks/pre-commit" that CONTRIBUTING.md asks
 #                         every clone to enable
 #   3. core.hooksPath     the one thing CONTRIBUTING.md says to do once per clone, and a web session
@@ -73,13 +73,6 @@ note() {
 # "--root-user-action=ignore" only silences pip's advice to use a virtualenv: this container is thrown
 # away with the session, and the hook's stderr is where a real failure has to be visible.
 #
-# ! The fallback list below is a SECOND copy of version numbers that also live in "requirements.txt",
-# which is exactly the thing that drifts. It is here on purpose and with an expiry condition:
-# "requirements.txt" arrives with #32, and until that lands there is no file to read. When #32 has
-# merged, delete the whole "else" branch and let a missing "requirements.txt" be the error it will
-# then be. The pins are copied from #32's own file, not chosen here.
-FALLBACK_PINS=(ansible-core==2.19.11 ansible-lint==26.6.0 yamllint==1.38.0 PyYAML==6.0.3)
-
 # ! The retry is not belt and braces, it is the only path that works in this image. The pins include
 # "PyYAML==6.0.3" and the remote image carries Debian's own PyYAML 6.0.1 in "/usr/lib/python3/
 # dist-packages", installed by dpkg and therefore without the "RECORD" file pip needs to remove a
@@ -100,30 +93,22 @@ pip_install() {
     pip install --quiet --disable-pip-version-check --root-user-action=ignore --ignore-installed "$@"
 }
 
-if [ -f requirements.txt ]; then
-    if pip_install -r requirements.txt; then
-        printf 'ansible-core, ansible-lint, yamllint and PyYAML: %s\n' "$(yamllint --version 2> /dev/null || echo installed)"
-    else
-        note "pip install -r requirements.txt failed. yamllint, ansible-lint, --syntax-check and the home-made checks are all unavailable." \
-            "the whole Python toolchain"
-    fi
-elif pip_install "${FALLBACK_PINS[@]}"; then
-    printf 'ansible-core, ansible-lint, yamllint and PyYAML: %s (no requirements.txt yet, installed from this hook pins -- see #32)\n' \
-        "$(yamllint --version 2> /dev/null || echo installed)"
+if pip_install -r requirements.txt; then
+    printf 'ansible-core, ansible-lint, yamllint and PyYAML: %s\n' "$(yamllint --version 2> /dev/null || echo installed)"
 else
-    note "no requirements.txt, and installing this hook's fallback pins failed. yamllint, ansible-lint, --syntax-check and the home-made checks are all unavailable." \
+    note "pip install -r requirements.txt failed. yamllint, ansible-lint, --syntax-check and the home-made checks are all unavailable." \
         "the whole Python toolchain"
 fi
 
 # 2. gitleaks ---------------------------------------------------------------------------------------
-# ! The version is read from the workflow rather than written here, for the reason step 1 has to
-# apologise for: a second copy of a version number is a version number that drifts, and the whole
-# value of running gitleaks locally is that it is the same gitleaks the pull request will meet. The
-# literal below is only what to use until #32 brings the workflow, and goes when it lands.
-GITLEAKS_VERSION="$(sed -n 's/^ *GITLEAKS_VERSION: *"\([^"]*\)".*/\1/p' .github/workflows/gitleaks.yml 2> /dev/null | head -1)"
-GITLEAKS_VERSION="${GITLEAKS_VERSION:-8.30.1}"
+# ! The version is read from the workflow rather than written here. A second copy of a version number
+# is a version number that drifts, and the whole value of running gitleaks locally is that it is the
+# same gitleaks the pull request will meet.
+GITLEAKS_VERSION="$(sed -n 's/^ *GITLEAKS_VERSION: *"\([^"]*\)".*/\1/p' .github/workflows/gitleaks.yml | head -1)"
 
-if [ "$("$LOCAL_BINARIES_PATH/gitleaks" version 2> /dev/null)" = "$GITLEAKS_VERSION" ]; then
+if [ -z "$GITLEAKS_VERSION" ]; then
+    note "no GITLEAKS_VERSION found in .github/workflows/gitleaks.yml, so gitleaks was not installed." "gitleaks"
+elif [ "$("$LOCAL_BINARIES_PATH/gitleaks" version 2> /dev/null)" = "$GITLEAKS_VERSION" ]; then
     printf 'gitleaks: %s already installed\n' "$GITLEAKS_VERSION"
 elif mkdir -p "$LOCAL_BINARIES_PATH" \
     && curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
@@ -158,7 +143,7 @@ fi
 # lies to the person who needs it most. Enabling it after a failed install would turn a missing tool
 # into a session that cannot commit at all, which is a worse trade than the one it protects against.
 if [ ! -d .githooks ]; then
-    printf 'git hooks: no .githooks/ yet, nothing to enable (it arrives with #32)\n'
+    note "no .githooks/ directory, so core.hooksPath was left alone." "the pre-commit hook"
 elif [ ! -x "$LOCAL_BINARIES_PATH/gitleaks" ] && ! command -v gitleaks > /dev/null 2>&1; then
     note "gitleaks is missing, so core.hooksPath was left alone: .githooks/pre-commit refuses every commit without it." \
         "the pre-commit hook"

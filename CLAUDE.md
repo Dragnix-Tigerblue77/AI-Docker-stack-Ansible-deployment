@@ -21,7 +21,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What a service block must carry | the commented model at the top of `templates/AIS.docker-compose.yml.j2` |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
-| How to set a clone up, and what to run before pushing | `CONTRIBUTING.md` (arrives with #32) |
+| How to set a clone up, and what to run before pushing | `CONTRIBUTING.md` |
 
 ## The vocabulary
 
@@ -76,7 +76,7 @@ still an error.
 
 **No inventory data, anywhere.** No IP address, no hostname, no domain, in the code or in an issue.
 They belong to the caller's inventory: a role that carries them stops being reusable, and publishes
-the homelab on the way. `check_no_inventory_data.py` is this rule (#32).
+the homelab on the way. `check_no_inventory_data.py` is this rule, and it has a `--selftest` that checks the check itself.
 
 **No secret in clear text, ever**, including in an example. The rendered compose file holds
 everything the template interpolates, which is why the deployment role must write it `0600` and with
@@ -95,8 +95,8 @@ long-lived branch.
 **Licence.** AGPL-3.0-only, with a commercial arm to be written (#35). Every authored source file
 carries an SPDX header. `roles/*/templates/` does **not**: it is rendered onto the managed node, and
 the header would end up copied into the deployed compose file. Nothing checks this yet -- `reuse lint`
-is deferred by #32 for as long as the repository is unpublished -- so the header is a habit here, not
-a gate.
+is deferred for as long as the repository is unpublished, and `requirements.txt` says so -- the header
+is a habit here, not a gate.
 
 **A template change is not verified until the template has been rendered and the result parsed.**
 Reading the diff is not verification, and neither is `git` reporting "Auto-merging": the conflicts
@@ -110,24 +110,36 @@ There is no test suite in the unit-test sense. The checks below *are* the suite,
 runs. None of them needs a machine of the homelab.
 
 ```bash
-pip install -r requirements.txt                            # ansible-core, ansible-lint, yamllint, PyYAML (pinned) -- arrives with #32
+pip install -r requirements.txt                            # ansible-core, ansible-lint, yamllint, PyYAML (pinned)
 
 yamllint .
 ansible-lint
 ansible-playbook --syntax-check playbook.AIS.example.yaml
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
+python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
+python3 .github/scripts/check_LiteLLM_account_isolation.py
+python3 .github/scripts/check_no_inventory_data.py --selftest
+python3 .github/scripts/check_no_inventory_data.py
 gitleaks dir . --no-banner --redact
 ```
 
-`#32` adds `check_LiteLLM_account_isolation.py` and `check_no_inventory_data.py` beside them, each
-with a `--selftest` that checks the check itself.
+Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody has
+ever seen is a check nobody believes.
 
-**`ansible-lint --fix` is not available here**, and that is not a defect to repair blindly: it refuses
-with "Found incompatible custom yamllint configuration" because `.yamllint` does not set the five
-values ansible-lint's own yamllint profile requires (`comments.min-spaces-from-content`,
-`comments-indentation`, `braces.max-spaces-inside` and the two `octal-values`). Fixing that means
-changing `.yamllint`, which is a decision of its own -- `line-length: disable` is there for a reason
-written in the file.
+**`ansible-lint --fix` works, and stays working only because `.yamllint` keeps five settings aligned
+with ansible-lint's own yamllint profile** (`comments.min-spaces-from-content`, `comments-indentation`,
+`braces.max-spaces-inside` and the two `octal-values`). Changing any of them is choosing to lose
+`--fix`: ansible-lint refuses with "Found incompatible custom yamllint configuration", says so in a
+*warning* and carries on linting, so the capability disappears with nothing failing. That is how it
+went unnoticed until #48 raised the profile. The reason is written in `.yamllint` itself.
+
+**`--fix` is not a no-op on a clean tree, though**, so run it on a clean tree, read the diff, and
+keep only what you meant. Measured on this repository today: it strips a blank line from both
+workflows and from the role's `meta/main.yml`, which no enabled rule asks for -- and it rewrites
+`.github/scripts/tests/LiteLLM_account_isolation/15_fault_multiline_flow_fallback_litellm_config.yaml`,
+collapsing the multi-line flow mapping that fixture exists to encode onto a single line. Its name says
+`multiline_flow`; after `--fix` it no longer tests that, and the selftest still passes, so nothing
+tells you.
 
 ## What blocks a pull request
 
@@ -135,7 +147,7 @@ written in the file.
 that allows neither a ruleset nor a branch protection on a private repository, so no CI check can be
 made required before merging: the workflows **inform** the reviewer, they do not guard the door.
 
-The one thing that actually refuses something is `.githooks/pre-commit` (#32), and only in a clone
+The one thing that actually refuses something is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
 session, and only when `gitleaks` is installed -- the pre-commit hook refuses every commit without
 it, deliberately.
@@ -179,11 +191,8 @@ and it enables `.githooks/` when both that directory and `gitleaks` are there. I
 idempotent, best-effort, and does nothing outside a remote session. See its own header for the
 detail, and its last line for which checks the session can actually be trusted to run.
 
-Two things it has to work around, both real and both measured:
+One thing it has to work around, real and measured:
 
-* **`requirements.txt` does not exist yet** -- it arrives with #32. Until then the hook installs the
-  same four pins from a list of its own, and says so. That list is a second copy of version numbers
-  and is meant to be deleted when #32 lands.
 * **`pip install` needs `--ignore-installed` in this image.** It carries Debian's PyYAML 6.0.1 in
   `/usr/lib/python3/dist-packages`, installed by dpkg and so without the `RECORD` file pip needs to
   remove it. Without the retry, pip refuses the whole transaction -- ansible-core, ansible-lint and
