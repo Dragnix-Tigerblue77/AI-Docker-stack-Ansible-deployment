@@ -258,9 +258,10 @@ Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui
 secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
 lecture seule et sans secret propre.
 
-**Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, actée dans la
-session qui a écrit cette phrase, à faire valider par tigerblue77 à la reprise de leur discussion.**
-Chaque compte ajoute ses propres clés fournisseur depuis `/ui`, à la main, plutôt que de les faire
+**Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, validée par
+tigerblue77 le 07/09/2026 : le compromis (HTTP sans TLS, authentification basique seule, port ouvert
+sur tout le LAN) est accepté tel quel, sur un LAN jugé de confiance.** Chaque compte ajoute ses propres
+clés fournisseur depuis `/ui`, à la main, plutôt que de les faire
 rendre depuis un vault : c'est le même modèle que les autres bases auto-hébergées de cette estate --
 déployées vides, peuplées en direct, sauvegardées de temps en temps dans leur dépôt -- et `/ui` doit donc
 être joignable depuis un simple navigateur du LAN, avant même qu'un reverse proxy existe pour le faire à
