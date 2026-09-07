@@ -95,6 +95,18 @@
       otherwise, documented upstream as deliberately weak. Its port is published for the dashboard to
       be reachable from the LAN (#73), so this password is the one thing standing in front of it.
 
+- name: "Check the Qdrant API key is provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_Qdrant_API_key is defined
+      - AIS_Qdrant_API_key is string
+      - AIS_Qdrant_API_key | length > 0
+    quiet: true
+    fail_msg: >-
+      "AIS_Qdrant_API_key" is mandatory and has no default: #3 requires an API key on Qdrant even
+      though no port is published, as defence-in-depth against a compromised workload reaching it
+      over the internal network.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:

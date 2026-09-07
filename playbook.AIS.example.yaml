@@ -79,6 +79,11 @@
         # same reasoning as LiteLLM's "/ui" (#1).
         AIS_OmniRoute_dashboard_password: "{{ vault_AIS_OmniRoute_dashboard_password }}"
 
+        # MANDATORY since #3, and without a default: #3 requires an API key on Qdrant even though no
+        # port is published, as defence-in-depth against a compromised workload on the internal
+        # network.
+        AIS_Qdrant_API_key: "{{ vault_AIS_Qdrant_API_key }}"
+
         # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants
         # the service finds every variable it needs in one place instead of discovering them one

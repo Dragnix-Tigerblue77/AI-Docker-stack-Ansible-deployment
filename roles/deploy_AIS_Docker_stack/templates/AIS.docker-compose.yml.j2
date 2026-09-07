@@ -210,6 +210,47 @@ services:
 
     networks:
       - {{ AIS_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
+  # Qdrant -- the AIS's vector engine (#3). Deploy-only scope: the collections themselves need a
+  # vector dimension, and that dimension comes from the embedding model #21 has not chosen yet --
+  # creating one now would mean guessing it, which is exactly the silent RAG-pipeline breakage #3
+  # warns against. This block gets the server running; #21 creates the collections once the model is
+  # picked.
+  # ------------------------------------------------------------------------------------------------
+  qdrant:
+    # Explicit SemVer, never ":latest" -- see "defaults/main.yml" for why this matters here
+    # specifically.
+    image: "qdrant/qdrant:{{ AIS_Qdrant_Docker_image_tag }}"
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+      QDRANT__SERVICE__API_KEY: "{{ AIS_Qdrant_API_key }}"
+
+    volumes:
+      - "{{ AIS_Qdrant_data_Docker_volume_name }}:/qdrant/storage:rw"
+
+    # No "ports:": #3 is explicit that Qdrant is reached only by other containers of the stack, over
+    # the internal network -- unlike LiteLLM's "/ui" or OmniRoute's dashboard, nothing here is meant
+    # for a human browser.
+
+    # No "healthcheck:" here, deliberately, per the template's own model below ("only write one to do
+    # better, not to do the same"): the official image ships neither a HEALTHCHECK of its own nor a
+    # shell tool to call one with -- no "curl", no interpreter, by design (an intentional hardening
+    # upstream, not an oversight). A "CMD" naming a binary that is not there would fail on every
+    # single check, marking the service permanently unhealthy for a reason that has nothing to do
+    # with Qdrant itself. "/livez" stays reachable unauthenticated for whoever adds one later once an
+    # HTTP-capable sidecar exists to call it.
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "{{ AIS_Qdrant_memory_limit }}"
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
 {% if AIS_Claude_code_tigerblue77_enabled %}
 
   # ------------------------------------------------------------------------------------------------
@@ -357,6 +398,8 @@ volumes:
   {{ AIS_PostgreSQL_data_Docker_volume_name }}:
   # OmniRoute's SQLite store (#73). Named, so it survives a container recreation.
   {{ AIS_OmniRoute_data_Docker_volume_name }}:
+  # Qdrant's storage (#3). Named, so it survives a container recreation.
+  {{ AIS_Qdrant_data_Docker_volume_name }}:
 {% if AIS_Claude_code_tigerblue77_enabled %}
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.

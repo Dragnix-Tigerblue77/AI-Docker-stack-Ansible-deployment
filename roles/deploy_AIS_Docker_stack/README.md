@@ -64,6 +64,15 @@ Et celles que #73 apporte, pour OmniRoute :
 | `AIS_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
 | `AIS_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
 
+Et celles que #3 apporte, pour Qdrant :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_Qdrant_Docker_image_tag` | `v1.19.1` | SemVer explicite, jamais `:latest`. |
+| `AIS_Qdrant_data_Docker_volume_name` | `AIS_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
+| `AIS_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
+| `AIS_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
+
 Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
 `AIS_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
 
@@ -108,6 +117,20 @@ protéger.
 **Le mot de passe du tableau de bord est obligatoire, sans défaut.** L'image démarre avec `CHANGEME` si
 rien n'est fourni -- documenté en amont comme volontairement faible pour forcer un changement. Traité
 comme le mot de passe `/ui` de LiteLLM (#1) : vaulté, jamais laissé à son défaut.
+
+Qdrant -- déployé, pas encore rempli (#3)
+--------------------------------------------
+
+**Périmètre volontairement partiel.** #3 déploie le serveur ; il ne crée aucune collection. Les créer
+demande une dimension de vecteur, et cette dimension dépend du modèle d'embedding que #21 n'a pas
+encore choisi -- en créer une maintenant serait deviner, exactement le genre de désalignement
+silencieux que #3 met en garde contre. #21 crée les collections une fois le modèle choisi.
+
+**Aucun `healthcheck:` ici, et c'est délibéré.** L'image officielle n'embarque ni sonde propre ni
+outil pour en écrire une -- pas de `curl`, pas d'interpréteur, un durcissement amont volontaire, pas
+un oubli. Un `CMD` qui nomme un binaire absent échouerait à chaque contrôle, rendant le service
+*unhealthy* en permanence pour une raison étrangère à Qdrant lui-même -- exactement le piège que le
+modèle commenté du template met en garde contre.
 
 Le contrat du rôle de déploiement
 ---------------------------------
@@ -241,15 +264,16 @@ Ce que ce squelette ne fait pas
 -------------------------------
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
-  `postgres` et `litellm` **inconditionnellement**, et depuis #73 `omniroute` les rejoint,
-  inconditionnellement aussi. Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus quand
-  `AIS_Claude_code_tigerblue77_enabled` vaut `true` (`false` par défaut -- #31 exige que chaque
+  `postgres` et `litellm` **inconditionnellement**, et depuis #73 et #3 `omniroute` et `qdrant` les
+  rejoignent, inconditionnellement aussi. Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus
+  quand `AIS_Claude_code_tigerblue77_enabled` vaut `true` (`false` par défaut -- #31 exige que chaque
   service se déclare ainsi) ; dans les deux états, les seuls ports qui apparaissent dans la
-  configuration résolue sont le `4000` de LiteLLM et le `20128` d'OmniRoute, publiés à dessein. La
-  case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient donc
-  vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur une vraie machine : la mesure
-  sous charge des limites mémoire, la persistance après un `down` / `up`, et l'idempotence sur un
-  second passage.
+  configuration résolue sont le `4000` de LiteLLM et le `20128` d'OmniRoute, publiés à dessein --
+  Qdrant n'en publie aucun. La case « le rôle se déploie sur la VM de test et les conteneurs
+  démarrent » de #31 devient donc vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur
+  une vraie machine : la mesure sous charge des limites mémoire, la persistance après un `down` /
+  `up`, l'idempotence sur un second passage -- et, hors du périmètre de #3, la création des
+  collections Qdrant une fois le modèle d'embedding choisi (#21).
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation
