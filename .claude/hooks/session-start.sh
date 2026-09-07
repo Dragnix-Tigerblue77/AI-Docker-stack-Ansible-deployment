@@ -14,20 +14,23 @@
 #
 #   1. requirements.txt   ansible-core, ansible-lint, yamllint, PyYAML -- the yamllint, ansible-lint,
 #                         syntax-check and home-made-checks jobs of ansible-ci.yml
-#   2. gitleaks           its own workflow, and the ".githooks/pre-commit" that CONTRIBUTING.md asks
+#   2. requirements.yml   community.docker -- the ansible-lint and syntax-check jobs, since #76 needs
+#                         "docker_host_info" and "docker_container_exec" to resolve
+#   3. gitleaks           its own workflow, and the ".githooks/pre-commit" that CONTRIBUTING.md asks
 #                         every clone to enable
-#   3. core.hooksPath     the one thing CONTRIBUTING.md says to do once per clone, and a web session
+#   4. core.hooksPath     the one thing CONTRIBUTING.md says to do once per clone, and a web session
 #                         IS a fresh clone
 #
-# Two steps the homelab repository's equivalent has and this one deliberately does NOT :
+# One step the homelab repository's equivalent has and this one deliberately does NOT :
 #
-#   * no "ansible-galaxy collection install". The role uses "ansible.builtin.assert" and
-#     "ansible.builtin.include_role" and nothing else, so there is no "requirements.yml" to install
-#     -- that is #31's choice, stated in the ansible-lint job's own comment. The day a service issue
-#     brings a collection in, it brings the file and the step that installs it ;
 #   * no ".vault_pass". Nothing in this repository is vaulted, so no check exits 1 for the want of
 #     one. Writing a dummy password for a vault that does not exist would be a file nobody reads and
 #     a habit that outlives its reason.
+#
+# ! "ansible-galaxy collection install" is step 2, not folded into step 1's loop: it installs into
+# the venv the pinned "ansible-core" builds (step 1 has to run first), and it is a repository, not a
+# package -- "requirements.yml", read whole, not one pin at a time. There was nothing for it to
+# install until #76 brought the file; #31's own comment said so, and it is #76 that made it wrong.
 #
 # ! It is deliberately BEST EFFORT, and that is not the same as sloppy. A session that starts with
 # both tools is the good case, but a session that starts with one is still a session where most of
@@ -230,7 +233,22 @@ else
     fi
 fi
 
-# 2. gitleaks ---------------------------------------------------------------------------------------
+# 2. requirements.yml (Ansible collections) ----------------------------------------------------------
+# ! Only through the venv's OWN "ansible-galaxy": the venv is what carries the pinned "ansible-core",
+# and a collection installed against a different "ansible-galaxy" on the image lands in a
+# collections path that pinned interpreter does not read from.
+if [ -z "$VENV_PATH" ] || [ ! -x "$VENV_PATH/bin/ansible-galaxy" ]; then
+    note "no venv ansible-galaxy, so requirements.yml was not installed." "community.docker"
+elif [ ! -f requirements.yml ]; then
+    note "no requirements.yml at the repository root, so no collection was installed." "community.docker"
+elif "$VENV_PATH/bin/ansible-galaxy" collection install -r requirements.yml > /dev/null 2>&1; then
+    printf 'Ansible collections: requirements.yml installed\n'
+else
+    note "\"ansible-galaxy collection install -r requirements.yml\" failed. ansible-lint and --syntax-check cannot resolve community.docker's modules here." \
+        "community.docker"
+fi
+
+# 3. gitleaks ---------------------------------------------------------------------------------------
 # ! The version is read from the workflow rather than written here. A second copy of a version number
 # is a version number that drifts, and the whole value of running gitleaks locally is that it is the
 # same gitleaks the pull request will meet.
@@ -272,7 +290,7 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -x "$LOCAL_BINARIES_PATH/gitleaks" ] \
     printf 'export PATH="%s:$PATH"\n' "$LOCAL_BINARIES_PATH" >> "$CLAUDE_ENV_FILE"
 fi
 
-# 3. The repository's own git hooks ------------------------------------------------------------------
+# 4. The repository's own git hooks ------------------------------------------------------------------
 # CONTRIBUTING.md calls "git config core.hooksPath .githooks" the one thing to do once per clone, and
 # a web session is a fresh clone every time -- so without this line every session commits with the
 # repository's only real guard-rail switched off. The CI cannot take over for it: no check can be made
@@ -287,7 +305,7 @@ fi
 # ! It asks the binary, not the filesystem. "[ -x file ]" was the first version and it is a false
 # proxy in the one failure mode that leaves bytes behind : a truncated download unpacks to a file tar
 # has already made executable, so "-x" is true and the guard opens on a gitleaks that cannot run.
-# Step 2 now stages the download, which closes that hole at the source ; this asks anyway, because a
+# Step 3 now stages the download, which closes that hole at the source ; this asks anyway, because a
 # guard that protects the commit path should not depend on another step having been careful.
 if [ ! -d .githooks ]; then
     note "no .githooks/ directory, so core.hooksPath was left alone." "the pre-commit hook"

@@ -68,12 +68,12 @@ def load_defaults():
     is. Rendered into the template, that literal reaches the compose file, and a mount or a build
     context written that way is read as naming something else entirely.
 
-    This resolved one pair by hand while there was one pair. #1 and #13 each added another --
+    This resolved one pair by hand while there was one pair. #1, #13 and #76 each added another --
     independently, on separate branches -- and the by-hand form reported the first as an undeclared
-    volume and would have carried the second's literal into "build.context" unnoticed, since nothing
-    here reads that key. Both are findings about the CHECK, phrased as findings about the template,
-    which is the shape that gets a real one waived. It resolves every default now, by
-    rendering each one against the others until nothing moves.
+    volume and would have carried the others' literals into "build.context" and a mount path
+    unnoticed, since nothing here reads those keys. All are findings about the CHECK, phrased as
+    findings about the template, which is the shape that gets a real one waived. It resolves every
+    default now, by rendering each one against the others until nothing moves.
     """
     defaults = yaml.safe_load((ROLE / "defaults" / "main.yml").read_text(encoding="utf-8"))
     environment = Environment()

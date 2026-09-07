@@ -1,0 +1,25 @@
+---
+version: 1.1.5
+
+endpoints:
+  custom:
+    - name: "LiteLLM Homelab"
+      # A DEDICATED virtual key, never the master key (#1): LibreChat is a consumer of the gateway
+      # like any other, and #1 is explicit that the master key never leaves LiteLLM's own container.
+      # Read from LibreChat's own container environment, set by "AIS_LibreChat_LiteLLM_virtual_key"
+      # in the compose template.
+      apiKey: "${LIBRECHAT_LITELLM_VIRTUAL_KEY}"
+      # "litellm" is the gateway's SERVICE KEY (#1) -- not "litellm-proxy", which is what the
+      # original POC named it before the service actually landed in the compose template.
+      baseURL: "http://litellm:4000/v1"
+      models:
+        # Two identifiers here did not exist in the gateway's real model_list (#2):
+        # "llama-3-3-70b-groq" was never declared, and "llama-3-1-405b-sambanova" belongs to the
+        # SambaNova block #2 keeps entirely commented out (a bank card is required upstream). Both
+        # would have answered with a 404 from the gateway the moment either was selected. Replaced
+        # the first with "gpt-oss-120b-groq", an actual deployed Groq entry serving the same role;
+        # dropped the second outright, since no working SambaNova substitute exists to offer instead.
+        default: ["auto", "auto-code", "auto-pro", "auto-fast", "gemini-3-7-flash", "gpt-oss-120b-groq", "codestral"]
+        fetch: true
+      titleModel: "auto-fast"
+      dropParams: ["stop"]

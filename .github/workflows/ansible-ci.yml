@@ -93,11 +93,13 @@ jobs:
       - name: Install the tooling
         run: pip install -r requirements.txt
 
-      # No "ansible-galaxy collection install": the role of #31 uses only "ansible.builtin.assert"
-      # and "ansible.builtin.include_role", so no third-party collection at all. The day a service
-      # issue brings one in, it will bring its "requirements.yml" and the install line that goes
-      # with it -- that is the right moment to write them, not today, when they would have nothing
-      # to install.
+      # "community.docker" arrived with #76: the first service issue to need more than
+      # "ansible.builtin.assert" and "ansible.builtin.include_role". Without it installed,
+      # ansible-lint cannot resolve "community.docker.docker_host_info" and
+      # "community.docker.docker_container_exec" to check their argument spec.
+      - name: Install the collections
+        run: ansible-galaxy collection install -r requirements.yml
+
       - name: Run ansible-lint
         run: ansible-lint
 
@@ -117,6 +119,12 @@ jobs:
 
       - name: Install the tooling
         run: pip install -r requirements.txt
+
+      # "community.docker" arrived with #76: without it installed, "--syntax-check" cannot resolve
+      # the argument spec of "community.docker.docker_host_info" and
+      # "community.docker.docker_container_exec".
+      - name: Install the collections
+        run: ansible-galaxy collection install -r requirements.yml
 
       # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.AIS.example.yaml") would
       # mean coming back here on the first rename, and above all it would stay green in silence if

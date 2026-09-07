@@ -18,6 +18,16 @@ path = "roles/**/templates/**"
 SPDX-FileCopyrightText = "2026 Tigerblue77"
 SPDX-License-Identifier = "AGPL-3.0-only"
 
+# "roles/**/files/**" is the same case as "templates/**" above, just copied verbatim rather than
+# rendered: LibreChat's own configuration file (#4) is deployed onto the managed node, where it is a
+# file the LibreChat container reads directly, not a source file of this repository. It has comment
+# syntax, unlike the JSON below, which is exactly why leaving it unannotated would be a choice rather
+# than a necessity -- and the wrong one, for the same reason as "templates/**".
+[[annotations]]
+path = "roles/**/files/**"
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
 # JSON has no comment syntax at all: a "#" line is not a comment there, it is a parse error.
 #
 # There IS another way -- REUSE reads a sidecar "<file>.license" -- so this is a choice rather than
@@ -29,9 +39,6 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 # and that is deliberate: without it, enabling "reuse lint" here would turn that open pull request
 # red on a file its author would have to grow a sidecar for.
 
-# There is deliberately NO rule for "roles/**/files/**", which the homelab repository does declare:
-# no role here has a "files/" directory yet. The JSON rule above is different precisely because the
-# file it covers is already written, in a pull request that is open today.
 [[annotations]]
 path = ["**/*.json"]
 SPDX-FileCopyrightText = "2026 Tigerblue77"

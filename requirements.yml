@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# The role used only "ansible.builtin.assert" and "ansible.builtin.include_role" until #76: the first
+# service issue to need more than the standard library of Ansible modules. LibreChat's admin account
+# (#76) is created by running "npm run create-user" and a "mongosh" update INSIDE the already-running
+# container, and "community.docker.docker_container_exec" -- alongside "docker_host_info" to find that
+# container by its Compose label rather than guessing its name -- is what does that without shelling
+# out to the "docker" CLI by hand.
+#
+# ! Both modules talk to the Docker Engine API through the "docker" Python SDK, not through the CLI:
+# the MANAGED NODE needs "pip install docker" for them to work at all. That is a runtime requirement
+# of the role, stated in its README's "Prérequis" -- this file only pins the COLLECTION, which is an
+# Ansible-side concern (CI installs it to lint and syntax-check the role) and says nothing about what
+# is installed on the machine the role actually runs against.
+collections:
+  - name: community.docker
+    version: ">=3.4.0"

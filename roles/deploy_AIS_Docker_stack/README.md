@@ -19,8 +19,13 @@ Prérequis
 
 - Un rôle capable de déployer le stack, nommé par `AIS_Docker_stack_deployment_role_name`, et résoluble
   depuis le `roles_path` de l'appelant. Ce dépôt n'en fournit aucun : voir le contrat plus bas.
-- Rien d'autre. Le rôle n'utilise que `assert` et `include_role`, donc aucune collection, aucun paquet
-  et aucun fait rassemblé.
+- La collection `community.docker` (`requirements.yml`, à la racine du dépôt), depuis #76 : le compte
+  admin de LibreChat s'y crée par `docker_host_info` et `docker_container_exec`, pas par
+  `ansible.builtin.assert`/`include_role` comme le reste du rôle.
+- **Sur le nœud géré** (pas sur celui qui lance Ansible, s'ils diffèrent) : le SDK Python `docker`
+  (`pip install docker`). Les deux modules ci-dessus parlent à l'API du moteur Docker à travers lui,
+  jamais à travers le CLI `docker` -- son absence échoue à l'intérieur du module, avec son propre
+  message, plutôt que d'être vérifiée ici où il n'y a rien à vérifier avant que le module ne tourne.
 
 Variables du rôle
 -----------------
@@ -88,6 +93,19 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 | `AIS_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
 | `AIS_Claude_code_tigerblue77_home_Docker_volume_name` | `AIS_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
+Et celles que #76 apporte, pour LibreChat et sa base :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
+| `AIS_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
+| `AIS_LibreChat_LiteLLM_virtual_key` | aucun | **Obligatoire.** Clé virtuelle dédiée (#2), jamais la clé maîtresse. |
+| `AIS_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
+| `AIS_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
+| `AIS_LibreChat_uploads_Docker_volume_name` · `AIS_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
+| `AIS_LibreChat_memory_limit` · `AIS_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
+| `AIS_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
+
 `false` et non `''` pour les deux derniers : ansible-core 2.19 refuse un test de vérité sur autre chose
 qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et DNS du dépôt
 `Homelab_Ansible_deployment`, repris tel quel plutôt que réinventé.
@@ -96,13 +114,13 @@ Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autre
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
 
-Deux ports hôte apparaissent dans ce rôle : le `4000` de LiteLLM (#1) et le `20128` d'OmniRoute (#73),
-chacun sous mot de passe -- voir plus bas pourquoi chacun est une exception plutôt qu'une habitude. Les
-autres services internes se joignent par le réseau du stack, et les rares interfaces web pensées pour
-passer par un reverse proxy le feront par celui de l'appelant. Le jour où un autre port devra malgré tout
-être publié, il faudra qu'il esquive la liste `kRestrictedPorts` de Chromium -- un port restreint est
-refusé *dans* le navigateur, avant que la connexion ne le quitte, donc le service reste sain et ses
-journaux restent vides.
+Trois ports hôte apparaissent dans ce rôle : le `4000` de LiteLLM (#1), le `20128` d'OmniRoute (#73) et
+le `3080` de LibreChat (#76), chacun sous mot de passe ou compte nominatif -- voir plus bas pourquoi
+chacun est une exception plutôt qu'une habitude. Les autres services internes se joignent par le réseau
+du stack, et les rares interfaces web pensées pour passer par un reverse proxy le feront par celui de
+l'appelant. Le jour où un autre port devra malgré tout être publié, il faudra qu'il esquive la liste
+`kRestrictedPorts` de Chromium -- un port restreint est refusé *dans* le navigateur, avant que la
+connexion ne le quitte, donc le service reste sain et ses journaux restent vides.
 
 OmniRoute -- le repli gratuit et sans clé (#73)
 ------------------------------------------------
@@ -131,6 +149,52 @@ outil pour en écrire une -- pas de `curl`, pas d'interpréteur, un durcissement
 un oubli. Un `CMD` qui nomme un binaire absent échouerait à chaque contrôle, rendant le service
 *unhealthy* en permanence pour une raison étrangère à Qdrant lui-même -- exactement le piège que le
 modèle commenté du template met en garde contre.
+
+LibreChat -- l'interface humaine de l'AIS (#76)
+--------------------------------------------------
+
+**`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja : la clé
+d'API y est lue par LibreChat lui-même, avec sa propre syntaxe `${VAR}`, depuis l'environnement du
+conteneur -- Ansible n'a rien à y interpoler. Repris du POC fonctionnel de tigerblue77, avec trois
+corrections : deux identifiants de modèles absents du `model_list` réel de #2, et une `apiKey` qui
+portait la clé maîtresse de la passerelle plutôt qu'une clé virtuelle dédiée.
+
+**L'inscription est fermée.** Le port `3080` est publié sur le LAN, et une inscription ouverte y
+donnerait à n'importe qui sur le réseau un accès aux quotas des deux comptes.
+
+**Les quatre secrets de chiffrement sont obligatoires.** Sans eux, LibreChat en génère des temporaires
+au premier démarrage et les écrit dans son propre volume -- ce que sa documentation déconseille
+explicitement en production, précisément parce que rien ne les vaulte nulle part.
+
+**Le compte de Dragnix se crée tout seul ; celui de tigerblue77 se crée à la main.** Une fois le stack
+déployé, le rôle exécute lui-même `npm run create-user` dans le conteneur `librechat`, puis promeut ce
+compte `ADMIN` par une écriture directe dans MongoDB (`mongosh ... updateOne`) plutôt que de compter
+sur le comportement « le premier compte est admin » de LibreChat -- des retours d'expérience amont le
+signalent silencieusement inopérant, ce qui en aurait fait une hypothèse plutôt qu'un fait. Dragnix,
+une fois connecté avec ce compte admin, crée celui de tigerblue77 lui-même depuis le panneau
+d'administration : rien à automatiser côté Ansible pour un compte que la personne qui le possède peut
+créer en trente secondes une fois qu'elle a un accès admin.
+
+Techniquement, deux choses ont été vérifiées en direct plutôt que supposées avant d'écrire ces tâches :
+
+- **`create-user` se bloque si on lui répond par une entrée standard multi-lignes.** Le script ouvre
+  une nouvelle interface `readline` par question et la ferme aussitôt après ; si toute la réponse
+  arrive d'un coup (comme le fait un `docker exec -i` alimenté par un `printf | ...`), les lignes au-delà
+  de la première se perdent entre deux interfaces, et le script attend indéfiniment une question à
+  laquelle il a déjà, sans le savoir, reçu une réponse. La solution qui évite complètement le problème :
+  passer le mot de passe en 4ᵉ argument positionnel et `--email-verified=true` en option, ce que le
+  script lit avant de songer à demander l'un ou l'autre -- aucune invite ne se déclenche.
+- **Le conteneur est trouvé par son étiquette Compose**, `com.docker.compose.service=librechat`, plutôt
+  que par un nom deviné : le nommage de Compose (`<projet>-<service>-<n>`) n'est le contrat de rien ici,
+  l'étiquette si. **Ceci ne fonctionne que sous Compose.** Sous Swarm, le nœud qui exécute cette tâche
+  n'est pas forcément celui qui héberge le conteneur `librechat` -- Swarm peut le placer sur n'importe
+  quel nœud du cluster -- et ce rôle ne cherche pas sur quel nœud il tourne réellement. La tâche ne
+  trouve alors rien et se saute proprement plutôt que d'agir sur le démon Docker du mauvais nœud ;
+  cela reste à faire le jour où la cible réelle est Swarm.
+
+Les deux mécanismes ont été vérifiés contre un vrai `docker compose up` de ces deux services (création,
+ré-exécution idempotente, cas « compte déjà existant », promotion `ADMIN` idempotente), pas seulement
+lus dans la documentation amont.
 
 Le contrat du rôle de déploiement
 ---------------------------------
@@ -264,16 +328,18 @@ Ce que ce squelette ne fait pas
 -------------------------------
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
-  `postgres` et `litellm` **inconditionnellement**, et depuis #73 et #3 `omniroute` et `qdrant` les
-  rejoignent, inconditionnellement aussi. Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus
-  quand `AIS_Claude_code_tigerblue77_enabled` vaut `true` (`false` par défaut -- #31 exige que chaque
-  service se déclare ainsi) ; dans les deux états, les seuls ports qui apparaissent dans la
-  configuration résolue sont le `4000` de LiteLLM et le `20128` d'OmniRoute, publiés à dessein --
-  Qdrant n'en publie aucun. La case « le rôle se déploie sur la VM de test et les conteneurs
-  démarrent » de #31 devient donc vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur
-  une vraie machine : la mesure sous charge des limites mémoire, la persistance après un `down` /
-  `up`, l'idempotence sur un second passage -- et, hors du périmètre de #3, la création des
-  collections Qdrant une fois le modèle d'embedding choisi (#21).
+  `postgres` et `litellm` **inconditionnellement**, et depuis #73, #3 et #76 `omniroute`, `qdrant` et
+  `librechat`/`librechat_mongodb` les rejoignent, inconditionnellement aussi. Depuis #13,
+  `claude_code_tigerblue77` s'y ajoute en plus quand `AIS_Claude_code_tigerblue77_enabled` vaut
+  `true` (`false` par défaut -- #31 exige que chaque service se déclare ainsi) ; dans tous les états,
+  les seuls ports qui apparaissent dans la configuration résolue sont le `4000` de LiteLLM, le
+  `20128` d'OmniRoute et le `3080` de LibreChat, publiés à dessein -- Qdrant n'en publie aucun. La
+  case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient donc
+  vérifiable sur le banc d'essai, pas avant. Le compte de Dragnix et sa promotion `ADMIN` sont
+  vérifiés contre un vrai `docker compose up` (voir plus haut) ; ce qui reste à faire sur une vraie
+  machine : la mesure sous charge des limites mémoire, la persistance après un `down` / `up`,
+  l'idempotence sur un second passage, et, hors du périmètre de #3, la création des collections
+  Qdrant une fois le modèle d'embedding choisi (#21).
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation
@@ -328,6 +394,10 @@ Dépendances
 
 Aucune déclarée dans `meta/`. Le rôle en inclut une à l'exécution -- celle que l'appelant nomme -- et c'est
 précisément pour qu'elle ne soit pas déclarée ici qu'elle est un paramètre.
+
+Une collection, en revanche, l'est dans `requirements.yml` à la racine du dépôt depuis #76 :
+`community.docker`, pour les deux modules qui créent le compte de Dragnix. Voir « Prérequis » plus
+haut.
 
 Licence
 -------

@@ -252,3 +252,59 @@ AIS_Claude_code_tigerblue77_memory_limit: "2g"
 # silently loses the other half on every recreation. See the upstream image's own README on this
 # trap, and #13's Definition of Done, which checks for it explicitly.
 AIS_Claude_code_tigerblue77_home_Docker_volume_name: "AIS_Claude_code_tigerblue77_home"
+
+# --------------------------------------------------------------------------------------------------
+# LibreChat -- the AIS's human-facing chat interface (#76)
+# --------------------------------------------------------------------------------------------------
+
+# Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main", never
+# meant for a stable deployment) and never ":latest".
+#
+# ! Verified on 2026-09-06 against the upstream GHCR tags.
+AIS_LibreChat_Docker_image_tag: "v0.8.7"
+
+# Explicit major, verified against the upstream compose example.
+AIS_MongoDB_LibreChat_Docker_image_tag: "8.0.20"
+
+AIS_LibreChat_uploads_Docker_volume_name: "AIS_LibreChat_uploads"
+AIS_MongoDB_LibreChat_data_Docker_volume_name: "AIS_MongoDB_LibreChat_data"
+
+AIS_LibreChat_memory_limit: "1g"
+AIS_MongoDB_LibreChat_memory_limit: "512m"
+
+# MANDATORY, without a default -- same reasoning as every other secret this role interpolates.
+# LibreChat is a consumer of the gateway like any other: its own virtual key (#2), never the master
+# key, which "AIS_LiteLLM_master_key" (#1) never leaves LiteLLM's own container for.
+# AIS_LibreChat_LiteLLM_virtual_key:
+
+# MANDATORY, without a default, all four. LibreChat generates temporary values for these on first
+# start and stores them in its own volume if none are given -- documented upstream as unsuitable for
+# production, precisely because nothing vaults them anywhere. Never left to that default here.
+# AIS_LibreChat_creds_key:
+# AIS_LibreChat_creds_IV:
+# AIS_LibreChat_JWT_secret:
+# AIS_LibreChat_JWT_refresh_secret:
+
+# Closed, not the image's own default: the port below is published on the LAN, and open registration
+# there would hand anyone on the network a seat on both accounts' quotas. The estate's own two
+# accounts are created with "docker exec ... npm run create-user", which works with registration
+# closed.
+AIS_LibreChat_allow_registration: false
+
+# Where "files/librechat/librechat.yaml" lands on the managed node, mounted read-only into the
+# container. Copied rather than rendered: nothing in it needs Ansible interpolation -- the virtual
+# key is read by LibreChat itself, from its OWN container environment, at "${LIBRECHAT_LITELLM_VIRTUAL_KEY}".
+AIS_LibreChat_config_file_name: "librechat.yaml"
+AIS_LibreChat_config_file_destination_path: "{{ AIS_Docker_compose_file_destination_directory }}{{ AIS_LibreChat_config_file_name }}"
+
+# Dragnix's own LibreChat account, created BY THE ROLE as the estate's first (and only automated)
+# account, then granted the ADMIN role directly in MongoDB -- see "tasks/main.yml" for why not the
+# "first user is auto-admin" behaviour some LibreChat deployments rely on, which is not reliable
+# enough to build on (upstream reports of it silently not applying). Dragnix creates tigerblue77's
+# account himself from the admin panel once logged in, which is not something Ansible has to automate.
+#
+# MANDATORY, all four, without a default: this role does not get to presuppose who runs the estate.
+# AIS_LibreChat_Dragnix_email:
+# AIS_LibreChat_Dragnix_name:
+# AIS_LibreChat_Dragnix_username:
+# AIS_LibreChat_Dragnix_password:

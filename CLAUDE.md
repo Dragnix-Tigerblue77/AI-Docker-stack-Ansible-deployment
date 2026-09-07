@@ -146,6 +146,7 @@ runs. None of them needs a machine of the homelab.
 
 ```bash
 pip install -r requirements.txt                            # ansible-core, ansible-lint, yamllint, PyYAML (pinned)
+ansible-galaxy collection install -r requirements.yml       # community.docker, since #76
 
 yamllint .
 ansible-lint
@@ -227,9 +228,12 @@ role's README rather than frozen into the role.
 6. **Variables reach the deployment role as `include_role` parameters**, never through a `set_fact` or
    a task-level `vars:`. Precedence 20 is the only form that beats a fact already set; that is what
    #459 cost the homelab repository.
-7. **There is no `requirements.yml`.** The role uses `ansible.builtin.assert` and
-   `ansible.builtin.include_role` and nothing else, so no collection is installed anywhere -- not in
-   CI, not in the session-start hook. The first service issue that needs one brings it.
+7. **`requirements.yml` exists since #76, and it names exactly one collection.** The role used only
+   `ansible.builtin.assert` and `ansible.builtin.include_role` until then; LibreChat's admin account
+   (#76) needs `community.docker.docker_host_info` and `docker_container_exec` to reach the running
+   container, and those are what brought the file, the `ansible-galaxy collection install` step in
+   CI and in the session-start hook, and the `docker` Python SDK requirement on the managed node
+   (stated in the role's own README, since it is that machine's requirement, not this repository's).
 
 ## Working in a Claude Code web session
 
