@@ -83,6 +83,9 @@
         AIS_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
         AIS_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
 
+        # MANDATORY since #71, and without a default: "--requirepass" would otherwise be empty.
+        AIS_Redis_password: "{{ vault_AIS_Redis_password }}"
+
         # MANDATORY since #73, and without a default: the image ships "CHANGEME" otherwise, which
         # upstream documents as deliberately weak. OmniRoute's port is published for the dashboard,
         # same reasoning as LiteLLM's "/ui" (#1).

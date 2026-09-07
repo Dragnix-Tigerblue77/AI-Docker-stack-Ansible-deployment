@@ -154,6 +154,25 @@ AIS_LiteLLM_UI_username: "admin"
 # AIS_LiteLLM_UI_password:
 
 # --------------------------------------------------------------------------------------------------
+# Redis -- LiteLLM's shared cooldown state and response cache backend (#71)
+# --------------------------------------------------------------------------------------------------
+
+# Major pinned explicitly, never ":latest" -- same reasoning as PostgreSQL, applied to a smaller
+# surface: a major bump can change eviction and persistence defaults.
+AIS_Redis_Docker_image_tag: "7-alpine"
+
+AIS_Redis_data_Docker_volume_name: "AIS_Redis_data"
+
+# Starting value. Response caching and per-worker cooldown state are both small compared to the
+# corpora the other services here hold.
+AIS_Redis_memory_limit: "256m"
+
+# MANDATORY, without a default: "--requirepass" would otherwise be empty, which is no password at
+# all. Internal-only like Qdrant's API key (#3) -- defence in depth against a compromised workload on
+# the same network, not a port published anywhere.
+# AIS_Redis_password:
+
+# --------------------------------------------------------------------------------------------------
 # LiteLLM routing -- tigerblue77's own provider keys (#2, v1 scope)
 # --------------------------------------------------------------------------------------------------
 
