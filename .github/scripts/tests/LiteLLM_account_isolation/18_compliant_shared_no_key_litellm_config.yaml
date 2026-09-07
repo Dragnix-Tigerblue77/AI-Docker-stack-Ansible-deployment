@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 0
+---
+# A literal "api_key" -- never "os.environ/..." -- can only be a backend that needs no credential at
+# all, per this repository's own "no secret in clear text" rule: OmniRoute in #2 is exactly this,
+# shared and reachable by every account on purpose, because there is no quota behind it to protect.
+# Both accounts fall back onto it, and neither the grouping rule nor the attribution rule fires.
+model_list:
+  - model_name: gen-chat-dragnix
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+    model_info:
+      access_groups: ["dragnix"]
+
+  - model_name: gen-chat-tigerblue77
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+    model_info:
+      access_groups: ["tigerblue77"]
+
+  - model_name: omniroute-free-auto
+    litellm_params:
+      model: provider/identifier
+      api_key: "omniroute-no-key-needed"
+
+router_settings:
+  fallbacks:
+    - gen-chat-dragnix: ["omniroute-free-auto"]
+    - gen-chat-tigerblue77: ["omniroute-free-auto"]

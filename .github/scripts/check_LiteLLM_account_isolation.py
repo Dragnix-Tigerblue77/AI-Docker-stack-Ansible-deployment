@@ -33,9 +33,18 @@ quota; the "model_name" suffix and "model_info.access_groups" are only labels, a
 
 This script knows no list of people: the account is the segment that follows "_API_KEY_" in the
 variable's name, whatever it is. A third account, or #2's "SCI" billed project, work without one
-line here changing. An entry whose key does NOT allow a conclusion (literal value, Jinja variable,
-variable name outside the convention) is not silently ignored: it is reported, because an entry the
-check cannot attribute is exactly an entry on which it protects nothing.
+line here changing. An entry whose key does NOT allow a conclusion (a Jinja variable, a variable
+name outside the convention, or no "api_key" at all) is not silently ignored: it is reported,
+because an entry the check cannot attribute is exactly an entry on which it protects nothing.
+
+One shape of "no conclusion" is not reported, and is not the same as the others: a LITERAL, non-empty
+"api_key" -- neither "os.environ/..." nor a Jinja expression. This repository's own rule is that a
+real secret is NEVER written in clear text, so such a value can only be a marker for a backend that
+needs no credential at all, never an oversight. #2 uses exactly this shape for OmniRoute, which is
+deliberately shared and reachable by every account: there is no quota behind it to attribute, and
+none to protect. It is exempt from rules 1 and 2 (nothing to group, nothing to attribute), and it
+never appears in "accounts_seen" -- a real account's grouping and labelling rules are unaffected by
+its presence.
 
 WHY THE YAML IS PARSED, AND NO LONGER READ LINE BY LINE
 -------------------------------------------------------
@@ -100,6 +109,11 @@ SETTINGS_SECTIONS = ("router_settings", "litellm_settings")
 ENVIRONMENT_REFERENCE = re.compile(r"^os\.environ/(?P<variable>[A-Za-z0-9_]+)$")
 ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY_(?P<account>[A-Za-z0-9_]+)$")
 
+# A sentinel, not a string: it must never compare equal to an account name, be sortable next to one,
+# or land in an f-string as if it were one. Every call site that can receive it is written to
+# exclude it explicitly rather than rely on it behaving like a normal account.
+SHARED = object()
+
 JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
 JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
@@ -131,13 +145,24 @@ def neutralise_jinja(text):
 
 
 def account_of_reference(value):
-    """The account that owns an "api_key", and why when no conclusion can be drawn."""
+    """The account that owns an "api_key" -- "SHARED" if it deliberately owns none, and why when no
+    conclusion at all can be drawn.
+
+    A LITERAL value here -- neither "os.environ/..." nor a Jinja expression -- can only legitimately
+    be a backend that needs no credential at all: this repository's own rule is that a real secret is
+    NEVER written in clear text, so a literal, non-empty string is a marker rather than an oversight.
+    Such a deployment has no quota behind it to protect, which is exactly OmniRoute's role in #2 --
+    shared and reachable by every account on purpose, precisely because nothing is at stake.
+    """
     if not isinstance(value, str):
         return None, "the value is not a string"
-    reference = ENVIRONMENT_REFERENCE.match(value.strip())
+    stripped = value.strip()
+    reference = ENVIRONMENT_REFERENCE.match(stripped)
     if not reference:
         if "JINJA" in value:
             return None, "the key comes from a Jinja variable, unreadable here"
+        if stripped:
+            return SHARED, None
         return None, "the key is not read through \"os.environ/...\""
     account = ACCOUNT_FROM_VARIABLE.search(reference.group("variable"))
     if not account:
@@ -210,11 +235,14 @@ def check_document(path, document):
     accounts_seen = set()
     for entry in entries:
         account, _ = account_of_reference(entry["api_key"])
-        if account:
+        if account and account is not SHARED:
             accounts_seen.add(account)
 
     # Rule 1 -- a "model_name" never groups two accounts together.
     # This is the one that closes the automatic cooldown, so the most important of the four.
+    # "SHARED" is excluded from the grouping itself, not just from "accounts_seen": it is not a
+    # second account to detect a mix with, it is the absence of one, same as an entry the check
+    # cannot read at all -- and unlike a real account, it cannot be sorted next to one.
     by_name = {}
     for entry in entries:
         if isinstance(entry["model_name"], str):
@@ -224,7 +252,8 @@ def check_document(path, document):
     for name, group in sorted(by_name.items()):
         accounts = sorted({
             account for account, _ in
-            (account_of_reference(entry["api_key"]) for entry in group) if account
+            (account_of_reference(entry["api_key"]) for entry in group)
+            if account and account is not SHARED
         })
         if len(accounts) == 1:
             account_of_model[name] = accounts[0]
@@ -256,7 +285,7 @@ def check_document(path, document):
     # judges a fallback on the name they see.
     for entry in entries:
         account, _ = account_of_reference(entry["api_key"])
-        if not account or not isinstance(entry["model_name"], str):
+        if not account or account is SHARED or not isinstance(entry["model_name"], str):
             continue
         suffix = entry["model_name"].rsplit("-", 1)[-1].upper()
         if suffix != account and suffix in accounts_seen:

@@ -101,6 +101,15 @@ services:
       # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
       UI_USERNAME: "{{ AIS_LiteLLM_UI_username }}"
       UI_PASSWORD: "{{ AIS_LiteLLM_UI_password }}"
+      # tigerblue77's own provider keys (#2, v1 scope) -- read by "LiteLLM_config.yaml.j2" as
+      # "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77". Dragnix's own keys are deliberately absent: he
+      # adds them himself from "/ui" (see "AIS_LiteLLM_UI_password" in "defaults/main.yml").
+      GEMINI_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Gemini_API_key_tigerblue77 }}"
+      GITHUB_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_GitHub_API_key_tigerblue77 }}"
+      MISTRAL_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Mistral_API_key_tigerblue77 }}"
+      CEREBRAS_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
+      GROQ_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
+      OPENROUTER_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
 
     volumes:
       # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the

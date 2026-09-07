@@ -74,6 +74,15 @@
         # SQL injection aimed at the very database this stack deploys.
         # AIS_LiteLLM_Docker_image_tag: "v1.100.0"
 
+        # tigerblue77's own provider keys (#2, v1 scope). Dragnix's own are deliberately absent: he
+        # adds them himself from "/ui" -- see "AIS_LiteLLM_UI_password" above.
+        AIS_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Gemini_API_key_tigerblue77 }}"
+        AIS_LiteLLM_GitHub_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_GitHub_API_key_tigerblue77 }}"
+        AIS_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Mistral_API_key_tigerblue77 }}"
+        AIS_LiteLLM_Cerebras_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
+        AIS_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
+        AIS_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+
         # MANDATORY since #73, and without a default: the image ships "CHANGEME" otherwise, which
         # upstream documents as deliberately weak. OmniRoute's port is published for the dashboard,
         # same reasoning as LiteLLM's "/ui" (#1).

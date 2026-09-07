@@ -62,6 +62,8 @@ ALLOWED_HOSTS = {
     "cli.github.com": "GitHub CLI's own apt package repository, used by the Claude Code agent (#13)",
     "docs.litellm.ai": "gateway documentation, cited in a comment",
     "ai.google.dev": "Gemini terms of use, cited in #2",
+    "generativelanguage.googleapis.com": "Google AI Studio's OpenAI-compatible endpoint (#2)",
+    "api.sambanova.ai": "SambaNova's API endpoint, in the entries #2 keeps commented out",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",
     "spdx.org": "licence identifiers",
