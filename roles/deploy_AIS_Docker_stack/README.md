@@ -55,6 +55,15 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 
+Et celles que #73 apporte, pour OmniRoute :
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `AIS_OmniRoute_Docker_image_tag` | `3.8.50` | SemVer explicite, jamais `:latest` ni la variante `-web`. |
+| `AIS_OmniRoute_data_Docker_volume_name` | `AIS_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
+| `AIS_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
+| `AIS_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
+
 Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
 `AIS_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
 
@@ -78,12 +87,27 @@ Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autre
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
 
-Aucun port hôte n'apparaît dans ce rôle en dehors du `4000` de LiteLLM -- voir plus bas pourquoi celui-là
-est l'exception. Les autres services internes se joignent par le réseau du stack, et les rares interfaces
-web pensées pour passer par un reverse proxy le feront par celui de l'appelant. Le jour où un autre port
-devra malgré tout être publié, il faudra qu'il esquive la liste `kRestrictedPorts` de Chromium -- un port
-restreint est refusé *dans* le navigateur, avant que la connexion ne le quitte, donc le service reste sain
-et ses journaux restent vides.
+Deux ports hôte apparaissent dans ce rôle : le `4000` de LiteLLM (#1) et le `20128` d'OmniRoute (#73),
+chacun sous mot de passe -- voir plus bas pourquoi chacun est une exception plutôt qu'une habitude. Les
+autres services internes se joignent par le réseau du stack, et les rares interfaces web pensées pour
+passer par un reverse proxy le feront par celui de l'appelant. Le jour où un autre port devra malgré tout
+être publié, il faudra qu'il esquive la liste `kRestrictedPorts` de Chromium -- un port restreint est
+refusé *dans* le navigateur, avant que la connexion ne le quitte, donc le service reste sain et ses
+journaux restent vides.
+
+OmniRoute -- le repli gratuit et sans clé (#73)
+------------------------------------------------
+
+**Aucune clé de fournisseur n'est jamais connectée à ce service, et c'est le point central.** Il sert de
+dernier recours à chaque cascade de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
+épuisés, la requête atterrit ici plutôt que d'échouer. `check_LiteLLM_account_isolation.py` (#2)
+reconnaît une entrée dont la clé est une chaîne littérale -- jamais `os.environ/...` -- comme
+délibérément partagée entre tous les comptes, précisément parce qu'il n'y a aucun quota derrière elle à
+protéger.
+
+**Le mot de passe du tableau de bord est obligatoire, sans défaut.** L'image démarre avec `CHANGEME` si
+rien n'est fourni -- documenté en amont comme volontairement faible pour forcer un changement. Traité
+comme le mot de passe `/ui` de LiteLLM (#1) : vaulté, jamais laissé à son défaut.
 
 Le contrat du rôle de déploiement
 ---------------------------------
@@ -217,14 +241,15 @@ Ce que ce squelette ne fait pas
 -------------------------------
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
-  `postgres` et `litellm` **inconditionnellement**, et le fichier rendu passe `docker compose config`.
-  Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus quand `AIS_Claude_code_tigerblue77_enabled`
-  vaut `true` (`false` par défaut -- #31 exige que chaque service se déclare ainsi) ; dans les deux
-  états, le seul port qui apparaît dans la configuration résolue est le `4000` de LiteLLM, publié à
-  dessein. La case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient
-  donc vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur une vraie machine : la
-  mesure sous charge des limites mémoire, la persistance après un `down` / `up`, et l'idempotence sur
-  un second passage.
+  `postgres` et `litellm` **inconditionnellement**, et depuis #73 `omniroute` les rejoint,
+  inconditionnellement aussi. Depuis #13, `claude_code_tigerblue77` s'y ajoute en plus quand
+  `AIS_Claude_code_tigerblue77_enabled` vaut `true` (`false` par défaut -- #31 exige que chaque
+  service se déclare ainsi) ; dans les deux états, les seuls ports qui apparaissent dans la
+  configuration résolue sont le `4000` de LiteLLM et le `20128` d'OmniRoute, publiés à dessein. La
+  case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient donc
+  vérifiable sur le banc d'essai, pas avant. Ce qui reste à faire sur une vraie machine : la mesure
+  sous charge des limites mémoire, la persistance après un `down` / `up`, et l'idempotence sur un
+  second passage.
 - **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
   tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation
