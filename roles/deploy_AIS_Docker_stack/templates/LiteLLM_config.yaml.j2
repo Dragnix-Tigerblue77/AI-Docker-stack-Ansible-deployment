@@ -1,0 +1,23 @@
+# LiteLLM routing configuration, RENDERED by Ansible onto the managed node.
+#
+# No SPDX header: like the compose template, this is written onto the node rather than kept here.
+#
+# WHAT THIS FILE IS NOT: it is not the routing configuration. #1 deploys the gateway and its store;
+# #2 declares the models of both accounts and seals their quotas. "model_list" is therefore empty on
+# purpose -- the gateway starts, applies its migrations and answers its liveness probe with no model
+# declared, which is exactly what #1 has to prove before #2 has anything to add.
+#
+# When #2 lands it fills "model_list" here, and "check_LiteLLM_account_isolation.py" is what refuses
+# a fallback crossing an account boundary.
+model_list: []
+
+general_settings:
+  # The master key and the database URL are read from the environment rather than written here: this
+  # file is mounted read-only into the container and would otherwise carry both in clear text.
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+litellm_settings:
+  # Keep the gateway's own logging free of prompt and response bodies. The corpus this estate routes
+  # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
+  turn_off_message_logging: true

@@ -63,3 +63,92 @@ AIS_published_Docker_network_definition: false
 # Both "Docker/deploy_Docker_swarm_stack" and "Docker/deploy_Docker_compose_stack" of the homelab
 # repository meet it.
 # AIS_Docker_stack_deployment_role_name:
+
+# --------------------------------------------------------------------------------------------------
+# The routing configuration (#1)
+# --------------------------------------------------------------------------------------------------
+
+# The gateway's routing configuration, mounted read-only into the container. #1 renders the file and
+# its general settings; #2 fills its model list. It carries no secret of its own -- both are
+# interpolated straight into the compose template below, not into a file of their own -- so it needs
+# neither "0600" nor "no_log".
+AIS_LiteLLM_config_file_name: "LiteLLM_config.yaml"
+AIS_LiteLLM_config_file_destination_path: "{{ AIS_Docker_compose_file_destination_directory }}{{ AIS_LiteLLM_config_file_name }}"
+
+# --------------------------------------------------------------------------------------------------
+# PostgreSQL -- the gateway's store (#1)
+# --------------------------------------------------------------------------------------------------
+
+# MAJOR pinned explicitly, never ":latest". A major bump imposes a pg_dump / restore, so it must
+# never happen because a tag moved: it is a decision with a maintenance window, not a side effect.
+# Check the major is supported by the Prisma schema of the LiteLLM version below before raising it.
+AIS_PostgreSQL_Docker_image_tag: "17-alpine"
+
+AIS_PostgreSQL_database: "litellm"
+AIS_PostgreSQL_user: "litellm"
+
+# The named volume the store lives in. Named rather than a bind mount: surviving a container
+# recreation is an acceptance criterion of #1, and a bind mount would also tie the stack to a host
+# path this repository does not get to choose.
+AIS_PostgreSQL_data_Docker_volume_name: "AIS_PostgreSQL_data"
+
+# Starting value, to be recalled after measuring under load with "docker stats". What matters today
+# is that a limit exists at all.
+AIS_PostgreSQL_memory_limit: "1g"
+
+# --------------------------------------------------------------------------------------------------
+# LiteLLM Proxy -- the single point every LLM call goes through (#1)
+# --------------------------------------------------------------------------------------------------
+
+# The image tag. Explicit SemVer, NEVER "main-latest": that tag is deprecated and no longer fed, so
+# it freezes the deployment on an old image while looking current.
+#
+# ! Verified on 2026-09-06. Upstream retired the "-stable" suffix -- it matched neither PEP 440 nor
+# SemVer 2.0 -- so a stable release is now a plain "vX.Y.Z", and there is no "-stable" variant to
+# prefer any more.
+#
+# ! This tag is to be RE-CHECKED on the day of the deployment, against the upstream security
+# advisories, and raised if need be. Four critical CVEs in four months on this product in 2026: a
+# version number written in advance in an issue is not evidence. That check is a task of its own.
+AIS_LiteLLM_Docker_image_tag: "v1.100.0"
+
+# The security floor, below which "tasks/main.yml" refuses to run. It is a MINIMUM, not a ceiling:
+# 1.84.0 is what carries the fix for CVE-2026-59822 (MCP authentication bypass, CISA KEV), and it
+# also clears CVE-2026-42208 (pre-authenticated SQL injection on the "Authorization" header, CISA
+# KEV, exploited 36 h after disclosure, fixed in 1.83.10) and CVE-2026-35029 ("/config/update"
+# reachable with no admin control).
+#
+# Raise this when a new advisory lands. Lowering it is how the floor stops being one.
+AIS_LiteLLM_minimum_secure_version: "1.84.0"
+
+# Each worker replicates the configuration, so this multiplies the memory footprint rather than
+# dividing the work for free. The target host has 88 threads and no GPU; the limit below is what
+# bounds the temptation to raise this number. Measure before changing it.
+AIS_LiteLLM_number_of_workers: "4"
+
+# Starting value, tied to the worker count above. To be recalled under load.
+AIS_LiteLLM_memory_limit: "2g"
+
+# The two secrets, MANDATORY and without a default. No default on purpose: a default password is a
+# password, and one shipped in a public repository is a published one. The caller renders them from
+# its vault, and "tasks/main.yml" refuses to run without them.
+#
+# ! "AIS_LiteLLM_master_key" is for ADMINISTRATION only. It is never handed to a consumer: Open
+# WebUI, N8N, the Claude Code container and the Discord bot each get their own virtual key carrying
+# their own model allow-list (#2). A client holding the master key makes the whole isolation work of
+# #2 pointless.
+# AIS_PostgreSQL_password:
+# AIS_LiteLLM_master_key:
+
+# "/ui" is published (see "ports:" on the "litellm" service) so each account can add its OWN provider
+# keys by hand, from a browser on the LAN, rather than have them rendered from a vault: that decision
+# is deliberate, matches how the other self-hosted databases of this estate are already run --
+# deployed empty, populated live, backed up to their repository from time to time -- and it is not
+# this role's to second-guess. What this role owes it in exchange is basic auth in front of that
+# reachable port, which is the one thing "docker compose port litellm 4000" answering from the LAN
+# does not already give it.
+#
+# "AIS_LiteLLM_UI_username" has an ordinary default; "AIS_LiteLLM_UI_password" has none, for the same
+# reason the two secrets above do not.
+AIS_LiteLLM_UI_username: "admin"
+# AIS_LiteLLM_UI_password:

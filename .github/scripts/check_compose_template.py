@@ -50,12 +50,31 @@ PUBLISHED_NETWORK = {
 
 
 def load_defaults():
-    """Read the role's defaults, resolving the two that interpolate each other."""
+    """Read the role's defaults, resolving those that interpolate the others.
+
+    Several defaults are derived -- a destination path is a directory plus a file name -- and
+    "yaml.safe_load" has no reason to notice: it hands back the "{{ ... }}" as the literal string it
+    is. Rendered into the template, that literal reaches the compose file, and a mount written that
+    way is read as naming a volume rather than a host path.
+
+    This resolved one pair by hand while there was one pair. #1 added two more, and the by-hand form
+    reported them as undeclared volumes -- a finding about the CHECK, phrased as a finding about the
+    template, which is the shape that gets a real one waived. So it resolves every default now, by
+    rendering each one against the others until nothing moves.
+    """
     defaults = yaml.safe_load((ROLE / "defaults" / "main.yml").read_text(encoding="utf-8"))
-    defaults["AIS_Docker_compose_file_destination_path"] = (
-        defaults["AIS_Docker_compose_file_destination_directory"]
-        + defaults["AIS_Docker_compose_file_name"]
-    )
+    environment = Environment()
+    # Bounded rather than "while changed": a default that interpolates itself would otherwise spin
+    # here forever. Ten passes is far past any real chain, and a value still carrying "{{" after them
+    # is a defect the render below surfaces anyway.
+    for _ in range(10):
+        rendered = {
+            key: environment.from_string(value).render(**defaults) if isinstance(value, str) and "{{" in value else value
+            for key, value in defaults.items()
+        }
+        if rendered == defaults:
+            break
+        defaults = rendered
     return defaults
 
 
