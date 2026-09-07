@@ -159,6 +159,75 @@ services:
 
     networks:
       - {{ AIS_internal_Docker_network_name }}
+{% if AIS_Claude_code_tigerblue77_enabled %}
+
+  # ------------------------------------------------------------------------------------------------
+  # Claude Code agent -- tigerblue77 (#13), OFF BY DEFAULT. #31 requires every service to declare
+  # itself this way, and an agent that receives a person's own credentials is not something a fresh
+  # deployment should run without being asked. Built on the published Claude Code image rather than
+  # deployed straight from it: this account's own infrastructure work also needs "gh",
+  # "ansible-core" and the build tooling its Dockerfile adds, none of which the base image carries.
+  # ------------------------------------------------------------------------------------------------
+  claude_code_tigerblue77:
+    build:
+      context: "{{ AIS_Claude_code_tigerblue77_build_context_directory }}"
+    # A locally built image still names one, pinned to the published Claude Code image it was built
+    # FROM -- the same reason every other image this template deploys carries an explicit tag.
+    image: "ais-claude-code-tigerblue77:{{ AIS_Claude_code_Docker_image_tag }}"
+
+    # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
+    # server, and Claude Code's own entrypoint would otherwise exit the moment it reads EOF on stdin.
+    stdin_open: true
+    tty: true
+
+    environment:
+      TZ: "{{ AIS_server_time_zone }}"
+      # Routed through the gateway (#1) on a MODEL ALIAS rather than a literal model name or
+      # Anthropic's API directly -- #13's compliance point is that whatever this alias resolves to in
+      # LiteLLM (#2) is never an Anthropic model backed by a subscription.
+      ANTHROPIC_BASE_URL: "http://litellm:4000"
+      ANTHROPIC_API_KEY: "{{ AIS_Claude_code_tigerblue77_virtual_key }}"
+      ANTHROPIC_MODEL: "{{ AIS_Claude_code_tigerblue77_model }}"
+      # The alias resolves to a model Claude Code does not recognise by name, so its own context
+      # window enforcement -- built around the models it DOES know -- has to be told what to allow
+      # rather than refusing an unrecognised one outright.
+      CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"
+      CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1"
+      GH_TOKEN: "{{ AIS_Claude_code_tigerblue77_GitHub_token }}"
+      GITHUB_TOKEN: "{{ AIS_Claude_code_tigerblue77_GitHub_token }}"
+
+    volumes:
+      # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
+      # this role does not get to invent one, hence no default on the variable that names it.
+      - "{{ AIS_Claude_code_tigerblue77_workspace_directory }}:/workspace:rw"
+      # The WHOLE home directory, "~/.claude.json" included -- see the note on
+      # "AIS_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
+      # on "~/.claude" alone would silently lose half the session on every recreation.
+      - "{{ AIS_Claude_code_tigerblue77_home_Docker_volume_name }}:/home/node:rw"
+
+    # No "docker.sock" mount here: #11 has not yet designed the isolation an agent needs before it
+    # can reach the host's Docker daemon, and this container waits for it rather than pre-empting it.
+
+    # No "ports:": this is reached with "docker exec" and, later, through the MCP tool gateway (#7) --
+    # never through a port published on the host.
+
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          # Starting value, to be recalled after measuring under load: higher than a bare agent's
+          # would be, since the image adds "gh", "ansible-core" and build tooling on top of the
+          # published Claude Code image.
+          memory: "{{ AIS_Claude_code_tigerblue77_memory_limit }}"
+
+    depends_on:
+      litellm:
+        condition: service_healthy
+
+    networks:
+      - {{ AIS_internal_Docker_network_name }}
+{% endif %}
 
 {% raw %}
   # ------------------------------------------------------------------------------------------------
@@ -235,6 +304,11 @@ volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance
   # criterion rather than an assumption.
   {{ AIS_PostgreSQL_data_Docker_volume_name }}:
+{% if AIS_Claude_code_tigerblue77_enabled %}
+  # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
+  # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.
+  {{ AIS_Claude_code_tigerblue77_home_Docker_volume_name }}:
+{% endif %}
 
 networks:
   # Internal to the stack: created and destroyed with it, reachable from nowhere else. It is what

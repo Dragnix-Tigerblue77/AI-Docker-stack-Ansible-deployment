@@ -73,3 +73,13 @@
         # four critical CVEs in four months on this product in 2026, one of them a pre-authenticated
         # SQL injection aimed at the very database this stack deploys.
         # AIS_LiteLLM_Docker_image_tag: "v1.100.0"
+
+        # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
+        # commented, the way the published network above is, rather than omitted: a caller who wants
+        # the service finds every variable it needs in one place instead of discovering them one
+        # "assert" failure at a time.
+        #
+        # AIS_Claude_code_tigerblue77_enabled: true
+        # AIS_Claude_code_tigerblue77_virtual_key: "{{ vault_AIS_Claude_code_tigerblue77_virtual_key }}"
+        # AIS_Claude_code_tigerblue77_GitHub_token: "{{ vault_AIS_Claude_code_tigerblue77_GitHub_token }}"
+        # AIS_Claude_code_tigerblue77_workspace_directory: "/srv/AIS/workspace/tigerblue77"

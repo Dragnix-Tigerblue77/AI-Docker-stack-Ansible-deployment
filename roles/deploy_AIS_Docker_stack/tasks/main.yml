@@ -63,6 +63,26 @@
       while looking current. This container holds both accounts' provider keys and the master key.
       Re-check the upstream security advisories and raise the tag -- never lower the floor.
 
+- name: "Check the Claude Code agent (tigerblue77) parameters are provided"
+  ansible.builtin.assert:
+    that:
+      - AIS_Claude_code_tigerblue77_virtual_key is defined
+      - AIS_Claude_code_tigerblue77_virtual_key is string
+      - AIS_Claude_code_tigerblue77_virtual_key | length > 0
+      - AIS_Claude_code_tigerblue77_GitHub_token is defined
+      - AIS_Claude_code_tigerblue77_GitHub_token is string
+      - AIS_Claude_code_tigerblue77_GitHub_token | length > 0
+      - AIS_Claude_code_tigerblue77_workspace_directory is defined
+      - AIS_Claude_code_tigerblue77_workspace_directory is string
+      - AIS_Claude_code_tigerblue77_workspace_directory | length > 0
+    quiet: true
+    when: AIS_Claude_code_tigerblue77_enabled
+    fail_msg: >-
+      "AIS_Claude_code_tigerblue77_virtual_key", "AIS_Claude_code_tigerblue77_GitHub_token" and
+      "AIS_Claude_code_tigerblue77_workspace_directory" are mandatory once
+      "AIS_Claude_code_tigerblue77_enabled" is true, and none of the three has a default: the first
+      two are secrets, the third is a host path, and this role presupposes neither. See #13.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
@@ -98,6 +118,31 @@
     owner: "root"
     group: "root"
     mode: "0644"
+
+# "ansible.builtin.template" does not create the directories its "dest" lands in -- unlike
+# "AIS_Docker_compose_file_destination_directory", which the deployment role is trusted to already
+# have prepared, this one is local to this build context and nothing else creates it.
+- name: "Create the Claude Code agent (tigerblue77) build context directory"
+  ansible.builtin.file:
+    path: "{{ AIS_Claude_code_tigerblue77_build_context_directory }}"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  when: AIS_Claude_code_tigerblue77_enabled
+
+# "build:" needs an actual Dockerfile on the managed node, not something read out of this
+# repository's own checkout at deploy time -- which may not even be present there. Rendered rather
+# than copied so the image it is built FROM stays a single value in "defaults/main.yml", pinned by
+# tag and digest, instead of a second copy baked into a static file (#13).
+- name: "Render the Claude Code agent (tigerblue77) Dockerfile"
+  ansible.builtin.template:
+    src: "claude_code_tigerblue77.Dockerfile.j2"
+    dest: "{{ AIS_Claude_code_tigerblue77_build_context_directory }}Dockerfile"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  when: AIS_Claude_code_tigerblue77_enabled
 
 - name: "Deploy the {{ AIS_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
