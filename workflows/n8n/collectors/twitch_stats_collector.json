@@ -1,0 +1,139 @@
+{
+  "name": "AIS - Twitch Stats Collector",
+  "nodes": [
+    {
+      "id": "note-twitch",
+      "name": "Limitations - Twitch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 900,
+        "height": 300,
+        "content": "## Twitch Helix API\n\n- `followers_count` : endpoint `GET /helix/channels/followers` (champ `total`). Nécessite un token utilisateur avec le scope `moderator:read:followers` ; le token du broadcaster lui-même satisfait cette condition.\n- Toutes les requêtes Helix exigent l'en-tête `Client-Id` en plus du Bearer token OAuth2 - à configurer manuellement dans le noeud HTTP Request après import (l'en-tête n'est pas porté par le credential OAuth2 générique).\n- **`views_recent_30d` / `views_average`** : Twitch a retiré le champ `view_count` de `GET /helix/users` en 2023 ; il n'existe plus de compteur de vues total au niveau du compte. Approximation retenue : somme/moyenne des `view_count` des VOD (`GET /helix/videos?type=archive`) publiées dans les 30 derniers jours, première page seulement (100 VOD max) - une chaîne postant plus de 100 VOD en 30 jours sous-estimerait le total, cas jugé marginal.\n- `account_status` = `broadcaster_type` (`\"\"`, `affiliate` ou `partner`)."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-user",
+      "name": "GET /helix/users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "https://api.twitch.tv/helix/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Client-Id", "value": "SET_MANUALLY_IN_N8N_AFTER_IMPORT" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "http-followers",
+      "name": "GET /helix/channels/followers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 40],
+      "parameters": {
+        "url": "https://api.twitch.tv/helix/channels/followers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Client-Id", "value": "SET_MANUALLY_IN_N8N_AFTER_IMPORT" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "broadcaster_id", "value": "={{ $json.data[0].id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "http-videos",
+      "name": "GET /helix/videos (archive)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 200],
+      "parameters": {
+        "url": "https://api.twitch.tv/helix/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Client-Id", "value": "SET_MANUALLY_IN_N8N_AFTER_IMPORT" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "user_id", "value": "={{ $('GET /helix/users').item.json.data[0].id }}" },
+            { "name": "type", "value": "archive" },
+            { "name": "first", "value": "100" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "merge-user-followers",
+      "name": "Merge user+followers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [520, 40],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const users = $('GET /helix/users').item.json.data[0];\nconst followers = $('GET /helix/channels/followers').item.json;\nconst videos = ($('GET /helix/videos (archive)').item.json.data) || [];\n\nconst since = new Date();\nsince.setDate(since.getDate() - 30);\n\nconst recentVods = videos.filter((v) => new Date(v.created_at) >= since);\nconst totalViews = recentVods.reduce((sum, v) => sum + (v.view_count || 0), 0);\n\nreturn [{\n  json: {\n    platform: 'twitch',\n    account_id: users.id,\n    account_name: users.display_name,\n    followers_count: followers.total ?? null,\n    views_recent_30d: recentVods.length ? totalViews : null,\n    views_average: recentVods.length ? Math.round(totalViews / recentVods.length) : null,\n    account_status: users.broadcaster_type || null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "GET /helix/users", "type": "main", "index": 0 }]] },
+    "GET /helix/users": {
+      "main": [[
+        { "node": "GET /helix/channels/followers", "type": "main", "index": 0 },
+        { "node": "GET /helix/videos (archive)", "type": "main", "index": 0 }
+      ]]
+    },
+    "GET /helix/channels/followers": { "main": [[{ "node": "Merge user+followers", "type": "main", "index": 0 }]] },
+    "GET /helix/videos (archive)": { "main": [[{ "node": "Merge user+followers", "type": "main", "index": 1 }]] },
+    "Merge user+followers": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

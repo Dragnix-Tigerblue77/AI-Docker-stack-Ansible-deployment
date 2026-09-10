@@ -1,0 +1,293 @@
+{
+  "name": "AIS - Streaming & Social Stats Collector",
+  "nodes": [
+    {
+      "id": "trg-schedule-daily",
+      "name": "Daily 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-200, 400],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "note-architecture",
+      "name": "Architecture & limitations (Issue #20, Niveau 1)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 1220,
+        "height": 460,
+        "content": "## Orchestrateur - Niveau 1 (Issue #20)\n\nExécute chaque plateforme comme un sous-workflow indépendant (dossier `collectors/`) : ajouter une 7e plateforme se fait en créant un nouveau sous-workflow et un nouveau noeud `Execute Workflow`, sans toucher aux branches existantes.\n\n**Schéma commun retourné par chaque sous-workflow :**\n```\n{\n  platform: string,\n  account_id: string,\n  account_name: string,\n  followers_count: integer | null,\n  views_recent_30d: integer | null,\n  views_average: integer | null,\n  account_status: string | null,\n  collected_at: ISO 8601\n}\n```\nAucune métrique de live temps réel (hors périmètre validé).\n\n**Limitations connues par plateforme (voir sticky note de chaque sous-workflow pour le détail) :**\n- Twitch : pas de vues totales de chaîne (champ retiré de l'API Helix en 2023), approximé via les VOD des 30 derniers jours.\n- X (Twitter) : vues/impressions indisponibles sur le tier gratuit -> `views_recent_30d`/`views_average` = null.\n- TikTok : dépend du scope `video.list` de la Display API ; si indisponible, vues = null sans bloquer le flux (`Continue on Fail`).\n- Facebook / Instagram : Insights 30 jours nécessitent une app Meta review active ; fallback à null sinon.\n\n**Credentials :** créés et stockés exclusivement dans le gestionnaire de credentials N8N. Aucun secret, token ou identifiant en clair dans ce fichier ni ailleurs dans le dépôt.\n\n**Avant le premier run :** importer les 6 sous-workflows de `collectors/`, configurer leurs credentials, puis remplacer le `workflowId` de chaque noeud `Execute Workflow` ci-dessous par l'ID réel attribué par l'instance N8N à l'import."
+      }
+    },
+    {
+      "id": "exec-twitch",
+      "name": "Collect - Twitch",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 0],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_twitch_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - Twitch Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "exec-youtube",
+      "name": "Collect - YouTube",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 150],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_youtube_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - YouTube Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "exec-tiktok",
+      "name": "Collect - TikTok",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 300],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_tiktok_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - TikTok Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "exec-x",
+      "name": "Collect - X",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 450],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_x_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - X Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "exec-facebook",
+      "name": "Collect - Facebook",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 600],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_facebook_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - Facebook Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "exec-instagram",
+      "name": "Collect - Instagram",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [100, 750],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "REPLACE_AFTER_IMPORT_instagram_stats_collector",
+          "mode": "list",
+          "cachedResultName": "AIS - Instagram Stats Collector"
+        },
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "merge-1",
+      "name": "Merge Twitch+YouTube",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [420, 75],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "merge-2",
+      "name": "Merge +TikTok",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [640, 150],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "merge-3",
+      "name": "Merge +X",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [860, 300],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "merge-4",
+      "name": "Merge +Facebook",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1080, 450],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "merge-5",
+      "name": "Merge +Instagram",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1300, 600],
+      "parameters": { "mode": "combine", "combineBy": "combineAll", "options": {} }
+    },
+    {
+      "id": "validate-format",
+      "name": "Validate & stamp collected_at",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 400],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const collectedAt = new Date().toISOString();\nconst required = ['platform', 'account_id', 'account_name', 'followers_count', 'views_recent_30d', 'views_average', 'account_status'];\n\nreturn items.map((item) => {\n  const data = item.json;\n  for (const field of required) {\n    if (!(field in data)) {\n      throw new Error(`Sous-workflow ${data.platform || '?'} : champ manquant '${field}' dans le schema commun`);\n    }\n  }\n  return { json: { ...data, collected_at: collectedAt } };\n});"
+      }
+    },
+    {
+      "id": "pg-insert",
+      "name": "Postgres - Insert social_stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1780, 300],
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "value": "public", "mode": "list" },
+        "table": { "__rl": true, "value": "social_stats", "mode": "list" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "platform": "={{ $json.platform }}",
+            "account_id": "={{ $json.account_id }}",
+            "account_name": "={{ $json.account_name }}",
+            "followers_count": "={{ $json.followers_count }}",
+            "views_recent_30d": "={{ $json.views_recent_30d }}",
+            "views_average": "={{ $json.views_average }}",
+            "account_status": "={{ $json.account_status }}",
+            "collected_at": "={{ $json.collected_at }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "AIS Postgres"
+        }
+      }
+    },
+    {
+      "id": "notion-upsert",
+      "name": "Notion - Update dashboard",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1780, 500],
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": {
+          "__rl": true,
+          "value": "PLACEHOLDER_NOTION_DATABASE_ID",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "Platform|rich_text", "textContent": "={{ $json.platform }}" },
+            { "key": "Account|rich_text", "textContent": "={{ $json.account_name }}" },
+            { "key": "Followers|number", "numberValue": "={{ $json.followers_count }}" },
+            { "key": "Views (30d)|number", "numberValue": "={{ $json.views_recent_30d }}" },
+            { "key": "Avg views|number", "numberValue": "={{ $json.views_average }}" },
+            { "key": "Status|rich_text", "textContent": "={{ $json.account_status }}" },
+            { "key": "Collected at|date", "date": "={{ $json.collected_at }}" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "notionApi": {
+          "id": "PLACEHOLDER",
+          "name": "AIS Notion"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 06:00": {
+      "main": [[
+        { "node": "Collect - Twitch", "type": "main", "index": 0 },
+        { "node": "Collect - YouTube", "type": "main", "index": 0 },
+        { "node": "Collect - TikTok", "type": "main", "index": 0 },
+        { "node": "Collect - X", "type": "main", "index": 0 },
+        { "node": "Collect - Facebook", "type": "main", "index": 0 },
+        { "node": "Collect - Instagram", "type": "main", "index": 0 }
+      ]]
+    },
+    "Collect - Twitch": { "main": [[{ "node": "Merge Twitch+YouTube", "type": "main", "index": 0 }]] },
+    "Collect - YouTube": { "main": [[{ "node": "Merge Twitch+YouTube", "type": "main", "index": 1 }]] },
+    "Merge Twitch+YouTube": { "main": [[{ "node": "Merge +TikTok", "type": "main", "index": 0 }]] },
+    "Collect - TikTok": { "main": [[{ "node": "Merge +TikTok", "type": "main", "index": 1 }]] },
+    "Merge +TikTok": { "main": [[{ "node": "Merge +X", "type": "main", "index": 0 }]] },
+    "Collect - X": { "main": [[{ "node": "Merge +X", "type": "main", "index": 1 }]] },
+    "Merge +X": { "main": [[{ "node": "Merge +Facebook", "type": "main", "index": 0 }]] },
+    "Collect - Facebook": { "main": [[{ "node": "Merge +Facebook", "type": "main", "index": 1 }]] },
+    "Merge +Facebook": { "main": [[{ "node": "Merge +Instagram", "type": "main", "index": 0 }]] },
+    "Collect - Instagram": { "main": [[{ "node": "Merge +Instagram", "type": "main", "index": 1 }]] },
+    "Merge +Instagram": { "main": [[{ "node": "Validate & stamp collected_at", "type": "main", "index": 0 }]] },
+    "Validate & stamp collected_at": {
+      "main": [[
+        { "node": "Postgres - Insert social_stats", "type": "main", "index": 0 },
+        { "node": "Notion - Update dashboard", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

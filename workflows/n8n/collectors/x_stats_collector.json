@@ -1,0 +1,65 @@
+{
+  "name": "AIS - X Stats Collector",
+  "nodes": [
+    {
+      "id": "note-x",
+      "name": "Limitations - X (Twitter)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -220],
+      "parameters": {
+        "width": 900,
+        "height": 220,
+        "content": "## X (Twitter) API v2\n\n- `followers_count` = `public_metrics.followers_count` via `GET /2/users/me`.\n- `views_recent_30d` / `views_average` : les métriques d'impressions par compte ne sont pas accessibles sur le tier gratuit (seules des métriques par tweet existent, en tier payant Basic et au-delà). Conformément à l'arbitrage validé, ces deux champs sont fixés à `null` - aucun appel n'est tenté.\n- `account_status` : pas d'équivalent direct exposé par l'API v2 -> `null`."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-users-me",
+      "name": "GET /2/users/me",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "https://api.x.com/2/users/me",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "user.fields", "value": "public_metrics" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "X OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const user = $json.data;\n\nreturn [{\n  json: {\n    platform: 'x',\n    account_id: user.id,\n    account_name: user.username,\n    followers_count: user.public_metrics ? user.public_metrics.followers_count : null,\n    views_recent_30d: null,\n    views_average: null,\n    account_status: null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "GET /2/users/me", "type": "main", "index": 0 }]] },
+    "GET /2/users/me": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

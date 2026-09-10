@@ -1,0 +1,127 @@
+{
+  "name": "AIS - YouTube Stats Collector",
+  "nodes": [
+    {
+      "id": "note-youtube",
+      "name": "Limitations - YouTube",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 900,
+        "height": 260,
+        "content": "## YouTube Data API v3\n\n- `followers_count` = `statistics.subscriberCount` de `channels.list` (peut être masqué si le compte a choisi de cacher son nombre d'abonnés -> `null` dans ce cas).\n- `views_recent_30d` / `views_average` : YouTube n'expose pas de fenêtre glissante 30 jours prête à l'emploi via l'API publique. Calcul retenu : lister les vidéos de la playlist `uploads` (via `contentDetails.relatedPlaylists.uploads`), filtrer celles publiées dans les 30 derniers jours, puis sommer/moyenner leur `statistics.viewCount` (`videos.list`, 50 ID max par appel - une seule page couvre largement un mois de publications pour une chaîne normale).\n- `account_status` = `status.privacyStatus` de la chaîne (`public`/`unlisted`/`private`)."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-channel",
+      "name": "GET channels (statistics,status,contentDetails)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/channels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part", "value": "statistics,status,contentDetails,snippet" },
+            { "name": "mine", "value": "true" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "http-playlist-items",
+      "name": "GET playlistItems (uploads, 50 last)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 100],
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/playlistItems",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part", "value": "contentDetails" },
+            { "name": "maxResults", "value": "50" },
+            { "name": "playlistId", "value": "={{ $json.items[0].contentDetails.relatedPlaylists.uploads }}" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "code-filter-recent",
+      "name": "Filter last 30 days + build ID list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const since = new Date();\nsince.setDate(since.getDate() - 30);\n\nconst items = $input.first().json.items || [];\nconst recentIds = items\n  .filter((it) => new Date(it.contentDetails.videoPublishedAt) >= since)\n  .map((it) => it.contentDetails.videoId);\n\nreturn [{ json: { videoIds: recentIds.join(',') } }];"
+      }
+    },
+    {
+      "id": "http-videos-stats",
+      "name": "GET videos (statistics)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 100],
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "part", "value": "statistics" },
+            { "name": "id", "value": "={{ $json.videoIds }}" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+      }
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const channel = $('GET channels (statistics,status,contentDetails)').item.json.items[0];\nconst videos = ($json.items) || [];\n\nconst views = videos.map((v) => parseInt(v.statistics.viewCount || '0', 10));\nconst totalViews = views.reduce((sum, v) => sum + v, 0);\n\nreturn [{\n  json: {\n    platform: 'youtube',\n    account_id: channel.id,\n    account_name: channel.snippet.title,\n    followers_count: channel.statistics.hiddenSubscriberCount ? null : parseInt(channel.statistics.subscriberCount, 10),\n    views_recent_30d: videos.length ? totalViews : null,\n    views_average: videos.length ? Math.round(totalViews / videos.length) : null,\n    account_status: channel.status.privacyStatus || null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "GET channels (statistics,status,contentDetails)", "type": "main", "index": 0 }]] },
+    "GET channels (statistics,status,contentDetails)": { "main": [[{ "node": "GET playlistItems (uploads, 50 last)", "type": "main", "index": 0 }]] },
+    "GET playlistItems (uploads, 50 last)": { "main": [[{ "node": "Filter last 30 days + build ID list", "type": "main", "index": 0 }]] },
+    "Filter last 30 days + build ID list": { "main": [[{ "node": "GET videos (statistics)", "type": "main", "index": 0 }]] },
+    "GET videos (statistics)": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
