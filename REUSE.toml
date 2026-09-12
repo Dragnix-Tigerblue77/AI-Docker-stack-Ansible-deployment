@@ -12,19 +12,20 @@ SPDX-PackageDownloadLocation = "https://github.com/Dragnix-Tigerblue77/AI-Docker
 
 # Rendered onto the managed node rather than kept here: a header in one of these does not stay in
 # this repository, it ends up in the deployed "docker-compose.yml", in a file the operator reads on
-# the target. The same reasoning as "Homelab_Ansible_deployment", which declares the same path.
+# the target. The same reasoning as "Homelab_Ansible_deployment", which declares the same path under
+# "roles/**/" there -- this repository IS the role, so the path has no "roles/**/" prefix to carry.
 [[annotations]]
-path = "roles/**/templates/**"
+path = "templates/**"
 SPDX-FileCopyrightText = "2026 Tigerblue77"
 SPDX-License-Identifier = "AGPL-3.0-only"
 
-# "roles/**/files/**" is the same case as "templates/**" above, just copied verbatim rather than
-# rendered: LibreChat's own configuration file (#4) is deployed onto the managed node, where it is a
-# file the LibreChat container reads directly, not a source file of this repository. It has comment
-# syntax, unlike the JSON below, which is exactly why leaving it unannotated would be a choice rather
-# than a necessity -- and the wrong one, for the same reason as "templates/**".
+# "files/**" is the same case as "templates/**" above, just copied verbatim rather than rendered:
+# LibreChat's own configuration file (#4) is deployed onto the managed node, where it is a file the
+# LibreChat container reads directly, not a source file of this repository. It has comment syntax,
+# unlike the JSON below, which is exactly why leaving it unannotated would be a choice rather than a
+# necessity -- and the wrong one, for the same reason as "templates/**".
 [[annotations]]
-path = "roles/**/files/**"
+path = "files/**"
 SPDX-FileCopyrightText = "2026 Tigerblue77"
 SPDX-License-Identifier = "AGPL-3.0-only"
 

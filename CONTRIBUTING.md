@@ -5,14 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Contribuer
 
-## La seule chose à faire une fois par clone
+## Les deux choses à faire une fois par clone
 
 ```bash
 git config core.hooksPath .githooks
+mkdir -p ~/.ansible/roles && ln -sfn "$(pwd)" ~/.ansible/roles/deploy_AIS_Docker_stack
 ```
 
-Un hook git n'est pas versionné : c'est le répertoire `.githooks/` qui l'est, et la commande
+Un hook git n'est pas versionné : c'est le répertoire `.githooks/` qui l'est, et la première commande
 ci-dessus dit à git d'aller l'y chercher. Sans elle, `.githooks/pre-commit` est un fichier inerte.
+
+La seconde existe parce que ce dépôt **est** le rôle -- `tasks/`, `defaults/` et le reste vivent à sa
+propre racine plutôt que sous un `roles/<nom>/` à lui, précisément ce qui permet à un appelant de
+l'installer par Galaxy ou par un submodule et d'avoir le checkout lui-même résolu comme
+`deploy_AIS_Docker_stack`. Le revers : rien dans le checkout ne porte plus ce nom pour la recherche de
+rôles d'Ansible, et `playbook.AIS.example.yaml` appelle pourtant le rôle par ce nom nu. `~/.ansible/
+roles` est l'un des emplacements qu'Ansible cherche par défaut, donc le symlink suffit, sans toucher à
+`ansible.cfg`. Il est à refaire si le clone change d'emplacement -- `ln -sfn` ne s'en offusque pas, il
+remplace simplement l'ancienne cible.
 
 Il faut aussi que `gitleaks` soit installé — depuis
 [ses releases](https://github.com/gitleaks/gitleaks/releases), à la version que la CI épingle, ou

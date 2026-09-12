@@ -8,6 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-only
 Ansible deployment of the **AIS**. One role, one example playbook, and the checks that hold both to
 their conventions. The repository is days old: most of what it will contain is still an issue.
 
+**The repository root is the role.** `tasks/`, `defaults/`, `templates/` and the rest of what
+`ansible-galaxy init` would scaffold under a `roles/<name>/` sit here directly instead, which is what
+lets a caller install this repository as the role `deploy_AIS_Docker_stack` -- through Galaxy, a git
+submodule, or a plain symlink -- without a wrapper directory that exists only for this checkout. See
+invariant 8.
+
 This file says **how to work here**. `README.md` says what the repository is and does, and the two
 deliberately do not overlap -- a second copy of a document drifts away from the first.
 
@@ -16,9 +22,9 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Question | File |
 | --- | --- |
 | What the repository is, how the role is called, how to verify a template change | `README.md` |
-| The contract the deployment role must meet, and every variable of the role | `roles/deploy_AIS_Docker_stack/README.md` |
-| What a variable means and why its default is what it is | `roles/deploy_AIS_Docker_stack/defaults/main.yml` |
-| What a service block must carry | the commented model in `roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2`, below the service blocks |
+| The contract the deployment role must meet, and every variable of the role | `README.md` |
+| What a variable means and why its default is what it is | `defaults/main.yml` |
+| What a service block must carry | the commented model in `templates/AIS.docker-compose.yml.j2`, below the service blocks |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
@@ -123,8 +129,8 @@ cannot be offered under the commercial arm afterwards without going back to its 
 
 Every authored source file carries an SPDX header, and **`reuse lint` checks it in CI** (#52) -- the
 header is a gate here, not a habit. Two families cannot carry one and are declared in `REUSE.toml`
-instead, each with its reason: `roles/*/templates/`, rendered onto the managed node where a header
-would end up copied into the deployed compose file, and `**/*.json`, JSON having no comment syntax.
+instead, each with its reason: `templates/`, rendered onto the managed node where a header would end
+up copied into the deployed compose file, and `**/*.json`, JSON having no comment syntax.
 `LICENSE` is a symlink to `LICENSES/AGPL-3.0-only.txt`, so the file REUSE requires and the file
 GitHub reads for the repository's licence badge are the same bytes.
 
@@ -234,6 +240,16 @@ role's README rather than frozen into the role.
    container, and those are what brought the file, the `ansible-galaxy collection install` step in
    CI and in the session-start hook, and the `docker` Python SDK requirement on the managed node
    (stated in the role's own README, since it is that machine's requirement, not this repository's).
+8. **The repository root doubles as the role, and `playbook.AIS.example.yaml` is the one place that
+   costs something.** Ansible's own role search never treats "the directory this playbook happens to
+   sit in" as a candidate -- only `<playbook_dir>/roles/` and a short list of well-known locations,
+   `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_AIS_Docker_stack`
+   would not resolve against this checkout on its own. The `ansible-lint` and `syntax-check` jobs of
+   `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`, and
+   `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
+   `~/.ansible/roles/deploy_AIS_Docker_stack` for exactly this reason, before anything reads the
+   example playbook. Nothing else in this repository needs it: every other job lints or reads the
+   role's own files directly, at their own path, with no role resolution involved.
 
 ## Working in a Claude Code web session
 
