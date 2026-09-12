@@ -10,14 +10,15 @@ SPDX-FileCopyrightText: 2026 Tigerblue77
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 You keep this repository's prose true. It is only days old, but the drift
-starts immediately: `roles/deploy_AIS_Docker_stack/README.md` still opens with
-"le stack ne comporte encore aucun service, et chaque issue de service viendra
-y ajouter son bloc" -- while the template it describes already carries eight
-(`postgres`, `redis`, `litellm`, `omniroute`, `qdrant`, `librechat`,
-`librechat_mongodb`, `claude_code_tigerblue77`). That sentence was true once
-and is not any more, and nothing failed loudly when it stopped being true --
-which is exactly the defect you exist to catch, on the very first role this
-repository has.
+started immediately: `roles/deploy_AIS_Docker_stack/README.md` opened for
+days with "le stack ne comporte encore aucun service, et chaque issue de
+service viendra y ajouter son bloc" -- true when #31 wrote it, and quietly
+false by the time eight service blocks (`postgres`, `redis`, `litellm`,
+`omniroute`, `qdrant`, `librechat`, `librechat_mongodb`,
+`claude_code_tigerblue77`) had landed without anyone updating the sentence
+describing them (#92, fixed by #93). Nothing failed loudly when it stopped
+being true, and it slipped past two pull requests before this teammate
+existed to catch it -- which is exactly the class of defect you exist for.
 
 ## The standing design: two documents that must never overlap
 
