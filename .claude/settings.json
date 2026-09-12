@@ -1,23 +1,39 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
-          }
-        ]
-      }
-    ]
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-sonnet-5"
   },
   "permissions": {
+    "deny": [
+      "Bash(ansible-playbook -i:*)",
+      "Bash(ansible-playbook --inventory:*)",
+      "Bash(ansible-playbook --limit:*)",
+      "Bash(ansible-vault:*)",
+      "Bash(ansible -m:*)",
+      "Bash(ansible -i:*)",
+      "Bash(ansible -a:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push -u origin main:*)",
+      "Bash(git push --set-upstream origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm -rf:*)"
+    ],
     "allow": [
       "Bash(yamllint:*)",
       "Bash(ansible-lint)",
       "Bash(ansible-lint --offline)",
       "Bash(ansible-playbook --syntax-check:*)",
       "Bash(ansible --version)",
+      "Bash(ansible-galaxy:*)",
+      "Bash(reuse:*)",
       "Bash(python3 .github/scripts/check_compose_template.py)",
       "Bash(python3 .github/scripts/check_compose_template.py --selftest)",
       "Bash(python3 .github/scripts/check_LiteLLM_account_isolation.py)",
@@ -37,15 +53,66 @@
       "Bash(git ls-files:*)",
       "Bash(git ls-tree:*)",
       "Bash(git rev-parse:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git push -u origin claude/:*)",
+      "Bash(git push origin claude/:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(ls:*)",
+      "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(wc:*)",
       "Bash(diff:*)",
-      "Bash(shellcheck:*)"
+      "Bash(sed -n:*)",
+      "Bash(shellcheck:*)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(./roles/**)",
+      "Edit(./README.md)",
+      "Edit(./CLAUDE.md)",
+      "Edit(./CONTRIBUTING.md)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-task-scope.sh\"",
+            "timeout": 15,
+            "statusMessage": "Checking the task is in scope..."
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-lint.sh\"",
+            "timeout": 300,
+            "statusMessage": "Running the checks CI will run..."
+          }
+        ]
+      }
     ]
   }
 }

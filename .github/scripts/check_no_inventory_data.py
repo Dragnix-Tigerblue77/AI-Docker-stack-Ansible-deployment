@@ -61,6 +61,8 @@ ALLOWED_HOSTS = {
     "quay.io": "image registry",
     "cli.github.com": "GitHub CLI's own apt package repository, used by the Claude Code agent (#13)",
     "docs.litellm.ai": "gateway documentation, cited in a comment",
+    "code.claude.com": "Claude Code documentation, cited in .claude/README.md",
+    "json.schemastore.org": "JSON schema referenced by .claude/settings.json for editor validation",
     "ai.google.dev": "Gemini terms of use, cited in #2",
     "generativelanguage.googleapis.com": "Google AI Studio's OpenAI-compatible endpoint (#2)",
     "api.sambanova.ai": "SambaNova's API endpoint, in the entries #2 keeps commented out",
