@@ -98,7 +98,7 @@ owns that unit instead.
   much runs without you, so it is not checked into the repository. Choose it
   per run.
 
-## The two gates
+## The three gates
 
 Hooks are the deterministic half of the guardrails -- they are the harness
 running a script, not the model deciding to behave.
@@ -115,9 +115,18 @@ running a script, not the model deciding to behave.
   `home-made-checks` job), and `gitleaks` -- exactly what
   `.github/workflows/ansible-ci.yml` and `gitleaks.yml` gate a pull request
   on -- and refuses the completion while any of them is red.
+- **`hooks/gate-issue-priority.sh`** on `PreToolUse`, matched to
+  `mcp__github__issue_write` (#97). Reads the call's `tool_input.issue_fields`
+  and refuses -- via `hookSpecificOutput.permissionDecision: "deny"`, the
+  documented, non-deprecated way to block a `PreToolUse` call -- any entry
+  naming the `Priority` field that is not itself a deletion. This is a second,
+  independent layer on top of `gate-task-scope.sh`'s phrasing match: that one
+  sees a task's stated intent, this one sees the structured call itself, after
+  a teammate has decided to make it anyway.
 
-! Both gates exit 2 when their own tooling is missing rather than passing. A
-gate that cannot run its checks must not report success.
+! All three gates exit 2 (`gate-task-scope.sh`, `gate-lint.sh`) or answer
+`"deny"` (`gate-issue-priority.sh`) when their own tooling is missing rather
+than passing. A gate that cannot run its checks must not report success.
 
 `TeammateIdle` is deliberately **not** wired, for the same reason the homelab
 repository leaves it unwired: exit 2 there would keep a teammate working
