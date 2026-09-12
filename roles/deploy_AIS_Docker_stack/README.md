@@ -9,10 +9,11 @@ deploy_AIS_Docker_stack
 Rend le `docker-compose` du stack AIS -- *Artificial Intelligence Stack* -- et délègue son déploiement au
 rôle que l'appelant désigne.
 
-C'est le contenant, pas le contenu : le stack ne comporte encore aucun service, et chaque issue de service
-viendra y ajouter son bloc et ses variables. Ce que ce rôle apporte aujourd'hui est la forme -- un rôle qui
-ne présuppose ni machine, ni domaine, ni compte, ni orchestrateur, et un template dont les conventions sont
-écrites à l'endroit où on les oublie.
+Le stack porte déjà plusieurs services -- la passerelle et sa base, Redis, OmniRoute, Qdrant, LibreChat
+et sa base, l'agent Claude Code de tigerblue77 (désactivé par défaut) -- chacun arrivé par sa propre
+issue de service, avec son bloc et ses variables. Ce que ce rôle apporte reste la forme plutôt que le
+contenu : un rôle qui ne présuppose ni machine, ni domaine, ni compte, ni orchestrateur, et un template
+dont les conventions sont écrites à l'endroit où on les oublie.
 
 Prérequis
 ---------
