@@ -28,7 +28,7 @@
 !.env.example
 !*.env.example
 # ... and except a Jinja template that would RENDER an environment file: without this line,
-# ".env.*" swallows "roles/*/templates/.env.j2" and "git status" does not even show it
+# ".env.*" swallows "templates/.env.j2" and "git status" does not even show it
 # (measured: "git check-ignore -v" -> ".gitignore:.env.*").
 !.env*.j2
 

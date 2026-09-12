@@ -191,7 +191,7 @@ connexion ne le quitte, donc le service reste sain et ses journaux restent vides
 
 **Aucune clé de fournisseur n'est jamais connectée à ce service, et c'est le point central.** Il sert de
 dernier recours à chaque cascade de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
-épuisés, la requête atterrit ici plutôt que d'échouer. `check_LiteLLM_account_isolation.py` (#2)
+épuisés, la requête atterrit ici plutôt que d'échouer. `check_LiteLLM_account_isolation.py` (#32)
 reconnaît une entrée dont la clé est une chaîne littérale -- jamais `os.environ/...` -- comme
 délibérément partagée entre tous les comptes, précisément parce qu'il n'y a aucun quota derrière elle à
 protéger.
@@ -328,6 +328,23 @@ comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier l
 les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
 *pré-authentifiée* visant précisément la base déployée ici.
 
+### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
+
+L'interpolation par Ansible plutôt que par un `.env` a réglé le premier problème d'elle-même : rendre
+le fichier compose est le travail d'Ansible, pas de l'orchestrateur, donc la bascule Compose → Swarm ne
+change rien à la façon dont les deux secrets y arrivent.
+
+Ce qui reste à traiter à ce moment-là : **LiteLLM lit `os.environ/…`** pour sa clé maîtresse et son URL
+de base, valeurs que le compose lui passe en clair via `environment:`. Swarm sait faire pareil, à
+l'identique -- ce n'est donc pas un blocage -- mais le jour de la bascule est le bon moment pour se
+demander si les secrets natifs de Swarm ne valent pas mieux que des variables en clair dans le fichier
+rendu, question que Compose ne se pose de toute façon pas.
+
+`depends_on` relève d'un registre voisin : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
+donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
+l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
+d'essai.
+
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
@@ -369,23 +386,6 @@ d'y faire confiance ; #79 est ouverte pour ça, voir aussi le commentaire dans
 derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --
 mais rien ne confirme qu'il soit réellement retiré, et il ne figure qu'en dernier recours dans les
 cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
-
-### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
-
-L'interpolation par Ansible plutôt que par un `.env` a réglé le premier problème d'elle-même : rendre
-le fichier compose est le travail d'Ansible, pas de l'orchestrateur, donc la bascule Compose → Swarm ne
-change rien à la façon dont les deux secrets y arrivent.
-
-Ce qui reste à traiter à ce moment-là : **LiteLLM lit `os.environ/…`** pour sa clé maîtresse et son URL
-de base, valeurs que le compose lui passe en clair via `environment:`. Swarm sait faire pareil, à
-l'identique -- ce n'est donc pas un blocage -- mais le jour de la bascule est le bon moment pour se
-demander si les secrets natifs de Swarm ne valent pas mieux que des variables en clair dans le fichier
-rendu, question que Compose ne se pose de toute façon pas.
-
-`depends_on` relève d'un registre voisin : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
-donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
-l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
-d'essai.
 
 ## L'agent Claude Code -- tigerblue77 (#13)
 
