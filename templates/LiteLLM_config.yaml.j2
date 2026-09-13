@@ -86,6 +86,16 @@ model_list:
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
   # ============================================================================
+  # GA 2026-09-13 per "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
+  # model, engineered for long-horizon software engineering, autonomous agents, and complex
+  # enterprise workflows." Free of charge on the Standard tier per "ai.google.dev/gemini-api/docs/
+  # pricing" -- verified directly against both pages, not assumed from the naming pattern alone.
+  - model_name: gemini-3-8-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
+      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+
   - model_name: gemini-3-7-flash
     litellm_params:
       model: gemini/gemini-3.7-flash
@@ -189,6 +199,26 @@ model_list:
       model: mistral/mistral-small-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
 
+  # Ministral 3 (Apache 2.0, "docs.mistral.ai/getting-started/models/models_overview") -- edge-sized
+  # generalists, verified 2026-09-13. The 14B card describes it as "performance comparable to its
+  # larger Mistral Small 3.2 24B counterpart." Note the API id has no "3" segment of its own (the "3"
+  # names the Ministral generation, not the id) -- confirmed by fetching each model's own page rather
+  # than trusting the "ministral-3-<size>-25-12" URL slug pattern, which does not match the id.
+  - model_name: ministral-14b
+    litellm_params:
+      model: mistral/ministral-14b-2512
+      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+
+  - model_name: ministral-8b
+    litellm_params:
+      model: mistral/ministral-8b-2512
+      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+
+  - model_name: ministral-3b
+    litellm_params:
+      model: mistral/ministral-3b-2512
+      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
   # ============================================================================
@@ -206,6 +236,14 @@ model_list:
   #   litellm_params:
   #     model: cerebras/gemma-4-31b
   #     api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
+
+  # Cerebras' own hyphenated spelling ("qwen-3.8-27b"), distinct from Groq's "qwen3.8-27b" below --
+  # verified directly against "inference-docs.cerebras.ai/models/overview" 2026-09-13, 64k context on
+  # the free tier (128k on the paid one).
+  - model_name: qwen3-8-27b-cerebras
+    litellm_params:
+      model: cerebras/qwen-3.8-27b
+      api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
 
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
@@ -378,6 +416,21 @@ model_list:
       model: openrouter/cohere/north-mini-code:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
 
+  # Nex-AGI's coding-agent pair, verified live in "openrouter.ai/api/v1/models" 2026-09-13. Their own
+  # published SWE-bench Pro / Terminal-Bench scores are self-reported (not on Scale's or tbench.ai's
+  # independent leaderboards as of this date), so treated as an unconfirmed-strength addition rather
+  # than ranked on trusted numbers -- placed in "code" below, not in "claude-code", since neither
+  # model's tool/function-calling support could be confirmed.
+  - model_name: nex-n2-5-pro-free
+    litellm_params:
+      model: openrouter/nex-agi/nex-n2.5-pro:free
+      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+
+  - model_name: nex-n2-5-mini-free
+    litellm_params:
+      model: openrouter/nex-agi/nex-n2.5-mini:free
+      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+
   - model_name: poolside-laguna-s-free
     litellm_params:
       model: openrouter/poolside/laguna-s-2.1:free
@@ -391,6 +444,20 @@ model_list:
   - model_name: ling-flash-free
     litellm_params:
       model: openrouter/inclusionai/ling-3.0-flash-fin:free
+      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+
+  # Same Ling 3.0 Flash family as the financial-tuned sibling above -- vision-language and
+  # health-tuned variants, both verified live in "openrouter.ai/api/v1/models" 2026-09-13. Kept in
+  # the same flash-lite cascade slot as their sibling, on the same reasoning already applied to it:
+  # a domain fine-tune is still a general-purpose fallback, not excluded from the generic cascades.
+  - model_name: ling-flash-vl-free
+    litellm_params:
+      model: openrouter/inclusionai/ling-3.0-flash-vl:free
+      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+
+  - model_name: ling-flash-sante-free
+    litellm_params:
+      model: openrouter/inclusionai/ling-3.0-flash-sante:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
 
   - model_name: dots-note-free
@@ -448,11 +515,31 @@ router_settings:
   # "check_LiteLLM_account_isolation.py" (#32) is what keeps that true once a second account's models
   # land here.
   fallbacks:
+    # Ordering rule inside every cascade below: rank by capability first, most capable to least --
+    # general-intelligence leaderboards (LMArena, Artificial Analysis) for "pro"/"flash"/"flash-lite",
+    # coding-specific leaderboards (SWE-bench Pro, Aider polyglot, LiveCodeBench) for "code" and
+    # "claude-code" -- with speed only a secondary tie-breaker and cost barely entering the comparison
+    # at all, since almost every entry here is free. A model's ELIGIBILITY for a cascade is a separate
+    # question from its rank inside it: it must first fit that cascade's own latency/purpose profile
+    # (flash-lite is for atomic sub-300ms tasks, pro is for unbounded reasoning, claude-code
+    # additionally requires confirmed structured tool/function-calling support) before its capability
+    # earns it a slot there -- a slow-but-brilliant "pro" model never belongs in flash-lite no matter
+    # how far ahead it would rank there on intelligence alone.
+    #
+    # "gemini-3-8-flash" is the clearest case of the rule in practice: per Artificial Analysis'
+    # Intelligence Index (measured 2026-09-13) it sits marginally ahead of "gemini-3-1-pro" despite
+    # the "flash" name, so it leads the pro cascade below, not just the flash one -- while LMArena and
+    # raw GPQA/MMLU-Pro numbers put the two close to tied, not a clean win either way. Inside "code",
+    # the ranking criterion switches to coding benchmarks specifically, which is why "glm-5-2-free"
+    # (SWE-bench Pro 62.1%, ahead of GPT-5.5) outranks "gemini-3-8-flash" there despite trailing it on
+    # general intelligence.
+
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google Pro/Reasoning -> OpenRouter heavy -> Mistral Large -> Cerebras -> DeepSeek
     # direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute. GitHub Models
     # dropped from this chain by #109: retired 2026-07-30, see the model_list comment above.
     - pro:
+        - gemini-3-8-flash
         - gemini-3-1-pro
         - gemini-2-5-pro
         - deep-research-pro
@@ -468,15 +555,19 @@ router_settings:
     # (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute. GitHub Models dropped
     # from this chain by #109: retired 2026-07-30, see the model_list comment above.
     - flash:
+        - gemini-3-8-flash
         - gemini-3-6-flash
         - gemini-3-5-flash
         - gemini-3-flash-preview
         - gemini-omni-1-1-flash
         - gpt-oss-120b-cerebras
         - gpt-oss-120b-groq
+        - qwen3-8-27b-cerebras
         - qwen3-8-27b-groq
         - compound-groq
         - mistral-small
+        - ministral-14b
+        - ministral-8b
         - nemotron-super-free
         - gemma-4-31b-free
         - openrouter-auto-free
@@ -488,28 +579,43 @@ router_settings:
     - flash-lite:
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
+        - ministral-3b
         - gpt-oss-20b-groq
         - compound-mini-groq
         - qwen3-6-27b-groq
         - gemma-4-26b-free
         - nemotron-lightning-free
         - ling-flash-free
+        - ling-flash-vl-free
+        - ling-flash-sante-free
         - inkling-small-free
         - dots-note-free
         - poolside-laguna-xs-free
         - lfm-free
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
+    # Ranked by coding-specific benchmarks (SWE-bench Pro, Aider polyglot, LiveCodeBench) rather than
+    # general intelligence -- measured 2026-09-13, sources in the model_list comments above. This is
+    # why "glm-5-2-free" (SWE-bench Pro 62.1%) leads ahead of "gemini-3-8-flash", and why "codestral" --
+    # Mistral's own dedicated code model -- sits near the bottom rather than the top: no current
+    # coding-benchmark placement could be found for it (a weak predecessor proxy). Its sibling
+    # "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
+    # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists -> DeepSeek direct (#101, paid -- last resort before the fully
     # free OmniRoute) -> OmniRoute. GitHub Models dropped from this chain by #109: retired 2026-07-30,
     # see the model_list comment above.
     - code:
-        - codestral
-        - codestral-2508
+        - glm-5-2-free
+        - gemini-3-8-flash
+        - qwen3-8-27b-cerebras
+        - qwen3-8-27b-groq
+        - nex-n2-5-pro-free
+        - nex-n2-5-mini-free
         - gemini-3-6-flash
         - gemini-3-5-flash
         - gpt-oss-120b-cerebras
-        - qwen3-8-27b-groq
+        - codestral
+        - codestral-2508
         - poolside-laguna-s-free
         - north-mini-code-free
         - deepseek-v4-pro-direct
@@ -520,6 +626,7 @@ router_settings:
     # both its models support tool calls, but it is the only paid provider in this cascade. GitHub
     # Models dropped from this cascade by #109: retired 2026-07-30, see the model_list comment above.
     - claude-code:
+        - gemini-3-8-flash
         - gemini-3-1-pro
         - gemini-2-5-pro
         - gemini-3-6-flash
