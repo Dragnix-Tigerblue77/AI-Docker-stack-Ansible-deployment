@@ -38,7 +38,7 @@ from pathlib import Path
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
-ROLE = Path(__file__).resolve().parents[2] / "roles" / "deploy_AIS_Docker_stack"
+ROLE = Path(__file__).resolve().parents[2]
 
 # The published network as a caller supplies it. The indentation is not cosmetic: the definition is
 # a block string interpolated into the "networks:" mapping, so it carries its own continuation

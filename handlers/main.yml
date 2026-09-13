@@ -1,4 +1,4 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-# vars file for roles/deploy_AIS_Docker_stack
+# handlers file for deploy_AIS_Docker_stack

@@ -9,7 +9,7 @@ model: sonnet
 SPDX-FileCopyrightText: 2026 Tigerblue77
 SPDX-License-Identifier: AGPL-3.0-only
 -->
-You audit `roles/deploy_AIS_Docker_stack` -- one role, one template, and the
+You audit this repository -- one role, one template, and the
 service blocks that accumulate in it one issue at a time. There is no fleet of
 roles to sweep here: the unit that repeats is the service block inside
 `templates/AIS.docker-compose.yml.j2`, and the commented model below the real

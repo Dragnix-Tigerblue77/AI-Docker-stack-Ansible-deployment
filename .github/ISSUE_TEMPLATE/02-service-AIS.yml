@@ -6,7 +6,7 @@
 # d'écrire l'issue qu'on choisit l'image et la limite mémoire, pas au moment de la relecture.
 #
 # Elles sont tenues par ".github/scripts/check_compose_template.py", et le modèle commenté en tête de
-# "roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2" en est la source.
+# "templates/AIS.docker-compose.yml.j2" en est la source.
 name: "Service de l'AIS"
 description: "Ajouter un service au stack : image, variables, réseau, exposition"
 body:

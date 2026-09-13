@@ -100,6 +100,20 @@ jobs:
       - name: Install the collections
         run: ansible-galaxy collection install -r requirements.yml
 
+      # This repository IS the role -- "tasks/", "defaults/" and the rest sit at its own root rather
+      # than under a "roles/<name>/" of its own, which is what lets a caller install it with Galaxy
+      # or a submodule and have the checkout itself resolve as "deploy_AIS_Docker_stack". The one
+      # place that costs something is right here: "playbook.AIS.example.yaml" calls the role by that
+      # bare name too, and Ansible's own role search never looks at "the current directory" for a
+      # match, only at "<playbook_dir>/roles/" and a short list of well-known locations, "~/.ansible/
+      # roles" among them. This symlink is what makes that second location resolve -- it exists only
+      # for this job's own use of the example playbook, never committed, and it is the CI mirror of
+      # what CONTRIBUTING.md now asks every clone to do once.
+      - name: Make this checkout resolvable as the "deploy_AIS_Docker_stack" role
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_AIS_Docker_stack
+
       - name: Run ansible-lint
         run: ansible-lint
 
@@ -125,6 +139,14 @@ jobs:
       # "community.docker.docker_container_exec".
       - name: Install the collections
         run: ansible-galaxy collection install -r requirements.yml
+
+      # Same reason as the identical step in the "ansible-lint" job above: this repository is the
+      # role itself, so "playbook.AIS.example.yaml"'s own "- role: deploy_AIS_Docker_stack" resolves
+      # only once something under Ansible's default search locations carries that name.
+      - name: Make this checkout resolvable as the "deploy_AIS_Docker_stack" role
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_AIS_Docker_stack
 
       # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.AIS.example.yaml") would
       # mean coming back here on the first rename, and above all it would stay green in silence if

@@ -27,7 +27,7 @@ list and message each other directly.
 | --- | --- |
 | `service-block-auditor` | The compose template's service blocks against the commented model; secrets kept as no-default variables; the LiteLLM account-suffix naming |
 | `security-reviewer` | Secrets in the clear, LiteLLM isolation between the two accounts, inventory-data leakage, the licensing gate's one hole |
-| `doc-keeper` | Prose that contradicts the code, the French/English split, the two READMEs staying non-overlapping |
+| `doc-keeper` | Prose that contradicts the code, the French/English split, `README.md` staying in sync with `defaults/main.yml` |
 
 Start one by asking the lead for it -- the teammates are spawned from these
 definitions by name.
@@ -72,11 +72,11 @@ owns that unit instead.
   `allow` names the one legitimate shape, `git push ... origin claude/<topic>`.
   `main` is this repository's only long-lived branch too (CLAUDE.md,
   Conventions), so the reasoning transfers directly.
-- **No deny on `.vault_pass` or on `roles/**/files/**`, unlike the homelab
+- **No deny on `.vault_pass` or on `files/**`, unlike the homelab
   repository.** Both are deliberate omissions, not oversights. This repository
   has no `.vault_pass` and nothing vaulted at all -- every secret arrives as a
   caller-supplied role variable, so there is no vault file to protect from a
-  read. And `roles/deploy_AIS_Docker_stack/files/` holds exactly one file,
+  read. And `files/` holds exactly one file,
   `librechat/librechat.yaml`: a configuration template this repository authors
   and reads secrets into only through `${VAR}` substitution LibreChat itself
   performs, not a backup of a running production database the way the homelab
