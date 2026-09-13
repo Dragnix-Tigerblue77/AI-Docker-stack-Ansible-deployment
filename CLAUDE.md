@@ -5,12 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # CLAUDE.md
 
-Ansible deployment of the **AIS**. One role, one example playbook, and the checks that hold both to
-their conventions. The repository is days old: most of what it will contain is still an issue.
+Ansible deployment of the **Artificial Intelligence stack**: LLM gateway, vector database, reranker,
+Claude Code container, agents, connectors. It is one stack, deployed by one role, and every service
+issue adds its block to the same compose template. One role, one example playbook, and the checks
+that hold both to their conventions. The repository is days old: most of what it will contain is
+still an issue.
 
 **The repository root is the role.** `tasks/`, `defaults/`, `templates/` and the rest of what
 `ansible-galaxy init` would scaffold under a `roles/<name>/` sit here directly instead, which is what
-lets a caller install this repository as the role `deploy_AIS_Docker_stack` -- through Galaxy, a git
+lets a caller install this repository as the role `deploy_Artificial_Intelligence_Docker_stack` -- through Galaxy, a git
 submodule, or a plain symlink -- without a wrapper directory that exists only for this checkout. See
 invariant 8.
 
@@ -24,18 +27,12 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What the repository is, how the role is called, how to verify a template change | `README.md` |
 | The contract the deployment role must meet, and every variable of the role | `README.md` |
 | What a variable means and why its default is what it is | `defaults/main.yml` |
-| What a service block must carry | the commented model in `templates/AIS.docker-compose.yml.j2`, below the service blocks |
+| What a service block must carry | the commented model in `templates/Artificial_Intelligence.docker-compose.yml.j2`, below the service blocks |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
-
-## The vocabulary
-
-**AIS** -- *Artificial Intelligence Stack*. The Docker stack this repository builds: LLM gateway,
-vector database, reranker, Claude Code container, agents, connectors. It is one stack, deployed by
-one role, and every service issue adds its block to the same compose template.
 
 ## How we work together
 
@@ -87,10 +84,10 @@ sentence wrapped around an English quotation reads worse than either.
 
 ## Conventions
 
-**Variables.** `Capitalised_Snake_Case` (`AIS_Docker_stack_name`, `AIS_published_Docker_network_name`).
+**Variables.** `Capitalised_Snake_Case` (`Artificial_Intelligence_Docker_stack_name`, `Artificial_Intelligence_published_Docker_network_name`).
 Role variables are deliberately **not** prefixed with the role name -- the prefix would be
-`deploy_AIS_Docker_stack_`, longer than most of what it qualifies -- and they carry the *stack's*
-name, `AIS_`, which is what the caller has in mind. `var-naming[no-role-prefix]` is skipped for that,
+`deploy_Artificial_Intelligence_Docker_stack_`, longer than most of what it qualifies -- and they carry the *stack's*
+name, `Artificial_Intelligence_`, which is what the caller has in mind. `var-naming[no-role-prefix]` is skipped for that,
 and the pattern is widened rather than disabled, so a space, a dash or a leading digit in a name is
 still an error.
 
@@ -156,7 +153,7 @@ ansible-galaxy collection install -r requirements.yml       # community.docker, 
 
 yamllint .
 ansible-lint
-ansible-playbook --syntax-check playbook.AIS.example.yaml
+ansible-playbook --syntax-check playbook.Artificial_Intelligence.example.yaml
 python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
@@ -206,7 +203,7 @@ it, deliberately.
 
 The role is **parameterisable**: the caller provides the inventory, the FQDNs, the reverse proxy
 labels and the network, and names the role that actually deploys the stack through
-`AIS_Docker_stack_deployment_role_name`. The role itself presupposes neither Swarm nor Compose, nor
+`Artificial_Intelligence_Docker_stack_deployment_role_name`. The role itself presupposes neither Swarm nor Compose, nor
 any particular machine.
 
 Today: Compose, on a test VM. Tomorrow: Swarm. What differs between the two is documented in the
@@ -240,14 +237,14 @@ role's README rather than frozen into the role.
    container, and those are what brought the file, the `ansible-galaxy collection install` step in
    CI and in the session-start hook, and the `docker` Python SDK requirement on the managed node
    (stated in the role's own README, since it is that machine's requirement, not this repository's).
-8. **The repository root doubles as the role, and `playbook.AIS.example.yaml` is the one place that
+8. **The repository root doubles as the role, and `playbook.Artificial_Intelligence.example.yaml` is the one place that
    costs something.** Ansible's own role search never treats "the directory this playbook happens to
    sit in" as a candidate -- only `<playbook_dir>/roles/` and a short list of well-known locations,
-   `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_AIS_Docker_stack`
+   `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_Artificial_Intelligence_Docker_stack`
    would not resolve against this checkout on its own. The `ansible-lint` and `syntax-check` jobs of
    `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`, and
    `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
-   `~/.ansible/roles/deploy_AIS_Docker_stack` for exactly this reason, before anything reads the
+   `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
    example playbook. Nothing else in this repository needs it: every other job lints or reads the
    role's own files directly, at their own path, with no role resolution involved.
 

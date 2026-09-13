@@ -20,13 +20,13 @@
 #                         every clone to enable
 #   4. core.hooksPath     the one thing CONTRIBUTING.md says to do once per clone, and a web session
 #                         IS a fresh clone
-#   5. ~/.ansible/roles/deploy_AIS_Docker_stack   a symlink back at this checkout, so that
-#                         "ansible-lint" and "ansible-playbook --syntax-check playbook.AIS.example.yaml"
-#                         can resolve the bare "- role: deploy_AIS_Docker_stack" the example playbook
+#   5. ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack   a symlink back at this checkout, so that
+#                         "ansible-lint" and "ansible-playbook --syntax-check playbook.Artificial_Intelligence.example.yaml"
+#                         can resolve the bare "- role: deploy_Artificial_Intelligence_Docker_stack" the example playbook
 #                         calls. This repository IS the role since the flattening that moved "tasks/",
 #                         "defaults/" and the rest up to its own root -- which is what a caller
 #                         installs with Galaxy or a submodule -- but that also means nothing inside
-#                         the checkout is named "deploy_AIS_Docker_stack" any more for Ansible's own
+#                         the checkout is named "deploy_Artificial_Intelligence_Docker_stack" any more for Ansible's own
 #                         role search to find. "~/.ansible/roles" is one of its built-in search
 #                         locations, so this needs no "ansible.cfg" entry, only the symlink itself.
 #
@@ -333,11 +333,11 @@ fi
 # 5. Role self-resolution ----------------------------------------------------------------------------
 # Idempotent by construction: "ln -sfn" replaces whatever the symlink used to point at, so a resumed
 # or compacted session lands on the same target rather than failing on "File exists".
-if mkdir -p "$HOME/.ansible/roles" 2> /dev/null && ln -sfn "$REPOSITORY_ROOT" "$HOME/.ansible/roles/deploy_AIS_Docker_stack" 2> /dev/null; then
-    printf 'Role self-resolution: ~/.ansible/roles/deploy_AIS_Docker_stack -> %s\n' "$REPOSITORY_ROOT"
+if mkdir -p "$HOME/.ansible/roles" 2> /dev/null && ln -sfn "$REPOSITORY_ROOT" "$HOME/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack" 2> /dev/null; then
+    printf 'Role self-resolution: ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack -> %s\n' "$REPOSITORY_ROOT"
 else
-    note "could not symlink ~/.ansible/roles/deploy_AIS_Docker_stack, so \"- role: deploy_AIS_Docker_stack\" in playbook.AIS.example.yaml will not resolve." \
-        "ansible-lint and --syntax-check on playbook.AIS.example.yaml"
+    note "could not symlink ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack, so \"- role: deploy_Artificial_Intelligence_Docker_stack\" in playbook.Artificial_Intelligence.example.yaml will not resolve." \
+        "ansible-lint and --syntax-check on playbook.Artificial_Intelligence.example.yaml"
 fi
 
 # ---------------------------------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 ---
 galaxy_info:
   author: tigerblue77
-  description: Renders the AIS stack compose file and delegates its deployment to the role the caller names
+  description: Renders the Artificial Intelligence stack compose file and delegates its deployment to the role the caller names
 
   license: AGPL-3.0-only
 

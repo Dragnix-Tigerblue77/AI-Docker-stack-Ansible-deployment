@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Render the AIS compose template, parse it, and hold it to the conventions #31 sets.
+"""Render the Artificial Intelligence compose template, parse it, and hold it to the conventions #31 sets.
 
 Why this exists
 ---------------
@@ -44,8 +44,8 @@ ROLE = Path(__file__).resolve().parents[2]
 # a block string interpolated into the "networks:" mapping, so it carries its own continuation
 # indent, exactly as "Homelab_Ansible_deployment" writes it in its playbook.
 PUBLISHED_NETWORK = {
-    "AIS_published_Docker_network_name": "DMZ",
-    "AIS_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
+    "Artificial_Intelligence_published_Docker_network_name": "DMZ",
+    "Artificial_Intelligence_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
 }
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
@@ -53,10 +53,10 @@ PUBLISHED_NETWORK = {
 # a defect inside it -- an undeclared volume, an unpinned image -- would render and parse cleanly
 # forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
 CLAUDE_CODE_TIGERBLUE77_ENABLED = {
-    "AIS_Claude_code_tigerblue77_enabled": True,
-    "AIS_Claude_code_tigerblue77_virtual_key": "sk-selftest",
-    "AIS_Claude_code_tigerblue77_GitHub_token": "ghp_selftest",
-    "AIS_Claude_code_tigerblue77_workspace_directory": "/srv/selftest/workspace",
+    "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
+    "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key": "sk-selftest",
+    "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token": "ghp_selftest",
+    "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory": "/srv/selftest/workspace",
 }
 
 
@@ -93,7 +93,7 @@ def load_defaults():
 
 def render(context):
     environment = Environment(loader=FileSystemLoader(str(ROLE / "templates")), keep_trailing_newline=True)
-    template = environment.get_template(f"{context['AIS_Docker_compose_file_name']}.j2")
+    template = environment.get_template(f"{context['Artificial_Intelligence_Docker_compose_file_name']}.j2")
     return template.render(**context)
 
 
@@ -121,8 +121,8 @@ def volume_source(volume):
     Compose accepts two syntaxes for a mount and this has to read both, because the long one is the
     form the documentation recommends and the only one that carries options:
 
-        - AIS_data:/data:rw                                     the short one, a string
-        - {type: volume, source: AIS_data, target: /data}       the long one, a mapping
+        - Artificial_Intelligence_data:/data:rw                                     the short one, a string
+        - {type: volume, source: Artificial_Intelligence_data, target: /data}       the long one, a mapping
 
     Reading the long form as a string is how the first version of this script turned every mount
     written that way into "references undeclared volume \"{\'type\'\"" -- a false positive, which is
@@ -215,7 +215,7 @@ def check_states(off, on, failures):
             failures.append(
                 f"turning the published network on changed {key!r}: it must change 'networks' only"
             )
-    published = PUBLISHED_NETWORK["AIS_published_Docker_network_name"]
+    published = PUBLISHED_NETWORK["Artificial_Intelligence_published_Docker_network_name"]
     off_networks = set((off.get("networks") or {}).keys())
     on_networks = set((on.get("networks") or {}).keys())
     if published in off_networks:
@@ -312,12 +312,12 @@ CONVENTION_CASES = [
     ("undeclared network", {"services": {"svc": service(networks=["nope"])}},
      "references undeclared network"),
     ("declared network",
-     {"services": {"svc": service(networks=["AIS_internal"])}, "networks": {"AIS_internal": None}}, None),
+     {"services": {"svc": service(networks=["Artificial_Intelligence_internal"])}, "networks": {"Artificial_Intelligence_internal": None}}, None),
     # "networks:" as a mapping of name to options is the other legal form; iterating it yields the
     # same names, so one loop must read both.
     ("network as a mapping",
-     {"services": {"svc": service(networks={"AIS_internal": {"aliases": ["a"]}})},
-      "networks": {"AIS_internal": None}}, None),
+     {"services": {"svc": service(networks={"Artificial_Intelligence_internal": {"aliases": ["a"]}})},
+      "networks": {"Artificial_Intelligence_internal": None}}, None),
     ("undeclared volume, short syntax", {"services": {"svc": service(volumes=["data:/data:rw"])}},
      "references undeclared volume"),
     ("undeclared volume, long syntax",
@@ -338,24 +338,24 @@ CONVENTION_CASES = [
 # (name, off state, on state, expected substring or None)
 STATE_CASES = [
     ("only the network differs",
-     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None}},
-     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None, "DMZ": None}},
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"Artificial_Intelligence_internal": None}},
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None}},
      None),
     ("turning it on also changed the services",
-     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"AIS_internal": None}},
-     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
+     {"services": {"svc": COMPLIANT_SERVICE}, "networks": {"Artificial_Intelligence_internal": None}},
+     {"services": {}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None}},
      "changed 'services'"),
     ("turning it on also changed the volumes",
-     {"services": {}, "volumes": {}, "networks": {"AIS_internal": None}},
-     {"services": {}, "volumes": {"data": None}, "networks": {"AIS_internal": None, "DMZ": None}},
+     {"services": {}, "volumes": {}, "networks": {"Artificial_Intelligence_internal": None}},
+     {"services": {}, "volumes": {"data": None}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None}},
      "changed 'volumes'"),
     ("published network declared while unset",
-     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
-     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None}},
+     {"services": {}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None}},
+     {"services": {}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None}},
      "is declared while it is unset"),
     ("turning it on added something else too",
-     {"services": {}, "networks": {"AIS_internal": None}},
-     {"services": {}, "networks": {"AIS_internal": None, "DMZ": None, "extra": None}},
+     {"services": {}, "networks": {"Artificial_Intelligence_internal": None}},
+     {"services": {}, "networks": {"Artificial_Intelligence_internal": None, "DMZ": None, "extra": None}},
      "expected exactly ['DMZ']"),
 ]
 
@@ -436,7 +436,7 @@ def main():
         check_states(documents["published network unset"], documents["published network set"], failures)
 
     if failures:
-        print(f"{len(failures)} problem(s) in the AIS compose template:\n")
+        print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")
         for failure in failures:
             print(f"  {failure}")
         print(
@@ -447,7 +447,7 @@ def main():
 
     services = len(documents["published network unset"].get("services") or {})
     print(
-        f"AIS compose template: renders and parses in both states, {services} service(s) checked "
+        f"Artificial Intelligence compose template: renders and parses in both states, {services} service(s) checked "
         "against the conventions of #31."
     )
     return 0

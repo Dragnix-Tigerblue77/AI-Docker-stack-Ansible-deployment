@@ -47,7 +47,7 @@ run_check() {
 run_check "yamllint"                                yamllint .
 run_check "REUSE compliance"                         reuse lint
 run_check "ansible-lint"                             ansible-lint
-run_check "ansible-playbook --syntax-check"          ansible-playbook --syntax-check playbook.AIS.example.yaml
+run_check "ansible-playbook --syntax-check"          ansible-playbook --syntax-check playbook.Artificial_Intelligence.example.yaml
 run_check "compose template (selftest)"              python3 .github/scripts/check_compose_template.py --selftest
 run_check "compose template"                         python3 .github/scripts/check_compose_template.py
 run_check "LiteLLM account isolation (selftest)"     python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest

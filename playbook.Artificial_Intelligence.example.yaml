@@ -9,22 +9,22 @@
 #
 # The group name below therefore exists only in this example: put your inventory's own there.
 
-- name: "Deploy the AIS stack"
-  hosts: AIS_servers
+- name: "Deploy the Artificial Intelligence stack"
+  hosts: Artificial_Intelligence_servers
   become: true
 
   roles:
-    - role: deploy_AIS_Docker_stack
+    - role: deploy_Artificial_Intelligence_Docker_stack
       vars:
         # MANDATORY. The role renders the stack's compose file, it does not deploy it: this parameter
         # names the role that does. That role has to render "{{ Docker_compose_file_name }}.j2" from
-        # ITS OWN CALLER's "templates/" -- that is, from the AIS role's -- and read the three other
+        # ITS OWN CALLER's "templates/" -- that is, from the Artificial Intelligence role's -- and read the three other
         # variables "tasks/main.yml" hands it. The README spells the contract out.
         #
         # Here: the Swarm role of the "Homelab_Ansible_deployment" repository, which meets it as-is.
         # "Docker/deploy_Docker_compose_stack", from the same repository, meets it too -- that is what
         # serves on the test bench until the target is Swarm.
-        AIS_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+        Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
 
         # Whatever the role named above needs is the CALLER's to provide: this role cannot know what
         # that is, since the role is chosen by a variable, and neither of its asserts can check for it.
@@ -36,14 +36,14 @@
         # The time zone handed to every container. A caller that already carries its own -- the
         # homelab repository has "server_time_zone" in "group_vars/all.yaml" -- passes it here rather
         # than restating it, so the stack's containers and the host running them tell the same time.
-        AIS_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
+        Artificial_Intelligence_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
 
         # The published network, created and named by the caller, the one their reverse proxy listens
         # on. The two are set together. Until a service of the stack has a web interface, leaving them
         # at "false" is the right call: nothing attaches to it.
         #
-        # AIS_published_Docker_network_name: "{{ DMZ_Docker_network_name }}"
-        # AIS_published_Docker_network_definition: "{{ DMZ_Docker_network_definition }}"
+        # Artificial_Intelligence_published_Docker_network_name: "{{ DMZ_Docker_network_name }}"
+        # Artificial_Intelligence_published_Docker_network_definition: "{{ DMZ_Docker_network_definition }}"
 
         # MANDATORY since #1, and without a default: a default password is a password, and one
         # shipped in a repository is a published one. All three come from the caller's vault -- here
@@ -52,80 +52,80 @@
         #
         # The role interpolates them straight into the rendered compose file -- never into a ".env":
         # that file already carries the "0600" / "diff: false" contract the deployment role owes it.
-        AIS_PostgreSQL_password: "{{ vault_AIS_PostgreSQL_password }}"
+        Artificial_Intelligence_PostgreSQL_password: "{{ vault_Artificial_Intelligence_PostgreSQL_password }}"
 
         # ADMINISTRATION ONLY. It is never handed to a consumer: Open WebUI, N8N, the Claude Code
         # container and the Discord bot each get their own virtual key, carrying their own model
         # allow-list, created in #2. A client holding this key makes that whole isolation pointless.
-        AIS_LiteLLM_master_key: "{{ vault_AIS_LiteLLM_master_key }}"
+        Artificial_Intelligence_LiteLLM_master_key: "{{ vault_Artificial_Intelligence_LiteLLM_master_key }}"
 
         # "/ui"'s own password, now that its port is published (see the role's README for why). Basic
         # auth is not TLS, but it is the one thing standing between the LAN and the container that
         # holds both accounts' provider keys plus the master key -- so it is vaulted like the two
         # secrets above, not left to a default.
-        AIS_LiteLLM_UI_password: "{{ vault_AIS_LiteLLM_UI_password }}"
+        Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
         # The gateway's image. Explicit SemVer, never "main-latest" -- deprecated and no longer fed.
-        # The role refuses a tag below "AIS_LiteLLM_minimum_secure_version" (1.84.0), and refuses
+        # The role refuses a tag below "Artificial_Intelligence_LiteLLM_minimum_secure_version" (1.84.0), and refuses
         # "main-latest" outright.
         #
         # ! RE-CHECK this tag against the upstream security advisories ON THE DAY of the deployment:
         # four critical CVEs in four months on this product in 2026, one of them a pre-authenticated
         # SQL injection aimed at the very database this stack deploys.
-        # AIS_LiteLLM_Docker_image_tag: "v1.100.0"
+        # Artificial_Intelligence_LiteLLM_Docker_image_tag: "v1.100.0"
 
         # tigerblue77's own provider keys (#2, v1 scope). Any OTHER account's own are deliberately
         # absent: each one added below adds theirs themselves, from their own restricted "/ui" login.
-        AIS_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Gemini_API_key_tigerblue77 }}"
-        AIS_LiteLLM_GitHub_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_GitHub_API_key_tigerblue77 }}"
-        AIS_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Mistral_API_key_tigerblue77 }}"
-        AIS_LiteLLM_Cerebras_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
-        AIS_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
-        AIS_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login, scoped to "access_group:<username>". Adding a
         # third person is adding a third entry here, never a new pair of variables named after them.
         # See the role's README, "Un compte par personne, pas une paire figée".
-        AIS_LiteLLM_internal_users:
+        Artificial_Intelligence_LiteLLM_internal_users:
           - username: "Dragnix"
-            email: "{{ vault_AIS_LiteLLM_Dragnix_email }}"
+            email: "{{ vault_Artificial_Intelligence_LiteLLM_Dragnix_email }}"
 
         # MANDATORY since #71, and without a default: "--requirepass" would otherwise be empty.
-        AIS_Redis_password: "{{ vault_AIS_Redis_password }}"
+        Artificial_Intelligence_Redis_password: "{{ vault_Artificial_Intelligence_Redis_password }}"
 
         # MANDATORY since #73, and without a default: the image ships "CHANGEME" otherwise, which
         # upstream documents as deliberately weak. OmniRoute's port is published for the dashboard,
         # same reasoning as LiteLLM's "/ui" (#1).
-        AIS_OmniRoute_dashboard_password: "{{ vault_AIS_OmniRoute_dashboard_password }}"
+        Artificial_Intelligence_OmniRoute_dashboard_password: "{{ vault_Artificial_Intelligence_OmniRoute_dashboard_password }}"
 
         # MANDATORY since #3, and without a default: #3 requires an API key on Qdrant even though no
         # port is published, as defence-in-depth against a compromised workload on the internal
         # network.
-        AIS_Qdrant_API_key: "{{ vault_AIS_Qdrant_API_key }}"
+        Artificial_Intelligence_Qdrant_API_key: "{{ vault_Artificial_Intelligence_Qdrant_API_key }}"
 
         # MANDATORY since #76, all four, without a default: LibreChat generates temporary values on
         # first start otherwise, and keeps them nowhere but its own volume -- unsuitable for
         # production by its own documentation.
-        AIS_LibreChat_creds_key: "{{ vault_AIS_LibreChat_creds_key }}"
-        AIS_LibreChat_creds_IV: "{{ vault_AIS_LibreChat_creds_IV }}"
-        AIS_LibreChat_JWT_secret: "{{ vault_AIS_LibreChat_JWT_secret }}"
-        AIS_LibreChat_JWT_refresh_secret: "{{ vault_AIS_LibreChat_JWT_refresh_secret }}"
+        Artificial_Intelligence_LibreChat_creds_key: "{{ vault_Artificial_Intelligence_LibreChat_creds_key }}"
+        Artificial_Intelligence_LibreChat_creds_IV: "{{ vault_Artificial_Intelligence_LibreChat_creds_IV }}"
+        Artificial_Intelligence_LibreChat_JWT_secret: "{{ vault_Artificial_Intelligence_LibreChat_JWT_secret }}"
+        Artificial_Intelligence_LibreChat_JWT_refresh_secret: "{{ vault_Artificial_Intelligence_LibreChat_JWT_refresh_secret }}"
 
         # MANDATORY since #76, all four, without a default: Dragnix's own account, created by the
         # role and granted the ADMIN role -- see "Le contrat du rôle de déploiement" in the role's
         # README for why this only works when the deployment target is Compose.
-        AIS_LibreChat_Dragnix_email: "{{ vault_AIS_LibreChat_Dragnix_email }}"
-        AIS_LibreChat_Dragnix_name: "{{ vault_AIS_LibreChat_Dragnix_name }}"
-        AIS_LibreChat_Dragnix_username: "{{ vault_AIS_LibreChat_Dragnix_username }}"
-        AIS_LibreChat_Dragnix_password: "{{ vault_AIS_LibreChat_Dragnix_password }}"
+        Artificial_Intelligence_LibreChat_Dragnix_email: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_email }}"
+        Artificial_Intelligence_LibreChat_Dragnix_name: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_name }}"
+        Artificial_Intelligence_LibreChat_Dragnix_username: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_username }}"
+        Artificial_Intelligence_LibreChat_Dragnix_password: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_password }}"
 
         # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants
         # the service finds every variable it needs in one place instead of discovering them one
         # "assert" failure at a time.
         #
-        # AIS_Claude_code_tigerblue77_enabled: true
-        # AIS_Claude_code_tigerblue77_virtual_key: "{{ vault_AIS_Claude_code_tigerblue77_virtual_key }}"
-        # AIS_Claude_code_tigerblue77_GitHub_token: "{{ vault_AIS_Claude_code_tigerblue77_GitHub_token }}"
-        # AIS_Claude_code_tigerblue77_workspace_directory: "/srv/AIS/workspace/tigerblue77"
+        # Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
+        # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
+        # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
+        # Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory: "/srv/Artificial_Intelligence/workspace/tigerblue77"

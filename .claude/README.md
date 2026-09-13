@@ -35,7 +35,7 @@ definitions by name.
 There is no `role-auditor` here. The homelab repository has eighty-seven roles
 to sweep for idempotence and skeleton drift; this repository has exactly one,
 and the unit that actually repeats -- one issue at a time -- is the service
-block inside `templates/AIS.docker-compose.yml.j2`. `service-block-auditor`
+block inside `templates/Artificial_Intelligence.docker-compose.yml.j2`. `service-block-auditor`
 owns that unit instead.
 
 ## Why these settings
@@ -55,8 +55,8 @@ owns that unit instead.
   trade-off holds here the same way: `--syntax-check` is not merely harmless,
   `CONTRIBUTING.md` asks every contributor to run it themselves before
   pushing, and this repository ships no inventory of its own to deploy
-  against in the first place -- `playbook.AIS.example.yaml` targets a group
-  name (`AIS_servers`) the caller has to supply. So `allow` keeps the existing
+  against in the first place -- `playbook.Artificial_Intelligence.example.yaml` targets a group
+  name (`Artificial_Intelligence_servers`) the caller has to supply. So `allow` keeps the existing
   `ansible-playbook --syntax-check:*` entry, and `deny` narrows to the flags
   that would actually point it at a host: `-i`, `--inventory`, `--limit`, plus
   `ansible-vault` (nothing here is vaulted, but a stray decrypt attempt against

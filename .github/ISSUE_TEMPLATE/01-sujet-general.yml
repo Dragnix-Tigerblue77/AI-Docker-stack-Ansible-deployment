@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # Modèle d'issue général. La structure vient de #22 et vaut pour tout ce qui n'est pas le déploiement
-# d'un service de l'AIS, qui a son propre modèle.
+# d'un service du stack Artificial Intelligence, qui a son propre modèle.
 #
 # Aucune liste déroulante de priorité ici : la priorité est un champ du projet GitHub
 # (Urgent / High / Medium / Low), et la recopier dans le corps de l'issue créerait deux valeurs libres
 # de diverger.
 name: "Sujet général"
-description: "Tout ce qui n'est pas le déploiement d'un service de l'AIS"
+description: "Tout ce qui n'est pas le déploiement d'un service du stack Artificial Intelligence"
 body:
   - type: markdown
     attributes:

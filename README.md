@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # AI-Docker-stack
 
-Déploiement Ansible de l'**AIS** -- *Artificial Intelligence Stack* : la stack Docker qui regroupe toutes
+Déploiement Ansible du stack **Artificial Intelligence** : la stack Docker qui regroupe toutes
 les briques liées à l'IA du homelab. Passerelle LLM, base vectorielle, reranker, conteneur Claude Code,
 agents et connecteurs y vivront dans un seul stack.
 
-**Ce dépôt est le rôle Ansible `deploy_AIS_Docker_stack`, et rien d'autre autour de lui : il rend le
+**Ce dépôt est le rôle Ansible `deploy_Artificial_Intelligence_Docker_stack`, et rien d'autre autour de lui : il rend le
 `docker-compose` du stack et délègue son déploiement au rôle que l'appelant désigne.** `tasks/`,
 `defaults/`, `templates/` et le reste vivent à sa racine plutôt que sous un `roles/<nom>/` à lui : c'est
 ce qui permet à un appelant de l'installer directement, par Galaxy ou par un submodule, et d'avoir le
@@ -21,7 +21,7 @@ dépôt et que personne d'autre n'a de raison de reproduire.
 Un rôle, le playbook d'exemple qui montre comment l'appeler, et de quoi vérifier les deux.
 
 ```
-playbook.AIS.example.yaml                     l'appel du rôle, commenté
+playbook.Artificial_Intelligence.example.yaml                     l'appel du rôle, commenté
 defaults/, tasks/, templates/, files/,        le rôle lui-même : le docker-compose du stack,
 handlers/, vars/, meta/                       ses variables, sa configuration LiteLLM/LibreChat
 .ansible-lint                                 ce que « conforme » veut dire ici
@@ -33,7 +33,7 @@ mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Doc
 `Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
-Le modèle commenté en tête du template (`templates/AIS.docker-compose.yml.j2`) porte les conventions
+Le modèle commenté en tête du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`) porte les conventions
 qu'un bloc de service doit tenir : image épinglée par version, limite mémoire déclarée,
 `deploy.restart_policy.condition: any`, aucun port publié pour un service interne, aucun secret en
 clair. Elles sont écrites là plutôt que dans un document séparé parce que c'est là qu'on les oublie.
@@ -49,7 +49,7 @@ sans forker. Il n'y a donc dans ce dépôt aucune adresse IP, aucun nom d'hôte 
 
 ## Prérequis
 
-- Un rôle capable de déployer le stack, nommé par `AIS_Docker_stack_deployment_role_name`, et résoluble
+- Un rôle capable de déployer le stack, nommé par `Artificial_Intelligence_Docker_stack_deployment_role_name`, et résoluble
   depuis le `roles_path` de l'appelant. Ce dépôt n'en fournit aucun : voir « Le contrat du rôle de
   déploiement » plus bas.
 - La collection `community.docker` (`requirements.yml`, à la racine du dépôt), depuis #76 : le compte
@@ -63,9 +63,9 @@ sans forker. Il n'y a donc dans ce dépôt aucune adresse IP, aucun nom d'hôte 
 ## Comment l'appeler
 
 ```yaml
-- role: deploy_AIS_Docker_stack
+- role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    AIS_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
 ```
 
 Le seul paramètre obligatoire est celui-là : le rôle qui déploie réellement le stack. Le contrat qu'il doit
@@ -82,101 +82,101 @@ dont les conventions sont écrites à l'endroit où on les oublie.
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_Docker_stack_deployment_role_name` | aucun | **Obligatoire.** Le rôle qui déploie réellement le stack. Sans défaut, délibérément : en avoir un présupposerait un orchestrateur. |
-| `AIS_Docker_stack_name` | `AIS` | Le « namespace » du stack chez l'orchestrateur. Compose le normalise en minuscules pour son nom de projet. |
-| `AIS_Docker_compose_file_name` | `AIS.docker-compose.yml` | Le template rendu, sans le suffixe `.j2`. |
-| `AIS_Docker_compose_file_destination_directory` | `/tmp/` | Où le fichier rendu atterrit sur le nœud géré. |
-| `AIS_Docker_compose_file_destination_path` | *dérivé des deux précédents* | Chemin complet. À ne surcharger que si l'on veut le découpler du répertoire. |
-| `AIS_server_time_zone` | `Etc/UTC` | Le `TZ` injecté dans chaque conteneur. Un appelant qui a déjà le sien le passe ici. |
-| `AIS_internal_Docker_network_name` | `AIS_internal` | Le réseau que les services du stack utilisent entre eux. Déclaré par le stack, donc créé et détruit avec lui. |
-| `AIS_published_Docker_network_name` | `false` | Le réseau publié de l'appelant, celui où écoute son reverse proxy. |
-| `AIS_published_Docker_network_definition` | `false` | La déclaration de ce même réseau, telle qu'elle doit apparaître dans le bloc `networks:`. |
+| `Artificial_Intelligence_Docker_stack_deployment_role_name` | aucun | **Obligatoire.** Le rôle qui déploie réellement le stack. Sans défaut, délibérément : en avoir un présupposerait un orchestrateur. |
+| `Artificial_Intelligence_Docker_stack_name` | `Artificial_Intelligence` | Le « namespace » du stack chez l'orchestrateur. Compose le normalise en minuscules pour son nom de projet. |
+| `Artificial_Intelligence_Docker_compose_file_name` | `Artificial_Intelligence.docker-compose.yml` | Le template rendu, sans le suffixe `.j2`. |
+| `Artificial_Intelligence_Docker_compose_file_destination_directory` | `/tmp/` | Où le fichier rendu atterrit sur le nœud géré. |
+| `Artificial_Intelligence_Docker_compose_file_destination_path` | *dérivé des deux précédents* | Chemin complet. À ne surcharger que si l'on veut le découpler du répertoire. |
+| `Artificial_Intelligence_server_time_zone` | `Etc/UTC` | Le `TZ` injecté dans chaque conteneur. Un appelant qui a déjà le sien le passe ici. |
+| `Artificial_Intelligence_internal_Docker_network_name` | `Artificial_Intelligence_internal` | Le réseau que les services du stack utilisent entre eux. Déclaré par le stack, donc créé et détruit avec lui. |
+| `Artificial_Intelligence_published_Docker_network_name` | `false` | Le réseau publié de l'appelant, celui où écoute son reverse proxy. |
+| `Artificial_Intelligence_published_Docker_network_definition` | `false` | La déclaration de ce même réseau, telle qu'elle doit apparaître dans le bloc `networks:`. |
 
 Et celles que #1 apporte, pour la passerelle et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
-| `AIS_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
-| `AIS_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
-| `AIS_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
-| `AIS_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
-| `AIS_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
-| `AIS_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
-| `AIS_PostgreSQL_database` · `AIS_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
-| `AIS_PostgreSQL_data_Docker_volume_name` | `AIS_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
-| `AIS_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
-| `AIS_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
-| `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
-| `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
-| `AIS_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
+| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
+| `Artificial_Intelligence_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
+| `Artificial_Intelligence_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
+| `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
+| `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
+| `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
+| `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
+| `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
+| `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
+| `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
+| `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
 
 Et celles que #2 apporte, pour le `model_list` de tigerblue77 (voir plus bas pourquoi Dragnix n'a pas
 les siennes ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_GitHub_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `AIS_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
 
 Et celles que #71 apporte, pour Redis :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_Redis_Docker_image_tag` | `7-alpine` | Majeur explicite, jamais `:latest`. |
-| `AIS_Redis_data_Docker_volume_name` | `AIS_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
-| `AIS_Redis_memory_limit` | `256m` | Valeur de départ. |
-| `AIS_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
+| `Artificial_Intelligence_Redis_Docker_image_tag` | `7-alpine` | Majeur explicite, jamais `:latest`. |
+| `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
+| `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. |
+| `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
 
 Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_OmniRoute_Docker_image_tag` | `3.8.50` | SemVer explicite, jamais `:latest` ni la variante `-web`. |
-| `AIS_OmniRoute_data_Docker_volume_name` | `AIS_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
-| `AIS_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
-| `AIS_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
+| `Artificial_Intelligence_OmniRoute_Docker_image_tag` | `3.8.50` | SemVer explicite, jamais `:latest` ni la variante `-web`. |
+| `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
+| `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
+| `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
 
 Et celles que #3 apporte, pour Qdrant :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_Qdrant_Docker_image_tag` | `v1.19.1` | SemVer explicite, jamais `:latest`. |
-| `AIS_Qdrant_data_Docker_volume_name` | `AIS_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
-| `AIS_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
-| `AIS_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
+| `Artificial_Intelligence_Qdrant_Docker_image_tag` | `v1.19.1` | SemVer explicite, jamais `:latest`. |
+| `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
+| `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
+| `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
 
 Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
-`AIS_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
+`Artificial_Intelligence_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
-| `AIS_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
-| `AIS_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
-| `AIS_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
-| `AIS_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
-| `AIS_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
-| `AIS_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
-| `AIS_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
-| `AIS_Claude_code_tigerblue77_home_Docker_volume_name` | `AIS_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
+| `Artificial_Intelligence_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
+| `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
 Et celles que #76 apporte, pour LibreChat et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `AIS_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
-| `AIS_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
-| `AIS_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
-| `AIS_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
-| `AIS_LibreChat_uploads_Docker_volume_name` · `AIS_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
-| `AIS_LibreChat_memory_limit` · `AIS_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
-| `AIS_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
+| `Artificial_Intelligence_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
+| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
+| `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
+| `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
+| `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
+| `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
 sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et
@@ -220,7 +220,7 @@ un oubli. Un `CMD` qui nomme un binaire absent échouerait à chaque contrôle, 
 *unhealthy* en permanence pour une raison étrangère à Qdrant lui-même -- exactement le piège que le
 modèle commenté du template met en garde contre.
 
-## LibreChat -- l'interface humaine de l'AIS (#76)
+## LibreChat -- l'interface humaine du stack Artificial Intelligence (#76)
 
 **`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja : la clé
 d'API y est lue par LibreChat lui-même, avec sa propre syntaxe `${VAR}`, depuis l'environnement du
@@ -267,11 +267,11 @@ lus dans la documentation amont.
 
 ## Le contrat du rôle de déploiement
 
-Ce rôle rend le stack, il ne le déploie pas. `AIS_Docker_stack_deployment_role_name` nomme celui qui s'en
+Ce rôle rend le stack, il ne le déploie pas. `Artificial_Intelligence_Docker_stack_deployment_role_name` nomme celui qui s'en
 charge, et ce rôle-là doit :
 
 1. **rendre `{{ Docker_compose_file_name }}.j2` depuis le `templates/` de son appelant**, c'est-à-dire
-   depuis celui du rôle AIS. C'est le point qui fait tenir tout le reste : un dépôt peut fournir un stack
+   depuis celui du rôle Artificial Intelligence. C'est le point qui fait tenir tout le reste : un dépôt peut fournir un stack
    sans fournir la mécanique qui le déploie ;
 2. lire `Docker_stack_name`, `Docker_compose_file_destination_path` et
    `Docker_compose_file_destination_directory`, que `tasks/main.yml` lui passe en paramètres
@@ -312,12 +312,12 @@ rendre depuis un vault : c'est le même modèle que les autres bases auto-héber
 déployées vides, peuplées en direct, sauvegardées de temps en temps dans leur dépôt -- et `/ui` doit donc
 être joignable depuis un simple navigateur du LAN, avant même qu'un reverse proxy existe pour le faire à
 sa place. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAME` / `UI_PASSWORD` (voir
-`AIS_LiteLLM_UI_password` plus haut) comme seule chose entre le LAN et le conteneur qui porte la clé
+`Artificial_Intelligence_LiteLLM_UI_password` plus haut) comme seule chose entre le LAN et le conteneur qui porte la clé
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
 
-**Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `AIS_PostgreSQL_password`
-et `AIS_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
+**Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `Artificial_Intelligence_PostgreSQL_password`
+et `Artificial_Intelligence_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
 qui permet à la même forme de servir Compose et Swarm sans y toucher : Ansible rend ce fichier de la
 même façon quel que soit celui qui le lira ensuite. C'est aussi pourquoi le fichier compose porte déjà
 l'obligation `0600` / `diff: false` du contrat du rôle de déploiement : elle existe depuis #31,
@@ -329,7 +329,7 @@ portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un clien
 rend inutile tout le travail d'isolation de #2.
 
 **Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
-inférieur à `AIS_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
+inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
 test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
 comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
 les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
@@ -361,7 +361,7 @@ ajoute en accès direct, seul fournisseur payant du fichier : placé en dernier 
 cascade où il apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit.
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
-siennes lui-même depuis `/ui` (voir `AIS_LiteLLM_UI_password` plus haut) : même modèle que ses autres
+siennes lui-même depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même modèle que ses autres
 bases auto-hébergées, déployées vides puis peuplées en direct. Chaque entrée porte déjà
 `model_info.access_groups: ["tigerblue77"]`, pour qu'une deuxième personne n'ait rien à reprendre ici --
 voir « Un compte par personne, pas une paire figée » plus bas pour comment elle obtient le sien.
@@ -384,13 +384,13 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Un compte par personne, pas une paire figée (#103)
 
-`AIS_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais deux variables nommées
+`Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais deux variables nommées
 (`_tigerblue77`, `_Dragnix`, ...) : figer sur deux noms fait de l'ajout d'une troisième personne une
 modification de structure du rôle plutôt qu'une ligne ajoutée à une liste. `tasks/main.yml` boucle
 dessus et, pour chaque `{username, email}`, crée un compte LiteLLM au rôle `internal_user` --
 self-service (peut créer/voir/supprimer ses propres clés, voir sa propre consommation) et rien
 d'autre : jamais les clés d'un autre compte, jamais la configuration de la passerelle. Le compte
-`AIS_LiteLLM_UI_username`/`_password` (admin, plus haut) n'a pas sa place dans cette liste : il a déjà
+`Artificial_Intelligence_LiteLLM_UI_username`/`_password` (admin, plus haut) n'a pas sa place dans cette liste : il a déjà
 un accès complet par le mécanisme natif de LiteLLM, une entrée ici ne lui apporterait rien.
 
 La clé de chaque compte est scopée à `access_group:<username>` dès sa création -- le même mécanisme
@@ -410,7 +410,7 @@ retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait to
 quel compte LibreChat, humain ou non, parlait à la passerelle sous la même identité, ce qui défaisait
 l'isolation par compte dès qu'un deuxième humain existait -- même avec son propre compte LiteLLM créé
 par la liste ci-dessus, rien ne l'aurait fait passer par lui plutôt que par l'unique clé partagée.
-`AIS_LibreChat_LiteLLM_virtual_key` et son `assert` obligatoire disparaissent avec ce changement :
+`Artificial_Intelligence_LibreChat_LiteLLM_virtual_key` et son `assert` obligatoire disparaissent avec ce changement :
 plus personne n'a besoin de pré-fabriquer une clé virtuelle avant que LibreChat ne tourne, ce qui
 règle au passage le problème d'ordre de démarrage que ce même `assert` posait (LiteLLM devait tourner
 pour émettre une clé via son propre `/key/generate`, et rien ne se déployait tant que l'`assert`
@@ -457,7 +457,7 @@ tant que #11 n'a pas tranché.
 
 **Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
 dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `AIS_Claude_code_tigerblue77_GitHub_token` est ce qui permet à `gh` et à git de
+l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est ce qui permet à `gh` et à git de
 fonctionner à l'intérieur du conteneur.
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
@@ -474,7 +474,7 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
   `postgres` et `litellm` **inconditionnellement**, et depuis #73, #3 et #76 `omniroute`, `qdrant` et
   `librechat`/`librechat_mongodb` les rejoignent, inconditionnellement aussi. Depuis #13,
-  `claude_code_tigerblue77` s'y ajoute en plus quand `AIS_Claude_code_tigerblue77_enabled` vaut
+  `claude_code_tigerblue77` s'y ajoute en plus quand `Artificial_Intelligence_Claude_code_tigerblue77_enabled` vaut
   `true` (`false` par défaut -- #31 exige que chaque service se déclare ainsi) ; dans tous les états,
   les seuls ports qui apparaissent dans la configuration résolue sont le `4000` de LiteLLM, le
   `20128` d'OmniRoute et le `3080` de LibreChat, publiés à dessein -- Qdrant n'en publie aucun. La
@@ -528,7 +528,7 @@ pas textuels. Le template se **rend** et le résultat se **parse** :
 ```bash
 yamllint .
 ansible-lint
-ansible-playbook --syntax-check playbook.AIS.example.yaml
+ansible-playbook --syntax-check playbook.Artificial_Intelligence.example.yaml
 python3 .github/scripts/check_compose_template.py
 ```
 
@@ -545,13 +545,13 @@ rendus, et que le contrôle refuse qu'activer le réseau publié change autre ch
 ## Exemple d'appel
 
 ```yaml
-- role: deploy_AIS_Docker_stack
+- role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    AIS_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
-    AIS_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
 ```
 
-`playbook.AIS.example.yaml`, à la racine du dépôt, en donne la version complète et commentée.
+`playbook.Artificial_Intelligence.example.yaml`, à la racine du dépôt, en donne la version complète et commentée.
 
 ## Dépendances
 

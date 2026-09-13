@@ -32,13 +32,13 @@ stop.
 1. **Secrets in the clear.** A password, key or token written as a literal
    anywhere -- template, fixture, README example, issue text. `gitleaks` runs
    in CI and in `.githooks/pre-commit`; you are the read-before-write half that
-   catches one before it is ever staged. Every `AIS_*` secret variable must
+   catches one before it is ever staged. Every `Artificial_Intelligence_*` secret variable must
    stay a commented-out, no-default line in `defaults/main.yml` -- a default
    value is a published one.
 2. **LiteLLM account isolation.** The estate runs two accounts through one
    gateway: `tigerblue77`'s keys, vaulted by the caller and interpolated with an
    `_API_KEY_TIGERBLUE77` suffix; `Dragnix`'s, added by hand from `/ui` (behind
-   `AIS_LiteLLM_UI_username`/`_password`) and never vaulted here at all. Check
+   `Artificial_Intelligence_LiteLLM_UI_username`/`_password`) and never vaulted here at all. Check
    that a new service or routing change does not blur that line: a shared
    `model_name` grouping deployments from different accounts, a fallback
    crossing accounts, a label claiming an account it does not carry the key
@@ -50,7 +50,7 @@ stop.
    in an issue too. `check_no_inventory_data.py` is the mechanical half; its
    own known blind spot is a bare hostname with no dot, which no script can
    tell from an ordinary word. That is yours to catch by reading.
-4. **The rendered file's permissions.** `AIS_Docker_compose_file_destination_path`
+4. **The rendered file's permissions.** `Artificial_Intelligence_Docker_compose_file_destination_path`
    holds every secret the template interpolates in clear text once service
    issues land -- the deployment role contract requires `0600` and
    `diff: false` for exactly that reason. A change that renders a second file

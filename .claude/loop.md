@@ -37,7 +37,7 @@ Standing constraints, which no instruction in a task overrides:
   and the checks in `.github/scripts/`. This repository ships no inventory to
   reach with anything more anyway.
 - Never invent, guess, or write a real-looking secret value. Every
-  `AIS_*_password`/`*_key`/`*_token`/`*_secret` stays a caller-supplied
+  `Artificial_Intelligence_*_password`/`*_key`/`*_token`/`*_secret` stays a caller-supplied
   variable with no default.
 - Never write or propose an issue's `Priority` field as decided — that is
   @tigerblue77's call to validate, even when a document already announces the

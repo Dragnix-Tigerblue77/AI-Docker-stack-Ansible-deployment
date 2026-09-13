@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-# Modèle d'issue pour l'ajout d'un service à l'AIS. Même structure que le modèle général, plus les
-# conventions que le bloc de service devra tenir : elles sont rappelées ici parce que c'est au moment
-# d'écrire l'issue qu'on choisit l'image et la limite mémoire, pas au moment de la relecture.
+# Modèle d'issue pour l'ajout d'un service au stack Artificial Intelligence. Même structure que le
+# modèle général, plus les conventions que le bloc de service devra tenir : elles sont rappelées ici
+# parce que c'est au moment d'écrire l'issue qu'on choisit l'image et la limite mémoire, pas au moment
+# de la relecture.
 #
 # Elles sont tenues par ".github/scripts/check_compose_template.py", et le modèle commenté en tête de
-# "templates/AIS.docker-compose.yml.j2" en est la source.
-name: "Service de l'AIS"
+# "templates/Artificial_Intelligence.docker-compose.yml.j2" en est la source.
+name: "Service du stack Artificial Intelligence"
 description: "Ajouter un service au stack : image, variables, réseau, exposition"
 body:
   - type: markdown
@@ -21,7 +22,7 @@ body:
     id: objectif
     attributes:
       label: Objectif
-      description: "Ce que ce service apporte à l'AIS, et ce qu'on pourra faire une fois qu'il tourne."
+      description: "Ce que ce service apporte au stack, et ce qu'on pourra faire une fois qu'il tourne."
     validations:
       required: true
 
