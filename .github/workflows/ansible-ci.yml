@@ -56,7 +56,7 @@ jobs:
       # "LICENSES/AGPL-3.0-only.txt", so that the file REUSE requires and the file GitHub reads for
       # the repository's licence badge are the same bytes rather than two copies free to drift.
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v7
