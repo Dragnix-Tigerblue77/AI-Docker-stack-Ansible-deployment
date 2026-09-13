@@ -122,6 +122,7 @@ les siennes ici) :
 | `AIS_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `AIS_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `AIS_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `AIS_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -355,7 +356,9 @@ d'essai.
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
 d'entrées à travers Gemini, GitHub Models, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute
-en dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé.
+en dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y
+ajoute en accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque
+cascade où il apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit.
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
 siennes lui-même depuis `/ui` (voir `AIS_LiteLLM_UI_password` plus haut) : même modèle que ses autres

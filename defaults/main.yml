@@ -209,6 +209,10 @@ AIS_Redis_memory_limit: "256m"
 # AIS_LiteLLM_Cerebras_API_key_tigerblue77:
 # AIS_LiteLLM_Groq_API_key_tigerblue77:
 # AIS_LiteLLM_OpenRouter_API_key_tigerblue77:
+# The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
+# every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) is a
+# different route to a different catalogue, and is unaffected either way.
+# AIS_LiteLLM_DeepSeek_API_key_tigerblue77:
 
 # --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)

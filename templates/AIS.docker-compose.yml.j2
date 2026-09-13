@@ -153,6 +153,7 @@ services:
       CEREBRAS_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
       GROQ_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
       OPENROUTER_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+      DEEPSEEK_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_DeepSeek_API_key_tigerblue77 }}"
       # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
       # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
       REDIS_URL: "redis://:{{ AIS_Redis_password }}@redis:6379"

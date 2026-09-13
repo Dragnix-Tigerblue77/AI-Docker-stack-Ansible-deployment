@@ -66,6 +66,8 @@ ALLOWED_HOSTS = {
     "ai.google.dev": "Gemini terms of use, cited in #2",
     "generativelanguage.googleapis.com": "Google AI Studio's OpenAI-compatible endpoint (#2)",
     "api.sambanova.ai": "SambaNova's API endpoint, in the entries #2 keeps commented out",
+    "api.deepseek.com": "DeepSeek's own API endpoint, named in a comment (#101) -- LiteLLM already knows it and needs no \"api_base\"",
+    "api-docs.deepseek.com": "DeepSeek's own API documentation, cited in a comment (#101)",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",
     "spdx.org": "licence identifiers",
