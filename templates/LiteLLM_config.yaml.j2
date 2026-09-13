@@ -130,13 +130,17 @@ model_list:
     model_info:
       access_groups: ["tigerblue77"]
 
-  - model_name: gemini-3-1-pro-customtools
-    litellm_params:
-      model: gemini/gemini-3.1-pro-preview-customtools
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
+  # UNCONFIRMED (#112): the base model "gemini-3.1-pro-preview" is real and current (both
+  # "ai.google.dev/gemini-api/docs/models" and ".../latest-model" list it), but the "-customtools"
+  # suffix returns zero matches on either page -- no such variant is documented by Google. Commented
+  # out rather than deleted, same treatment as the entries above it in this file: someone may know a
+  # real reason this resolves that this session cannot see, and that is a question for whoever added
+  # it, not a guess to make here.
+  # - model_name: gemini-3-1-pro-customtools
+  #   litellm_params:
+  #     model: gemini/gemini-3.1-pro-preview-customtools
+  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
+  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
 
   - model_name: gemini-3-1-pro
     litellm_params:
@@ -222,33 +226,35 @@ model_list:
     model_info:
       access_groups: ["tigerblue77"]
 
-  - model_name: mistral-code-agent
-    litellm_params:
-      model: mistral/mistral-code-agent-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
-
-  - model_name: mistral-code
-    litellm_params:
-      model: mistral/mistral-code-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
-
-  - model_name: mistral-vibe-cli-tools
-    litellm_params:
-      model: mistral/mistral-vibe-cli-with-tools
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
-
-  - model_name: mistral-vibe-cli
-    litellm_params:
-      model: mistral/mistral-vibe-cli-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
+  # UNCONFIRMED (#112): none of these four ids were found anywhere in Mistral's own current
+  # documentation, checked directly against "docs.mistral.ai/getting-started/models/models_overview/"
+  # and "docs.mistral.ai/api/" (which does list every real current id in this same naming style, e.g.
+  # "mistral-large-latest" -- so the reference itself is live, not stale). "Vibe" is real -- Mistral's
+  # rebrand of Le Chat, with a "Vibe Code" CLI/VS Code/web mode -- but its own docs say it runs on
+  # "the same Mistral models" as everything else, not a dedicated model id; "Mistral Code" is a
+  # separate enterprise IDE product, also not a model id. Commented out rather than deleted, same
+  # treatment as SambaNova, GitHub Models, cerebras/gemma-4-31b and the three OpenRouter entries
+  # above: someone may know a real reason these resolve (an undocumented/enterprise-only access this
+  # session cannot see), and that is a question for whoever added them, not a guess to make here.
+  # - model_name: mistral-code-agent
+  #   litellm_params:
+  #     model: mistral/mistral-code-agent-latest
+  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: mistral-code
+  #   litellm_params:
+  #     model: mistral/mistral-code-latest
+  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: mistral-vibe-cli-tools
+  #   litellm_params:
+  #     model: mistral/mistral-vibe-cli-with-tools
+  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: mistral-vibe-cli
+  #   litellm_params:
+  #     model: mistral/mistral-vibe-cli-latest
+  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
 
   - model_name: mistral-large
     litellm_params:
@@ -580,7 +586,6 @@ router_settings:
     # -> DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
     - pro:
         - gemini-3-1-pro
-        - gemini-3-1-pro-customtools
         - gemini-2-5-pro
         - deep-research-pro
         - nemotron-ultra-free
@@ -641,8 +646,6 @@ router_settings:
     - code:
         - codestral
         - codestral-2508
-        - mistral-code-agent
-        - mistral-code
         - gemini-3-6-flash
         - gemini-3-5-flash
         - glm-5-2-free
@@ -658,13 +661,10 @@ router_settings:
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
     # both its models support tool calls, but it is the only paid provider in this cascade.
     - claude-code:
-        - gemini-3-1-pro-customtools
         - gemini-3-1-pro
         - gemini-2-5-pro
         - gemini-3-6-flash
         - gemini-3-5-flash
-        - mistral-vibe-cli-tools
-        - mistral-code-agent
         - mistral-large
         - codestral
         - gpt-4o-github

@@ -68,6 +68,7 @@ ALLOWED_HOSTS = {
     "api.sambanova.ai": "SambaNova's API endpoint, in the entries #2 keeps commented out",
     "api.deepseek.com": "DeepSeek's own API endpoint, named in a comment (#101) -- LiteLLM already knows it and needs no \"api_base\"",
     "api-docs.deepseek.com": "DeepSeek's own API documentation, cited in a comment (#101)",
+    "docs.mistral.ai": "Mistral AI's own model documentation, cited in a comment (#112)",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",
     "spdx.org": "licence identifiers",
