@@ -69,6 +69,7 @@ ALLOWED_HOSTS = {
     "api.deepseek.com": "DeepSeek's own API endpoint, named in a comment (#101) -- LiteLLM already knows it and needs no \"api_base\"",
     "api-docs.deepseek.com": "DeepSeek's own API documentation, cited in a comment (#101)",
     "inference-docs.cerebras.ai": "Cerebras' own deprecation notice, cited in a comment (#110)",
+    "openrouter.ai": "OpenRouter's own live model catalog, cited in a comment (#111)",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",
     "spdx.org": "licence identifiers",
