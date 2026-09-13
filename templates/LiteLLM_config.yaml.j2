@@ -379,6 +379,34 @@ model_list:
   #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
 
   # ============================================================================
+  # DeepSeek (direct API, #101) -- the only PAID provider in this file, unlike everything else here.
+  # DeepSeek's own API has no persistent free tier: calls are metered against a prepaid balance, not
+  # a developer quota. Placed last in every cascade it appears in (below), after every free option.
+  #
+  # A first-class LiteLLM provider: no "api_base" to give, it already knows "api.deepseek.com".
+  # Distinct from "deepseek-r1-github" above, which reaches a DIFFERENT catalogue (whatever GitHub
+  # Models itself chooses to expose) through GitHub's own key, not DeepSeek's.
+  #
+  # ! Verified 2026-09-13 directly against "api-docs.deepseek.com": DeepSeek renamed its models twice
+  # in 2026 (the legacy "deepseek-chat"/"deepseek-reasoner" retired 2026-07-24, then the interim
+  # "deepseek-v4-flash" retired 2026-09-10), so the identifiers below are the CURRENT ones, not
+  # necessarily the ones a search turns up. No extinction announced for either as of this date;
+  # DeepSeek has committed to keep serving "deepseek-v4-pro" past 2026-09-14.
+  - model_name: deepseek-v4-pro-direct
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
+    model_info:
+      access_groups: ["tigerblue77"]
+
+  - model_name: deepseek-flash-direct
+    litellm_params:
+      model: deepseek/deepseek-flash
+      api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
+    model_info:
+      access_groups: ["tigerblue77"]
+
+  # ============================================================================
   # OpenRouter (validated ":free" tier entries)
   # ============================================================================
   - model_name: nemotron-ultra-free
@@ -549,7 +577,7 @@ router_settings:
   fallbacks:
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google Pro/Reasoning -> OpenRouter heavy -> Mistral Large -> Cerebras -> GitHub Models
-    # -> OmniRoute.
+    # -> DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
     - pro:
         - gemini-3-1-pro
         - gemini-3-1-pro-customtools
@@ -565,11 +593,12 @@ router_settings:
         - deepseek-r1-github
         - gpt-4o-github
         - llama-3-3-70b-github
+        - deepseek-v4-pro-direct
         - omniroute-free-reasoning
 
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPUs (Cerebras/Groq) -> Mistral -> OpenRouter -> GitHub Models ->
-    # OmniRoute.
+    # DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
     - flash:
         - gemini-3-6-flash
         - gemini-3-5-flash
@@ -586,6 +615,7 @@ router_settings:
         - minimax-m2-7-free
         - openrouter-auto-free
         - gpt-4o-mini-github
+        - deepseek-flash-direct
         - omniroute-free-auto
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
@@ -606,7 +636,8 @@ router_settings:
         - phi-4-github
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
-    # Priority: syntax/code specialists -> GitHub Models -> OmniRoute.
+    # Priority: syntax/code specialists -> GitHub Models -> DeepSeek direct (#101, paid -- last resort
+    # before the fully free OmniRoute) -> OmniRoute.
     - code:
         - codestral
         - codestral-2508
@@ -620,10 +651,12 @@ router_settings:
         - poolside-laguna-s-free
         - north-mini-code-free
         - gpt-4o-github
+        - deepseek-v4-pro-direct
         - omniroute-free-code
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
-    # models with no structured tool support (e.g. mistral-vibe-cli).
+    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
+    # both its models support tool calls, but it is the only paid provider in this cascade.
     - claude-code:
         - gemini-3-1-pro-customtools
         - gemini-3-1-pro
@@ -636,6 +669,7 @@ router_settings:
         - codestral
         - gpt-4o-github
         - o3-mini-github
+        - deepseek-v4-pro-direct
 
   # Transparent alias mappings.
   model_group_alias:
