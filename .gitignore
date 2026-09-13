@@ -13,7 +13,7 @@
 # ---------------------------------------------------------------------------------------------
 # Environment files
 # ---------------------------------------------------------------------------------------------
-# The AIS uses NO ".env" file: the role of #31 interpolates the values directly into the rendered
+# The Artificial Intelligence stack uses NO ".env" file: the role of #31 interpolates the values directly into the rendered
 # "docker-compose", written 0600 on the managed node and never versioned -- which is also what the
 # 36 templates of "Homelab_Ansible_deployment" do, not one of which has an "env_file:".
 # The patterns below are useful all the same: they cover the ".env" a human creates to start a

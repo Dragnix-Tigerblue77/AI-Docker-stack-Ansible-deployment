@@ -44,7 +44,7 @@ if printf '%s' "$payload" | grep -Eqi 'ansible-vault'; then
 fi
 
 # Fabricating or revealing a real secret value, rather than treating every
-# AIS_*_password / _key / _token / _secret variable as mandatory-with-no-default.
+# Artificial_Intelligence_*_password / _key / _token / _secret variable as mandatory-with-no-default.
 if printf '%s' "$payload" | grep -Eqi '(the real|the actual|a genuine|a working|an actual)[^.!?]{0,40}(API[-_ ]?key|master key|password|token|secret)'; then
   deny "this task asks for a real secret value. Every secret this role interpolates is a variable with no default, supplied by the caller -- never invented or looked up here."
 fi

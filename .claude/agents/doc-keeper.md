@@ -26,7 +26,7 @@ defect you exist for.
 This repository's root **is** the role -- `tasks/`, `defaults/`, `templates/`
 and the rest sit at its own root rather than under a `roles/<name>/` of their
 own, which is what lets a caller install it directly as
-`deploy_AIS_Docker_stack`. `README.md` used to be two documents (one for the
+`deploy_Artificial_Intelligence_Docker_stack`. `README.md` used to be two documents (one for the
 repository, one for the role, deliberately non-overlapping) until the
 flattening merged them: there is now one file to keep true, and the seam that
 mattered is `defaults/main.yml`'s own comment above each variable, which
