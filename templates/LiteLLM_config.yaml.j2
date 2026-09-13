@@ -4,11 +4,14 @@
 #
 # #2, v1 SCOPE: tigerblue77's own account only. Dragnix adds his own models later, from "/ui" himself
 # -- his own decision, matching how he already runs every other self-hosted database of this estate
-# (deployed empty, populated live). What #2 asks beyond this -- "access_groups"-backed teams and
-# virtual keys created by idempotent Ansible tasks against LiteLLM's admin API, per-key rpm/tpm
-# limits, the "sci-*" / "gen-*" sensitivity split, and the executable cross-account negative test --
-# is real and still open; it is deliberately NOT attempted here. Every entry below already carries
-# "model_info.access_groups: [\"tigerblue77\"]" so that work has one less thing to retrofit.
+# (deployed empty, populated live). No entry below carries a "model_info.access_groups": every key
+# reaches every model, on purpose -- a username has no more business being hardcoded into an
+# authorization label than into a hostname, and there is only one account to isolate from so far
+# anyway. What #2 asks beyond this -- "access_groups"-backed teams and virtual keys created by
+# idempotent Ansible tasks against LiteLLM's admin API, per-key rpm/tpm limits, the "sci-*" / "gen-*"
+# sensitivity split, and the executable cross-account negative test -- is real and still open, and
+# deliberately NOT attempted here; when it lands, an account's identity has to come from a role
+# variable, never from a name written into this template.
 model_list:
   # ============================================================================
   # Virtual routers -- the names LibreChat and Claude Code actually ask for.
@@ -17,29 +20,21 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: flash
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: code
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # What issue #13's Claude Code agent actually asks for -- see its own compliance note: whatever
   # this resolves to must never be an Anthropic model backed by a subscription.
@@ -47,8 +42,6 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # GitHub Models (Azure AI Inference, free tier via a personal access token)
@@ -57,43 +50,31 @@ model_list:
     litellm_params:
       model: github/o3-mini
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gpt-4o-github
     litellm_params:
       model: github/gpt-4o
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gpt-4o-mini-github
     litellm_params:
       model: github/gpt-4o-mini
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: deepseek-r1-github
     litellm_params:
       model: github/DeepSeek-R1
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: phi-4-github
     litellm_params:
       model: github/Phi-4
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: llama-3-3-70b-github
     litellm_params:
       model: github/Meta-Llama-3.3-70B-Instruct
       api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
@@ -103,84 +84,54 @@ model_list:
       model: gemini/gemini-3.7-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-3-6-flash
     litellm_params:
       model: gemini/gemini-3.6-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-3-5-flash
     litellm_params:
       model: gemini/gemini-3.5-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-3-5-flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
-
-  # UNCONFIRMED (#112): the base model "gemini-3.1-pro-preview" is real and current (both
-  # "ai.google.dev/gemini-api/docs/models" and ".../latest-model" list it), but the "-customtools"
-  # suffix returns zero matches on either page -- no such variant is documented by Google. Commented
-  # out rather than deleted, same treatment as the entries above it in this file: someone may know a
-  # real reason this resolves that this session cannot see, and that is a question for whoever added
-  # it, not a guess to make here.
-  # - model_name: gemini-3-1-pro-customtools
-  #   litellm_params:
-  #     model: gemini/gemini-3.1-pro-preview-customtools
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
 
   - model_name: gemini-3-1-pro
     litellm_params:
       model: gemini/gemini-3.1-pro-preview
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-3-1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-3-flash-preview
     litellm_params:
       model: gemini/gemini-3-flash-preview
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-omni-1-1-flash
     litellm_params:
       model: gemini/gemini-omni-1.1-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-2-5-pro
     litellm_params:
       model: gemini/gemini-2.5-pro
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
   # sits at the bottom of every cascade rather than near the top -- not yet confirmed retired, so not
@@ -190,24 +141,18 @@ model_list:
       model: gemini/gemini-2.5-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemini-2-5-flash-lite
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: deep-research-pro
     litellm_params:
       model: gemini/deep-research-pro-preview-12-2025
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # Mistral AI (developer quota)
@@ -216,66 +161,26 @@ model_list:
     litellm_params:
       model: mistral/codestral-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: codestral-2508
     litellm_params:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
-
-  # UNCONFIRMED (#112): none of these four ids were found anywhere in Mistral's own current
-  # documentation, checked directly against "docs.mistral.ai/getting-started/models/models_overview/"
-  # and "docs.mistral.ai/api/" (which does list every real current id in this same naming style, e.g.
-  # "mistral-large-latest" -- so the reference itself is live, not stale). "Vibe" is real -- Mistral's
-  # rebrand of Le Chat, with a "Vibe Code" CLI/VS Code/web mode -- but its own docs say it runs on
-  # "the same Mistral models" as everything else, not a dedicated model id; "Mistral Code" is a
-  # separate enterprise IDE product, also not a model id. Commented out rather than deleted, same
-  # treatment as SambaNova, GitHub Models, cerebras/gemma-4-31b and the three OpenRouter entries
-  # above: someone may know a real reason these resolve (an undocumented/enterprise-only access this
-  # session cannot see), and that is a question for whoever added them, not a guess to make here.
-  # - model_name: mistral-code-agent
-  #   litellm_params:
-  #     model: mistral/mistral-code-agent-latest
-  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-  #
-  # - model_name: mistral-code
-  #   litellm_params:
-  #     model: mistral/mistral-code-latest
-  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-  #
-  # - model_name: mistral-vibe-cli-tools
-  #   litellm_params:
-  #     model: mistral/mistral-vibe-cli-with-tools
-  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-  #
-  # - model_name: mistral-vibe-cli
-  #   litellm_params:
-  #     model: mistral/mistral-vibe-cli-latest
-  #     api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
 
   - model_name: mistral-large
     litellm_params:
       model: mistral/mistral-large-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: mistral-medium
     litellm_params:
       model: mistral/mistral-medium-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: mistral-small
     litellm_params:
       model: mistral/mistral-small-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
@@ -284,15 +189,11 @@ model_list:
     litellm_params:
       model: cerebras/gpt-oss-120b
       api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemma-4-31b-cerebras
     litellm_params:
       model: cerebras/gemma-4-31b
       api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
@@ -300,44 +201,32 @@ model_list:
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gpt-oss-20b-groq
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: qwen3-8-27b-groq
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # #2's other designated replacement for the same retired Groq model.
   - model_name: qwen3-6-27b-groq
     litellm_params:
       model: groq/qwen/qwen3.6-27b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: compound-groq
     litellm_params:
       model: groq/groq/compound
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: compound-mini-groq
     litellm_params:
       model: groq/groq/compound-mini
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # SambaNova -- DISABLED, requires a bank card on file.
@@ -402,15 +291,11 @@ model_list:
     litellm_params:
       model: deepseek/deepseek-v4-pro
       api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: deepseek-flash-direct
     litellm_params:
       model: deepseek/deepseek-flash
       api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # OpenRouter (validated ":free" tier entries)
@@ -419,127 +304,91 @@ model_list:
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: nemotron-super-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: nemotron-reasoning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: nemotron-lightning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemma-4-31b-free
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: gemma-4-26b-free
     litellm_params:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: minimax-m3-free
     litellm_params:
       model: openrouter/minimax/minimax-m3:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: minimax-m2-7-free
     litellm_params:
       model: openrouter/minimax/minimax-m2.7:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: glm-5-2-free
     litellm_params:
       model: openrouter/z-ai/glm-5.2:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: inkling-free
     litellm_params:
       model: openrouter/thinkingmachines/inkling:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: inkling-small-free
     litellm_params:
       model: openrouter/thinkingmachines/inkling-small:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: north-mini-code-free
     litellm_params:
       model: openrouter/cohere/north-mini-code:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: poolside-laguna-s-free
     litellm_params:
       model: openrouter/poolside/laguna-s-2.1:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: poolside-laguna-xs-free
     litellm_params:
       model: openrouter/poolside/laguna-xs-2.1:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: ling-flash-free
     litellm_params:
       model: openrouter/inclusionai/ling-3.0-flash-fin:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: dots-note-free
     litellm_params:
       model: openrouter/dots-studio/dots-3-note-preview:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: lfm-free
     litellm_params:
       model: openrouter/liquid/lfm-2.5-2.6b:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   - model_name: openrouter-auto-free
     litellm_params:
       model: openrouter/openrouter/free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-    model_info:
-      access_groups: ["tigerblue77"]
 
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).

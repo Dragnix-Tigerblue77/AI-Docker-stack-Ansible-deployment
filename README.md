@@ -362,11 +362,14 @@ cascade où il apparaît, juste avant OmniRoute, qui reste le seul vraiment grat
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
 siennes lui-même depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même modèle que ses autres
-bases auto-hébergées, déployées vides puis peuplées en direct. Chaque entrée porte déjà
-`model_info.access_groups: ["tigerblue77"]`, pour qu'une deuxième personne n'ait rien à reprendre ici --
-voir « Un compte par personne, pas une paire figée » plus bas pour comment elle obtient le sien.
+bases auto-hébergées, déployées vides puis peuplées en direct. Aucune entrée ne porte de
+`model_info.access_groups` : un nom de compte figé dans une étiquette d'autorisation romprait la
+réutilisabilité de ce rôle pour qui l'installe sans être tigerblue77, pour un gain nul tant qu'il n'y a
+qu'un seul compte à isoler de personne. Par défaut, toute clé voit tous les modèles -- voir « Un compte
+par personne, pas une paire figée » plus bas pour la seule clé, `internal_user`, qui restreint déjà.
 #2 demande encore davantage : `rpm_limit` / `tpm_limit` par clé, la segmentation `sci-*` / `gen-*`, le
-test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici.
+test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici, et quand il
+arrivera l'identité d'un compte viendra d'une variable du rôle, jamais d'un nom écrit dans ce fichier.
 
 **La clé d'API décide du compte, jamais le nom du modèle.** `check_LiteLLM_account_isolation.py` (#32)
 attribue chaque entrée à un compte par le nom de sa variable d'environnement -- `os.environ/GEMINI_
@@ -393,8 +396,9 @@ d'autre : jamais les clés d'un autre compte, jamais la configuration de la pass
 `Artificial_Intelligence_LiteLLM_UI_username`/`_password` (admin, plus haut) n'a pas sa place dans cette liste : il a déjà
 un accès complet par le mécanisme natif de LiteLLM, une entrée ici ne lui apporterait rien.
 
-La clé de chaque compte est scopée à `access_group:<username>` dès sa création -- le même mécanisme
-d'`access_groups` que le `model_list` de tigerblue77 porte déjà (plus haut) -- et `POST /key/generate`
+La clé de chaque compte est scopée à `access_group:<username>` dès sa création -- LiteLLM sait déjà
+grouper des clés par cette étiquette, alors même que le `model_list` de tigerblue77 (plus haut) n'en
+porte plus aucune -- et `POST /key/generate`
 n'est appelé **qu'une fois par compte, pour toujours** : la tâche se déclenche seulement l'exécution où
 `POST /user/new` vient tout juste de créer ce compte (409 ensuite, pour toujours), jamais sur la base
 du comportement propre de `/key/generate` rejoué, qui reste à vérifier contre une instance réelle (voir
