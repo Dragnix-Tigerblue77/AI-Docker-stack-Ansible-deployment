@@ -204,15 +204,21 @@ Artificial_Intelligence_Redis_memory_limit: "256m"
 # Dragnix's own keys are deliberately absent here: he adds them himself from "/ui" (see
 # "Artificial_Intelligence_LiteLLM_UI_password" above), so there is nothing for this role to vault on his behalf.
 # Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77:
-# Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77:
 # The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
-# every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) is a
-# different route to a different catalogue, and is unaffected either way.
+# every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) used to be
+# a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
+# been retired (#109), so that route is gone too, not merely unaffected.
 # Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77:
+
+# GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
+# used to read this key is commented out, so nothing consumes it any more. Defaulted to empty rather
+# than left without one like the keys above -- it is no longer a secret guarding a real quota, just an
+# unused container environment variable, and "tasks/main.yml" no longer asserts it is provided.
+Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: ""
 
 # --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)

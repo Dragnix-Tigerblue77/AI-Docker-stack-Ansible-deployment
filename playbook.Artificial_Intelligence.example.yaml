@@ -76,8 +76,8 @@
 
         # tigerblue77's own provider keys (#2, v1 scope). Any OTHER account's own are deliberately
         # absent: each one added below adds theirs themselves, from their own restricted "/ui" login.
+        # No GitHub key here: GitHub Models is retired (#109), and the role no longer asks for one.
         Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 }}"
-        Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 }}"
         Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 }}"
         Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 }}"
         Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 }}"
