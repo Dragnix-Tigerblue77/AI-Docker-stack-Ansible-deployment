@@ -120,12 +120,6 @@ model_list:
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
 
-  - model_name: gemini-3-1-pro-customtools
-    litellm_params:
-      model: gemini/gemini-3.1-pro-preview-customtools
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
-
   - model_name: gemini-3-1-pro
     litellm_params:
       model: gemini/gemini-3.1-pro-preview
@@ -188,26 +182,6 @@ model_list:
   - model_name: codestral-2508
     litellm_params:
       model: mistral/codestral-2508
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-
-  - model_name: mistral-code-agent
-    litellm_params:
-      model: mistral/mistral-code-agent-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-
-  - model_name: mistral-code
-    litellm_params:
-      model: mistral/mistral-code-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-
-  - model_name: mistral-vibe-cli-tools
-    litellm_params:
-      model: mistral/mistral-vibe-cli-with-tools
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
-
-  - model_name: mistral-vibe-cli
-    litellm_params:
-      model: mistral/mistral-vibe-cli-latest
       api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
 
   - model_name: mistral-large
@@ -567,7 +541,6 @@ router_settings:
     - pro:
         - gemini-3-8-flash
         - gemini-3-1-pro
-        - gemini-3-1-pro-customtools
         - gemini-2-5-pro
         - deep-research-pro
         - nemotron-ultra-free
@@ -623,11 +596,11 @@ router_settings:
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
     # Ranked by coding-specific benchmarks (SWE-bench Pro, Aider polyglot, LiveCodeBench) rather than
     # general intelligence -- measured 2026-09-13, sources in the model_list comments above. This is
-    # why "glm-5-2-free" (SWE-bench Pro 62.1%) leads ahead of "gemini-3-8-flash", and why "codestral"/
-    # "mistral-code-agent" -- Mistral's own dedicated code models -- sit near the bottom rather than
-    # the top: no current coding-benchmark placement could be found for either (a weak predecessor
-    # proxy for codestral; no evidence "mistral-code-agent-latest" is even a currently published
-    # Mistral model id at all, flagged separately, not corrected here since neither was asked for).
+    # why "glm-5-2-free" (SWE-bench Pro 62.1%) leads ahead of "gemini-3-8-flash", and why "codestral" --
+    # Mistral's own dedicated code model -- sits near the bottom rather than the top: no current
+    # coding-benchmark placement could be found for it (a weak predecessor proxy). Its sibling
+    # "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
+    # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists -> DeepSeek direct (#101, paid -- last resort before the fully
     # free OmniRoute) -> OmniRoute. GitHub Models dropped from this chain by #109: retired 2026-07-30,
     # see the model_list comment above.
@@ -643,8 +616,6 @@ router_settings:
         - gpt-oss-120b-cerebras
         - codestral
         - codestral-2508
-        - mistral-code-agent
-        - mistral-code
         - poolside-laguna-s-free
         - north-mini-code-free
         - deepseek-v4-pro-direct
@@ -656,13 +627,10 @@ router_settings:
     # Models dropped from this cascade by #109: retired 2026-07-30, see the model_list comment above.
     - claude-code:
         - gemini-3-8-flash
-        - gemini-3-1-pro-customtools
         - gemini-3-1-pro
         - gemini-2-5-pro
         - gemini-3-6-flash
         - gemini-3-5-flash
-        - mistral-vibe-cli-tools
-        - mistral-code-agent
         - mistral-large
         - codestral
         - deepseek-v4-pro-direct
