@@ -197,10 +197,15 @@ model_list:
       model: cerebras/gpt-oss-120b
       api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
 
-  - model_name: gemma-4-31b-cerebras
-    litellm_params:
-      model: cerebras/gemma-4-31b
-      api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
+  # RETIRED from Cerebras' public endpoints 2026-09-03 (#110), per
+  # "inference-docs.cerebras.ai/support/deprecation": "Starting September 3, 2026, gemma-4-31b is no
+  # longer available on Cerebras public endpoints." Still reachable through paid Dedicated Endpoints,
+  # a different product from the shared/free API this file targets. Commented out rather than
+  # deleted, same treatment as SambaNova and GitHub Models above.
+  # - model_name: gemma-4-31b-cerebras
+  #   litellm_params:
+  #     model: cerebras/gemma-4-31b
+  #     api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
 
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
@@ -465,7 +470,6 @@ router_settings:
         - gemini-omni-1-1-flash
         - gpt-oss-120b-cerebras
         - gpt-oss-120b-groq
-        - gemma-4-31b-cerebras
         - qwen3-8-27b-groq
         - compound-groq
         - mistral-small
