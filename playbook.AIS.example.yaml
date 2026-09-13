@@ -74,14 +74,22 @@
         # SQL injection aimed at the very database this stack deploys.
         # AIS_LiteLLM_Docker_image_tag: "v1.100.0"
 
-        # tigerblue77's own provider keys (#2, v1 scope). Dragnix's own are deliberately absent: he
-        # adds them himself from "/ui" -- see "AIS_LiteLLM_UI_password" above.
+        # tigerblue77's own provider keys (#2, v1 scope). Any OTHER account's own are deliberately
+        # absent: each one added below adds theirs themselves, from their own restricted "/ui" login.
         AIS_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Gemini_API_key_tigerblue77 }}"
         AIS_LiteLLM_GitHub_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_GitHub_API_key_tigerblue77 }}"
         AIS_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Mistral_API_key_tigerblue77 }}"
         AIS_LiteLLM_Cerebras_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
         AIS_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
         AIS_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+
+        # A LIST (#103), empty by default: one entry per additional person, each becoming their own
+        # restricted "internal_user" LiteLLM login, scoped to "access_group:<username>". Adding a
+        # third person is adding a third entry here, never a new pair of variables named after them.
+        # See the role's README, "Un compte par personne, pas une paire figée".
+        AIS_LiteLLM_internal_users:
+          - username: "Dragnix"
+            email: "{{ vault_AIS_LiteLLM_Dragnix_email }}"
 
         # MANDATORY since #71, and without a default: "--requirepass" would otherwise be empty.
         AIS_Redis_password: "{{ vault_AIS_Redis_password }}"
@@ -95,10 +103,6 @@
         # port is published, as defence-in-depth against a compromised workload on the internal
         # network.
         AIS_Qdrant_API_key: "{{ vault_AIS_Qdrant_API_key }}"
-
-        # MANDATORY since #76, and without a default: LibreChat is a consumer of the gateway like any
-        # other, and gets its own virtual key (#2) rather than the master key.
-        AIS_LibreChat_LiteLLM_virtual_key: "{{ vault_AIS_LibreChat_LiteLLM_virtual_key }}"
 
         # MANDATORY since #76, all four, without a default: LibreChat generates temporary values on
         # first start otherwise, and keeps them nowhere but its own volume -- unsuitable for

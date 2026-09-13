@@ -89,7 +89,9 @@
       tigerblue77's six LiteLLM provider keys (Gemini, GitHub, Mistral, Cerebras, Groq, OpenRouter)
       are mandatory and have no default, like every other secret this role interpolates.
       "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
-      Dragnix's own keys are deliberately absent: he adds them himself from "/ui".
+      any OTHER account's own provider keys are deliberately absent here: each one added through
+      "AIS_LiteLLM_internal_users" (#103) adds theirs themselves, from their own restricted "/ui"
+      login, never tigerblue77's own admin one.
 
 - name: "Check the Redis password is provided"
   ansible.builtin.assert:
@@ -150,9 +152,6 @@
 - name: "Check the LibreChat secrets are provided"
   ansible.builtin.assert:
     that:
-      - AIS_LibreChat_LiteLLM_virtual_key is defined
-      - AIS_LibreChat_LiteLLM_virtual_key is string
-      - AIS_LibreChat_LiteLLM_virtual_key | length > 0
       - AIS_LibreChat_creds_key is defined
       - AIS_LibreChat_creds_key is string
       - AIS_LibreChat_creds_key | length > 0
@@ -167,11 +166,13 @@
       - AIS_LibreChat_JWT_refresh_secret | length > 0
     quiet: true
     fail_msg: >-
-      "AIS_LibreChat_LiteLLM_virtual_key", "AIS_LibreChat_creds_key", "AIS_LibreChat_creds_IV",
-      "AIS_LibreChat_JWT_secret" and "AIS_LibreChat_JWT_refresh_secret" are mandatory and have no
-      default (#76). Without the four encryption/JWT secrets LibreChat generates temporary ones on
-      first start and keeps them nowhere but its own volume -- unsuitable for production by its own
-      documentation. The virtual key is LibreChat's own, never "AIS_LiteLLM_master_key" (#1).
+      "AIS_LibreChat_creds_key", "AIS_LibreChat_creds_IV", "AIS_LibreChat_JWT_secret" and
+      "AIS_LibreChat_JWT_refresh_secret" are mandatory and have no default (#76). Without the four
+      encryption/JWT secrets LibreChat generates temporary ones on first start and keeps them nowhere
+      but its own volume -- unsuitable for production by its own documentation. There is no virtual
+      key to check here any more (#103): "librechat.yaml" reads "apiKey: \"user_provided\"", so each
+      LibreChat account supplies its own the first time it uses the gateway endpoint, rather than the
+      role pre-provisioning one shared key.
 
 - name: "Check Dragnix's LibreChat account parameters are provided"
   ansible.builtin.assert:
@@ -277,6 +278,89 @@
     Docker_compose_file_name: "{{ AIS_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ AIS_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ AIS_Docker_compose_file_destination_path }}"
+
+# Every "AIS_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
+# never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
+# "/user/new" is confirmed (read in LiteLLM's own source, "internal_user_endpoints.py") to answer
+# 409 on a user_id or email that already exists rather than upsert it, so a re-run is a no-op here,
+# the same shape as LibreChat's own "create-user" a few tasks down.
+#
+# LiteLLM needs a moment after the stack deployment task above to actually start answering on its
+# published port -- "until"/"retries" ride out that window rather than presuppose it has already
+# passed; a hard failure past the retry budget still fails the play, since a user this role could
+# not confirm exists is not a user it should silently skip.
+- name: "Create each additional LiteLLM internal user"
+  ansible.builtin.uri:
+    url: "http://localhost:4000/user/new"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ AIS_LiteLLM_master_key }}"
+    body_format: json
+    body:
+      user_id: "{{ item.username }}"
+      user_email: "{{ item.email }}"
+      user_role: "internal_user"
+    status_code: [200, 201, 409]
+  register: AIS_LiteLLM_internal_user_creation
+  until: AIS_LiteLLM_internal_user_creation.status is defined and AIS_LiteLLM_internal_user_creation.status in [200, 201, 409]
+  retries: 5
+  delay: 5
+  no_log: true
+  loop: "{{ AIS_LiteLLM_internal_users }}"
+  loop_control:
+    label: "{{ item.username }}"
+  changed_when: AIS_LiteLLM_internal_user_creation.status in [200, 201]
+
+# Deliberately a SEPARATE call from "/user/new" above, on the RECOMMENDED shape of LiteLLM's own
+# onboarding guide, rather than relying on whatever key "/user/new" itself might also return: minting
+# a virtual key is "/key/generate"'s one job, and its response shape is the one LiteLLM documents
+# consistently (a "key" field) across every endpoint that returns one.
+#
+# "access_group:<username>" is the SAME access-group mechanism "LiteLLM_config.yaml.j2" already tags
+# tigerblue77's own models with (#2) -- an account added here only ever sees models tagged for its
+# own name, "check_LiteLLM_account_isolation.py" already enforces that a model belongs to exactly
+# one account's access group.
+#
+# Gated on THIS run's own creation result rather than trusted to "/key/generate" being idempotent on
+# repeat calls (unverified -- see #103): the "when" below is true only the one run "/user/new" just
+# now returned 200/201 for this exact user, never again once it settles on 409 forever after. A key
+# is therefore minted exactly once per account, ever, regardless of what a bare repeat call to
+# "/key/generate" alone would have done.
+- name: "Generate each newly created internal user's scoped virtual key"
+  ansible.builtin.uri:
+    url: "http://localhost:4000/key/generate"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ AIS_LiteLLM_master_key }}"
+    body_format: json
+    body:
+      user_id: "{{ item.item.username }}"
+      key_alias: "{{ item.item.username }}-personal"
+      models: ["access_group:{{ item.item.username }}"]
+    status_code: [200]
+  register: AIS_LiteLLM_internal_user_key
+  no_log: true
+  loop: "{{ AIS_LiteLLM_internal_user_creation.results }}"
+  loop_control:
+    label: "{{ item.item.username }}"
+  when: item.status in [200, 201]
+  changed_when: true
+
+# The ONE place this key is ever shown: LiteLLM does not return it again on a later call, the same
+# way a GitHub token or a registry password is shown once at creation and never again. "no_log" stays
+# off deliberately, on this task alone -- the whole point is that this prints. What it is FOR is
+# LibreChat's own "apiKey: \"user_provided\"" prompt (see "librechat.yaml"): the account this key
+# belongs to pastes it there the first time it opens the gateway endpoint, and LibreChat keeps it,
+# encrypted, from then on.
+- name: "Show each newly generated internal user's virtual key"
+  ansible.builtin.debug:
+    msg: >-
+      LiteLLM virtual key for "{{ item.item.item.username }}" -- shown once, save it now:
+      {{ item.json.key }}
+  loop: "{{ AIS_LiteLLM_internal_user_key.results }}"
+  loop_control:
+    label: "{{ item.item.item.username }}"
+  when: item is not skipped
 
 # Dragnix's LibreChat account (#76), created BY THE ROLE once the stack it belongs to is actually
 # running -- everything below needs a live "librechat" container, which is why it comes after the

@@ -109,6 +109,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `AIS_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
 | `AIS_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `AIS_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
+| `AIS_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
 
 Et celles que #2 apporte, pour le `model_list` de tigerblue77 (voir plus bas pourquoi Dragnix n'a pas
 les siennes ici) :
@@ -170,7 +171,6 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 |---|---|---|
 | `AIS_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
 | `AIS_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
-| `AIS_LibreChat_LiteLLM_virtual_key` | aucun | **Obligatoire.** Clé virtuelle dédiée (#2), jamais la clé maîtresse. |
 | `AIS_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `AIS_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `AIS_LibreChat_uploads_Docker_volume_name` · `AIS_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
@@ -357,13 +357,13 @@ d'essai.
 d'entrées à travers Gemini, GitHub Models, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute
 en dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé.
 
-**Un seul compte pour l'instant, et c'est un choix assumé, pas un oubli.** Dragnix ajoute les siennes
-lui-même depuis `/ui` (voir `AIS_LiteLLM_UI_password` plus haut) : même modèle que ses autres bases
-auto-hébergées, déployées vides puis peuplées en direct. #2 demande davantage -- équipes et clés
-virtuelles créées par tâches Ansible idempotentes via l'API de LiteLLM, `rpm_limit` / `tpm_limit` par
-clé, la segmentation `sci-*` / `gen-*`, le test négatif inter-comptes exécutable -- et c'est un travail
-réel qui reste ouvert sur #2 ; il n'est délibérément pas tenté ici. Chaque entrée porte déjà
-`model_info.access_groups: ["tigerblue77"]`, pour que ce travail ait une chose de moins à reprendre.
+**Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
+siennes lui-même depuis `/ui` (voir `AIS_LiteLLM_UI_password` plus haut) : même modèle que ses autres
+bases auto-hébergées, déployées vides puis peuplées en direct. Chaque entrée porte déjà
+`model_info.access_groups: ["tigerblue77"]`, pour qu'une deuxième personne n'ait rien à reprendre ici --
+voir « Un compte par personne, pas une paire figée » plus bas pour comment elle obtient le sien.
+#2 demande encore davantage : `rpm_limit` / `tpm_limit` par clé, la segmentation `sci-*` / `gen-*`, le
+test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici.
 
 **La clé d'API décide du compte, jamais le nom du modèle.** `check_LiteLLM_account_isolation.py` (#32)
 attribue chaque entrée à un compte par le nom de sa variable d'environnement -- `os.environ/GEMINI_
@@ -378,6 +378,40 @@ variable, seul ce contrôle en a besoin.
 une valeur littérale ne peut être qu'un marqueur pour un service qui n'a besoin d'aucune information
 d'authentification, jamais un oubli. `check_LiteLLM_account_isolation.py` reconnaît maintenant cette
 forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, donc aucun à protéger.
+
+### Un compte par personne, pas une paire figée (#103)
+
+`AIS_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais deux variables nommées
+(`_tigerblue77`, `_Dragnix`, ...) : figer sur deux noms fait de l'ajout d'une troisième personne une
+modification de structure du rôle plutôt qu'une ligne ajoutée à une liste. `tasks/main.yml` boucle
+dessus et, pour chaque `{username, email}`, crée un compte LiteLLM au rôle `internal_user` --
+self-service (peut créer/voir/supprimer ses propres clés, voir sa propre consommation) et rien
+d'autre : jamais les clés d'un autre compte, jamais la configuration de la passerelle. Le compte
+`AIS_LiteLLM_UI_username`/`_password` (admin, plus haut) n'a pas sa place dans cette liste : il a déjà
+un accès complet par le mécanisme natif de LiteLLM, une entrée ici ne lui apporterait rien.
+
+La clé de chaque compte est scopée à `access_group:<username>` dès sa création -- le même mécanisme
+d'`access_groups` que le `model_list` de tigerblue77 porte déjà (plus haut) -- et `POST /key/generate`
+n'est appelé **qu'une fois par compte, pour toujours** : la tâche se déclenche seulement l'exécution où
+`POST /user/new` vient tout juste de créer ce compte (409 ensuite, pour toujours), jamais sur la base
+du comportement propre de `/key/generate` rejoué, qui reste à vérifier contre une instance réelle (voir
+« Non vérifié » plus bas). Cette clé n'est montrée qu'**une seule fois**, dans la sortie de ce rôle, le
+jour où elle est réellement créée : LiteLLM ne la restitue pas une seconde fois, au même titre qu'un
+jeton GitHub ou un mot de passe de registre. C'est cette clé-là, et non un compte LiteLLM partagé, que
+la personne colle ensuite dans son propre compte LibreChat -- voir juste en dessous.
+
+**`librechat.yaml` route désormais chaque compte LibreChat vers sa propre identité côté passerelle.**
+`apiKey: "user_provided"` (au lieu d'une clé unique lue dans l'environnement du conteneur) fait que
+LibreChat demande sa propre clé à CHAQUE compte, la première fois qu'il utilise cet endpoint, et la
+retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait tout le conteneur : n'importe
+quel compte LibreChat, humain ou non, parlait à la passerelle sous la même identité, ce qui défaisait
+l'isolation par compte dès qu'un deuxième humain existait -- même avec son propre compte LiteLLM créé
+par la liste ci-dessus, rien ne l'aurait fait passer par lui plutôt que par l'unique clé partagée.
+`AIS_LibreChat_LiteLLM_virtual_key` et son `assert` obligatoire disparaissent avec ce changement :
+plus personne n'a besoin de pré-fabriquer une clé virtuelle avant que LibreChat ne tourne, ce qui
+règle au passage le problème d'ordre de démarrage que ce même `assert` posait (LiteLLM devait tourner
+pour émettre une clé via son propre `/key/generate`, et rien ne se déployait tant que l'`assert`
+n'était pas satisfait).
 
 **Redis, déployé par #71.** Le cache de réponses (préserve les quotas TPM des paliers gratuits) et
 l'état de cooldown partagé entre les workers de LiteLLM en avaient besoin ; ni #1 ni #2 n'en avait le
