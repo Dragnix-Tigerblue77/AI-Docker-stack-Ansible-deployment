@@ -322,10 +322,9 @@ services:
       HOST: "0.0.0.0"
       PORT: "3080"
       MONGO_URI: "mongodb://librechat_mongodb:27017/LibreChat"
-      # LibreChat's OWN "${VAR}" syntax inside "librechat.yaml" resolves this at runtime -- a
-      # dedicated virtual key (#2), never the master key LiteLLM's own container never lets leave it
-      # (#1). LibreChat is a consumer of the gateway like any other.
-      LIBRECHAT_LITELLM_VIRTUAL_KEY: "{{ AIS_LibreChat_LiteLLM_virtual_key }}"
+      # No shared virtual key here any more (#103): "librechat.yaml" reads "apiKey: \"user_provided\""
+      # for the gateway endpoint, so LibreChat asks each of ITS OWN accounts for their own key the
+      # first time they use it, rather than every account sharing whatever this env var once held.
       # Closed on purpose: the port below is on the LAN, and open registration there would hand
       # anyone on the network a seat on both accounts' quotas. See "defaults/main.yml".
       ALLOW_REGISTRATION: "{{ AIS_LibreChat_allow_registration | string | lower }}"

@@ -153,6 +153,25 @@ AIS_LiteLLM_memory_limit: "2g"
 AIS_LiteLLM_UI_username: "admin"
 # AIS_LiteLLM_UI_password:
 
+# A LIST, empty by default, never a fixed pair of named variables (#103): each entry
+# ({"username": ..., "email": ...}) becomes its own restricted LiteLLM login -- "internal_user" role,
+# which can create/view/delete only ITS OWN keys and see only ITS OWN spend, never another account's
+# keys or the gateway's own configuration. Adding a person is adding an entry, never duplicating a
+# task or a pair of variables named after someone.
+#
+# The account this role's own admin (whoever holds "AIS_LiteLLM_UI_username"/"_password") uses is
+# NOT one of these: that login already has full admin access via LiteLLM's own bootstrap mechanism,
+# and giving it a second, restricted entry here would not add anything.
+#
+# Each entry's key is scoped to "access_group:<username>" (#2) at creation, the same access-group
+# mechanism "LiteLLM_config.yaml.j2" already tags tigerblue77's own models with -- so an account
+# added here only ever sees models tagged for its own name. That key is shown ONCE, in this role's
+# own output, the run it is actually created: LiteLLM does not store it in a form the API can return
+# a second time, the same way a GitHub token or a Docker registry password is shown once and never
+# again. Save it somewhere durable then -- LibreChat's own "apiKey: \"user_provided\"" prompt is
+# where it is meant to end up.
+AIS_LiteLLM_internal_users: []
+
 # --------------------------------------------------------------------------------------------------
 # Redis -- LiteLLM's shared cooldown state and response cache backend (#71)
 # --------------------------------------------------------------------------------------------------
@@ -310,11 +329,6 @@ AIS_MongoDB_LibreChat_data_Docker_volume_name: "AIS_MongoDB_LibreChat_data"
 AIS_LibreChat_memory_limit: "1g"
 AIS_MongoDB_LibreChat_memory_limit: "512m"
 
-# MANDATORY, without a default -- same reasoning as every other secret this role interpolates.
-# LibreChat is a consumer of the gateway like any other: its own virtual key (#2), never the master
-# key, which "AIS_LiteLLM_master_key" (#1) never leaves LiteLLM's own container for.
-# AIS_LibreChat_LiteLLM_virtual_key:
-
 # MANDATORY, without a default, all four. LibreChat generates temporary values for these on first
 # start and stores them in its own volume if none are given -- documented upstream as unsuitable for
 # production, precisely because nothing vaults them anywhere. Never left to that default here.
@@ -330,8 +344,10 @@ AIS_MongoDB_LibreChat_memory_limit: "512m"
 AIS_LibreChat_allow_registration: false
 
 # Where "files/librechat/librechat.yaml" lands on the managed node, mounted read-only into the
-# container. Copied rather than rendered: nothing in it needs Ansible interpolation -- the virtual
-# key is read by LibreChat itself, from its OWN container environment, at "${LIBRECHAT_LITELLM_VIRTUAL_KEY}".
+# container. Copied rather than rendered: nothing in it needs Ansible interpolation -- the file
+# reads "apiKey: \"user_provided\"" for the gateway endpoint (#103), so LibreChat asks each of its
+# OWN accounts for their own virtual key the first time they use it, rather than reading one shared
+# key out of the container's environment.
 AIS_LibreChat_config_file_name: "librechat.yaml"
 AIS_LibreChat_config_file_destination_path: "{{ AIS_Docker_compose_file_destination_directory }}{{ AIS_LibreChat_config_file_name }}"
 
