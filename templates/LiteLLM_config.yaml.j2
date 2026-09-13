@@ -44,37 +44,44 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
 
   # ============================================================================
-  # GitHub Models (Azure AI Inference, free tier via a personal access token)
+  # GitHub Models -- RETIRED 2026-07-30, DISABLED (#109). Azure AI Inference retired the whole
+  # service (github.blog/changelog/2026-07-30-github-models-is-now-retired), after cutting off new
+  # signups 2026-06-16 and two "brownout" interruptions on 2026-07-16 and 2026-07-23. Every entry
+  # below is unreachable through this exact identifier and provider prefix; kept as a record of what
+  # existed rather than deleted outright. GitHub's own migration guidance points at Microsoft Foundry
+  # (a model catalogue, the nearer replacement) or GitHub Copilot (model access folded into Copilot's
+  # own workflows) -- neither is a drop-in for LiteLLM's "github/" prefix, so re-enabling this section
+  # is a design decision, not a rename.
   # ============================================================================
-  - model_name: o3-mini-github
-    litellm_params:
-      model: github/o3-mini
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-
-  - model_name: gpt-4o-github
-    litellm_params:
-      model: github/gpt-4o
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-
-  - model_name: gpt-4o-mini-github
-    litellm_params:
-      model: github/gpt-4o-mini
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-
-  - model_name: deepseek-r1-github
-    litellm_params:
-      model: github/DeepSeek-R1
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-
-  - model_name: phi-4-github
-    litellm_params:
-      model: github/Phi-4
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
-
-  - model_name: llama-3-3-70b-github
-    litellm_params:
-      model: github/Meta-Llama-3.3-70B-Instruct
-      api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  # - model_name: o3-mini-github
+  #   litellm_params:
+  #     model: github/o3-mini
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: gpt-4o-github
+  #   litellm_params:
+  #     model: github/gpt-4o
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: gpt-4o-mini-github
+  #   litellm_params:
+  #     model: github/gpt-4o-mini
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: deepseek-r1-github
+  #   litellm_params:
+  #     model: github/DeepSeek-R1
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: phi-4-github
+  #   litellm_params:
+  #     model: github/Phi-4
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: llama-3-3-70b-github
+  #   litellm_params:
+  #     model: github/Meta-Llama-3.3-70B-Instruct
+  #     api_key: "os.environ/GITHUB_API_KEY_TIGERBLUE77"
 
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
@@ -431,8 +438,9 @@ router_settings:
   # land here.
   fallbacks:
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
-    # Priority: Google Pro/Reasoning -> OpenRouter heavy -> Mistral Large -> Cerebras -> GitHub Models
-    # -> DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
+    # Priority: Google Pro/Reasoning -> OpenRouter heavy -> Mistral Large -> Cerebras -> DeepSeek
+    # direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute. GitHub Models
+    # dropped from this chain by #109: retired 2026-07-30, see the model_list comment above.
     - pro:
         - gemini-3-1-pro
         - gemini-2-5-pro
@@ -443,16 +451,13 @@ router_settings:
         - nemotron-reasoning-free
         - minimax-m3-free
         - gpt-oss-120b-cerebras
-        - o3-mini-github
-        - deepseek-r1-github
-        - gpt-4o-github
-        - llama-3-3-70b-github
         - deepseek-v4-pro-direct
         - omniroute-free-reasoning
 
     # 2. FLASH -- balanced daily driver.
-    # Priority: Google Flash (1M) -> LPUs (Cerebras/Groq) -> Mistral -> OpenRouter -> GitHub Models ->
-    # DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
+    # Priority: Google Flash (1M) -> LPUs (Cerebras/Groq) -> Mistral -> OpenRouter -> DeepSeek direct
+    # (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute. GitHub Models dropped
+    # from this chain by #109: retired 2026-07-30, see the model_list comment above.
     - flash:
         - gemini-3-6-flash
         - gemini-3-5-flash
@@ -468,7 +473,6 @@ router_settings:
         - gemma-4-31b-free
         - minimax-m2-7-free
         - openrouter-auto-free
-        - gpt-4o-mini-github
         - deepseek-flash-direct
         - omniroute-free-auto
 
@@ -487,11 +491,11 @@ router_settings:
         - dots-note-free
         - poolside-laguna-xs-free
         - lfm-free
-        - phi-4-github
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
-    # Priority: syntax/code specialists -> GitHub Models -> DeepSeek direct (#101, paid -- last resort
-    # before the fully free OmniRoute) -> OmniRoute.
+    # Priority: syntax/code specialists -> DeepSeek direct (#101, paid -- last resort before the fully
+    # free OmniRoute) -> OmniRoute. GitHub Models dropped from this chain by #109: retired 2026-07-30,
+    # see the model_list comment above.
     - code:
         - codestral
         - codestral-2508
@@ -502,13 +506,13 @@ router_settings:
         - qwen3-8-27b-groq
         - poolside-laguna-s-free
         - north-mini-code-free
-        - gpt-4o-github
         - deepseek-v4-pro-direct
         - omniroute-free-code
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
-    # both its models support tool calls, but it is the only paid provider in this cascade.
+    # both its models support tool calls, but it is the only paid provider in this cascade. GitHub
+    # Models dropped from this cascade by #109: retired 2026-07-30, see the model_list comment above.
     - claude-code:
         - gemini-3-1-pro
         - gemini-2-5-pro
@@ -516,8 +520,6 @@ router_settings:
         - gemini-3-5-flash
         - mistral-large
         - codestral
-        - gpt-4o-github
-        - o3-mini-github
         - deepseek-v4-pro-direct
 
   # Transparent alias mappings.
