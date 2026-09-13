@@ -406,20 +406,26 @@ model_list:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
 
-  - model_name: minimax-m3-free
-    litellm_params:
-      model: openrouter/minimax/minimax-m3:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-
-  - model_name: minimax-m2-7-free
-    litellm_params:
-      model: openrouter/minimax/minimax-m2.7:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
-
-  - model_name: glm-5-2-free
-    litellm_params:
-      model: openrouter/z-ai/glm-5.2:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+  # RETIRED from OpenRouter's live catalog (#111), confirmed twice against
+  # "openrouter.ai/api/v1/models" (first 2026-09-13, re-checked the same day): no ":free" slug exists
+  # any more for "minimax/minimax-m3", "minimax/minimax-m2.7" or "z-ai/glm-5.2" -- the paid versions
+  # are still there, but neither publisher's whole current lineup carries a ":free" entry at all, so
+  # this is a dropped tier, not a rename to chase. Commented out rather than deleted, same treatment
+  # as SambaNova, GitHub Models and cerebras/gemma-4-31b above.
+  # - model_name: minimax-m3-free
+  #   litellm_params:
+  #     model: openrouter/minimax/minimax-m3:free
+  #     api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: minimax-m2-7-free
+  #   litellm_params:
+  #     model: openrouter/minimax/minimax-m2.7:free
+  #     api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+  #
+  # - model_name: glm-5-2-free
+  #   litellm_params:
+  #     model: openrouter/z-ai/glm-5.2:free
+  #     api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
 
   - model_name: inkling-free
     litellm_params:
@@ -566,9 +572,7 @@ router_settings:
         - deep-research-pro
         - nemotron-ultra-free
         - mistral-large
-        - glm-5-2-free
         - nemotron-reasoning-free
-        - minimax-m3-free
         - gpt-oss-120b-cerebras
         - deepseek-v4-pro-direct
         - omniroute-free-reasoning
@@ -593,7 +597,6 @@ router_settings:
         - ministral-8b
         - nemotron-super-free
         - gemma-4-31b-free
-        - minimax-m2-7-free
         - openrouter-auto-free
         - deepseek-flash-direct
         - omniroute-free-auto
