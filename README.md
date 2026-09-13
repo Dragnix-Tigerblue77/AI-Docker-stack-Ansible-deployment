@@ -117,7 +117,7 @@ les siennes ici) :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
@@ -355,10 +355,12 @@ d'essai.
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
-d'entrées à travers Gemini, GitHub Models, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute
-en dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y
-ajoute en accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque
-cascade où il apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit.
+d'entrées à travers Gemini, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute en dernier
+recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en
+accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il
+apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit. GitHub Models, initialement du
+nombre, en a été retiré (#109) : totalement fermé par GitHub le 2026-07-30, ses six entrées restent
+dans le fichier à titre d'archive, commentées, mais ne comptent plus dans le total actif.
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
 siennes lui-même depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même modèle que ses autres
