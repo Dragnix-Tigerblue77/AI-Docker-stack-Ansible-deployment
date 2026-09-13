@@ -9,7 +9,8 @@ Déploiement Ansible de l'**AIS** -- *Artificial Intelligence Stack* : la stack 
 les briques liées à l'IA du homelab. Passerelle LLM, base vectorielle, reranker, conteneur Claude Code,
 agents et connecteurs y vivront dans un seul stack.
 
-**Ce dépôt est le rôle Ansible `deploy_AIS_Docker_stack`, et rien d'autre autour de lui.** `tasks/`,
+**Ce dépôt est le rôle Ansible `deploy_AIS_Docker_stack`, et rien d'autre autour de lui : il rend le
+`docker-compose` du stack et délègue son déploiement au rôle que l'appelant désigne.** `tasks/`,
 `defaults/`, `templates/` et le reste vivent à sa racine plutôt que sous un `roles/<nom>/` à lui : c'est
 ce qui permet à un appelant de l'installer directement, par Galaxy ou par un submodule, et d'avoir le
 checkout résolu comme le rôle lui-même -- sans une couche de dossier en plus qui n'existe que pour ce
@@ -31,6 +32,11 @@ Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, 
 mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
 `Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
+
+Le modèle commenté en tête du template (`templates/AIS.docker-compose.yml.j2`) porte les conventions
+qu'un bloc de service doit tenir : image épinglée par version, limite mémoire déclarée,
+`deploy.restart_policy.condition: any`, aucun port publié pour un service interne, aucun secret en
+clair. Elles sont écrites là plutôt que dans un document séparé parce que c'est là qu'on les oublie.
 
 ## Un rôle paramétrable, pas un rôle spécifique
 
