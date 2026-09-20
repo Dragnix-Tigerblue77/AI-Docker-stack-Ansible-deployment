@@ -66,6 +66,28 @@ because forgetting them costs the same time every session.
   maintainer answers it, because everything built downstream of the assumption made in its place may
   have to be redone. Silence is not an answer, and proceeding without one is how a decision ends up
   made by default rather than by anybody.
+* **Nothing is assumed: an ambiguity is a question, not a judgement call.** Where two readings of an
+  instruction would lead to materially different work, the question is put before the work starts,
+  even though asking costs a round trip -- because guessing costs the work. This is the general form
+  of the two rules above it, which are the same instinct applied to one particular ambiguity each. A
+  default chosen silently is a decision nobody made, and it surfaces at review, which is the most
+  expensive place for it to surface. The judgement being asked for is narrow: routine calls a careful
+  colleague would make alone stay made alone, and what gets asked is what changes the shape of the
+  deliverable.
+* **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
+  whole, and what gets skipped includes the question that needed an answer; so the verdict comes
+  first, then what it rests on, then what is being asked. The failure in the other direction costs
+  as much, and trimming is not the goal: a question the maintainer asked is answered, and what was
+  done, how, and what it will cost them stay in. What comes out is the narration -- the steps in the
+  order they happened, and the reasoning already written into the commit message and the pull request
+  body, where it survives and where repeating it here is the second copy that drifts. Tables and
+  lists over paragraphs. The measure is not length, it is whether each line is one the maintainer
+  would otherwise have had to ask for.
+* **A request to merge says what the pull request brings.** Merging is the maintainer's act and
+  nobody else's, so the ask carries what they need in order to decide: what the change does, what it
+  is worth, what in it could not be verified and why, and -- when it has siblings -- the order it
+  wants merging in. "This is ready" makes the maintainer go and work all of that out from the diff,
+  which is the work the session was supposed to have already done, done twice.
 * **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
   ready for review and say in the body what is not verified, rather than using draft to mean that.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
