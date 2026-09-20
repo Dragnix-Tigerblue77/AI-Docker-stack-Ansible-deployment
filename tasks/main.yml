@@ -367,18 +367,29 @@
 # running -- everything below needs a live "librechat" container, which is why it comes after the
 # deployment task rather than beside the other asserts.
 #
-# The container is found by its COMPOSE LABEL, "com.docker.compose.service", rather than by guessing
-# its name: Compose's own naming ("<project>-<service>-<n>") is not part of any contract this role
-# can rely on, while the label is applied unconditionally by Compose itself. This is verified working
-# end-to-end against a real "docker compose up" of this exact service, including the idempotent
-# re-run and the "already exists" case below.
+# The container is found by a LABEL THE COMPOSE FILE WRITES ITSELF, rather than by guessing its name
+# or by reading one the deployer wrote. Neither of the other two works across deployers: a container
+# name is part of no contract (Compose writes "<project>-<service>-<n>", Swarm
+# "<stack>_<service>.<n>.<task id>"), and the labels each deployer applies are not the same either --
+# "com.docker.compose.project" and "com.docker.compose.service" under "docker compose up",
+# "com.docker.stack.namespace" and "com.docker.swarm.service.name" under "docker stack deploy", with
+# not one label of the other family in either case. This lookup read the Compose pair until a
+# downstream Swarm deployment measured that, on the managed node, and found the failure to be
+# entirely silent: the filter matches nothing, the block below skips exactly as its "when" is
+# written to, and LibreChat comes up with neither account created while "ALLOW_REGISTRATION" is
+# false -- a chat UI nobody can log into, and nothing red anywhere.
 #
-# ! COMPOSE ONLY. Under Swarm, the node running THIS task is not necessarily the node hosting the
-# "librechat" container -- Swarm schedules the task onto any node of the cluster, and finding it
-# would mean querying the Swarm API for its current placement and then acting on that node, which
-# this role does not do. The task below finds nothing and skips cleanly in that case (see
-# "Skip cleanly" below) rather than acting on the wrong node's Docker daemon. Left for whoever brings
-# the Swarm target, per the README's "Le contrat du rôle de déploiement".
+# The two labels are declared on the service in the compose template, under "labels" and not under
+# "deploy.labels" so that they land on the CONTAINER; the template carries the full reasoning beside
+# them. Nothing about the Compose target changes -- Compose applies them exactly as before, and its
+# own canonical labels are still there, simply no longer what this task reads.
+#
+# ! Still SINGLE-NODE ONLY. Under a multi-node Swarm the node running THIS task is not necessarily
+# the node hosting the "librechat" container, and finding it would mean querying the Swarm API for
+# its current placement and then acting on that node, which this role does not do. The task below
+# finds nothing and skips cleanly in that case (see "Skip cleanly" below) rather than acting on the
+# wrong node's Docker daemon. Left for whoever brings the multi-node Swarm target, per the README's
+# "Le contrat du rôle de déploiement".
 #
 # ! Needs "community.docker" (see "requirements.yml") AND the "docker" Python SDK installed on the
 # MANAGED NODE: both modules talk to the Docker Engine API through it, not through the "docker" CLI.
@@ -389,8 +400,8 @@
     containers: true
     containers_filters:
       label:
-        - "com.docker.compose.service=librechat"
-        - "com.docker.compose.project={{ Artificial_Intelligence_Docker_stack_name | lower }}"
+        - "artificial_intelligence.stack={{ Artificial_Intelligence_Docker_stack_name }}"
+        - "artificial_intelligence.service=librechat"
   register: Artificial_Intelligence_LibreChat_container_lookup
 
 # A "block" and a "when" at its level, not "meta: end_play": this role can be included alongside
@@ -441,8 +452,8 @@
         containers: true
         containers_filters:
           label:
-            - "com.docker.compose.service=librechat_mongodb"
-            - "com.docker.compose.project={{ Artificial_Intelligence_Docker_stack_name | lower }}"
+            - "artificial_intelligence.stack={{ Artificial_Intelligence_Docker_stack_name }}"
+            - "artificial_intelligence.service=librechat_mongodb"
       register: Artificial_Intelligence_LibreChat_mongodb_container_lookup
 
     - name: "Grant Dragnix's LibreChat account the ADMIN role"

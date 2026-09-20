@@ -318,6 +318,18 @@ services:
     # Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main") and
     # never ":latest".
     image: "ghcr.io/danny-avila/librechat:{{ Artificial_Intelligence_LibreChat_Docker_image_tag }}"
+    # ! CONTAINER labels, so deliberately NOT under "deploy:" -- the one place in this file where that
+    # is right. "deploy.labels" sets labels on the SERVICE object; "labels" sets them on the
+    # CONTAINERS, and "docker compose up" and "docker stack deploy" both honour them there. That is
+    # what makes them usable as a handle: "tasks/main.yml" has to find this container to run
+    # "npm run create-user" inside it, a container NAME is part of no contract (Compose writes
+    # "<project>-<service>-<n>", Swarm "<stack>_<service>.<n>.<task id>"), and the labels the
+    # DEPLOYER writes are not the same either -- "com.docker.compose.*" under one,
+    # "com.docker.swarm.*" under the other. A label this file writes itself is identical under both,
+    # so the lookup needs no branch and the role stops depending on who deploys it.
+    labels:
+      artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
+      artificial_intelligence.service: "librechat"
 
     environment:
       HOST: "0.0.0.0"
@@ -367,6 +379,10 @@ services:
   librechat_mongodb:
     # Explicit major, verified against the upstream compose example.
     image: "mongo:{{ Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag }}"
+    # Same reason as the "librechat" service above -- see the note there rather than a second copy.
+    labels:
+      artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
+      artificial_intelligence.service: "librechat_mongodb"
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"

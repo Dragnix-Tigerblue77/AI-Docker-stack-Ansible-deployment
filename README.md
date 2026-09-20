@@ -253,17 +253,34 @@ Techniquement, deux choses ont été vérifiées en direct plutôt que supposée
   laquelle il a déjà, sans le savoir, reçu une réponse. La solution qui évite complètement le problème :
   passer le mot de passe en 4ᵉ argument positionnel et `--email-verified=true` en option, ce que le
   script lit avant de songer à demander l'un ou l'autre -- aucune invite ne se déclenche.
-- **Le conteneur est trouvé par son étiquette Compose**, `com.docker.compose.service=librechat`, plutôt
-  que par un nom deviné : le nommage de Compose (`<projet>-<service>-<n>`) n'est le contrat de rien ici,
-  l'étiquette si. **Ceci ne fonctionne que sous Compose.** Sous Swarm, le nœud qui exécute cette tâche
-  n'est pas forcément celui qui héberge le conteneur `librechat` -- Swarm peut le placer sur n'importe
-  quel nœud du cluster -- et ce rôle ne cherche pas sur quel nœud il tourne réellement. La tâche ne
-  trouve alors rien et se saute proprement plutôt que d'agir sur le démon Docker du mauvais nœud ;
-  cela reste à faire le jour où la cible réelle est Swarm.
+- **Le conteneur est trouvé par une étiquette que le template pose lui-même**,
+  `artificial_intelligence.service=librechat`, et non par un nom deviné ni par une étiquette du
+  déployeur. Le nommage ne fait contrat nulle part -- Compose écrit `<projet>-<service>-<n>`, Swarm
+  `<stack>_<service>.<n>.<id de tâche>` -- et les étiquettes que chaque déployeur pose ne sont pas les
+  mêmes non plus : `com.docker.compose.*` sous `docker compose up`, `com.docker.swarm.*` et
+  `com.docker.stack.namespace` sous `docker stack deploy`, sans une seule de l'autre famille dans un
+  cas comme dans l'autre. Ce filtre lisait la paire Compose jusqu'à ce qu'un déploiement Swarm en aval
+  le mesure sur son nœud géré : la panne est **muette**, le filtre ne correspond à rien, le bloc se
+  saute exactement comme son `when` le prévoit, et LibreChat monte sans aucun des deux comptes pendant
+  que `ALLOW_REGISTRATION` vaut `false` -- une interface de chat où personne ne peut se connecter,
+  sans que rien n'ait échoué.
 
-Les deux mécanismes ont été vérifiés contre un vrai `docker compose up` de ces deux services (création,
-ré-exécution idempotente, cas « compte déjà existant », promotion `ADMIN` idempotente), pas seulement
-lus dans la documentation amont.
+  Les deux étiquettes sont déclarées dans le template sous `labels` et **non** sous `deploy.labels`,
+  pour qu'elles se posent sur le **conteneur** : `deploy.labels` étiquette l'objet *service*, `labels`
+  les conteneurs, et `docker compose up` comme `docker stack deploy` les y posent. Rien ne change pour
+  la cible Compose -- Compose les applique comme avant, et ses propres étiquettes canoniques sont
+  toujours là, simplement ce n'est plus elles que cette tâche lit.
+
+- **Cela suppose toujours un nœud unique.** Sous un Swarm multi-nœuds, le nœud qui exécute cette tâche
+  n'est pas forcément celui qui héberge le conteneur `librechat`, et ce rôle n'interroge pas l'API
+  Swarm pour le savoir : il ne trouve alors rien et se saute proprement plutôt que d'agir sur le démon
+  du mauvais nœud. Cela reste à faire le jour où la cible est un Swarm multi-nœuds.
+
+La mécanique de création de compte a été vérifiée contre un vrai `docker compose up` de ces deux services
+(création, ré-exécution idempotente, cas « compte déjà existant », promotion `ADMIN` idempotente), pas
+seulement lue dans la documentation amont. Ce que ce `docker compose up` ne pouvait pas montrer, et ce
+qui a coûté la correction ci-dessus, c'est précisément l'étiquette : sous Compose l'ancien filtre
+fonctionne, et c'est sous Swarm qu'il ne trouve rien.
 
 ## Le contrat du rôle de déploiement
 
