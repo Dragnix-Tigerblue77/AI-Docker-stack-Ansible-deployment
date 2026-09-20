@@ -47,6 +47,25 @@ because forgetting them costs the same time every session.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
+* **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
+  paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
+  wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
+  to be re-wrapped by hand to match the wrapping around it. What Markdown makes line-structured keeps
+  its lines -- headings, list items, table rows, fenced code, the `>` of a blockquote -- and it is the
+  prose inside them that is written one line per paragraph. This is deliberately the opposite of the
+  rule for files in the repository, which stay wrapped: nothing ever reflows a file.
+* **A rule given in the session is written into this file, in the same session.** A rule that only
+  ever lives in a conversation has to be given again in the next one, at the same cost every time --
+  which is the entire reason this section exists. So when the maintainer states one it lands here, and
+  in the sibling's copy when it is a shared one, as part of the work it came up in rather than as a
+  follow-up nobody schedules. **When it is unclear whether an instruction is a one-off for the task at
+  hand or a standing rule, ask**: that question costs one line, while guessing wrong costs either a
+  rule quietly lost or a one-off frozen into this file as doctrine.
+* **A question asked in the session stays open until it is answered.** Asked once and then dropped is
+  the same as not asked: an unanswered question is carried into every following reply until the
+  maintainer answers it, because everything built downstream of the assumption made in its place may
+  have to be redone. Silence is not an answer, and proceeding without one is how a decision ends up
+  made by default rather than by anybody.
 * **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
   ready for review and say in the body what is not verified, rather than using draft to mean that.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
