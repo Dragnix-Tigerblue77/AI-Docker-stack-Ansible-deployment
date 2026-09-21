@@ -47,6 +47,18 @@ because forgetting them costs the same time every session.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
+* **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
+  hands the work to the maintainer, who then has to rebuild from the description the context the
+  session still had in front of it -- which is the expensive half, and the half that was already
+  done. So the issue is written for the record and the branch is opened against it in the same
+  breath, to the same standard as any other: the checks run, the reasoning in the commit message, the
+  pull request body saying what could not be verified. The issue keeps its own job, which is to state
+  the problem and the options so that both survive the pull request being closed.
+  An open question in the issue is not a reason to withhold the pull request. It is a reason to
+  implement the reading that was actually asked for, say in the body which one was taken, and leave
+  the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
+  question waited out is a session's context thrown away. What does stay unwritten is a fix that
+  would be guesswork: there the pull request is the one thing not opened, and the issue says so.
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
