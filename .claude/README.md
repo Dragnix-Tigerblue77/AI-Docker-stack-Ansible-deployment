@@ -110,8 +110,8 @@ running a script, not the model deciding to behave.
   draft -- before a teammate claims it and spends a context window discovering
   that the command it needs is denied.
 - **`hooks/gate-lint.sh`** on `TaskCompleted`. Runs `yamllint`, `reuse lint`,
-  `ansible-lint`, `ansible-playbook --syntax-check`, all three home-made checks
-  in `.github/scripts/` (`--selftest` then plain, same as CI's own
+  `ansible-lint`, `ansible-playbook --syntax-check`, every home-made check in
+  `.github/scripts/` (`--selftest` then plain, same as CI's own
   `home-made-checks` job), and `gitleaks` -- exactly what
   `.github/workflows/ansible-ci.yml` and `gitleaks.yml` gate a pull request
   on -- and refuses the completion while any of them is red.

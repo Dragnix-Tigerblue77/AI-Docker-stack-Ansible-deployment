@@ -30,6 +30,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | What a service block must carry | the commented model in `templates/Artificial_Intelligence.docker-compose.yml.j2`, below the service blocks |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
+| Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
@@ -167,6 +168,17 @@ with the issue number in parentheses when there is one -- `Lay down the Ansible 
 skeleton of the AIS (#31)`. Body: prose paragraphs explaining *why* and what it cost to find out, not
 a bullet list of what changed.
 
+**Dependabot's minor and patch updates merge themselves once CI is green, in every repository.** A
+Dependabot pull request sitting open with every check green is a defect in that process, not a task
+for a human -- `Homelab_Ansible_deployment`'s #964 was one. A public repository gets it the way
+wader/postfix-relay does: the required checks recorded in `.github/rulesets/`, GitHub enforcing
+them, `gh pr merge --auto`. A private one cannot, since GitHub Free enforces no ruleset on a private
+repository whoever owns it, so its `dependabot-auto-merge.yml` reads the same file and does the
+checking itself before merging (invariant 9). Either way the list of required checks is a file in
+the tree, and what gets through is decided by CI rather than by a guess about which ecosystem is
+risky: majors wait for a human, and so does anything red. This rule is shared with every repository
+the maintainer owns, and a copy of it lands in each one's own agent instructions.
+
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
 
@@ -213,13 +225,15 @@ python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_required_checks.py --selftest
+python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
 ```
 
-Each of the three home-made checks knows how to verify itself with `--selftest` -- a check whose
-failure nobody has ever seen is a check nobody believes. `check_compose_template.py` was the last
-without one (#58); its cases are Python literals rather than fixture files, because a fixture on disk
-is reachable by `ansible-lint --fix` and one of the LiteLLM ones was silently rewritten by it.
+Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody
+has ever seen is a check nobody believes. `check_compose_template.py` was the last without one
+(#58); its cases are Python literals rather than fixture files, because a fixture on disk is
+reachable by `ansible-lint --fix` and one of the LiteLLM ones was silently rewritten by it.
 
 **`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
 own yamllint profile on six settings**: `comments.min-spaces-from-content`, `comments-indentation`,
@@ -234,7 +248,7 @@ thing as an ERROR and exits 3 without fixing anything. That is how it went unnot
 the profile. The reason is written in `.yamllint` itself.
 
 **`--fix` is not a no-op on a clean tree, though**, so run it on a clean tree, read the diff, and
-keep only what you meant. Measured on this repository today: it strips a blank line from both
+keep only what you meant. Measured on this repository today: it strips blank lines from the
 workflows and from the role's `meta/main.yml`, which no enabled rule asks for -- and it rewrites
 `.github/scripts/tests/LiteLLM_account_isolation/15_fault_multiline_flow_fallback_litellm_config.yaml`,
 collapsing the multi-line flow mapping that fixture exists to encode onto a single line. Its name says
@@ -243,11 +257,18 @@ tells you.
 
 ## What blocks a pull request
 
-**Nothing does, and that is worth knowing rather than discovering.** The organisation is on a plan
-that allows neither a ruleset nor a branch protection on a private repository, so no CI check can be
-made required before merging: the workflows **inform** the reviewer, they do not guard the door.
+**For a human's merge, nothing does, and that is worth knowing rather than discovering.** The
+organisation is on a plan that allows neither a ruleset nor a branch protection on a private
+repository, so no CI check can be made required before merging: the workflows **inform** the
+reviewer, they do not guard the door.
 
-The one thing that actually refuses something is `.githooks/pre-commit`, and only in a clone
+**Dependabot's updates are the exception.** `dependabot-auto-merge.yml` merges a minor or patch one
+only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
+job of `ansible-ci.yml` and `gitleaks.yml`, by display name (invariant 9). Renaming a job or adding
+one therefore changes what gates those merges, and `check_required_checks.py` fails CI until the
+file follows.
+
+The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
 session, and only when `gitleaks` is installed -- the pre-commit hook refuses every commit without
 it, deliberately.
@@ -300,6 +321,19 @@ role's README rather than frozen into the role.
    `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
    example playbook. Nothing else in this repository needs it: every other job lints or reads the
    role's own files directly, at their own path, with no role resolution involved.
+9. **`dependabot-auto-merge.yml` merges directly, and does its own checking first.** `gh pr merge
+   --auto` needs a ruleset GitHub enforces, and the organisation's plan enforces none on a private
+   repository. So the workflow reads `.github/rulesets/main.json` from `main`, checks that every
+   context in it concluded `success` on the pull request's exact head commit, and merges pinned to
+   that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
+   ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
+   checking lands updates nothing checked: nothing else here would stop it. It runs on
+   `workflow_run`, from `main`'s definition, and checks nothing out, because it is the one job
+   holding a write token and no job may both hold one and run code from a pull request -- a freshly
+   bumped dependency is exactly that code. `main.json` names every job of the two workflows one by
+   one rather than one aggregate job (the workflow's header says why), and
+   `check_required_checks.py` holds it to them in both directions. The day the repository can
+   enforce a ruleset, import `main.json` and take postfix-relay's `--auto` workflow instead.
 
 ## Working in a Claude Code web session
 

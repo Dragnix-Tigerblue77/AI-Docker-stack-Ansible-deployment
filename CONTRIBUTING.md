@@ -34,6 +34,13 @@ est sur un plan qui n'autorise ni *ruleset* ni protection de branche sur un dép
 donc aucun contrôle de CI ne peut être rendu obligatoire avant fusion : la CI *constate*, elle ne
 garde pas la porte. Le hook, lui, refuse le commit.
 
+La seule fusion que la CI décide, c'est celle des mises à jour de Dependabot :
+`.github/workflows/dependabot-auto-merge.yml` fusionne une mise à jour mineure ou corrective une
+fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle — tous les jobs
+de `ansible-ci.yml` et de `gitleaks.yml`, par leur `name:`. Renommer ou ajouter un job, c'est donc
+modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue tant que ce n'est
+pas fait.
+
 Deux propriétés à connaître plutôt qu'à découvrir :
 
 * `git commit --no-verify` le contourne sans rien dire. C'est une propriété de git, et le
@@ -59,6 +66,8 @@ python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_required_checks.py --selftest
+python3 .github/scripts/check_required_checks.py
 
 reuse lint
 gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
@@ -68,7 +77,8 @@ gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
 `check_LiteLLM_account_isolation.py` lit PyYAML, et c'est la seule dépendance que ces contrôles se
 paient : sa version ligne à ligne ne voyait pas un repli inter-comptes écrit en style bloc — la
 forme même que produit tout sérialiseur YAML, donc `to_nice_yaml`. Un garde-fou qui dépend du style
-d'écriture de ce qu'il surveille n'en est pas un.
+d'écriture de ce qu'il surveille n'en est pas un. `check_required_checks.py` la lit aussi,
+puisqu'elle était déjà payée.
 
 Chacun sait se vérifier lui-même (`--selftest`) — un contrôle dont personne n'a jamais vu l'échec
 est un contrôle que personne ne croit. Le premier compare ses verdicts à neuf configurations dont
@@ -85,6 +95,7 @@ huit sont délibérément fautives ; le second à seize lignes construites en m�
 | --- | --- |
 | `check_LiteLLM_account_isolation.py` | Une configuration où le quota d'une personne peut payer l'appel d'une autre : un `model_name` qui regroupe deux comptes, un repli qui traverse une frontière de compte, une entrée dont l'étiquette ne dit pas la même chose que sa clé. |
 | `check_no_inventory_data.py` | Une adresse IP ou un nom de domaine écrit en dur. Ils appartiennent à l'inventaire de l'appelant : un rôle qui les porte cesse d'être réutilisable, et publie le homelab au passage. |
+| `check_required_checks.py` | Une liste de contrôles requis, `.github/rulesets/main.json`, qui ne correspond plus aux workflows : un contexte qu'aucun job ne rapporte (chaque mise à jour de Dependabot attendrait alors un humain sans que rien ne paraisse cassé), ou un job de `ansible-ci.yml` ou de `gitleaks.yml` absent de la liste (une mise à jour rouge sur ce seul job fusionnerait quand même). Il refuse aussi un fichier qui ne vise plus la branche par défaut. |
 | `check_compose_template.py` | Arrivé avec #31, il rend le template de compose dans ses **deux** états et analyse le résultat — lire un diff n'est pas une vérification. Rien ne le lançait jusqu'ici, faute de workflow ; c'est cette PR qui le branche. |
 
 Le second fonctionne par **liste blanche**, et c'est la seule forme possible : une liste noire
