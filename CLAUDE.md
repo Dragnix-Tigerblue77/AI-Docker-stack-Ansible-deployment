@@ -96,10 +96,14 @@ because forgetting them costs the same time every session.
   lists over paragraphs. The measure is not length, it is whether each line is one the maintainer
   would otherwise have had to ask for.
 * **A request to merge says what the pull request brings.** Merging is the maintainer's act and
-  nobody else's, so the ask carries what they need in order to decide: what the change does, what it
-  is worth, what in it could not be verified and why, and -- when it has siblings -- the order it
-  wants merging in. "This is ready" makes the maintainer go and work all of that out from the diff,
-  which is the work the session was supposed to have already done, done twice.
+  nobody else's, so the ask carries what they need in order to decide, pull request by pull request:
+  what it does, which goal it serves, what it changes, and -- whenever it changes something that runs
+  -- how to test it, as the command to type or the thing to watch rather than "CI is green". What in
+  it could not be verified, and why, stays in. Several at once come in the order they want merging
+  in: the one their dependencies impose, and where nothing imposes one, the simplest first, so that
+  each review starts from a smaller diff than the last. "This is ready" makes the maintainer go and
+  work all of that out from the diff, which is the work the session was supposed to have already
+  done, done twice.
 * **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
   ready for review and say in the body what is not verified, rather than using draft to mean that.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
