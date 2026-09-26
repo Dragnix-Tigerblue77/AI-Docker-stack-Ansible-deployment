@@ -238,7 +238,7 @@ thing as an ERROR and exits 3 without fixing anything. That is how it went unnot
 the profile. The reason is written in `.yamllint` itself.
 
 **`--fix` is not a no-op on a clean tree, though**, so run it on a clean tree, read the diff, and
-keep only what you meant. Measured on this repository today: it strips a blank line from both
+keep only what you meant. Measured on this repository today: it strips blank lines from the
 workflows and from the role's `meta/main.yml`, which no enabled rule asks for -- and it rewrites
 `.github/scripts/tests/LiteLLM_account_isolation/15_fault_multiline_flow_fallback_litellm_config.yaml`,
 collapsing the multi-line flow mapping that fixture exists to encode onto a single line. Its name says
