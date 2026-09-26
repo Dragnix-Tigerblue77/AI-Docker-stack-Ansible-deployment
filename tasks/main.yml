@@ -421,8 +421,9 @@
     #
     # Idempotent by inspection of its output rather than by checking for the account first:
     # "create-user" itself refuses a duplicate email or username with "A user with that email or
-    # username already exists!" on stderr and exits 1, which is exactly the case "failed_when"
-    # excludes.
+    # username already exists!" and exits 1, which is exactly the case "failed_when" excludes. On
+    # STDOUT, which is what "failed_when" reads -- LibreChat prints it with its own "console.red", a
+    # "console.log" -- measured by running the script against an existing account.
     - name: "Create Dragnix's LibreChat account"
       community.docker.docker_container_exec:
         container: "{{ Artificial_Intelligence_LibreChat_container_lookup.containers[0].Id }}"
@@ -447,6 +448,11 @@
     # MongoDB is idempotent on its own terms -- a document already at "ADMIN" reports
     # "modifiedCount: 0", which is what "changed_when" reads below -- so running this against an
     # account that is already admin is a safe no-op rather than an error.
+    #
+    # ! The email is LOWERCASED in the filter. LibreChat stores every email lowercased, so a vaulted
+    # "Dragnix@..." matched no document at all: the update reported "matchedCount: 0", the task said
+    # "ok", and the account was admin only if it happened to be the first one ever created --
+    # precisely the behaviour this task exists not to rely on. Measured on LibreChat v0.8.7.
     - name: "Find the running librechat_mongodb container"
       community.docker.docker_host_info:
         containers: true
@@ -466,7 +472,7 @@
           - --eval
           - >-
             JSON.stringify(db.users.updateOne(
-              {email: "{{ Artificial_Intelligence_LibreChat_Dragnix_email }}"},
+              {email: "{{ Artificial_Intelligence_LibreChat_Dragnix_email | lower }}"},
               {$set: {role: "ADMIN"}}
             ))
       register: Artificial_Intelligence_LibreChat_Dragnix_admin_grant
