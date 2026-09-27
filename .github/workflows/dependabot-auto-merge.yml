@@ -1,0 +1,223 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+name: Dependabot auto-merge
+
+# Merges Dependabot's minor and patch updates once every check .github/rulesets/main.json names is
+# green on the pull request's head commit. Adapted from the workflow of the same name in
+# "Homelab_Ansible_deployment", which keeps the promise wader/postfix-relay's makes by a different
+# mechanism, because neither repository can use postfix-relay's.
+#
+# There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
+# Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
+# repository ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
+# public"), and "Allow auto-merge" needs the same upgrade. So this workflow does the waiting itself.
+# It never asks GitHub to merge later; it merges now, and only after reading, for the exact commit
+# it is about to merge, every check the ruleset file lists. Before it, every Dependabot pull request
+# here waited for a human however green it was -- the defect this workflow exists to remove.
+#
+# That file is the one gate and it is read from main, never from the pull request: a pull request
+# that edits the list of checks it has to pass must not be the one deciding what that list is. It is
+# in GitHub's ruleset export format so that the day this repository can enforce a ruleset -- made
+# public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
+# swapped for postfix-relay's "--auto" one without anyone re-deriving which checks gate a merge.
+#
+# The file names every job of "Ansible CI" and "gitleaks" one by one, where the homelab
+# repository's names a single aggregate job instead. The step below already refuses a check that is
+# missing, still running, cancelled or skipped, so an aggregate job would add nothing to this gate
+# but one more job billed to the minute on every run, and one name hiding which check is red. What
+# an aggregate job would have bought -- a new job covered without touching this list -- is what
+# .github/scripts/check_required_checks.py enforces instead: it fails CI when a job of either
+# workflow is missing from the file, as well as when a context in it names no job.
+#
+# Why "workflow_run" and not "pull_request":
+#
+#   * A job triggered by the pull request would have to sit and poll until the checks finish, on a
+#     runner the checks themselves are waiting for. Triggered when "Ansible CI" or "gitleaks"
+#     completes, it starts only once there is something to read, and whichever of the two finishes
+#     last is the run that finds every check green.
+#   * The definition that runs is the one on main, and nothing from the pull request is checked out
+#     or executed. This is the only job in the repository holding a write token, and that is what
+#     makes holding it acceptable: no job may both write and run code nobody has reviewed yet -- a
+#     freshly bumped dependency included, since that is exactly what a Dependabot branch carries.
+#
+# "runs-on: ubuntu-latest", where the homelab's copy reads
+# "${{ vars.CI_RUNNER || 'ubuntu-latest' }}". This repository has no self-hosted runner and is not
+# going to get one: it stays in the Dragnix-Tigerblue77 organisation, and the maintainer's
+# self-hosted runners are registered for a different organisation, whose runners serve only that
+# organisation's repositories. So a CI_RUNNER here would be a switch nothing ever flips, and the
+# header of "ansible-ci.yml" already says why its jobs do without one: an indirection that no
+# variable ever fills in is a line the next reader has to go and check for nothing.
+#
+# What the step below refuses, and why each refusal is there:
+#
+#   * a pull request not opened by Dependabot, or not based on main, or whose head is not the commit
+#     that was just checked -- the merge is pinned to that SHA, so a push that lands between the
+#     check and the merge makes GitHub refuse the merge rather than merge unchecked code;
+#   * any update that is not semver-minor or semver-patch, read from the metadata block Dependabot
+#     writes into its own commit message. A major waits for a human;
+#   * any commit on the branch that is not Dependabot's own and signed as such. A branch someone
+#     pushed to has stopped being a Dependabot update, whatever its title says. Nothing in this
+#     repository writes to a Dependabot branch, so there is no exception to that;
+#   * a required check that is missing, still running, or anything but a success -- cancelled and
+#     skipped included, since neither says the change was checked.
+#
+# Each refusal is a notice and a green run, not a failure: most of them are the ordinary state of a
+# pull request whose other workflow has not finished yet, and a red run there would be noise the
+# next run makes true anyway. The pull request itself stays open, which is the visible outcome.
+#
+# One consequence of merging with GITHUB_TOKEN, stated rather than left to be found: a push made
+# with that token starts no workflow, so the merge commit on main is not re-checked by a push run.
+# Nothing depends on that run -- CI on main reports and gates nothing -- and the pull request was
+# checked on the very commit being merged. What nobody checks is that commit merged with whatever
+# reached main since Dependabot last rebased it, which is exactly what a human clicking Merge on a
+# green pull request gets too, since the ruleset does not ask for the branch to be up to date
+# ("strict_required_status_checks_policy": false).
+
+on:
+  workflow_run:
+    workflows: ["Ansible CI", "gitleaks"]
+    types: [completed]
+
+permissions: {}
+
+# Both workflows finishing within seconds of each other would otherwise start two of these on the
+# same commit, the second one then failing on a pull request the first one had just merged.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    name: Merge a green minor or patch Dependabot update
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A cheap filter so that the completion of every workflow on every branch does not take a
+    # runner. It decides nothing: the step below checks the author, the commits and the checks
+    # itself, and a branch merely named "dependabot/..." gets no further than that.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+    permissions:
+      # Merging a pull request is a write to the repository's contents; nothing else here writes.
+      contents: write
+      pull-requests: read
+      checks: read
+    steps:
+      # github-script rather than gh and jq, although a hosted runner has both: the homelab's copy
+      # needs it because its self-hosted image carries neither, and keeping this script the same as
+      # that one line for line is what lets a fix reviewed in one repository apply to the other.
+      - name: Merge the pull request if every required check passed on its head
+        uses: actions/github-script@v9
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const headSha = process.env.HEAD_SHA;
+            const defaultBranch = context.payload.repository.default_branch;
+            const allowedUpdateTypes = new Set([
+              'version-update:semver-minor',
+              'version-update:semver-patch',
+            ]);
+
+            // Read from main, never from the pull request: see the header.
+            const { data: file } = await github.rest.repos.getContent({
+              owner, repo, path: '.github/rulesets/main.json', ref: defaultBranch,
+            });
+            const ruleset = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+            const rules = ruleset.rules.filter((rule) => rule.type === 'required_status_checks');
+            if (rules.length !== 1) {
+              core.setFailed(`.github/rulesets/main.json holds ${rules.length} required_status_checks rules, expected exactly one.`);
+              return;
+            }
+            const required = rules[0].parameters.required_status_checks.map((check) => check.context);
+            if (required.length === 0) {
+              core.setFailed('.github/rulesets/main.json requires no check at all, which would merge unchecked updates.');
+              return;
+            }
+
+            const { data: associated } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner, repo, commit_sha: headSha,
+            });
+            const candidates = associated.filter((pr) =>
+              pr.state === 'open' &&
+              pr.head.sha === headSha &&
+              pr.base.ref === defaultBranch &&
+              pr.head.repo?.full_name === `${owner}/${repo}`);
+            if (candidates.length !== 1) {
+              core.notice(`${headSha} is the head of ${candidates.length} open pull request(s) against ${defaultBranch}, not exactly one. Nothing to merge.`);
+              return;
+            }
+            const pr = candidates[0];
+            const label = `#${pr.number} (${pr.title})`;
+
+            if (pr.user.login !== 'dependabot[bot]' || pr.draft) {
+              core.notice(`${label} is not a Dependabot pull request ready for review. Left alone.`);
+              return;
+            }
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const updateTypes = [];
+            for (const commit of commits) {
+              const author = commit.author?.login;
+              const signed = commit.commit.verification?.verified === true;
+              if (author !== 'dependabot[bot]' || !signed) {
+                core.notice(`${label} carries ${commit.sha}, which is not a signed Dependabot commit. It is waiting for a human.`);
+                return;
+              }
+              for (const match of commit.commit.message.matchAll(/^\s*update-type:\s*(\S+)\s*$/gm)) {
+                updateTypes.push(match[1]);
+              }
+            }
+            if (updateTypes.length === 0) {
+              core.notice(`${label}: no update-type found in Dependabot's commit metadata. It is waiting for a human.`);
+              return;
+            }
+            const refused = updateTypes.filter((type) => !allowedUpdateTypes.has(type));
+            if (refused.length > 0) {
+              core.notice(`${label} includes ${[...new Set(refused)].join(', ')}. Only minor and patch updates merge themselves; this one is waiting for a human.`);
+              return;
+            }
+
+            const checkRuns = await github.paginate(github.rest.checks.listForRef, {
+              owner, repo, ref: headSha, per_page: 100,
+            });
+            for (const context of required) {
+              // Only GitHub Actions' own check runs count: a check of the same name posted by
+              // anything else is not the job the ruleset means.
+              const runs = checkRuns
+                .filter((run) => run.name === context && run.app?.slug === 'github-actions')
+                .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''));
+              if (runs.length === 0) {
+                core.notice(`${label}: "${context}" has not reported on ${headSha} yet. The run that completes it will try again.`);
+                return;
+              }
+              const latest = runs[0];
+              if (latest.status !== 'completed') {
+                core.notice(`${label}: "${context}" is still ${latest.status} on ${headSha}. The run that completes it will try again.`);
+                return;
+              }
+              if (latest.conclusion !== 'success') {
+                core.notice(`${label}: "${context}" concluded ${latest.conclusion} on ${headSha}. It is waiting for a human.`);
+                return;
+              }
+            }
+
+            try {
+              // "sha" is what pins the merge to the commit the checks above were read on: if the
+              // branch moved since, GitHub answers 409 and merges nothing. "merge" rather than
+              // "squash", because every pull request here lands as a merge commit.
+              await github.rest.pulls.merge({
+                owner, repo, pull_number: pr.number, sha: headSha, merge_method: 'merge',
+              });
+            } catch (error) {
+              if (error.status === 405 || error.status === 409) {
+                core.notice(`${label} was not merged: ${error.message}`);
+                return;
+              }
+              throw error;
+            }
+            core.notice(`${label} merged: ${required.map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);

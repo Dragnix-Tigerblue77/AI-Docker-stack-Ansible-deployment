@@ -29,5 +29,6 @@ reuse==6.2.0
 # checks pay for, and it was bought knowingly: the line-by-line version of the check did not see a
 # cross-account fallback written in block style -- the very form any YAML serialiser produces. A
 # guard that depends on the writing style of what it watches is not one, and a "pip install" step in
-# a job costs less than a bypassed quota.
+# a job costs less than a bypassed quota. ".github/scripts/check_required_checks.py" reads the
+# workflows with it too, since it was already paid for.
 PyYAML==6.0.3

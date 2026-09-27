@@ -5,18 +5,50 @@
 # pinned actions of the workflows would stay frozen, and the comment in "requirements.txt" that
 # announces the contrary would be false.
 #
-# ! There is no Dependabot ecosystem for a raw release download: the gitleaks version pinned in
-#   "gitleaks.yml" -- and its SHA-256 checksum, which goes with it -- are bumped by hand from the
-#   project's releases page.
+# Minor and patch updates are grouped into one pull request per entry, which
+# "dependabot-auto-merge.yml" merges once every check ".github/rulesets/main.json" names is green on
+# it. Majors stay out of the groups -- one pull request each -- and wait for a human. What decides
+# is CI, not a guess about which ecosystem is risky: a minor linter release that adds a rule this
+# tree breaks turns ansible-lint red on its own pull request, and a red pull request is one the
+# merge workflow leaves alone.
+#
+# "open-pull-requests-limit: 99" on every entry. Opening a pull request is the only way Dependabot
+# reports anything, and it stops opening them once this many are waiting -- silently, naming
+# nothing. The default is 5. 99 rather than 0, because 0 does not mean "no limit": it turns version
+# updates off altogether. The limit counts per entry, hence one on each.
+#
+# ! Two kinds of pin have no Dependabot ecosystem, and are bumped by hand:
+#   - the gitleaks version pinned in "gitleaks.yml", and its SHA-256 checksum, which goes with it --
+#     a raw release download, from the project's releases page;
+#   - the image tags in "defaults/main.yml". The "docker" ecosystem reads a Dockerfile or a compose
+#     file, and every image here is written in a Jinja template with its tag in a role variable,
+#     which it cannot resolve. "requirements.yml" is the same case: no ecosystem reads it.
 version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 99
+    groups:
+      python-tooling-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
 
-  # The workflows pin "actions/checkout@v5" and "actions/setup-python@v5".
+  # The workflows pin their actions to a major tag ("@v7"), and Dependabot keeps the precision of
+  # the tag it finds: it proposes the next major, never a minor. So in practice every pull request
+  # of this entry is a major that waits for a human, and the group below stays empty until an action
+  # is pinned more precisely.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 99
+    groups:
+      github-actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"

@@ -40,6 +40,8 @@
       "Bash(python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest)",
       "Bash(python3 .github/scripts/check_no_inventory_data.py)",
       "Bash(python3 .github/scripts/check_no_inventory_data.py --selftest)",
+      "Bash(python3 .github/scripts/check_required_checks.py)",
+      "Bash(python3 .github/scripts/check_required_checks.py --selftest)",
       "Bash(gitleaks dir:*)",
       "Bash(pip install -r requirements.txt)",
       "Bash(git status:*)",

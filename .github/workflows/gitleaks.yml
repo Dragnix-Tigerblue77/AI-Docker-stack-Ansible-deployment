@@ -1,15 +1,22 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
+name: gitleaks
+
 # Secret detection on every pull request. Adapted from the workflow of the same name in
 # "Homelab_Ansible_deployment": the executable lines come from it as they are, the comments do
 # not -- the originals describe a repository that has a ".gitleaksignore", a SQL dump in git-lfs
 # and a history of credentials still to be purged, none of which exists here.
 #
-# ! This workflow REPORTS, it does not block. The organisation is on a plan that allows neither a
-#   ruleset nor a branch protection on a private repository ("GET /repos/.../rulesets" -> 403
-#   "Upgrade to GitHub Pro or make this repository public"), so no CI check can be made required
-#   before merging. The guard that really refuses is ".githooks/pre-commit".
+# ! This workflow REPORTS, it does not block a human's merge. The organisation is on a plan that
+#   allows neither a ruleset nor a branch protection on a private repository
+#   ("GET /repos/.../rulesets" -> 403 "Upgrade to GitHub Pro or make this repository public"), so
+#   no CI check can be made required before merging. The guard that really refuses is
+#   ".githooks/pre-commit".
+#
+#   The exception is Dependabot's own updates: "dependabot-auto-merge.yml" merges one only once both
+#   jobs below have succeeded on it, reading their display names from ".github/rulesets/main.json"
+#   and listening for this workflow by its "name:" above. See the header of "ansible-ci.yml".
 
 on:
   push:
