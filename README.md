@@ -364,10 +364,21 @@ l'identique -- ce n'est donc pas un blocage -- mais le jour de la bascule est le
 demander si les secrets natifs de Swarm ne valent pas mieux que des variables en clair dans le fichier
 rendu, question que Compose ne se pose de toute façon pas.
 
-`depends_on` relève d'un registre voisin : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
-donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
-l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
-d'essai.
+`depends_on` relève d'un registre voisin, et il s'écrit **sous sa forme courte**, une simple liste de
+services. Compose démarre ces services d'abord, sans attendre qu'ils soient sains ; `docker stack deploy`
+accepte la liste et l'ignore. La forme longue (`condition: service_healthy`), qui ferait attendre Compose,
+n'est pas ignorée par Swarm, contrairement à ce que ce paragraphe affirmait jusqu'à #154 : docker/cli
+valide le fichier contre son propre schéma, où `depends_on` est une liste de chaînes, et **refuse le
+fichier entier** (`services.litellm.depends_on must be a list`) avant même de parler au démon.
+`check_compose_template.py` refuse donc toute autre forme que la liste.
+
+LiteLLM doit ainsi tolérer une base pas encore prête, sous les deux déployeurs, et c'est la politique de
+redémarrage `any` qui rattrape le cas -- pas l'ordre de démarrage. Mesuré avec une base retenue 45 s :
+le premier démarrage de LiteLLM échoue (`Application startup failed. Exiting.`), le conteneur est relancé
+une fois, et le second devient sain. Ce que la relance ne rattrape pas : LiteLLM poursuit son démarrage
+quand ses migrations échouent (`Database migration failed but continuing startup`), donc une base qui
+se met à répondre entre cet échec et la connexion de démarrage le laisse tourner sur un schéma non
+migré. C'est `ENFORCE_PRISMA_MIGRATION_CHECK` qui ferme cette fenêtre, sujet traité à part.
 
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
@@ -527,7 +538,8 @@ fichier.
 |---|---|---|
 | `restart: unless-stopped` | fonctionne | **ignoré** — il faut `deploy.restart_policy.condition: any` |
 | `mem_limit` / `cpus` | fonctionnent | **ignorés** — remplacés par `deploy.resources.limits` |
-| `depends_on` | ordonne le démarrage | accepté, **sans effet** |
+| `depends_on` en liste | démarre les services listés d'abord, sans attendre qu'ils soient sains | accepté, **sans effet** |
+| `depends_on` en forme longue (`condition:`) | attend la condition | **fichier entier refusé** — n'écrire que la liste |
 | `shm_size` | fonctionne | **ignoré** |
 | `container_name` | fonctionne | déprécié — ne jamais s'en servir comme nom d'hôte |
 | Secrets | fichier ou variable | secrets natifs de l'orchestrateur |

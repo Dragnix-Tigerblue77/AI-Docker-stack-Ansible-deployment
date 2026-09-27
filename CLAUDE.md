@@ -317,7 +317,11 @@ role's README rather than frozen into the role.
    orchestrator stops it cleanly, the process exits 0, and `on-failure` never replaces a task that
    exited cleanly: the service sits at 0 replicas and its URL answers a bare 404 with nothing logged.
 4. **Everything under `deploy:`.** It is the only form *both* Compose and Swarm honour. `restart:`,
-   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm.
+   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm. `depends_on`
+   fails the other way, loudly: its long form (`condition: service_healthy`) passes
+   `docker compose config` and gets the *whole file* refused by `docker stack deploy`, so it is a
+   plain list of service names, with no health condition, and a start that comes too early is the
+   restart policy's to catch (#154). `check_compose_template.py` refuses any other form.
 5. **The commented service model lives inside a `{% raw %}` block.** Without it, its Jinja expressions
    would render their values, and an unset published network would print as `- False`.
 6. **Variables reach the deployment role as `include_role` parameters**, never through a `set_fact` or
