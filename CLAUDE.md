@@ -48,13 +48,15 @@ because forgetting them costs the same time every session.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
-* **Issues are written in English, and one that is not is flagged.** Titles, bodies and comments, in
-  every repository but one group: the private repositories of the `Dragnix-Tigerblue77`
-  organisation, where another language is fine. **This repository is in that group**, so its issues
-  are written in French, as *Language* below says, and none of them is flagged. An issue found
-  breaking this, in a repository it covers, is never let pass silently: the maintainer is told,
-  every time, with the link, and offered a translation, which is made once they agree
-  (Tigerblue77-personal/Homelab_Ansible_deployment#1006). It is written here all the same, as every
+* **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
+  bodies and comments, in every repository but one group: the private repositories of the
+  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French while
+  code and commit messages stay in English. **This repository is in that group**, so its issues and
+  pull requests are written in French, as *Language* below says, and none of them is flagged. An
+  issue or a pull request found breaking this, in a repository it covers, is never let pass
+  silently: the maintainer is told, every time, with the link, and offered a translation, which is
+  made once they agree (Tigerblue77-personal/Homelab_Ansible_deployment#1006 and
+  Tigerblue77-personal/Homelab_Ansible_deployment#1037). It is written here all the same, as every
   shared rule is, for the session that moves on from here to a sibling where it does apply.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
