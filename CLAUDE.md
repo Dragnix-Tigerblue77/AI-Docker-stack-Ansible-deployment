@@ -62,6 +62,16 @@ because forgetting them costs the same time every session.
   noise: the discussion happens in the session, and only the agreed result lands in the repository.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
+* **A tool that is turned down is recorded, with why, in the issue that discussed it** -- and one
+  retired after it ran, with what running it taught. The next session looking at the same need starts
+  from that record rather than from nothing, and the maintainer can find what they only half remember:
+  on 2026-09-26 in a homelab session it was "we had found something better with another Claude
+  session, did you not see a trace of it in an issue?", and
+  Tigerblue77-personal/Homelab_Ansible_deployment#869 could answer only because it listed
+  TehRobot-Assistant/plex-dupefinder, goPlexr and Cleanarr with the reason each was passed over.
+  plex_dupefinder's own retirement went into the same issue, once it had stopped running. The record
+  belongs in the description, as the rule above says of everything essential, not in a comment under
+  it.
 * **One issue, one subject.** If a second subject appears, it is split off.
 * **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
   bodies and comments, in every repository but one group: the private repositories of the
@@ -84,6 +94,28 @@ because forgetting them costs the same time every session.
   is private, so the rule constrains nothing written in it; it is here for the session that carries
   a shared rule from here to a public sibling, which is exactly the one that would cite this
   repository's issues there.
+* **A fix goes to the cause, and a workaround says that it is one.** Every fix proposed says which of
+  the two it is -- the maintainer's own question of
+  Tigerblue77-personal/Homelab_Ansible_deployment#849, on 2026-09-13, was "state of the art, or a
+  workaround?" -- and the one wanted is the cause. The next day, a stuck torrent added to Cleanuparr's
+  ignore list, which stopped its loop for that torrent alone, drew "I am not after a workaround". A
+  workaround is acceptable only as a stopgap labelled as one where it lands -- the commit, the pull
+  request, the comment above it -- with the cause still tracked by its own issue, and never as the fix
+  presented as the fix. A silent one is expensive precisely because it works: the symptom stops, and
+  with it the only signal that would ever have got the cause fixed. That Cleanuparr loop is the case
+  in point: its cause was the deployment's own settings, not the upstream bug first blamed for it
+  (Tigerblue77-personal/Homelab_Ansible_deployment#867).
+* **A pull request is preceded by its plan.** Before building one, the session says in the chat how it
+  means to do it -- where the change lives, what it touches, what it costs, what it leaves out -- and
+  builds once the maintainer has answered. A plan is redirected for the price of one message; a pull
+  request built on a premise the maintainer does not share costs the building, the review and the
+  closing. It was asked for on 2026-09-19 in a homelab session, about a new role that would have
+  ordered Docker after the media disk's mount (Tigerblue77-personal/Homelab_Ansible_deployment#882),
+  and it earned its keep within the hour: the maintainer did not want that mount in Ansible at all,
+  and the fix became one option on the fstab line they already kept by hand. This is how the approach
+  gets agreed, not an exception to the rule below: once it is, the issue and its pull request still go
+  out in the same breath, and an open detail still does not hold the pull request back. A change
+  nobody could shape two ways, such as a missing README row or a typo, does not wait on a plan.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
   session still had in front of it -- which is the expensive half, and the half that was already
@@ -96,6 +128,17 @@ because forgetting them costs the same time every session.
   the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
   question waited out is a session's context thrown away. What does stay unwritten is a fix that
   would be guesswork: there the pull request is the one thing not opened, and the issue says so.
+* **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
+  session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
+  maintainer's to choose, never the session's to offer as the default. A session that ends takes its
+  context with it, so a deferral it volunteered is exactly the work nobody is left to do: the audit
+  behind Tigerblue77-personal/Homelab_Ansible_deployment#1054 found a one-off pass promised for
+  "tomorrow" and never delivered, and a fix put off at 16:37 on 2026-09-13 that the maintainer had to
+  chase at 19:22. It was asked for twice on 2026-09-14, first as "there is no 'after', move on!",
+  then, when "another day" was offered, as "no, it's half past six, go!". Waiting for the maintainer's
+  answer -- to a plan, to a question -- is not postponing: it is their decision being waited for, not
+  the session's own. What they defer is deferred, and gets a durable reminder rather than a sentence
+  in the chat.
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
