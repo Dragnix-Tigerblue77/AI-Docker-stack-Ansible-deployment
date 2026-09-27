@@ -5,8 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # CLAUDE.md
 
-Ansible deployment of the **AIS**. One role, one example playbook, and the checks that hold both to
-their conventions. The repository is days old: most of what it will contain is still an issue.
+Ansible deployment of the **Artificial Intelligence stack**: LLM gateway, vector database, reranker,
+Claude Code container, agents, connectors. It is one stack, deployed by one role, and every service
+issue adds its block to the same compose template. One role, one example playbook, and the checks
+that hold both to their conventions. The repository is days old: most of what it will contain is
+still an issue.
+
+**The repository root is the role.** `tasks/`, `defaults/`, `templates/` and the rest of what
+`ansible-galaxy init` would scaffold under a `roles/<name>/` sit here directly instead, which is what
+lets a caller install this repository as the role `deploy_Artificial_Intelligence_Docker_stack` -- through Galaxy, a git
+submodule, or a plain symlink -- without a wrapper directory that exists only for this checkout. See
+invariant 8.
 
 This file says **how to work here**. `README.md` says what the repository is and does, and the two
 deliberately do not overlap -- a second copy of a document drifts away from the first.
@@ -16,20 +25,15 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Question | File |
 | --- | --- |
 | What the repository is, how the role is called, how to verify a template change | `README.md` |
-| The contract the deployment role must meet, and every variable of the role | `roles/deploy_AIS_Docker_stack/README.md` |
-| What a variable means and why its default is what it is | `roles/deploy_AIS_Docker_stack/defaults/main.yml` |
-| What a service block must carry | the commented model in `roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2`, below the service blocks |
+| The contract the deployment role must meet, and every variable of the role | `README.md` |
+| What a variable means and why its default is what it is | `defaults/main.yml` |
+| What a service block must carry | the commented model in `templates/Artificial_Intelligence.docker-compose.yml.j2`, below the service blocks |
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
+| Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
 | How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
-
-## The vocabulary
-
-**AIS** -- *Artificial Intelligence Stack*. The Docker stack this repository builds: LLM gateway,
-vector database, reranker, Claude Code container, agents, connectors. It is one stack, deployed by
-one role, and every service issue adds its block to the same compose template.
 
 ## How we work together
 
@@ -44,6 +48,63 @@ because forgetting them costs the same time every session.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
+* **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
+  hands the work to the maintainer, who then has to rebuild from the description the context the
+  session still had in front of it -- which is the expensive half, and the half that was already
+  done. So the issue is written for the record and the branch is opened against it in the same
+  breath, to the same standard as any other: the checks run, the reasoning in the commit message, the
+  pull request body saying what could not be verified. The issue keeps its own job, which is to state
+  the problem and the options so that both survive the pull request being closed.
+  An open question in the issue is not a reason to withhold the pull request. It is a reason to
+  implement the reading that was actually asked for, say in the body which one was taken, and leave
+  the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
+  question waited out is a session's context thrown away. What does stay unwritten is a fix that
+  would be guesswork: there the pull request is the one thing not opened, and the issue says so.
+* **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
+  paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
+  wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
+  to be re-wrapped by hand to match the wrapping around it. What Markdown makes line-structured keeps
+  its lines -- headings, list items, table rows, fenced code, the `>` of a blockquote -- and it is the
+  prose inside them that is written one line per paragraph. This is deliberately the opposite of the
+  rule for files in the repository, which stay wrapped: nothing ever reflows a file.
+* **A rule given in the session is written into this file, in the same session.** A rule that only
+  ever lives in a conversation has to be given again in the next one, at the same cost every time --
+  which is the entire reason this section exists. So when the maintainer states one it lands here, and
+  in the sibling's copy when it is a shared one, as part of the work it came up in rather than as a
+  follow-up nobody schedules. **When it is unclear whether an instruction is a one-off for the task at
+  hand or a standing rule, ask**: that question costs one line, while guessing wrong costs either a
+  rule quietly lost or a one-off frozen into this file as doctrine.
+* **A question asked in the session stays open until it is answered.** Asked once and then dropped is
+  the same as not asked: an unanswered question is carried into every following reply until the
+  maintainer answers it, because everything built downstream of the assumption made in its place may
+  have to be redone. Silence is not an answer, and proceeding without one is how a decision ends up
+  made by default rather than by anybody.
+* **Nothing is assumed: an ambiguity is a question, not a judgement call.** Where two readings of an
+  instruction would lead to materially different work, the question is put before the work starts,
+  even though asking costs a round trip -- because guessing costs the work. This is the general form
+  of the two rules above it, which are the same instinct applied to one particular ambiguity each. A
+  default chosen silently is a decision nobody made, and it surfaces at review, which is the most
+  expensive place for it to surface. The judgement being asked for is narrow: routine calls a careful
+  colleague would make alone stay made alone, and what gets asked is what changes the shape of the
+  deliverable.
+* **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
+  whole, and what gets skipped includes the question that needed an answer; so the verdict comes
+  first, then what it rests on, then what is being asked. The failure in the other direction costs
+  as much, and trimming is not the goal: a question the maintainer asked is answered, and what was
+  done, how, and what it will cost them stay in. What comes out is the narration -- the steps in the
+  order they happened, and the reasoning already written into the commit message and the pull request
+  body, where it survives and where repeating it here is the second copy that drifts. Tables and
+  lists over paragraphs. The measure is not length, it is whether each line is one the maintainer
+  would otherwise have had to ask for.
+* **A request to merge says what the pull request brings.** Merging is the maintainer's act and
+  nobody else's, so the ask carries what they need in order to decide, pull request by pull request:
+  what it does, which goal it serves, what it changes, and -- whenever it changes something that runs
+  -- how to test it, as the command to type or the thing to watch rather than "CI is green". What in
+  it could not be verified, and why, stays in. Several at once come in the order they want merging
+  in: the one their dependencies impose, and where nothing imposes one, the simplest first, so that
+  each review starts from a smaller diff than the last. "This is ready" makes the maintainer go and
+  work all of that out from the diff, which is the work the session was supposed to have already
+  done, done twice.
 * **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
   ready for review and say in the body what is not verified, rather than using draft to mean that.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
@@ -81,10 +142,10 @@ sentence wrapped around an English quotation reads worse than either.
 
 ## Conventions
 
-**Variables.** `Capitalised_Snake_Case` (`AIS_Docker_stack_name`, `AIS_published_Docker_network_name`).
+**Variables.** `Capitalised_Snake_Case` (`Artificial_Intelligence_Docker_stack_name`, `Artificial_Intelligence_published_Docker_network_name`).
 Role variables are deliberately **not** prefixed with the role name -- the prefix would be
-`deploy_AIS_Docker_stack_`, longer than most of what it qualifies -- and they carry the *stack's*
-name, `AIS_`, which is what the caller has in mind. `var-naming[no-role-prefix]` is skipped for that,
+`deploy_Artificial_Intelligence_Docker_stack_`, longer than most of what it qualifies -- and they carry the *stack's*
+name, `Artificial_Intelligence_`, which is what the caller has in mind. `var-naming[no-role-prefix]` is skipped for that,
 and the pattern is widened rather than disabled, so a space, a dash or a leading digit in a name is
 still an error.
 
@@ -111,6 +172,31 @@ with the issue number in parentheses when there is one -- `Lay down the Ansible 
 skeleton of the AIS (#31)`. Body: prose paragraphs explaining *why* and what it cost to find out, not
 a bullet list of what changed.
 
+**Dependabot's minor and patch updates merge themselves once CI is green, in every repository.** A
+Dependabot pull request sitting open with every check green is a defect in that process, not a task
+for a human -- `Homelab_Ansible_deployment`'s #964 was one. A public repository gets it the way
+wader/postfix-relay does: the required checks recorded in `.github/rulesets/`, GitHub enforcing
+them, `gh pr merge --auto`. A private one cannot, since GitHub Free enforces no ruleset on a private
+repository whoever owns it, so its `dependabot-auto-merge.yml` reads the same file and does the
+checking itself before merging (invariant 9). Either way the list of required checks is a file in
+the tree, and what gets through is decided by CI rather than by a guess about which ecosystem is
+risky: majors wait for a human, and so does anything red. This rule is shared with every repository
+the maintainer owns, and a copy of it lands in each one's own agent instructions.
+
+**Pull requests are kept level with the default branch, and never required to be, in every
+repository.** "Require branches to be up to date before merging" stays off --
+`.github/rulesets/main.json` records it as `strict_required_status_checks_policy: false` -- because
+whatever cannot be updated automatically would be blocked rather than behind: a conflict, a fork, a
+draft, and every pull request after a Dependabot merge, which starts no workflow.
+`.github/workflows/auto_update_pull_request_branches.yml` does the updating instead, after every
+merge and hourly, as best effort, and leaves Dependabot's own pull requests to Dependabot: a rebase
+pushed by anyone else strips the signature `dependabot-auto-merge.yml` checks before it merges
+(#149). A public repository runs it, its minutes costing nothing; a private one, this one included,
+carries the same file switched off behind the `PULL_REQUESTS_UPDATE_ENABLED` repository variable, so
+that a workflow which runs nothing here is deliberate and not dead code, and switching it on is
+setting that variable and a credential (#145). Shared like the rule above
+(tigerblue77/Dell_iDRAC_fan_controller_Docker#512), and for the same reason (#147).
+
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
 
@@ -123,8 +209,8 @@ cannot be offered under the commercial arm afterwards without going back to its 
 
 Every authored source file carries an SPDX header, and **`reuse lint` checks it in CI** (#52) -- the
 header is a gate here, not a habit. Two families cannot carry one and are declared in `REUSE.toml`
-instead, each with its reason: `roles/*/templates/`, rendered onto the managed node where a header
-would end up copied into the deployed compose file, and `**/*.json`, JSON having no comment syntax.
+instead, each with its reason: `templates/`, rendered onto the managed node where a header would end
+up copied into the deployed compose file, and `**/*.json`, JSON having no comment syntax.
 `LICENSE` is a symlink to `LICENSES/AGPL-3.0-only.txt`, so the file REUSE requires and the file
 GitHub reads for the repository's licence badge are the same bytes.
 
@@ -150,20 +236,22 @@ ansible-galaxy collection install -r requirements.yml       # community.docker, 
 
 yamllint .
 ansible-lint
-ansible-playbook --syntax-check playbook.AIS.example.yaml
+ansible-playbook --syntax-check playbook.Artificial_Intelligence.example.yaml
 python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_required_checks.py --selftest
+python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
 ```
 
-Each of the three home-made checks knows how to verify itself with `--selftest` -- a check whose
-failure nobody has ever seen is a check nobody believes. `check_compose_template.py` was the last
-without one (#58); its cases are Python literals rather than fixture files, because a fixture on disk
-is reachable by `ansible-lint --fix` and one of the LiteLLM ones was silently rewritten by it.
+Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody
+has ever seen is a check nobody believes. `check_compose_template.py` was the last without one
+(#58); its cases are Python literals rather than fixture files, because a fixture on disk is
+reachable by `ansible-lint --fix` and one of the LiteLLM ones was silently rewritten by it.
 
 **`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
 own yamllint profile on six settings**: `comments.min-spaces-from-content`, `comments-indentation`,
@@ -178,7 +266,7 @@ thing as an ERROR and exits 3 without fixing anything. That is how it went unnot
 the profile. The reason is written in `.yamllint` itself.
 
 **`--fix` is not a no-op on a clean tree, though**, so run it on a clean tree, read the diff, and
-keep only what you meant. Measured on this repository today: it strips a blank line from both
+keep only what you meant. Measured on this repository today: it strips blank lines from the
 workflows and from the role's `meta/main.yml`, which no enabled rule asks for -- and it rewrites
 `.github/scripts/tests/LiteLLM_account_isolation/15_fault_multiline_flow_fallback_litellm_config.yaml`,
 collapsing the multi-line flow mapping that fixture exists to encode onto a single line. Its name says
@@ -187,11 +275,18 @@ tells you.
 
 ## What blocks a pull request
 
-**Nothing does, and that is worth knowing rather than discovering.** The organisation is on a plan
-that allows neither a ruleset nor a branch protection on a private repository, so no CI check can be
-made required before merging: the workflows **inform** the reviewer, they do not guard the door.
+**For a human's merge, nothing does, and that is worth knowing rather than discovering.** The
+organisation is on a plan that allows neither a ruleset nor a branch protection on a private
+repository, so no CI check can be made required before merging: the workflows **inform** the
+reviewer, they do not guard the door.
 
-The one thing that actually refuses something is `.githooks/pre-commit`, and only in a clone
+**Dependabot's updates are the exception.** `dependabot-auto-merge.yml` merges a minor or patch one
+only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
+job of `ansible-ci.yml` and `gitleaks.yml`, by display name (invariant 9). Renaming a job or adding
+one therefore changes what gates those merges, and `check_required_checks.py` fails CI until the
+file follows.
+
+The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
 session, and only when `gitleaks` is installed -- the pre-commit hook refuses every commit without
 it, deliberately.
@@ -200,7 +295,7 @@ it, deliberately.
 
 The role is **parameterisable**: the caller provides the inventory, the FQDNs, the reverse proxy
 labels and the network, and names the role that actually deploys the stack through
-`AIS_Docker_stack_deployment_role_name`. The role itself presupposes neither Swarm nor Compose, nor
+`Artificial_Intelligence_Docker_stack_deployment_role_name`. The role itself presupposes neither Swarm nor Compose, nor
 any particular machine.
 
 Today: Compose, on a test VM. Tomorrow: Swarm. What differs between the two is documented in the
@@ -234,6 +329,29 @@ role's README rather than frozen into the role.
    container, and those are what brought the file, the `ansible-galaxy collection install` step in
    CI and in the session-start hook, and the `docker` Python SDK requirement on the managed node
    (stated in the role's own README, since it is that machine's requirement, not this repository's).
+8. **The repository root doubles as the role, and `playbook.Artificial_Intelligence.example.yaml` is the one place that
+   costs something.** Ansible's own role search never treats "the directory this playbook happens to
+   sit in" as a candidate -- only `<playbook_dir>/roles/` and a short list of well-known locations,
+   `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_Artificial_Intelligence_Docker_stack`
+   would not resolve against this checkout on its own. The `ansible-lint` and `syntax-check` jobs of
+   `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`, and
+   `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
+   `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
+   example playbook. Nothing else in this repository needs it: every other job lints or reads the
+   role's own files directly, at their own path, with no role resolution involved.
+9. **`dependabot-auto-merge.yml` merges directly, and does its own checking first.** `gh pr merge
+   --auto` needs a ruleset GitHub enforces, and the organisation's plan enforces none on a private
+   repository. So the workflow reads `.github/rulesets/main.json` from `main`, checks that every
+   context in it concluded `success` on the pull request's exact head commit, and merges pinned to
+   that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
+   ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
+   checking lands updates nothing checked: nothing else here would stop it. It runs on
+   `workflow_run`, from `main`'s definition, and checks nothing out, because it is the one job
+   holding a write token and no job may both hold one and run code from a pull request -- a freshly
+   bumped dependency is exactly that code. `main.json` names every job of the two workflows one by
+   one rather than one aggregate job (the workflow's header says why), and
+   `check_required_checks.py` holds it to them in both directions. The day the repository can
+   enforce a ruleset, import `main.json` and take postfix-relay's `--auto` workflow instead.
 
 ## Working in a Claude Code web session
 

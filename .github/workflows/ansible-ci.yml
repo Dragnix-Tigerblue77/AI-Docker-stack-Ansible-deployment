@@ -1,14 +1,24 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
+name: Ansible CI
+
 # The quality checks, on every pull request. Secret detection lives in its own workflow
 # ("gitleaks.yml") because it has neither the same tooling nor the same reason to exist.
 #
-# ! None of these jobs can be made REQUIRED before merging: the organisation is on a plan that
-#   allows neither a ruleset nor a branch protection on a private repository
+# ! None of these jobs can be made REQUIRED before a human merges: the organisation is on a plan
+#   that allows neither a ruleset nor a branch protection on a private repository
 #   ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
-#   public"). They inform the reviewer; they do not guard the door. That is a limit of the plan,
-#   not of the configuration.
+#   public"). For a human's merge they inform the reviewer; they do not guard the door. That is a
+#   limit of the plan, not of the configuration.
+#
+#   Dependabot's updates are the exception, and the one place these jobs do gate something:
+#   "dependabot-auto-merge.yml" merges a minor or patch update only once every job named in
+#   ".github/rulesets/main.json" has succeeded on it -- every job of this workflow and of
+#   "gitleaks.yml", by its display "name:". Renaming a job, or adding one, means editing that file
+#   in the same pull request; "check_required_checks.py" below fails until it is done. The
+#   workflow's own "name:" above is what "dependabot-auto-merge.yml" listens for, so it is
+#   load-bearing too.
 #
 # No "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" here, unlike the homelab repository: this
 # repository has no self-hosted runner, and an indirection that no variable ever fills in is a line
@@ -56,10 +66,10 @@ jobs:
       # "LICENSES/AGPL-3.0-only.txt", so that the file REUSE requires and the file GitHub reads for
       # the repository's licence badge are the same bytes rather than two copies free to drift.
       - name: Check out the repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: "pip"
@@ -100,6 +110,20 @@ jobs:
       - name: Install the collections
         run: ansible-galaxy collection install -r requirements.yml
 
+      # This repository IS the role -- "tasks/", "defaults/" and the rest sit at its own root rather
+      # than under a "roles/<name>/" of its own, which is what lets a caller install it with Galaxy
+      # or a submodule and have the checkout itself resolve as "deploy_Artificial_Intelligence_Docker_stack". The one
+      # place that costs something is right here: "playbook.Artificial_Intelligence.example.yaml" calls the role by that
+      # bare name too, and Ansible's own role search never looks at "the current directory" for a
+      # match, only at "<playbook_dir>/roles/" and a short list of well-known locations, "~/.ansible/
+      # roles" among them. This symlink is what makes that second location resolve -- it exists only
+      # for this job's own use of the example playbook, never committed, and it is the CI mirror of
+      # what CONTRIBUTING.md now asks every clone to do once.
+      - name: Make this checkout resolvable as the "deploy_Artificial_Intelligence_Docker_stack" role
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack
+
       - name: Run ansible-lint
         run: ansible-lint
 
@@ -126,13 +150,21 @@ jobs:
       - name: Install the collections
         run: ansible-galaxy collection install -r requirements.yml
 
-      # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.AIS.example.yaml") would
+      # Same reason as the identical step in the "ansible-lint" job above: this repository is the
+      # role itself, so "playbook.Artificial_Intelligence.example.yaml"'s own "- role: deploy_Artificial_Intelligence_Docker_stack" resolves
+      # only once something under Ansible's default search locations carries that name.
+      - name: Make this checkout resolvable as the "deploy_Artificial_Intelligence_Docker_stack" role
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack
+
+      # Playbooks are DISCOVERED, not named. A hard-coded name ("playbook.Artificial_Intelligence.example.yaml") would
       # mean coming back here on the first rename, and above all it would stay green in silence if
       # the file were renamed -- the worse of the two, a check that ticks its box without reading
       # anything.
       #
       # ! The glob can legitimately match nothing -- it did until #31 landed and brought
-      #   "playbook.AIS.example.yaml". In that case the step says so in a "::warning::" annotation
+      #   "playbook.Artificial_Intelligence.example.yaml". In that case the step says so in a "::warning::" annotation
       #   visible on the run's page, rather than handing back a mute green: an empty check that
       #   keeps quiet is a check one only believes one has. It needs no edit either way.
       - name: Check the syntax of every playbook
@@ -157,9 +189,9 @@ jobs:
     # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.
     #
     # "check_no_inventory_data.py" imports nothing outside the standard library.
-    # "check_LiteLLM_account_isolation.py" reads PyYAML: it is the only dependency of these checks,
-    # and it was taken knowingly (the reason is written in its header and in "requirements.txt").
-    # The install step below is what it costs.
+    # "check_LiteLLM_account_isolation.py" and "check_required_checks.py" read PyYAML: it is the
+    # only dependency of these checks, and it was taken knowingly (the reason is written in the
+    # first one's header and in "requirements.txt"). The install step below is what it costs.
     #
     # The price is real and worth stating: the check list of a pull request carries one line instead
     # of three, so a red cross no longer says WHICH one failed without opening the run. A step that
@@ -207,3 +239,15 @@ jobs:
       - name: "Hard-coded inventory data: read the repository"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py
+
+      # The list of checks a Dependabot update must pass before "dependabot-auto-merge.yml"
+      # merges it names jobs by their display name. A job renamed without that list is one every
+      # update then waits on for ever; a job added without it is one an update can fail and still
+      # merge.
+      - name: "Dependabot merge gate: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_required_checks.py --selftest
+
+      - name: "Dependabot merge gate: hold .github/rulesets/main.json to the workflows"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_required_checks.py

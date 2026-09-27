@@ -1,4 +1,4 @@
-# AIS stack -- Artificial Intelligence Stack.
+# Artificial Intelligence stack.
 #
 # This file is RENDERED onto the managed node: what is read here is a template, what lands there is
 # an ordinary compose file. It deliberately carries no SPDX header, for the same reason
@@ -19,24 +19,24 @@ services:
     # Major pinned EXPLICITLY, never ":latest": a major bump imposes a pg_dump / restore, so it must
     # never happen because a tag moved under us. Check the major is one the Prisma schema of the
     # chosen LiteLLM version supports before raising it.
-    image: "postgres:{{ AIS_PostgreSQL_Docker_image_tag }}"
+    image: "postgres:{{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}"
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Interpolated by ANSIBLE, at render time -- not by Compose from a ".env" it would otherwise
       # need in the project directory. It is what lets the same template serve Compose and Swarm
       # unchanged: Ansible renders this file the same way regardless of which one reads it next. The
       # literal value never appears anywhere else -- it is why the caller's deployment role has to
       # write THIS file "0600" and with "diff: false".
-      POSTGRES_DB: "{{ AIS_PostgreSQL_database }}"
-      POSTGRES_USER: "{{ AIS_PostgreSQL_user }}"
-      POSTGRES_PASSWORD: "{{ AIS_PostgreSQL_password }}"
+      POSTGRES_DB: "{{ Artificial_Intelligence_PostgreSQL_database }}"
+      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_user }}"
+      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password }}"
 
     volumes:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
       # of #1, not a hope. A bind mount would also tie the stack to a host path, which this
       # repository does not get to choose.
-      - "{{ AIS_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
@@ -46,7 +46,7 @@ services:
       # right about. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-U", "{{ AIS_PostgreSQL_user }}", "-d", "{{ AIS_PostgreSQL_database }}"]
+      test: ["CMD", "pg_isready", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -62,10 +62,10 @@ services:
           # Starting value, to be recalled after measuring under load with "docker stats". What
           # matters today is that a limit EXISTS: without one, a container running away takes the
           # others down by OOM and the kernel log names the victim rather than the culprit.
-          memory: "{{ AIS_PostgreSQL_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_PostgreSQL_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
   # Redis -- LiteLLM's shared cooldown state and response cache backend (#71).
@@ -73,7 +73,7 @@ services:
   redis:
     # Major pinned explicitly, never ":latest" -- same reasoning as PostgreSQL above, applied to a
     # smaller surface: a major bump can change eviction and persistence defaults.
-    image: "redis:{{ AIS_Redis_Docker_image_tag }}"
+    image: "redis:{{ Artificial_Intelligence_Redis_Docker_image_tag }}"
 
     # No secret written on the command line: it would be visible in "docker inspect" / process
     # listings on the host. Read from a file instead, itself rendered from the same vaulted variable
@@ -81,7 +81,7 @@ services:
     command:
       - "redis-server"
       - "--requirepass"
-      - "{{ AIS_Redis_password }}"
+      - "{{ Artificial_Intelligence_Redis_password }}"
       - "--save"
       - "60"
       - "1"
@@ -89,12 +89,12 @@ services:
       - "warning"
 
     volumes:
-      - "{{ AIS_Redis_data_Docker_volume_name }}:/data:rw"
+      - "{{ Artificial_Intelligence_Redis_data_Docker_volume_name }}:/data:rw"
 
     healthcheck:
       # "redis-cli" ships with the image, so this needs nothing it does not already have -- unlike
       # Qdrant (#3) or OmniRoute (#73), where the same reasoning ruled a healthcheck OUT instead.
-      test: ["CMD", "redis-cli", "-a", "{{ AIS_Redis_password }}", "--no-auth-warning", "ping"]
+      test: ["CMD", "redis-cli", "-a", "{{ Artificial_Intelligence_Redis_password }}", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       start_period: 10s
@@ -105,26 +105,26 @@ services:
         condition: any
       resources:
         limits:
-          memory: "{{ AIS_Redis_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_Redis_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
   # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
   #
   # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
   # the most sensitive component of the stack, which is exactly why its port is published under basic
-  # auth rather than left open behind nothing: see "AIS_LiteLLM_UI_password" in "defaults/main.yml".
+  # auth rather than left open behind nothing: see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
   # ------------------------------------------------------------------------------------------------
   litellm:
     # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
     # the deployment on an old image while looking current. The security floor and the date it was
     # last verified live in "defaults/main.yml"; "tasks/main.yml" refuses a tag below the floor.
-    image: "ghcr.io/berriai/litellm:{{ AIS_LiteLLM_Docker_image_tag }}"
+    image: "ghcr.io/berriai/litellm:{{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}"
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
       #
@@ -132,36 +132,37 @@ services:
       # above. LiteLLM itself still reads both from ITS OWN container environment at "os.environ/...",
       # which "LiteLLM_config.yaml.j2" points at: what changes is where that environment variable gets
       # its value from, never how LiteLLM consumes it.
-      DATABASE_URL: "postgresql://{{ AIS_PostgreSQL_user }}:{{ AIS_PostgreSQL_password }}@postgres:5432/{{ AIS_PostgreSQL_database }}"
+      DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
-      LITELLM_MASTER_KEY: "{{ AIS_LiteLLM_master_key }}"
+      LITELLM_MASTER_KEY: "{{ Artificial_Intelligence_LiteLLM_master_key }}"
       STORE_MODEL_IN_DB: "True"
       # "/ui" is where each account's own provider keys get added, one at a time, by the person who
-      # holds them -- see the note on "AIS_LiteLLM_UI_password" in "defaults/main.yml" for why that is
+      # holds them -- see the note on "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml" for why that is
       # the deployment's model rather than a vaulted variable per provider. Basic auth in front of it
       # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
-      UI_USERNAME: "{{ AIS_LiteLLM_UI_username }}"
-      UI_PASSWORD: "{{ AIS_LiteLLM_UI_password }}"
+      UI_USERNAME: "{{ Artificial_Intelligence_LiteLLM_UI_username }}"
+      UI_PASSWORD: "{{ Artificial_Intelligence_LiteLLM_UI_password }}"
       # tigerblue77's own provider keys (#2, v1 scope) -- read by "LiteLLM_config.yaml.j2" as
       # "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77". Dragnix's own keys are deliberately absent: he
-      # adds them himself from "/ui" (see "AIS_LiteLLM_UI_password" in "defaults/main.yml").
-      GEMINI_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Gemini_API_key_tigerblue77 }}"
-      GITHUB_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_GitHub_API_key_tigerblue77 }}"
-      MISTRAL_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Mistral_API_key_tigerblue77 }}"
-      CEREBRAS_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Cerebras_API_key_tigerblue77 }}"
-      GROQ_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_Groq_API_key_tigerblue77 }}"
-      OPENROUTER_API_KEY_TIGERBLUE77: "{{ AIS_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+      # adds them himself from "/ui" (see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml").
+      GEMINI_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 }}"
+      GITHUB_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 }}"
+      MISTRAL_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 }}"
+      CEREBRAS_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 }}"
+      GROQ_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 }}"
+      OPENROUTER_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+      DEEPSEEK_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 }}"
       # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
       # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
-      REDIS_URL: "redis://:{{ AIS_Redis_password }}@redis:6379"
-      REDIS_PASSWORD: "{{ AIS_Redis_password }}"
+      REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
+      REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password }}"
 
     volumes:
       # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
       # model list; what this role renders is the file and its general settings.
-      - "{{ AIS_LiteLLM_config_file_destination_path }}:/app/config.yaml:ro"
+      - "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path }}:/app/config.yaml:ro"
 
     command:
       - "--config"
@@ -169,9 +170,9 @@ services:
       - "--port"
       - "4000"
       - "--num_workers"
-      - "{{ AIS_LiteLLM_number_of_workers }}"
+      - "{{ Artificial_Intelligence_LiteLLM_number_of_workers }}"
 
-    # Published, and this reverses #1's own original call -- see "AIS_LiteLLM_UI_password" in
+    # Published, and this reverses #1's own original call -- see "Artificial_Intelligence_LiteLLM_UI_password" in
     # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
     # it has to be reachable with nothing more than a browser on the LAN, before the reverse proxy
     # this stack does not own exists to do it instead. The cost is real and is not waived by this
@@ -213,10 +214,10 @@ services:
           # Depends on "--num_workers": each worker replicates the configuration. With 88 threads on
           # the target host the temptation to raise the worker count is real, and this limit is what
           # bounds the experiment.
-          memory: "{{ AIS_LiteLLM_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_LiteLLM_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
   # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73). No provider key is ever
@@ -226,17 +227,17 @@ services:
   # ------------------------------------------------------------------------------------------------
   omniroute:
     # Explicit SemVer, never ":latest" and never the "-web" variant -- see "defaults/main.yml".
-    image: "diegosouzapw/omniroute:{{ AIS_OmniRoute_Docker_image_tag }}"
+    image: "diegosouzapw/omniroute:{{ Artificial_Intelligence_OmniRoute_Docker_image_tag }}"
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Overrides the image's own "CHANGEME" default, which upstream documents as deliberately weak
-      # to force a change -- never left as-is, same standard as "AIS_LiteLLM_UI_password" (#1).
-      INITIAL_PASSWORD: "{{ AIS_OmniRoute_dashboard_password }}"
+      # to force a change -- never left as-is, same standard as "Artificial_Intelligence_LiteLLM_UI_password" (#1).
+      INITIAL_PASSWORD: "{{ Artificial_Intelligence_OmniRoute_dashboard_password }}"
 
     volumes:
       # Named, at the path the upstream Docker guide's own example mounts: "/app/data".
-      - "{{ AIS_OmniRoute_data_Docker_volume_name }}:/app/data:rw"
+      - "{{ Artificial_Intelligence_OmniRoute_data_Docker_volume_name }}:/app/data:rw"
 
     # Published, for the same reason as LiteLLM's "/ui" (#1): the dashboard needs to be reachable
     # from a browser on the LAN, and "INITIAL_PASSWORD" above is what stands in front of it.
@@ -264,13 +265,13 @@ services:
         condition: any
       resources:
         limits:
-          memory: "{{ AIS_OmniRoute_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_OmniRoute_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
-  # Qdrant -- the AIS's vector engine (#3). Deploy-only scope: the collections themselves need a
+  # Qdrant -- the Artificial Intelligence stack's vector engine (#3). Deploy-only scope: the collections themselves need a
   # vector dimension, and that dimension comes from the embedding model #21 has not chosen yet --
   # creating one now would mean guessing it, which is exactly the silent RAG-pipeline breakage #3
   # warns against. This block gets the server running; #21 creates the collections once the model is
@@ -279,14 +280,14 @@ services:
   qdrant:
     # Explicit SemVer, never ":latest" -- see "defaults/main.yml" for why this matters here
     # specifically.
-    image: "qdrant/qdrant:{{ AIS_Qdrant_Docker_image_tag }}"
+    image: "qdrant/qdrant:{{ Artificial_Intelligence_Qdrant_Docker_image_tag }}"
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
-      QDRANT__SERVICE__API_KEY: "{{ AIS_Qdrant_API_key }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
+      QDRANT__SERVICE__API_KEY: "{{ Artificial_Intelligence_Qdrant_API_key }}"
 
     volumes:
-      - "{{ AIS_Qdrant_data_Docker_volume_name }}:/qdrant/storage:rw"
+      - "{{ Artificial_Intelligence_Qdrant_data_Docker_volume_name }}:/qdrant/storage:rw"
 
     # No "ports:": #3 is explicit that Qdrant is reached only by other containers of the stack, over
     # the internal network -- unlike LiteLLM's "/ui" or OmniRoute's dashboard, nothing here is meant
@@ -305,43 +306,54 @@ services:
         condition: any
       resources:
         limits:
-          memory: "{{ AIS_Qdrant_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_Qdrant_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
-  # LibreChat -- the AIS's human-facing chat interface (#76).
+  # LibreChat -- the Artificial Intelligence stack's human-facing chat interface (#76).
   # ------------------------------------------------------------------------------------------------
   librechat:
     # Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main") and
     # never ":latest".
-    image: "ghcr.io/danny-avila/librechat:{{ AIS_LibreChat_Docker_image_tag }}"
+    image: "ghcr.io/danny-avila/librechat:{{ Artificial_Intelligence_LibreChat_Docker_image_tag }}"
+    # ! CONTAINER labels, so deliberately NOT under "deploy:" -- the one place in this file where that
+    # is right. "deploy.labels" sets labels on the SERVICE object; "labels" sets them on the
+    # CONTAINERS, and "docker compose up" and "docker stack deploy" both honour them there. That is
+    # what makes them usable as a handle: "tasks/main.yml" has to find this container to run
+    # "npm run create-user" inside it, a container NAME is part of no contract (Compose writes
+    # "<project>-<service>-<n>", Swarm "<stack>_<service>.<n>.<task id>"), and the labels the
+    # DEPLOYER writes are not the same either -- "com.docker.compose.*" under one,
+    # "com.docker.swarm.*" under the other. A label this file writes itself is identical under both,
+    # so the lookup needs no branch and the role stops depending on who deploys it.
+    labels:
+      artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
+      artificial_intelligence.service: "librechat"
 
     environment:
       HOST: "0.0.0.0"
       PORT: "3080"
       MONGO_URI: "mongodb://librechat_mongodb:27017/LibreChat"
-      # LibreChat's OWN "${VAR}" syntax inside "librechat.yaml" resolves this at runtime -- a
-      # dedicated virtual key (#2), never the master key LiteLLM's own container never lets leave it
-      # (#1). LibreChat is a consumer of the gateway like any other.
-      LIBRECHAT_LITELLM_VIRTUAL_KEY: "{{ AIS_LibreChat_LiteLLM_virtual_key }}"
+      # No shared virtual key here any more (#103): "librechat.yaml" reads "apiKey: \"user_provided\""
+      # for the gateway endpoint, so LibreChat asks each of ITS OWN accounts for their own key the
+      # first time they use it, rather than every account sharing whatever this env var once held.
       # Closed on purpose: the port below is on the LAN, and open registration there would hand
       # anyone on the network a seat on both accounts' quotas. See "defaults/main.yml".
-      ALLOW_REGISTRATION: "{{ AIS_LibreChat_allow_registration | string | lower }}"
+      ALLOW_REGISTRATION: "{{ Artificial_Intelligence_LibreChat_allow_registration | string | lower }}"
       # Without these four, LibreChat generates temporary values on first start and keeps them
       # nowhere but its own volume -- unsuitable for production by its own documentation.
-      CREDS_KEY: "{{ AIS_LibreChat_creds_key }}"
-      CREDS_IV: "{{ AIS_LibreChat_creds_IV }}"
-      JWT_SECRET: "{{ AIS_LibreChat_JWT_secret }}"
-      JWT_REFRESH_SECRET: "{{ AIS_LibreChat_JWT_refresh_secret }}"
+      CREDS_KEY: "{{ Artificial_Intelligence_LibreChat_creds_key }}"
+      CREDS_IV: "{{ Artificial_Intelligence_LibreChat_creds_IV }}"
+      JWT_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_secret }}"
+      JWT_REFRESH_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_refresh_secret }}"
 
     volumes:
-      # Read-only: this is the AIS's copy, not LibreChat's to rewrite.
-      - "{{ AIS_LibreChat_config_file_destination_path }}:/app/librechat.yaml:ro"
-      - "{{ AIS_LibreChat_uploads_Docker_volume_name }}:/app/uploads:rw"
+      # Read-only: this is the Artificial Intelligence stack's copy, not LibreChat's to rewrite.
+      - "{{ Artificial_Intelligence_LibreChat_config_file_destination_path }}:/app/librechat.yaml:ro"
+      - "{{ Artificial_Intelligence_LibreChat_uploads_Docker_volume_name }}:/app/uploads:rw"
 
-    # Published: this is the AIS's human-facing chat interface, same reasoning as LiteLLM's "/ui"
+    # Published: this is the Artificial Intelligence stack's human-facing chat interface, same reasoning as LiteLLM's "/ui"
     # (#1) and OmniRoute's dashboard (#73). "ALLOW_REGISTRATION: false" above is what stands between
     # the LAN and an unauthenticated seat on both accounts' quotas.
     ports:
@@ -356,34 +368,38 @@ services:
         condition: any
       resources:
         limits:
-          memory: "{{ AIS_LibreChat_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_LibreChat_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
     # Explicit major, verified against the upstream compose example.
-    image: "mongo:{{ AIS_MongoDB_LibreChat_Docker_image_tag }}"
+    image: "mongo:{{ Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag }}"
+    # Same reason as the "librechat" service above -- see the note there rather than a second copy.
+    labels:
+      artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
+      artificial_intelligence.service: "librechat_mongodb"
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
 
     volumes:
-      - "{{ AIS_MongoDB_LibreChat_data_Docker_volume_name }}:/data/db:rw"
+      - "{{ Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name }}:/data/db:rw"
 
     deploy:
       restart_policy:
         condition: any
       resources:
         limits:
-          memory: "{{ AIS_MongoDB_LibreChat_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_MongoDB_LibreChat_memory_limit }}"
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
-{% if AIS_Claude_code_tigerblue77_enabled %}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
+{% if Artificial_Intelligence_Claude_code_tigerblue77_enabled %}
 
   # ------------------------------------------------------------------------------------------------
   # Claude Code agent -- tigerblue77 (#13), OFF BY DEFAULT. #31 requires every service to declare
@@ -394,10 +410,10 @@ services:
   # ------------------------------------------------------------------------------------------------
   claude_code_tigerblue77:
     build:
-      context: "{{ AIS_Claude_code_tigerblue77_build_context_directory }}"
+      context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory }}"
     # A locally built image still names one, pinned to the published Claude Code image it was built
     # FROM -- the same reason every other image this template deploys carries an explicit tag.
-    image: "ais-claude-code-tigerblue77:{{ AIS_Claude_code_Docker_image_tag }}"
+    image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}"
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
     # server, and Claude Code's own entrypoint would otherwise exit the moment it reads EOF on stdin.
@@ -405,29 +421,29 @@ services:
     tty: true
 
     environment:
-      TZ: "{{ AIS_server_time_zone }}"
+      TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Routed through the gateway (#1) on a MODEL ALIAS rather than a literal model name or
       # Anthropic's API directly -- #13's compliance point is that whatever this alias resolves to in
       # LiteLLM (#2) is never an Anthropic model backed by a subscription.
       ANTHROPIC_BASE_URL: "http://litellm:4000"
-      ANTHROPIC_API_KEY: "{{ AIS_Claude_code_tigerblue77_virtual_key }}"
-      ANTHROPIC_MODEL: "{{ AIS_Claude_code_tigerblue77_model }}"
+      ANTHROPIC_API_KEY: "{{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
+      ANTHROPIC_MODEL: "{{ Artificial_Intelligence_Claude_code_tigerblue77_model }}"
       # The alias resolves to a model Claude Code does not recognise by name, so its own context
       # window enforcement -- built around the models it DOES know -- has to be told what to allow
       # rather than refusing an unrecognised one outright.
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"
       CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1"
-      GH_TOKEN: "{{ AIS_Claude_code_tigerblue77_GitHub_token }}"
-      GITHUB_TOKEN: "{{ AIS_Claude_code_tigerblue77_GitHub_token }}"
+      GH_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
+      GITHUB_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
 
     volumes:
       # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
       # this role does not get to invent one, hence no default on the variable that names it.
-      - "{{ AIS_Claude_code_tigerblue77_workspace_directory }}:/workspace:rw"
+      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory }}:/workspace:rw"
       # The WHOLE home directory, "~/.claude.json" included -- see the note on
-      # "AIS_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
+      # "Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
       # on "~/.claude" alone would silently lose half the session on every recreation.
-      - "{{ AIS_Claude_code_tigerblue77_home_Docker_volume_name }}:/home/node:rw"
+      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name }}:/home/node:rw"
 
     # No "docker.sock" mount here: #11 has not yet designed the isolation an agent needs before it
     # can reach the host's Docker daemon, and this container waits for it rather than pre-empting it.
@@ -443,14 +459,14 @@ services:
           # Starting value, to be recalled after measuring under load: higher than a bare agent's
           # would be, since the image adds "gh", "ansible-core" and build tooling on top of the
           # published Claude Code image.
-          memory: "{{ AIS_Claude_code_tigerblue77_memory_limit }}"
+          memory: "{{ Artificial_Intelligence_Claude_code_tigerblue77_memory_limit }}"
 
     depends_on:
       litellm:
         condition: service_healthy
 
     networks:
-      - {{ AIS_internal_Docker_network_name }}
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
 {% endif %}
 
 {% raw %}
@@ -509,50 +525,50 @@ services:
   #     retries: 3
   #
   #   environment:
-  #     TZ: "{{ AIS_server_time_zone }}"
+  #     TZ: "{{ Artificial_Intelligence_server_time_zone }}"
   #
   #   # A secret is never written in clear text here. Two forms are possible, one or the other
   #   # depending on the caller's orchestrator: a native secret mounted under "/run/secrets/", or a
   #   # variable drawn from an unversioned ".env". What is forbidden is the literal value.
   #
   #   networks:
-  #     - {{ AIS_internal_Docker_network_name }}
+  #     - {{ Artificial_Intelligence_internal_Docker_network_name }}
   #     # And this one IN ADDITION, only for a service with a web interface meant for a human: it is
   #     # how the caller's reverse proxy reaches it. Only write it inside a block conditioned on
-  #     # "AIS_published_Docker_network_name is string": on a caller that has not set the pair, the
+  #     # "Artificial_Intelligence_published_Docker_network_name is string": on a caller that has not set the pair, the
   #     # network is not declared and the service would not start.
-  #     - {{ AIS_published_Docker_network_name }}
+  #     - {{ Artificial_Intelligence_published_Docker_network_name }}
 {% endraw %}
 
 volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance
   # criterion rather than an assumption.
-  {{ AIS_PostgreSQL_data_Docker_volume_name }}:
+  {{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:
   # OmniRoute's SQLite store (#73). Named, so it survives a container recreation.
-  {{ AIS_OmniRoute_data_Docker_volume_name }}:
+  {{ Artificial_Intelligence_OmniRoute_data_Docker_volume_name }}:
   # Qdrant's storage (#3). Named, so it survives a container recreation.
-  {{ AIS_Qdrant_data_Docker_volume_name }}:
+  {{ Artificial_Intelligence_Qdrant_data_Docker_volume_name }}:
   # LibreChat's uploaded attachments and its MongoDB store (#76). Named, so both survive a container
   # recreation.
-  {{ AIS_LibreChat_uploads_Docker_volume_name }}:
-  {{ AIS_MongoDB_LibreChat_data_Docker_volume_name }}:
-{% if AIS_Claude_code_tigerblue77_enabled %}
+  {{ Artificial_Intelligence_LibreChat_uploads_Docker_volume_name }}:
+  {{ Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name }}:
+{% if Artificial_Intelligence_Claude_code_tigerblue77_enabled %}
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.
-  {{ AIS_Claude_code_tigerblue77_home_Docker_volume_name }}:
+  {{ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name }}:
 {% endif %}
 
   # Redis's own persistence (#71) -- "--save 60 1" above is worthless without a volume behind it.
-  {{ AIS_Redis_data_Docker_volume_name }}:
+  {{ Artificial_Intelligence_Redis_data_Docker_volume_name }}:
 
 networks:
   # Internal to the stack: created and destroyed with it, reachable from nowhere else. It is what
   # lets a service publish no port.
-  {{ AIS_internal_Docker_network_name }}:
-{% if AIS_published_Docker_network_definition is string %}
+  {{ Artificial_Intelligence_internal_Docker_network_name }}:
+{% if Artificial_Intelligence_published_Docker_network_definition is string %}
 
   # The published network belongs to the caller, not to this stack: they create it, name it, and
   # attach their reverse proxy to it. We only hook onto it, hence the "external: true" its definition
   # carries. Nothing attaches to it until a service has a web interface.
-  {{ AIS_published_Docker_network_definition }}
+  {{ Artificial_Intelligence_published_Docker_network_definition }}
 {% endif %}

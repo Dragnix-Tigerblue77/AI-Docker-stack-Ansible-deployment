@@ -2,7 +2,7 @@
 # a bare Node base: that image already carries the pinned CLI, the non-root "node" user, the
 # auto-updater switched off, and the authentication-mount pattern its own README documents. Pinned
 # by tag AND digest, per #13 -- never ":latest".
-FROM ghcr.io/dragnix-tigerblue77/claude-code-docker-container:{{ AIS_Claude_code_Docker_image_tag }}@{{ AIS_Claude_code_Docker_image_digest }}
+FROM ghcr.io/dragnix-tigerblue77/claude-code-docker-container:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}@{{ Artificial_Intelligence_Claude_code_Docker_image_digest }}
 
 USER root
 

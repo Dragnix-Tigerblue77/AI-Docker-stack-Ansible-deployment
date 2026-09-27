@@ -4,11 +4,15 @@ version: 1.1.5
 endpoints:
   custom:
     - name: "LiteLLM Homelab"
-      # A DEDICATED virtual key, never the master key (#1): LibreChat is a consumer of the gateway
-      # like any other, and #1 is explicit that the master key never leaves LiteLLM's own container.
-      # Read from LibreChat's own container environment, set by "AIS_LibreChat_LiteLLM_virtual_key"
-      # in the compose template.
-      apiKey: "${LIBRECHAT_LITELLM_VIRTUAL_KEY}"
+      # "user_provided" (#103), never one shared key read from the container's own environment: a
+      # single value here would mean every LibreChat account -- one human, or several -- talks to the
+      # gateway under the SAME LiteLLM identity, which defeats per-account isolation (#2) the moment a
+      # second human account exists. LibreChat instead asks EACH of its own accounts for their own
+      # key, the first time that account uses this endpoint, and keeps it (encrypted) for that account
+      # alone from then on. Never the master key either way (#1): LibreChat is a consumer of the
+      # gateway like any other, and #1 is explicit that the master key never leaves LiteLLM's own
+      # container.
+      apiKey: "user_provided"
       # "litellm" is the gateway's SERVICE KEY (#1) -- not "litellm-proxy", which is what the
       # original POC named it before the service actually landed in the compose template.
       baseURL: "http://litellm:4000/v1"

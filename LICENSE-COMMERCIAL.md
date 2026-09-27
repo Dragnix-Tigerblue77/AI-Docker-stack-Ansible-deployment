@@ -14,7 +14,7 @@ This project is dual-licensed. It is available:
 
 ## Do I need one ?
 
-Almost certainly not. This repository holds one Ansible role: it renders the AIS stack's compose file and hands it to a deployment role the caller names. It is material you *run* against machines you point it at.
+Almost certainly not. This repository holds one Ansible role: it renders the Artificial Intelligence stack's compose file and hands it to a deployment role the caller names. It is material you *run* against machines you point it at.
 
 Running it is not conveying it, and the AGPL's reciprocal obligations attach to conveying — with the one exception the table below relies on: section 13 attaches to a **modified** version that users drive over a network, whether or not you ever convey it.
 

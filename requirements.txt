@@ -6,8 +6,8 @@
 # and two different versions would mean two different verdicts on one same file. Dependabot (pip
 # ecosystem) keeps them up to date; it is ".github/dependabot.yml" that asks it to, and without that
 # file nothing would move.
-ansible-core==2.21.3
-ansible-lint==26.8.0
+ansible-core==2.21.4
+ansible-lint==26.9.0
 yamllint==1.38.0
 
 # Checks that every file carries a copyright line and an SPDX identifier, and that every identifier
@@ -29,5 +29,6 @@ reuse==6.2.0
 # checks pay for, and it was bought knowingly: the line-by-line version of the check did not see a
 # cross-account fallback written in block style -- the very form any YAML serialiser produces. A
 # guard that depends on the writing style of what it watches is not one, and a "pip install" step in
-# a job costs less than a bypassed quota.
+# a job costs less than a bypassed quota. ".github/scripts/check_required_checks.py" reads the
+# workflows with it too, since it was already paid for.
 PyYAML==6.0.3

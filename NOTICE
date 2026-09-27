@@ -94,7 +94,7 @@ What this repository DEPLOYS is a different question, and it is the one
 that grows.
 
 Today the answer is still none. "services:" in the stack's template,
-roles/deploy_AIS_Docker_stack/templates/AIS.docker-compose.yml.j2, is an
+templates/Artificial_Intelligence.docker-compose.yml.j2, is an
 empty mapping, so a run of this role names no image and pulls none: the
 stack is the shape services are added into, and the first service issue
 has not landed.
@@ -120,7 +120,7 @@ image whose own terms require a notice to travel alongside the software,
 which is what a file like this one is for.
 
 The role that deploys the stack is not here either.
-"AIS_Docker_stack_deployment_role_name" names it, the caller supplies
+"Artificial_Intelligence_Docker_stack_deployment_role_name" names it, the caller supplies
 it, and it is resolved from the caller's own roles_path. It belongs to
 whoever wrote it, under whatever terms they chose. That the stack can be
 deployed by a role this repository does not contain is the design rather
@@ -141,7 +141,7 @@ files intact is what satisfies them.
 that declares the two families which cannot carry a header in line, each
 with its reason:
 
-  * roles/**/templates/**, rendered onto the managed node -- a header
+  * templates/**, rendered onto the managed node -- a header
     there would end up copied into the deployed compose file, which is
     not a source file of this repository;
 
