@@ -183,6 +183,19 @@ the tree, and what gets through is decided by CI rather than by a guess about wh
 risky: majors wait for a human, and so does anything red. This rule is shared with every repository
 the maintainer owns, and a copy of it lands in each one's own agent instructions.
 
+**Pull requests are kept level with the default branch, and never required to be, in every
+repository.** "Require branches to be up to date before merging" stays off --
+`.github/rulesets/main.json` records it as `strict_required_status_checks_policy: false` -- because
+whatever cannot be updated automatically would be blocked rather than behind: a conflict, a fork, a
+draft, and every pull request after a Dependabot merge, which starts no workflow.
+`.github/workflows/auto_update_pull_request_branches.yml` does the updating instead, after every
+merge and hourly, as best effort. A public repository runs it, its minutes costing nothing; a
+private one, this one included, carries the same file switched off behind the
+`PULL_REQUESTS_UPDATE_ENABLED` repository variable, so that a workflow which runs nothing here is
+deliberate and not dead code, and switching it on is setting that variable and a credential (#145).
+Shared like the rule above (tigerblue77/Dell_iDRAC_fan_controller_Docker#512), and for the same
+reason (#147).
+
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
 
