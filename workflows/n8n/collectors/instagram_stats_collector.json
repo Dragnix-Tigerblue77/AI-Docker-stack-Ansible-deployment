@@ -1,5 +1,5 @@
 {
-  "name": "AIS - Instagram Stats Collector",
+  "name": "Artificial_Intelligence - Instagram Stats Collector",
   "nodes": [
     {
       "id": "note-instagram",
@@ -40,7 +40,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -63,7 +63,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (Artificial_Intelligence)" }
       },
       "continueOnFail": true
     },

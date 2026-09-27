@@ -1,5 +1,5 @@
 {
-  "name": "AIS - TikTok Stats Collector",
+  "name": "Artificial_Intelligence - TikTok Stats Collector",
   "nodes": [
     {
       "id": "note-tiktok",
@@ -41,7 +41,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -70,7 +70,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (Artificial_Intelligence)" }
       },
       "continueOnFail": true
     },

@@ -1,5 +1,5 @@
 {
-  "name": "AIS - X Stats Collector",
+  "name": "Artificial_Intelligence - X Stats Collector",
   "nodes": [
     {
       "id": "note-x",
@@ -40,7 +40,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "X OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "X OAuth2 (Artificial_Intelligence)" }
       }
     },
     {

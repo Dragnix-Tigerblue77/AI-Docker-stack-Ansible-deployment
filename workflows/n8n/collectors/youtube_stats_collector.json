@@ -1,5 +1,5 @@
 {
-  "name": "AIS - YouTube Stats Collector",
+  "name": "Artificial_Intelligence - YouTube Stats Collector",
   "nodes": [
     {
       "id": "note-youtube",
@@ -41,7 +41,7 @@
         "options": {}
       },
       "credentials": {
-        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -65,7 +65,7 @@
         "options": {}
       },
       "credentials": {
-        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -99,7 +99,7 @@
         "options": {}
       },
       "credentials": {
-        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (AIS)" }
+        "youTubeOAuth2Api": { "id": "PLACEHOLDER", "name": "YouTube OAuth2 (Artificial_Intelligence)" }
       }
     },
     {

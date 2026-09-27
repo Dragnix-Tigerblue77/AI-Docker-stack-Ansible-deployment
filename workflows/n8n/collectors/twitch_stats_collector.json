@@ -1,5 +1,5 @@
 {
-  "name": "AIS - Twitch Stats Collector",
+  "name": "Artificial_Intelligence - Twitch Stats Collector",
   "nodes": [
     {
       "id": "note-twitch",
@@ -40,7 +40,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -68,7 +68,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (Artificial_Intelligence)" }
       }
     },
     {
@@ -98,7 +98,7 @@
         "options": {}
       },
       "credentials": {
-        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (AIS)" }
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Twitch OAuth2 (Artificial_Intelligence)" }
       }
     },
     {

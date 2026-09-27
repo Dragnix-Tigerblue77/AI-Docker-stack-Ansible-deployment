@@ -1,5 +1,5 @@
 {
-  "name": "AIS - Streaming & Social Stats Collector",
+  "name": "Artificial_Intelligence - Streaming & Social Stats Collector",
   "nodes": [
     {
       "id": "trg-schedule-daily",
@@ -42,7 +42,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_twitch_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - Twitch Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - Twitch Stats Collector"
         },
         "options": {}
       },
@@ -60,7 +60,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_youtube_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - YouTube Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - YouTube Stats Collector"
         },
         "options": {}
       },
@@ -78,7 +78,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_tiktok_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - TikTok Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - TikTok Stats Collector"
         },
         "options": {}
       },
@@ -96,7 +96,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_x_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - X Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - X Stats Collector"
         },
         "options": {}
       },
@@ -114,7 +114,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_facebook_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - Facebook Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - Facebook Stats Collector"
         },
         "options": {}
       },
@@ -132,7 +132,7 @@
           "__rl": true,
           "value": "REPLACE_AFTER_IMPORT_instagram_stats_collector",
           "mode": "list",
-          "cachedResultName": "AIS - Instagram Stats Collector"
+          "cachedResultName": "Artificial_Intelligence - Instagram Stats Collector"
         },
         "options": {}
       },
@@ -217,7 +217,7 @@
       "credentials": {
         "postgres": {
           "id": "PLACEHOLDER",
-          "name": "AIS Postgres"
+          "name": "Artificial_Intelligence Postgres"
         }
       }
     },
@@ -251,7 +251,7 @@
       "credentials": {
         "notionApi": {
           "id": "PLACEHOLDER",
-          "name": "AIS Notion"
+          "name": "Artificial_Intelligence Notion"
         }
       }
     }

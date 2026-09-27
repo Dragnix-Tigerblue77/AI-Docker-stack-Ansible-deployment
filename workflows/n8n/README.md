@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 Dragnix-23
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
-# N8N workflows — AIS
+# N8N workflows — Artificial Intelligence
 
 Issue #20, Niveau 1 uniquement (API officielles — statistiques Twitch/YouTube/TikTok/X/Facebook/Instagram
 de Dragnix-23). Le Niveau 2 (alertes mail immobilier, tigerblue77) reste hors périmètre de ce dossier.
@@ -28,7 +28,8 @@ jamais dans ce dépôt.
 3. Dans chaque noeud `Execute Workflow` de l'orchestrateur, remplacer le `workflowId` placeholder
    (`REPLACE_AFTER_IMPORT_<plateforme>_stats_collector`) par l'ID réel attribué par l'instance à
    l'import du sous-workflow correspondant.
-4. Configurer les credentials Postgres (`AIS Postgres`) et Notion (`AIS Notion`) de l'orchestrateur.
+4. Configurer les credentials Postgres (`Artificial_Intelligence Postgres`) et Notion
+   (`Artificial_Intelligence Notion`) de l'orchestrateur.
 5. Dans les sous-workflows Facebook et Instagram, remplacer `PLACEHOLDER_FACEBOOK_PAGE_ID` et
    `PLACEHOLDER_INSTAGRAM_USER_ID` par les identifiants réels.
 6. Dans les sous-workflows Twitch et TikTok, renseigner l'en-tête `Client-Id` (Twitch) — ces valeurs ne
@@ -71,7 +72,7 @@ autres plateformes n'exposent pas d'équivalent direct dans leur API publique.
 
 Le noeud Postgres de l'orchestrateur écrit dans `social_stats`. Cette table n'est pas créée par ce
 dépôt (aucune migration Ansible pour ce niveau, conformément à l'arbitrage validé) — DDL de référence
-à exécuter manuellement sur l'instance Postgres de l'AIS :
+à exécuter manuellement sur l'instance Postgres du stack Artificial Intelligence :
 
 ```sql
 CREATE TABLE IF NOT EXISTS social_stats (
