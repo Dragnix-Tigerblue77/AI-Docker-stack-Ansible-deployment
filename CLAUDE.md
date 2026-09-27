@@ -165,6 +165,12 @@ the file the same way regardless of which one reads it next. #1 wrote one anyway
 the issue's own example config used `${POSTGRES_PASSWORD}`, and that was read as licence rather than as
 an illustration to translate. It cost a second commit to undo.
 
+**A value Ansible interpolates into the compose file has its `$` doubled -- `| replace('$', '$$')`
+-- because Compose and `docker stack deploy` interpolate the rendered file again**, and a single `$`
+in a secret reached the container as whatever it named in their environment, usually nothing, until
+#155; the template's header says which values are exempt and why, and `check_compose_template.py`
+renders every other one with a `$` and refuses the file where one arrives single.
+
 **Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
 
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
