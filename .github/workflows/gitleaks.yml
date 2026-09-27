@@ -17,6 +17,11 @@ name: gitleaks
 #   The exception is Dependabot's own updates: "dependabot-auto-merge.yml" merges one only once both
 #   jobs below have succeeded on it, reading their display names from ".github/rulesets/main.json"
 #   and listening for this workflow by its "name:" above. See the header of "ansible-ci.yml".
+#
+# Both jobs take their runner from CI_RUNNER, like every job of "ansible-ci.yml", whose header says
+# what the variable may name and when. The "sudo install" below needs nothing more on a self-hosted
+# runner: myoung34/github-runner, the image the homelab repository's runner role deploys, installs
+# sudo and gives it to its runner user without a password.
 
 on:
   push:
@@ -33,7 +38,7 @@ concurrency:
 jobs:
   gitleaks:
     name: gitleaks
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     env:
       # To be bumped by hand from https://github.com/gitleaks/gitleaks/releases: Dependabot has no
@@ -69,7 +74,7 @@ jobs:
 
   hook:
     name: does the pre-commit hook refuse a secret?
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     env:
       GITLEAKS_VERSION: "8.30.1"
