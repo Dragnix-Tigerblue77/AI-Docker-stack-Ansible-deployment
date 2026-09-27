@@ -386,24 +386,3 @@ down with it. The hook also reads the installed versions back and names any drif
 if a future pin is refused, the session loses that one tool and says so, rather than everything.
 
 If a check could not be run, say so plainly rather than reporting it as passing.
-
-## DIRECTIVES STRICTES D'EXÉCUTION AGENT (@Dragnix-23)
-
-1. GESTION DES BRANCHES :
-   - INTERDICTION FORMELLE de modifier, commiter ou pousser sur `main`.
-   - Travailler EXCLUSIVEMENT sur la branche active : `feat/20-web-data-collection`.
-   - Ne jamais forcer un commit sans les hooks (`--no-verify` strictement interdit).
-
-2. PÉRIMÈTRE STRICT DES TICKETS :
-   - Traiter UNIQUEMENT les issues où `@Dragnix-23` est explicitement assigné ou auteur (actuellement l'Issue #20).
-   - Ne JAMAIS lire, modifier ou commenter les issues assignées à `@tigerblue77` ou les issues sans assignation.
-   - INTERDICTION STRICTE de fermer une issue (`gh issue close` interdit).
-   - Ne jamais insérer de mention de fermeture automatique (`Closes #X`, `Fixes #X`) dans les commits ou PRs.
-
-3. GOUVERNANCE ET ARBITRAGE (RÈGLE ISSUE #62) :
-   - Ne JAMAIS modifier le champ `Priority` d'un ticket (réservé à @tigerblue77).
-   - AUCUN CHOIX PAR DÉDUCTION : Dès qu'une décision d'architecture, de convention, d'outil ou de dépendance se présente, s'arrêter et demander validation explicite à @Dragnix-23.
-
-4. CONVENTIONS LINGUISTIQUES (ISSUE #22) :
-   - Français : Échanges, explications, documentation Markdown, commentaires GitHub.
-   - Anglais : Code source, commentaires de code, noms de variables/fonctions, messages de commit.
