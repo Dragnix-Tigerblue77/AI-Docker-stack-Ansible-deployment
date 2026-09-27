@@ -717,8 +717,19 @@ litellm_settings:
   # caching as key/team/org-scoped by default, which would mean a cached answer never crosses an
   # account boundary -- but that scoping is NOT verified from this session (no Docker daemon to test
   # against), and #71's own Definition of Done says so explicitly. Confirm it on the test bench
-  # before trusting it: this is exactly the kind of guarantee #2 exists to hold accountable.
-  enable_caching: true
+  # before trusting it: this is exactly the kind of guarantee #2 exists to hold accountable -- and #79
+  # is open for it. Until #79 says otherwise, treat any two calls to the same model with the same
+  # messages as able to share an answer, whoever makes them.
+  #
+  # "cache: true" is the switch LiteLLM reads (proxy_server.py: 'if key == "cache" and value is True');
+  # "enable_caching", which this used to say, is read by nothing, so caching was silently off. And
+  # "supported_call_types" is compared with the NAME OF THE FUNCTION being called
+  # (caching_handler.py: "original_function.__name__ in supported_call_types"): the proxy serves a chat
+  # request through "acompletion" and an Anthropic-style one (Claude Code) through
+  # "aanthropic_messages", so the "completion" / "cache_read" / "cache_write" this used to list would
+  # have cached nothing even with the switch on. The Redis connection comes from "REDIS_URL", which the
+  # compose template sets on the container.
+  cache: true
   cache_params:
     type: "redis"
-    supported_call_types: ["completion", "cache_read", "cache_write"]
+    supported_call_types: ["acompletion", "atext_completion", "aanthropic_messages", "aresponses"]
