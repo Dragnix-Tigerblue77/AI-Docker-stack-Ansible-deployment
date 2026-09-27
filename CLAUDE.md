@@ -95,16 +95,18 @@ because forgetting them costs the same time every session.
   expensive place for it to surface. The judgement being asked for is narrow: routine calls a careful
   colleague would make alone stay made alone, and what gets asked is what changes the shape of the
   deliverable.
-* **The maintainer is not the session's memory.** What a machine can answer is never asked of them:
-  which command ran, what it printed, what a setting holds now. It comes back as a command that reads
-  the current state -- and, where the possible answers are few and each one's remedy is known, one that
-  applies the remedy itself. Asked to recall the exact output of a step from hours earlier, a person
-  either guesses or cannot say, and both are worth less than the live value one command away. The rule
-  on questions staying open keeps an unanswered *decision* open; it does not turn a recollection into
-  one. It was learned from exactly that, in a session on the homelab repository: the same question
-  about what a command had printed that morning, carried into four replies in a row, answered at last
-  with "nobody remembers that", and settled by a single read of the live setting, from a command that
-  would have restored it had it needed restoring
+* **The maintainer is not the session's memory.** They drive several agents at once, each on its own
+  subject, so what one session showed them fifteen minutes ago is not something they can be expected
+  to still have in mind. A session therefore never asks them what a command printed, what a setting
+  held when they looked, or anything else the session could have kept or can read again. When the
+  value is needed, it is read again -- by the session itself where it can, or else through a command
+  handed over that reads the current state and changes nothing, so that running it is always safe. A
+  change the answer calls for comes afterwards, as its own step for the maintainer to decide, and is
+  never folded into the command that reads. The rule on questions staying open keeps an unanswered
+  *decision* open; it does not turn a recollection into one. It was learned from exactly that, in a
+  session on the homelab repository: the same question about what a command had printed earlier in
+  the session, carried into four replies in a row to a maintainer busy with other sessions in
+  between, until they asked for questions like it to stop
   (Tigerblue77-personal/Homelab_Ansible_deployment#1036).
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
