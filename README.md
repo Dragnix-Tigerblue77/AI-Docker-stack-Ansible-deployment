@@ -107,6 +107,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
+| `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
@@ -292,7 +293,8 @@ charge, et ce rôle-là doit :
    sans fournir la mécanique qui le déploie ;
 2. lire `Docker_stack_name`, `Docker_compose_file_destination_path` et
    `Docker_compose_file_destination_directory`, que `tasks/main.yml` lui passe en paramètres
-   d'`include_role` ;
+   d'`include_role`. Les deux autres qu'il reçoit par le même chemin, les sommes de contrôle des
+   configurations montées (#161), ne lui demandent rien : c'est le template qui les lit ;
 3. écrire le fichier rendu en **`0600` et avec `diff: false`**. Le stack n'interpole encore aucun secret,
    mais il en interpolera dès la première issue de service -- clés d'API de quatre fournisseurs, clé
    maîtresse de la passerelle, jetons. `/tmp` est le premier endroit où tout compte de la machine regarde,
@@ -320,6 +322,22 @@ et `Docker_stack_deployment_state`.
 Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte les deux
 secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
 lecture seule et sans secret propre.
+
+**Une configuration modifiée recrée le conteneur qui la lit (#161).** LiteLLM ne lit
+`LiteLLM_config.yaml` qu'au démarrage, LibreChat fait de même avec `librechat.yaml`, et les deux sont
+des bind mounts : changer l'un ne change rien au fichier compose, qui n'en porte que le chemin -- or
+c'est lui seul que `docker compose up` et `docker stack deploy` comparent. Jusqu'à #161, le conteneur
+continuait donc de tourner sur l'ancienne configuration pendant qu'Ansible affichait `changed`, et il
+ne voyait même pas le nouveau fichier, écrit par renommage sous un nouvel inode. Mesuré avec LiteLLM
+1.100.0 : même conteneur, même `StartedAt`, anciens noms de modèles dans `/v1/models`. `tasks/main.yml`
+passe désormais le SHA-1 de chaque fichier au rôle de déploiement, en paramètre d'`include_role`, et le
+template l'écrit en étiquette **de conteneur** `artificial_intelligence.config_checksum` du service qui
+le monte. Sous Compose, une étiquette changée recrée le conteneur -- mesuré : `Recreated` et le nouveau
+routage servi, puis `Running` sans rien recréer au run suivant, où rien n'a changé. Sous Swarm, `labels`
+devient la spécification de conteneur de la tâche, et une tâche dont la spécification change est
+remplacée. Jamais `deploy.labels` : il étiquette l'objet service, que Swarm mettrait à jour sans
+remplacer la tâche. Rien ne lit cette étiquette, et c'est voulu ; un run `--check` sur le point de
+changer un fichier la laisse de côté, le module ne rendant pas de somme de contrôle dans ce cas.
 
 **Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, validée par
 tigerblue77 le 07/09/2026 : le compromis (HTTP sans TLS, authentification basique seule, port ouvert
@@ -560,6 +578,10 @@ renseigné et non renseigné -- parse les deux, compare les objets parsés plut�
 chaque bloc de service aux conventions que le modèle commenté du template documente : image épinglée,
 limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et tout réseau ou volume
 référencé effectivement déclaré.
+
+Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les
+défauts laissent à `false` : chacune doit arriver en étiquette de conteneur du service qui monte le
+fichier -- sous `labels:`, jamais `deploy.labels:` -- sans que rien d'autre ne change.
 
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont

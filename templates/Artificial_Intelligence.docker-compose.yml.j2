@@ -122,6 +122,18 @@ services:
     # the deployment on an old image while looking current. The security floor and the date it was
     # last verified live in "defaults/main.yml"; "tasks/main.yml" refuses a tag below the floor.
     image: "ghcr.io/berriai/litellm:{{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}"
+    # ! A CONTAINER label, deliberately not under "deploy:" (#161). LiteLLM reads "/app/config.yaml"
+    # once, at start, and a changed configuration changes nothing else in this file, which is all
+    # "docker compose up" and "docker stack deploy" compare: without this, the container keeps the
+    # old routing while Ansible reports the new one "changed". Compose recreates a container whose
+    # labels changed; "docker stack deploy" turns "labels" into the task's container spec, and Swarm
+    # replaces a task whose spec changed. "deploy.labels" would do the first and not the second: it
+    # labels the SERVICE object, which Swarm updates without replacing a task. Nothing reads this
+    # label, on purpose. A SHA-1 in hexadecimal, so no "$" for Compose to interpolate.
+{% if Artificial_Intelligence_LiteLLM_config_checksum is string %}
+    labels:
+      artificial_intelligence.config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_checksum }}"
+{% endif %}
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -330,6 +342,11 @@ services:
     labels:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
       artificial_intelligence.service: "librechat"
+{% if Artificial_Intelligence_LibreChat_config_checksum is string %}
+      # "librechat.yaml" as this run copied it -- see the same label on "litellm" for why a label
+      # nothing reads is what gets a changed configuration applied (#161).
+      artificial_intelligence.config_checksum: "{{ Artificial_Intelligence_LibreChat_config_checksum }}"
+{% endif %}
 
     environment:
       HOST: "0.0.0.0"
@@ -484,6 +501,17 @@ services:
   #   # Without this, a redeployment months later installs a version nobody chose, and the failure
   #   # that follows has no diff to show.
   #   image: vendor/image:1.2.3
+  #
+  #   # Only for a service that reads, at start, a configuration file this role writes and mounts:
+  #   # the file's checksum as a CONTAINER label, under "labels:" and never "deploy.labels:", which
+  #   # labels the service object and not its containers. Without it a changed file changes nothing
+  #   # in this one, and neither Compose nor Swarm recreates the container that reads it. The task
+  #   # writing the file registers its result, and "tasks/main.yml" passes ".checksum" to the
+  #   # deployment role as an "include_role" parameter, "false" in "defaults/main.yml" (#161).
+  # {% if Artificial_Intelligence_service_config_checksum is string %}
+  #   labels:
+  #     artificial_intelligence.config_checksum: "{{ Artificial_Intelligence_service_config_checksum }}"
+  # {% endif %}
   #
   #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
   #   # Compose and Swarm honour. "restart: unless-stopped", "mem_limit:" and "cpus:" work in Compose

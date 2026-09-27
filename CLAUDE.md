@@ -323,6 +323,14 @@ role's README rather than frozen into the role.
 6. **Variables reach the deployment role as `include_role` parameters**, never through a `set_fact` or
    a task-level `vars:`. Precedence 20 is the only form that beats a fact already set; that is what
    #459 cost the homelab repository.
+
+   The checksums of the two mounted configurations travel that way too (#161), and the label they
+   become on `litellm` and `librechat` -- `artificial_intelligence.config_checksum` -- is read by
+   nothing, on purpose. It is the only thing that changes the compose file when only a mounted
+   configuration changed; without it neither Compose nor Swarm recreates the container, which keeps
+   serving the old file while Ansible reports "changed". It sits under `labels:`, against invariant
+   4 and like LibreChat's lookup labels, because `deploy.labels` labels the service object, which
+   Swarm updates without replacing a task. `check_compose_template.py` refuses either move.
 7. **`requirements.yml` exists since #76, and it names exactly one collection.** The role used only
    `ansible.builtin.assert` and `ansible.builtin.include_role` until then; LibreChat's admin account
    (#76) needs `community.docker.docker_host_info` and `docker_container_exec` to reach the running

@@ -32,6 +32,7 @@ What it deliberately does NOT flag
 Dependencies: jinja2 and PyYAML, both of which arrive with ansible-core, which CI installs anyway.
 """
 
+import copy
 import sys
 from pathlib import Path
 
@@ -46,6 +47,21 @@ ROLE = Path(__file__).resolve().parents[2]
 PUBLISHED_NETWORK = {
     "Artificial_Intelligence_published_Docker_network_name": "DMZ",
     "Artificial_Intelligence_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
+}
+
+# The checksums "tasks/main.yml" hands the deployment role for each configuration a container mounts
+# (#161), and the service each one must label. Their default is "false", so the branch that writes
+# them is one no default render ever evaluates -- the same blind spot as the Claude Code agent's
+# toggle below. Fake but well-formed SHA-1s, distinct, so a label landing on the wrong service is
+# told apart from a label landing on the right one.
+CONFIG_CHECKSUM_LABEL = "artificial_intelligence.config_checksum"
+MOUNTED_CONFIG_CHECKSUMS = {
+    "Artificial_Intelligence_LiteLLM_config_checksum": "0123456789abcdef0123456789abcdef01234567",
+    "Artificial_Intelligence_LibreChat_config_checksum": "fedcba9876543210fedcba9876543210fedcba98",
+}
+CONFIG_CHECKSUM_CONSUMERS = {
+    "Artificial_Intelligence_LiteLLM_config_checksum": "litellm",
+    "Artificial_Intelligence_LibreChat_config_checksum": "librechat",
 }
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
@@ -202,6 +218,42 @@ def check_conventions(document, state, failures):
                 failures.append(f"{where}: references undeclared volume {source!r}")
 
 
+def check_config_checksums(off, on, failures):
+    """Hold the checksums to one CONTAINER label each, on the service that mounts the file, and nothing else.
+
+    The label is the whole mechanism of #161: a configuration a container reads at start is a bind
+    mount, so changing it changes nothing in the compose file, and neither "docker compose up" nor
+    "docker stack deploy" recreates what they see no difference in. Where the label sits is not a
+    detail. Under "labels:" it is part of the container's spec: Compose recreates the container, and
+    Swarm replaces the task. Under "deploy.labels:" it labels the SERVICE object, which Compose still
+    recreates for and Swarm updates WITHOUT replacing the task -- a fix that works on the test bench
+    and does nothing after the switch. "Everything under deploy:" is exactly the convention that
+    invites that move, which is why this is checked rather than left to a comment.
+    """
+    stripped = copy.deepcopy(on)
+    for variable, name in CONFIG_CHECKSUM_CONSUMERS.items():
+        where = f"service {name!r}"
+        expected = MOUNTED_CONFIG_CHECKSUMS[variable]
+        if CONFIG_CHECKSUM_LABEL in mapping(mapping(mapping(off, "services"), name), "labels"):
+            failures.append(f"[checksums unset] {where}: carries {CONFIG_CHECKSUM_LABEL!r} while {variable} is false")
+        block = mapping(mapping(stripped, "services"), name)
+        labels = mapping(block, "labels")
+        if labels.get(CONFIG_CHECKSUM_LABEL) != expected:
+            failures.append(
+                f"[checksums set] {where}: no container label {CONFIG_CHECKSUM_LABEL!r} carrying {variable} -- "
+                "under 'labels', never 'deploy.labels', which Swarm applies without replacing the task"
+            )
+            continue
+        del labels[CONFIG_CHECKSUM_LABEL]
+        if not labels and "labels" not in mapping(mapping(off, "services"), name):
+            del block["labels"]
+    if stripped != off:
+        failures.append(
+            f"setting the configuration checksums changed more than one {CONFIG_CHECKSUM_LABEL!r} "
+            "label per consuming service: it must change nothing else"
+        )
+
+
 def check_states(off, on, failures):
     """Hold the two rendered states to differing by the published network and by nothing else.
 
@@ -335,6 +387,50 @@ CONVENTION_CASES = [
     ("anonymous volume", {"services": {"svc": service(volumes=["/data"])}}, None),
 ]
 
+# (name, checksums unset, checksums set, expected substring or None). The LibreChat service already
+# carries labels of its own, the LiteLLM one none: both shapes are what the template really renders.
+_LITELLM = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LiteLLM_config_checksum"]
+_LIBRECHAT = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LibreChat_config_checksum"]
+_UNSET = {"services": {"litellm": service(), "librechat": service(labels={"stack": "s"})}}
+CONFIG_CHECKSUM_CASES = [
+    ("one container label each",
+     _UNSET,
+     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
+                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
+     None),
+    # The move "everything under deploy:" invites, and the one that does nothing under Swarm.
+    ("label under deploy.labels",
+     _UNSET,
+     {"services": {"litellm": service(deploy={"restart_policy": {"condition": "any"},
+                                              "resources": {"limits": {"memory": "512M"}},
+                                              "labels": {CONFIG_CHECKSUM_LABEL: _LITELLM}}),
+                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
+     "service 'litellm': no container label"),
+    ("label missing on one service",
+     _UNSET,
+     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
+                   "librechat": service(labels={"stack": "s"})}},
+     "service 'librechat': no container label"),
+    ("the two checksums swapped",
+     _UNSET,
+     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LIBRECHAT}),
+                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LITELLM})}},
+     "no container label"),
+    # "false" written into the label rather than the label left out: it would still recreate the
+    # container once, on the first run after it, for no reason.
+    ("label written while unset",
+     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: "False"}),
+                   "librechat": service(labels={"stack": "s"})}},
+     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
+                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
+     "while Artificial_Intelligence_LiteLLM_config_checksum is false"),
+    ("setting the checksums changed something else",
+     _UNSET,
+     {"services": {"litellm": service(image="vendor/image:9.9.9", labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
+                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
+     "it must change nothing else"),
+]
+
 # (name, off state, on state, expected substring or None)
 STATE_CASES = [
     ("only the network differs",
@@ -369,6 +465,15 @@ def selftest():
         try:
             check_conventions(document, "selftest", failures)
         except Exception as error:  # noqa: BLE001 - a crash IS the finding here
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, off, on, expected in CONFIG_CHECKSUM_CASES:
+        failures = []
+        try:
+            check_config_checksums(off, on, failures)
+        except Exception as error:  # noqa: BLE001
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
         problems.extend(_verdict(name, failures, expected))
@@ -418,6 +523,7 @@ def main():
         ("published network unset", {}),
         ("published network set", PUBLISHED_NETWORK),
         ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
+        ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
     ):
         context = dict(defaults, **extra)
         try:
@@ -431,6 +537,11 @@ def main():
             failures.append(f"[{state}] the rendered file is not valid YAML: {error}")
             continue
         check_conventions(documents[state], state, failures)
+
+    if "published network unset" in documents and "mounted configuration checksums set" in documents:
+        check_config_checksums(
+            documents["published network unset"], documents["mounted configuration checksums set"], failures
+        )
 
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
