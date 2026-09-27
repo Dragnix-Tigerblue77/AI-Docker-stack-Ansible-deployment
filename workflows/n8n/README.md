@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Dragnix-23
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 # N8N workflows — AIS
 
 Issue #20, Niveau 1 uniquement (API officielles — statistiques Twitch/YouTube/TikTok/X/Facebook/Instagram
