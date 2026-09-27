@@ -119,7 +119,7 @@ les siennes ici) :
 | `Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
@@ -394,17 +394,21 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
-`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
-d'entrées à travers Gemini, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute en dernier
-recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en
-accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il
-apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit. GitHub Models, initialement du
-nombre, en a été retiré (#109) : totalement fermé par GitHub le 2026-07-30, ses six entrées restent
-dans le fichier à titre d'archive, commentées, mais ne comptent plus dans le total actif. Les trois
-modèles que Groq a fermés en septembre 2026 (#169), eux, sont supprimés, selon la règle posée à
-cette occasion (`CLAUDE.md`, « The model list keeps only what can be called ») : `groq/compound` et
-`groq/compound-mini`, sans remplaçant, et `qwen/qwen3.6-27b`, dont le successeur désigné par Groq,
-`qwen/qwen3.8-27b`, était déjà déclaré et reprend sa place dans la cascade `flash-lite`.
+`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- 52 entrées actives à
+travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
+propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, seul
+fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il apparaît, juste
+avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
+(`CLAUDE.md`, « The model list keeps only what can be called ») : un modèle retiré par son fournisseur
+est supprimé, un modèle servi mais délibérément non routé reste commenté avec sa raison, un nouveau
+modèle est ajouté. #169 l'a appliquée à Groq, #200 à tous les autres (recensement du 2026-09-27) :
+GitHub Models, fermé par GitHub le 2026-07-30 (#109), est supprimé et non plus archivé ; Cerebras n'a
+plus de palier gratuit permanent (5 $ de crédit après ajout d'un moyen de paiement, expirés au bout
+de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée
+obligatoire, n'est plus lue par aucune entrée active ; Mistral ne donne plus qu'un crédit de 10 $
+par mois (« Free mode », sans carte), traité comme gratuit. Les entrées `:free` d'OpenRouter
+partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
+10 crédits achetés.
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
 siennes lui-même depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même modèle que ses autres
