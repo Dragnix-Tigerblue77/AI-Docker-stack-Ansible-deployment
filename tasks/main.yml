@@ -138,6 +138,27 @@
       otherwise, documented upstream as deliberately weak. Its port is published for the dashboard to
       be reachable from the LAN (#73), so this password is the one thing standing in front of it.
 
+# The compose template reads the PostgreSQL major off the head of this tag to choose where the data
+# volume is mounted: the official image moved its data directory at 18, and a volume left at the old
+# path makes 18 refuse to start, even on an empty volume (#168). A tag that does not begin with the
+# major would be read as major 0 and mounted the pre-18 way -- wrong for "latest" and "alpine",
+# which already name 18 or later -- so it is refused here, before anything is rendered. That also
+# holds this service to "never :latest", the implicit form included. "| string" because an unquoted
+# 17 in a caller's YAML is an integer, and a perfectly good major.
+- name: "Check the PostgreSQL image tag begins with its major version"
+  ansible.builtin.assert:
+    that:
+      - (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string) is match('[0-9]+([.@-]|$)')
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_PostgreSQL_Docker_image_tag" ({{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}) must begin
+      with the PostgreSQL major version, followed by ".", "-", "@" or nothing -- "17-alpine",
+      "17.6-alpine3.22", "18" -- never "latest", "alpine" or any other tag that leaves the major
+      implicit. The compose template reads the major off the tag to mount the data volume where that
+      major's image keeps its data: "/var/lib/postgresql/data" up to 17, "/var/lib/postgresql" from 18
+      (#168). Raising the major on a volume that already holds data is a migration, not a tag change:
+      see the comment above this variable in defaults/main.yml.
+
 - name: "Check the Qdrant API key is provided"
   ansible.builtin.assert:
     that:

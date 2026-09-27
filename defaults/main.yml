@@ -82,6 +82,25 @@ Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Int
 # MAJOR pinned explicitly, never ":latest". A major bump imposes a pg_dump / restore, so it must
 # never happen because a tag moved: it is a decision with a maintenance window, not a side effect.
 # Check the major is supported by the Prisma schema of the LiteLLM version below before raising it.
+#
+# The tag BEGINS with the major -- "17-alpine", "17.6-alpine3.22", "18" -- and "tasks/main.yml"
+# refuses one that does not. The compose template reads the major off it to mount the data volume
+# where that major's image keeps its data: "/var/lib/postgresql/data" up to 17, "/var/lib/postgresql"
+# from 18, where the official image moved it. A volume left at the old path makes 18 refuse to
+# start, on an empty volume too (#168).
+#
+# ! Raising the major on a volume that already holds a cluster is a MIGRATION, not a tag change: the
+# new major refuses the old cluster and exits -- nothing is lost, and nothing starts. The way across,
+# verified from 17 to 18 with LiteLLM and written out command by command in the README ("Monter
+# PostgreSQL d'un majeur"):
+#   1. with the OLD major still running and LiteLLM stopped, "pg_dump --format=custom" its database;
+#   2. raise this tag AND give "Artificial_Intelligence_PostgreSQL_data_Docker_volume_name" a new
+#      name: the new major initialises an empty volume, and the old one stays as the way back;
+#   3. deploy, stop LiteLLM, "pg_restore --clean --if-exists" the dump, start LiteLLM again;
+#   4. remove the old volume by hand once the new one has proved itself.
+# "pg_upgrade" is the other way -- in place, faster on a large store -- but it needs both majors'
+# binaries in one container, which the official image does not carry. For a store this size the
+# dump is the simpler of the two.
 Artificial_Intelligence_PostgreSQL_Docker_image_tag: "17-alpine"
 
 Artificial_Intelligence_PostgreSQL_database: "litellm"
