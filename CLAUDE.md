@@ -189,12 +189,13 @@ repository.** "Require branches to be up to date before merging" stays off --
 whatever cannot be updated automatically would be blocked rather than behind: a conflict, a fork, a
 draft, and every pull request after a Dependabot merge, which starts no workflow.
 `.github/workflows/auto_update_pull_request_branches.yml` does the updating instead, after every
-merge and hourly, as best effort. A public repository runs it, its minutes costing nothing; a
-private one, this one included, carries the same file switched off behind the
-`PULL_REQUESTS_UPDATE_ENABLED` repository variable, so that a workflow which runs nothing here is
-deliberate and not dead code, and switching it on is setting that variable and a credential (#145).
-Shared like the rule above (tigerblue77/Dell_iDRAC_fan_controller_Docker#512), and for the same
-reason (#147).
+merge and hourly, as best effort, and leaves Dependabot's own pull requests to Dependabot: a rebase
+pushed by anyone else strips the signature `dependabot-auto-merge.yml` checks before it merges
+(#149). A public repository runs it, its minutes costing nothing; a private one, this one included,
+carries the same file switched off behind the `PULL_REQUESTS_UPDATE_ENABLED` repository variable, so
+that a workflow which runs nothing here is deliberate and not dead code, and switching it on is
+setting that variable and a credential (#145). Shared like the rule above
+(tigerblue77/Dell_iDRAC_fan_controller_Docker#512), and for the same reason (#147).
 
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
