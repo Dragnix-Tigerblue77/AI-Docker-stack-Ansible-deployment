@@ -128,8 +128,13 @@ because forgetting them costs the same time every session.
   each review starts from a smaller diff than the last. "This is ready" makes the maintainer go and
   work all of that out from the diff, which is the work the session was supposed to have already
   done, done twice.
-* **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
-  ready for review and say in the body what is not verified, rather than using draft to mean that.
+* **Issues and pull requests are opened assigned to `tigerblue77`, and pull requests never as
+  drafts.** Draft is the owner's call and nobody else's. Open it ready for review and say in the body
+  what is not verified, rather than using draft to mean that. The assignee is set on the same call,
+  and missing it costs the same way: the maintainer's *Assigned* list is where the work is scheduled,
+  what is not on it has to be remembered instead, and the session that would come back to set it has
+  ended by then. Shared with every repository of the maintainer
+  (tigerblue77/Dell_iDRAC_fan_controller_Docker#448).
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
   the body is in French: GitHub recognises no other form. `Ferme #31` does nothing at all, and that
   is exactly what left #31 open after #34 had merged.
