@@ -119,7 +119,7 @@ les siennes ici) :
 | `Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
