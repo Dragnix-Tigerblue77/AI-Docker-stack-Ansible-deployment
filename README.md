@@ -369,6 +369,15 @@ du service `postgres` écrit dans le conteneur avant de passer la main à l'entr
 fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la tâche, et `/tmp` ne garde
 pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
 
+**PostgreSQL 15 au minimum**, et `tasks/main.yml` refuse un tag plus ancien : le script lit ses
+valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
+`pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
+`14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
+command \getenv`, les redémarrages suivants sautent l'initialisation, et PostgreSQL tourne, sonde de
+santé au vert, sans aucun rôle avec lequel LiteLLM puisse se connecter. Le rôle ne répare pas ce
+volume ; il ne contient rien de LiteLLM, et le supprimer, tag relevé, est la seule sortie.
+`15-alpine`, lui, a porté les 161 migrations de LiteLLM v1.100.0 sous son rôle ordinaire.
+
 ### Un volume créé avant le rôle dédié de LiteLLM
 
 L'image n'exécute `/docker-entrypoint-initdb.d/` que sur un répertoire de données **vide**. Sur un volume

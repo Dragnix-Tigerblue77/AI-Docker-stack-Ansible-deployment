@@ -81,6 +81,16 @@ Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Int
 
 # MAJOR pinned explicitly, never ":latest". A major bump imposes a pg_dump / restore, so it must
 # never happen because a tag moved: it is a decision with a maintenance window, not a side effect.
+#
+# 15 AT LEAST since #159, and "tasks/main.yml" refuses less. The init script that creates LiteLLM's
+# role reads its values with psql's "\getenv", new in 15, and LiteLLM owns its "public" schema only
+# because 15 handed that schema to "pg_database_owner". Below 15 the failure is silent and does not
+# go away: the first boot stops on "invalid command \getenv" and exits, every restart then finds an
+# initialised data directory, skips the init scripts and serves -- healthcheck green -- a cluster
+# with no role LiteLLM can log in as. The role will not repair it; the volume holds nothing of
+# LiteLLM's, so removing it, with this tag raised, is the way out. Measured: "14-alpine" fails
+# exactly so, and "15-alpine" takes LiteLLM v1.100.0's 161 migrations as its ordinary role.
+#
 # Check the major is supported by the Prisma schema of the LiteLLM version below before raising it.
 Artificial_Intelligence_PostgreSQL_Docker_image_tag: "17-alpine"
 
