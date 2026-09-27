@@ -64,7 +64,7 @@ Deux propriétés à connaître plutôt qu'à découvrir :
 Aucun de ces contrôles n'a besoin de la moindre machine du homelab.
 
 ```bash
-pip install -r requirements.txt          # ansible-core, ansible-lint, yamllint, reuse, PyYAML (épinglés)
+pip install -r requirements.txt          # ansible-core, ansible-lint, yamllint, reuse, PyYAML, Jinja2 (épinglés)
 ansible-galaxy collection install -r requirements.yml   # community.docker, depuis #76
 
 yamllint .
@@ -75,6 +75,8 @@ python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
+python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
+python3 .github/scripts/check_LiteLLM_model_drift.py       # hors ligne ; « --online » lit les catalogues des fournisseurs (clés requises, jamais lancé par la CI d'une pull request)
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
 python3 .github/scripts/check_sign_off.py --selftest
@@ -94,11 +96,13 @@ ANSIBLE_ROLES_PATH=.github/role_run/roles:~/.ansible/roles ansible-playbook \
 ```
 
 `check_no_inventory_data.py` et `check_sign_off.py` n'utilisent que la bibliothèque standard.
-`check_LiteLLM_account_isolation.py` lit PyYAML, et c'est la seule dépendance que ces contrôles se
-paient : sa version ligne à ligne ne voyait pas un repli inter-comptes écrit en style bloc — la
-forme même que produit tout sérialiseur YAML, donc `to_nice_yaml`. Un garde-fou qui dépend du style
-d'écriture de ce qu'il surveille n'en est pas un. `check_required_checks.py` la lit aussi,
-puisqu'elle était déjà payée.
+`check_LiteLLM_account_isolation.py` lit PyYAML, et c'est la seule dépendance de ce contrôle et de
+`check_required_checks.py` (qui la lit aussi, puisqu'elle était déjà payée) : sa version ligne à
+ligne ne voyait pas un repli inter-comptes écrit en style bloc — la forme même que produit tout
+sérialiseur YAML, donc `to_nice_yaml`. Un garde-fou qui dépend du style d'écriture de ce qu'il
+surveille n'en est pas un. `check_LiteLLM_model_drift.py` lit aussi PyYAML et y ajoute Jinja2 : il
+rend le modèle de configuration avec Jinja2 seul, donc sans les filtres propres à Ansible, au lieu
+de deviner ce que ses balises en feraient.
 
 Chacun sait se vérifier lui-même (`--selftest`) — un contrôle dont personne n'a jamais vu l'échec
 est un contrôle que personne ne croit. Le premier compare ses verdicts à neuf configurations dont
@@ -116,6 +120,7 @@ hook de démarrage de session.
 | Contrôle | Ce qu'il refuse |
 | --- | --- |
 | `check_LiteLLM_account_isolation.py` | Une configuration où le quota d'une personne peut payer l'appel d'une autre : un `model_name` qui regroupe deux comptes, un repli qui traverse une frontière de compte, une entrée dont l'étiquette ne dit pas la même chose que sa clé. |
+| `check_LiteLLM_model_drift.py` | Une liste de modèles qui ne se tient plus : une cascade ou un alias qui nomme une entrée absente ou commentée, un `model_name` en double, une entrée commentée qui ne donne pas sa raison, une ligne `drift-ignore:` mal formée, ou un modèle qui ne se rend plus. Il lit le modèle rendu avec toutes les clés de fournisseur données, par Jinja2 seul : un filtre que seul Ansible fournit lui est refusé. La moitié en ligne, qui compare la liste aux catalogues des fournisseurs, tourne chaque semaine dans `LiteLLM_model_drift.yml` et jamais sur une pull request. |
 | `check_no_inventory_data.py` | Une adresse IP ou un nom de domaine écrit en dur. Ils appartiennent à l'inventaire de l'appelant : un rôle qui les porte cesse d'être réutilisable, et publie le homelab au passage. Aussi un nom de personne dans l'interface du rôle (variable, variable d'environnement, service, volume, nom de tâche, lignes des tableaux de variables du README) : le rôle sert à des tiers, on nomme ce que la chose est, pas pour qui elle a été écrite. |
 | `check_required_checks.py` | Une liste de contrôles requis, `.github/rulesets/main.json`, qui ne correspond plus aux workflows : un contexte qu'aucun job ne rapporte (chaque mise à jour de Dependabot attendrait alors un humain sans que rien ne paraisse cassé), ou un job de `ansible-ci.yml`, de `gitleaks.yml` ou de `sign-off.yml` absent de la liste (une mise à jour rouge sur ce seul job fusionnerait quand même). Il refuse aussi un fichier qui ne vise plus la branche par défaut. |
 | `check_sign_off.py` | Une pull request dont un commit n'a pas de `Signed-off-by` exploitable : absent, cité au milieu du message plutôt qu'en trailer, sans adresse, ou qui ne nomme que l'agent. Voir *Signer son travail* plus bas. |
