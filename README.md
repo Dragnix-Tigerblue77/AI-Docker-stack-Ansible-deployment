@@ -356,6 +356,19 @@ d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent 
 portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
 rend inutile tout le travail d'isolation de #2.
 
+**Une migration de schéma qui échoue arrête LiteLLM, au lieu de le laisser servir sur l'ancien
+schéma.** LiteLLM applique ses migrations Prisma à chaque démarrage, et c'est une montée de tag -- celle
+que le paragraphe suivant réclame -- qui en apporte de nouvelles. Par défaut, une migration en échec
+est journalisée (« Database migration failed but continuing startup ») et le serveur démarre quand même :
+`/health/liveliness`, et même `/health/readiness` qui ne teste que la connexion, répondent 200, la
+politique de redémarrage n'a rien à rattraper, et c'est la première requête touchant une table absente
+qui échoue. Le template passe donc `--enforce_prisma_migration_check` : une migration en échec fait
+sortir le conteneur (code 1), la politique `condition: any` le relance, et la boucle de redémarrage
+reste visible jusqu'à ce que la cause soit levée -- la migration passe alors au démarrage suivant, sans
+autre intervention. Le prix : un échec passager coûte lui aussi un redémarrage. Si la boucle apparaît
+après une montée de tag, la migration en cause se lit dans les journaux du service `litellm`, sous
+`Error: P30…` ; retirer l'option pour que le service « démarre » ne ferait que rendre l'échec muet.
+
 **Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
 inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
 test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
@@ -379,6 +392,16 @@ rendu, question que Compose ne se pose de toute façon pas.
 donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
 l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
 d'essai.
+
+**La sonde de santé de `postgres` passe par TCP, sur le port de `DATABASE_URL`, et pas par le socket
+Unix (#153).** Au premier démarrage, l'image initialise le volume sur un serveur temporaire qui
+n'écoute que sur le socket ; une sonde par socket le déclarait sain alors que le port 5432 refusait
+encore tout autre conteneur -- mesuré : `healthy` à 5 s, port ouvert à 21 s sur une initialisation
+tenue ouverte 20 s. Une porte `service_healthy` ne vaut que ce que vaut la sonde, et la sonde ne
+sert pas qu'à cette porte : c'est elle que lisent `docker compose ps`, `docker compose up --wait`,
+et sous Swarm l'état des tâches et la surveillance d'une mise à jour. Le prix est qu'elle échoue
+pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start_period` puis
+`retries` × `interval`), contre une à deux secondes mesurées pour un premier démarrage ordinaire.
 
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 

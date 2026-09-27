@@ -43,11 +43,47 @@ because forgetting them costs the same time every session.
 * **Never hand over a file to download.** Any manual step is given as a **pre-filled link**: an issue
   creation URL carrying its title and body, the GitHub settings page concerned, the direct link to
   the item to delete. Downloading a file, opening it and copying it back out is slow and tedious.
+* **A command handed to the maintainer is complete, quiet, and runs as it is.** Pasted whole, it runs:
+  nothing to fill in by hand, no step left to infer, and no `sudo` -- the estate's machines have none,
+  and the maintainer already works as root where root is needed. What it prints is what the session
+  needs to read and no more: a long log goes to a file on the host, and what reaches the chat is
+  filtered, counted or summarised, because ten thousand pasted lines bury the one that mattered and
+  cost a round trip to filter again. All three were asked for in a homelab session, one incident at a
+  time, before being written down (Tigerblue77-personal/Homelab_Ansible_deployment#1054).
+* **An issue for a third-party project is drafted to that project's standard, and checked before it
+  is posted.** Its tracker is searched first, and an issue already open gets a comment rather than a
+  duplicate. The pre-filled link opens the project's own issue form (`issues/new?template=...`), not
+  a blank issue that a project using forms may have disabled, and the draft fills in every field the
+  form asks for. It goes out under the maintainer's name, so every claim in it is verified first,
+  not merely plausible. Both halves were paid for in the homelab repository: a report to qbit_manage
+  was called out on its own tracker as an AI issue that ignored the template, and Cleanuparr#798
+  stated as fact a diagnosis its maintainer disproved within half an hour.
 * **Proposals belong in the chat, not in an issue comment.** A comment posted to propose something is
   noise: the discussion happens in the session, and only the agreed result lands in the repository.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
+* **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
+  bodies and comments, in every repository but one group: the private repositories of the
+  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French while
+  code and commit messages stay in English. **This repository is in that group**, so its issues and
+  pull requests are written in French, as *Language* below says, and none of them is flagged. An
+  issue or a pull request found breaking this, in a repository it covers, is never let pass
+  silently: the maintainer is told, every time, with the link, and offered a translation, which is
+  made once they agree (Tigerblue77-personal/Homelab_Ansible_deployment#1006 and
+  Tigerblue77-personal/Homelab_Ansible_deployment#1037). It is written here all the same, as every
+  shared rule is, for the session that moves on from here to a sibling where it does apply.
+* **A public repository never names a private one**, never cites its issues or pull requests, and
+  never describes what it holds -- in a file, a commit message, a branch name, an issue, a pull
+  request or a comment. A private name or issue number written in public leaks that the repository
+  exists and something of what it contains, and it cannot be fully taken back: the commit history
+  keeps it, a pull request's refs keep it past a force-push, and an edited issue or comment keeps it
+  in its edit history. So a shared rule whose origin is private reaches a public repository as its
+  text alone, without the citation of where it was learned, or citing only references that are
+  public themselves; whether a repository is public is read off GitHub, not assumed. This repository
+  is private, so the rule constrains nothing written in it; it is here for the session that carries
+  a shared rule from here to a public sibling, which is exactly the one that would cite this
+  repository's issues there.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
   session still had in front of it -- which is the expensive half, and the half that was already
@@ -87,6 +123,19 @@ because forgetting them costs the same time every session.
   expensive place for it to surface. The judgement being asked for is narrow: routine calls a careful
   colleague would make alone stay made alone, and what gets asked is what changes the shape of the
   deliverable.
+* **The maintainer is not the session's memory.** They drive several agents at once, each on its own
+  subject, so what one session showed them fifteen minutes ago is not something they can be expected
+  to still have in mind. A session therefore never asks them what a command printed, what a setting
+  held when they looked, or anything else the session could have kept or can read again. When the
+  value is needed, it is read again -- by the session itself where it can, or else through a command
+  handed over that reads the current state and changes nothing, so that running it is always safe. A
+  change the answer calls for comes afterwards, as its own step for the maintainer to decide, and is
+  never folded into the command that reads. The rule on questions staying open keeps an unanswered
+  *decision* open; it does not turn a recollection into one. It was learned from exactly that, in a
+  session on the homelab repository: the same question about what a command had printed earlier in
+  the session, carried into four replies in a row to a maintainer busy with other sessions in
+  between, until they asked for questions like it to stop
+  (Tigerblue77-personal/Homelab_Ansible_deployment#1036).
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
   first, then what it rests on, then what is being asked. The failure in the other direction costs
@@ -105,8 +154,13 @@ because forgetting them costs the same time every session.
   each review starts from a smaller diff than the last. "This is ready" makes the maintainer go and
   work all of that out from the diff, which is the work the session was supposed to have already
   done, done twice.
-* **Pull requests are never opened as drafts.** Draft is the owner's call and nobody else's. Open it
-  ready for review and say in the body what is not verified, rather than using draft to mean that.
+* **Issues and pull requests are opened assigned to `tigerblue77`, and pull requests never as
+  drafts.** Draft is the owner's call and nobody else's. Open it ready for review and say in the body
+  what is not verified, rather than using draft to mean that. The assignee is set on the same call,
+  and missing it costs the same way: the maintainer's *Assigned* list is where the work is scheduled,
+  what is not on it has to be remembered instead, and the session that would come back to set it has
+  ended by then. Shared with every repository of the maintainer
+  (tigerblue77/Dell_iDRAC_fan_controller_Docker#448).
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
   the body is in French: GitHub recognises no other form. `Ferme #31` does nothing at all, and that
   is exactly what left #31 open after #34 had merged.

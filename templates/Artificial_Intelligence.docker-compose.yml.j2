@@ -58,13 +58,28 @@ services:
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
       #
+      # ! Over TCP, on the port "DATABASE_URL" below names -- never over the Unix socket, which is
+      #   what "pg_isready" picks without "-h". On a first boot the image initialises the store on a
+      #   TEMPORARY server started with "listen_addresses=''", the socket only, then stops it and
+      #   starts the real one. The socket probe answers "accepting connections" all through that
+      #   window, while port 5432 still refuses every other container (#153). Measured with the
+      #   window held open for 20 s: healthy at 5 s, TCP open at 21 s, and a container gated on
+      #   "service_healthy" started in between and found nothing. "127.0.0.1" rather than
+      #   "localhost", so the probe does not depend on what that name resolves to.
+      #
+      #   The price: the probe now FAILS for the whole of a first init. "start_period" (not counted)
+      #   plus "retries" x "interval" is about 35 s before "unhealthy", against 1.5 to 2 s measured
+      #   for an ordinary first boot. Swarm replaces an unhealthy task, so an init that ever gets
+      #   near that budget -- a slow disk, an init script -- needs a longer "start_period", which
+      #   costs nothing on the happy path: a success during it counts at once.
+      #
       # The user and the database are interpolated by ANSIBLE, at render time, rather than by the
       # shell inside the container. Both forms work; this one has no shell to be right about -- the
       # "$$" in the "replace" below is for Compose, as on every caller value (see this file's header),
       # not for a shell. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-U", "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') }}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') }}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -189,6 +204,23 @@ services:
       - "4000"
       - "--num_workers"
       - "{{ Artificial_Intelligence_LiteLLM_number_of_workers }}"
+      # A failed schema migration EXITS the container instead of being logged and walked past. Left
+      # out -- upstream's default at v1.100.0 -- LiteLLM prints "Database migration failed but
+      # continuing startup" and serves on whatever schema the database holds, typically the
+      # previous tag's one when a tag bump brings a migration that errors out. "/health/liveliness"
+      # and even "/health/readiness", which only tests the connection, answer 200 on it, so neither
+      # the healthcheck below nor "restart_policy" ever acts: what breaks is whichever request first
+      # reads what the migration should have created. Exiting hands the failure to
+      # "restart_policy.condition: any" instead -- a restart loop and a red line in the logs, which
+      # is what a migration that did not happen should look like (#163).
+      #
+      # The price: a transient failure restarts the container too, and the next start retries the
+      # migrations, which is what that case needs anyway. A database that stays unreachable is not
+      # what this is for: LiteLLM's own connection at startup already fails and exits then.
+      #
+      # The flag and the "ENFORCE_PRISMA_MIGRATION_CHECK" variable upstream's message names are one
+      # and the same click option; the flag is written here, beside the other startup options.
+      - "--enforce_prisma_migration_check"
 
     # Published, and this reverses #1's own original call -- see "Artificial_Intelligence_LiteLLM_UI_password" in
     # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
@@ -535,6 +567,10 @@ services:
   #
   #   # The image often ships one, better than anything written here: Docker inherits it as long as
   #   # the service declares none. Only write one to do better, not to do the same.
+  #   #
+  #   # A probe asks the question the service's CONSUMERS ask: over the port they connect to, not
+  #   # through a side door that opens earlier. PostgreSQL's socket answered while its port was
+  #   # still closed to every other container (#153).
   #   healthcheck:
   #     test: ["CMD", "…"]
   #     interval: 30s
