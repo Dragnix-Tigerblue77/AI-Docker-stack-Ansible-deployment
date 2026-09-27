@@ -63,6 +63,16 @@ because forgetting them costs the same time every session.
   noise: the discussion happens in the session, and only the agreed result lands in the repository.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
+* **A tool that is turned down is recorded, with why, in the issue that discussed it** -- and one
+  retired after it ran, with what running it taught. The next session looking at the same need starts
+  from that record rather than from nothing, and the maintainer can find what they only half remember:
+  on 2026-09-26 in a homelab session it was "we had found something better with another Claude
+  session, did you not see a trace of it in an issue?", and
+  Tigerblue77-personal/Homelab_Ansible_deployment#869 could answer only because it listed
+  TehRobot-Assistant/plex-dupefinder, goPlexr and Cleanarr with the reason each was passed over.
+  plex_dupefinder's own retirement went into the same issue, once it had stopped running. The record
+  belongs in the description, as the rule above says of everything essential, not in a comment under
+  it.
 * **One issue, one subject.** If a second subject appears, it is split off.
 * **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
   bodies and comments, in every repository but the private ones whose own instructions put issues
@@ -93,6 +103,28 @@ because forgetting them costs the same time every session.
   carries a shared rule from here to a public sibling. A third-party project -- an upstream this
   stack deploys, a tracker an issue goes to -- is not one of the maintainer's repositories, and none
   of this reaches it (#196, #203).
+* **A fix goes to the cause, and a workaround says that it is one.** Every fix proposed says which of
+  the two it is -- the maintainer's own question of
+  Tigerblue77-personal/Homelab_Ansible_deployment#849, on 2026-09-13, was "state of the art, or a
+  workaround?" -- and the one wanted is the cause. The next day, a stuck torrent added to Cleanuparr's
+  ignore list, which stopped its loop for that torrent alone, drew "I am not after a workaround". A
+  workaround is acceptable only as a stopgap labelled as one where it lands -- the commit, the pull
+  request, the comment above it -- with the cause still tracked by its own issue, and never as the fix
+  presented as the fix. A silent one is expensive precisely because it works: the symptom stops, and
+  with it the only signal that would ever have got the cause fixed. That Cleanuparr loop is the case
+  in point: its cause was the deployment's own settings, not the upstream bug first blamed for it
+  (Tigerblue77-personal/Homelab_Ansible_deployment#867).
+* **A pull request is preceded by its plan.** Before building one, the session says in the chat how it
+  means to do it -- where the change lives, what it touches, what it costs, what it leaves out -- and
+  builds once the maintainer has answered. A plan is redirected for the price of one message; a pull
+  request built on a premise the maintainer does not share costs the building, the review and the
+  closing. It was asked for on 2026-09-19 in a homelab session, about a new role that would have
+  ordered Docker after the media disk's mount (Tigerblue77-personal/Homelab_Ansible_deployment#882),
+  and it earned its keep within the hour: the maintainer did not want that mount in Ansible at all,
+  and the fix became one option on the fstab line they already kept by hand. This is how the approach
+  gets agreed, not an exception to the rule below: once it is, the issue and its pull request still go
+  out in the same breath, and an open detail still does not hold the pull request back. A change
+  nobody could shape two ways, such as a missing README row or a typo, does not wait on a plan.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
   session still had in front of it -- which is the expensive half, and the half that was already
@@ -105,6 +137,17 @@ because forgetting them costs the same time every session.
   the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
   question waited out is a session's context thrown away. What does stay unwritten is a fix that
   would be guesswork: there the pull request is the one thing not opened, and the issue says so.
+* **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
+  session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
+  maintainer's to choose, never the session's to offer as the default. A session that ends takes its
+  context with it, so a deferral it volunteered is exactly the work nobody is left to do: the audit
+  behind Tigerblue77-personal/Homelab_Ansible_deployment#1054 found a one-off pass promised for
+  "tomorrow" and never delivered, and a fix put off at 16:37 on 2026-09-13 that the maintainer had to
+  chase at 19:22. It was asked for twice on 2026-09-14, first as "there is no 'after', move on!",
+  then, when "another day" was offered, as "no, it's half past six, go!". Waiting for the maintainer's
+  answer -- to a plan, to a question -- is not postponing: it is their decision being waited for, not
+  the session's own. What they defer is deferred, and gets a durable reminder rather than a sentence
+  in the chat.
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
@@ -227,6 +270,16 @@ the issue's own example config used `${POSTGRES_PASSWORD}`, and that was read as
 an illustration to translate. It cost a second commit to undo.
 
 **Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
+
+**The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
+provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a
+commented-out corpse only misleads the next audit into re-checking it. A model the provider still
+serves but that this list deliberately does not route to stays **commented out, with its reason** on
+the line above it: paid, bank card required, enterprise contract only, and so on -- that comment is
+the answer to "why is it not used", so it is written once instead of being rediscovered. New models
+are **added** as providers publish them, so the list tracks each provider's current catalogue rather
+than the day it was written. Each claim cites the provider's own page and the date it was checked.
+The maintainer set this rule on 2026-09-27 (#169), after the first retirements had been commented out.
 
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
 with the issue number in parentheses when there is one -- `Lay down the Ansible role and compose
@@ -377,7 +430,11 @@ role's README rather than frozen into the role.
    orchestrator stops it cleanly, the process exits 0, and `on-failure` never replaces a task that
    exited cleanly: the service sits at 0 replicas and its URL answers a bare 404 with nothing logged.
 4. **Everything under `deploy:`.** It is the only form *both* Compose and Swarm honour. `restart:`,
-   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm.
+   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm. `depends_on`
+   fails the other way, loudly: its long form (`condition: service_healthy`) passes
+   `docker compose config` and gets the *whole file* refused by `docker stack deploy`, so it is a
+   plain list of service names, with no health condition, and a start that comes too early is the
+   restart policy's to catch (#154). `check_compose_template.py` refuses any other form.
 5. **The commented service model lives inside a `{% raw %}` block.** Without it, its Jinja expressions
    would render their values, and an unset published network would print as `- False`.
 6. **Variables reach the deployment role as `include_role` parameters**, never through a `set_fact` or
