@@ -73,6 +73,17 @@ because forgetting them costs the same time every session.
   made once they agree (Tigerblue77-personal/Homelab_Ansible_deployment#1006 and
   Tigerblue77-personal/Homelab_Ansible_deployment#1037). It is written here all the same, as every
   shared rule is, for the session that moves on from here to a sibling where it does apply.
+* **A public repository never names a private one**, never cites its issues or pull requests, and
+  never describes what it holds -- in a file, a commit message, a branch name, an issue, a pull
+  request or a comment. A private name or issue number written in public leaks that the repository
+  exists and something of what it contains, and it cannot be fully taken back: the commit history
+  keeps it, a pull request's refs keep it past a force-push, and an edited issue or comment keeps it
+  in its edit history. So a shared rule whose origin is private reaches a public repository as its
+  text alone, without the citation of where it was learned, or citing only references that are
+  public themselves; whether a repository is public is read off GitHub, not assumed. This repository
+  is private, so the rule constrains nothing written in it; it is here for the session that carries
+  a shared rule from here to a public sibling, which is exactly the one that would cite this
+  repository's issues there.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
   session still had in front of it -- which is the expensive half, and the half that was already
