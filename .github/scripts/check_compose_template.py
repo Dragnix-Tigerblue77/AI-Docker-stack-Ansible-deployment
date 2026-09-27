@@ -332,8 +332,8 @@ CONVENTION_CASES = [
     ("depends_on, long form",
      {"services": {"svc": service(depends_on={"db": {"condition": "service_healthy"}})}},
      "depends_on must be a list of service names"),
-    # The shape the homelab repository keeps commented out beside its own short forms: a list, but
-    # of mappings, which is neither form.
+    # A list, but of mappings, which is neither form: the long form written into the short form's
+    # list, an easy slip between the two.
     ("depends_on, list of mappings",
      {"services": {"svc": service(depends_on=[{"db": {"condition": "service_healthy"}}])}},
      "depends_on must be a list of service names"),
