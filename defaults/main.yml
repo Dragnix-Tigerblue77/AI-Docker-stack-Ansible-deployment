@@ -2,6 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # defaults file for deploy_Artificial_Intelligence_Docker_stack
+#
+# A variable with NO default -- a secret, a host path, anything this role does not get to presuppose
+# -- is still declared here, as a commented-out line of its own, "# Name:", beside the comment saying
+# why. That line is read: ".github/scripts/check_compose_template.py" resolves a default derived from
+# such a variable the way it renders the variable itself, and reports a reference to a name that is
+# neither defined nor declared that way as the misspelling it most likely is (#184).
 
 # The stack name, which is its namespace to the orchestrator: Swarm labels its services with it and
 # Compose names its project after it, so it is what answers "is this stack already deployed on this

@@ -565,6 +565,16 @@ L'état « désactivé » est celui que personne ne regarde, et une condition Ji
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
 rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
 
+Avant tout rendu, il résout les valeurs par défaut qui en interpolent d'autres -- un chemin de
+destination est un répertoire suivi d'un nom de fichier -- et il les résout comme Ansible (#184) : une
+référence à un nom que `defaults/main.yml` ne définit pas, et qu'il ne déclare pas non plus obligatoire
+par une ligne commentée `# <nom>:`, est un constat et non une chaîne vide ; un défaut qui s'interpole
+lui-même aussi ; et un filtre, un test ou une fonction que seul Ansible fournit (`ternary`, `bool`,
+`lookup()`…) est signalé comme tel au lieu de faire planter le contrôle. Dans chacun de ces cas, comme
+pour un gabarit Jinja2 invalide, le template n'est pas rendu et le contrôle sort en erreur : le rendu
+porterait une valeur qu'aucun déploiement n'écrit. Un défaut dérivé d'une variable obligatoire, lui,
+est de l'Ansible ordinaire : il se résout comme le rendu écrit la variable elle-même, vide.
+
 ## Exemple d'appel
 
 ```yaml
