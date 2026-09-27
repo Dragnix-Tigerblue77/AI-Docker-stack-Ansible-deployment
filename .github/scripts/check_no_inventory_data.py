@@ -63,6 +63,14 @@ ALLOWED_HOSTS = {
     "docs.litellm.ai": "gateway documentation, cited in a comment",
     "code.claude.com": "Claude Code documentation, cited in .claude/README.md",
     "json.schemastore.org": "JSON schema referenced by .claude/settings.json for editor validation",
+    # The official APIs the Level 1 collector of #20 calls, one per platform. That level exists
+    # precisely to read these and nothing else ("never scrape what an official API gives"), so the
+    # host is the platform's public endpoint rather than anything of the caller's.
+    "api.twitch.tv": "Twitch's official Helix API, called by the Level 1 stats collector (#20)",
+    "www.googleapis.com": "Google's API host, serving the YouTube Data API the Level 1 stats collector calls (#20)",
+    "open.tiktokapis.com": "TikTok's official Display API, called by the Level 1 stats collector (#20)",
+    "api.x.com": "X's official API, called by the Level 1 stats collector (#20)",
+    "graph.facebook.com": "Meta's official Graph API, for the Facebook and Instagram Level 1 stats collectors (#20)",
     "ai.google.dev": "Gemini terms of use, cited in #2",
     "generativelanguage.googleapis.com": "Google AI Studio's OpenAI-compatible endpoint (#2)",
     "api.sambanova.ai": "SambaNova's API endpoint, in the entries #2 keeps commented out",
