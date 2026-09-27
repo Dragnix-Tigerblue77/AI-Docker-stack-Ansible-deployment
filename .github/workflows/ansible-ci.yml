@@ -41,6 +41,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # How "dependabot-auto-merge.yml" runs this workflow on main once it has merged an update: that
+  # merge is a push made with GITHUB_TOKEN, which starts no "push" run, so its merge commit would
+  # otherwise be the one head of main nothing checks (#180). GitHub refuses a dispatch to a workflow
+  # without this trigger, which is why "check_required_checks.py" refuses its removal. It also lets
+  # anyone with write access run these checks by hand, on any branch, from the Actions tab -- on a
+  # Dependabot branch, that run counts for the merge gate as the pull request's own does: same
+  # jobs, same head commit.
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -354,9 +354,13 @@ role's README rather than frozen into the role.
    that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
    ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
    checking lands updates nothing checked: nothing else here would stop it. It runs on
-   `workflow_run`, from `main`'s definition, and checks nothing out, because it is the one job
+   `workflow_run`, from `main`'s definition, and checks nothing out, because it has the only jobs
    holding a write token and no job may both hold one and run code from a pull request -- a freshly
-   bumped dependency is exactly that code. `main.json` names every job of the two workflows one by
+   bumped dependency is exactly that code. Its merge, a push made with `GITHUB_TOKEN`, starts no
+   workflow, so its second job dispatches `ansible-ci.yml` and `gitleaks.yml` on `main` right after
+   (#180): without it, that merge commit is the one head of `main` no run ever checks. Both keep a
+   `workflow_dispatch:` trigger for it, and `check_required_checks.py` refuses a workflow the gate
+   listens to and does not dispatch. `main.json` names every job of the two workflows one by
    one rather than one aggregate job (the workflow's header says why), and
    `check_required_checks.py` holds it to them in both directions. The day the repository can
    enforce a ruleset, import `main.json` and take postfix-relay's `--auto` workflow instead.

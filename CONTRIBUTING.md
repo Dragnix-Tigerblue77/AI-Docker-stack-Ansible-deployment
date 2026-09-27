@@ -41,6 +41,12 @@ de `ansible-ci.yml` et de `gitleaks.yml`, par leur `name:`. Renommer ou ajouter 
 modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue tant que ce n'est
 pas fait.
 
+Cette fusion-là ne lance d'elle-même aucun workflow sur `main` : GitHub n'en démarre aucun pour un
+push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Ansible CI` et `gitleaks` sur
+`main` juste après avoir fusionné (#180) : ce sont les runs d'événement `workflow_dispatch` qu'on
+voit alors sur `main` dans l'onglet Actions. Les deux workflows gardent pour cela leur déclencheur
+`workflow_dispatch:`, qui permet aussi de les lancer à la main, sur n'importe quelle branche.
+
 Deux propriétés à connaître plutôt qu'à découvrir :
 
 * `git commit --no-verify` le contourne sans rien dire. C'est une propriété de git, et le
