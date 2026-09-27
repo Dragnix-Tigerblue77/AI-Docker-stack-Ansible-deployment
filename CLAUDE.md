@@ -50,8 +50,8 @@ because forgetting them costs the same time every session.
 * **One issue, one subject.** If a second subject appears, it is split off.
 * **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
   bodies and comments, in every repository but one group: the private repositories of the
-  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French and the
-  code and commit messages still are not. **This repository is in that group**, so its issues and
+  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French while
+  code and commit messages stay in English. **This repository is in that group**, so its issues and
   pull requests are written in French, as *Language* below says, and none of them is flagged. An
   issue or a pull request found breaking this, in a repository it covers, is never let pass
   silently: the maintainer is told, every time, with the link, and offered a translation, which is
