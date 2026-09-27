@@ -68,9 +68,9 @@ Artificial_Intelligence_published_Docker_network_definition: false
 # --------------------------------------------------------------------------------------------------
 
 # The gateway's routing configuration, mounted read-only into the container. #1 renders the file and
-# its general settings; #2 fills its model list. It carries no secret of its own -- both are
-# interpolated straight into the compose template below, not into a file of their own -- so it needs
-# neither "0600" nor "no_log".
+# its general settings; #2 fills its model list. It carries no secret of its own: every secret it
+# needs is an "os.environ/..." reference to the gateway container's environment, which the compose
+# template fills -- so it needs neither "0600" nor "no_log".
 Artificial_Intelligence_LiteLLM_config_file_name: "LiteLLM_config.yaml"
 Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LiteLLM_config_file_name }}"
 

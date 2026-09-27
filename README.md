@@ -33,10 +33,11 @@ mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Doc
 `Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
-Le modèle commenté en tête du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`) porte les conventions
-qu'un bloc de service doit tenir : image épinglée par version, limite mémoire déclarée,
-`deploy.restart_policy.condition: any`, aucun port publié pour un service interne, aucun secret en
-clair. Elles sont écrites là plutôt que dans un document séparé parce que c'est là qu'on les oublie.
+Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
+après les services, porte les conventions qu'un bloc de service doit tenir : image épinglée par
+version, limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié pour un
+service interne, aucun secret en clair. Elles sont écrites là plutôt que dans un document séparé
+parce que c'est là qu'on les oublie.
 
 ## Un rôle paramétrable, pas un rôle spécifique
 
@@ -221,11 +222,12 @@ modèle commenté du template met en garde contre.
 
 ## LibreChat -- l'interface humaine du stack Artificial Intelligence (#76)
 
-**`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja : la clé
-d'API y est lue par LibreChat lui-même, avec sa propre syntaxe `${VAR}`, depuis l'environnement du
-conteneur -- Ansible n'a rien à y interpoler. Repris du POC fonctionnel de tigerblue77, avec trois
-corrections : deux identifiants de modèles absents du `model_list` réel de #2, et une `apiKey` qui
-portait la clé maîtresse de la passerelle plutôt qu'une clé virtuelle dédiée.
+**`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja, et il ne
+porte aucun secret : son `apiKey` vaut `"user_provided"` depuis #103, chaque compte LibreChat
+saisissant lui-même sa propre clé de la passerelle -- Ansible n'a rien à y interpoler. Repris du POC
+fonctionnel de tigerblue77, avec trois corrections : deux identifiants de modèles absents du
+`model_list` réel de #2, et une `apiKey` qui portait la clé maîtresse de la passerelle plutôt qu'une
+clé virtuelle dédiée.
 
 **L'inscription est fermée.** Le port `3080` est publié sur le LAN, et une inscription ouverte y
 donnerait à n'importe qui sur le réseau un accès aux quotas des deux comptes.
@@ -292,10 +294,11 @@ charge, et ce rôle-là doit :
 2. lire `Docker_stack_name`, `Docker_compose_file_destination_path` et
    `Docker_compose_file_destination_directory`, que `tasks/main.yml` lui passe en paramètres
    d'`include_role` ;
-3. écrire le fichier rendu en **`0600` et avec `diff: false`**. Le stack n'interpole encore aucun secret,
-   mais il en interpolera dès la première issue de service -- clés d'API de quatre fournisseurs, clé
-   maîtresse de la passerelle, jetons. `/tmp` est le premier endroit où tout compte de la machine regarde,
-   et `--diff` imprimerait le fichier *entier* dans la sortie du run, donc dans tout ce qui la capture.
+3. écrire le fichier rendu en **`0600` et avec `diff: false`**. Il porte en clair les secrets des
+   services, qu'Ansible y interpole -- mots de passe des bases et des interfaces, clé maîtresse de la
+   passerelle, clés des fournisseurs, clés et jetons des services. `/tmp` est le premier endroit où
+   tout compte de la machine regarde, et `--diff` imprimerait le fichier *entier* dans la sortie du
+   run, donc dans tout ce qui la capture.
 
 Et une quatrième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
 exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `assert` ne peuvent le deviner —
@@ -316,7 +319,7 @@ et `Docker_stack_deployment_state`.
 
 ## La passerelle et sa base (#1)
 
-Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte les deux
+Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte leurs
 secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
 lecture seule et sans secret propre.
 
@@ -332,12 +335,15 @@ sa place. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAM
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
 
-**Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `Artificial_Intelligence_PostgreSQL_password`
-et `Artificial_Intelligence_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
-qui permet à la même forme de servir Compose et Swarm sans y toucher : Ansible rend ce fichier de la
-même façon quel que soit celui qui le lira ensuite. C'est aussi pourquoi le fichier compose porte déjà
-l'obligation `0600` / `diff: false` du contrat du rôle de déploiement : elle existe depuis #31,
-précisément pour le jour où le template interpolerait un secret.
+**Les secrets vivent dans le fichier compose, pas dans un `.env` à part.**
+`Artificial_Intelligence_PostgreSQL_password` et `Artificial_Intelligence_LiteLLM_master_key` d'abord,
+puis ceux que chaque issue de service a apportés depuis (voir les tableaux de variables plus haut) --
+tous, sauf le mot de passe du compte LibreChat de Dragnix, que seul `create-user` reçoit (#76). Ce
+sont des variables du rôle, que l'appelant rend depuis son vault et qu'Ansible interpole au rendu,
+comme le reste du template -- c'est ce qui permet à la même forme de servir Compose et Swarm sans y
+toucher : Ansible rend ce fichier de la même façon quel que soit celui qui le lira ensuite. C'est aussi
+pourquoi le fichier compose porte l'obligation `0600` / `diff: false` du contrat du rôle de
+déploiement : elle existe depuis #31, précisément pour le jour où le template interpolerait un secret.
 
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
@@ -368,7 +374,7 @@ les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, don
 
 L'interpolation par Ansible plutôt que par un `.env` a réglé le premier problème d'elle-même : rendre
 le fichier compose est le travail d'Ansible, pas de l'orchestrateur, donc la bascule Compose → Swarm ne
-change rien à la façon dont les deux secrets y arrivent.
+change rien à la façon dont les secrets y arrivent.
 
 Ce qui reste à traiter à ce moment-là : **LiteLLM lit `os.environ/…`** pour sa clé maîtresse et son URL
 de base, valeurs que le compose lui passe en clair via `environment:`. Swarm sait faire pareil, à
@@ -584,8 +590,10 @@ redémarre dessus sans le voir.
   machine : la mesure sous charge des limites mémoire, la persistance après un `down` / `up`,
   l'idempotence sur un second passage, et, hors du périmètre de #3, la création des collections
   Qdrant une fois le modèle d'embedding choisi (#21).
-- **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
-  tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
+- **Il ne fournit ni `.env` ni `.env.example`, et n'en fournira pas.** #31 et #32 revendiquaient tous
+  deux le `.env.example` ; #1 a tranché autrement : chaque secret est une variable du rôle, interpolée
+  par Ansible dans le fichier rendu (voir « Les secrets vivent dans le fichier compose » plus haut). Le
+  `.gitignore` et l'intégration continue sont arrivés avec #32.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation
   collecteur / acteur et que c'est cette décision-là qui dira s'il en faut deux ou trois. Un squelette qui
   la préempterait ferait le contraire de son travail.
