@@ -44,3 +44,16 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 path = ["**/*.json"]
 SPDX-FileCopyrightText = "2026 Tigerblue77"
 SPDX-License-Identifier = "AGPL-3.0-only"
+
+# The n8n collector of #20 is the one group of JSON files here that someone else wrote: all seven
+# are Dragnix-23's (8fbe76c), and the later commit that renamed "AIS" in their workflow and
+# credential names changed identifiers, not authorship. CONTRIBUTING.md is explicit that a
+# contributor keeps the copyright in what he writes, so the rule above would make "reuse lint" green
+# with a name that is not true -- the one thing a header must never do. The README next to them
+# names him in its own header; this is the same statement for the files that cannot carry one.
+#
+# It has to stay BELOW "**/*.json": when two annotations match a file, the last one here wins.
+[[annotations]]
+path = "workflows/n8n/**/*.json"
+SPDX-FileCopyrightText = "2026 Dragnix-23"
+SPDX-License-Identifier = "AGPL-3.0-only"
