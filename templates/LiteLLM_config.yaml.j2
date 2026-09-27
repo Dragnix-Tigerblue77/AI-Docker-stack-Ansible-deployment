@@ -257,7 +257,7 @@ model_list:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
-  # Groq's designated successor to "qwen/qwen3.6-27b" (retired, below), and so its replacement in the
+  # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
   # the name: on the free tier ("console.groq.com/docs/rate-limits", Free Plan Limits: 30 RPM, 8K TPM,
   # the same as both gpt-oss entries above), and in instruct mode unless a request asks otherwise --
@@ -270,31 +270,12 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
-  # RETIRED by Groq 2026-09-14 (#169), per "console.groq.com/docs/deprecations": "we announced the
-  # deprecation of qwen/qwen3.6-27b in favor of qwen/qwen3.8-27b" -- the entry just above, which takes
-  # its slot in flash-lite. It was #2's other designated replacement for "llama-3.3-70b-versatile"
-  # (shut down 2026-08-16), and outlived it by four weeks. Commented out rather than deleted, same
-  # treatment as "gemma-4-31b-cerebras" above.
-  # - model_name: qwen3-6-27b-groq
+  # Usable on Groq but deliberately not routed to: Enterprise only. "console.groq.com/docs/model/
+  # minimaxai/minimax-m2.7", checked 2026-09-27: "available to Enterprise customers. Contact sales for
+  # access." -- it has no row in the Free Plan Limits table, and no free or developer quota to route to.
+  # - model_name: minimax-m2-7-groq
   #   litellm_params:
-  #     model: groq/qwen/qwen3.6-27b
-  #     api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-
-  # RETIRED by Groq 2026-09-21 (#169), per "console.groq.com/docs/deprecations": "Both systems will be
-  # decommissioned on September 21, 2026. Beginning on that date, requests to these model IDs will
-  # return errors." Groq names no replacement. Compound called web search and code execution on its
-  # own; on Groq those two tools now exist only on the gpt-oss models, and only for a request that
-  # declares them ("console.groq.com/docs/tool-use/built-in-tools"). Both gpt-oss entries already sit
-  # ahead of these two in the flash and flash-lite cascades, so nothing takes their slots. Commented
-  # out rather than deleted, same as above.
-  # - model_name: compound-groq
-  #   litellm_params:
-  #     model: groq/groq/compound
-  #     api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-  #
-  # - model_name: compound-mini-groq
-  #   litellm_params:
-  #     model: groq/groq/compound-mini
+  #     model: groq/minimaxai/minimax-m2.7
   #     api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
   # ============================================================================
@@ -595,7 +576,7 @@ router_settings:
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
     # ultra-high speed. "compound-mini-groq" and "qwen3-6-27b-groq" dropped by #169, both retired by
-    # Groq in September 2026 (see the model_list comments above); "qwen3-8-27b-groq", Groq's designated
+    # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one.
     - flash-lite:

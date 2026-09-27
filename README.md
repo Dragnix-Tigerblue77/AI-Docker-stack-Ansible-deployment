@@ -400,8 +400,9 @@ recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSe
 accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il
 apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit. GitHub Models, initialement du
 nombre, en a été retiré (#109) : totalement fermé par GitHub le 2026-07-30, ses six entrées restent
-dans le fichier à titre d'archive, commentées, mais ne comptent plus dans le total actif. Même
-traitement pour trois modèles que Groq a fermés en septembre 2026 (#169) : `groq/compound` et
+dans le fichier à titre d'archive, commentées, mais ne comptent plus dans le total actif. Les trois
+modèles que Groq a fermés en septembre 2026 (#169), eux, sont supprimés, selon la règle posée à
+cette occasion (`CLAUDE.md`, « The model list keeps only what can be called ») : `groq/compound` et
 `groq/compound-mini`, sans remplaçant, et `qwen/qwen3.6-27b`, dont le successeur désigné par Groq,
 `qwen/qwen3.8-27b`, était déjà déclaré et reprend sa place dans la cascade `flash-lite`.
 

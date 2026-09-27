@@ -264,6 +264,16 @@ an illustration to translate. It cost a second commit to undo.
 
 **Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
 
+**The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
+provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a
+commented-out corpse only misleads the next audit into re-checking it. A model the provider still
+serves but that this list deliberately does not route to stays **commented out, with its reason** on
+the line above it: paid, bank card required, enterprise contract only, and so on -- that comment is
+the answer to "why is it not used", so it is written once instead of being rediscovered. New models
+are **added** as providers publish them, so the list tracks each provider's current catalogue rather
+than the day it was written. Each claim cites the provider's own page and the date it was checked.
+The maintainer set this rule on 2026-09-27 (#169), after the first retirements had been commented out.
+
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
 with the issue number in parentheses when there is one -- `Lay down the Ansible role and compose
 skeleton of the AIS (#31)`. Body: prose paragraphs explaining *why* and what it cost to find out, not
