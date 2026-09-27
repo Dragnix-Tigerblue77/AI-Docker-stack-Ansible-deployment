@@ -143,8 +143,11 @@ services:
   # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
   #
   # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
-  # the most sensitive component of the stack, which is exactly why its port is published under basic
-  # auth rather than left open behind nothing: see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
+  # the most sensitive component of the stack, which is exactly why its published port is not left
+  # open behind nothing: its API answers only to a key -- the master key or a virtual one -- and "/ui"
+  # only after a login through its own form, the admin's being "UI_USERNAME" / "UI_PASSWORD" below.
+  # That login is a form and a session cookie, not HTTP basic auth, and none of it is TLS: see
+  # "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
   # ------------------------------------------------------------------------------------------------
   litellm:
     # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
@@ -157,9 +160,10 @@ services:
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
       #
-      # Interpolated by Ansible, like the two secrets below -- see the note on "POSTGRES_PASSWORD"
-      # above. LiteLLM itself still reads both from ITS OWN container environment at "os.environ/...",
-      # which "LiteLLM_config.yaml.j2" points at: what changes is where that environment variable gets
+      # This URL and the master key below are interpolated by Ansible, like every other secret of this
+      # block -- see the note on "POSTGRES_PASSWORD" above. LiteLLM itself still reads both from ITS OWN
+      # container environment, at the "os.environ/..." references "LiteLLM_config.yaml.j2" carries for
+      # them: what Ansible changes is where that environment variable gets
       # its value from, never how LiteLLM consumes it.
       DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
@@ -222,8 +226,9 @@ services:
     # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
     # it has to be reachable with nothing more than a browser on the LAN, before the reverse proxy
     # this stack does not own exists to do it instead. The cost is real and is not waived by this
-    # comment: no TLS, and basic auth (above) as the only thing standing between the master key's
-    # container and the LAN. Revisit the day a reverse proxy is in front of it.
+    # comment: no TLS, so the "/ui" login form (above) and the API's keys cross the LAN in clear text,
+    # and they are all that stands between the LAN and the master key's container. Revisit the day a
+    # reverse proxy is in front of it.
     ports:
       - "4000:4000"
 
@@ -587,9 +592,14 @@ services:
   #   environment:
   #     TZ: "{{ Artificial_Intelligence_server_time_zone }}"
   #
-  #   # A secret is never written in clear text here. Two forms are possible, one or the other
-  #   # depending on the caller's orchestrator: a native secret mounted under "/run/secrets/", or a
-  #   # variable drawn from an unversioned ".env". What is forbidden is the literal value.
+  #   # A secret is never written in clear text in this repository, here or anywhere else. It is a
+  #   # variable of this role, MANDATORY and without a default, that the caller fills from its vault,
+  #   # and Ansible interpolates it into this file at render time like every other value -- which is
+  #   # why the deployment role writes the rendered file "0600" and with "diff: false". There is one
+  #   # form and not two: never a ".env", nor a "${VAR}" left for Compose to resolve from one. That
+  #   # would be a second file to secure, a second path to keep in sync with the first, and a question
+  #   # at the switch to Swarm that interpolating at render time never raises. Native orchestrator
+  #   # secrets under "/run/secrets/" are an open question (#83), not an option yet.
   #
   #   networks:
   #     - {{ Artificial_Intelligence_internal_Docker_network_name }}

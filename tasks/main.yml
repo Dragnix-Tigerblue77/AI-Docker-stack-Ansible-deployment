@@ -254,9 +254,9 @@
     group: "root"
     mode: "0644"
 
-# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja of its own, only
-# LibreChat's own "${VAR}" syntax, which LibreChat itself resolves from its container's environment
-# at runtime -- Ansible has nothing to interpolate here.
+# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja and no secret. Its
+# "apiKey" is "user_provided" since #103, each LibreChat account entering its own gateway key
+# itself, so Ansible has nothing to interpolate here.
 - name: "Deploy the LibreChat configuration"
   ansible.builtin.copy:
     src: "librechat/librechat.yaml"
