@@ -41,12 +41,27 @@ services:
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
       #
+      # ! Over TCP, on the port "DATABASE_URL" below names -- never over the Unix socket, which is
+      #   what "pg_isready" picks without "-h". On a first boot the image initialises the store on a
+      #   TEMPORARY server started with "listen_addresses=''", the socket only, then stops it and
+      #   starts the real one. The socket probe answers "accepting connections" all through that
+      #   window, while port 5432 still refuses every other container (#153). Measured with the
+      #   window held open for 20 s: healthy at 5 s, TCP open at 21 s, and a container gated on
+      #   "service_healthy" started in between and found nothing. "127.0.0.1" rather than
+      #   "localhost", so the probe does not depend on what that name resolves to.
+      #
+      #   The price: the probe now FAILS for the whole of a first init. "start_period" (not counted)
+      #   plus "retries" x "interval" is about 35 s before "unhealthy", against 1.5 to 2 s measured
+      #   for an ordinary first boot. Swarm replaces an unhealthy task, so an init that ever gets
+      #   near that budget -- a slow disk, an init script -- needs a longer "start_period", which
+      #   costs nothing on the happy path: a success during it counts at once.
+      #
       # The user and the database are interpolated by ANSIBLE, at render time, rather than by the
       # shell inside the container. Both forms work; this one has no shell and no "$$" escaping to be
       # right about. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -534,6 +549,10 @@ services:
   #
   #   # The image often ships one, better than anything written here: Docker inherits it as long as
   #   # the service declares none. Only write one to do better, not to do the same.
+  #   #
+  #   # A probe asks the question the service's CONSUMERS ask: over the port they connect to, not
+  #   # through a side door that opens earlier. PostgreSQL's socket answered while its port was
+  #   # still closed to every other container (#153).
   #   healthcheck:
   #     test: ["CMD", "…"]
   #     interval: 30s
