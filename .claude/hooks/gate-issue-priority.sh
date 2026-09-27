@@ -29,8 +29,12 @@
 # report success" reasoning as gate-lint.sh) but fails OPEN on a payload that
 # does not parse as expected -- deliberately, unlike a missing interpreter: a
 # hook that blocked every issue_write call over a harness schema change would
-# cost far more than the one field it exists to protect, and gate-task-scope.sh
-# still catches the same intent stated in a task's own text regardless.
+# cost far more than the one field it exists to protect. What is left behind an
+# unreadable payload is not the same for both writes: gate-task-scope.sh catches
+# SETTING the field when a task states it in its own text, but not CLEARING it
+# -- its regex has no verb for a deletion, and #175 records why it was not
+# widened -- so a deletion behind an unreadable payload is covered by each
+# teammate's own instructions alone.
 set -uo pipefail
 
 payload="$(cat 2>/dev/null || true)"
