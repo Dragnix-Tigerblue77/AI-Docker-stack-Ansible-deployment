@@ -21,6 +21,39 @@ services:
     # chosen LiteLLM version supports before raising it.
     image: "postgres:{{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}"
 
+    # LiteLLM is NOT this cluster's superuser (#159). The image makes "POSTGRES_USER" the bootstrap
+    # superuser, and that role can never lose the attribute ("The bootstrap superuser must have the
+    # SUPERUSER attribute"), so LiteLLM gets a role of its own instead: LOGIN and nothing else, owner
+    # of its database -- which, since PostgreSQL 15, also gives it that database's "public" schema,
+    # owned by "pg_database_owner", and that is all Prisma's migrations need. As the superuser, the
+    # pre-authenticated SQL injection the LiteLLM floor guards against ("tasks/main.yml") reached a
+    # shell in this container through "COPY ... PROGRAM" and any file through "pg_read_file"; as this
+    # role, both are refused.
+    #
+    # The role is created by an init script the image's entrypoint runs, and written here, by "sh",
+    # just before handing over to that entrypoint -- which "exec" keeps as PID 1, signals included.
+    # Not a mounted file: a bind mount needs its host path on whichever node runs the task, and
+    # "/tmp", this role's default directory, does not keep a file (#137). Not "configs.content"
+    # either: Compose reads it, "docker stack" refuses it ("Additional property content is not
+    # allowed"). The script holds no secret and no "$": "\getenv" reads both values from the
+    # environment below, and psql's ":'...'" and ':"..."' quote them, whatever they contain.
+    #
+    # ! The image runs "/docker-entrypoint-initdb.d/" on an EMPTY data directory only. On a volume
+    # initialised before this, nothing below runs: LiteLLM keeps its old superuser role and keeps
+    # working. The README's "Un volume créé avant le rôle dédié de LiteLLM" gives the way across.
+    command:
+      - "sh"
+      - "-c"
+      - |
+        cat > /docker-entrypoint-initdb.d/10_LiteLLM_role.sql <<'EOF'
+        \getenv role POSTGRES_LITELLM_USER
+        \getenv password POSTGRES_LITELLM_PASSWORD
+        \getenv database POSTGRES_DB
+        CREATE ROLE :"role" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
+        ALTER DATABASE :"database" OWNER TO :"role";
+        EOF
+        exec docker-entrypoint.sh postgres
+
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Interpolated by ANSIBLE, at render time -- not by Compose from a ".env" it would otherwise
@@ -29,8 +62,18 @@ services:
       # literal value never appears anywhere else -- it is why the caller's deployment role has to
       # write THIS file "0600" and with "diff: false".
       POSTGRES_DB: "{{ Artificial_Intelligence_PostgreSQL_database }}"
-      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_user }}"
-      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password }}"
+      # The cluster's superuser, and nothing connects as it: it exists for the init above and for a
+      # human at "docker exec ... psql". Its password is not LiteLLM's -- "tasks/main.yml" refuses the
+      # same value for both, or LiteLLM's own environment would hold the superuser's login.
+      #
+      # "$" is doubled in every value added here, because Compose and Swarm both run this file
+      # through their own "${VAR}" interpolation after Ansible has rendered it.
+      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_superuser | replace('$', '$$') }}"
+      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_superuser_password | replace('$', '$$') }}"
+      # LiteLLM's own role, the one "DATABASE_URL" logs in as. Read by the init script above, and only
+      # there: the entrypoint unsets every "POSTGRES_*" before it starts the server.
+      POSTGRES_LITELLM_USER: "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}"
+      POSTGRES_LITELLM_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password | replace('$', '$$') }}"
 
     volumes:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion

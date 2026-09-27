@@ -353,6 +353,16 @@ role's README rather than frozen into the role.
    `check_required_checks.py` holds it to them in both directions. The day the repository can
    enforce a ruleset, import `main.json` and take postfix-relay's `--auto` workflow instead.
 
+10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
+    makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs
+    in as an ordinary role that owns its database and nothing else: as the superuser, an SQL injection
+    through the gateway reached a shell through `COPY ... PROGRAM`. That role is created by an init
+    script the service's `command:` writes into `/docker-entrypoint-initdb.d/` before it `exec`s the
+    image's own entrypoint. Not a mounted file -- a bind mount needs its host path on whichever node
+    runs the task, and `/tmp` does not keep one (#137) -- and not `configs.content`, which `docker
+    stack` refuses. The image runs that directory on an empty data directory only, so a volume
+    initialised before #159 keeps its superuser until the README's dump-and-restore path is followed.
+
 ## Working in a Claude Code web session
 
 `.claude/hooks/session-start.sh` installs what CI gates on: the pinned Python tooling and `gitleaks`,

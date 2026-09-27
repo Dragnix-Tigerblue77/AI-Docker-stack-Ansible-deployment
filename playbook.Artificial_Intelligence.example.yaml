@@ -54,6 +54,11 @@
         # that file already carries the "0600" / "diff: false" contract the deployment role owes it.
         Artificial_Intelligence_PostgreSQL_password: "{{ vault_Artificial_Intelligence_PostgreSQL_password }}"
 
+        # MANDATORY since #159, and without a default: PostgreSQL's own superuser, which LiteLLM no
+        # longer is -- the password above is its ordinary role's. A DIFFERENT value, vaulted the same
+        # way: the role refuses the same one for both.
+        Artificial_Intelligence_PostgreSQL_superuser_password: "{{ vault_Artificial_Intelligence_PostgreSQL_superuser_password }}"
+
         # ADMINISTRATION ONLY. It is never handed to a consumer: Open WebUI, N8N, the Claude Code
         # container and the Discord bot each get their own virtual key, carrying their own model
         # allow-list, created in #2. A client holding this key makes that whole isolation pointless.
