@@ -100,8 +100,10 @@ Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
 # LiteLLM Proxy -- the single point every LLM call goes through (#1)
 # --------------------------------------------------------------------------------------------------
 
-# The image tag. Explicit SemVer, NEVER "main-latest": that tag is deprecated and no longer fed, so
-# it freezes the deployment on an old image while looking current.
+# The image tag. An explicit SemVer release, NEVER a floating tag: "main-latest" is deprecated and
+# no longer fed, so it freezes the deployment on an old image while looking current, and
+# "main-stable" moves with every upstream release, so nobody chose the image it pulls. The role
+# refuses both, and every other tag that does not name a version (#171).
 #
 # ! Verified on 2026-09-06. Upstream retired the "-stable" suffix -- it matched neither PEP 440 nor
 # SemVer 2.0 -- so a stable release is now a plain "vX.Y.Z", and there is no "-stable" variant to
@@ -110,16 +112,80 @@ Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
 # ! This tag is to be RE-CHECKED on the day of the deployment, against the upstream security
 # advisories, and raised if need be. Four critical CVEs in four months on this product in 2026: a
 # version number written in advance in an issue is not evidence. That check is a task of its own.
+# Last checked on 2026-09-27 against every advisory listed under the floor below: 1.100.0 is
+# affected by none of them (#171).
 Artificial_Intelligence_LiteLLM_Docker_image_tag: "v1.100.0"
 
-# The security floor, below which "tasks/main.yml" refuses to run. It is a MINIMUM, not a ceiling:
-# 1.84.0 is what carries the fix for CVE-2026-59822 (MCP authentication bypass, CISA KEV), and it
-# also clears CVE-2026-42208 (pre-authenticated SQL injection on the "Authorization" header, CISA
-# KEV, exploited 36 h after disclosure, fixed in 1.83.10) and CVE-2026-35029 ("/config/update"
-# reachable with no admin control).
+# The security floor, below which "tasks/main.yml" refuses to run. It is a MINIMUM, not a ceiling,
+# and its rule is the one 1.84.0 broke (#171): the LOWEST version above which no published advisory
+# leaves a single affected release -- not the fix of whichever advisory was read last. 1.84.0 was
+# the second kind, and it was already wrong the day it was written, 2026-09-06: the advisory below
+# had been public since 2026-08-26, and the role accepted every release it affects from 1.84.0 up.
 #
-# Raise this when a new advisory lands. Lowering it is how the floor stops being one.
-Artificial_Intelligence_LiteLLM_minimum_secure_version: "1.84.0"
+# 1.96.2, because of GHSA-3cv6-jpf6-8222 / CVE-2026-84377. Any authenticated caller -- a consumer's
+# virtual key is enough -- could put "api_base", "base_url", "model_list", "fallbacks" or
+# "litellm_credential_name" in a request body and have the proxy call a host of its choosing WITH
+# the provider key it holds, and this container holds both accounts' keys. Its sources disagree,
+# and every reading of them that holds together lands on 1.96.2 (checked on 2026-09-27):
+#   * the advisory says "affected < 1.94.0", yet lists 1.94.3, 1.95.1 and 1.96.2 among its patched
+#     versions -- fixes for lines it would call unaffected;
+#   * the CVE record (same CNA) says "< 1.88.6" and ">= 1.89.0, < 1.96.2", and OSV's analysis of the
+#     fix commits lists v1.96.0 as affected;
+#   * 1.96.1 was never published ("burned by the PyPI storage failure", say 1.96.2's release notes),
+#     so 1.96.0 is the last affected release and 1.96.2 the first one after it.
+# The backports the advisory calls patched (1.88.6, 1.89.7, 1.90.7, 1.91.5, 1.92.2, 1.93.2, 1.94.3,
+# 1.95.1) are refused with the rest: one floor cannot express a split range, and the CVE record
+# counts them affected anyway.
+#
+# ! That advisory is NOT returned by a query of OSV by package ("litellm" on PyPI): the CVE record
+#   carries git ranges only, and GitHub's reviewed database does not have the advisory. A scanner
+#   that asks by package reports an affected image clean. Read the upstream list itself:
+#   https://github.com/BerriAI/litellm/security/advisories
+#
+# Every other advisory published for the pip package "litellm" as of 2026-09-27 -- the 40 GHSA
+# advisories OSV returns for it -- is fixed at or below 1.84.0. Each is listed under the release
+# that fixes it, or under "<=" the last affected release where that is all it gives. CISA's KEV
+# catalogue lists three of them as exploited: CVE-2026-42208, CVE-2026-42271 and CVE-2026-59822.
+#   1.84.0     GHSA-4xpc-pv4p-pm3w (CVE-2026-49468, authentication bypass via the Host header),
+#              GHSA-7488-6r32-c95q (CVE-2026-59822, MCP authentication bypass),
+#              GHSA-4jcj-7x88-m979 (CVE-2026-12773)
+#   1.83.14    GHSA-qrc4-49gv-mv9m (CVE-2026-47101)
+#   1.83.10    GHSA-wxxx-gvqv-xp7p (CVE-2026-40217), GHSA-wpfp-gwwc-vwq6 (CVE-2026-47102),
+#              GHSA-4g5m-c9r5-49xf (CVE-2026-59819)
+#   1.83.9     GHSA-hx8v-g79f-8w5f (CVE-2026-59823)
+#   1.83.7     GHSA-r75f-5x8p-qvmc (CVE-2026-42208, pre-authenticated SQL injection through the
+#              "Authorization" header; this file once said 1.83.10, the advisory says 1.83.7),
+#              GHSA-v4p8-mg3p-g94g (CVE-2026-42271), GHSA-xqmj-j6mv-4862 (CVE-2026-42203),
+#              GHSA-6wvf-77m9-58rm (CVE-2026-37004), GHSA-5jmr-gcrj-2c9q (CVE-2026-59820)
+#   1.83.0     GHSA-53mr-6c8q-9789 (CVE-2026-35029, "/config/update" with no admin control),
+#              GHSA-jjhc-v7c2-5hh6 (CVE-2026-35030), GHSA-69x8-hrgq-fjj8
+#   <=1.82.8   GHSA-5mg7-485q-xm76 (PYSEC-2026-2, MAL-2026-2144: 1.82.7 and 1.82.8 shipped malware)
+#   <=1.82.5   GHSA-p897-vf7j-f5h8 (CVE-2026-12797)
+#   <=1.82.2   GHSA-c693-x898-5g4h (CVE-2026-12798), GHSA-j37q-q7p9-vpwm (CVE-2026-12795),
+#              GHSA-m2v5-74w2-qhcj (CVE-2026-12799), GHSA-mf52-j94g-746m (CVE-2026-12772),
+#              GHSA-qmf3-4767-5fg3 (CVE-2026-12771), GHSA-w2mh-qq9q-453x (CVE-2026-12796)
+#   1.82.0     GHSA-72m8-9m7m-h278 (CVE-2026-59821)
+#   <=1.63.1   GHSA-6qr3-3g89-m4jj (CVE-2026-12770)
+#   1.61.15    GHSA-fjcf-3j3r-78rp (CVE-2025-0628)
+#   1.56.2     GHSA-fh2c-86xm-pm2x (CVE-2024-8984)
+#   1.53.1.dev1 GHSA-gw2q-qw9j-rgv7 (CVE-2024-10188)
+#   <=1.52.1   GHSA-879v-fggm-vxw2 (CVE-2025-0330)
+#   1.44.12    GHSA-g5pg-73fc-hjwq (CVE-2024-9606)
+#   1.44.8     GHSA-g26j-5385-hhw3 (CVE-2024-6587)
+#   1.40.16    GHSA-gppg-gqw8-wh9g (CVE-2024-5751)
+#   1.40.15    GHSA-qqcv-vg9f-5rr3 (CVE-2024-5710)
+#   <=1.40.12  GHSA-53gh-p8jc-7rg8 (CVE-2024-6825)
+#   1.40.0     GHSA-h6m6-jj8v-94jj (CVE-2024-5225)
+#   1.35.36    GHSA-3xr8-qfvj-9p9j (CVE-2024-4888)
+#   1.34.42    GHSA-46cm-pfwv-cgf8 (CVE-2024-2952)
+#   <=1.28.11  GHSA-7ggm-4rjg-594w (CVE-2024-4264)
+#   <=1.27.14  GHSA-8j42-pcfm-3467 (CVE-2024-4890)
+#
+# Raise this when a new advisory lands, to the first release above its LAST affected one -- on
+# every line it names, not on the line it happens to mention first. Lowering it is how the floor
+# stops being one. Written "X.Y.Z", with no "v": "tasks/main.yml" refuses anything that is not
+# SemVer 2.0, and compares as SemVer, so a pre-release of this very version is below it.
+Artificial_Intelligence_LiteLLM_minimum_secure_version: "1.96.2"
 
 # Each worker replicates the configuration, so this multiplies the memory footprint rather than
 # dividing the work for free. The target host has 88 threads and no GPU; the limit below is what

@@ -46,22 +46,64 @@
 # decision. Four critical CVEs in four months on this product in 2026 -- among them a
 # PRE-AUTHENTICATED SQL injection whose target is exactly the PostgreSQL service this role deploys.
 #
-# "is version" compares as versions and not as strings, so "1.100.0" is correctly greater than
-# "1.84.0" -- which a string comparison gets backwards, and which is the whole reason this is not a
-# "|| >=" on the raw tag.
-- name: "Check the LiteLLM image tag clears the security floor"
+# Three checks, in this order, because the last can only be asked of two versions (#171). Before
+# them, "main-stable" and "main-v1.100.0" reached the comparison as they were and stopped the run on
+# a Python error ("'<' not supported between instances of 'str' and 'int'") instead of a message.
+# The floor is checked on its own first, so that a malformed floor is never reported as a bad tag.
+- name: "Check the LiteLLM security floor is a version"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LiteLLM_minimum_secure_version is string
+      - Artificial_Intelligence_LiteLLM_minimum_secure_version is match(Artificial_Intelligence_SemVer_pattern)
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LiteLLM_minimum_secure_version" ({{ Artificial_Intelligence_LiteLLM_minimum_secure_version }})
+      must be a SemVer 2.0 version, written "X.Y.Z" with no "v", and quoted so that YAML does not
+      read it as a number. Its comment in "defaults/main.yml" says how its value is chosen.
+
+# The second asks the tag to NAME a version. It is read through
+# "Artificial_Intelligence_LiteLLM_Docker_image_version" (vars/main.yml), which drops the "v" and
+# the "main-" upstream put in front of the same image, and what is left must be SemVer 2.0 -- in
+# the very grammar the comparison below parses, so nothing that passes here can crash there. Every
+# floating tag is refused, and that is deliberate: "main-latest" used to be the only one, refused by
+# name because it is no longer fed, but "main-stable" IS fed (it carried v1.102.1's digest on
+# 2026-09-27) and is refused for the other reason, which covers both -- the floor checks a string,
+# and a floating tag names no version, so a pass would vouch for whatever image the tag points at
+# on the day of the pull, which nobody chose. It is the repository's own rule: images are pinned by
+# version.
+- name: "Check the LiteLLM image tag names a version the security floor can be checked against"
   ansible.builtin.assert:
     that:
       - Artificial_Intelligence_LiteLLM_Docker_image_tag is string
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag != "main-latest"
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag | regex_replace('^v', '') is version(Artificial_Intelligence_LiteLLM_minimum_secure_version, '>=')
+      - Artificial_Intelligence_LiteLLM_Docker_image_version is match(Artificial_Intelligence_SemVer_pattern)
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_LiteLLM_Docker_image_tag" ({{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}) is below the security floor
-      "Artificial_Intelligence_LiteLLM_minimum_secure_version" ({{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}), or is the
-      deprecated "main-latest" tag, which is no longer fed and freezes the deployment on an old image
-      while looking current. This container holds both accounts' provider keys and the master key.
-      Re-check the upstream security advisories and raise the tag -- never lower the floor.
+      "Artificial_Intelligence_LiteLLM_Docker_image_tag" ({{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}) does not
+      name a version, so the security floor cannot be checked against it. Only an explicit SemVer
+      2.0 release can be: "v1.100.0" or "1.100.0", or "main-vX.Y.Z", which upstream published as
+      the same image as "vX.Y.Z". A floating tag is refused whatever it points at today:
+      "main-stable" moves with every upstream release, so the floor would vouch for an image nobody
+      chose, and "main-latest" is no longer fed at all and freezes the deployment on an old image
+      while looking current.
+
+# "version_type='semver'" and not the default, "loose", which splits "1.101.0-rc.2" into 1, 101, 0,
+# "-rc", 2 and so ranks it ABOVE 1.101.0: raise the floor to the release that carries a fix, and a
+# release candidate of that same release, built before the fix, cleared it (#171). SemVer ranks a
+# pre-release below its release, which is what it is -- and still ranks "1.101.0-rc.2" above the
+# floor when the floor is an earlier release. It compares as versions, not as strings, so "1.100.0"
+# is correctly above "1.96.2", which a string comparison gets backwards.
+- name: "Check the LiteLLM image tag clears the security floor"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LiteLLM_Docker_image_version is version(Artificial_Intelligence_LiteLLM_minimum_secure_version, '>=', version_type='semver')
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LiteLLM_Docker_image_tag" ({{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}) is below the
+      security floor "Artificial_Intelligence_LiteLLM_minimum_secure_version" ({{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}).
+      A pre-release of the floor's own version is below it too: "{{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}-rc.1"
+      comes before "{{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}".
+      This container holds both accounts' provider keys and the master key. Re-check the upstream
+      security advisories and raise the tag -- never lower the floor.
 
 - name: "Check tigerblue77's LiteLLM provider keys are provided"
   ansible.builtin.assert:

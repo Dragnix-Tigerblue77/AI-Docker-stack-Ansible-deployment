@@ -2,3 +2,23 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # vars file for deploy_Artificial_Intelligence_Docker_stack
+
+# --------------------------------------------------------------------------------------------------
+# The LiteLLM security floor (#171). Not parameters: what "tasks/main.yml" derives from
+# "Artificial_Intelligence_LiteLLM_Docker_image_tag" in order to check it. The floor itself, and
+# every advisory behind its value, are in "defaults/main.yml".
+# --------------------------------------------------------------------------------------------------
+
+# The tag read as a version. Upstream puts "v" in front of the version, and used to publish the
+# same image a second time under "main-v": "main-v1.82.3" and "v1.82.3" carry the same manifest
+# digest. So both prefixes are dropped, and "v1.100.0", "1.100.0" and "main-v1.100.0" all read
+# "1.100.0". A floating tag reads as a word ("main-stable" as "stable"), which the pattern below
+# then refuses.
+Artificial_Intelligence_LiteLLM_Docker_image_version: "{{ Artificial_Intelligence_LiteLLM_Docker_image_tag | regex_replace('^(main-)?v?', '') }}"
+
+# SemVer 2.0, written as the SAME grammar ansible-core's "semver" comparison parses (SEMVER_RE in
+# "ansible/utils/version.py"): a string it matches is a string that comparison accepts. Checking the
+# floor and the tag against it first is what makes the comparison in "tasks/main.yml" fail on a
+# message and never on a Python error. "[.]" and "[+]" rather than backslashes, so the pattern reads
+# the same in YAML, in Jinja and in Python.
+Artificial_Intelligence_SemVer_pattern: '^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)([.](0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*)?([+][0-9a-zA-Z-]+([.][0-9a-zA-Z-]+)*)?$'

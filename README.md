@@ -99,7 +99,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
 | `Artificial_Intelligence_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
-| `Artificial_Intelligence_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
+| `Artificial_Intelligence_LiteLLM_minimum_secure_version` | `1.96.2` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas : la plus basse version au-dessus de laquelle aucun avis publié ne laisse de version touchée (#171). |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
@@ -346,11 +346,22 @@ portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un clien
 rend inutile tout le travail d'isolation de #2.
 
 **Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
-inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
-test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
-comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
-les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
-*pré-authentifiée* visant précisément la base déployée ici.
+qui ne nomme pas une version -- `main-latest`, `main-stable`, toute étiquette flottante --, puis un
+tag inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`. Le `v` et le `main-` de
+tête sont ignorés (l'amont publiait `main-vX.Y.Z` comme la même image que `vX.Y.Z`), et ce qui reste
+doit être du SemVer 2.0. La comparaison se fait en SemVer, ni en chaînes ni avec le mode `loose` par
+défaut d'Ansible : `1.100.0` est bien supérieur à `1.96.2`, ce qu'une comparaison de chaînes affirme
+à l'envers, et `1.96.2-rc.1` est bien *inférieur* à `1.96.2`, ce que le mode `loose` affirme à
+l'envers (#171).
+
+Le plancher est la plus basse version au-dessus de laquelle aucun avis publié ne laisse de version
+touchée, et non le correctif du dernier avis lu. Il vaut `1.96.2` à cause de GHSA-3cv6-jpf6-8222
+(CVE-2026-84377) : n'importe quelle clé virtuelle pouvait faire envoyer par le proxy la clé
+fournisseur qu'il détient vers un hôte de son choix. Cet avis n'apparaît pas dans une requête OSV
+par paquet ; `defaults/main.yml` cite chaque avis publié et dit comment ses sources contradictoires
+ont été tranchées. Le plancher est à **re-vérifier le jour du déploiement**, sur la page d'avis de
+BerriAI elle-même : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection
+SQL *pré-authentifiée* visant précisément la base déployée ici.
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
