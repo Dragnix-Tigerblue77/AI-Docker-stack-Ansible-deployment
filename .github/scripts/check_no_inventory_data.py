@@ -70,6 +70,7 @@ ALLOWED_HOSTS = {
     "api-docs.deepseek.com": "DeepSeek's own API documentation, cited in a comment (#101)",
     "docs.mistral.ai": "Mistral AI's own model documentation, cited in comments (#112)",
     "inference-docs.cerebras.ai": "Cerebras' own model documentation and deprecation notice, cited in comments (#110)",
+    "console.groq.com": "Groq's own deprecation notice, rate limits and built-in tools documentation, cited in comments (#169)",
     "openrouter.ai": "OpenRouter's own live model catalog, cited in a comment (#111)",
     "tbench.ai": "an independent coding-agent leaderboard, cited in a comment",
     "fsf.org": "licence text",
