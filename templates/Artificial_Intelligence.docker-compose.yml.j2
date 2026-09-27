@@ -36,7 +36,21 @@ services:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
       # of #1, not a hope. A bind mount would also tie the stack to a host path, which this
       # repository does not get to choose.
-      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+      #
+      # ! Its TARGET follows the major, because the official image moved its data directory at 18
+      #   (docker-library/postgres#1259). Up to 17, PGDATA is "/var/lib/postgresql/data" and that is
+      #   the image's volume. From 18, PGDATA is "/var/lib/postgresql/18/docker" and the volume is
+      #   "/var/lib/postgresql", one level up, so that a later "pg_upgrade --link" finds both majors'
+      #   clusters inside a single mount. A volume still mounted at ".../data" under 18 is not merely
+      #   left unused: the entrypoint refuses it as an "unused mount/volume" and exits 1, on an EMPTY
+      #   volume on a fresh machine too -- measured with "postgres:18-alpine" (#168).
+      #
+      #   The major is read off the head of the tag, which "tasks/main.yml" holds to beginning with
+      #   it. A volume that already holds another major's cluster is refused at either path, by the
+      #   image itself: raising the major on one is a migration, spelt out next to the tag in
+      #   "defaults/main.yml".
+{% set Artificial_Intelligence_PostgreSQL_major_version = (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string).split('@')[0].split('-')[0].split('.')[0] | int %}
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:{{ '/var/lib/postgresql' if Artificial_Intelligence_PostgreSQL_major_version >= 18 else '/var/lib/postgresql/data' }}:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.

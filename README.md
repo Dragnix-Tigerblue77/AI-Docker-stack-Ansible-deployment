@@ -523,6 +523,42 @@ alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonn
 indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réellement présent, que
 `ANTHROPIC_BASE_URL` doit pouvoir le résoudre.
 
+## Monter PostgreSQL d'un majeur (#168)
+
+**Une migration, pas un changement de tag.** Le template lit le majeur en tête de
+`Artificial_Intelligence_PostgreSQL_Docker_image_tag` -- que `tasks/main.yml` oblige donc à commencer
+par lui : `17-alpine`, `17.6-alpine3.22`, `18`, jamais `latest` ni `alpine` -- et monte le volume là
+où l'image de ce majeur range ses données : `/var/lib/postgresql/data` jusqu'à 17,
+`/var/lib/postgresql` à partir de 18, où l'image officielle garde chaque cluster dans un
+sous-répertoire à son nom (`18/docker`). Laissé sur l'ancien chemin, 18 refuse de démarrer, même sur
+un volume vide.
+
+Sur un volume qui porte déjà un cluster, le nouveau majeur le refuse aussi, à l'un comme à l'autre
+chemin, et la politique `any` le relance en boucle : rien n'est perdu, rien ne démarre. Le passage,
+vérifié de 17 à 18 sous Compose avec LiteLLM v1.100.0 -- une clé virtuelle créée avant la montée
+retrouvée après, et l'ancien volume redémarrant toujours sous 17 :
+
+```bash
+# « litellm » est le défaut du rôle comme de la base : remplacer par les vôtres s'ils diffèrent.
+# 1. Sous l'ancien majeur, LiteLLM arrêté pour que plus rien n'écrive (docker stop <conteneur litellm>
+#    sous Compose, docker service scale <stack>_litellm=0 sous Swarm), exporter la base
+docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
+# 2. Monter Artificial_Intelligence_PostgreSQL_Docker_image_tag ET donner un nouveau nom à
+#    Artificial_Intelligence_PostgreSQL_data_Docker_volume_name : le nouveau majeur initialise un
+#    volume vide, et l'ancien reste intact pour revenir en arrière
+# 3. Redéployer avec le rôle -- LiteLLM migre une base vide --, l'arrêter de nouveau, restaurer,
+#    puis le relancer (docker start, ou scale à 1)
+docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
+# 4. Une fois le nouveau volume éprouvé, et seulement alors, supprimer l'ancien
+docker volume rm <ancien volume PostgreSQL du stack>
+```
+
+`pg_upgrade` est l'autre voie, sur place et plus rapide sur une grosse base, mais il lui faut les
+binaires des deux majeurs dans un même conteneur, ce que l'image officielle ne fournit pas ; pour une
+base de cette taille, l'export est le plus simple des deux. Une tentative refusée, volume monté sur
+`/var/lib/postgresql`, laisse un répertoire vide `18/docker` à la racine de l'ancien cluster : 17
+redémarre dessus sans le voir.
+
 ## Ce que ce squelette ne fait pas
 
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
