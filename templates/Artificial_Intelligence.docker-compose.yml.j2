@@ -165,7 +165,13 @@ services:
       # container environment, at the "os.environ/..." references "LiteLLM_config.yaml.j2" carries for
       # them: what Ansible changes is where that environment variable gets
       # its value from, never how LiteLLM consumes it.
-      DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
+      #
+      # The password is PERCENT-ENCODED here, and only here: it is the caller's, and nothing holds it to
+      # characters a URL leaves alone. A "/" in it ends the authority early, an "@" or a ":" moves where
+      # the host starts, and the gateway then gets no database at all. "urlencode" encodes everything
+      # but "/", hence the "replace". Prisma and redis-py both decode percent-encoded userinfo, and
+      # POSTGRES_PASSWORD above and "--requirepass" below keep the raw value, which is what they compare.
+      DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password | urlencode | replace('/', '%2F') }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
@@ -189,7 +195,7 @@ services:
       DEEPSEEK_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 }}"
       # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
       # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
-      REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
+      REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password | urlencode | replace('/', '%2F') }}@redis:6379" # Percent-encoded: see DATABASE_URL above
       REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password }}"
 
     volumes:
