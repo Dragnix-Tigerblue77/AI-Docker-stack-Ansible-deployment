@@ -243,14 +243,16 @@ services:
       start_period: 90s
       retries: 3
 
-    # A Compose facility, and only that: SWARM IGNORES "depends_on". LiteLLM therefore has to
-    # tolerate a database that is not ready yet -- it is the restart policy that catches that case,
-    # not the start order. Kept because it spares the test bench a first failed start.
+    # The SHORT form, a plain list, and never the long one. Compose starts these two first, without
+    # waiting for them to turn healthy; "docker stack deploy" accepts the list and ignores it. The
+    # long form ("condition: service_healthy") is Compose-only: docker/cli validates this file
+    # against its own schema, where "depends_on" is a list of strings, and refuses the WHOLE file
+    # ("services.litellm.depends_on must be a list") before it reaches the daemon (#154). LiteLLM
+    # therefore has to tolerate a database that is not answering yet, under either deployer: a first
+    # start that fails is caught by "restart_policy.condition: any" below, not by the start order.
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
 
     deploy:
       restart_policy:
@@ -405,9 +407,9 @@ services:
     ports:
       - "3080:3080"
 
+    # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
-      librechat_mongodb:
-        condition: service_started
+      - librechat_mongodb
 
     deploy:
       restart_policy:
@@ -507,9 +509,9 @@ services:
           # published Claude Code image.
           memory: "{{ Artificial_Intelligence_Claude_code_tigerblue77_memory_limit }}"
 
+    # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
-      litellm:
-        condition: service_healthy
+      - litellm
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -549,6 +551,14 @@ services:
   #         # exactly the ground where that happens: a model held in memory, a worker handed a
   #         # document too large.
   #         memory: 512M
+  #
+  #   # Only when the service needs another one started first, and then as a plain LIST of service
+  #   # names. The long form, with a "condition:", is Compose-only: "docker stack deploy" refuses the
+  #   # whole file over it, while "docker compose config" says nothing. Waiting for the other service
+  #   # to be healthy is not something this file can ask for; the restart policy above catches a start
+  #   # that came too early.
+  #   depends_on:
+  #     - other_service
   #
   #   # No "ports:" for an internal service: it is reached over the stack's network, under its
   #   # service name. Only a web interface meant for a human is exposed, and it goes through the

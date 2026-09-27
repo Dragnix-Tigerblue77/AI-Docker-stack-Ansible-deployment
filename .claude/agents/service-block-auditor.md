@@ -41,8 +41,11 @@ thing CLAUDE.md counts as verification.
    Compose-only dependency that breaks at the Swarm switch); no `ports:` on an
    internal service (reached by service name over `Artificial_Intelligence_internal_Docker_network_name`
    -- only a human-facing web UI is published, and only through the caller's
-   reverse proxy, never a host port); `healthcheck:` only written where it
-   improves on the image's own, not duplicating it; `environment.TZ` from
+   reverse proxy, never a host port); `depends_on:`, where there is one, a
+   plain list of service names (the long form with `condition:` passes
+   `docker compose config` and gets the whole file refused by
+   `docker stack deploy`); `healthcheck:` only written where it improves on
+   the image's own, not duplicating it; `environment.TZ` from
    `Artificial_Intelligence_server_time_zone`.
 2. **A secret with a default.** Every `Artificial_Intelligence_*_password`, `*_key`, `*_token`,
    `*_secret` this role interpolates is written in `defaults/main.yml` as a
