@@ -169,7 +169,9 @@ an illustration to translate. It cost a second commit to undo.
 -- because Compose and `docker stack deploy` interpolate the rendered file again**, and a single `$`
 in a secret reached the container as whatever it named in their environment, usually nothing, until
 #155; the template's header says which values are exempt and why, and `check_compose_template.py`
-renders every other one with a `$` and refuses the file where one arrives single.
+renders the ones it can find with a `$` and refuses the file where one arrives single. It finds a value
+with no default or an empty one by itself; one with a real default, or a `false` one, only once its
+`FREE_FORM_WITH_A_DEFAULT` names it, so add a new free-form value there in the same commit.
 
 **Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
 

@@ -20,15 +20,22 @@ Every check below is vacuous today, because "services:" is an empty mapping. Tha
 they are wired now so they bite on the first service block rather than being written after the
 convention has already been broken.
 
-It renders the template ONE MORE time with every caller value carrying a "$" (#155), because
-Compose and "docker stack deploy" read the rendered file through their own "$VAR" / "${VAR}"
-interpolation after Ansible: a "$" the template writes single reaches the container as whatever that
-names in THEIR environment -- usually nothing, with a warning nobody reads. All nineteen secrets
-this role interpolated were cut short that way, and no render here could see it: every other state
-renders them empty, so there was no "$" for anything to trip on. Which values get a "$" is derived
-rather than listed wherever it can be: every variable the template reads and "defaults/main.yml"
-does not define is a mandatory one, a secret or a host path, so a new service's secret is covered
-the day it is added, without anyone remembering this file.
+It renders the template ONE MORE time with a "$" in the caller values (#155), because Compose and
+"docker stack deploy" read the rendered file through their own "$VAR" / "${VAR}" interpolation after
+Ansible: a "$" the template writes single reaches the container as whatever that names in THEIR
+environment -- usually nothing, with a warning nobody reads. All nineteen secrets this role
+interpolated were cut short that way, and no render here could see it: every other state renders
+them empty, so there was no "$" for anything to trip on.
+
+Which values get a "$" is derived rather than listed wherever it can be -- see "dollar_variables":
+every variable the template reads that "defaults/main.yml" does not define (a mandatory one, a
+secret or a host path) or defines as empty (an optional one, as the retired GitHub Models key is), so
+a new service's secret is covered the day it is added, without anyone remembering this file. That is
+NOT every caller value. A free-form value with a real default -- a login, a path, a model alias -- is
+covered only once "FREE_FORM_WITH_A_DEFAULT" names it, and so is an optional one defaulting to
+"false": nothing in a default says whether its grammar admits a "$", so that list is kept by hand,
+and it is the one place where a value added without a thought for this file renders with no "$" and
+passes unexamined.
 
 What it deliberately does NOT flag
 ----------------------------------
@@ -69,10 +76,12 @@ CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory": "/srv/selftest/workspace",
 }
 
-# The values that HAVE a default and whose grammar still admits a "$": a login, a model alias, a
-# database role and name, a host path. The mandatory ones need no list -- see "dollar_context". What
-# is left out has a grammar with no "$" in it -- an image tag, a Docker object name, a memory size, a
-# number, a time zone -- and the template writes it without the "replace" for that reason.
+# The values that HAVE a real default and whose grammar still admits a "$": a login, a model alias, a
+# database role and name, a host path. The mandatory ones and the empty ones need no list -- see
+# "dollar_variables". What is left out has a grammar with no "$" in it -- an image tag, a Docker
+# object name, a memory size, a number, a time zone -- and the template writes it without the
+# "replace" for that reason. An optional free-form value whose default is "false", the role's idiom
+# for "not set", belongs here too: "false" is also how a toggle is written, so it cannot be derived.
 FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_LiteLLM_UI_username",
     "Artificial_Intelligence_PostgreSQL_user",
@@ -278,18 +287,45 @@ def dollar_sample(name):
     return f"{short}-Ab$cd${{HOME}}$$e/f@g#h$"
 
 
-def dollar_context(defaults, failures):
-    """The render context in which every caller value whose grammar admits a "$" carries one.
-
-    The mandatory values are DERIVED: every variable the template reads that "defaults/main.yml"
-    does not define. A convention of this role -- no default for a secret, since a default password
-    is a published one -- is what makes that set exactly the secrets plus the host paths the role
-    cannot presuppose, and deriving it is what covers the next service's secret without this file
-    being edited. The Claude Code agent is switched on, so that its block is rendered too.
-    """
+def template_reads(defaults):
+    """Every variable the compose template reads, whether or not "defaults/main.yml" defines it."""
     environment = Environment(loader=FileSystemLoader(str(ROLE / "templates")))
     name = f"{defaults['Artificial_Intelligence_Docker_compose_file_name']}.j2"
-    read = meta.find_undeclared_variables(environment.parse(environment.loader.get_source(environment, name)[0]))
+    return meta.find_undeclared_variables(environment.parse(environment.loader.get_source(environment, name)[0]))
+
+
+def dollar_variables(read, defaults, free_form):
+    """Which of the variables in `read` the "$" render gives a "$" to.
+
+    Two of the three sources are DERIVED, so that they cover the next service without this file
+    being edited:
+
+    * every variable "defaults/main.yml" does not define. A convention of this role -- no default
+      for a secret, since a default password is a published one -- is what makes that set the
+      secrets plus the host paths the role cannot presuppose;
+    * every variable it defines as empty, "" or a bare "key:" -- an optional value left for the
+      caller to fill, as the retired GitHub Models key is. The first version of this render took
+      only the undefined ones, so that key was rendered empty and the "replace" on its line could be
+      deleted with the check staying green. An empty default says "a caller value goes here" as
+      plainly as a missing one does;
+    * and every variable `free_form` names, since a real default says nothing about grammar.
+
+    A default of "false" is deliberately none of these: it is the role's "not set", but it is also
+    how a toggle is written, and giving "Artificial_Intelligence_Claude_code_tigerblue77_enabled" a
+    string would turn a switch into a password. A free-form value defaulting to "false" goes in the
+    list by hand. It takes its arguments rather than reading the constants so that "--selftest" can
+    hold it to each of those rules.
+    """
+    empty = {variable for variable in read & set(defaults) if defaults[variable] in ("", None)}
+    return (read - set(defaults)) | empty | (set(free_form) & read)
+
+
+def dollar_context(defaults, failures):
+    """The render context in which every value "dollar_variables" selects carries a "$".
+
+    The Claude Code agent is switched on, so that its block is rendered too.
+    """
+    read = template_reads(defaults)
     for variable in FREE_FORM_WITH_A_DEFAULT:
         if variable not in read:
             failures.append(
@@ -297,7 +333,7 @@ def dollar_context(defaults, failures):
                 "rename or remove the entry, or the '$' render silently stops covering what it meant to"
             )
     context = dict(defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED)
-    for variable in sorted((read - set(defaults)) | (set(FREE_FORM_WITH_A_DEFAULT) & read)):
+    for variable in sorted(dollar_variables(read, defaults, FREE_FORM_WITH_A_DEFAULT)):
         context[variable] = dollar_sample(variable)
     return context
 
@@ -509,6 +545,22 @@ DOLLAR_CASES = [
      {"services.svc.environment.KEY": "#0, selftest"}, "remove the entry"),
 ]
 
+# (name, variables the template reads, defaults, free-form list, what the "$" render must give a "$")
+# A value this selects wrongly is not a failure the '$' cases above can show: a variable left out is
+# rendered from its default, carries no "$", and every line it reaches passes -- which is how the
+# GitHub Models key's "replace" could be deleted with the check staying green.
+DOLLAR_VARIABLE_CASES = [
+    ("no default, a mandatory value", {"secret"}, {}, (), {"secret"}),
+    ("empty default, an optional value", {"optional_key"}, {"optional_key": ""}, (), {"optional_key"}),
+    ("bare key, which YAML reads as null", {"optional_key"}, {"optional_key": None}, (), {"optional_key"}),
+    ("real default, not listed", {"image_tag"}, {"image_tag": "1.2.3"}, (), set()),
+    ("real default, listed", {"login"}, {"login": "admin"}, ("login",), {"login"}),
+    # A string in a toggle would switch it on, which is why "false" is left to the list.
+    ("false default, a toggle", {"enabled"}, {"enabled": False}, (), set()),
+    ("listed, but not read", set(), {"login": "admin"}, ("login",), set()),
+    ("empty default, but not read", set(), {"optional_key": ""}, (), set()),
+]
+
 
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
@@ -541,6 +593,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, read, defaults, free_form, expected in DOLLAR_VARIABLE_CASES:
+        try:
+            derived = dollar_variables(read, defaults, free_form)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        if derived != expected:
+            problems.append(f"{name!r}: gives a '$' to {sorted(derived)}, expected {sorted(expected)}")
+
     if problems:
         print(f"{len(problems)} selftest problem(s):\n")
         for problem in problems:
@@ -550,7 +611,8 @@ def selftest():
 
     print(
         f"check_compose_template selftest: {len(CONVENTION_CASES)} convention case(s), "
-        f"{len(STATE_CASES)} two-state case(s) and {len(DOLLAR_CASES)} '$' case(s) all judged as expected."
+        f"{len(STATE_CASES)} two-state case(s), {len(DOLLAR_CASES)} '$' case(s) and "
+        f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s) all judged as expected."
     )
     return 0
 
@@ -597,7 +659,7 @@ def main():
     # Kept apart from the loop above rather than added to it: that loop holds every state to the
     # service conventions, this one holds a single state to something else, and "check_states" reads
     # only the first two either way.
-    dollar_state = "every caller value carrying '$'"
+    dollar_state = "caller values carrying '$'"
     try:
         dollar_document = yaml.safe_load(render(dollar_context(defaults, failures)))
     except Exception as error:  # noqa: BLE001 - a value breaking the render or the YAML is a finding
@@ -620,10 +682,12 @@ def main():
         f"Artificial Intelligence compose template: renders and parses in both states, {services} service(s) checked "
         "against the conventions of #31."
     )
-    # Printed on every run, so the places still waiting on another pull request stay in view.
+    # Printed on every run, so the places still waiting on another pull request stay in view, and so
+    # does how many values the render actually gave a "$" -- a number that drops is a value lost.
     owners = sorted({owner.split(",")[0] for owner in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS.values()})
+    covered = len(dollar_variables(template_reads(defaults), defaults, FREE_FORM_WITH_A_DEFAULT))
     print(
-        "No '$' reaches Compose single when every caller value carries one"
+        f"No '$' reaches Compose single from the {covered} caller value(s) rendered with one"
         + (f", {len(DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)} place(s) left to {', '.join(owners)}." if owners else ".")
     )
     return 0

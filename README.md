@@ -576,12 +576,19 @@ L'état « désactivé » est celui que personne ne regarde, et une condition Ji
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
 rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
 
-Il fait aussi un rendu de plus (#155), agent Claude Code activé, où chaque variable obligatoire -- toute
-variable que le template lit et que `defaults/main.yml` ne définit pas, donc aussi le secret du prochain
-service -- et chaque valeur libre à défaut portent `$`, `${`, `$$`, `/`, `@` et `#`. Il refuse alors
-toute chaîne du résultat où un `$` n'appartient pas à un `$$`, c'est-à-dire tout ce que Compose
-réinterpréterait. Les emplacements qu'une autre pull request réécrit déjà y sont exemptés un par un, avec
-leur numéro, et une exemption qui n'exempte plus rien fait échouer le contrôle.
+Il fait aussi un rendu de plus (#155), agent Claude Code activé, où portent `$`, `${`, `$$`, `/`, `@` et
+`#` : toute variable que le template lit et que `defaults/main.yml` ne définit pas ou laisse vide (`""`)
+-- les obligatoires, donc aussi le secret du prochain service, et les optionnelles vides comme la clé
+GitHub Models -- ainsi que les valeurs libres à vrai défaut que le script énumère dans
+`FREE_FORM_WITH_A_DEFAULT`. Il refuse alors toute chaîne du résultat où un `$` n'appartient pas à un
+`$$`, c'est-à-dire tout ce que Compose réinterpréterait. Les emplacements qu'une autre pull request
+réécrit déjà y sont exemptés un par un, avec leur numéro, et une exemption qui n'exempte plus rien fait
+échouer le contrôle.
+
+Ce n'est pas toute valeur de l'appelant : une nouvelle valeur libre dotée d'un vrai défaut, ou d'un
+défaut `false`, n'est rendue avec un `$` qu'une fois ajoutée à cette liste. Rien dans un défaut ne dit si
+sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. La dernière ligne du contrôle donne le
+nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du rendu.
 
 ## Exemple d'appel
 

@@ -19,9 +19,10 @@
 # numbers and the time zone, whose own grammar has no "$" to escape, and the published network's
 # definition, which is compose YAML the caller already writes as such. A LITERAL "$" typed into this
 # template needs the "$$" by hand; there is none, and a "${VAR}" there would be a ".env" in disguise.
-# "check_compose_template.py" renders every other value with a "$" in it and refuses a single one;
-# where a line still lacks the "replace", its "DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS" names the pull
-# request that is rewriting that line.
+# "check_compose_template.py" renders the values it can find with a "$" in them and refuses a single
+# one: those with no default or an empty one by itself, those with a real default only once its
+# "FREE_FORM_WITH_A_DEFAULT" names them. Where a line still lacks the "replace", its
+# "DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS" names the pull request that is rewriting that line.
 
 # Each service issue adds its block here, on the commented model below, and its variables in
 # "defaults/main.yml".
