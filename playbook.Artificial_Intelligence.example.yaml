@@ -62,7 +62,7 @@
         # "/ui"'s own password, now that its port is published (see the role's README for why). Basic
         # protection -- a login form, not HTTP basic auth, and no TLS -- but the one thing standing
         # between the LAN and the dashboard of the container that holds both accounts' provider keys
-        # plus the master key -- so it is vaulted like the two secrets above, not left to a default.
+        # plus the master key -- so it is vaulted like the secrets above, not left to a default.
         Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
         # The gateway's image. Explicit SemVer, never "main-latest" -- deprecated and no longer fed.
