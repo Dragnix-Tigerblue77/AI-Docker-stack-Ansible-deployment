@@ -202,6 +202,22 @@ def check_conventions(document, state, failures):
         if "container_name" in service:
             failures.append(f"{where}: declares container_name, which Swarm ignores")
 
+        # "depends_on" as a plain list of service names, and nothing else. "docker stack deploy"
+        # validates the file against docker/cli's own schema before it reaches the daemon, and there
+        # the key is an array of unique strings: the long form ("condition: service_healthy") gets
+        # the WHOLE file refused, and "docker compose config" accepts it without a word, which is how
+        # it shipped in #1 and sat in every render since (#154). Present but written empty is
+        # refused by both, so "in" rather than ".get": None is a finding here, not an absence.
+        if "depends_on" in service:
+            depends_on = service["depends_on"]
+            if not isinstance(depends_on, list) or not all(isinstance(entry, str) for entry in depends_on):
+                failures.append(
+                    f"{where}: depends_on must be a list of service names -- any other form, the long "
+                    "one with 'condition:' included, makes 'docker stack deploy' refuse the whole file"
+                )
+            elif len(set(depends_on)) != len(depends_on):
+                failures.append(f"{where}: depends_on names a service twice, which 'docker stack deploy' refuses")
+
         # The Definition of Done of #31: everything a service references has to be declared. The
         # orchestrator only says otherwise at deployment time.
         # "networks:" is a list of names, or a mapping of name to options (aliases, an address).
@@ -360,6 +376,23 @@ CONVENTION_CASES = [
      "expected 'any'"),
     ("container_name declared", {"services": {"svc": service(container_name="svc")}},
      "declares container_name"),
+    # Each verdict below is the one "docker stack config -c" gave on the same block (#154). The
+    # first refused case is the one that matters: "docker compose config" accepts it, so nothing
+    # else in CI would ever say a word about it.
+    ("depends_on, short form", {"services": {"svc": service(depends_on=["db", "cache"])}}, None),
+    ("depends_on, empty list", {"services": {"svc": service(depends_on=[])}}, None),
+    ("depends_on, long form",
+     {"services": {"svc": service(depends_on={"db": {"condition": "service_healthy"}})}},
+     "depends_on must be a list of service names"),
+    # The shape the homelab repository keeps commented out beside its own short forms: a list, but
+    # of mappings, which is neither form.
+    ("depends_on, list of mappings",
+     {"services": {"svc": service(depends_on=[{"db": {"condition": "service_healthy"}}])}},
+     "depends_on must be a list of service names"),
+    ("depends_on written empty", {"services": {"svc": service(depends_on=None)}},
+     "depends_on must be a list of service names"),
+    ("depends_on naming a service twice", {"services": {"svc": service(depends_on=["db", "db"])}},
+     "depends_on names a service twice"),
     ("service written empty", {"services": {"svc": None}}, "declares no image"),
     ("undeclared network", {"services": {"svc": service(networks=["nope"])}},
      "references undeclared network"),

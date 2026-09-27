@@ -41,13 +41,12 @@ name: Dependabot auto-merge
 #     makes holding it acceptable: no job may both write and run code nobody has reviewed yet -- a
 #     freshly bumped dependency included, since that is exactly what a Dependabot branch carries.
 #
-# "runs-on: ubuntu-latest", where the homelab's copy reads
-# "${{ vars.CI_RUNNER || 'ubuntu-latest' }}". This repository has no self-hosted runner and is not
-# going to get one: it stays in the Dragnix-Tigerblue77 organisation, and the maintainer's
-# self-hosted runners are registered for a different organisation, whose runners serve only that
-# organisation's repositories. So a CI_RUNNER here would be a switch nothing ever flips, and the
-# header of "ansible-ci.yml" already says why its jobs do without one: an indirection that no
-# variable ever fills in is a line the next reader has to go and check for nothing.
+# The job takes its runner from CI_RUNNER like every other job here (#162), although it is the one
+# holding a write token. The second point above is what allows it: nothing from a pull request is
+# checked out or executed, so a self-hosted runner never holds both a write token and code nobody
+# has reviewed. Left on the hosted runners, it would also be the job that stops merging Dependabot's
+# updates the day the included minutes run out. The header of "ansible-ci.yml" says what the
+# variable may name, and when.
 #
 # What the step below refuses, and why each refusal is there:
 #
@@ -90,7 +89,7 @@ concurrency:
 jobs:
   merge:
     name: Merge a green minor or patch Dependabot update
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
     # runner. It decides nothing: the step below checks the author, the commits and the checks
@@ -104,9 +103,10 @@ jobs:
       pull-requests: read
       checks: read
     steps:
-      # github-script rather than gh and jq, although a hosted runner has both: the homelab's copy
-      # needs it because its self-hosted image carries neither, and keeping this script the same as
-      # that one line for line is what lets a fix reviewed in one repository apply to the other.
+      # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
+      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries. And
+      # keeping this script the same as the homelab's copy line for line is what lets a fix reviewed
+      # in one repository apply to the other.
       - name: Merge the pull request if every required check passed on its head
         uses: actions/github-script@v9
         env:

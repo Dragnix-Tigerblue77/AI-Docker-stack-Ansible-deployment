@@ -69,9 +69,9 @@ Artificial_Intelligence_published_Docker_network_definition: false
 # --------------------------------------------------------------------------------------------------
 
 # The gateway's routing configuration, mounted read-only into the container. #1 renders the file and
-# its general settings; #2 fills its model list. It carries no secret of its own -- both are
-# interpolated straight into the compose template below, not into a file of their own -- so it needs
-# neither "0600" nor "no_log".
+# its general settings; #2 fills its model list. It carries no secret of its own: every secret it
+# needs is an "os.environ/..." reference to the gateway container's environment, which the compose
+# template fills -- so it needs neither "0600" nor "no_log".
 Artificial_Intelligence_LiteLLM_config_file_name: "LiteLLM_config.yaml"
 Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LiteLLM_config_file_name }}"
 
@@ -100,6 +100,25 @@ Artificial_Intelligence_LiteLLM_config_checksum: false
 # MAJOR pinned explicitly, never ":latest". A major bump imposes a pg_dump / restore, so it must
 # never happen because a tag moved: it is a decision with a maintenance window, not a side effect.
 # Check the major is supported by the Prisma schema of the LiteLLM version below before raising it.
+#
+# The tag BEGINS with the major -- "17-alpine", "17.6-alpine3.22", "18" -- and "tasks/main.yml"
+# refuses one that does not. The compose template reads the major off it to mount the data volume
+# where that major's image keeps its data: "/var/lib/postgresql/data" up to 17, "/var/lib/postgresql"
+# from 18, where the official image moved it. A volume left at the old path makes 18 refuse to
+# start, on an empty volume too (#168).
+#
+# ! Raising the major on a volume that already holds a cluster is a MIGRATION, not a tag change: the
+# new major refuses the old cluster and exits -- nothing is lost, and nothing starts. The way across,
+# verified from 17 to 18 with LiteLLM and written out command by command in the README ("Monter
+# PostgreSQL d'un majeur"):
+#   1. with the OLD major still running and LiteLLM stopped, "pg_dump --format=custom" its database;
+#   2. raise this tag AND give "Artificial_Intelligence_PostgreSQL_data_Docker_volume_name" a new
+#      name: the new major initialises an empty volume, and the old one stays as the way back;
+#   3. deploy, stop LiteLLM, "pg_restore --clean --if-exists" the dump, start LiteLLM again;
+#   4. remove the old volume by hand once the new one has proved itself.
+# "pg_upgrade" is the other way -- in place, faster on a large store -- but it needs both majors'
+# binaries in one container, which the official image does not carry. For a store this size the
+# dump is the simpler of the two.
 Artificial_Intelligence_PostgreSQL_Docker_image_tag: "17-alpine"
 
 Artificial_Intelligence_PostgreSQL_database: "litellm"
@@ -223,7 +242,6 @@ Artificial_Intelligence_Redis_memory_limit: "256m"
 # "Artificial_Intelligence_LiteLLM_UI_password" above), so there is nothing for this role to vault on his behalf.
 # Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77:
-# Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77:
 # Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77:
 # The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
@@ -237,6 +255,14 @@ Artificial_Intelligence_Redis_memory_limit: "256m"
 # than left without one like the keys above -- it is no longer a secret guarding a real quota, just an
 # unused container environment variable, and "tasks/main.yml" no longer asserts it is provided.
 Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: ""
+
+# Cerebras has had no permanent free tier since mid-2026 (#200): access needs a verified payment
+# method, then a 30-day $5 trial, then pay-as-you-go ("inference-docs.cerebras.ai/support/rate-limits",
+# checked 2026-09-27). Both "cerebras/*" entries of "LiteLLM_config.yaml.j2" are commented out with
+# that reason, so nothing consumes this key any more: optional, defaulted to empty, and no longer
+# asserted, the same treatment as the GitHub key just above. Give it a value again only together with
+# uncommenting those entries, if Cerebras is ever kept as a paid last resort the way DeepSeek is.
+Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: ""
 
 # --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)

@@ -72,9 +72,6 @@
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | length > 0
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | length > 0
@@ -86,13 +83,14 @@
       - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | length > 0
     quiet: true
     fail_msg: >-
-      tigerblue77's six LiteLLM provider keys (Gemini, Mistral, Cerebras, Groq, OpenRouter, DeepSeek)
+      tigerblue77's five LiteLLM provider keys (Gemini, Mistral, Groq, OpenRouter, DeepSeek)
       are mandatory and have no default, like every other secret this role interpolates.
       "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
       any OTHER account's own provider keys are deliberately absent here: each one added through
       "Artificial_Intelligence_LiteLLM_internal_users" (#103) adds theirs themselves, from their own restricted "/ui"
       login, never tigerblue77's own admin one. The GitHub key is asserted nowhere: #109 retired every
-      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml).
+      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml). Nor is
+      the Cerebras key: Cerebras has no free tier any more and its entries are commented out (#200).
 
 - name: "Check the Redis password is provided"
   ansible.builtin.assert:
@@ -137,6 +135,27 @@
       "Artificial_Intelligence_OmniRoute_dashboard_password" is mandatory and has no default: the image ships "CHANGEME"
       otherwise, documented upstream as deliberately weak. Its port is published for the dashboard to
       be reachable from the LAN (#73), so this password is the one thing standing in front of it.
+
+# The compose template reads the PostgreSQL major off the head of this tag to choose where the data
+# volume is mounted: the official image moved its data directory at 18, and a volume left at the old
+# path makes 18 refuse to start, even on an empty volume (#168). A tag that does not begin with the
+# major would be read as major 0 and mounted the pre-18 way -- wrong for "latest" and "alpine",
+# which already name 18 or later -- so it is refused here, before anything is rendered. That also
+# holds this service to "never :latest", the implicit form included. "| string" because an unquoted
+# 17 in a caller's YAML is an integer, and a perfectly good major.
+- name: "Check the PostgreSQL image tag begins with its major version"
+  ansible.builtin.assert:
+    that:
+      - (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string) is match('[0-9]+([.@-]|$)')
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_PostgreSQL_Docker_image_tag" ({{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}) must begin
+      with the PostgreSQL major version, followed by ".", "-", "@" or nothing -- "17-alpine",
+      "17.6-alpine3.22", "18" -- never "latest", "alpine" or any other tag that leaves the major
+      implicit. The compose template reads the major off the tag to mount the data volume where that
+      major's image keeps its data: "/var/lib/postgresql/data" up to 17, "/var/lib/postgresql" from 18
+      (#168). Raising the major on a volume that already holds data is a migration, not a tag change:
+      see the comment above this variable in defaults/main.yml.
 
 - name: "Check the Qdrant API key is provided"
   ansible.builtin.assert:
@@ -238,9 +257,9 @@
   # "Deploy the ... Docker stack" below.
   register: Artificial_Intelligence_LiteLLM_config_rendering
 
-# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja of its own, only
-# LibreChat's own "${VAR}" syntax, which LibreChat itself resolves from its container's environment
-# at runtime -- Ansible has nothing to interpolate here.
+# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja and no secret. Its
+# "apiKey" is "user_provided" since #103, each LibreChat account entering its own gateway key
+# itself, so Ansible has nothing to interpolate here.
 - name: "Deploy the LibreChat configuration"
   ansible.builtin.copy:
     src: "librechat/librechat.yaml"

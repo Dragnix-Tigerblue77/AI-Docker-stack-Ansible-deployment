@@ -77,9 +77,9 @@ owns that unit instead.
   has no `.vault_pass` and nothing vaulted at all -- every secret arrives as a
   caller-supplied role variable, so there is no vault file to protect from a
   read. And `files/` holds exactly one file,
-  `librechat/librechat.yaml`: a configuration template this repository authors
-  and reads secrets into only through `${VAR}` substitution LibreChat itself
-  performs, not a backup of a running production database the way the homelab
+  `librechat/librechat.yaml`: a configuration file this repository authors,
+  which carries no secret at all -- its `apiKey` is `"user_provided"` since
+  #103 -- not a backup of a running production database the way the homelab
   repository's `roles/*/files/*.sql` dumps are. A deny modelled on that one
   would block legitimate work on the one file it exists to protect nothing on
   today. If a role ever ships a real data dump under `files/`, add the deny
