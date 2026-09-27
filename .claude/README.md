@@ -6,15 +6,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 # `.claude/` — the agent team that works this repository
 
 `settings.json` is JSON and cannot carry comments, so the reasoning behind each
-choice lives here, in the register the rest of the repository uses. This
-configuration is modelled on `Homelab_Ansible_deployment`'s own `.claude/` --
-the two repositories share a maintainer and several working conventions -- but
-it is not a copy: this repository has one role instead of eighty-odd, ships no
-inventory at all, and carries risks of its own (a dual licence, an isolation
+choice lives here, in the register the rest of the repository uses. The
+configuration is shaped by what this repository is: exactly one role, no
+inventory at all, and risks of its own -- a dual licence, an isolation
 property between two LiteLLM accounts, a Priority field only one person
-validates) that the homelab has no equivalent of. Where a choice differs from
-the homelab repository's, the difference is explained below rather than left
-for a reader to wonder whether it was noticed.
+validates. Where a choice below departs from the obvious one, the reason is
+written next to it rather than left for a reader to wonder whether it was
+noticed.
 
 ## What this configures
 
@@ -32,11 +30,10 @@ list and message each other directly.
 Start one by asking the lead for it -- the teammates are spawned from these
 definitions by name.
 
-There is no `role-auditor` here. The homelab repository has eighty-seven roles
-to sweep for idempotence and skeleton drift; this repository has exactly one,
-and the unit that actually repeats -- one issue at a time -- is the service
-block inside `templates/Artificial_Intelligence.docker-compose.yml.j2`. `service-block-auditor`
-owns that unit instead.
+No teammate sweeps roles for idempotence or skeleton drift: there is exactly
+one role, and the unit that actually repeats -- one issue at a time -- is the
+service block inside `templates/Artificial_Intelligence.docker-compose.yml.j2`.
+`service-block-auditor` owns that unit instead.
 
 ## Why these settings
 
@@ -47,43 +44,39 @@ owns that unit instead.
   own context window, so a team costs several times a single session. The lead
   keeps the stronger model for judgement; the teammates do the volume on
   Sonnet.
-- **`ansible-playbook` is narrowed, not denied outright, unlike the homelab
-  repository's own blanket deny.** There the whole family is refused, including
-  the harmless `--syntax-check`, because CI already runs it on every pull
-  request and being structurally unable to deploy against a real household
-  machine is worth more than running one check locally. Neither half of that
-  trade-off holds here the same way: `--syntax-check` is not merely harmless,
-  `CONTRIBUTING.md` asks every contributor to run it themselves before
-  pushing, and this repository ships no inventory of its own to deploy
+- **`ansible-playbook` is narrowed, not denied outright.** A blanket deny over
+  the whole family would refuse the harmless `--syntax-check` with the rest,
+  trading one local check for being structurally unable to deploy against a
+  real machine. That trade does not pay here: `--syntax-check` is not merely
+  harmless, `CONTRIBUTING.md` asks every contributor to run it themselves
+  before pushing, and this repository ships no inventory of its own to deploy
   against in the first place -- `playbook.Artificial_Intelligence.example.yaml` targets a group
   name (`Artificial_Intelligence_servers`) the caller has to supply. So `allow` keeps the existing
   `ansible-playbook --syntax-check:*` entry, and `deny` narrows to the flags
   that would actually point it at a host: `-i`, `--inventory`, `--limit`, plus
   `ansible-vault` (nothing here is vaulted, but a stray decrypt attempt against
   a caller's own vault file has no legitimate reason to happen from this
-  repository either) and ad-hoc `ansible -m`/`-i`/`-a`. This is the same lesson
-  the homelab repository's own `git push` deny already paid for once (#833,
-  #834): a blanket deny over a family that has one legitimate, required member
-  just gets routed around or blocks real delivery, so the deny is narrowed to
-  the dangerous forms instead of covering the whole command.
-- **`git push` is narrowed the same way the homelab repository settled on**:
+  repository either) and ad-hoc `ansible -m`/`-i`/`-a`. A blanket deny over a
+  family that has one legitimate, required member just gets routed around or
+  blocks real delivery, so the deny is narrowed to the dangerous forms instead
+  of covering the whole command.
+- **`git push` is narrowed the same way**, for the same reason:
   `deny` covers `git push origin main` and its `-u`/`--set-upstream`
   spellings, `HEAD:main`, and any `--force`/`--force-with-lease`/`-f` push;
   `allow` names the one legitimate shape, `git push ... origin claude/<topic>`.
-  `main` is this repository's only long-lived branch too (CLAUDE.md,
-  Conventions), so the reasoning transfers directly.
-- **No deny on `.vault_pass` or on `files/**`, unlike the homelab
-  repository.** Both are deliberate omissions, not oversights. This repository
-  has no `.vault_pass` and nothing vaulted at all -- every secret arrives as a
-  caller-supplied role variable, so there is no vault file to protect from a
-  read. And `files/` holds exactly one file,
-  `librechat/librechat.yaml`: a configuration template this repository authors
+  `main` is this repository's only long-lived branch (CLAUDE.md, Conventions),
+  and a pushed `claude/<topic>` branch is how every change reaches it.
+- **No deny on `.vault_pass` or on `files/**`.** Both are deliberate
+  omissions, not oversights. This repository has no `.vault_pass` and nothing
+  vaulted at all -- every secret arrives as a caller-supplied role variable, so
+  there is no vault file to protect from a read. And `files/` holds exactly one
+  file, `librechat/librechat.yaml`: a configuration template this repository authors
   and reads secrets into only through `${VAR}` substitution LibreChat itself
-  performs, not a backup of a running production database the way the homelab
-  repository's `roles/*/files/*.sql` dumps are. A deny modelled on that one
-  would block legitimate work on the one file it exists to protect nothing on
-  today. If a role ever ships a real data dump under `files/`, add the deny
-  then, for the reason the homelab repository's own comment gives.
+  performs, not a backup of a running production database. A deny over
+  `files/**` would block legitimate work on the one file it exists to protect
+  nothing on today. If a role ever ships a real data dump under `files/`, add
+  the deny then: a dump is a backup of the database it came from, not fixture
+  data this repository owns, and an edit to it quietly stops it being one.
 - **`ssh`, `scp` and `rsync` are denied.** This repository presupposes no
   machine at all -- there is nothing for an agent here to legitimately reach
   over any of the three.
@@ -128,9 +121,9 @@ running a script, not the model deciding to behave.
 `"deny"` (`gate-issue-priority.sh`) when their own tooling is missing rather
 than passing. A gate that cannot run its checks must not report success.
 
-`TeammateIdle` is deliberately **not** wired, for the same reason the homelab
-repository leaves it unwired: exit 2 there would keep a teammate working
-forever, which is the one hook shape that can build a loop that never settles.
+`TeammateIdle` is deliberately **not** wired: exit 2 there would keep a
+teammate working forever, which is the one hook shape that can build a loop
+that never settles.
 
 ## What this does not protect against
 

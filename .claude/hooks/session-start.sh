@@ -30,7 +30,7 @@
 #                         role search to find. "~/.ansible/roles" is one of its built-in search
 #                         locations, so this needs no "ansible.cfg" entry, only the symlink itself.
 #
-# One step the homelab repository's equivalent has and this one deliberately does NOT :
+# One step this hook deliberately does NOT take :
 #
 #   * no ".vault_pass". Nothing in this repository is vaulted, so no check exits 1 for the want of
 #     one. Writing a dummy password for a vault that does not exist would be a file nobody reads and

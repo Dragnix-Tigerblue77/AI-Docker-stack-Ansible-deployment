@@ -42,7 +42,7 @@ ROLE = Path(__file__).resolve().parents[2]
 
 # The published network as a caller supplies it. The indentation is not cosmetic: the definition is
 # a block string interpolated into the "networks:" mapping, so it carries its own continuation
-# indent, exactly as "Homelab_Ansible_deployment" writes it in its playbook.
+# indent, exactly as a caller writes it in its playbook.
 PUBLISHED_NETWORK = {
     "Artificial_Intelligence_published_Docker_network_name": "DMZ",
     "Artificial_Intelligence_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",

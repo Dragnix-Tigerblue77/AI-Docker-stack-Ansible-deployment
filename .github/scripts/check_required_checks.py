@@ -24,10 +24,9 @@ of them silent:
   gate reads only what the file names. This check is what puts that addition in the same pull
   request.
 
-wader/postfix-relay keeps its own copy true with "tests/test_ruleset.py", and
-"Homelab_Ansible_deployment" with a script of this same name. This one does what both of them do,
-plus the second direction above, which neither needs as much: postfix-relay because GitHub enforces
-its file, the homelab repository because it gates through one aggregate job.
+wader/postfix-relay keeps its own copy true with "tests/test_ruleset.py". This one does what that
+does, plus the second direction above, which postfix-relay needs less because GitHub enforces its
+file, and which this file needs because it names every job one by one rather than one aggregate job.
 
 WHAT IT CHECKS
 --------------
