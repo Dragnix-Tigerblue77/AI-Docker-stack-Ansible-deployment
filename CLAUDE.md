@@ -64,15 +64,14 @@ because forgetting them costs the same time every session.
   fallback options considered in case the first choice fails are part of the description too.
 * **One issue, one subject.** If a second subject appears, it is split off.
 * **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
-  bodies and comments, in every repository but one group: the private repositories of the
-  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French while
-  code and commit messages stay in English. **This repository is in that group**, so its issues and
-  pull requests are written in French, as *Language* below says, and none of them is flagged. An
-  issue or a pull request found breaking this, in a repository it covers, is never let pass
-  silently: the maintainer is told, every time, with the link, and offered a translation, which is
-  made once they agree (Tigerblue77-personal/Homelab_Ansible_deployment#1006 and
-  Tigerblue77-personal/Homelab_Ansible_deployment#1037). It is written here all the same, as every
-  shared rule is, for the session that moves on from here to a sibling where it does apply.
+  bodies and comments, in every repository but the private ones whose own instructions put issues
+  and pull requests in French -- the private repositories of the `Dragnix-Tigerblue77` organisation
+  among them -- where code and commit messages still stay in English. **This repository is in that
+  group**, so its issues and pull requests are written in French, as *Language* below says, and none
+  of them is flagged. An issue or a pull request found breaking this, in a repository it covers, is
+  never let pass silently: the maintainer is told, every time, with the link, and offered a
+  translation, which is made once they agree. It is written here all the same, as every shared rule
+  is, for the session that moves on from here to a sibling where it does apply.
 * **A public repository never names a private one**, never cites its issues or pull requests, and
   never describes what it holds -- in a file, a commit message, a branch name, an issue, a pull
   request or a comment. A private name or issue number written in public leaks that the repository
@@ -174,8 +173,8 @@ because forgetting them costs the same time every session.
 
 ## Language
 
-The divergence with `Homelab_Ansible_deployment` is **only about what is read inside GitHub**,
-because this repository is shared between two French speakers:
+What is written in French here is **only what is read inside GitHub**, because this repository is
+shared between two French speakers:
 
 | | |
 | --- | --- |
@@ -187,8 +186,8 @@ French one, and the split is not an oversight: the first two address a prospecti
 beside the English licence text, whereas the third addresses the two people who work here. That is
 the same test as everywhere else -- who reads it -- applied to three files that look alike.
 
-In other words: anything a third party would read in the code or in a run's output stays in English,
-as in `Homelab_Ansible_deployment`. Only the conversation around the code is in French.
+In other words: anything a third party would read in the code or in a run's output stays in English.
+Only the conversation around the code is in French.
 
 **This file is in English**, with the code rather than with the conversation: nearly every line of it
 quotes a task name, a commit subject, a variable or an error message, and those are English. A French
