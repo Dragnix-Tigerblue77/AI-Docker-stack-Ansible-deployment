@@ -369,6 +369,16 @@ donc tolérer une base pas encore prête, et c'est la politique de redémarrage 
 l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
 d'essai.
 
+**La sonde de santé de `postgres` passe par TCP, sur le port de `DATABASE_URL`, et pas par le socket
+Unix (#153).** Au premier démarrage, l'image initialise le volume sur un serveur temporaire qui
+n'écoute que sur le socket ; une sonde par socket le déclarait sain alors que le port 5432 refusait
+encore tout autre conteneur -- mesuré : `healthy` à 5 s, port ouvert à 21 s sur une initialisation
+tenue ouverte 20 s. Une porte `service_healthy` ne vaut que ce que vaut la sonde, et la sonde ne
+sert pas qu'à cette porte : c'est elle que lisent `docker compose ps`, `docker compose up --wait`,
+et sous Swarm l'état des tâches et la surveillance d'une mise à jour. Le prix est qu'elle échoue
+pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start_period` puis
+`retries` × `interval`), contre une à deux secondes mesurées pour un premier démarrage ordinaire.
+
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
