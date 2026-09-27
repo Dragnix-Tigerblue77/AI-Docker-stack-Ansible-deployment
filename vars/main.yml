@@ -2,3 +2,33 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # vars file for deploy_Artificial_Intelligence_Docker_stack
+
+# --------------------------------------------------------------------------------------------------
+# Claude Code agent -- tigerblue77 (#13). Derived, not set: what its Dockerfile template reads.
+# --------------------------------------------------------------------------------------------------
+
+# The ansible-core the Claude Code agent (tigerblue77) image installs, READ from this repository's
+# own "requirements.txt" when the Dockerfile is rendered, never written a second time (#178). The
+# image layers ansible-core for tigerblue77's infrastructure work, and the version it should run is
+# the one this repository's CI and sessions already run; a copy in the Dockerfile template is one
+# Dependabot cannot see -- it reads requirements files, never a Jinja template -- so it stayed on
+# 2.21.3 when 3a6797e moved "requirements.txt" to 2.21.4, a release that masks credentials embedded
+# in URLs. Since #140 merges those bumps without anybody reading them, a second copy only drifts.
+#
+# Here and not in "defaults/main.yml", for two reasons. It is derived, not a setting: a caller who
+# really needs another version passes it as a role parameter, which still wins over this file. And
+# ".github/scripts/check_compose_template.py" renders every default with plain Jinja2, which has no
+# "lookup" -- measured, a default written like this one stops it with "'lookup' is undefined".
+#
+# "role_path" and not a bare file name: a bare name falls back to the playbook's own directory when
+# the role's copy is missing, and a caller's "requirements.txt" there is not the one this role was
+# checked against -- an absolute path fails instead. The repository root IS the role (CLAUDE.md,
+# invariant 8), so the file ships wherever the role does.
+#
+# "false" when no "ansible-core==" line is found, which "tasks/main.yml" refuses before rendering.
+Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version: >-
+  {{ lookup('ansible.builtin.file', role_path ~ '/requirements.txt').splitlines()
+  | select('match', 'ansible-core==')
+  | map('regex_replace', '^ansible-core==', '')
+  | first
+  | default(false) }}

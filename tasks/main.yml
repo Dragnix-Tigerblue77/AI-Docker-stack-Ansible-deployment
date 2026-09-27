@@ -258,6 +258,26 @@
     mode: "0755"
   when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
 
+# The Dockerfile below installs the ansible-core "requirements.txt" pins, read by "vars/main.yml"
+# (#178). Refused here rather than at build time on the managed node: without this, a pin written
+# with a range, a marker or a trailing comment would render into the "pip3 install" line as is, and
+# fail -- or install something else -- only once the image is built, long after this run said "ok".
+- name: "Check requirements.txt pins the ansible-core the Claude Code agent (tigerblue77) image installs"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version is string
+      - Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version is match('[0-9][0-9A-Za-z.+!]*$')
+    quiet: true
+    fail_msg: >-
+      The Claude Code agent (tigerblue77) image installs the ansible-core version
+      "Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version" names, and got
+      "{{ Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version }}", which is not a bare
+      version. Unless passed to the role, it is read from the "ansible-core==" line of this role's own
+      "requirements.txt": "False" means there is no such line, anything else means the line carries
+      more than the version (a range, a marker, a trailing comment). Pin it with "==" and nothing
+      after the version -- the form Dependabot keeps it in. See #178.
+  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+
 # "build:" needs an actual Dockerfile on the managed node, not something read out of this
 # repository's own checkout at deploy time -- which may not even be present there. Rendered rather
 # than copied so the image it is built FROM stays a single value in "defaults/main.yml", pinned by

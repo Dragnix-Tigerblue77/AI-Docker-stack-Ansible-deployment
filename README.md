@@ -158,6 +158,7 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 |---|---|---|
 | `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
 | `Artificial_Intelligence_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version` | *lu dans `requirements.txt`* | L'`ansible-core` que l'image installe : celui que la CI de ce dépôt épingle, lu au rendu du `Dockerfile` (`vars/main.yml`, #178) plutôt qu'écrit une seconde fois. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
@@ -466,6 +467,17 @@ d'infrastructure de tigerblue77, pas des besoins de Claude Code lui-même. Le `D
 par ce rôle (`templates/claude_code_tigerblue77.Dockerfile.j2`) plutôt que copié tel quel : l'image dont
 il part reste ainsi une seule valeur dans `defaults/main.yml`, épinglée par tag et digest, plutôt qu'une
 seconde copie figée dans un fichier statique.
+
+**L'`ansible-core` de l'image est celui de `requirements.txt`, lu au rendu et jamais recopié (#178).**
+La version que ce dépôt fait tourner en CI et en session est celle que l'agent doit avoir pour travailler
+sur l'infrastructure de tigerblue77, et le `Dockerfile` l'écrivait une seconde fois, en dur. Dependabot
+ne lit que les fichiers de dépendances, jamais un template Jinja : quand il a porté `requirements.txt`
+à 2.21.4, le `Dockerfile` est resté sur 2.21.3, une version qui affiche en clair les identifiants
+contenus dans une URL, et depuis #140 ces montées de version fusionnent sans que personne ne les lise.
+`vars/main.yml` lit donc la ligne `ansible-core==` de `requirements.txt` au moment du rendu, et
+`tasks/main.yml` refuse de rendre le `Dockerfile` si elle n'est pas une épingle `==` nue. Une montée de
+version n'a plus rien d'autre à modifier ; elle n'atteint toutefois l'agent qu'à la prochaine
+construction de son image, que ce rôle ne déclenche pas lui-même.
 
 **Le répertoire personnel monté est `/home/node` en entier, jamais `~/.claude` seul.** C'est le piège
 d'authentification que le dépôt amont documente sur lui-même : `~/.claude.json` vit À CÔTÉ de

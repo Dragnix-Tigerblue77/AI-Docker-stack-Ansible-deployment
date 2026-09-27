@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # repository's own toolchain. Installed from PyPI rather than apt's "ansible" metapackage, which
 # pulls a much larger dependency tree than this container needs; "--break-system-packages" is
 # required either way, since this is the system interpreter (PEP 668).
-RUN pip3 install --no-cache-dir --break-system-packages ansible-core==2.21.3
+RUN pip3 install --no-cache-dir --break-system-packages ansible-core=={{ Artificial_Intelligence_Claude_code_tigerblue77_ansible_core_version }}
 
 # Restores "~/.claude.json" from the newest backup on the mounted home volume before Claude Code
 # starts. The base image mounts the WHOLE home directory (see its own README on the authentication

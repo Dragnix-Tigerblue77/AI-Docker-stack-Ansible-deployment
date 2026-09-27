@@ -285,6 +285,9 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
 Artificial_Intelligence_Claude_code_Docker_image_tag: "2.1.236"
 Artificial_Intelligence_Claude_code_Docker_image_digest: "sha256:025264aeda3bf906a26d1f9282f69dcbbb169e7fb7e5a4406d42f90311d5e35a"
 
+# The ansible-core the image layers on top has no default here, on purpose: it is the one
+# "requirements.txt" pins, read by "vars/main.yml" when the Dockerfile is rendered (#178).
+
 # Where the Dockerfile this role renders from "templates/claude_code_tigerblue77.Dockerfile.j2" lands
 # on the managed node, next to the rendered compose file: "build:" needs an actual path on that
 # machine, not something read out of this repository at deploy time.
