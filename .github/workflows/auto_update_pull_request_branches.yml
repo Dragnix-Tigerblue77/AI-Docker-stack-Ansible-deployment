@@ -133,7 +133,20 @@ jobs:
     #   with one of the two credentials the header describes, is the whole
     #   activation: it needs no change to this file.
     if: vars.PULL_REQUESTS_UPDATE_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    # Behind CI_RUNNER like every other job here (#162), although this one
+    # holds the widest credential of any: Contents, Pull requests AND Workflows
+    # write. What allows it is what the credential never meets: no trigger
+    # above is "pull_request", nothing is checked out, and nothing from any pull
+    # request runs on the runner. The rebase happens on GitHub's side, through
+    # the API, and all the runner handles is pull request numbers, SHAs and
+    # mergeability flags. A self-hosted runner is also what takes the schedule's
+    # minutes above off the bill. The step below needs gh and jq on whatever
+    # CI_RUNNER names: GitHub's hosted image has both, and so does
+    # myoung34/github-runner, the image the homelab repository's runner role
+    # deploys (its build/install_base.sh installs jq, its build/config.json the
+    # GitHub CLI). The header of "ansible-ci.yml" says what the variable may
+    # name, and when.
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       # Only runs once the App route is configured: without the variable there
