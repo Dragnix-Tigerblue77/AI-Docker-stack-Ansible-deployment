@@ -171,6 +171,23 @@ services:
       - "4000"
       - "--num_workers"
       - "{{ Artificial_Intelligence_LiteLLM_number_of_workers }}"
+      # A failed schema migration EXITS the container instead of being logged and walked past. Left
+      # out -- upstream's default at v1.100.0 -- LiteLLM prints "Database migration failed but
+      # continuing startup" and serves on whatever schema the database holds, typically the
+      # previous tag's one when a tag bump brings a migration that errors out. "/health/liveliness"
+      # and even "/health/readiness", which only tests the connection, answer 200 on it, so neither
+      # the healthcheck below nor "restart_policy" ever acts: what breaks is whichever request first
+      # reads what the migration should have created. Exiting hands the failure to
+      # "restart_policy.condition: any" instead -- a restart loop and a red line in the logs, which
+      # is what a migration that did not happen should look like (#163).
+      #
+      # The price: a transient failure restarts the container too, and the next start retries the
+      # migrations, which is what that case needs anyway. A database that stays unreachable is not
+      # what this is for: LiteLLM's own connection at startup already fails and exits then.
+      #
+      # The flag and the "ENFORCE_PRISMA_MIGRATION_CHECK" variable upstream's message names are one
+      # and the same click option; the flag is written here, beside the other startup options.
+      - "--enforce_prisma_migration_check"
 
     # Published, and this reverses #1's own original call -- see "Artificial_Intelligence_LiteLLM_UI_password" in
     # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
