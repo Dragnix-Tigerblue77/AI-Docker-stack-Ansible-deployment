@@ -257,26 +257,26 @@ model_list:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
+  # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
+  # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
+  # the name: on the free tier ("console.groq.com/docs/rate-limits", Free Plan Limits: 30 RPM, 8K TPM,
+  # the same as both gpt-oss entries above), and in instruct mode unless a request asks otherwise --
+  # the API reference gives "none" as its default "reasoning_effort", no thinking phase, which is what
+  # makes it a candidate for flash-lite's latency profile at all. Listed among Groq's "Preview Models",
+  # which "may be discontinued at short notice": the first entry of this block to recheck at the next
+  # audit.
   - model_name: qwen3-8-27b-groq
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
-  # #2's other designated replacement for the same retired Groq model.
-  - model_name: qwen3-6-27b-groq
-    litellm_params:
-      model: groq/qwen/qwen3.6-27b
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-
-  - model_name: compound-groq
-    litellm_params:
-      model: groq/groq/compound
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
-
-  - model_name: compound-mini-groq
-    litellm_params:
-      model: groq/groq/compound-mini
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
+  # Usable on Groq but deliberately not routed to: Enterprise only. "console.groq.com/docs/model/
+  # minimaxai/minimax-m2.7", checked 2026-09-27: "available to Enterprise customers. Contact sales for
+  # access." -- it has no row in the Free Plan Limits table, and no free or developer quota to route to.
+  # - model_name: minimax-m2-7-groq
+  #   litellm_params:
+  #     model: groq/minimaxai/minimax-m2.7
+  #     api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
 
   # ============================================================================
   # SambaNova -- DISABLED, requires a bank card on file.
@@ -553,7 +553,8 @@ router_settings:
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPUs (Cerebras/Groq) -> Mistral -> OpenRouter -> DeepSeek direct
     # (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute. GitHub Models dropped
-    # from this chain by #109: retired 2026-07-30, see the model_list comment above.
+    # from this chain by #109: retired 2026-07-30, see the model_list comment above. "compound-groq"
+    # dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
     - flash:
         - gemini-3-8-flash
         - gemini-3-6-flash
@@ -564,7 +565,6 @@ router_settings:
         - gpt-oss-120b-groq
         - qwen3-8-27b-cerebras
         - qwen3-8-27b-groq
-        - compound-groq
         - mistral-small
         - ministral-14b
         - ministral-8b
@@ -575,14 +575,16 @@ router_settings:
         - omniroute-free-auto
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
-    # ultra-high speed.
+    # ultra-high speed. "compound-mini-groq" and "qwen3-6-27b-groq" dropped by #169, both retired by
+    # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
+    # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
+    # bench (#85) measures whether its latency earns it a higher or a lower one.
     - flash-lite:
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
         - ministral-3b
         - gpt-oss-20b-groq
-        - compound-mini-groq
-        - qwen3-6-27b-groq
+        - qwen3-8-27b-groq
         - gemma-4-26b-free
         - nemotron-lightning-free
         - ling-flash-free
