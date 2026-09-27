@@ -43,6 +43,21 @@ because forgetting them costs the same time every session.
 * **Never hand over a file to download.** Any manual step is given as a **pre-filled link**: an issue
   creation URL carrying its title and body, the GitHub settings page concerned, the direct link to
   the item to delete. Downloading a file, opening it and copying it back out is slow and tedious.
+* **A command handed to the maintainer is complete, quiet, and runs as it is.** Pasted whole, it runs:
+  nothing to fill in by hand, no step left to infer, and no `sudo` -- the estate's machines have none,
+  and the maintainer already works as root where root is needed. What it prints is what the session
+  needs to read and no more: a long log goes to a file on the host, and what reaches the chat is
+  filtered, counted or summarised, because ten thousand pasted lines bury the one that mattered and
+  cost a round trip to filter again. All three were asked for in a homelab session, one incident at a
+  time, before being written down (Tigerblue77-personal/Homelab_Ansible_deployment#1054).
+* **An issue for a third-party project is drafted to that project's standard, and checked before it
+  is posted.** Its tracker is searched first, and an issue already open gets a comment rather than a
+  duplicate. The pre-filled link opens the project's own issue form (`issues/new?template=...`), not
+  a blank issue that a project using forms may have disabled, and the draft fills in every field the
+  form asks for. It goes out under the maintainer's name, so every claim in it is verified first,
+  not merely plausible. Both halves were paid for in the homelab repository: a report to qbit_manage
+  was called out on its own tracker as an AI issue that ignored the template, and Cleanuparr#798
+  stated as fact a diagnosis its maintainer disproved within half an hour.
 * **Proposals belong in the chat, not in an issue comment.** A comment posted to propose something is
   noise: the discussion happens in the session, and only the agreed result lands in the repository.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
