@@ -428,6 +428,18 @@ DEFAULTS_CASES = [
     ("misspelled mandatory variable",
      '# Workspace_directory:\nSub_path: "{{ Workspace_dirctory }}/sub"\n',
      "Sub_path: references 'Workspace_dirctory'", None),
+    # The two cases above never reach StrictUndefined: a misspelled NAME is caught by reading the
+    # template's references before it is rendered. What only the render can see is a miss one level
+    # down -- an attribute, a key, an index -- and the lenient Undefined renders that as "" exactly as
+    # it rendered the misspelled build context. Without these two, putting "Environment()" back left
+    # this selftest green. ansible-core 2.21.4 refuses both, "object of type 'dict' has no attribute
+    # 'apii'" and "object of type 'list' has no attribute 2".
+    ("misspelled attribute of a defined mapping",
+     'Ports: {"api": 4000}\nApi_URL: "http://x:{{ Ports.apii }}"\n',
+     "Api_URL: does not render", None),
+    ("index past the end of a defined list",
+     'Paths: ["/srv/a", "/srv/b"]\nThird_path: "{{ Paths[2] }}"\n',
+     "Third_path: does not render", None),
     ("Ansible-only filter",
      'Toggle: "{{ true | ternary(\'a\', \'b\') }}"\n',
      "Toggle: uses the filter 'ternary'", None),
