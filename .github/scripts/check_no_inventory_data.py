@@ -62,6 +62,7 @@ ALLOWED_HOSTS = {
     "cli.github.com": "GitHub CLI's own apt package repository, used by the Claude Code agent (#13)",
     "docs.litellm.ai": "gateway documentation, cited in a comment",
     "code.claude.com": "Claude Code documentation, cited in .claude/README.md",
+    "claude.ai": "address of a Claude Code session, in the signature CLAUDE.md prescribes for what a session posts on GitHub",
     "json.schemastore.org": "JSON schema referenced by .claude/settings.json for editor validation",
     "ai.google.dev": "Gemini terms of use, cited in #2",
     "generativelanguage.googleapis.com": "Google AI Studio's OpenAI-compatible endpoint (#2)",
