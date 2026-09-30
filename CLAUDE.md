@@ -224,9 +224,9 @@ because forgetting them costs the same time every session.
   to its conversation. The wording is the maintainer's, "supervised by" and not "reviewed by", and
   it is one fixed formula in every repository, whatever the language of the text above it -- French
   here, English in the repositories the rule on language above leaves in English -- because it is a
-  signature and not prose. A commit message is not covered: it ends with the trailers of its own
-  instead, and *Commits* under *Conventions* says how the rest of it is written. Shared with every
-  repository of the maintainer that carries agent instructions, and written out in full in each.
+  signature and not prose. A commit message is not covered: it ends instead with the trailers those
+  same instructions give it. Shared with every repository of the maintainer that carries agent
+  instructions, and written out in full in each.
 * **Priorities are not ours to set.** An issue's `Priority` field is agreed between @tigerblue77 and
   @Dragnix-23. A session may *propose* a change, with its argument -- in the chat, or as a row in the
   roadmap's proposal table (#33) -- but it never writes the field itself. Only @tigerblue77 validating
