@@ -111,8 +111,11 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
 
 ## Conventions
 
-* Documentation, commentaires et messages de commit **en français**. Ce dépôt diverge
-  volontairement de `Homelab_Ansible_deployment` sur ce point.
+* **En français :** les issues, les pull requests, `README.md`, `CONTRIBUTING.md` et les modèles
+  d'issue. **En anglais :** les messages de commit, le code, les commentaires, les noms de tâches
+  Ansible, les messages d'erreur, `NOTICE` et `LICENSE-COMMERCIAL.md`. La règle : ce qu'un tiers lit
+  dans le code ou dans la sortie d'un run reste en anglais. La section *Language* de `CLAUDE.md`
+  en donne la raison.
 * Aucun secret en clair, jamais, y compris dans un exemple.
 * Aucune adresse IP ni nom d'hôte dans le code **ni dans les issues**. `gitleaks` ne lit que l'arbre
   de travail et le *secret scanning* de GitHub demanderait un plan que l'organisation n'a pas : le

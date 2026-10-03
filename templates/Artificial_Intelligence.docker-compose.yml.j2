@@ -1,9 +1,9 @@
 # Artificial Intelligence stack.
 #
 # This file is RENDERED onto the managed node: what is read here is a template, what lands there is
-# an ordinary compose file. It deliberately carries no SPDX header, for the same reason
-# "roles/*/templates/" is exempt on the homelab side: the header would end up copied into the
-# deployed file, which is not a source file of this repository.
+# an ordinary compose file. It deliberately carries no SPDX header, and "REUSE.toml" declares it
+# instead: the header would end up copied into the deployed file, which is not a source file of
+# this repository.
 #
 # No format "version:": the key has been obsolete since Compose v2, and Swarm never read it.
 
@@ -36,17 +36,46 @@ services:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
       # of #1, not a hope. A bind mount would also tie the stack to a host path, which this
       # repository does not get to choose.
-      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+      #
+      # ! Its TARGET follows the major, because the official image moved its data directory at 18
+      #   (docker-library/postgres#1259). Up to 17, PGDATA is "/var/lib/postgresql/data" and that is
+      #   the image's volume. From 18, PGDATA is "/var/lib/postgresql/18/docker" and the volume is
+      #   "/var/lib/postgresql", one level up, so that a later "pg_upgrade --link" finds both majors'
+      #   clusters inside a single mount. A volume still mounted at ".../data" under 18 is not merely
+      #   left unused: the entrypoint refuses it as an "unused mount/volume" and exits 1, on an EMPTY
+      #   volume on a fresh machine too -- measured with "postgres:18-alpine" (#168).
+      #
+      #   The major is read off the head of the tag, which "tasks/main.yml" holds to beginning with
+      #   it. A volume that already holds another major's cluster is refused at either path, by the
+      #   image itself: raising the major on one is a migration, spelt out next to the tag in
+      #   "defaults/main.yml".
+{% set Artificial_Intelligence_PostgreSQL_major_version = (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string).split('@')[0].split('-')[0].split('.')[0] | int %}
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:{{ '/var/lib/postgresql' if Artificial_Intelligence_PostgreSQL_major_version >= 18 else '/var/lib/postgresql/data' }}:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
+      #
+      # ! Over TCP, on the port "DATABASE_URL" below names -- never over the Unix socket, which is
+      #   what "pg_isready" picks without "-h". On a first boot the image initialises the store on a
+      #   TEMPORARY server started with "listen_addresses=''", the socket only, then stops it and
+      #   starts the real one. The socket probe answers "accepting connections" all through that
+      #   window, while port 5432 still refuses every other container (#153). Measured with the
+      #   window held open for 20 s: healthy at 5 s, TCP open at 21 s, and a container gated on
+      #   "service_healthy" started in between and found nothing. "127.0.0.1" rather than
+      #   "localhost", so the probe does not depend on what that name resolves to.
+      #
+      #   The price: the probe now FAILS for the whole of a first init. "start_period" (not counted)
+      #   plus "retries" x "interval" is about 35 s before "unhealthy", against 1.5 to 2 s measured
+      #   for an ordinary first boot. Swarm replaces an unhealthy task, so an init that ever gets
+      #   near that budget -- a slow disk, an init script -- needs a longer "start_period", which
+      #   costs nothing on the happy path: a success during it counts at once.
       #
       # The user and the database are interpolated by ANSIBLE, at render time, rather than by the
       # shell inside the container. Both forms work; this one has no shell and no "$$" escaping to be
       # right about. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -114,8 +143,11 @@ services:
   # LiteLLM Proxy -- the single point every LLM call of the estate goes through (#1).
   #
   # This container holds the Gemini / Groq / Mistral keys of BOTH accounts plus the master key. It is
-  # the most sensitive component of the stack, which is exactly why its port is published under basic
-  # auth rather than left open behind nothing: see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
+  # the most sensitive component of the stack, which is exactly why its published port is not left
+  # open behind nothing: its API answers only to a key -- the master key or a virtual one -- and "/ui"
+  # only after a login through its own form, the admin's being "UI_USERNAME" / "UI_PASSWORD" below.
+  # That login is a form and a session cookie, not HTTP basic auth, and none of it is TLS: see
+  # "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
   # ------------------------------------------------------------------------------------------------
   litellm:
     # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
@@ -128,9 +160,10 @@ services:
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
       #
-      # Interpolated by Ansible, like the two secrets below -- see the note on "POSTGRES_PASSWORD"
-      # above. LiteLLM itself still reads both from ITS OWN container environment at "os.environ/...",
-      # which "LiteLLM_config.yaml.j2" points at: what changes is where that environment variable gets
+      # This URL and the master key below are interpolated by Ansible, like every other secret of this
+      # block -- see the note on "POSTGRES_PASSWORD" above. LiteLLM itself still reads both from ITS OWN
+      # container environment, at the "os.environ/..." references "LiteLLM_config.yaml.j2" carries for
+      # them: what Ansible changes is where that environment variable gets
       # its value from, never how LiteLLM consumes it.
       DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
@@ -171,13 +204,31 @@ services:
       - "4000"
       - "--num_workers"
       - "{{ Artificial_Intelligence_LiteLLM_number_of_workers }}"
+      # A failed schema migration EXITS the container instead of being logged and walked past. Left
+      # out -- upstream's default at v1.100.0 -- LiteLLM prints "Database migration failed but
+      # continuing startup" and serves on whatever schema the database holds, typically the
+      # previous tag's one when a tag bump brings a migration that errors out. "/health/liveliness"
+      # and even "/health/readiness", which only tests the connection, answer 200 on it, so neither
+      # the healthcheck below nor "restart_policy" ever acts: what breaks is whichever request first
+      # reads what the migration should have created. Exiting hands the failure to
+      # "restart_policy.condition: any" instead -- a restart loop and a red line in the logs, which
+      # is what a migration that did not happen should look like (#163).
+      #
+      # The price: a transient failure restarts the container too, and the next start retries the
+      # migrations, which is what that case needs anyway. A database that stays unreachable is not
+      # what this is for: LiteLLM's own connection at startup already fails and exits then.
+      #
+      # The flag and the "ENFORCE_PRISMA_MIGRATION_CHECK" variable upstream's message names are one
+      # and the same click option; the flag is written here, beside the other startup options.
+      - "--enforce_prisma_migration_check"
 
     # Published, and this reverses #1's own original call -- see "Artificial_Intelligence_LiteLLM_UI_password" in
     # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
     # it has to be reachable with nothing more than a browser on the LAN, before the reverse proxy
     # this stack does not own exists to do it instead. The cost is real and is not waived by this
-    # comment: no TLS, and basic auth (above) as the only thing standing between the master key's
-    # container and the LAN. Revisit the day a reverse proxy is in front of it.
+    # comment: no TLS, so the "/ui" login form (above) and the API's keys cross the LAN in clear text,
+    # and they are all that stands between the LAN and the master key's container. Revisit the day a
+    # reverse proxy is in front of it.
     ports:
       - "4000:4000"
 
@@ -197,14 +248,16 @@ services:
       start_period: 90s
       retries: 3
 
-    # A Compose facility, and only that: SWARM IGNORES "depends_on". LiteLLM therefore has to
-    # tolerate a database that is not ready yet -- it is the restart policy that catches that case,
-    # not the start order. Kept because it spares the test bench a first failed start.
+    # The SHORT form, a plain list, and never the long one. Compose starts these two first, without
+    # waiting for them to turn healthy; "docker stack deploy" accepts the list and ignores it. The
+    # long form ("condition: service_healthy") is Compose-only: docker/cli validates this file
+    # against its own schema, where "depends_on" is a list of strings, and refuses the WHOLE file
+    # ("services.litellm.depends_on must be a list") before it reaches the daemon (#154). LiteLLM
+    # therefore has to tolerate a database that is not answering yet, under either deployer: a first
+    # start that fails is caught by "restart_policy.condition: any" below, not by the start order.
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
 
     deploy:
       restart_policy:
@@ -359,9 +412,9 @@ services:
     ports:
       - "3080:3080"
 
+    # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
-      librechat_mongodb:
-        condition: service_started
+      - librechat_mongodb
 
     deploy:
       restart_policy:
@@ -377,7 +430,7 @@ services:
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
-    # Explicit major, verified against the upstream compose example.
+    # Release series pinned, patches taken as published -- see the default's own comment.
     image: "mongo:{{ Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag }}"
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
@@ -461,9 +514,9 @@ services:
           # published Claude Code image.
           memory: "{{ Artificial_Intelligence_Claude_code_tigerblue77_memory_limit }}"
 
+    # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
-      litellm:
-        condition: service_healthy
+      - litellm
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -504,6 +557,14 @@ services:
   #         # document too large.
   #         memory: 512M
   #
+  #   # Only when the service needs another one started first, and then as a plain LIST of service
+  #   # names. The long form, with a "condition:", is Compose-only: "docker stack deploy" refuses the
+  #   # whole file over it, while "docker compose config" says nothing. Waiting for the other service
+  #   # to be healthy is not something this file can ask for; the restart policy above catches a start
+  #   # that came too early.
+  #   depends_on:
+  #     - other_service
+  #
   #   # No "ports:" for an internal service: it is reached over the stack's network, under its
   #   # service name. Only a web interface meant for a human is exposed, and it goes through the
   #   # caller's reverse proxy -- never through a port published on the host.
@@ -517,6 +578,10 @@ services:
   #
   #   # The image often ships one, better than anything written here: Docker inherits it as long as
   #   # the service declares none. Only write one to do better, not to do the same.
+  #   #
+  #   # A probe asks the question the service's CONSUMERS ask: over the port they connect to, not
+  #   # through a side door that opens earlier. PostgreSQL's socket answered while its port was
+  #   # still closed to every other container (#153).
   #   healthcheck:
   #     test: ["CMD", "…"]
   #     interval: 30s
@@ -527,9 +592,14 @@ services:
   #   environment:
   #     TZ: "{{ Artificial_Intelligence_server_time_zone }}"
   #
-  #   # A secret is never written in clear text here. Two forms are possible, one or the other
-  #   # depending on the caller's orchestrator: a native secret mounted under "/run/secrets/", or a
-  #   # variable drawn from an unversioned ".env". What is forbidden is the literal value.
+  #   # A secret is never written in clear text in this repository, here or anywhere else. It is a
+  #   # variable of this role, MANDATORY and without a default, that the caller fills from its vault,
+  #   # and Ansible interpolates it into this file at render time like every other value -- which is
+  #   # why the deployment role writes the rendered file "0600" and with "diff: false". There is one
+  #   # form and not two: never a ".env", nor a "${VAR}" left for Compose to resolve from one. That
+  #   # would be a second file to secure, a second path to keep in sync with the first, and a question
+  #   # at the switch to Swarm that interpolating at render time never raises. Native orchestrator
+  #   # secrets under "/run/secrets/" are an open question (#83), not an option yet.
   #
   #   networks:
   #     - {{ Artificial_Intelligence_internal_Docker_network_name }}
