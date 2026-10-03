@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 # Python tooling for development and CI (pip install -r requirements.txt).
-# The versions are pinned so that the result of a lint is reproducible, and aligned with those of
-# "Homelab_Ansible_deployment": the two repositories write the same YAML with the same conventions,
-# and two different versions would mean two different verdicts on one same file. Dependabot (pip
-# ecosystem) keeps them up to date; it is ".github/dependabot.yml" that asks it to, and without that
-# file nothing would move.
+# The versions are pinned so that the result of a lint is reproducible: two different versions would
+# mean two different verdicts on one same file. Dependabot (pip ecosystem) keeps them up to date; it
+# is ".github/dependabot.yml" that asks it to, and without that file nothing would move.
 #
 # The ansible-core pin is ALSO the version the Claude Code agent (tigerblue77) image installs:
 # "vars/main.yml" reads it from this line when the role renders that image's Dockerfile (#178), so a
@@ -19,15 +17,9 @@ yamllint==1.38.0
 # used has its text under "LICENSES/". Nothing else in this CI can see a file added without a header.
 #
 # It was deferred by #32, on the reasoning that a root "LICENSE" is enough while the repository is
-# unpublished. #52 reopened it for a reason the neighbouring repositories make concrete -- measured
-# on 2026-09-06 rather than quoted from their documentation, which was a file behind:
-#
-#   * "Dell_iDRAC_fan_controller_Docker" applies headers with no checker. Twelve of its git-tracked
-#     files carry none, among them NOTICE, README.md and .env.example. ("reuse lint" would report
-#     eleven of those twelve: it does not ask LICENSE itself to carry a header.)
-#   * "Homelab_Ansible_deployment" runs "reuse lint" in CI and reports 600 / 600.
-#
-# The difference between the two is not discipline, it is this job.
+# unpublished. #52 reopened it: headers applied with no checker go missing, and the files that lose
+# them first are the ones nobody thinks of -- NOTICE, README.md, an example file -- while a tree
+# held to "reuse lint" in CI stays whole. The difference is not discipline, it is this job.
 reuse==6.2.0
 
 # Read by ".github/scripts/check_LiteLLM_account_isolation.py". It is the only dependency these

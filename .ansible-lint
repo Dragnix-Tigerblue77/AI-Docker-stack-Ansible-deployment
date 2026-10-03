@@ -33,6 +33,5 @@ skip_list:
   # inconsistent with the rest of the repository rather than compliant with it.
   - role-name
   # Task names are built around the stack they act on, so the Jinja template lands mid-name:
-  # "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack". Same waiver, for the same reason, as the
-  # homelab repository's.
+  # "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack".
   - name[template]
