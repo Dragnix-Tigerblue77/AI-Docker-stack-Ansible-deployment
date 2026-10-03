@@ -172,7 +172,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
-| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
+| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0` | Série explicite : chaque correctif 8.0.x arrive seul, une série suivante se fait à la main, avec l'étape `featureCompatibilityVersion` de MongoDB. |
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
