@@ -426,9 +426,8 @@ def run_selftest():
         # ! The paragraph above quoted that malformed line in full, and "reuse lint" then read the
         #   quotation as a REAL tag and failed on the prose that followed it as an invalid licence
         #   expression -- the comment explaining the trap fell into it. REUSE's own escape hatch is
-        #   a REUSE-IgnoreStart / REUSE-IgnoreEnd pair, which is what the homelab repository uses in
-        #   its ".yamllint" for the same reason. Here the quotation is simply gone instead: not
-        #   naming the tag says the same thing and costs nothing.
+        #   a REUSE-IgnoreStart / REUSE-IgnoreEnd pair. Here the quotation is simply gone instead:
+        #   not naming the tag says the same thing and costs nothing.
         with open(path, encoding="utf-8") as handle:
             head = "".join(handle.readline() for _ in range(6))
         expected = re.search(r"EXPECTED\s*:\s*(\d+)", head)

@@ -4,9 +4,8 @@
 name: Dependabot auto-merge
 
 # Merges Dependabot's minor and patch updates once every check .github/rulesets/main.json names is
-# green on the pull request's head commit. Adapted from the workflow of the same name in
-# "Homelab_Ansible_deployment", which keeps the promise wader/postfix-relay's makes by a different
-# mechanism, because neither repository can use postfix-relay's.
+# green on the pull request's head commit. It keeps the promise wader/postfix-relay's workflow
+# makes, by a different mechanism, because this repository cannot use postfix-relay's.
 #
 # There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
 # Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
@@ -22,13 +21,13 @@ name: Dependabot auto-merge
 # public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
 # swapped for postfix-relay's "--auto" one without anyone re-deriving which checks gate a merge.
 #
-# The file names every job of "Ansible CI" and "gitleaks" one by one, where the homelab
-# repository's names a single aggregate job instead. The step below already refuses a check that is
-# missing, still running, cancelled or skipped, so an aggregate job would add nothing to this gate
-# but one more job billed to the minute on every run, and one name hiding which check is red. What
-# an aggregate job would have bought -- a new job covered without touching this list -- is what
-# .github/scripts/check_required_checks.py enforces instead: it fails CI when a job of either
-# workflow is missing from the file, as well as when a context in it names no job.
+# The file names every job of "Ansible CI" and "gitleaks" one by one rather than a single aggregate
+# job. The step below already refuses a check that is missing, still running, cancelled or skipped,
+# so an aggregate job would add nothing to this gate but one more job billed to the minute on every
+# run, and one name hiding which check is red. What an aggregate job would have bought -- a new job
+# covered without touching this list -- is what .github/scripts/check_required_checks.py enforces
+# instead: it fails CI when a job of either workflow is missing from the file, as well as when a
+# context in it names no job.
 #
 # Why "workflow_run" and not "pull_request":
 #
@@ -104,9 +103,7 @@ jobs:
       checks: read
     steps:
       # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
-      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries. And
-      # keeping this script the same as the homelab's copy line for line is what lets a fix reviewed
-      # in one repository apply to the other.
+      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries.
       - name: Merge the pull request if every required check passed on its head
         uses: actions/github-script@v9
         env:
