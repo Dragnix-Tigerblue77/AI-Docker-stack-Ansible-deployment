@@ -430,7 +430,7 @@ services:
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
-    # Explicit major, verified against the upstream compose example.
+    # Release series pinned, patches taken as published -- see the default's own comment.
     image: "mongo:{{ Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag }}"
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
