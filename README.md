@@ -173,7 +173,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
-| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
+| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0` | Série explicite : chaque correctif 8.0.x arrive seul, une série suivante se fait à la main, avec l'étape `featureCompatibilityVersion` de MongoDB. |
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
@@ -181,8 +181,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
-sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et
-DNS du dépôt `Homelab_Ansible_deployment`, repris tel quel plutôt que réinventé.
+sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`.
 
 Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
@@ -641,7 +640,7 @@ Sur `restart_policy` : `condition: any`, jamais `on-failure`. Quand un conteneur
 l'orchestrateur l'arrête **proprement** ; le processus sort avec le code 0 ; et `on-failure` ne remplace
 jamais une tâche sortie proprement. Le service reste à 0 réplique, le reverse proxy ne construit plus de
 route à partir des tâches en cours d'exécution, et l'URL répond un 404 nu sans que rien ne soit journalisé
-nulle part. C'est une panne que le dépôt `Homelab_Ansible_deployment` a déjà payée une fois.
+nulle part. Ce n'est pas une hypothèse : c'est une panne déjà payée une fois.
 
 Que Compose v2 honore bien `deploy.resources.limits` et `deploy.restart_policy` est l'hypothèse sur
 laquelle repose ce choix. Elle est documentée par Compose, et elle **reste à confirmer sur le banc

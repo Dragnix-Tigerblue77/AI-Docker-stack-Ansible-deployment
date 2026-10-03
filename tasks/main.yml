@@ -4,9 +4,8 @@
 # tasks file for deploy_Artificial_Intelligence_Docker_stack
 
 # Both checks are made HERE, up front and outside any condition, rather than left to whatever reads
-# the variable. It is the lesson of the homelab repository's "retrieve_value_or_create_Docker_secret":
-# a parameter read behind a condition that almost never holds is a parameter nobody notices is
-# missing, until the day it is missing on a fresh machine.
+# the variable: a parameter read behind a condition that almost never holds is a parameter nobody
+# notices is missing, until the day it is missing on a fresh machine.
 - name: "Check the Artificial Intelligence stack parameters"
   ansible.builtin.assert:
     that:
@@ -235,9 +234,8 @@
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.
 #
 # Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
-# level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
-# homelab repository -- a task connecting as an account other than the one its "vars:" announced,
-# and reporting "ok".
+# level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a
+# task connects as an account other than the one its "vars:" announced while reporting "ok".
 # The two secrets never appear in a file of their own: they are interpolated straight into the
 # compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
 # file to secure -- the compose file itself already carries the "0600" / "diff: false" contract the

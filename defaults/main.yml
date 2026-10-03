@@ -14,8 +14,8 @@ Artificial_Intelligence_Docker_stack_name: "Artificial_Intelligence"
 # without shipping the machinery that deploys it.
 Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docker-compose.yml"
 
-# Where the rendered file lands on the managed node. "/tmp/" is the historical default on the
-# homelab side, kept here so both repositories behave the same way.
+# Where the rendered file lands on the managed node. "/tmp/" has been the default since the skeleton
+# (#31), and a caller that wants the file elsewhere passes another directory.
 #
 # ! This file holds in clear text everything the template interpolates -- and as soon as the service
 # issues land, that includes API keys. The deployment role has to write it "0600" and with
@@ -24,10 +24,10 @@ Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docke
 Artificial_Intelligence_Docker_compose_file_destination_directory: "/tmp/"
 Artificial_Intelligence_Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_Docker_compose_file_name }}"
 
-# The time zone handed to every container through "TZ". The homelab repository carries its own in
-# "group_vars/all.yaml" under the name "server_time_zone", but this role cannot presuppose that its
-# caller has that variable: it is therefore restated here under a name of its own, with a neutral
-# default. A caller that already has one passes it as a parameter, with nothing to rename.
+# The time zone handed to every container through "TZ". A caller may well carry a time zone variable
+# of its own, but this role cannot presuppose that it has one, nor what it is called: it is
+# therefore restated here under a name of its own, with a neutral default. A caller that already has
+# one passes it as a parameter, with nothing to rename.
 Artificial_Intelligence_server_time_zone: "Etc/UTC"
 
 # The network the stack's services reach each other over. It is declared by the stack, so it is
@@ -44,8 +44,7 @@ Artificial_Intelligence_internal_Docker_network_name: "Artificial_Intelligence_i
 # attaches to it with "external: true".
 #
 # "false" rather than "''": ansible-core 2.19 refuses a bare truth test on a non-boolean, so the
-# template writes "is string" to mean "set". It is the idiom of the homelab repository's Docker and
-# DNS roles, taken as-is.
+# template writes "is string" to mean "set".
 #
 # The two go together: the NAME attaches a service, the DEFINITION declares the network in the
 # "networks:" block. "tasks/main.yml" refuses one without the other.
@@ -374,8 +373,12 @@ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name: "Artifi
 # ! Verified on 2026-09-06 against the upstream GHCR tags.
 Artificial_Intelligence_LibreChat_Docker_image_tag: "v0.8.7"
 
-# Explicit major, verified against the upstream compose example.
-Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag: "8.0.20"
+# Release series pinned explicitly, never ":latest": "8.0" takes every 8.0.x patch as it is
+# published, the way PostgreSQL and Redis take theirs. A later series is a move made by hand,
+# following MongoDB's upgrade procedure and its featureCompatibilityVersion step. Upstream's
+# compose example names the exact patch "8.0.20"; frozen there, nothing here would ever bump it,
+# because no Dependabot ecosystem reads this file (see ".github/dependabot.yml").
+Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag: "8.0"
 
 Artificial_Intelligence_LibreChat_uploads_Docker_volume_name: "Artificial_Intelligence_LibreChat_uploads"
 Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name: "Artificial_Intelligence_MongoDB_LibreChat_data"

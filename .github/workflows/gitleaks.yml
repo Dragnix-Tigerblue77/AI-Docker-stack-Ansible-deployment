@@ -3,10 +3,8 @@
 ---
 name: gitleaks
 
-# Secret detection on every pull request. Adapted from the workflow of the same name in
-# "Homelab_Ansible_deployment": the executable lines come from it as they are, the comments do
-# not -- the originals describe a repository that has a ".gitleaksignore", a SQL dump in git-lfs
-# and a history of credentials still to be purged, none of which exists here.
+# Secret detection on every pull request. Nothing in this repository is a known secret waiting for
+# rotation, so there is no ".gitleaksignore": every finding is a finding.
 #
 # ! This workflow REPORTS, it does not block a human's merge. The organisation is on a plan that
 #   allows neither a ruleset nor a branch protection on a private repository

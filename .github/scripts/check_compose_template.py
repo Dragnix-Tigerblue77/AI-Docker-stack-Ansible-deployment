@@ -43,7 +43,7 @@ ROLE = Path(__file__).resolve().parents[2]
 
 # The published network as a caller supplies it. The indentation is not cosmetic: the definition is
 # a block string interpolated into the "networks:" mapping, so it carries its own continuation
-# indent, exactly as "Homelab_Ansible_deployment" writes it in its playbook.
+# indent, exactly as a caller writes it in its playbook.
 PUBLISHED_NETWORK = {
     "Artificial_Intelligence_published_Docker_network_name": "DMZ",
     "Artificial_Intelligence_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
@@ -384,8 +384,8 @@ CONVENTION_CASES = [
     ("depends_on, long form",
      {"services": {"svc": service(depends_on={"db": {"condition": "service_healthy"}})}},
      "depends_on must be a list of service names"),
-    # The shape the homelab repository keeps commented out beside its own short forms: a list, but
-    # of mappings, which is neither form.
+    # A list, but of mappings, which is neither form: the long form written into the short form's
+    # list, an easy slip between the two.
     ("depends_on, list of mappings",
      {"services": {"svc": service(depends_on=[{"db": {"condition": "service_healthy"}}])}},
      "depends_on must be a list of service names"),
