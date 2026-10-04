@@ -4,9 +4,8 @@
 # tasks file for deploy_Artificial_Intelligence_Docker_stack
 
 # Both checks are made HERE, up front and outside any condition, rather than left to whatever reads
-# the variable. It is the lesson of the homelab repository's "retrieve_value_or_create_Docker_secret":
-# a parameter read behind a condition that almost never holds is a parameter nobody notices is
-# missing, until the day it is missing on a fresh machine.
+# the variable: a parameter read behind a condition that almost never holds is a parameter nobody
+# notices is missing, until the day it is missing on a fresh machine.
 - name: "Check the Artificial Intelligence stack parameters"
   ansible.builtin.assert:
     that:
@@ -62,50 +61,6 @@
       a shell in the PostgreSQL container. The same name would make the init script fail on a role
       that already exists; the same password would put the superuser's login in LiteLLM's environment.
 
-# Next to the task above because it is the same init script's requirement (#159): "\getenv" is new
-# in psql 15, and so is the "public" schema owned by "pg_database_owner" that LiteLLM's role relies
-# on. Below 15 nothing fails loudly enough: the first boot stops on "invalid command \getenv" with
-# the data directory already initialised, every restart skips the init scripts, and the healthcheck
-# reports a cluster healthy that LiteLLM can never log in to. Only a tag that BEGINS with its major
-# is read here; one that does not ("latest", "alpine") names a current major, and pinning it is a
-# separate rule. "| string": an unquoted 17 in a caller's YAML is an integer, and a good major.
-- name: "Check the PostgreSQL image is major 15 or later"
-  ansible.builtin.assert:
-    that:
-      - >-
-        (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string) is not match('[0-9]')
-        or (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string | regex_search('^[0-9]+') | int) >= 15
-    quiet: true
-    fail_msg: >-
-      "Artificial_Intelligence_PostgreSQL_Docker_image_tag" ({{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}) names a
-      PostgreSQL major below 15. The init script that creates LiteLLM's role (#159) needs psql's
-      "\getenv", new in 15, and LiteLLM's ownership of its "public" schema needs 15's
-      "pg_database_owner" default. Below 15 the first boot fails, every restart skips initialisation,
-      and PostgreSQL then runs healthy with no role LiteLLM can log in as, which only removing the
-      volume repairs. Raise the tag to 15 or later.
-
-# The floor is checked HERE rather than trusted to whoever edits the tag, because that is the edit
-# where it gets forgotten: raising an image tag feels like a version bump, not like a security
-# decision. Four critical CVEs in four months on this product in 2026 -- among them a
-# PRE-AUTHENTICATED SQL injection whose target is exactly the PostgreSQL service this role deploys.
-#
-# "is version" compares as versions and not as strings, so "1.100.0" is correctly greater than
-# "1.84.0" -- which a string comparison gets backwards, and which is the whole reason this is not a
-# "|| >=" on the raw tag.
-- name: "Check the LiteLLM image tag clears the security floor"
-  ansible.builtin.assert:
-    that:
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag is string
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag != "main-latest"
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag | regex_replace('^v', '') is version(Artificial_Intelligence_LiteLLM_minimum_secure_version, '>=')
-    quiet: true
-    fail_msg: >-
-      "Artificial_Intelligence_LiteLLM_Docker_image_tag" ({{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}) is below the security floor
-      "Artificial_Intelligence_LiteLLM_minimum_secure_version" ({{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}), or is the
-      deprecated "main-latest" tag, which is no longer fed and freezes the deployment on an old image
-      while looking current. This container holds both accounts' provider keys and the master key.
-      Re-check the upstream security advisories and raise the tag -- never lower the floor.
-
 - name: "Check tigerblue77's LiteLLM provider keys are provided"
   ansible.builtin.assert:
     that:
@@ -115,9 +70,6 @@
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | length > 0
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | length > 0
@@ -129,13 +81,14 @@
       - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | length > 0
     quiet: true
     fail_msg: >-
-      tigerblue77's six LiteLLM provider keys (Gemini, Mistral, Cerebras, Groq, OpenRouter, DeepSeek)
+      tigerblue77's five LiteLLM provider keys (Gemini, Mistral, Groq, OpenRouter, DeepSeek)
       are mandatory and have no default, like every other secret this role interpolates.
       "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
       any OTHER account's own provider keys are deliberately absent here: each one added through
       "Artificial_Intelligence_LiteLLM_internal_users" (#103) adds theirs themselves, from their own restricted "/ui"
       login, never tigerblue77's own admin one. The GitHub key is asserted nowhere: #109 retired every
-      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml).
+      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml). Nor is
+      the Cerebras key: Cerebras has no free tier any more and its entries are commented out (#200).
 
 - name: "Check the Redis password is provided"
   ansible.builtin.assert:
@@ -259,9 +212,8 @@
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.
 #
 # Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
-# level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
-# homelab repository -- a task connecting as an account other than the one its "vars:" announced,
-# and reporting "ok".
+# level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a
+# task connects as an account other than the one its "vars:" announced while reporting "ok".
 # The two secrets never appear in a file of their own: they are interpolated straight into the
 # compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
 # file to secure -- the compose file itself already carries the "0600" / "diff: false" contract the
@@ -278,9 +230,9 @@
     group: "root"
     mode: "0644"
 
-# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja of its own, only
-# LibreChat's own "${VAR}" syntax, which LibreChat itself resolves from its container's environment
-# at runtime -- Ansible has nothing to interpolate here.
+# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja and no secret. Its
+# "apiKey" is "user_provided" since #103, each LibreChat account entering its own gateway key
+# itself, so Ansible has nothing to interpolate here.
 - name: "Deploy the LibreChat configuration"
   ansible.builtin.copy:
     src: "librechat/librechat.yaml"

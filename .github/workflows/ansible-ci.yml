@@ -20,9 +20,22 @@ name: Ansible CI
 #   workflow's own "name:" above is what "dependabot-auto-merge.yml" listens for, so it is
 #   load-bearing too.
 #
-# No "runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}" here, unlike the homelab repository: this
-# repository has no self-hosted runner, and an indirection that no variable ever fills in is a line
-# the next reader will have to go and check for nothing.
+# Every job below takes its runner from the CI_RUNNER repository variable, and falls back to
+# "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
+# the organisation's included minutes run out (#162). #32 and #141 had left it out as an indirection
+# no variable would ever fill in; that reason went the day the switch was planned. The pool it would
+# name is prepared, commented out, in the homelab repository
+# (Tigerblue77-personal/Homelab_Ansible_deployment#1028).
+#
+# ! Set CI_RUNNER to "self-hosted" only once that pool's runners show "Idle" under the
+#   organisation's Settings -> Actions -> Runners. A label no runner answers to does not fail: the
+#   job queues for 24 hours and is then cancelled, with no error anywhere. Until then, leave it
+#   unset or set it to "ubuntu-latest" -- the second is better, since it resolves through the bare
+#   variable form "runs-on" documents rather than through "||" returning its first truthy operand,
+#   which every workflow relies on but GitHub's operators table does not state.
+#
+# Repository scope only. "runs-on" is resolved before the job starts, so an environment variable is
+# never read there, and GitHub Free exposes no organisation variable to a private repository.
 
 on:
   push:
@@ -39,7 +52,7 @@ concurrency:
 jobs:
   yamllint:
     name: yamllint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Check the repository out
@@ -49,6 +62,14 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
+          # can name: the homelab repository's runner role keeps each runner's tool cache between
+          # jobs, and left at its "false" default setup-python looks in that cache FIRST and only
+          # asks the versions manifest when it misses -- so the first 3.12 patch the cache ever holds
+          # would be the one every later job gets, for ever. "true" resolves the newest patch from
+          # the manifest before looking in the cache: one small HTTPS GET per job, and one download
+          # on the day the patch changes.
+          check-latest: true
           cache: "pip"
 
       - name: Install the tooling
@@ -59,8 +80,14 @@ jobs:
 
   reuse:
     name: REUSE compliance
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # 15 and not 5, for the self-hosted pool CI_RUNNER can name. This very job has been lost to a
+    # 5-minute limit on such a pool: killed at 5m19, 97 ms after "reuse lint" had printed its
+    # success -- the minutes had gone to setting the job up, never to the check. A job over its
+    # "timeout-minutes" concludes "cancelled", which "dependabot-auto-merge.yml" rightly refuses,
+    # so on that pool every Dependabot update would sit waiting for a human with nothing red to say
+    # why.
+    timeout-minutes: 15
     steps:
       # Symlinks are checked out as symlinks, which matters here: "LICENSE" is one, pointing at
       # "LICENSES/AGPL-3.0-only.txt", so that the file REUSE requires and the file GitHub reads for
@@ -72,6 +99,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          # See the "yamllint" job above.
+          check-latest: true
           cache: "pip"
 
       # From requirements.txt rather than a bare "pip install reuse", so the version stays pinned in
@@ -88,7 +117,7 @@ jobs:
 
   ansible-lint:
     name: ansible-lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Check the repository out
@@ -98,6 +127,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          # See the "yamllint" job above.
+          check-latest: true
           cache: "pip"
 
       - name: Install the tooling
@@ -129,7 +160,7 @@ jobs:
 
   syntax-check:
     name: ansible-playbook --syntax-check
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Check the repository out
@@ -139,6 +170,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          # See the "yamllint" job above.
+          check-latest: true
           cache: "pip"
 
       - name: Install the tooling
@@ -182,8 +215,9 @@ jobs:
 
   home-made-checks:
     name: home-made checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # 15 and not 5: see the "REUSE compliance" job above.
+    timeout-minutes: 15
     # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
     # one up to the minute: three scripts each running in a second would cost three minutes, and
     # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.
@@ -208,6 +242,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          # See the "yamllint" job above.
+          check-latest: true
           cache: "pip"
 
       - name: Install the tooling

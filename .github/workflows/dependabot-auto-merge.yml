@@ -4,9 +4,8 @@
 name: Dependabot auto-merge
 
 # Merges Dependabot's minor and patch updates once every check .github/rulesets/main.json names is
-# green on the pull request's head commit. Adapted from the workflow of the same name in
-# "Homelab_Ansible_deployment", which keeps the promise wader/postfix-relay's makes by a different
-# mechanism, because neither repository can use postfix-relay's.
+# green on the pull request's head commit. It keeps the promise wader/postfix-relay's workflow
+# makes, by a different mechanism, because this repository cannot use postfix-relay's.
 #
 # There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
 # Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
@@ -22,13 +21,13 @@ name: Dependabot auto-merge
 # public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
 # swapped for postfix-relay's "--auto" one without anyone re-deriving which checks gate a merge.
 #
-# The file names every job of "Ansible CI" and "gitleaks" one by one, where the homelab
-# repository's names a single aggregate job instead. The step below already refuses a check that is
-# missing, still running, cancelled or skipped, so an aggregate job would add nothing to this gate
-# but one more job billed to the minute on every run, and one name hiding which check is red. What
-# an aggregate job would have bought -- a new job covered without touching this list -- is what
-# .github/scripts/check_required_checks.py enforces instead: it fails CI when a job of either
-# workflow is missing from the file, as well as when a context in it names no job.
+# The file names every job of "Ansible CI" and "gitleaks" one by one rather than a single aggregate
+# job. The step below already refuses a check that is missing, still running, cancelled or skipped,
+# so an aggregate job would add nothing to this gate but one more job billed to the minute on every
+# run, and one name hiding which check is red. What an aggregate job would have bought -- a new job
+# covered without touching this list -- is what .github/scripts/check_required_checks.py enforces
+# instead: it fails CI when a job of either workflow is missing from the file, as well as when a
+# context in it names no job.
 #
 # Why "workflow_run" and not "pull_request":
 #
@@ -41,13 +40,12 @@ name: Dependabot auto-merge
 #     makes holding it acceptable: no job may both write and run code nobody has reviewed yet -- a
 #     freshly bumped dependency included, since that is exactly what a Dependabot branch carries.
 #
-# "runs-on: ubuntu-latest", where the homelab's copy reads
-# "${{ vars.CI_RUNNER || 'ubuntu-latest' }}". This repository has no self-hosted runner and is not
-# going to get one: it stays in the Dragnix-Tigerblue77 organisation, and the maintainer's
-# self-hosted runners are registered for a different organisation, whose runners serve only that
-# organisation's repositories. So a CI_RUNNER here would be a switch nothing ever flips, and the
-# header of "ansible-ci.yml" already says why its jobs do without one: an indirection that no
-# variable ever fills in is a line the next reader has to go and check for nothing.
+# The job takes its runner from CI_RUNNER like every other job here (#162), although it is the one
+# holding a write token. The second point above is what allows it: nothing from a pull request is
+# checked out or executed, so a self-hosted runner never holds both a write token and code nobody
+# has reviewed. Left on the hosted runners, it would also be the job that stops merging Dependabot's
+# updates the day the included minutes run out. The header of "ansible-ci.yml" says what the
+# variable may name, and when.
 #
 # What the step below refuses, and why each refusal is there:
 #
@@ -90,7 +88,7 @@ concurrency:
 jobs:
   merge:
     name: Merge a green minor or patch Dependabot update
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
     # runner. It decides nothing: the step below checks the author, the commits and the checks
@@ -104,9 +102,8 @@ jobs:
       pull-requests: read
       checks: read
     steps:
-      # github-script rather than gh and jq, although a hosted runner has both: the homelab's copy
-      # needs it because its self-hosted image carries neither, and keeping this script the same as
-      # that one line for line is what lets a fix reviewed in one repository apply to the other.
+      # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
+      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries.
       - name: Merge the pull request if every required check passed on its head
         uses: actions/github-script@v9
         env:
