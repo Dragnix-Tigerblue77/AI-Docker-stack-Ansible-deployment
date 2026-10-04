@@ -48,42 +48,80 @@ because forgetting them costs the same time every session.
   and the maintainer already works as root where root is needed. What it prints is what the session
   needs to read and no more: a long log goes to a file on the host, and what reaches the chat is
   filtered, counted or summarised, because ten thousand pasted lines bury the one that mattered and
-  cost a round trip to filter again. All three were asked for in a homelab session, one incident at a
-  time, before being written down (Tigerblue77-personal/Homelab_Ansible_deployment#1054).
+  cost a round trip to filter again. All three were asked for, one incident at a time, before being
+  written down: a `docker run` that had to be completed by hand, a `sudo` on a system without it,
+  and logs of more than ten thousand lines pasted back whole.
 * **An issue for a third-party project is drafted to that project's standard, and checked before it
   is posted.** Its tracker is searched first, and an issue already open gets a comment rather than a
   duplicate. The pre-filled link opens the project's own issue form (`issues/new?template=...`), not
   a blank issue that a project using forms may have disabled, and the draft fills in every field the
   form asks for. It goes out under the maintainer's name, so every claim in it is verified first,
-  not merely plausible. Both halves were paid for in the homelab repository: a report to qbit_manage
-  was called out on its own tracker as an AI issue that ignored the template, and Cleanuparr#798
-  stated as fact a diagnosis its maintainer disproved within half an hour.
+  not merely plausible. Both halves were paid for: a report to qbit_manage was called out on its own
+  tracker as an AI issue that ignored the template, and Cleanuparr#798 stated as fact a diagnosis
+  its maintainer disproved within half an hour.
 * **Proposals belong in the chat, not in an issue comment.** A comment posted to propose something is
   noise: the discussion happens in the session, and only the agreed result lands in the repository.
 * **An issue's whole point lives in its description.** No essential context buried in comments. The
   fallback options considered in case the first choice fails are part of the description too.
+* **A tool that is turned down is recorded, with why, in the issue that discussed it** -- and one
+  retired after it ran, with what running it taught. The next session looking at the same need starts
+  from that record rather than from nothing, and the maintainer can find what they only half remember:
+  on 2026-09-26 it was "we had found something better with another Claude session, did you not see a
+  trace of it in an issue?", and the issue that had discussed the need could answer only because it
+  listed TehRobot-Assistant/plex-dupefinder, goPlexr and Cleanarr with the reason each was passed
+  over. plex_dupefinder's own retirement went into the same issue, once it had stopped running. The
+  record belongs in the description, as the rule above says of everything essential, not in a
+  comment under it.
 * **One issue, one subject.** If a second subject appears, it is split off.
 * **Issues and pull requests are written in English, and one that is not is flagged.** Titles,
-  bodies and comments, in every repository but one group: the private repositories of the
-  `Dragnix-Tigerblue77` organisation, where issues and pull requests are written in French while
-  code and commit messages stay in English. **This repository is in that group**, so its issues and
-  pull requests are written in French, as *Language* below says, and none of them is flagged. An
-  issue or a pull request found breaking this, in a repository it covers, is never let pass
-  silently: the maintainer is told, every time, with the link, and offered a translation, which is
-  made once they agree (Tigerblue77-personal/Homelab_Ansible_deployment#1006 and
-  Tigerblue77-personal/Homelab_Ansible_deployment#1037). It is written here all the same, as every
-  shared rule is, for the session that moves on from here to a sibling where it does apply.
-* **A public repository never names a private one**, never cites its issues or pull requests, and
-  never describes what it holds -- in a file, a commit message, a branch name, an issue, a pull
-  request or a comment. A private name or issue number written in public leaks that the repository
-  exists and something of what it contains, and it cannot be fully taken back: the commit history
-  keeps it, a pull request's refs keep it past a force-push, and an edited issue or comment keeps it
-  in its edit history. So a shared rule whose origin is private reaches a public repository as its
-  text alone, without the citation of where it was learned, or citing only references that are
-  public themselves; whether a repository is public is read off GitHub, not assumed. This repository
-  is private, so the rule constrains nothing written in it; it is here for the session that carries
-  a shared rule from here to a public sibling, which is exactly the one that would cite this
-  repository's issues there.
+  bodies and comments, in every repository but the private ones whose own instructions put issues
+  and pull requests in French -- the private repositories of the `Dragnix-Tigerblue77` organisation
+  among them -- where code and commit messages still stay in English. **This repository is in that
+  group**, so its issues and pull requests are written in French, as *Language* below says, and none
+  of them is flagged. An issue or a pull request found breaking this, in a repository it covers, is
+  never let pass silently: the maintainer is told, every time, with the link, and offered a
+  translation, which is made once they agree. It is written here all the same, as every shared rule
+  is, for the session that moves on from here to a sibling where it does apply.
+* **A repository cites another of the maintainer's repositories only where it calls it, and a public
+  one never names a private one at all.** A file, a commit message, a branch name, an issue, a pull
+  request or a comment here names another of the maintainer's repositories, or cites its issues and
+  pull requests, only where this one uses it -- pulls its image, vendors its code, downloads its
+  release, registers something for it or runs on what it registers -- and never to say where a rule
+  or a lesson came from, that a copy of something exists elsewhere, or how the other one does it. A
+  citation of that second kind is a dependency with nothing to keep it true: the other repository
+  renumbers, is renamed, moves or goes private, and the sentence citing it goes stale here without
+  anything failing. A rule shared across the maintainer's repositories is therefore written out in
+  full in each, standing on its own, with no word of where it was learned, and a lesson paid for
+  elsewhere keeps its point here and loses its reference. A public repository goes further: it never
+  names a private one, never cites its issues or pull requests and never describes what it holds,
+  not even one it calls. A private name or number written in public leaks that the repository exists
+  and something of what it contains, and it cannot be fully taken back: the commit history keeps it,
+  a pull request's refs keep it past a force-push, and an edited issue or comment keeps it in its
+  edit history. Whether a repository is public is read off GitHub, not assumed. This repository is
+  private, so that last half constrains nothing written in it; it is here for the session that
+  carries a shared rule from here to a public sibling. A third-party project -- an upstream this
+  stack deploys, a tracker an issue goes to -- is not one of the maintainer's repositories, and none
+  of this reaches it (#196, #203).
+* **A fix goes to the cause, and a workaround says that it is one.** Every fix proposed says which of
+  the two it is -- the maintainer's own question, on 2026-09-13, was "state of the art, or a
+  workaround?" -- and the one wanted is the cause. The next day, a stuck torrent added to Cleanuparr's
+  ignore list, which stopped its loop for that torrent alone, drew "I am not after a workaround". A
+  workaround is acceptable only as a stopgap labelled as one where it lands -- the commit, the pull
+  request, the comment above it -- with the cause still tracked by its own issue, and never as the fix
+  presented as the fix. A silent one is expensive precisely because it works: the symptom stops, and
+  with it the only signal that would ever have got the cause fixed. That Cleanuparr loop is the case
+  in point: its cause was the deployment's own settings, not the upstream bug first blamed for it.
+* **A pull request is preceded by its plan.** Before building one, the session says in the chat how it
+  means to do it -- where the change lives, what it touches, what it costs, what it leaves out -- and
+  builds once the maintainer has answered. A plan is redirected for the price of one message; a pull
+  request built on a premise the maintainer does not share costs the building, the review and the
+  closing. It was asked for on 2026-09-19, about a new role that would have ordered Docker after the
+  media disk's mount, and it earned its keep within the hour: the maintainer did not want that mount
+  in Ansible at all, and the fix became one option on the fstab line they already kept by hand. This
+  is how the approach gets agreed, not an exception to the rule below: once it is, the issue and its
+  pull request still go out in the same breath, and an open detail still does not hold the pull
+  request back. A change nobody could shape two ways, such as a missing README row or a typo, does
+  not wait on a plan.
 * **An issue opened in a session comes with its pull request.** Filing the issue and stopping there
   hands the work to the maintainer, who then has to rebuild from the description the context the
   session still had in front of it -- which is the expensive half, and the half that was already
@@ -96,6 +134,16 @@ because forgetting them costs the same time every session.
   the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
   question waited out is a session's context thrown away. What does stay unwritten is a fix that
   would be guesswork: there the pull request is the one thing not opened, and the issue says so.
+* **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
+  session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
+  maintainer's to choose, never the session's to offer as the default. A session that ends takes its
+  context with it, so a deferral it volunteered is exactly the work nobody is left to do: an audit
+  of one long session found a one-off pass promised for "tomorrow" and never delivered, and a fix
+  put off at 16:37 on 2026-09-13 that the maintainer had to chase at 19:22. It was asked for twice
+  on 2026-09-14, first as "there is no 'after', move on!", then, when "another day" was offered, as
+  "no, it's half past six, go!". Waiting for the maintainer's answer -- to a plan, to a question --
+  is not postponing: it is their decision being waited for, not the session's own. What they defer
+  is deferred, and gets a durable reminder rather than a sentence in the chat.
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
@@ -131,11 +179,10 @@ because forgetting them costs the same time every session.
   handed over that reads the current state and changes nothing, so that running it is always safe. A
   change the answer calls for comes afterwards, as its own step for the maintainer to decide, and is
   never folded into the command that reads. The rule on questions staying open keeps an unanswered
-  *decision* open; it does not turn a recollection into one. It was learned from exactly that, in a
-  session on the homelab repository: the same question about what a command had printed earlier in
-  the session, carried into four replies in a row to a maintainer busy with other sessions in
-  between, until they asked for questions like it to stop
-  (Tigerblue77-personal/Homelab_Ansible_deployment#1036).
+  *decision* open; it does not turn a recollection into one. It was learned from exactly that: the
+  same question about what a command had printed earlier in the session, carried into four replies
+  in a row to a maintainer busy with other sessions in between, until they asked for questions like
+  it to stop.
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
   first, then what it rests on, then what is being asked. The failure in the other direction costs
@@ -159,11 +206,31 @@ because forgetting them costs the same time every session.
   what is not verified, rather than using draft to mean that. The assignee is set on the same call,
   and missing it costs the same way: the maintainer's *Assigned* list is where the work is scheduled,
   what is not on it has to be remembered instead, and the session that would come back to set it has
-  ended by then. Shared with every repository of the maintainer
-  (tigerblue77/Dell_iDRAC_fan_controller_Docker#448).
+  ended by then. Shared with every repository of the maintainer.
 * **The closing keyword is written in English**, `Closes #NN` or `Fixes #NN`, even when the rest of
   the body is in French: GitHub recognises no other form. `Ferme #31` does nothing at all, and that
   is exactly what left #31 open after #34 had merged.
+* **Everything a session posts on GitHub is signed, with the link to the session that wrote it.** An
+  issue, a pull request, a comment, a review and a reply on a review thread each end with a blank
+  line, a `---` rule and this line, and an edit to one keeps it:
+
+  ```
+  _Generated by [Claude Code](https://claude.ai/code/session_<id>) and supervised by @tigerblue77._
+  ```
+
+  The link is the one to the session itself, the address the session's own attribution instructions
+  give, so that the maintainer can go from any issue, pull request or comment straight to the
+  conversation that produced it -- the only place the reasoning that never reached the text still
+  lives. The tooling appends a footer of its own to some posts, a pull request for one, and only the
+  signature stays: once the post exists, its body is edited so that the signature is the last thing
+  in it, since two lines saying the same thing are noise and only this one carries the maintainer's
+  name. An issue opened without a signature is the case this rule exists for: nothing then links it
+  to its conversation. The wording is the maintainer's, "supervised by" and not "reviewed by", and
+  it is one fixed formula in every repository, whatever the language of the text above it -- French
+  here, English in the repositories the rule on language above leaves in English -- because it is a
+  signature and not prose. A commit message is not covered: it ends instead with the trailers those
+  same instructions give it. Shared with every repository of the maintainer that carries agent
+  instructions, and written out in full in each.
 * **Priorities are not ours to set.** An issue's `Priority` field is agreed between @tigerblue77 and
   @Dragnix-23. A session may *propose* a change, with its argument -- in the chat, or as a row in the
   roadmap's proposal table (#33) -- but it never writes the field itself. Only @tigerblue77 validating
@@ -174,8 +241,8 @@ because forgetting them costs the same time every session.
 
 ## Language
 
-The divergence with `Homelab_Ansible_deployment` is **only about what is read inside GitHub**,
-because this repository is shared between two French speakers:
+What is written in French here is **only what is read inside GitHub**, because this repository is
+shared between two French speakers:
 
 | | |
 | --- | --- |
@@ -187,8 +254,8 @@ French one, and the split is not an oversight: the first two address a prospecti
 beside the English licence text, whereas the third addresses the two people who work here. That is
 the same test as everywhere else -- who reads it -- applied to three files that look alike.
 
-In other words: anything a third party would read in the code or in a run's output stays in English,
-as in `Homelab_Ansible_deployment`. Only the conversation around the code is in French.
+In other words: anything a third party would read in the code or in a run's output stays in English.
+Only the conversation around the code is in French.
 
 **This file is in English**, with the code rather than with the conversation: nearly every line of it
 quotes a task name, a commit subject, a variable or an error message, and those are English. A French
@@ -227,7 +294,27 @@ renders the ones it can find with a `$` and refuses the file where one arrives s
 with no default or an empty one by itself; one with a real default, or a `false` one, only once its
 `FREE_FORM_WITH_A_DEFAULT` names it, so add a new free-form value there in the same commit.
 
-**Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
+**Images float by default, and are pinned on purpose only where a database would lose its data.** An
+image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag
+held in a variable: no tag *is* `latest`, writing it out adds nothing, and a variable for it is a
+second place to keep in step with the first. The deployer pulls on every run, so each deployment
+brings the current release and its security fixes. The exception is a database -- PostgreSQL,
+MongoDB, Qdrant -- whose data lives only in its own volume: a major bump lands on a layout the new
+image does not read (PostgreSQL 18 moved its data directory, #168), so it is a deliberate move, made
+after a dump. It is pinned to the major it was initialised with, literally in the template, with the
+reason on the line above its `image:`. Redis holds a cache and floats. A variant tag a service
+genuinely needs is an exception of the same kind and says why in the same place. The one image
+that stays behind variables is the Claude Code agent's base, because it is built here and not pulled.
+
+**The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
+provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a
+commented-out corpse only misleads the next audit into re-checking it. A model the provider still
+serves but that this list deliberately does not route to stays **commented out, with its reason** on
+the line above it: paid, bank card required, enterprise contract only, and so on -- that comment is
+the answer to "why is it not used", so it is written once instead of being rediscovered. New models
+are **added** as providers publish them, so the list tracks each provider's current catalogue rather
+than the day it was written. Each claim cites the provider's own page and the date it was checked.
+The maintainer set this rule on 2026-09-27 (#169), after the first retirements had been commented out.
 
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
 with the issue number in parentheses when there is one -- `Lay down the Ansible role and compose
@@ -236,28 +323,34 @@ a bullet list of what changed.
 
 **Dependabot's minor and patch updates merge themselves once CI is green, in every repository.** A
 Dependabot pull request sitting open with every check green is a defect in that process, not a task
-for a human -- `Homelab_Ansible_deployment`'s #964 was one. A public repository gets it the way
-wader/postfix-relay does: the required checks recorded in `.github/rulesets/`, GitHub enforcing
-them, `gh pr merge --auto`. A private one cannot, since GitHub Free enforces no ruleset on a private
-repository whoever owns it, so its `dependabot-auto-merge.yml` reads the same file and does the
-checking itself before merging (invariant 9). Either way the list of required checks is a file in
-the tree, and what gets through is decided by CI rather than by a guess about which ecosystem is
-risky: majors wait for a human, and so does anything red. This rule is shared with every repository
-the maintainer owns, and a copy of it lands in each one's own agent instructions.
+for a human. A public repository gets it the way wader/postfix-relay does: the required checks
+recorded in `.github/rulesets/`, GitHub enforcing them, `gh pr merge --auto`. A private one cannot,
+since GitHub Free enforces no ruleset on a private repository whoever owns it, so its
+`dependabot-auto-merge.yml` reads the same file and does the checking itself before merging
+(invariant 9). Either way the list of required checks is a file in the tree, and what gets through
+is decided by CI rather than by a guess about which ecosystem is risky: majors wait for a human, and
+so does anything red. This rule is shared with every repository the maintainer owns, and a copy of
+it lands in each one's own agent instructions.
 
 **Pull requests are kept level with the default branch, and never required to be, in every
 repository.** "Require branches to be up to date before merging" stays off --
 `.github/rulesets/main.json` records it as `strict_required_status_checks_policy: false` -- because
 whatever cannot be updated automatically would be blocked rather than behind: a conflict, a fork, a
 draft, and every pull request after a Dependabot merge, which starts no workflow.
-`.github/workflows/auto_update_pull_request_branches.yml` does the updating instead, after every
-merge and hourly, as best effort, and leaves Dependabot's own pull requests to Dependabot: a rebase
-pushed by anyone else strips the signature `dependabot-auto-merge.yml` checks before it merges
-(#149). A public repository runs it, its minutes costing nothing; a private one, this one included,
-carries the same file switched off behind the `PULL_REQUESTS_UPDATE_ENABLED` repository variable, so
-that a workflow which runs nothing here is deliberate and not dead code, and switching it on is
-setting that variable and a credential (#145). Shared like the rule above
-(tigerblue77/Dell_iDRAC_fan_controller_Docker#512), and for the same reason (#147).
+`.github/workflows/auto_update_pull_request_branches.yml` does the updating instead, once the default
+branch has been quiet for an hour -- every push starts a run that sleeps for that hour, and the next
+push cancels it, so a series of merges is followed by one pass -- as best effort, and leaves
+Dependabot's own pull requests to Dependabot: a rebase pushed by anyone else strips the signature
+`dependabot-auto-merge.yml` checks before it merges (#149). A merge made in `GITHUB_TOKEN`'s name
+starts no workflow, so it starts no wait either, and the pull requests it leaves behind wait for the
+next push made any other way. One it cannot update because it conflicts gets a single comment saying
+so, deleted once the conflict is gone, and written by the GitHub App rather than the personal access
+token, since GitHub emails nobody about their own activity (#214). A public repository runs it, its
+minutes costing nothing; a private one, this one included, carries the same file switched off behind
+the `PULL_REQUESTS_UPDATE_ENABLED` repository variable, so that a workflow which runs nothing here is
+deliberate and not dead code, and switching it on is setting that variable and a credential (#145),
+and a runner to spare in `CI_RUNNER`, since the job holds one while it sleeps. Shared like the rule
+above, and for the same reason (#147).
 
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.
@@ -373,18 +466,22 @@ role's README rather than frozen into the role.
    spelling trap the skeleton was written around: a bare `services:` with no value fails at `config`
    with `services must be a mapping`, which is why the empty state is spelled `{}` and not left blank.
 2. **`false`, not `''`, means "not set".** ansible-core 2.19 rejects a bare truth test on a
-   non-boolean, so the template writes `is string` to mean "set". Same idiom as the homelab
-   repository's Docker and DNS roles.
+   non-boolean, so the template writes `is string` to mean "set".
 3. **`restart_policy.condition: any`, never `on-failure`.** When a container turns unhealthy the
    orchestrator stops it cleanly, the process exits 0, and `on-failure` never replaces a task that
    exited cleanly: the service sits at 0 replicas and its URL answers a bare 404 with nothing logged.
 4. **Everything under `deploy:`.** It is the only form *both* Compose and Swarm honour. `restart:`,
-   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm.
+   `mem_limit:` and `cpus:` work under Compose and are ignored -- silently -- by Swarm. `depends_on`
+   fails the other way, loudly: its long form (`condition: service_healthy`) passes
+   `docker compose config` and gets the *whole file* refused by `docker stack deploy`, so it is a
+   plain list of service names, with no health condition, and a start that comes too early is the
+   restart policy's to catch (#154). `check_compose_template.py` refuses any other form.
 5. **The commented service model lives inside a `{% raw %}` block.** Without it, its Jinja expressions
    would render their values, and an unset published network would print as `- False`.
 6. **Variables reach the deployment role as `include_role` parameters**, never through a `set_fact` or
-   a task-level `vars:`. Precedence 20 is the only form that beats a fact already set; that is what
-   #459 cost the homelab repository.
+   a task-level `vars:`. Precedence 20 is the only form that beats a fact already set; below it, the
+   fact wins, and a task connects as an account other than the one its `vars:` announced while
+   reporting `ok`.
 7. **`requirements.yml` exists since #76, and it names exactly one collection.** The role used only
    `ansible.builtin.assert` and `ansible.builtin.include_role` until then; LibreChat's admin account
    (#76) needs `community.docker.docker_host_info` and `docker_container_exec` to reach the running
