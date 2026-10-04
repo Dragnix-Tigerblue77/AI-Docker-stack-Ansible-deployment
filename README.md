@@ -350,6 +350,17 @@ toucher : Ansible rend ce fichier de la même façon quel que soit celui qui le 
 pourquoi le fichier compose porte l'obligation `0600` / `diff: false` du contrat du rôle de
 déploiement : elle existe depuis #31, précisément pour le jour où le template interpolerait un secret.
 
+**Et chaque `$` d'une valeur y est doublé (#155).** Compose -- comme `docker stack deploy` -- relit le
+fichier rendu avec sa propre interpolation `$VAR` / `${VAR}`, après Ansible : un `$` resté simple y est
+lu comme le début d'une variable à lui, remplacée par ce qu'elle vaut dans son environnement, le plus
+souvent rien, avec un simple avertissement. Mesuré avec Compose v5.1.1 : `sk-Ab$cd9` arrivait dans le
+conteneur en `sk-Ab`, `sk-Ab$HOME` en `sk-Ab/root`, et `${` suivi d'un chiffre fait refuser le fichier
+entier. Le template écrit donc toute valeur de l'appelant dont la grammaire admet un `$` -- secrets,
+identifiants, alias de modèle, chemins d'hôte -- avec `| replace('$', '$$')`, que Compose ramène à un
+`$` unique. Restent sans : tags et digests d'image, noms d'objets Docker, limites mémoire, nombres et
+fuseau horaire, dont la grammaire exclut le `$`. Côté appelant, rien à échapper : une valeur du vault se
+donne telle quelle, et doublée à la main elle arriverait fausse.
+
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
 portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
@@ -646,6 +657,20 @@ référencé effectivement déclaré.
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
 rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
+
+Il fait aussi un rendu de plus (#155), agent Claude Code activé, où portent `$`, `${`, `$$`, `/`, `@` et
+`#` : toute variable que le template lit et que `defaults/main.yml` ne définit pas ou laisse vide (`""`)
+-- les obligatoires, donc aussi le secret du prochain service, et les optionnelles vides comme la clé
+GitHub Models -- ainsi que les valeurs libres à vrai défaut que le script énumère dans
+`FREE_FORM_WITH_A_DEFAULT`. Il refuse alors toute chaîne du résultat où un `$` n'appartient pas à un
+`$$`, c'est-à-dire tout ce que Compose réinterpréterait. Les emplacements qu'une autre pull request
+réécrit déjà y sont exemptés un par un, avec leur numéro, et une exemption qui n'exempte plus rien fait
+échouer le contrôle.
+
+Ce n'est pas toute valeur de l'appelant : une nouvelle valeur libre dotée d'un vrai défaut, ou d'un
+défaut `false`, n'est rendue avec un `$` qu'une fois ajoutée à cette liste. Rien dans un défaut ne dit si
+sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. La dernière ligne du contrôle donne le
+nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du rendu.
 
 ## Exemple d'appel
 

@@ -21,6 +21,11 @@ Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docke
 # issues land, that includes API keys. The deployment role has to write it "0600" and with
 # "diff: false": "--diff" would print the WHOLE file into the run's output, and a leak that outlives
 # the run is worse than the file itself. The contract is spelled out in the README.
+#
+# The template writes a caller's value into this file through "| replace('$', '$$')": Compose and
+# "docker stack deploy" read it through their own "$VAR" interpolation after Ansible has rendered
+# it, and would otherwise cut a secret short at its first "$" (#155, see the template's header). A
+# vaulted value is therefore given as it is, never pre-escaped: escaped twice, it would arrive wrong.
 Artificial_Intelligence_Docker_compose_file_destination_directory: "/tmp/"
 Artificial_Intelligence_Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_Docker_compose_file_name }}"
 

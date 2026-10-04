@@ -286,6 +286,14 @@ the file the same way regardless of which one reads it next. #1 wrote one anyway
 the issue's own example config used `${POSTGRES_PASSWORD}`, and that was read as licence rather than as
 an illustration to translate. It cost a second commit to undo.
 
+**A value Ansible interpolates into the compose file has its `$` doubled -- `| replace('$', '$$')`
+-- because Compose and `docker stack deploy` interpolate the rendered file again**, and a single `$`
+in a secret reached the container as whatever it named in their environment, usually nothing, until
+#155; the template's header says which values are exempt and why, and `check_compose_template.py`
+renders the ones it can find with a `$` and refuses the file where one arrives single. It finds a value
+with no default or an empty one by itself; one with a real default, or a `false` one, only once its
+`FREE_FORM_WITH_A_DEFAULT` names it, so add a new free-form value there in the same commit.
+
 **Images float by default, and are pinned on purpose only where a database would lose its data.** An
 image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag
 held in a variable: no tag *is* `latest`, writing it out adds nothing, and a variable for it is a
