@@ -483,13 +483,12 @@ role's README rather than frozen into the role.
    fact wins, and a task connects as an account other than the one its `vars:` announced while
    reporting `ok`.
 
-   The checksums of the two mounted configurations travel that way too (#161), and the label they
-   become on `litellm` and `librechat` -- `artificial_intelligence.config_checksum` -- is read by
-   nothing, on purpose. It is the only thing that changes the compose file when only a mounted
-   configuration changed; without it neither Compose nor Swarm recreates the container, which keeps
-   serving the old file while Ansible reports "changed". It sits under `labels:`, against invariant
-   4 and like LibreChat's lookup labels, because `deploy.labels` labels the service object, which
-   Swarm updates without replacing a task. `check_compose_template.py` refuses either move.
+   The checksums of the two mounted configurations travel that way too (#161), and the name of the
+   Docker config that carries each file is built from them. It is the only thing that changes the
+   compose file when only a mounted configuration changed; without it neither Compose nor Swarm
+   recreates the container, which keeps serving the old file while Ansible reports "changed". The files
+   are mounted through `configs`, never as a bind mount in `volumes`, where a changed file is invisible
+   again, and `check_compose_template.py` refuses either move.
 7. **`requirements.yml` exists since #76, and it names exactly one collection.** The role used only
    `ansible.builtin.assert` and `ansible.builtin.include_role` until then; LibreChat's admin account
    (#76) needs `community.docker.docker_host_info` and `docker_container_exec` to reach the running

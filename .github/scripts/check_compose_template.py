@@ -67,18 +67,19 @@ PUBLISHED_NETWORK = {
 }
 
 # The checksums "tasks/main.yml" hands the deployment role for each configuration a container mounts
-# (#161), and the service each one must label. Their default is "false", so the branch that writes
-# them is one no default render ever evaluates -- the same blind spot as the Claude Code agent's
-# toggle below. Fake but well-formed SHA-1s, distinct, so a label landing on the wrong service is
-# told apart from a label landing on the right one.
-CONFIG_CHECKSUM_LABEL = "artificial_intelligence.config_checksum"
+# (#161), which the template turns into the NAME of the Docker config that carries the file. Their
+# default is "false", so the branch that writes them is one no default render ever evaluates -- the
+# same blind spot as the Claude Code agent's toggle below. Fake but well-formed SHA-1s, distinct, so a
+# name landing on the wrong service is told apart from one landing on the right one.
 MOUNTED_CONFIG_CHECKSUMS = {
     "Artificial_Intelligence_LiteLLM_config_checksum": "0123456789abcdef0123456789abcdef01234567",
     "Artificial_Intelligence_LibreChat_config_checksum": "fedcba9876543210fedcba9876543210fedcba98",
 }
-CONFIG_CHECKSUM_CONSUMERS = {
-    "Artificial_Intelligence_LiteLLM_config_checksum": "litellm",
-    "Artificial_Intelligence_LibreChat_config_checksum": "librechat",
+# Per checksum: the service that reads the file, the name its Docker config has before any suffix, and
+# where the container sees it. The suffix is "-" and the first 8 characters of the checksum.
+MOUNTED_CONFIGS = {
+    "Artificial_Intelligence_LiteLLM_config_checksum": ("litellm", "LiteLLM_config", "/app/config.yaml"),
+    "Artificial_Intelligence_LibreChat_config_checksum": ("librechat", "LibreChat_config", "/app/librechat.yaml"),
 }
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
@@ -119,7 +120,7 @@ DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
 }
 
 
-def load_defaults():
+def load_defaults(overrides=None):
     """Read the role's defaults, resolving those that interpolate the others.
 
     Several defaults are derived -- a destination path is a directory plus a file name -- and
@@ -133,8 +134,14 @@ def load_defaults():
     unnoticed, since nothing here reads those keys. All are findings about the CHECK, phrased as
     findings about the template, which is the shape that gets a real one waived. It resolves every
     default now, by rendering each one against the others until nothing moves.
+
+    `overrides` is what a caller passes the role, applied BEFORE that resolution: Ansible reads a
+    derived default lazily, so one built from a variable the caller overrides follows the override --
+    the name of a Docker config is built from the checksum its file was written with (#161) -- where
+    resolving first and overriding after would leave it on the value it had from the defaults alone.
     """
     defaults = yaml.safe_load((ROLE / "defaults" / "main.yml").read_text(encoding="utf-8"))
+    defaults.update(overrides or {})
     environment = Environment()
     # Bounded rather than "while changed": a default that interpolates itself would otherwise spin
     # here forever. Ten passes is far past any real chain, and a value still carrying "{{" after them
@@ -332,39 +339,66 @@ def check_conventions(document, state, failures):
                 failures.append(f"{where}: references undeclared volume {source!r}")
 
 
-def check_config_checksums(off, on, failures):
-    """Hold the checksums to one CONTAINER label each, on the service that mounts the file, and nothing else.
+def mounted_config_source(document, service_name, target):
+    """The name of the Docker config the service mounts at `target`, or None when it mounts none there."""
+    for entry in mapping(document, "services").get(service_name, {}).get("configs") or []:
+        if isinstance(entry, dict) and entry.get("target") == target:
+            return entry.get("source")
+    return None
 
-    The label is the whole mechanism of #161: a configuration a container reads at start is a bind
-    mount, so changing it changes nothing in the compose file, and neither "docker compose up" nor
-    "docker stack deploy" recreates what they see no difference in. Where the label sits is not a
-    detail. Under "labels:" it is part of the container's spec: Compose recreates the container, and
-    Swarm replaces the task. Under "deploy.labels:" it labels the SERVICE object, which Compose still
-    recreates for and Swarm updates WITHOUT replacing the task -- a fix that works on the test bench
-    and does nothing after the switch. "Everything under deploy:" is exactly the convention that
-    invites that move, which is why this is checked rather than left to a comment.
+
+def check_mounted_configs(off, on, failures):
+    """Hold each mounted configuration to a Docker config named after its content, and nothing else.
+
+    A configuration a container reads at start is a file on the host, and changing it changes nothing
+    in the compose file, which is all "docker compose up" and "docker stack deploy" compare: without
+    something that moves with the content, neither recreates what they see no difference in, and the
+    container keeps the old routing while Ansible reports the new one "changed" (#161). A Docker
+    config is the object made for this, and its name is that something: Swarm configs are immutable,
+    so a changed file is a NEW name and an ordinary service update, and Compose recreates a container
+    whose "configs" source changed. The file is mounted through "configs", never as a bind mount in
+    "volumes", where a changed file is invisible again -- the move that quietly undoes all of it.
     """
-    stripped = copy.deepcopy(on)
-    for variable, name in CONFIG_CHECKSUM_CONSUMERS.items():
+    normalised = copy.deepcopy(on)
+    for variable, (name, base, target) in MOUNTED_CONFIGS.items():
         where = f"service {name!r}"
-        expected = MOUNTED_CONFIG_CHECKSUMS[variable]
-        if CONFIG_CHECKSUM_LABEL in mapping(mapping(mapping(off, "services"), name), "labels"):
-            failures.append(f"[checksums unset] {where}: carries {CONFIG_CHECKSUM_LABEL!r} while {variable} is false")
-        block = mapping(mapping(stripped, "services"), name)
-        labels = mapping(block, "labels")
-        if labels.get(CONFIG_CHECKSUM_LABEL) != expected:
+        for state, document in (("checksums unset", off), ("checksums set", on)):
+            block = mapping(mapping(document, "services"), name)
+            for volume in block.get("volumes") or []:
+                mounted = volume.get("target") if isinstance(volume, dict) else str(volume).split(":")[1:2]
+                if mounted == target or mounted == [target]:
+                    failures.append(
+                        f"[{state}] {where}: mounts {target!r} as a bind mount in 'volumes' -- a changed file is "
+                        "invisible in the compose file there; mount it through 'configs'"
+                    )
+            source = mounted_config_source(document, name, target)
+            if source is None:
+                failures.append(f"[{state}] {where}: mounts no Docker config at {target!r}")
+            elif "file" not in mapping(mapping(document, "configs"), source):
+                failures.append(f"[{state}] {where}: its config {source!r} is not declared at the top level with a 'file'")
+        off_source = mounted_config_source(off, name, target)
+        on_source = mounted_config_source(on, name, target)
+        if off_source is None or on_source is None:
+            continue
+        suffix = "-" + MOUNTED_CONFIG_CHECKSUMS[variable][:8]
+        if off_source != base:
+            failures.append(f"[checksums unset] {where}: its config is named {off_source!r}, expected {base!r}")
+        if on_source != base + suffix:
             failures.append(
-                f"[checksums set] {where}: no container label {CONFIG_CHECKSUM_LABEL!r} carrying {variable} -- "
-                "under 'labels', never 'deploy.labels', which Swarm applies without replacing the task"
+                f"[checksums set] {where}: its config is named {on_source!r}, expected {base + suffix!r} -- "
+                f"the name must carry {variable}, or a changed file changes nothing Docker compares"
             )
             continue
-        del labels[CONFIG_CHECKSUM_LABEL]
-        if not labels and "labels" not in mapping(mapping(off, "services"), name):
-            del block["labels"]
-    if stripped != off:
+        for entry in mapping(normalised, "services")[name]["configs"]:
+            if entry.get("target") == target:
+                entry["source"] = off_source
+        configs = mapping(normalised, "configs")
+        if on_source in configs:
+            configs[off_source] = configs.pop(on_source)
+    if normalised != off:
         failures.append(
-            f"setting the configuration checksums changed more than one {CONFIG_CHECKSUM_LABEL!r} "
-            "label per consuming service: it must change nothing else"
+            "setting the configuration checksums changed more than the names of the Docker configs: "
+            "it must change nothing else"
         )
 
 
@@ -673,47 +707,70 @@ CONVENTION_CASES = [
     ("anonymous volume", {"services": {"svc": service(volumes=["/data"])}}, None),
 ]
 
-# (name, checksums unset, checksums set, expected substring or None). The LibreChat service already
-# carries labels of its own, the LiteLLM one none: both shapes are what the template really renders.
-_LITELLM = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LiteLLM_config_checksum"]
-_LIBRECHAT = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LibreChat_config_checksum"]
-_UNSET = {"services": {"litellm": service(), "librechat": service(labels={"stack": "s"})}}
+# (name, checksums unset, checksums set, expected substring or None). Each document is what the
+# template really renders for the two services: the file mounted through "configs", the Docker config
+# declared at the top level with the path of the file on the host.
+_LITELLM = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LiteLLM_config_checksum"][:8]
+_LIBRECHAT = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LibreChat_config_checksum"][:8]
+
+
+def mounted(litellm_name, librechat_name, **changes):
+    """The two consuming services as rendered, with the Docker config named as given."""
+    document = {
+        "services": {
+            "litellm": service(configs=[{"source": litellm_name, "target": "/app/config.yaml"}]),
+            "librechat": service(configs=[{"source": librechat_name, "target": "/app/librechat.yaml"}],
+                                 volumes=["uploads:/app/uploads:rw"]),
+        },
+        "configs": {litellm_name: {"file": "/srv/LiteLLM_config.yaml"},
+                    librechat_name: {"file": "/srv/librechat.yaml"}},
+    }
+    document.update(changes)
+    return document
+
+
+_UNSET = mounted("LiteLLM_config", "LibreChat_config")
+_SET = mounted(f"LiteLLM_config-{_LITELLM}", f"LibreChat_config-{_LIBRECHAT}")
 CONFIG_CHECKSUM_CASES = [
-    ("one container label each",
+    ("each file named after its content", _UNSET, _SET, None),
+    # The move that undoes it: a bind mount sees the new file in the compose file as nothing at all.
+    ("file bind mounted as well, short syntax",
      _UNSET,
-     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
-                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
-     None),
-    # The move "everything under deploy:" invites, and the one that does nothing under Swarm.
-    ("label under deploy.labels",
+     dict(_SET, services=dict(_SET["services"], litellm=service(
+         configs=[{"source": f"LiteLLM_config-{_LITELLM}", "target": "/app/config.yaml"}],
+         volumes=["/srv/LiteLLM_config.yaml:/app/config.yaml:ro"]))),
+     "mounts '/app/config.yaml' as a bind mount"),
+    ("file bind mounted instead, long syntax",
+     {"services": {"litellm": service(volumes=[{"type": "bind", "source": "/srv/c.yaml", "target": "/app/config.yaml"}]),
+                   "librechat": _UNSET["services"]["librechat"]},
+      "configs": _UNSET["configs"]},
+     _SET,
+     "mounts '/app/config.yaml' as a bind mount"),
+    ("name that does not move with the content",
      _UNSET,
-     {"services": {"litellm": service(deploy={"restart_policy": {"condition": "any"},
-                                              "resources": {"limits": {"memory": "512M"}},
-                                              "labels": {CONFIG_CHECKSUM_LABEL: _LITELLM}}),
-                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
-     "service 'litellm': no container label"),
-    ("label missing on one service",
+     mounted("LiteLLM_config", f"LibreChat_config-{_LIBRECHAT}"),
+     "its config is named 'LiteLLM_config', expected"),
+    ("the two suffixes swapped",
      _UNSET,
-     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
-                   "librechat": service(labels={"stack": "s"})}},
-     "service 'librechat': no container label"),
-    ("the two checksums swapped",
+     mounted(f"LiteLLM_config-{_LIBRECHAT}", f"LibreChat_config-{_LITELLM}"),
+     "the name must carry"),
+    ("suffix written while unset",
+     mounted(f"LiteLLM_config-{_LITELLM}", "LibreChat_config"),
+     _SET,
+     "[checksums unset] service 'litellm': its config is named"),
+    ("config used but never declared",
      _UNSET,
-     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LIBRECHAT}),
-                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LITELLM})}},
-     "no container label"),
-    # "false" written into the label rather than the label left out: it would still recreate the
-    # container once, on the first run after it, for no reason.
-    ("label written while unset",
-     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: "False"}),
-                   "librechat": service(labels={"stack": "s"})}},
-     {"services": {"litellm": service(labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
-                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
-     "while Artificial_Intelligence_LiteLLM_config_checksum is false"),
+     dict(_SET, configs={f"LibreChat_config-{_LIBRECHAT}": {"file": "/srv/librechat.yaml"}}),
+     "is not declared at the top level with a 'file'"),
+    ("a service mounting nothing at that path",
+     _UNSET,
+     dict(_SET, services=dict(_SET["services"], litellm=service())),
+     "mounts no Docker config at '/app/config.yaml'"),
     ("setting the checksums changed something else",
      _UNSET,
-     {"services": {"litellm": service(image="vendor/image:9.9.9", labels={CONFIG_CHECKSUM_LABEL: _LITELLM}),
-                   "librechat": service(labels={"stack": "s", CONFIG_CHECKSUM_LABEL: _LIBRECHAT})}},
+     dict(_SET, services=dict(_SET["services"], litellm=service(
+         image="vendor/image:9.9.9",
+         configs=[{"source": f"LiteLLM_config-{_LITELLM}", "target": "/app/config.yaml"}]))),
      "it must change nothing else"),
 ]
 
@@ -805,7 +862,7 @@ def selftest():
     for name, off, on, expected in CONFIG_CHECKSUM_CASES:
         failures = []
         try:
-            check_config_checksums(off, on, failures)
+            check_mounted_configs(off, on, failures)
         except Exception as error:  # noqa: BLE001
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
@@ -888,7 +945,7 @@ def main():
         ("Claude Code agent (tigerblue77) Dockerfile checksum set",
          dict(CLAUDE_CODE_TIGERBLUE77_ENABLED, **{DOCKERFILE_CHECKSUM_VARIABLE: DOCKERFILE_CHECKSUM})),
     ):
-        context = dict(defaults, **extra)
+        context = dict(load_defaults(extra), **extra)
         try:
             rendered = render(context)
         except Exception as error:  # noqa: BLE001 - the message is the whole point
@@ -902,7 +959,7 @@ def main():
         check_conventions(documents[state], state, failures)
 
     if "published network unset" in documents and "mounted configuration checksums set" in documents:
-        check_config_checksums(
+        check_mounted_configs(
             documents["published network unset"], documents["mounted configuration checksums set"], failures
         )
 

@@ -283,15 +283,15 @@
     Docker_compose_file_destination_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_path }}"
     # Not part of that contract (#161): the deployment role does nothing with these two but render
-    # the compose template in their scope, which it does anyway. The template writes each one as a
-    # label of the container that mounts the file, and that label is the only thing that changes
+    # the compose template in their scope, which it does anyway. The template names the Docker
+    # config that carries each file after its checksum, and a new name is the only thing that changes
     # the compose file when only the configuration changed -- without it neither Compose nor Swarm
     # sees a difference, and the container keeps running on the old file. See
-    # "Artificial_Intelligence_LiteLLM_config_checksum" in defaults/main.yml.
+    # "Artificial_Intelligence_LiteLLM_config_Docker_name" in defaults/main.yml.
     #
     # "default(false)" is for "--check": a template or copy about to change its file returns no
     # "checksum" in check mode -- the copy action returns before adding it to its result -- and
-    # "false" leaves the label out of that dry run's compose file rather than failing on an
+    # "false" leaves the config's bare name in that dry run's compose file rather than failing on an
     # undefined attribute.
     Artificial_Intelligence_LiteLLM_config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_rendering.checksum | default(false) }}"
     Artificial_Intelligence_LibreChat_config_checksum: "{{ Artificial_Intelligence_LibreChat_config_deployment.checksum | default(false) }}"

@@ -115,7 +115,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
-| `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
+| `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
@@ -334,20 +334,20 @@ secrets, interpolés directement par Ansible -- et la configuration de routage d
 lecture seule et sans secret propre.
 
 **Une configuration modifiée recrée le conteneur qui la lit (#161).** LiteLLM ne lit
-`LiteLLM_config.yaml` qu'au démarrage, LibreChat fait de même avec `librechat.yaml`, et les deux sont
-des bind mounts : changer l'un ne change rien au fichier compose, qui n'en porte que le chemin -- or
-c'est lui seul que `docker compose up` et `docker stack deploy` comparent. Jusqu'à #161, le conteneur
-continuait donc de tourner sur l'ancienne configuration pendant qu'Ansible affichait `changed`, et il
-ne voyait même pas le nouveau fichier, écrit par renommage sous un nouvel inode. Mesuré avec LiteLLM
-1.100.0 : même conteneur, même `StartedAt`, anciens noms de modèles dans `/v1/models`. `tasks/main.yml`
-passe désormais le SHA-1 de chaque fichier au rôle de déploiement, en paramètre d'`include_role`, et le
-template l'écrit en étiquette **de conteneur** `artificial_intelligence.config_checksum` du service qui
-le monte. Sous Compose, une étiquette changée recrée le conteneur -- mesuré : `Recreated` et le nouveau
-routage servi, puis `Running` sans rien recréer au run suivant, où rien n'a changé. Sous Swarm, `labels`
-devient la spécification de conteneur de la tâche, et une tâche dont la spécification change est
-remplacée. Jamais `deploy.labels` : il étiquette l'objet service, que Swarm mettrait à jour sans
-remplacer la tâche. Rien ne lit cette étiquette, et c'est voulu ; un run `--check` sur le point de
-changer un fichier la laisse de côté, le module ne rendant pas de somme de contrôle dans ce cas.
+`LiteLLM_config.yaml` qu'au démarrage, LibreChat fait de même avec `librechat.yaml`. Montés en bind
+mounts, changer l'un ne changeait rien au fichier compose, qui n'en porte que le chemin -- or c'est lui
+seul que `docker compose up` et `docker stack deploy` comparent : le conteneur continuait de tourner sur
+l'ancienne configuration pendant qu'Ansible affichait `changed`, et il ne voyait même pas le nouveau
+fichier, écrit par renommage sous un nouvel inode. Mesuré avec LiteLLM 1.100.0 : même conteneur, même
+`StartedAt`, anciens noms de modèles dans `/v1/models`. Chaque fichier est donc monté comme une **config
+Docker**, dont le nom porte le contenu : `LiteLLM_config-<8 premiers caractères du SHA-1>`, et
+`LibreChat_config-<…>`. `tasks/main.yml` passe le SHA-1 de chaque fichier au rôle de déploiement, en
+paramètre d'`include_role`, et le template en tire le nom de la config, au niveau supérieur et dans le
+service qui la monte. Une config Swarm est immuable : un fichier modifié est un nouveau nom, donc une mise
+à jour ordinaire du service, et Compose recrée un conteneur dont la source de `configs` a changé. Un run
+`--check` sur le point de changer un fichier utilise le nom sans suffixe, le module ne rendant pas de
+somme de contrôle dans ce cas. Sous Swarm, les anciennes configs restent sur le nœud tant que personne ne
+les supprime (`docker config rm`) ; sous Compose, rien ne s'accumule.
 
 **Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, validée par
 tigerblue77 le 07/09/2026 : le compromis (HTTP sans TLS, authentification basique seule, port ouvert
@@ -613,8 +613,7 @@ SHA-1 du `Dockerfile` rendu au rôle de déploiement, en paramètre d'`include_r
 l'ajoute au **tag** : `ais-claude-code-tigerblue77:<tag Claude Code>-<SHA-1>`. Un `Dockerfile` modifié
 devient un nom qu'aucune image ne porte encore, que Compose construit, et un `image:` modifié, donc un
 conteneur recréé -- sans perte de session, le répertoire personnel étant monté en entier. Pas une
-étiquette, le remède d'une configuration montée (#161) : elle recréerait le conteneur sur l'ancienne
-image. Deux conséquences. Le premier run qui porte ce changement reconstruit l'image une fois, même si
+étiquette : elle recréerait le conteneur sur l'ancienne image. Deux conséquences. Le premier run qui porte ce changement reconstruit l'image une fois, même si
 le `Dockerfile` n'a pas bougé, puisque le tag change de forme. Et les images précédentes restent sur le
 nœud : rien ne les supprime, comme avant à chaque changement de tag Claude Code. Un run `--check` sur
 le point de changer le `Dockerfile` écrit le tag sans suffixe, le module ne rendant pas de somme de
@@ -750,8 +749,9 @@ limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et to
 référencé effectivement déclaré.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les
-défauts laissent à `false` : chacune doit arriver en étiquette de conteneur du service qui monte le
-fichier -- sous `labels:`, jamais `deploy.labels:` -- sans que rien d'autre ne change.
+défauts laissent à `false` : chaque fichier doit être monté par `configs` -- jamais en bind mount dans
+`volumes` --, sous une config déclarée au niveau supérieur avec son `file`, nommée d'après le contenu
+sans suffixe quand rien n'est renseigné, et sans que rien d'autre ne change entre les deux états.
 
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
