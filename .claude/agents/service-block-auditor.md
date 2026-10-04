@@ -30,8 +30,9 @@ thing CLAUDE.md counts as verification.
 ## What you look for, in priority order
 
 1. **A new or changed service block missing a piece of the commented model.**
-   Every key it demonstrates is mandatory: `image:` pinned by explicit version
-   (never `:latest`, never the implicit tag); everything under `deploy:` and
+   Every key it demonstrates is mandatory: `image:` written with no tag when it floats
+   (never `:latest`, never a tag behind a variable), or pinned literally with its reason on the line
+   above when it is a database; everything under `deploy:` and
    nothing as a bare `restart:`/`mem_limit:`/`cpus:` (Swarm silently ignores
    those); `deploy.restart_policy.condition: any`, never `on-failure` (an
    unhealthy container exits cleanly, and `on-failure` never replaces a task

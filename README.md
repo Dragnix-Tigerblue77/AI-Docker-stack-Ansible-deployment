@@ -34,8 +34,8 @@ mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Doc
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
-après les services, porte les conventions qu'un bloc de service doit tenir : image épinglée par
-version, limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié pour un
+après les services, porte les conventions qu'un bloc de service doit tenir : image sans tag (ou, pour
+une base de données, épinglée avec sa raison), limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié pour un
 service interne, aucun secret en clair. Elles sont écrites là plutôt que dans un document séparé
 parce que c'est là qu'on les oublie.
 
@@ -75,6 +75,14 @@ sections qui suivent.
 
 ## Variables du rôle
 
+**Aucune variable ne porte une image ni son tag.** Une image flotte par défaut et s'écrit sans tag
+(`image: redis`), puisque l'absence de tag *est* `latest` : le déployeur la récupère à chaque
+exécution, donc chaque déploiement apporte la version courante et ses correctifs. Seules les bases de
+données dont les données ne vivent que dans leur volume -- PostgreSQL, MongoDB, Qdrant -- sont épinglées,
+en dur dans le template, avec leur raison au-dessus de la ligne `image:` : une montée de majeur tombe
+sur une organisation des données que la nouvelle image ne lit pas. L'exception : la base de l'image de
+l'agent Claude Code, construite ici et non récupérée, qui garde ses deux variables (tag et digest).
+
 Le stack porte déjà plusieurs services -- la passerelle et sa base, Redis, OmniRoute, Qdrant, LibreChat
 et sa base, l'agent Claude Code de tigerblue77 (désactivé par défaut) -- chacun arrivé par sa propre
 issue de service, avec son bloc et ses variables. Ce que ce rôle apporte reste la forme plutôt que le
@@ -99,11 +107,8 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 |---|---|---|
 | `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
-| `Artificial_Intelligence_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
-| `Artificial_Intelligence_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
-| `Artificial_Intelligence_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
@@ -129,7 +134,6 @@ Et celles que #71 apporte, pour Redis :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Redis_Docker_image_tag` | `7-alpine` | Majeur explicite, jamais `:latest`. |
 | `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
 | `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. |
 | `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
@@ -138,7 +142,6 @@ Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_OmniRoute_Docker_image_tag` | `3.8.50` | SemVer explicite, jamais `:latest` ni la variante `-web`. |
 | `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
 | `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
 | `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
@@ -147,7 +150,6 @@ Et celles que #3 apporte, pour Qdrant :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Qdrant_Docker_image_tag` | `v1.19.1` | SemVer explicite, jamais `:latest`. |
 | `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
 | `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
@@ -171,8 +173,6 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
-| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0` | Série explicite : chaque correctif 8.0.x arrive seul, une série suivante se fait à la main, avec l'étape `featureCompatibilityVersion` de MongoDB. |
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
@@ -298,9 +298,14 @@ charge, et ce rôle-là doit :
    services, qu'Ansible y interpole -- mots de passe des bases et des interfaces, clé maîtresse de la
    passerelle, clés des fournisseurs, clés et jetons des services. `/tmp` est le premier endroit où
    tout compte de la machine regarde, et `--diff` imprimerait le fichier *entier* dans la sortie du
-   run, donc dans tout ce qui la capture.
+   run, donc dans tout ce qui la capture ;
+4. **récupérer les images à chaque exécution**, puisque la plupart des images du stack flottent.
+   `docker stack deploy` résout les empreintes à chaque appel ; Compose, lui, ne télécharge une image
+   que si elle manque en local, et un déployeur Compose doit donc la récupérer explicitement
+   (`docker compose pull`, `pull: always`). Sans cela, une image sans tag garde la première qu'elle a
+   eue, pour toujours.
 
-Et une quatrième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
+Et une cinquième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
 exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `assert` ne peuvent le deviner —
 le rôle de déploiement est désigné par une variable, donc son contenu est inconnu au moment où les
 vérifications tournent.
@@ -362,13 +367,6 @@ reste visible jusqu'à ce que la cause soit levée -- la migration passe alors a
 autre intervention. Le prix : un échec passager coûte lui aussi un redémarrage. Si la boucle apparaît
 après une montée de tag, la migration en cause se lit dans les journaux du service `litellm`, sous
 `Error: P30…` ; retirer l'option pour que le service « démarre » ne ferait que rendre l'échec muet.
-
-**Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
-inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
-test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
-comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
-les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
-*pré-authentifiée* visant précisément la base déployée ici.
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
@@ -541,13 +539,11 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
 
 ## Monter PostgreSQL d'un majeur (#168)
 
-**Une migration, pas un changement de tag.** Le template lit le majeur en tête de
-`Artificial_Intelligence_PostgreSQL_Docker_image_tag` -- que `tasks/main.yml` oblige donc à commencer
-par lui : `17-alpine`, `17.6-alpine3.22`, `18`, jamais `latest` ni `alpine` -- et monte le volume là
-où l'image de ce majeur range ses données : `/var/lib/postgresql/data` jusqu'à 17,
-`/var/lib/postgresql` à partir de 18, où l'image officielle garde chaque cluster dans un
-sous-répertoire à son nom (`18/docker`). Laissé sur l'ancien chemin, 18 refuse de démarrer, même sur
-un volume vide.
+**Une migration, pas un changement de tag.** L'image est épinglée en dur dans le template
+(`postgres:17-alpine`), et le volume est monté là où l'image de ce majeur range ses données :
+`/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18, où l'image officielle
+garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux se changent ensemble,
+dans le même commit : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
 
 Sur un volume qui porte déjà un cluster, le nouveau majeur le refuse aussi, à l'un comme à l'autre
 chemin, et la politique `any` le relance en boucle : rien n'est perdu, rien ne démarre. Le passage,
@@ -559,9 +555,9 @@ retrouvée après, et l'ancien volume redémarrant toujours sous 17 :
 # 1. Sous l'ancien majeur, LiteLLM arrêté pour que plus rien n'écrive (docker stop <conteneur litellm>
 #    sous Compose, docker service scale <stack>_litellm=0 sous Swarm), exporter la base
 docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
-# 2. Monter Artificial_Intelligence_PostgreSQL_Docker_image_tag ET donner un nouveau nom à
-#    Artificial_Intelligence_PostgreSQL_data_Docker_volume_name : le nouveau majeur initialise un
-#    volume vide, et l'ancien reste intact pour revenir en arrière
+# 2. Monter le tag de `postgres` dans le template (et le chemin du volume, si l'on franchit 18) ET
+#    donner un nouveau nom à Artificial_Intelligence_PostgreSQL_data_Docker_volume_name : le nouveau
+#    majeur initialise un volume vide, et l'ancien reste intact pour revenir en arrière
 # 3. Redéployer avec le rôle -- LiteLLM migre une base vide --, l'arrêter de nouveau, restaurer,
 #    puis le relancer (docker start, ou scale à 1)
 docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
@@ -643,7 +639,7 @@ python3 .github/scripts/check_compose_template.py
 
 Le dernier est celui qui compte pour le template. Il le rend dans ses **deux** états -- réseau publié
 renseigné et non renseigné -- parse les deux, compare les objets parsés plutôt que les fichiers, et tient
-chaque bloc de service aux conventions que le modèle commenté du template documente : image épinglée,
+chaque bloc de service aux conventions que le modèle commenté du template documente : image sans tag ou épinglée avec sa raison,
 limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et tout réseau ou volume
 référencé effectivement déclaré.
 
