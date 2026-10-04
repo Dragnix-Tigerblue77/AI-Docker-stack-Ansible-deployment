@@ -42,7 +42,7 @@ ROLE = Path(__file__).resolve().parents[2]
 
 # The published network as a caller supplies it. The indentation is not cosmetic: the definition is
 # a block string interpolated into the "networks:" mapping, so it carries its own continuation
-# indent, exactly as "Homelab_Ansible_deployment" writes it in its playbook.
+# indent, exactly as a caller writes it in its playbook.
 PUBLISHED_NETWORK = {
     "Artificial_Intelligence_published_Docker_network_name": "DMZ",
     "Artificial_Intelligence_published_Docker_network_definition": "DMZ:\n      external: true\n      name: DMZ\n",
@@ -50,7 +50,7 @@ PUBLISHED_NETWORK = {
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
 # unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
-# a defect inside it -- an undeclared volume, an unpinned image -- would render and parse cleanly
+# a defect inside it -- an undeclared volume, a missing memory limit -- would render and parse cleanly
 # forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
 CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
@@ -213,20 +213,18 @@ def check_conventions(document, state, failures):
         service = service if isinstance(service, dict) else {}
         deploy = mapping(service, "deploy")
 
-        # Pinned by version, never ":latest" -- nor the implicit tag, which IS ":latest". A digest
-        # counts as pinned. The registry host may carry a colon for its port, so the tag is whatever
-        # follows the last colon AFTER the last slash.
+        # An image floats by default and is then written with NO tag, because no tag IS ":latest" and
+        # writing it out says nothing more: an explicit ":latest" is refused for that reason. Any
+        # other tag is a pin, which is the template's to keep for a database and to explain on the
+        # line above -- no script can tell a deliberate one from a mistake, so none is judged. The
+        # registry host may carry a colon for its port, so the tag is whatever follows the last colon
+        # AFTER the last slash.
         image = service.get("image") or ""
         last_segment = image.rsplit("/", 1)[-1]
         if not image:
-            # Said separately rather than folded into the tag check below: "image '' carries no tag"
-            # is a true sentence about a service that has no image at all, and a confusing one.
             failures.append(f"{where}: declares no image")
-        elif "@" not in image:
-            if ":" not in last_segment:
-                failures.append(f"{where}: image {image!r} carries no tag, which means ':latest'")
-            elif last_segment.rsplit(":", 1)[-1] == "latest":
-                failures.append(f"{where}: image {image!r} is pinned on ':latest'")
+        elif "@" not in image and ":" in last_segment and last_segment.rsplit(":", 1)[-1] == "latest":
+            failures.append(f"{where}: image {image!r} is tagged ':latest' -- write it with no tag, which means the same")
 
         # A memory limit on every service. Without one, a container running away takes the others
         # down by OOM and the kernel log names the victim rather than the culprit.
@@ -242,6 +240,22 @@ def check_conventions(document, state, failures):
         # Swarm ignores it, so a hostname that only exists under Compose breaks at the switch.
         if "container_name" in service:
             failures.append(f"{where}: declares container_name, which Swarm ignores")
+
+        # "depends_on" as a plain list of service names, and nothing else. "docker stack deploy"
+        # validates the file against docker/cli's own schema before it reaches the daemon, and there
+        # the key is an array of unique strings: the long form ("condition: service_healthy") gets
+        # the WHOLE file refused, and "docker compose config" accepts it without a word, which is how
+        # it shipped in #1 and sat in every render since (#154). Present but written empty is
+        # refused by both, so "in" rather than ".get": None is a finding here, not an absence.
+        if "depends_on" in service:
+            depends_on = service["depends_on"]
+            if not isinstance(depends_on, list) or not all(isinstance(entry, str) for entry in depends_on):
+                failures.append(
+                    f"{where}: depends_on must be a list of service names -- any other form, the long "
+                    "one with 'condition:' included, makes 'docker stack deploy' refuse the whole file"
+                )
+            elif len(set(depends_on)) != len(depends_on):
+                failures.append(f"{where}: depends_on names a service twice, which 'docker stack deploy' refuses")
 
         # The Definition of Done of #31: everything a service references has to be declared. The
         # orchestrator only says otherwise at deployment time.
@@ -382,10 +396,11 @@ _ABSENT = _Absent()
 # (name, document, expected substring or None when the document must be accepted)
 CONVENTION_CASES = [
     ("compliant service", {"services": {"svc": COMPLIANT_SERVICE}}, None),
-    ("image pinned on :latest", {"services": {"svc": service(image="vendor/image:latest")}},
-     "is pinned on ':latest'"),
-    ("image with no tag", {"services": {"svc": service(image="vendor/image")}},
-     "carries no tag"),
+    ("image tagged :latest", {"services": {"svc": service(image="vendor/image:latest")}},
+     "is tagged ':latest'"),
+    # No tag is the way a floating image is written, so it is an accepted case, and so is a pin.
+    ("image with no tag", {"services": {"svc": service(image="vendor/image")}}, None),
+    ("image pinned on a version", {"services": {"svc": service(image="vendor/image:1.2.3")}}, None),
     ("no image at all", {"services": {"svc": service(image=_ABSENT)}},
      "declares no image"),
     # A digest IS a pin, and a registry port is a colon that is not a tag separator. Both are
@@ -409,6 +424,23 @@ CONVENTION_CASES = [
      "expected 'any'"),
     ("container_name declared", {"services": {"svc": service(container_name="svc")}},
      "declares container_name"),
+    # Each verdict below is the one "docker stack config -c" gave on the same block (#154). The
+    # first refused case is the one that matters: "docker compose config" accepts it, so nothing
+    # else in CI would ever say a word about it.
+    ("depends_on, short form", {"services": {"svc": service(depends_on=["db", "cache"])}}, None),
+    ("depends_on, empty list", {"services": {"svc": service(depends_on=[])}}, None),
+    ("depends_on, long form",
+     {"services": {"svc": service(depends_on={"db": {"condition": "service_healthy"}})}},
+     "depends_on must be a list of service names"),
+    # A list, but of mappings, which is neither form: the long form written into the short form's
+    # list, an easy slip between the two.
+    ("depends_on, list of mappings",
+     {"services": {"svc": service(depends_on=[{"db": {"condition": "service_healthy"}}])}},
+     "depends_on must be a list of service names"),
+    ("depends_on written empty", {"services": {"svc": service(depends_on=None)}},
+     "depends_on must be a list of service names"),
+    ("depends_on naming a service twice", {"services": {"svc": service(depends_on=["db", "db"])}},
+     "depends_on names a service twice"),
     ("service written empty", {"services": {"svc": None}}, "declares no image"),
     ("undeclared network", {"services": {"svc": service(networks=["nope"])}},
      "references undeclared network"),

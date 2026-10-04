@@ -39,7 +39,7 @@ body:
     attributes:
       label: Spécifications
       description: |
-        L'image et sa version épinglée, la limite mémoire, les variables à ajouter dans
+        L'image (sans tag, sauf une base de données, épinglée avec sa raison), la limite mémoire, les variables à ajouter dans
         `defaults/main.yml`, les volumes, et ce que le service doit joindre.
       value: |
         - **Image** : `vendor/image:1.2.3`

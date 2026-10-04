@@ -21,10 +21,10 @@ name: Ansible CI
 #   load-bearing too.
 #
 # Every job below takes its runner from the CI_RUNNER repository variable, and falls back to
-# "ubuntu-latest" when it is unset, as in the homelab repository. It is the whole of the switch to a
-# self-hosted pool on the day the organisation's included minutes run out (#162). #32 and #141 had
-# left it out as an indirection no variable would ever fill in; that reason went the day the switch
-# was planned. The pool it would name is prepared, commented out, in the homelab repository
+# "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
+# the organisation's included minutes run out (#162). #32 and #141 had left it out as an indirection
+# no variable would ever fill in; that reason went the day the switch was planned. The pool it would
+# name is prepared, commented out, in the homelab repository
 # (Tigerblue77-personal/Homelab_Ansible_deployment#1028).
 #
 # ! Set CI_RUNNER to "self-hosted" only once that pool's runners show "Idle" under the
@@ -81,13 +81,12 @@ jobs:
   reuse:
     name: REUSE compliance
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # 15 and not 5, for the self-hosted pool CI_RUNNER can name. The homelab repository lost this
-    # very job to a 5-minute limit on its own pool
-    # (Tigerblue77-personal/Homelab_Ansible_deployment#941): killed at 5m19, 97 ms after
-    # "reuse lint" had printed its success -- the minutes had gone to setting the job up, never to
-    # the check. A job over its "timeout-minutes" concludes "cancelled", which
-    # "dependabot-auto-merge.yml" rightly refuses, so on that pool every Dependabot update would
-    # sit waiting for a human with nothing red to say why.
+    # 15 and not 5, for the self-hosted pool CI_RUNNER can name. This very job has been lost to a
+    # 5-minute limit on such a pool: killed at 5m19, 97 ms after "reuse lint" had printed its
+    # success -- the minutes had gone to setting the job up, never to the check. A job over its
+    # "timeout-minutes" concludes "cancelled", which "dependabot-auto-merge.yml" rightly refuses,
+    # so on that pool every Dependabot update would sit waiting for a human with nothing red to say
+    # why.
     timeout-minutes: 15
     steps:
       # Symlinks are checked out as symlinks, which matters here: "LICENSE" is one, pointing at
