@@ -84,7 +84,24 @@ Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Int
 # --------------------------------------------------------------------------------------------------
 
 Artificial_Intelligence_PostgreSQL_database: "litellm"
+# LiteLLM's role (#159): LOGIN, owner of the database above, and NOTHING else -- never a superuser,
+# so that an SQL injection through the gateway stays inside the gateway's own tables. Its password is
+# "Artificial_Intelligence_PostgreSQL_password", below.
 Artificial_Intelligence_PostgreSQL_user: "litellm"
+
+# The cluster's superuser: the role the image bootstraps, which nothing connects as -- it runs the
+# init script that creates the role above, and is there for a human at "docker exec ... psql". Must
+# differ from "Artificial_Intelligence_PostgreSQL_user", and "tasks/main.yml" refuses otherwise.
+#
+# ! Read at the volume's FIRST initialisation only, like the role above and both passwords: on a
+# data directory that already exists, the image ignores all four. Changing one afterwards is an
+# "ALTER ROLE" by hand, at "docker exec ... psql".
+Artificial_Intelligence_PostgreSQL_superuser: "postgres"
+
+# Its password, MANDATORY and without a default -- a default password is a published one -- and never
+# the same value as "Artificial_Intelligence_PostgreSQL_password": LiteLLM's container holds that one,
+# and with it the superuser's login would be one role name away.
+# Artificial_Intelligence_PostgreSQL_superuser_password:
 
 # The named volume the store lives in. Named rather than a bind mount: surviving a container
 # recreation is an acceptance criterion of #1, and a bind mount would also tie the stack to a host

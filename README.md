@@ -105,7 +105,9 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Le mot de passe du rôle de LiteLLM, `Artificial_Intelligence_PostgreSQL_user` -- un rôle **ordinaire**, propriétaire de sa base et de rien d'autre, jamais superutilisateur (#159). Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_superuser` | `postgres` | Le superutilisateur du cluster (#159). Rien ne s'y connecte : il crée le rôle de LiteLLM à l'initialisation, et sert à un humain par `docker exec … psql`. Doit différer du rôle de LiteLLM. |
+| `Artificial_Intelligence_PostgreSQL_superuser_password` | aucun | **Obligatoire** (#159). Rendu depuis le vault, et **différent** de `Artificial_Intelligence_PostgreSQL_password` : le rôle refuse la même valeur pour les deux. |
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
@@ -378,6 +380,58 @@ reste visible jusqu'à ce que la cause soit levée -- la migration passe alors a
 autre intervention. Le prix : un échec passager coûte lui aussi un redémarrage. Si la boucle apparaît
 après une montée de tag, la migration en cause se lit dans les journaux du service `litellm`, sous
 `Error: P30…` ; retirer l'option pour que le service « démarre » ne ferait que rendre l'échec muet.
+
+**LiteLLM n'est pas le superutilisateur de sa base (#159).** L'image officielle fait de `POSTGRES_USER`
+le superutilisateur d'amorçage, et ce rôle ne peut jamais perdre l'attribut. LiteLLM se connectait avec
+lui : une injection SQL préalable à toute authentification (LiteLLM en a connu une en 2026) lui
+donnait `COPY … PROGRAM` -- un shell dans le conteneur `postgres` -- et la lecture de tout fichier du
+serveur. Il se connecte désormais avec un rôle ordinaire (`LOGIN`, rien d'autre), propriétaire de sa
+base et donc, depuis PostgreSQL 15, de son schéma
+`public` : c'est tout ce dont les migrations Prisma ont besoin, vérifié en direct avec LiteLLM
+v1.100.0 (161 migrations appliquées ; `COPY … PROGRAM`, `pg_read_file` et `CREATE EXTENSION dblink`
+refusés). Le superutilisateur est un autre rôle, `Artificial_Intelligence_PostgreSQL_superuser`, avec
+son propre mot de passe.
+
+Ce rôle est créé au premier démarrage par un script de `/docker-entrypoint-initdb.d/` que la `command:`
+du service `postgres` écrit dans le conteneur avant de passer la main à l'entrypoint de l'image. Ni
+fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la tâche, et `/tmp` ne garde
+pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
+
+**PostgreSQL 15 au minimum**, et rien ne le vérifie : le majeur est écrit en dur dans le template
+(`image: postgres:17-alpine`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
+valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
+`pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
+`14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
+command \getenv`, les redémarrages suivants sautent l'initialisation, et PostgreSQL tourne, sonde de
+santé au vert, sans aucun rôle avec lequel LiteLLM puisse se connecter. Le rôle ne répare pas ce
+volume ; il ne contient rien de LiteLLM, et le supprimer, tag relevé, est la seule sortie.
+`15-alpine`, lui, a porté les 161 migrations de LiteLLM v1.100.0 sous son rôle ordinaire.
+
+### Un volume créé avant le rôle dédié de LiteLLM
+
+L'image n'exécute `/docker-entrypoint-initdb.d/` que sur un répertoire de données **vide**. Sur un volume
+initialisé avant #159, rien ne change : le rôle de LiteLLM reste le superutilisateur d'amorçage,
+LiteLLM continue de fonctionner, et le rôle `Artificial_Intelligence_PostgreSQL_superuser` n'existe pas
+-- son mot de passe n'est lu nulle part. Rien ne casse, rien ne s'améliore. Aucune v1.0 n'ayant pu aboutir
+à un déploiement (#126), seuls des volumes de banc d'essai sont concernés ; si leur contenu ne compte pas,
+supprimer le volume et redéployer suffit.
+
+Pour garder les données (clés virtuelles, comptes, consommation), vérifié de bout en bout sous Compose,
+une clé créée avant la bascule retrouvée après :
+
+```bash
+# « litellm » est le défaut du rôle comme de la base : remplacer par les vôtres s'ils diffèrent.
+# 1. Exporter, avec l'ancien superutilisateur -- le rôle de LiteLLM, sur le socket du conteneur
+docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
+# 2. Arrêter le stack, puis supprimer SON volume PostgreSQL (docker volume ls pour son nom exact)
+docker volume rm <volume PostgreSQL du stack>
+# 3. Redéployer avec le rôle : l'initialisation crée le superutilisateur et le rôle de LiteLLM,
+#    et LiteLLM migre une base vide
+# 4. Arrêter LiteLLM (docker stop <conteneur litellm> sous Compose, docker service scale <stack>_litellm=0
+#    sous Swarm), restaurer EN TANT QUE rôle de LiteLLM, qui possède ainsi tout ce qu'il restaure, puis
+#    le relancer (docker start, ou scale à 1)
+docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
+```
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
