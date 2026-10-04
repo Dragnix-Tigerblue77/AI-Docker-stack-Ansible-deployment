@@ -288,6 +288,13 @@ services:
       # Overrides the image's own "CHANGEME" default, which upstream documents as deliberately weak
       # to force a change -- never left as-is, same standard as "Artificial_Intelligence_LiteLLM_UI_password" (#1).
       INITIAL_PASSWORD: "{{ Artificial_Intelligence_OmniRoute_dashboard_password }}"
+      # Keyless ON PURPOSE, and said here rather than left to the image: this is the account-agnostic
+      # fallback every cascade ends on (#2), and LiteLLM calls it with a placeholder key. The image's own
+      # default is about to flip -- OmniRoute's Dockerfile on "main" sets "ENV REQUIRE_API_KEY=true" for
+      # its next release (its #13679). The tag pinned in "defaults/main.yml" does not carry it yet, so this
+      # changes nothing today; without it, the bump that brings that release would turn every
+      # "omniroute-free-*" entry into a 401, with nothing showing the last rung of each cascade had gone.
+      REQUIRE_API_KEY: "false"
 
     volumes:
       # Named, at the path the upstream Docker guide's own example mounts: "/app/data".
@@ -295,8 +302,6 @@ services:
 
     # Published, for the same reason as LiteLLM's "/ui" (#1): the dashboard needs to be reachable
     # from a browser on the LAN, and "INITIAL_PASSWORD" above is what stands in front of it.
-    # "REQUIRE_API_KEY" is deliberately left at its default ("false"): this is the account-agnostic,
-    # keyless fallback every account's cascade falls back to (#2), by design.
     ports:
       - "20128:20128"
 
