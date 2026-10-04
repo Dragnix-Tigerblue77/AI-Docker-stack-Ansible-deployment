@@ -6,6 +6,23 @@
 # this repository.
 #
 # No format "version:": the key has been obsolete since Compose v2, and Swarm never read it.
+#
+# ! A value this file takes from a caller's variable is written through "| replace('$', '$$')".
+# Compose and "docker stack deploy" both read the rendered file through their OWN "$VAR" / "${VAR}"
+# interpolation, after Ansible is done with it, so a single "$" left in a secret is read as the start
+# of one of their variables: replaced by whatever that holds in their environment -- usually nothing,
+# with a mere warning -- or, after "${" and a character no name starts with, the whole file refused.
+# "$$" is how a literal "$" is spelt to them. Measured with Compose v5.1.1: "sk-Ab$cd9" reached the
+# container as "sk-Ab", "sk-Ab$HOME" as "sk-Ab/root", and "sk-Ab$$cd9" as "sk-Ab$cd9".
+#
+# Written without it, deliberately: image tags and digests, Docker object names, memory sizes,
+# numbers and the time zone, whose own grammar has no "$" to escape, and the published network's
+# definition, which is compose YAML the caller already writes as such. A LITERAL "$" typed into this
+# template needs the "$$" by hand; there is none, and a "${VAR}" there would be a ".env" in disguise.
+# "check_compose_template.py" renders the values it can find with a "$" in them and refuses a single
+# one: those with no default or an empty one by itself, those with a real default only once its
+# "FREE_FORM_WITH_A_DEFAULT" names them. Where a line still lacks the "replace", its
+# "DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS" names the pull request that is rewriting that line.
 
 # Each service issue adds its block here, on the commented model below, and its variables in
 # "defaults/main.yml".
@@ -22,6 +39,46 @@ services:
     # major is one the Prisma schema of the running LiteLLM supports before raising it.
     image: postgres:17-alpine
 
+    # LiteLLM is NOT this cluster's superuser (#159). The image makes "POSTGRES_USER" the bootstrap
+    # superuser, and that role can never lose the attribute ("The bootstrap superuser must have the
+    # SUPERUSER attribute"), so LiteLLM gets a role of its own instead: LOGIN and nothing else, owner
+    # of its database -- which, since PostgreSQL 15, also gives it that database's "public" schema,
+    # owned by "pg_database_owner", and that is all Prisma's migrations need. As the superuser, a
+    # pre-authenticated SQL injection through the gateway (LiteLLM had one in 2026) reached a shell in
+    # this container through "COPY ... PROGRAM" and any file through "pg_read_file"; as this role,
+    # both are refused.
+    #
+    # The role is created by an init script the image's entrypoint runs, and written here, by "sh",
+    # just before handing over to that entrypoint -- which "exec" keeps as PID 1, signals included.
+    # Not a mounted file: a bind mount needs its host path on whichever node runs the task, and
+    # "/tmp", this role's default directory, does not keep a file (#137). Not "configs.content"
+    # either: Compose reads it, "docker stack" refuses it ("Additional property content is not
+    # allowed"). The script holds no secret and no "$": "\getenv" reads both values from the
+    # environment below, and psql's ":'...'" and ':"..."' quote them, whatever they contain.
+    #
+    # ! PostgreSQL 15 AT LEAST, and nothing but the pin on the "image:" line above keeps it so -- the
+    # major is written in this file, not in a variable, so nothing checks it: "\getenv" is new in
+    # psql 15, and so is a "public" schema owned by "pg_database_owner". On 14 the first boot stops
+    # on "invalid command \getenv" once the data directory is already initialised; every restart
+    # then skips the init scripts and serves a healthy-looking cluster with no role LiteLLM can log
+    # in as, and only removing the volume undoes it.
+    #
+    # ! The image runs "/docker-entrypoint-initdb.d/" on an EMPTY data directory only. On a volume
+    # initialised before this, nothing below runs: LiteLLM keeps its old superuser role and keeps
+    # working. The README's "Un volume créé avant le rôle dédié de LiteLLM" gives the way across.
+    command:
+      - "sh"
+      - "-c"
+      - |
+        cat > /docker-entrypoint-initdb.d/10_LiteLLM_role.sql <<'EOF'
+        \getenv role POSTGRES_LITELLM_USER
+        \getenv password POSTGRES_LITELLM_PASSWORD
+        \getenv database POSTGRES_DB
+        CREATE ROLE :"role" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
+        ALTER DATABASE :"database" OWNER TO :"role";
+        EOF
+        exec docker-entrypoint.sh postgres
+
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Interpolated by ANSIBLE, at render time -- not by Compose from a ".env" it would otherwise
@@ -30,8 +87,18 @@ services:
       # literal value never appears anywhere else -- it is why the caller's deployment role has to
       # write THIS file "0600" and with "diff: false".
       POSTGRES_DB: "{{ Artificial_Intelligence_PostgreSQL_database }}"
-      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_user }}"
-      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password }}"
+      # The cluster's superuser, and nothing connects as it: it exists for the init above and for a
+      # human at "docker exec ... psql". Its password is not LiteLLM's -- "tasks/main.yml" refuses the
+      # same value for both, or LiteLLM's own environment would hold the superuser's login.
+      #
+      # "$" is doubled in every value added here, because Compose and Swarm both run this file
+      # through their own "${VAR}" interpolation after Ansible has rendered it.
+      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_superuser | replace('$', '$$') }}"
+      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_superuser_password | replace('$', '$$') }}"
+      # LiteLLM's own role, the one "DATABASE_URL" logs in as. Read by the init script above, and only
+      # there: the entrypoint unsets every "POSTGRES_*" before it starts the server.
+      POSTGRES_LITELLM_USER: "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}"
+      POSTGRES_LITELLM_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password | replace('$', '$$') }}"
 
     volumes:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
@@ -71,11 +138,12 @@ services:
       #   costs nothing on the happy path: a success during it counts at once.
       #
       # The user and the database are interpolated by ANSIBLE, at render time, rather than by the
-      # shell inside the container. Both forms work; this one has no shell and no "$$" escaping to be
-      # right about. Neither value is a secret -- they are ordinary defaults of this role -- so
+      # shell inside the container. Both forms work; this one has no shell to be right about -- the
+      # "$$" in the "replace" below is for Compose, as on every caller value (see this file's header),
+      # not for a shell. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database }}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') }}"]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -110,7 +178,7 @@ services:
     command:
       - "redis-server"
       - "--requirepass"
-      - "{{ Artificial_Intelligence_Redis_password }}"
+      - "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}"
       - "--save"
       - "60"
       - "1"
@@ -123,7 +191,7 @@ services:
     healthcheck:
       # "redis-cli" ships with the image, so this needs nothing it does not already have -- unlike
       # Qdrant (#3) or OmniRoute (#73), where the same reasoning ruled a healthcheck OUT instead.
-      test: ["CMD", "redis-cli", "-a", "{{ Artificial_Intelligence_Redis_password }}", "--no-auth-warning", "ping"]
+      test: ["CMD", "redis-cli", "-a", "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       start_period: 10s
@@ -181,33 +249,33 @@ services:
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
-      LITELLM_MASTER_KEY: "{{ Artificial_Intelligence_LiteLLM_master_key }}"
+      LITELLM_MASTER_KEY: "{{ Artificial_Intelligence_LiteLLM_master_key | replace('$', '$$') }}"
       STORE_MODEL_IN_DB: "True"
       # "/ui" is where each account's own provider keys get added, one at a time, by the person who
       # holds them -- see the note on "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml" for why that is
       # the deployment's model rather than a vaulted variable per provider. Basic auth in front of it
       # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
-      UI_USERNAME: "{{ Artificial_Intelligence_LiteLLM_UI_username }}"
-      UI_PASSWORD: "{{ Artificial_Intelligence_LiteLLM_UI_password }}"
+      UI_USERNAME: "{{ Artificial_Intelligence_LiteLLM_UI_username | replace('$', '$$') }}"
+      UI_PASSWORD: "{{ Artificial_Intelligence_LiteLLM_UI_password | replace('$', '$$') }}"
       # tigerblue77's own provider keys (#2, v1 scope) -- read by "LiteLLM_config.yaml.j2" as
       # "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77". Dragnix's own keys are deliberately absent: he
       # adds them himself from "/ui" (see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml").
-      GEMINI_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 }}"
-      GITHUB_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 }}"
-      MISTRAL_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 }}"
-      CEREBRAS_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 }}"
-      GROQ_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 }}"
-      OPENROUTER_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
-      DEEPSEEK_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 }}"
+      GEMINI_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 | replace('$', '$$') }}"
+      GITHUB_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 | replace('$', '$$') }}"
+      MISTRAL_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | replace('$', '$$') }}"
+      CEREBRAS_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | replace('$', '$$') }}"
+      GROQ_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | replace('$', '$$') }}"
+      OPENROUTER_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 | replace('$', '$$') }}"
+      DEEPSEEK_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | replace('$', '$$') }}"
       # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
       # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
       REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
-      REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password }}"
+      REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}"
 
     volumes:
       # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
       # model list; what this role renders is the file and its general settings.
-      - "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path }}:/app/config.yaml:ro"
+      - "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') }}:/app/config.yaml:ro"
 
     command:
       - "--config"
@@ -299,7 +367,14 @@ services:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Overrides the image's own "CHANGEME" default, which upstream documents as deliberately weak
       # to force a change -- never left as-is, same standard as "Artificial_Intelligence_LiteLLM_UI_password" (#1).
-      INITIAL_PASSWORD: "{{ Artificial_Intelligence_OmniRoute_dashboard_password }}"
+      INITIAL_PASSWORD: "{{ Artificial_Intelligence_OmniRoute_dashboard_password | replace('$', '$$') }}"
+      # Keyless ON PURPOSE, and said here rather than left to the image: this is the account-agnostic
+      # fallback every cascade ends on (#2), and LiteLLM calls it with a placeholder key. The image's own
+      # default is about to flip -- OmniRoute's Dockerfile on "main" sets "ENV REQUIRE_API_KEY=true" for
+      # its next release (its #13679). The tag pinned in "defaults/main.yml" does not carry it yet, so this
+      # changes nothing today; without it, the bump that brings that release would turn every
+      # "omniroute-free-*" entry into a 401, with nothing showing the last rung of each cascade had gone.
+      REQUIRE_API_KEY: "false"
 
     volumes:
       # Named, at the path the upstream Docker guide's own example mounts: "/app/data".
@@ -307,8 +382,6 @@ services:
 
     # Published, for the same reason as LiteLLM's "/ui" (#1): the dashboard needs to be reachable
     # from a browser on the LAN, and "INITIAL_PASSWORD" above is what stands in front of it.
-    # "REQUIRE_API_KEY" is deliberately left at its default ("false"): this is the account-agnostic,
-    # keyless fallback every account's cascade falls back to (#2), by design.
     ports:
       - "20128:20128"
 
@@ -350,7 +423,7 @@ services:
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
-      QDRANT__SERVICE__API_KEY: "{{ Artificial_Intelligence_Qdrant_API_key }}"
+      QDRANT__SERVICE__API_KEY: "{{ Artificial_Intelligence_Qdrant_API_key | replace('$', '$$') }}"
 
     volumes:
       - "{{ Artificial_Intelligence_Qdrant_data_Docker_volume_name }}:/qdrant/storage:rw"
@@ -414,14 +487,14 @@ services:
       ALLOW_REGISTRATION: "{{ Artificial_Intelligence_LibreChat_allow_registration | string | lower }}"
       # Without these four, LibreChat generates temporary values on first start and keeps them
       # nowhere but its own volume -- unsuitable for production by its own documentation.
-      CREDS_KEY: "{{ Artificial_Intelligence_LibreChat_creds_key }}"
-      CREDS_IV: "{{ Artificial_Intelligence_LibreChat_creds_IV }}"
-      JWT_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_secret }}"
-      JWT_REFRESH_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_refresh_secret }}"
+      CREDS_KEY: "{{ Artificial_Intelligence_LibreChat_creds_key | replace('$', '$$') }}"
+      CREDS_IV: "{{ Artificial_Intelligence_LibreChat_creds_IV | replace('$', '$$') }}"
+      JWT_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_secret | replace('$', '$$') }}"
+      JWT_REFRESH_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_refresh_secret | replace('$', '$$') }}"
 
     volumes:
       # Read-only: this is the Artificial Intelligence stack's copy, not LibreChat's to rewrite.
-      - "{{ Artificial_Intelligence_LibreChat_config_file_destination_path }}:/app/librechat.yaml:ro"
+      - "{{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') }}:/app/librechat.yaml:ro"
       - "{{ Artificial_Intelligence_LibreChat_uploads_Docker_volume_name }}:/app/uploads:rw"
 
     # Published: this is the Artificial Intelligence stack's human-facing chat interface, same reasoning as LiteLLM's "/ui"
@@ -483,10 +556,23 @@ services:
   # ------------------------------------------------------------------------------------------------
   claude_code_tigerblue77:
     build:
-      context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory }}"
+      context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory | replace('$', '$$') }}"
     # A locally built image still names a tag: the published Claude Code image it was built FROM,
     # pinned by tag and digest in "defaults/main.yml". Nothing pulls it, so it cannot float.
+    #
+    # ! Suffixed with the SHA-1 of the Dockerfile this run rendered (#189). Compose builds this image
+    # only when no image by this name exists; it never compares the Dockerfile with what the image
+    # was built from. Under the Claude Code tag alone, a changed Dockerfile left this file identical,
+    # and the container went on running the old image while Ansible reported the Dockerfile
+    # "changed". With the suffix, a changed Dockerfile is a name no image carries yet -- so Compose
+    # builds it -- and a changed "image:" -- so it recreates the container on it. Not a label, the
+    # fix #161 applies to a mounted configuration: a label would recreate the container on the OLD
+    # image. A SHA-1 in hexadecimal, so no "$" for Compose to interpolate.
+{% if Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum is string %}
+    image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}-{{ Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum }}"
+{% else %}
     image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}"
+{% endif %}
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
     # server, and Claude Code's own entrypoint would otherwise exit the moment it reads EOF on stdin.
@@ -499,20 +585,20 @@ services:
       # Anthropic's API directly -- #13's compliance point is that whatever this alias resolves to in
       # LiteLLM (#2) is never an Anthropic model backed by a subscription.
       ANTHROPIC_BASE_URL: "http://litellm:4000"
-      ANTHROPIC_API_KEY: "{{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
-      ANTHROPIC_MODEL: "{{ Artificial_Intelligence_Claude_code_tigerblue77_model }}"
+      ANTHROPIC_API_KEY: "{{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | replace('$', '$$') }}"
+      ANTHROPIC_MODEL: "{{ Artificial_Intelligence_Claude_code_tigerblue77_model | replace('$', '$$') }}"
       # The alias resolves to a model Claude Code does not recognise by name, so its own context
       # window enforcement -- built around the models it DOES know -- has to be told what to allow
       # rather than refusing an unrecognised one outright.
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"
       CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1"
-      GH_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
-      GITHUB_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
+      GH_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') }}"
+      GITHUB_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') }}"
 
     volumes:
       # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
       # this role does not get to invent one, hence no default on the variable that names it.
-      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory }}:/workspace:rw"
+      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | replace('$', '$$') }}:/workspace:rw"
       # The WHOLE home directory, "~/.claude.json" included -- see the note on
       # "Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
       # on "~/.claude" alone would silently lose half the session on every recreation.
@@ -556,6 +642,9 @@ services:
   #   # Floating by default, written with NO tag (no tag IS ":latest", so ":latest" is never written
   #   # either): the deployer pulls on every run. A database whose data lives only in its own volume
   #   # is pinned instead, to its major, literally here, with the reason on the line above.
+  #   # A service BUILT here, from a Dockerfile this role renders, also carries that Dockerfile's
+  #   # checksum in its tag: Compose builds only an image whose name is missing, so a tag the
+  #   # Dockerfile does not change never gets a new image built. See "claude_code_tigerblue77" (#189).
   #   image: vendor/image
   #
   #   # Only for a service that reads, at start, a configuration file this role writes and mounts:
@@ -622,6 +711,9 @@ services:
   #
   #   environment:
   #     TZ: "{{ Artificial_Intelligence_server_time_zone }}"
+  #     # A value the caller supplies -- a secret above all -- has its "$" doubled: Compose reads
+  #     # this file through its own interpolation after Ansible (see this file's header).
+  #     SERVICE_API_KEY: "{{ Artificial_Intelligence_service_API_key | replace('$', '$$') }}"
   #
   #   # A secret is never written in clear text in this repository, here or anywhere else. It is a
   #   # variable of this role, MANDATORY and without a default, that the caller fills from its vault,

@@ -105,7 +105,9 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Le mot de passe du rôle de LiteLLM, `Artificial_Intelligence_PostgreSQL_user` -- un rôle **ordinaire**, propriétaire de sa base et de rien d'autre, jamais superutilisateur (#159). Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_superuser` | `postgres` | Le superutilisateur du cluster (#159). Rien ne s'y connecte : il crée le rôle de LiteLLM à l'initialisation, et sert à un humain par `docker exec … psql`. Doit différer du rôle de LiteLLM. |
+| `Artificial_Intelligence_PostgreSQL_superuser_password` | aucun | **Obligatoire** (#159). Rendu depuis le vault, et **différent** de `Artificial_Intelligence_PostgreSQL_password` : le rôle refuse la même valeur pour les deux. |
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
@@ -163,6 +165,7 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 | `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
 | `Artificial_Intelligence_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum` | `false` | **Pas un réglage.** Le SHA-1 du `Dockerfile` tel que le run vient de le rendre : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Voir « Un `Dockerfile` modifié donne une nouvelle image » plus bas (#189). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
@@ -368,6 +371,17 @@ toucher : Ansible rend ce fichier de la même façon quel que soit celui qui le 
 pourquoi le fichier compose porte l'obligation `0600` / `diff: false` du contrat du rôle de
 déploiement : elle existe depuis #31, précisément pour le jour où le template interpolerait un secret.
 
+**Et chaque `$` d'une valeur y est doublé (#155).** Compose -- comme `docker stack deploy` -- relit le
+fichier rendu avec sa propre interpolation `$VAR` / `${VAR}`, après Ansible : un `$` resté simple y est
+lu comme le début d'une variable à lui, remplacée par ce qu'elle vaut dans son environnement, le plus
+souvent rien, avec un simple avertissement. Mesuré avec Compose v5.1.1 : `sk-Ab$cd9` arrivait dans le
+conteneur en `sk-Ab`, `sk-Ab$HOME` en `sk-Ab/root`, et `${` suivi d'un chiffre fait refuser le fichier
+entier. Le template écrit donc toute valeur de l'appelant dont la grammaire admet un `$` -- secrets,
+identifiants, alias de modèle, chemins d'hôte -- avec `| replace('$', '$$')`, que Compose ramène à un
+`$` unique. Restent sans : tags et digests d'image, noms d'objets Docker, limites mémoire, nombres et
+fuseau horaire, dont la grammaire exclut le `$`. Côté appelant, rien à échapper : une valeur du vault se
+donne telle quelle, et doublée à la main elle arriverait fausse.
+
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
 portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
@@ -385,6 +399,58 @@ reste visible jusqu'à ce que la cause soit levée -- la migration passe alors a
 autre intervention. Le prix : un échec passager coûte lui aussi un redémarrage. Si la boucle apparaît
 après une montée de tag, la migration en cause se lit dans les journaux du service `litellm`, sous
 `Error: P30…` ; retirer l'option pour que le service « démarre » ne ferait que rendre l'échec muet.
+
+**LiteLLM n'est pas le superutilisateur de sa base (#159).** L'image officielle fait de `POSTGRES_USER`
+le superutilisateur d'amorçage, et ce rôle ne peut jamais perdre l'attribut. LiteLLM se connectait avec
+lui : une injection SQL préalable à toute authentification (LiteLLM en a connu une en 2026) lui
+donnait `COPY … PROGRAM` -- un shell dans le conteneur `postgres` -- et la lecture de tout fichier du
+serveur. Il se connecte désormais avec un rôle ordinaire (`LOGIN`, rien d'autre), propriétaire de sa
+base et donc, depuis PostgreSQL 15, de son schéma
+`public` : c'est tout ce dont les migrations Prisma ont besoin, vérifié en direct avec LiteLLM
+v1.100.0 (161 migrations appliquées ; `COPY … PROGRAM`, `pg_read_file` et `CREATE EXTENSION dblink`
+refusés). Le superutilisateur est un autre rôle, `Artificial_Intelligence_PostgreSQL_superuser`, avec
+son propre mot de passe.
+
+Ce rôle est créé au premier démarrage par un script de `/docker-entrypoint-initdb.d/` que la `command:`
+du service `postgres` écrit dans le conteneur avant de passer la main à l'entrypoint de l'image. Ni
+fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la tâche, et `/tmp` ne garde
+pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
+
+**PostgreSQL 15 au minimum**, et rien ne le vérifie : le majeur est écrit en dur dans le template
+(`image: postgres:17-alpine`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
+valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
+`pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
+`14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
+command \getenv`, les redémarrages suivants sautent l'initialisation, et PostgreSQL tourne, sonde de
+santé au vert, sans aucun rôle avec lequel LiteLLM puisse se connecter. Le rôle ne répare pas ce
+volume ; il ne contient rien de LiteLLM, et le supprimer, tag relevé, est la seule sortie.
+`15-alpine`, lui, a porté les 161 migrations de LiteLLM v1.100.0 sous son rôle ordinaire.
+
+### Un volume créé avant le rôle dédié de LiteLLM
+
+L'image n'exécute `/docker-entrypoint-initdb.d/` que sur un répertoire de données **vide**. Sur un volume
+initialisé avant #159, rien ne change : le rôle de LiteLLM reste le superutilisateur d'amorçage,
+LiteLLM continue de fonctionner, et le rôle `Artificial_Intelligence_PostgreSQL_superuser` n'existe pas
+-- son mot de passe n'est lu nulle part. Rien ne casse, rien ne s'améliore. Aucune v1.0 n'ayant pu aboutir
+à un déploiement (#126), seuls des volumes de banc d'essai sont concernés ; si leur contenu ne compte pas,
+supprimer le volume et redéployer suffit.
+
+Pour garder les données (clés virtuelles, comptes, consommation), vérifié de bout en bout sous Compose,
+une clé créée avant la bascule retrouvée après :
+
+```bash
+# « litellm » est le défaut du rôle comme de la base : remplacer par les vôtres s'ils diffèrent.
+# 1. Exporter, avec l'ancien superutilisateur -- le rôle de LiteLLM, sur le socket du conteneur
+docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
+# 2. Arrêter le stack, puis supprimer SON volume PostgreSQL (docker volume ls pour son nom exact)
+docker volume rm <volume PostgreSQL du stack>
+# 3. Redéployer avec le rôle : l'initialisation crée le superutilisateur et le rôle de LiteLLM,
+#    et LiteLLM migre une base vide
+# 4. Arrêter LiteLLM (docker stop <conteneur litellm> sous Compose, docker service scale <stack>_litellm=0
+#    sous Swarm), restaurer EN TANT QUE rôle de LiteLLM, qui possède ainsi tout ce qu'il restaure, puis
+#    le relancer (docker start, ou scale à 1)
+docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
+```
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
@@ -536,6 +602,28 @@ d'authentification que le dépôt amont documente sur lui-même : `~/.claude.jso
 recréation du conteneur, sans qu'aucune erreur ne le signale. L'entrée du conteneur restaure ce fichier
 depuis la plus récente de ses propres sauvegardes si le volume est neuf.
 
+**Un `Dockerfile` modifié donne une nouvelle image, et un conteneur recréé dessus (#189).** Compose ne
+construit l'image d'un service que lorsqu'aucune image de ce nom n'existe : il ne compare jamais le
+`Dockerfile` à l'image qu'il en a tirée. Tant que l'image s'appelait
+`ais-claude-code-tigerblue77:<tag Claude Code>`, un `Dockerfile` modifié sous un tag inchangé -- une
+montée d'`ansible-core`, un paquet ajouté -- était rendu, affiché `changed`, et jamais construit : le
+fichier compose restait identique, et le conteneur continuait de tourner sur l'ancienne image. Mesuré
+avec Compose 5.1.1 : même conteneur, même `StartedAt`, même image. `tasks/main.yml` passe désormais le
+SHA-1 du `Dockerfile` rendu au rôle de déploiement, en paramètre d'`include_role`, et le template
+l'ajoute au **tag** : `ais-claude-code-tigerblue77:<tag Claude Code>-<SHA-1>`. Un `Dockerfile` modifié
+devient un nom qu'aucune image ne porte encore, que Compose construit, et un `image:` modifié, donc un
+conteneur recréé -- sans perte de session, le répertoire personnel étant monté en entier. Pas une
+étiquette, le remède d'une configuration montée (#161) : elle recréerait le conteneur sur l'ancienne
+image. Deux conséquences. Le premier run qui porte ce changement reconstruit l'image une fois, même si
+le `Dockerfile` n'a pas bougé, puisque le tag change de forme. Et les images précédentes restent sur le
+nœud : rien ne les supprime, comme avant à chaque changement de tag Claude Code. Un run `--check` sur
+le point de changer le `Dockerfile` écrit le tag sans suffixe, le module ne rendant pas de somme de
+contrôle dans ce cas. Sous Swarm, `docker stack deploy` ignore `build:`, avant comme après : l'image doit déjà
+exister sur le nœud, sous son nouveau nom. `check_compose_template.py` rend le template une fois de
+plus, agent activé et somme de contrôle renseignée, et refuse une image qui ne serait pas exactement
+celle de l'état non renseigné suivie de `-<SHA-1>`, un état non renseigné qui ne garderait pas le tag
+Claude Code seul, et tout autre changement.
+
 **Aucun montage de `docker.sock` dans cette issue.** #11 n'a pas encore conçu l'isolation qu'un agent
 doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce conteneur attend cette
 décision plutôt que de la devancer. `docker.io` est installé mais inerte : rien ne branche le socket
@@ -668,6 +756,20 @@ fichier -- sous `labels:`, jamais `deploy.labels:` -- sans que rien d'autre ne c
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
 rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
+
+Il fait aussi un rendu de plus (#155), agent Claude Code activé, où portent `$`, `${`, `$$`, `/`, `@` et
+`#` : toute variable que le template lit et que `defaults/main.yml` ne définit pas ou laisse vide (`""`)
+-- les obligatoires, donc aussi le secret du prochain service, et les optionnelles vides comme la clé
+GitHub Models -- ainsi que les valeurs libres à vrai défaut que le script énumère dans
+`FREE_FORM_WITH_A_DEFAULT`. Il refuse alors toute chaîne du résultat où un `$` n'appartient pas à un
+`$$`, c'est-à-dire tout ce que Compose réinterpréterait. Les emplacements qu'une autre pull request
+réécrit déjà y sont exemptés un par un, avec leur numéro, et une exemption qui n'exempte plus rien fait
+échouer le contrôle.
+
+Ce n'est pas toute valeur de l'appelant : une nouvelle valeur libre dotée d'un vrai défaut, ou d'un
+défaut `false`, n'est rendue avec un `$` qu'une fois ajoutée à cette liste. Rien dans un défaut ne dit si
+sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. La dernière ligne du contrôle donne le
+nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du rendu.
 
 ## Exemple d'appel
 

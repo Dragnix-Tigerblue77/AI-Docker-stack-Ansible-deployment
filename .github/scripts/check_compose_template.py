@@ -20,6 +20,23 @@ Every check below is vacuous today, because "services:" is an empty mapping. Tha
 they are wired now so they bite on the first service block rather than being written after the
 convention has already been broken.
 
+It renders the template ONE MORE time with a "$" in the caller values (#155), because Compose and
+"docker stack deploy" read the rendered file through their own "$VAR" / "${VAR}" interpolation after
+Ansible: a "$" the template writes single reaches the container as whatever that names in THEIR
+environment -- usually nothing, with a warning nobody reads. All nineteen secrets this role
+interpolated were cut short that way, and no render here could see it: every other state renders
+them empty, so there was no "$" for anything to trip on.
+
+Which values get a "$" is derived rather than listed wherever it can be -- see "dollar_variables":
+every variable the template reads that "defaults/main.yml" does not define (a mandatory one, a
+secret or a host path) or defines as empty (an optional one, as the retired GitHub Models key is), so
+a new service's secret is covered the day it is added, without anyone remembering this file. That is
+NOT every caller value. A free-form value with a real default -- a login, a path, a model alias -- is
+covered only once "FREE_FORM_WITH_A_DEFAULT" names it, and so is an optional one defaulting to
+"false": nothing in a default says whether its grammar admits a "$", so that list is kept by hand,
+and it is the one place where a value added without a thought for this file renders with no "$" and
+passes unexamined.
+
 What it deliberately does NOT flag
 ----------------------------------
 * A published "ports:" mapping. Whether a service is web-facing is a deployment decision, not a
@@ -37,7 +54,7 @@ import sys
 from pathlib import Path
 
 import yaml
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, meta
 
 ROLE = Path(__file__).resolve().parents[2]
 
@@ -73,6 +90,32 @@ CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key": "sk-selftest",
     "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token": "ghp_selftest",
     "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory": "/srv/selftest/workspace",
+}
+
+# The values that HAVE a real default and whose grammar still admits a "$": a login, a model alias, a
+# database role and name, a host path. The mandatory ones and the empty ones need no list -- see
+# "dollar_variables". What is left out has a grammar with no "$" in it -- an image tag, a Docker
+# object name, a memory size, a number, a time zone -- and the template writes it without the
+# "replace" for that reason. An optional free-form value whose default is "false", the role's idiom
+# for "not set", belongs here too: "false" is also how a toggle is written, so it cannot be derived.
+FREE_FORM_WITH_A_DEFAULT = (
+    "Artificial_Intelligence_LiteLLM_UI_username",
+    "Artificial_Intelligence_PostgreSQL_user",
+    "Artificial_Intelligence_PostgreSQL_database",
+    "Artificial_Intelligence_LiteLLM_config_file_destination_path",
+    "Artificial_Intelligence_LibreChat_config_file_destination_path",
+    "Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory",
+    "Artificial_Intelligence_Claude_code_tigerblue77_model",
+)
+
+# The places another open pull request is rewriting anyway, and that this check therefore lets carry
+# a single "$" for now rather than have two branches edit the same lines. Each names its owner. An
+# entry that no longer exempts anything -- the place fixed, or gone -- FAILS the check: an exemption
+# outliving its reason is a hole with a label on it, and the first regression there walks through.
+DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
+    "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
+    "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
+    "services.litellm.environment.REDIS_URL": "#130, which removes it",
 }
 
 
@@ -158,6 +201,63 @@ def volume_source(volume):
     if source.startswith((".", "/")) or source == str(volume):
         return None
     return source
+
+
+# The checksum "tasks/main.yml" hands the deployment role for the Dockerfile it renders (#189), and
+# the service whose image TAG must carry it. Its default is "false", so the branch that appends it is
+# one no default render evaluates -- the blind spot of the agent's own toggle, one level further in.
+# A fake but well-formed SHA-1.
+DOCKERFILE_CHECKSUM_VARIABLE = "Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum"
+DOCKERFILE_CHECKSUM = "89abcdef0123456789abcdef0123456789abcdef"
+DOCKERFILE_CHECKSUM_CONSUMER = "claude_code_tigerblue77"
+
+
+def check_dockerfile_checksum(unset, checksum_set, base_tag, failures):
+    """Hold the agent's image to "<Claude Code tag>-<Dockerfile SHA-1>", and everything else to nothing.
+
+    The suffix is the whole mechanism of #189. Compose builds a service's image only when no image by
+    its name exists, and never compares the Dockerfile with what an existing image was built from.
+    Under the Claude Code tag alone, a changed Dockerfile left the compose file identical, so nothing
+    was built and nothing recreated: the container kept running the old image while Ansible reported
+    the Dockerfile "changed". A new name is what gets it built, which is why the checksum has to be
+    in the TAG. A label -- what #161 does for a mounted configuration, and so the obvious thing to
+    copy -- recreates the container on the OLD image, and is refused here as surely as no suffix.
+
+    Unset, the tag must be the Claude Code tag alone, exactly as before #189: that is what the
+    defaults and a "--check" run render. An interpolation left unguarded would write "-False" into
+    it instead -- a name that never changes with the Dockerfile again, which is the defect itself.
+    """
+    name = DOCKERFILE_CHECKSUM_CONSUMER
+    unset_services = mapping(unset, "services")
+    set_services = mapping(checksum_set, "services")
+    if name not in unset_services or name not in set_services:
+        failures.append(
+            f"service {name!r} is not rendered with the agent enabled: there is no image tag to check "
+            f"{DOCKERFILE_CHECKSUM_VARIABLE} against"
+        )
+        return
+    unset_image = str(mapping(unset_services, name).get("image") or "")
+    set_image = str(mapping(set_services, name).get("image") or "")
+    if unset_image.rsplit(":", 1)[-1] != base_tag:
+        failures.append(
+            f"[Dockerfile checksum unset] service {name!r}: image {unset_image!r} is not tagged {base_tag!r} "
+            f"alone, while {DOCKERFILE_CHECKSUM_VARIABLE} is false"
+        )
+    expected = f"{unset_image}-{DOCKERFILE_CHECKSUM}"
+    if set_image != expected:
+        failures.append(
+            f"[Dockerfile checksum set] service {name!r}: image is {set_image!r}, expected {expected!r} -- "
+            "the checksum appended to the TAG, never a label, which recreates the container on the old image"
+        )
+    # Put the unset image back and compare the whole documents: the checksum renames the image and
+    # does nothing else.
+    services = dict(set_services)
+    services[name] = dict(mapping(set_services, name), image=unset_image)
+    if dict(checksum_set, services=services) != unset:
+        failures.append(
+            f"setting {DOCKERFILE_CHECKSUM_VARIABLE} changed more than the agent's image tag: "
+            "it must change nothing else"
+        )
 
 
 def check_conventions(document, state, failures):
@@ -293,6 +393,116 @@ def check_states(off, on, failures):
         )
 
 
+def dollar_sample(name):
+    """A value for `name` carrying every character that has cost a secret something here.
+
+    "$" alone, "${" -- the form that makes Compose refuse the whole file rather than empty the value --
+    "$$" which must survive as two, and the "/", "@" and "#" a generated password is made of. A host
+    path -- a variable whose name ends in "_directory" or "_path", as every one of this role's does --
+    is given the shape of one, so that the render stays a stack a deployer would accept. The
+    variable's own name goes into its value, so a finding can be traced back to where it came from.
+    """
+    short = name.replace("Artificial_Intelligence_", "")
+    if name.endswith(("_directory", "_path")):
+        return f"/srv/{short}/Ab$cd${{HOME}}$$e@f#g$"
+    return f"{short}-Ab$cd${{HOME}}$$e/f@g#h$"
+
+
+def template_reads(defaults):
+    """Every variable the compose template reads, whether or not "defaults/main.yml" defines it."""
+    environment = Environment(loader=FileSystemLoader(str(ROLE / "templates")))
+    name = f"{defaults['Artificial_Intelligence_Docker_compose_file_name']}.j2"
+    return meta.find_undeclared_variables(environment.parse(environment.loader.get_source(environment, name)[0]))
+
+
+def dollar_variables(read, defaults, free_form):
+    """Which of the variables in `read` the "$" render gives a "$" to.
+
+    Two of the three sources are DERIVED, so that they cover the next service without this file
+    being edited:
+
+    * every variable "defaults/main.yml" does not define. A convention of this role -- no default
+      for a secret, since a default password is a published one -- is what makes that set the
+      secrets plus the host paths the role cannot presuppose;
+    * every variable it defines as empty, "" or a bare "key:" -- an optional value left for the
+      caller to fill, as the retired GitHub Models key is. The first version of this render took
+      only the undefined ones, so that key was rendered empty and the "replace" on its line could be
+      deleted with the check staying green. An empty default says "a caller value goes here" as
+      plainly as a missing one does;
+    * and every variable `free_form` names, since a real default says nothing about grammar.
+
+    A default of "false" is deliberately none of these: it is the role's "not set", but it is also
+    how a toggle is written, and giving "Artificial_Intelligence_Claude_code_tigerblue77_enabled" a
+    string would turn a switch into a password. A free-form value defaulting to "false" goes in the
+    list by hand. It takes its arguments rather than reading the constants so that "--selftest" can
+    hold it to each of those rules.
+    """
+    empty = {variable for variable in read & set(defaults) if defaults[variable] in ("", None)}
+    return (read - set(defaults)) | empty | (set(free_form) & read)
+
+
+def dollar_context(defaults, failures):
+    """The render context in which every value "dollar_variables" selects carries a "$".
+
+    The Claude Code agent is switched on, so that its block is rendered too.
+    """
+    read = template_reads(defaults)
+    for variable in FREE_FORM_WITH_A_DEFAULT:
+        if variable not in read:
+            failures.append(
+                f"FREE_FORM_WITH_A_DEFAULT names {variable!r}, which the template does not read: "
+                "rename or remove the entry, or the '$' render silently stops covering what it meant to"
+            )
+    context = dict(defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED)
+    for variable in sorted(dollar_variables(read, defaults, FREE_FORM_WITH_A_DEFAULT)):
+        context[variable] = dollar_sample(variable)
+    return context
+
+
+def strings(node, path=""):
+    """Every string of a parsed document, with where it sits: "services.redis.command[2]"."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            where = f"{path}.{key}" if path else str(key)
+            if isinstance(key, str):
+                yield f"{where} (the key itself)", key
+            yield from strings(value, where)
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from strings(value, f"{path}[{index}]")
+    elif isinstance(node, str):
+        yield path, node
+
+
+def single_dollar(text):
+    """Whether Compose would read a "$" in `text` as the start of an interpolation.
+
+    Compose reads "$$" as one literal "$", left to right, so what is left once every pair is gone is
+    what it interpolates: "$$" is clean, "$$$" is not.
+    """
+    return "$" in text.replace("$$", "")
+
+
+def check_dollars(document, state, failures, left_elsewhere):
+    """Refuse every string of `document` in which Compose would interpolate a "$".
+
+    It is a function taking its exemptions as an argument rather than reading the constant, so that
+    "--selftest" can feed it both a document it must refuse and an exemption it must call stale.
+    """
+    single = {where for where, text in strings(document) if single_dollar(text)}
+    for where in sorted(single - set(left_elsewhere)):
+        failures.append(
+            f"[{state}] {where}: carries a single '$', which Compose would interpolate -- write the "
+            "value with \"| replace('$', '$$')\""
+        )
+    for where, owner in sorted(left_elsewhere.items()):
+        if where not in single:
+            failures.append(
+                f"{where} is left to {owner.split(',')[0]} in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS, and carries "
+                "no single '$' any more: remove the entry, it would now hide a regression"
+            )
+
+
 # ------------------------------------------------------------------------------------------------
 # Selftest
 # ------------------------------------------------------------------------------------------------
@@ -311,6 +521,50 @@ def check_states(off, on, failures):
 #
 # Every case names the substring the check must report, so a check that fails for the RIGHT reason
 # and a check that fails for another are not confused with each other.
+
+# (name, checksum unset, checksum set, expected substring or None) for "check_dockerfile_checksum"
+# (#189). Bare blocks rather than compliant ones: that check reads the image and compares the rest,
+# and holds nothing else to a convention. The agent's block sits beside another service, so that a
+# change leaking out of it is told apart from the rename itself.
+_AGENT = DOCKERFILE_CHECKSUM_CONSUMER
+_AGENT_TAG = "2.1.236"
+_AGENT_IMAGE = f"ais-claude-code-tigerblue77:{_AGENT_TAG}"
+_OTHER = {"image": "vendor/image:1.2.3"}
+_AGENT_UNSET = {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}}
+DOCKERFILE_CHECKSUM_CASES = [
+    ("checksum appended to the tag",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     None),
+    ("checksum left out of the tag",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}},
+     "appended to the TAG"),
+    # The move #161 invites: the same image, and a label that changes nothing Compose builds from.
+    ("checksum written as a label",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER,
+                   _AGENT: {"image": _AGENT_IMAGE, "labels": {"artificial_intelligence.config_checksum": DOCKERFILE_CHECKSUM}}}},
+     "never a label"),
+    # "+" is SemVer's separator for build metadata, and a character a Docker tag cannot hold.
+    ("checksum joined with '+'",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}+{DOCKERFILE_CHECKSUM}"}}},
+     "appended to the TAG"),
+    ("'-False' written while unset",
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-False"}}},
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     f"is not tagged '{_AGENT_TAG}' alone"),
+    ("setting the checksum changed something else",
+     _AGENT_UNSET,
+     {"services": {"litellm": {"image": "vendor/image:9.9.9"},
+                   _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     "it must change nothing else"),
+    ("agent not rendered",
+     {"services": {"litellm": _OTHER}},
+     {"services": {"litellm": _OTHER}},
+     "is not rendered with the agent enabled"),
+]
 
 COMPLIANT_SERVICE = {
     "image": "vendor/image:1.2.3",
@@ -487,6 +741,53 @@ STATE_CASES = [
      "expected exactly ['DMZ']"),
 ]
 
+# (name, document, places left to another pull request, expected substring or None)
+DOLLAR_CASES = [
+    ("every '$' doubled",
+     {"services": {"svc": {"environment": {"KEY": "Ab$$cd$${HOME}"}, "command": ["--password", "Ab$$cd"]}}},
+     {}, None),
+    ("single '$' in an environment value",
+     {"services": {"svc": {"environment": {"KEY": "Ab$cd"}}}},
+     {}, "services.svc.environment.KEY: carries a single '$'"),
+    # A list item is where a password sits on a command line, and the path has to say which one.
+    ("single '$' in a command line",
+     {"services": {"svc": {"command": ["--password", "Ab$cd"]}}},
+     {}, "services.svc.command[1]: carries a single '$'"),
+    # Three in a row is one literal and one interpolation, which is what Compose makes of it.
+    ("three '$' in a row",
+     {"services": {"svc": {"environment": {"KEY": "Ab$$$cd"}}}},
+     {}, "carries a single '$'"),
+    # The ".env" reference in disguise: the value is not the caller's, it is a variable of Compose's.
+    ("a ${VAR} written into the template",
+     {"services": {"svc": {"environment": {"KEY": "${POSTGRES_PASSWORD}"}}}},
+     {}, "carries a single '$'"),
+    ("single '$' at a place left to another pull request",
+     {"services": {"svc": {"environment": {"KEY": "Ab$cd"}}}},
+     {"services.svc.environment.KEY": "#0, selftest"}, None),
+    ("exemption the place no longer needs",
+     {"services": {"svc": {"environment": {"KEY": "Ab$$cd"}}}},
+     {"services.svc.environment.KEY": "#0, selftest"}, "remove the entry"),
+    ("exemption for a place that is gone",
+     {"services": {"svc": {"environment": {}}}},
+     {"services.svc.environment.KEY": "#0, selftest"}, "remove the entry"),
+]
+
+# (name, variables the template reads, defaults, free-form list, what the "$" render must give a "$")
+# A value this selects wrongly is not a failure the '$' cases above can show: a variable left out is
+# rendered from its default, carries no "$", and every line it reaches passes -- which is how the
+# GitHub Models key's "replace" could be deleted with the check staying green.
+DOLLAR_VARIABLE_CASES = [
+    ("no default, a mandatory value", {"secret"}, {}, (), {"secret"}),
+    ("empty default, an optional value", {"optional_key"}, {"optional_key": ""}, (), {"optional_key"}),
+    ("bare key, which YAML reads as null", {"optional_key"}, {"optional_key": None}, (), {"optional_key"}),
+    ("real default, not listed", {"image_tag"}, {"image_tag": "1.2.3"}, (), set()),
+    ("real default, listed", {"login"}, {"login": "admin"}, ("login",), {"login"}),
+    # A string in a toggle would switch it on, which is why "false" is left to the list.
+    ("false default, a toggle", {"enabled"}, {"enabled": False}, (), set()),
+    ("listed, but not read", set(), {"login": "admin"}, ("login",), set()),
+    ("empty default, but not read", set(), {"optional_key": ""}, (), set()),
+]
+
 
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
@@ -510,6 +811,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, unset, checksum_set, expected in DOCKERFILE_CHECKSUM_CASES:
+        failures = []
+        try:
+            check_dockerfile_checksum(unset, checksum_set, _AGENT_TAG, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, off, on, expected in STATE_CASES:
         failures = []
         try:
@@ -519,6 +829,24 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, document, left_elsewhere, expected in DOLLAR_CASES:
+        failures = []
+        try:
+            check_dollars(document, "selftest", failures, left_elsewhere)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, read, defaults, free_form, expected in DOLLAR_VARIABLE_CASES:
+        try:
+            derived = dollar_variables(read, defaults, free_form)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        if derived != expected:
+            problems.append(f"{name!r}: gives a '$' to {sorted(derived)}, expected {sorted(expected)}")
+
     if problems:
         print(f"{len(problems)} selftest problem(s):\n")
         for problem in problems:
@@ -527,8 +855,9 @@ def selftest():
         return 1
 
     print(
-        f"check_compose_template selftest: {len(CONVENTION_CASES)} convention case(s) and "
-        f"{len(STATE_CASES)} two-state case(s) all judged as expected."
+        f"check_compose_template selftest: {len(CONVENTION_CASES)} convention case(s), "
+        f"{len(STATE_CASES)} two-state case(s), {len(DOLLAR_CASES)} '$' case(s) and "
+        f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s) all judged as expected."
     )
     return 0
 
@@ -556,6 +885,8 @@ def main():
         ("published network set", PUBLISHED_NETWORK),
         ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
         ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
+        ("Claude Code agent (tigerblue77) Dockerfile checksum set",
+         dict(CLAUDE_CODE_TIGERBLUE77_ENABLED, **{DOCKERFILE_CHECKSUM_VARIABLE: DOCKERFILE_CHECKSUM})),
     ):
         context = dict(defaults, **extra)
         try:
@@ -575,8 +906,31 @@ def main():
             documents["published network unset"], documents["mounted configuration checksums set"], failures
         )
 
+    agent, agent_checksum = (
+        "Claude Code agent (tigerblue77) enabled",
+        "Claude Code agent (tigerblue77) Dockerfile checksum set",
+    )
+    if agent in documents and agent_checksum in documents:
+        check_dockerfile_checksum(
+            documents[agent],
+            documents[agent_checksum],
+            defaults["Artificial_Intelligence_Claude_code_Docker_image_tag"],
+            failures,
+        )
+
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
+
+    # Kept apart from the loop above rather than added to it: that loop holds every state to the
+    # service conventions, this one holds a single state to something else, and "check_states" reads
+    # only the first two either way.
+    dollar_state = "caller values carrying '$'"
+    try:
+        dollar_document = yaml.safe_load(render(dollar_context(defaults, failures)))
+    except Exception as error:  # noqa: BLE001 - a value breaking the render or the YAML is a finding
+        failures.append(f"[{dollar_state}] the template does not render into valid YAML: {error}")
+    else:
+        check_dollars(dollar_document, dollar_state, failures, DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")
@@ -592,6 +946,14 @@ def main():
     print(
         f"Artificial Intelligence compose template: renders and parses in both states, {services} service(s) checked "
         "against the conventions of #31."
+    )
+    # Printed on every run, so the places still waiting on another pull request stay in view, and so
+    # does how many values the render actually gave a "$" -- a number that drops is a value lost.
+    owners = sorted({owner.split(",")[0] for owner in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS.values()})
+    covered = len(dollar_variables(template_reads(defaults), defaults, FREE_FORM_WITH_A_DEFAULT))
+    print(
+        f"No '$' reaches Compose single from the {covered} caller value(s) rendered with one"
+        + (f", {len(DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)} place(s) left to {', '.join(owners)}." if owners else ".")
     )
     return 0
 

@@ -21,6 +21,11 @@ Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docke
 # issues land, that includes API keys. The deployment role has to write it "0600" and with
 # "diff: false": "--diff" would print the WHOLE file into the run's output, and a leak that outlives
 # the run is worse than the file itself. The contract is spelled out in the README.
+#
+# The template writes a caller's value into this file through "| replace('$', '$$')": Compose and
+# "docker stack deploy" read it through their own "$VAR" interpolation after Ansible has rendered
+# it, and would otherwise cut a secret short at its first "$" (#155, see the template's header). A
+# vaulted value is therefore given as it is, never pre-escaped: escaped twice, it would arrive wrong.
 Artificial_Intelligence_Docker_compose_file_destination_directory: "/tmp/"
 Artificial_Intelligence_Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_Docker_compose_file_name }}"
 
@@ -97,7 +102,24 @@ Artificial_Intelligence_LiteLLM_config_checksum: false
 # --------------------------------------------------------------------------------------------------
 
 Artificial_Intelligence_PostgreSQL_database: "litellm"
+# LiteLLM's role (#159): LOGIN, owner of the database above, and NOTHING else -- never a superuser,
+# so that an SQL injection through the gateway stays inside the gateway's own tables. Its password is
+# "Artificial_Intelligence_PostgreSQL_password", below.
 Artificial_Intelligence_PostgreSQL_user: "litellm"
+
+# The cluster's superuser: the role the image bootstraps, which nothing connects as -- it runs the
+# init script that creates the role above, and is there for a human at "docker exec ... psql". Must
+# differ from "Artificial_Intelligence_PostgreSQL_user", and "tasks/main.yml" refuses otherwise.
+#
+# ! Read at the volume's FIRST initialisation only, like the role above and both passwords: on a
+# data directory that already exists, the image ignores all four. Changing one afterwards is an
+# "ALTER ROLE" by hand, at "docker exec ... psql".
+Artificial_Intelligence_PostgreSQL_superuser: "postgres"
+
+# Its password, MANDATORY and without a default -- a default password is a published one -- and never
+# the same value as "Artificial_Intelligence_PostgreSQL_password": LiteLLM's container holds that one,
+# and with it the superuser's login would be one role name away.
+# Artificial_Intelligence_PostgreSQL_superuser_password:
 
 # The named volume the store lives in. Named rather than a bind mount: surviving a container
 # recreation is an acceptance criterion of #1, and a bind mount would also tie the stack to a host
@@ -269,6 +291,26 @@ Artificial_Intelligence_Claude_code_Docker_image_digest: "sha256:025264aeda3bf90
 # on the managed node, next to the rendered compose file: "build:" needs an actual path on that
 # machine, not something read out of this repository at deploy time.
 Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}claude_code_tigerblue77/"
+
+# NOT a setting: the SHA-1 of the Dockerfile above as this run rendered it, which "tasks/main.yml"
+# passes to the deployment role as an "include_role" parameter -- precedence 20, above everything but
+# an extra var, so a value set here or in a caller's play never reaches the template (#189). The
+# template appends it to the agent's image tag, and that suffix is what gets a changed Dockerfile
+# built at all.
+#
+# Compose builds a service's image only when no image by that name exists: "docker compose up" never
+# compares the Dockerfile with the image it once produced. Under the Claude Code tag alone, the name
+# said which published image the build starts FROM and nothing of what the Dockerfile adds on top, so
+# a Dockerfile changed under an unchanged tag -- an ansible-core bump, a package added -- was rendered,
+# reported "changed", and never built: the container went on running the old image. Measured with
+# Compose 5.1.1: compose file identical, same container, same "StartedAt", same image. A LABEL, the
+# fix #161 applies to a mounted configuration, would not do here: it would recreate the container on
+# that same old image.
+#
+# "false" means not set, and the template then writes the tag without a suffix, exactly as before
+# #189: it is what a render from these defaults alone produces -- "check_compose_template.py" -- and
+# what a "--check" run falls back to.
+Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum: false
 
 # MANDATORY when the service above is enabled, and without a default -- same reasoning as every other
 # secret this role interpolates. Created in the LiteLLM admin UI (#2, or by hand until #2 lands): the
