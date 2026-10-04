@@ -65,14 +65,6 @@
         # plus the master key -- so it is vaulted like the secrets above, not left to a default.
         Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
-        # The gateway's image. Explicit SemVer, never "main-latest" -- deprecated and no longer fed.
-        # The role refuses a tag below "Artificial_Intelligence_LiteLLM_minimum_secure_version" (1.84.0), and refuses
-        # "main-latest" outright.
-        #
-        # ! RE-CHECK this tag against the upstream security advisories ON THE DAY of the deployment:
-        # four critical CVEs in four months on this product in 2026, one of them a pre-authenticated
-        # SQL injection aimed at the very database this stack deploys.
-        # Artificial_Intelligence_LiteLLM_Docker_image_tag: "v1.100.0"
 
         # tigerblue77's own provider keys (#2, v1 scope). Any OTHER account's own are deliberately
         # absent: each one added below adds theirs themselves, from their own restricted "/ui" login.

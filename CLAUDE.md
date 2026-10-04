@@ -286,7 +286,17 @@ the file the same way regardless of which one reads it next. #1 wrote one anyway
 the issue's own example config used `${POSTGRES_PASSWORD}`, and that was read as licence rather than as
 an illustration to translate. It cost a second commit to undo.
 
-**Images pinned by version**, never `:latest` -- nor the implicit tag, which *is* `:latest`.
+**Images float by default, and are pinned on purpose only where a database would lose its data.** An
+image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag
+held in a variable: no tag *is* `latest`, writing it out adds nothing, and a variable for it is a
+second place to keep in step with the first. The deployer pulls on every run, so each deployment
+brings the current release and its security fixes. The exception is a database -- PostgreSQL,
+MongoDB, Qdrant -- whose data lives only in its own volume: a major bump lands on a layout the new
+image does not read (PostgreSQL 18 moved its data directory, #168), so it is a deliberate move, made
+after a dump. It is pinned to the major it was initialised with, literally in the template, with the
+reason on the line above its `image:`. Redis holds a cache and floats. A variant tag a service
+genuinely needs is an exception of the same kind and says why in the same place. The one image
+that stays behind variables is the Claude Code agent's base, because it is built here and not pulled.
 
 **The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
 provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a

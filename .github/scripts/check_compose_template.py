@@ -66,7 +66,7 @@ CONFIG_CHECKSUM_CONSUMERS = {
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
 # unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
-# a defect inside it -- an undeclared volume, an unpinned image -- would render and parse cleanly
+# a defect inside it -- an undeclared volume, a missing memory limit -- would render and parse cleanly
 # forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
 CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
@@ -172,20 +172,18 @@ def check_conventions(document, state, failures):
         service = service if isinstance(service, dict) else {}
         deploy = mapping(service, "deploy")
 
-        # Pinned by version, never ":latest" -- nor the implicit tag, which IS ":latest". A digest
-        # counts as pinned. The registry host may carry a colon for its port, so the tag is whatever
-        # follows the last colon AFTER the last slash.
+        # An image floats by default and is then written with NO tag, because no tag IS ":latest" and
+        # writing it out says nothing more: an explicit ":latest" is refused for that reason. Any
+        # other tag is a pin, which is the template's to keep for a database and to explain on the
+        # line above -- no script can tell a deliberate one from a mistake, so none is judged. The
+        # registry host may carry a colon for its port, so the tag is whatever follows the last colon
+        # AFTER the last slash.
         image = service.get("image") or ""
         last_segment = image.rsplit("/", 1)[-1]
         if not image:
-            # Said separately rather than folded into the tag check below: "image '' carries no tag"
-            # is a true sentence about a service that has no image at all, and a confusing one.
             failures.append(f"{where}: declares no image")
-        elif "@" not in image:
-            if ":" not in last_segment:
-                failures.append(f"{where}: image {image!r} carries no tag, which means ':latest'")
-            elif last_segment.rsplit(":", 1)[-1] == "latest":
-                failures.append(f"{where}: image {image!r} is pinned on ':latest'")
+        elif "@" not in image and ":" in last_segment and last_segment.rsplit(":", 1)[-1] == "latest":
+            failures.append(f"{where}: image {image!r} is tagged ':latest' -- write it with no tag, which means the same")
 
         # A memory limit on every service. Without one, a container running away takes the others
         # down by OOM and the kernel log names the victim rather than the culprit.
@@ -349,10 +347,11 @@ _ABSENT = _Absent()
 # (name, document, expected substring or None when the document must be accepted)
 CONVENTION_CASES = [
     ("compliant service", {"services": {"svc": COMPLIANT_SERVICE}}, None),
-    ("image pinned on :latest", {"services": {"svc": service(image="vendor/image:latest")}},
-     "is pinned on ':latest'"),
-    ("image with no tag", {"services": {"svc": service(image="vendor/image")}},
-     "carries no tag"),
+    ("image tagged :latest", {"services": {"svc": service(image="vendor/image:latest")}},
+     "is tagged ':latest'"),
+    # No tag is the way a floating image is written, so it is an accepted case, and so is a pin.
+    ("image with no tag", {"services": {"svc": service(image="vendor/image")}}, None),
+    ("image pinned on a version", {"services": {"svc": service(image="vendor/image:1.2.3")}}, None),
     ("no image at all", {"services": {"svc": service(image=_ABSENT)}},
      "declares no image"),
     # A digest IS a pin, and a registry port is a colon that is not a tag separator. Both are

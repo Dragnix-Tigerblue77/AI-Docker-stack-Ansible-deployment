@@ -96,30 +96,6 @@ Artificial_Intelligence_LiteLLM_config_checksum: false
 # PostgreSQL -- the gateway's store (#1)
 # --------------------------------------------------------------------------------------------------
 
-# MAJOR pinned explicitly, never ":latest". A major bump imposes a pg_dump / restore, so it must
-# never happen because a tag moved: it is a decision with a maintenance window, not a side effect.
-# Check the major is supported by the Prisma schema of the LiteLLM version below before raising it.
-#
-# The tag BEGINS with the major -- "17-alpine", "17.6-alpine3.22", "18" -- and "tasks/main.yml"
-# refuses one that does not. The compose template reads the major off it to mount the data volume
-# where that major's image keeps its data: "/var/lib/postgresql/data" up to 17, "/var/lib/postgresql"
-# from 18, where the official image moved it. A volume left at the old path makes 18 refuse to
-# start, on an empty volume too (#168).
-#
-# ! Raising the major on a volume that already holds a cluster is a MIGRATION, not a tag change: the
-# new major refuses the old cluster and exits -- nothing is lost, and nothing starts. The way across,
-# verified from 17 to 18 with LiteLLM and written out command by command in the README ("Monter
-# PostgreSQL d'un majeur"):
-#   1. with the OLD major still running and LiteLLM stopped, "pg_dump --format=custom" its database;
-#   2. raise this tag AND give "Artificial_Intelligence_PostgreSQL_data_Docker_volume_name" a new
-#      name: the new major initialises an empty volume, and the old one stays as the way back;
-#   3. deploy, stop LiteLLM, "pg_restore --clean --if-exists" the dump, start LiteLLM again;
-#   4. remove the old volume by hand once the new one has proved itself.
-# "pg_upgrade" is the other way -- in place, faster on a large store -- but it needs both majors'
-# binaries in one container, which the official image does not carry. For a store this size the
-# dump is the simpler of the two.
-Artificial_Intelligence_PostgreSQL_Docker_image_tag: "17-alpine"
-
 Artificial_Intelligence_PostgreSQL_database: "litellm"
 Artificial_Intelligence_PostgreSQL_user: "litellm"
 
@@ -135,27 +111,6 @@ Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
 # --------------------------------------------------------------------------------------------------
 # LiteLLM Proxy -- the single point every LLM call goes through (#1)
 # --------------------------------------------------------------------------------------------------
-
-# The image tag. Explicit SemVer, NEVER "main-latest": that tag is deprecated and no longer fed, so
-# it freezes the deployment on an old image while looking current.
-#
-# ! Verified on 2026-09-06. Upstream retired the "-stable" suffix -- it matched neither PEP 440 nor
-# SemVer 2.0 -- so a stable release is now a plain "vX.Y.Z", and there is no "-stable" variant to
-# prefer any more.
-#
-# ! This tag is to be RE-CHECKED on the day of the deployment, against the upstream security
-# advisories, and raised if need be. Four critical CVEs in four months on this product in 2026: a
-# version number written in advance in an issue is not evidence. That check is a task of its own.
-Artificial_Intelligence_LiteLLM_Docker_image_tag: "v1.100.0"
-
-# The security floor, below which "tasks/main.yml" refuses to run. It is a MINIMUM, not a ceiling:
-# 1.84.0 is what carries the fix for CVE-2026-59822 (MCP authentication bypass, CISA KEV), and it
-# also clears CVE-2026-42208 (pre-authenticated SQL injection on the "Authorization" header, CISA
-# KEV, exploited 36 h after disclosure, fixed in 1.83.10) and CVE-2026-35029 ("/config/update"
-# reachable with no admin control).
-#
-# Raise this when a new advisory lands. Lowering it is how the floor stops being one.
-Artificial_Intelligence_LiteLLM_minimum_secure_version: "1.84.0"
 
 # Each worker replicates the configuration, so this multiplies the memory footprint rather than
 # dividing the work for free. The target host has 88 threads and no GPU; the limit below is what
@@ -208,14 +163,6 @@ Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # where it is meant to end up.
 Artificial_Intelligence_LiteLLM_internal_users: []
 
-# --------------------------------------------------------------------------------------------------
-# Redis -- LiteLLM's shared cooldown state and response cache backend (#71)
-# --------------------------------------------------------------------------------------------------
-
-# Major pinned explicitly, never ":latest" -- same reasoning as PostgreSQL, applied to a smaller
-# surface: a major bump can change eviction and persistence defaults.
-Artificial_Intelligence_Redis_Docker_image_tag: "7-alpine"
-
 Artificial_Intelligence_Redis_data_Docker_volume_name: "Artificial_Intelligence_Redis_data"
 
 # Starting value. Response caching and per-worker cooldown state are both small compared to the
@@ -267,12 +214,6 @@ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: ""
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)
 # --------------------------------------------------------------------------------------------------
 
-# Explicit SemVer, never ":latest" and never the "-web" variant (a desktop/PWA build this deployment
-# has no use for: it is consumed as a plain OpenAI-compatible API by LiteLLM, #2).
-#
-# ! Verified on 2026-09-06 against the upstream Docker Hub tags.
-Artificial_Intelligence_OmniRoute_Docker_image_tag: "3.8.50"
-
 # The named volume OmniRoute's SQLite store lives in, at the path its own Docker guide documents
 # ("/app/data") -- not a bind mount, for the same reason as every other stateful service here.
 Artificial_Intelligence_OmniRoute_data_Docker_volume_name: "Artificial_Intelligence_OmniRoute_data"
@@ -291,12 +232,6 @@ Artificial_Intelligence_OmniRoute_memory_limit: "2g"
 # --------------------------------------------------------------------------------------------------
 # Qdrant -- the Artificial Intelligence stack's vector engine (#3)
 # --------------------------------------------------------------------------------------------------
-
-# Explicit SemVer, never ":latest". The issue's own draft targeted "v1.13.4", eighteen months and six
-# minor versions behind by the time #3 was written -- exactly the trap this convention exists for.
-#
-# ! Verified on 2026-09-06 against the upstream GitHub releases.
-Artificial_Intelligence_Qdrant_Docker_image_tag: "v1.19.1"
 
 # Named volume for "/qdrant/storage". Persistence across a container recreation is an acceptance
 # criterion of #3, not a hope.
@@ -324,7 +259,9 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
 # The image this service is BUILT ON, never installed a second time: it already carries the pinned
 # CLI, the non-root "node" user and the auto-updater switched off (see
 # "https://github.com/Dragnix-Tigerblue77/Claude-Code-Docker-container"). Pinned by tag AND digest,
-# per #13 -- never ":latest", and never the tag alone either.
+# per #13, and the one image of this role that is -- and kept as variables for that reason: it is
+# BUILT here, not pulled, so nothing would ever refresh a floating base, the container holds a GitHub
+# token and a virtual key, and both the Dockerfile and the compose template read these two values.
 Artificial_Intelligence_Claude_code_Docker_image_tag: "2.1.236"
 Artificial_Intelligence_Claude_code_Docker_image_digest: "sha256:025264aeda3bf906a26d1f9282f69dcbbb169e7fb7e5a4406d42f90311d5e35a"
 
@@ -366,19 +303,6 @@ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name: "Artifi
 # --------------------------------------------------------------------------------------------------
 # LibreChat -- the Artificial Intelligence stack's human-facing chat interface (#76)
 # --------------------------------------------------------------------------------------------------
-
-# Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main", never
-# meant for a stable deployment) and never ":latest".
-#
-# ! Verified on 2026-09-06 against the upstream GHCR tags.
-Artificial_Intelligence_LibreChat_Docker_image_tag: "v0.8.7"
-
-# Release series pinned explicitly, never ":latest": "8.0" takes every 8.0.x patch as it is
-# published, the way PostgreSQL and Redis take theirs. A later series is a move made by hand,
-# following MongoDB's upgrade procedure and its featureCompatibilityVersion step. Upstream's
-# compose example names the exact patch "8.0.20"; frozen there, nothing here would ever bump it,
-# because no Dependabot ecosystem reads this file (see ".github/dependabot.yml").
-Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag: "8.0"
 
 Artificial_Intelligence_LibreChat_uploads_Docker_volume_name: "Artificial_Intelligence_LibreChat_uploads"
 Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name: "Artificial_Intelligence_MongoDB_LibreChat_data"

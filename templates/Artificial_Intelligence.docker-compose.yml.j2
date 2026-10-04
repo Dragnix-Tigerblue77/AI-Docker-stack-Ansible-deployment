@@ -16,10 +16,11 @@ services:
   # ledger, which is the entire reason the gateway runs with a database rather than in file mode.
   # ------------------------------------------------------------------------------------------------
   postgres:
-    # Major pinned EXPLICITLY, never ":latest": a major bump imposes a pg_dump / restore, so it must
-    # never happen because a tag moved under us. Check the major is one the Prisma schema of the
-    # chosen LiteLLM version supports before raising it.
-    image: "postgres:{{ Artificial_Intelligence_PostgreSQL_Docker_image_tag }}"
+    # A database, so pinned on purpose to the major its volume was initialised with: a major bump
+    # lands on a layout the new image does not read and imposes a pg_dump / restore (the README's
+    # "Monter PostgreSQL d'un majeur"), so it must never happen because a tag moved under us. Check the
+    # major is one the Prisma schema of the running LiteLLM supports before raising it.
+    image: postgres:17-alpine
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -37,7 +38,7 @@ services:
       # of #1, not a hope. A bind mount would also tie the stack to a host path, which this
       # repository does not get to choose.
       #
-      # ! Its TARGET follows the major, because the official image moved its data directory at 18
+      # ! Its TARGET follows the major pinned above, because the official image moved its data directory at 18
       #   (docker-library/postgres#1259). Up to 17, PGDATA is "/var/lib/postgresql/data" and that is
       #   the image's volume. From 18, PGDATA is "/var/lib/postgresql/18/docker" and the volume is
       #   "/var/lib/postgresql", one level up, so that a later "pg_upgrade --link" finds both majors'
@@ -45,12 +46,11 @@ services:
       #   left unused: the entrypoint refuses it as an "unused mount/volume" and exits 1, on an EMPTY
       #   volume on a fresh machine too -- measured with "postgres:18-alpine" (#168).
       #
-      #   The major is read off the head of the tag, which "tasks/main.yml" holds to beginning with
-      #   it. A volume that already holds another major's cluster is refused at either path, by the
-      #   image itself: raising the major on one is a migration, spelt out next to the tag in
-      #   "defaults/main.yml".
-{% set Artificial_Intelligence_PostgreSQL_major_version = (Artificial_Intelligence_PostgreSQL_Docker_image_tag | string).split('@')[0].split('-')[0].split('.')[0] | int %}
-      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:{{ '/var/lib/postgresql' if Artificial_Intelligence_PostgreSQL_major_version >= 18 else '/var/lib/postgresql/data' }}:rw"
+      #   The pin is 17, so the target is the ".../data" one. Raising the pin to 18 or later means
+      #   changing this target to "/var/lib/postgresql" in the same commit. A volume that already holds
+      #   another major's cluster is refused at either path, by the image itself: raising the major on
+      #   one is a migration, spelt out in the README.
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
@@ -100,9 +100,9 @@ services:
   # Redis -- LiteLLM's shared cooldown state and response cache backend (#71).
   # ------------------------------------------------------------------------------------------------
   redis:
-    # Major pinned explicitly, never ":latest" -- same reasoning as PostgreSQL above, applied to a
-    # smaller surface: a major bump can change eviction and persistence defaults.
-    image: "redis:{{ Artificial_Intelligence_Redis_Docker_image_tag }}"
+    # Floating, with no tag at all (no tag IS "latest"): it holds only a cooldown state and a cache
+    # here, both rebuilt on their own after a restart, so nothing is lost when the major moves.
+    image: redis
 
     # No secret written on the command line: it would be visible in "docker inspect" / process
     # listings on the host. Read from a file instead, itself rendered from the same vaulted variable
@@ -150,10 +150,10 @@ services:
   # "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml".
   # ------------------------------------------------------------------------------------------------
   litellm:
-    # Explicit SemVer, never "main-latest": that tag is deprecated and no longer fed, so it freezes
-    # the deployment on an old image while looking current. The security floor and the date it was
-    # last verified live in "defaults/main.yml"; "tasks/main.yml" refuses a tag below the floor.
-    image: "ghcr.io/berriai/litellm:{{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}"
+    # Floating, with no tag at all (no tag IS "latest"): it keeps no state of its own, which lives in
+    # PostgreSQL. Never write one for it, least of all upstream's deprecated "main-latest", which is
+    # no longer fed and would freeze the deployment on an old image while looking current.
+    image: ghcr.io/berriai/litellm
     # ! A CONTAINER label, deliberately not under "deploy:" (#161). LiteLLM reads "/app/config.yaml"
     # once, at start, and a changed configuration changes nothing else in this file, which is all
     # "docker compose up" and "docker stack deploy" compare: without this, the container keeps the
@@ -291,8 +291,9 @@ services:
   # exactly this reason.
   # ------------------------------------------------------------------------------------------------
   omniroute:
-    # Explicit SemVer, never ":latest" and never the "-web" variant -- see "defaults/main.yml".
-    image: "diegosouzapw/omniroute:{{ Artificial_Intelligence_OmniRoute_Docker_image_tag }}"
+    # Floating, with no tag at all (no tag IS "latest"), and never the "-web" variant: a desktop/PWA
+    # build this deployment has no use for, consumed as a plain OpenAI-compatible API by LiteLLM.
+    image: diegosouzapw/omniroute
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -343,9 +344,9 @@ services:
   # picked.
   # ------------------------------------------------------------------------------------------------
   qdrant:
-    # Explicit SemVer, never ":latest" -- see "defaults/main.yml" for why this matters here
-    # specifically.
-    image: "qdrant/qdrant:{{ Artificial_Intelligence_Qdrant_Docker_image_tag }}"
+    # A database, so pinned on purpose: the vectors live only in its volume, and a version change is a
+    # deliberate move made after a backup, not something a tag that moved should do.
+    image: qdrant/qdrant:v1.19.1
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -380,9 +381,9 @@ services:
   # LibreChat -- the Artificial Intelligence stack's human-facing chat interface (#76).
   # ------------------------------------------------------------------------------------------------
   librechat:
-    # Explicit stable release, never the "-dev" image (rebuilt on every push to upstream "main") and
-    # never ":latest".
-    image: "ghcr.io/danny-avila/librechat:{{ Artificial_Intelligence_LibreChat_Docker_image_tag }}"
+    # Floating, with no tag at all (no tag IS "latest"): it keeps no state of its own, which lives in
+    # MongoDB below.
+    image: ghcr.io/danny-avila/librechat
     # ! CONTAINER labels, so deliberately NOT under "deploy:" -- the one place in this file where that
     # is right. "deploy.labels" sets labels on the SERVICE object; "labels" sets them on the
     # CONTAINERS, and "docker compose up" and "docker stack deploy" both honour them there. That is
@@ -447,8 +448,10 @@ services:
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
-    # Release series pinned, patches taken as published -- see the default's own comment.
-    image: "mongo:{{ Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag }}"
+    # A database, so pinned on purpose to its release series: "8.0" takes every 8.0.x patch as it
+    # ships, the way PostgreSQL takes its minor ones. A later series is a move made by hand, through
+    # MongoDB's upgrade procedure and its featureCompatibilityVersion step, never a moved tag.
+    image: mongo:8.0
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
@@ -481,8 +484,8 @@ services:
   claude_code_tigerblue77:
     build:
       context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory }}"
-    # A locally built image still names one, pinned to the published Claude Code image it was built
-    # FROM -- the same reason every other image this template deploys carries an explicit tag.
+    # A locally built image still names a tag: the published Claude Code image it was built FROM,
+    # pinned by tag and digest in "defaults/main.yml". Nothing pulls it, so it cannot float.
     image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}"
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
@@ -550,10 +553,10 @@ services:
   # ------------------------------------------------------------------------------------------------
   #
   # service_name:
-  #   # Pinned by version, never ":latest" -- nor the implicit tag, which IS ":latest".
-  #   # Without this, a redeployment months later installs a version nobody chose, and the failure
-  #   # that follows has no diff to show.
-  #   image: vendor/image:1.2.3
+  #   # Floating by default, written with NO tag (no tag IS ":latest", so ":latest" is never written
+  #   # either): the deployer pulls on every run. A database whose data lives only in its own volume
+  #   # is pinned instead, to its major, literally here, with the reason on the line above.
+  #   image: vendor/image
   #
   #   # Only for a service that reads, at start, a configuration file this role writes and mounts:
   #   # the file's checksum as a CONTAINER label, under "labels:" and never "deploy.labels:", which
