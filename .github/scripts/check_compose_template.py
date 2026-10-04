@@ -189,6 +189,63 @@ def volume_source(volume):
     return source
 
 
+# The checksum "tasks/main.yml" hands the deployment role for the Dockerfile it renders (#189), and
+# the service whose image TAG must carry it. Its default is "false", so the branch that appends it is
+# one no default render evaluates -- the blind spot of the agent's own toggle, one level further in.
+# A fake but well-formed SHA-1.
+DOCKERFILE_CHECKSUM_VARIABLE = "Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum"
+DOCKERFILE_CHECKSUM = "89abcdef0123456789abcdef0123456789abcdef"
+DOCKERFILE_CHECKSUM_CONSUMER = "claude_code_tigerblue77"
+
+
+def check_dockerfile_checksum(unset, checksum_set, base_tag, failures):
+    """Hold the agent's image to "<Claude Code tag>-<Dockerfile SHA-1>", and everything else to nothing.
+
+    The suffix is the whole mechanism of #189. Compose builds a service's image only when no image by
+    its name exists, and never compares the Dockerfile with what an existing image was built from.
+    Under the Claude Code tag alone, a changed Dockerfile left the compose file identical, so nothing
+    was built and nothing recreated: the container kept running the old image while Ansible reported
+    the Dockerfile "changed". A new name is what gets it built, which is why the checksum has to be
+    in the TAG. A label -- what #161 does for a mounted configuration, and so the obvious thing to
+    copy -- recreates the container on the OLD image, and is refused here as surely as no suffix.
+
+    Unset, the tag must be the Claude Code tag alone, exactly as before #189: that is what the
+    defaults and a "--check" run render. An interpolation left unguarded would write "-False" into
+    it instead -- a name that never changes with the Dockerfile again, which is the defect itself.
+    """
+    name = DOCKERFILE_CHECKSUM_CONSUMER
+    unset_services = mapping(unset, "services")
+    set_services = mapping(checksum_set, "services")
+    if name not in unset_services or name not in set_services:
+        failures.append(
+            f"service {name!r} is not rendered with the agent enabled: there is no image tag to check "
+            f"{DOCKERFILE_CHECKSUM_VARIABLE} against"
+        )
+        return
+    unset_image = str(mapping(unset_services, name).get("image") or "")
+    set_image = str(mapping(set_services, name).get("image") or "")
+    if unset_image.rsplit(":", 1)[-1] != base_tag:
+        failures.append(
+            f"[Dockerfile checksum unset] service {name!r}: image {unset_image!r} is not tagged {base_tag!r} "
+            f"alone, while {DOCKERFILE_CHECKSUM_VARIABLE} is false"
+        )
+    expected = f"{unset_image}-{DOCKERFILE_CHECKSUM}"
+    if set_image != expected:
+        failures.append(
+            f"[Dockerfile checksum set] service {name!r}: image is {set_image!r}, expected {expected!r} -- "
+            "the checksum appended to the TAG, never a label, which recreates the container on the old image"
+        )
+    # Put the unset image back and compare the whole documents: the checksum renames the image and
+    # does nothing else.
+    services = dict(set_services)
+    services[name] = dict(mapping(set_services, name), image=unset_image)
+    if dict(checksum_set, services=services) != unset:
+        failures.append(
+            f"setting {DOCKERFILE_CHECKSUM_VARIABLE} changed more than the agent's image tag: "
+            "it must change nothing else"
+        )
+
+
 def check_conventions(document, state, failures):
     """Hold one rendered document to what the template's own commented model promises."""
     services = document.get("services") or {}
@@ -415,6 +472,50 @@ def check_dollars(document, state, failures, left_elsewhere):
 # Every case names the substring the check must report, so a check that fails for the RIGHT reason
 # and a check that fails for another are not confused with each other.
 
+# (name, checksum unset, checksum set, expected substring or None) for "check_dockerfile_checksum"
+# (#189). Bare blocks rather than compliant ones: that check reads the image and compares the rest,
+# and holds nothing else to a convention. The agent's block sits beside another service, so that a
+# change leaking out of it is told apart from the rename itself.
+_AGENT = DOCKERFILE_CHECKSUM_CONSUMER
+_AGENT_TAG = "2.1.236"
+_AGENT_IMAGE = f"ais-claude-code-tigerblue77:{_AGENT_TAG}"
+_OTHER = {"image": "vendor/image:1.2.3"}
+_AGENT_UNSET = {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}}
+DOCKERFILE_CHECKSUM_CASES = [
+    ("checksum appended to the tag",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     None),
+    ("checksum left out of the tag",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}},
+     "appended to the TAG"),
+    # The move #161 invites: the same image, and a label that changes nothing Compose builds from.
+    ("checksum written as a label",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER,
+                   _AGENT: {"image": _AGENT_IMAGE, "labels": {"artificial_intelligence.config_checksum": DOCKERFILE_CHECKSUM}}}},
+     "never a label"),
+    # "+" is SemVer's separator for build metadata, and a character a Docker tag cannot hold.
+    ("checksum joined with '+'",
+     _AGENT_UNSET,
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}+{DOCKERFILE_CHECKSUM}"}}},
+     "appended to the TAG"),
+    ("'-False' written while unset",
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-False"}}},
+     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     f"is not tagged '{_AGENT_TAG}' alone"),
+    ("setting the checksum changed something else",
+     _AGENT_UNSET,
+     {"services": {"litellm": {"image": "vendor/image:9.9.9"},
+                   _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
+     "it must change nothing else"),
+    ("agent not rendered",
+     {"services": {"litellm": _OTHER}},
+     {"services": {"litellm": _OTHER}},
+     "is not rendered with the agent enabled"),
+]
+
 COMPLIANT_SERVICE = {
     "image": "vendor/image:1.2.3",
     "deploy": {
@@ -607,6 +708,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, unset, checksum_set, expected in DOCKERFILE_CHECKSUM_CASES:
+        failures = []
+        try:
+            check_dockerfile_checksum(unset, checksum_set, _AGENT_TAG, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, off, on, expected in STATE_CASES:
         failures = []
         try:
@@ -671,6 +781,8 @@ def main():
         ("published network unset", {}),
         ("published network set", PUBLISHED_NETWORK),
         ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
+        ("Claude Code agent (tigerblue77) Dockerfile checksum set",
+         dict(CLAUDE_CODE_TIGERBLUE77_ENABLED, **{DOCKERFILE_CHECKSUM_VARIABLE: DOCKERFILE_CHECKSUM})),
     ):
         context = dict(defaults, **extra)
         try:
@@ -684,6 +796,18 @@ def main():
             failures.append(f"[{state}] the rendered file is not valid YAML: {error}")
             continue
         check_conventions(documents[state], state, failures)
+
+    agent, agent_checksum = (
+        "Claude Code agent (tigerblue77) enabled",
+        "Claude Code agent (tigerblue77) Dockerfile checksum set",
+    )
+    if agent in documents and agent_checksum in documents:
+        check_dockerfile_checksum(
+            documents[agent],
+            documents[agent_checksum],
+            defaults["Artificial_Intelligence_Claude_code_Docker_image_tag"],
+            failures,
+        )
 
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)

@@ -265,6 +265,9 @@
     group: "root"
     mode: "0644"
   when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+  # Its "checksum" is what gets a changed Dockerfile built at all (#189): see the parameters of
+  # "Deploy the ... Docker stack" below.
+  register: Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_rendering
 
 - name: "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
@@ -274,6 +277,16 @@
     Docker_compose_file_name: "{{ Artificial_Intelligence_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_path }}"
+    # Not part of that contract (#189): the deployment role does nothing with it but render the
+    # compose template in its scope, which it does anyway. The template appends it to the Claude
+    # Code agent's image tag, and that suffix is the only thing that gets a changed Dockerfile built
+    # -- Compose builds an image only when no image by its name exists. See
+    # "Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum" in defaults/main.yml.
+    #
+    # "default(false)" for the two runs whose rendering task registers no "checksum": the agent
+    # switched off, which skips it, and "--check" with the Dockerfile about to change. "false"
+    # leaves the tag as it was before #189 rather than failing on an undefined attribute.
+    Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum: "{{ Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_rendering.checksum | default(false) }}"
 
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.

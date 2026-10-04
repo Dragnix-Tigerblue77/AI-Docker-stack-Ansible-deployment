@@ -542,7 +542,20 @@ services:
       context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory | replace('$', '$$') }}"
     # A locally built image still names a tag: the published Claude Code image it was built FROM,
     # pinned by tag and digest in "defaults/main.yml". Nothing pulls it, so it cannot float.
+    #
+    # ! Suffixed with the SHA-1 of the Dockerfile this run rendered (#189). Compose builds this image
+    # only when no image by this name exists; it never compares the Dockerfile with what the image
+    # was built from. Under the Claude Code tag alone, a changed Dockerfile left this file identical,
+    # and the container went on running the old image while Ansible reported the Dockerfile
+    # "changed". With the suffix, a changed Dockerfile is a name no image carries yet -- so Compose
+    # builds it -- and a changed "image:" -- so it recreates the container on it. Not a label, the
+    # fix #161 applies to a mounted configuration: a label would recreate the container on the OLD
+    # image. A SHA-1 in hexadecimal, so no "$" for Compose to interpolate.
+{% if Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum is string %}
+    image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}-{{ Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum }}"
+{% else %}
     image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}"
+{% endif %}
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
     # server, and Claude Code's own entrypoint would otherwise exit the moment it reads EOF on stdin.
@@ -612,6 +625,9 @@ services:
   #   # Floating by default, written with NO tag (no tag IS ":latest", so ":latest" is never written
   #   # either): the deployer pulls on every run. A database whose data lives only in its own volume
   #   # is pinned instead, to its major, literally here, with the reason on the line above.
+  #   # A service BUILT here, from a Dockerfile this role renders, also carries that Dockerfile's
+  #   # checksum in its tag: Compose builds only an image whose name is missing, so a tag the
+  #   # Dockerfile does not change never gets a new image built. See "claude_code_tigerblue77" (#189).
   #   image: vendor/image
   #
   #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
