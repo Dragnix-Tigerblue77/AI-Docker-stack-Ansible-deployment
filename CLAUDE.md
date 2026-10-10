@@ -136,14 +136,16 @@ because forgetting them costs the same time every session.
   would be guesswork: there the pull request is the one thing not opened, and the issue says so.
 * **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
   session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
-  maintainer's to choose, never the session's to offer as the default. A session that ends takes its
-  context with it, so a deferral it volunteered is exactly the work nobody is left to do: an audit
-  of one long session found a one-off pass promised for "tomorrow" and never delivered, and a fix
-  put off at 16:37 on 2026-09-13 that the maintainer had to chase at 19:22. It was asked for twice
-  on 2026-09-14, first as "there is no 'after', move on!", then, when "another day" was offered, as
-  "no, it's half past six, go!". Waiting for the maintainer's answer -- to a plan, to a question --
-  is not postponing: it is their decision being waited for, not the session's own. What they defer
-  is deferred, and gets a durable reminder rather than a sentence in the chat.
+  maintainer's to choose, and a session may propose one, with its reason, and wait for the answer. A
+  session that ends takes its context with it, so a deferral it decided on its own is exactly the
+  work nobody is left to do: an audit of one long session found a one-off pass promised for
+  "tomorrow" and never delivered, and a fix put off at 16:37 on 2026-09-13 that the maintainer had
+  to chase at 19:22. It was asked for twice on 2026-09-14, first as "there is no 'after', move on!",
+  then, when "another day" was offered, as "no, it's half past six, go!". Waiting for the
+  maintainer's answer -- to a plan, to a question, to a proposed deferral -- is not postponing: it
+  is their decision being waited for, not the session's own. Any deferral, a split into a separate
+  pull request included, whether theirs or accepted from a proposal, gets a durable reminder (an
+  issue) rather than a sentence in the chat.
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
