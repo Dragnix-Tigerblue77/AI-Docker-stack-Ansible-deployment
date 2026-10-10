@@ -112,14 +112,21 @@ running a script, not the model deciding to behave.
   `mcp__github__issue_write` (#97). Reads the call's `tool_input.issue_fields`
   and refuses -- via `hookSpecificOutput.permissionDecision: "deny"`, the
   documented, non-deprecated way to block a `PreToolUse` call -- any entry
-  naming the `Priority` field that is not itself a deletion. This is a second,
-  independent layer on top of `gate-task-scope.sh`'s phrasing match: that one
-  sees a task's stated intent, this one sees the structured call itself, after
-  a teammate has decided to make it anyway.
+  naming the `Priority` field, in a `create` or an `update`, whether it sets a
+  value, picks an option or clears the field with `delete: true`. Clearing a
+  validated value is writing the field too (#175). The name is compared
+  ignoring case and surrounding spaces. For setting the field, this is a
+  second, independent layer on top of `gate-task-scope.sh`'s phrasing match:
+  that one sees a task's stated intent, this one sees the structured call
+  itself, after a teammate has decided to make it anyway. For clearing it, this
+  is the only gate there is: the phrasing match has no verb for a deletion
+  (see below).
 
 ! All three gates exit 2 (`gate-task-scope.sh`, `gate-lint.sh`) or answer
 `"deny"` (`gate-issue-priority.sh`) when their own tooling is missing rather
-than passing. A gate that cannot run its checks must not report success.
+than passing. A gate that cannot run its checks must not report success. The
+one deliberate exception, a payload `gate-issue-priority.sh` cannot read, is
+explained below.
 
 `TeammateIdle` is deliberately **not** wired: exit 2 there would keep a
 teammate working forever, which is the one hook shape that can build a loop
@@ -127,18 +134,54 @@ that never settles.
 
 ## What this does not protect against
 
-The Priority-field rule and the "no fabricated secret" rule are enforced by
+The Priority-field rule has one gate that reads the call itself,
+`gate-issue-priority.sh`, and it covers exactly one road to the field: the
+GitHub MCP server's `issue_write`, under the tool name
+`mcp__github__issue_write` its matcher spells out. What it does not see:
+
+- **Any other road to the same field.** The matcher is an exact tool name, so
+  the same server connected under another name (its tools then carry another
+  `mcp__<server>__` prefix), any other tool able to write the field, or a
+  `Bash` call to the GitHub API (`curl`, `gh api`) reaches GitHub without
+  passing through it. On those roads, setting the field still meets
+  `gate-task-scope.sh`, but only if a task states it in words that gate's
+  regex matches -- and that gate runs on `TaskCreated` alone, so it never sees
+  a tool call. Clearing the field is not what that regex was written for: its
+  verbs are `set`, `change`, `update`, `bump`, `raise` and `lower`, so "clear
+  the Priority field of #12", "remove the priority of #12" or "delete Priority
+  on #12" pass it, and only a phrasing that happens to fit its other branch
+  ("Priority field" followed by "to" or "as") is caught. A deletion by another
+  road is therefore covered by each teammate's own instructions alone. #175
+  records why the regex was not widened: it matches free text, and
+  `templates/LiteLLM_config.yaml.j2` also says "Priority" for the order of its
+  fallback chains.
+- **A payload it cannot read.** Invalid JSON, or a `tool_input` whose shape is
+  not the one it expects (`issue_fields` not a list of objects), makes it
+  answer nothing, and the call goes through. That is deliberate, and it is the
+  opposite of what it does when `python3` is missing: a missing interpreter is
+  this machine's defect, visible and fixed in a minute, whereas a payload shape
+  changed by a harness or server upgrade would, failing closed, refuse every
+  `issue_write` call -- every issue created, edited or closed -- until someone
+  edited the hook, to protect one field. Behind an unreadable payload, setting
+  the field is still covered by the phrasing gate -- if a task said so in
+  words it matches -- and by the instructions; clearing it is covered by the
+  instructions alone. A shape change is therefore the one way a Priority write
+  gets through this gate unnoticed, and that cost is accepted.
+- **A session that has not loaded this repository's `.claude/settings.json`.**
+  The hook is this checkout's project configuration: a session started
+  elsewhere that merely reaches the repository through its tools never runs
+  it, and neither does a human editing the field in GitHub's own interface --
+  the latter by design, since @tigerblue77 validating the field is the rule.
+
+The "no fabricated secret" rule has no such gate: it is enforced by
 `gate-task-scope.sh` matching on phrasing, and by every teammate's own
-instructions -- not by anything that inspects a GitHub API call. There is no
-practical way to intercept "which field did this `issue_write` call change" at
-the permission layer the way a `Bash` command prefix can be denied; a task
-that never says what it is about to do is not caught by a gate that matches on
-what a task says. The same limit applies to every enumerated `deny` above: a
-force-push spelled with the flag in an order these prefixes do not anticipate,
-or a secret asked for in phrasing the regex does not match, is not stopped
-here. The real containment is that no task here has a legitimate reason to do
-any of this, which each teammate's own hard-boundary section states directly
--- a model instruction, not an enforced gate.
+instructions, and a task that never says what it is about to do is not caught
+by a gate that matches on what a task says. The same limit applies to every
+enumerated `deny` above: a force-push spelled with the flag in an order these
+prefixes do not anticipate, or a secret asked for in phrasing the regex does
+not match, is not stopped here. The real containment is that no task here has
+a legitimate reason to do any of this, which each teammate's own hard-boundary
+section states directly -- a model instruction, not an enforced gate.
 
 ## `loop.md`
 

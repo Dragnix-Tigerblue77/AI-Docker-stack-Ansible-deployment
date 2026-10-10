@@ -106,7 +106,7 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-issue-priority.sh\"",
             "timeout": 15,
-            "statusMessage": "Checking this call does not set the Priority field..."
+            "statusMessage": "Checking this call does not set or clear the Priority field..."
           }
         ]
       }
