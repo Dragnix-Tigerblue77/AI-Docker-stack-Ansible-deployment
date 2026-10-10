@@ -36,16 +36,17 @@ name: Dependabot auto-merge
 #     completes, it starts only once there is something to read, and whichever of the two finishes
 #     last is the run that finds every check green.
 #   * The definition that runs is the one on main, and nothing from the pull request is checked out
-#     or executed. This is the only job in the repository holding a write token, and that is what
-#     makes holding it acceptable: no job may both write and run code nobody has reviewed yet -- a
-#     freshly bumped dependency included, since that is exactly what a Dependabot branch carries.
+#     or executed. This workflow's two jobs are the only ones in the repository holding a write
+#     token, and that is what makes holding one acceptable: no job may both write and run code
+#     nobody has reviewed yet -- a freshly bumped dependency included, since that is exactly what a
+#     Dependabot branch carries.
 #
-# The job takes its runner from CI_RUNNER like every other job here (#162), although it is the one
-# holding a write token. The second point above is what allows it: nothing from a pull request is
-# checked out or executed, so a self-hosted runner never holds both a write token and code nobody
-# has reviewed. Left on the hosted runners, it would also be the job that stops merging Dependabot's
-# updates the day the included minutes run out. The header of "ansible-ci.yml" says what the
-# variable may name, and when.
+# Both jobs take their runner from CI_RUNNER like every other job here (#162), although they are
+# the ones holding a write token. The second point above is what allows it: nothing from a pull
+# request is checked out or executed, so a self-hosted runner never holds both a write token and
+# code nobody has reviewed. Left on the hosted runners, "merge" would also be the job that stops
+# merging Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml"
+# says what the variable may name, and when.
 #
 # What the step below refuses, and why each refusal is there:
 #
@@ -64,13 +65,18 @@ name: Dependabot auto-merge
 # pull request whose other workflow has not finished yet, and a red run there would be noise the
 # next run makes true anyway. The pull request itself stays open, which is the visible outcome.
 #
-# One consequence of merging with GITHUB_TOKEN, stated rather than left to be found: a push made
-# with that token starts no workflow, so the merge commit on main is not re-checked by a push run.
-# Nothing depends on that run -- CI on main reports and gates nothing -- and the pull request was
-# checked on the very commit being merged. What nobody checks is that commit merged with whatever
-# reached main since Dependabot last rebased it, which is exactly what a human clicking Merge on a
-# green pull request gets too, since the ruleset does not ask for the branch to be up to date
-# ("strict_required_status_checks_policy": false).
+# Merging with GITHUB_TOKEN has one consequence the second job is there for. A push made with that
+# token starts no workflow, so the merge commit would be the one head of main no "push" run of
+# "Ansible CI" or "gitleaks" ever checks -- dc5bb6a, the merge of #142, has no run at all (#180). The
+# pull request was checked on its own head, but what lands on main is that head merged with
+# whatever reached main since its run: another Dependabot update merged a minute earlier, or the
+# main of the day its run started, when a job of it is re-run by hand days later -- a re-run keeps
+# the original event's commit. The ruleset does not ask for the branch to be up to date
+# ("strict_required_status_checks_policy": false), so only a run on main sees that tree, and until
+# one does, main's head carries no status at all. GitHub documents an exception to its own rule
+# that fits: a "workflow_dispatch" GITHUB_TOKEN causes still creates a run. So once "merge" has
+# merged, "recheck-main" dispatches the two workflows on main -- what a human's merge gets from
+# their "push" trigger.
 
 on:
   workflow_run:
@@ -101,10 +107,14 @@ jobs:
       contents: write
       pull-requests: read
       checks: read
+    # "true" once this run has merged a pull request, empty otherwise: what "recheck-main" keys on.
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
     steps:
       # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
       # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries.
       - name: Merge the pull request if every required check passed on its head
+        id: merge
         uses: actions/github-script@v9
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -218,3 +228,53 @@ jobs:
               throw error;
             }
             core.notice(`${label} merged: ${required.map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);
+            core.setOutput('merged', 'true');
+
+  # The merge above is a push to main made with GITHUB_TOKEN, which starts no workflow: this job is
+  # what checks the tree it leaves on main (the header says why that tree needs it, #180). A job of
+  # its own rather than a last step of "merge", for the permissions: dispatching needs
+  # "actions: write", merging "contents: write", and neither job needs the other's. It checks
+  # nothing out and runs nothing from the pull request either, and it is skipped -- before any
+  # runner is asked for -- on every run that merges nothing, which is nearly all of them.
+  #
+  # The runs it starts complete like any other and wake this workflow again through
+  # "workflow_run", on main: the "if:" of "merge" skips them, so this does not loop. They share the
+  # "concurrency" group of main's "push" runs, so when a human merges meanwhile the later of the two
+  # runs cancels the earlier, and what gets checked is the newest head of main, which contains this
+  # merge.
+  recheck-main:
+    name: Run the checks on main after the merge
+    needs: merge
+    if: needs.merge.outputs.merged == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    permissions:
+      # Creating a "workflow_dispatch" event, and nothing else.
+      actions: write
+    steps:
+      - name: Dispatch the checks on main
+        uses: actions/github-script@v9
+        env:
+          # The FILES of the workflows "on.workflow_run.workflows" above names by their "name:".
+          # check_required_checks.py holds the two lists to each other, and each file listed here
+          # to carrying the "workflow_dispatch:" trigger GitHub refuses a dispatch without.
+          WORKFLOW_FILES: ansible-ci.yml gitleaks.yml
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const ref = context.payload.repository.default_branch;
+            const refused = [];
+            for (const workflow of process.env.WORKFLOW_FILES.split(/\s+/).filter(Boolean)) {
+              try {
+                await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref });
+                core.notice(`${workflow} dispatched on ${ref}.`);
+              } catch (error) {
+                refused.push(workflow);
+                core.error(`${workflow} could not be dispatched on ${ref}: ${error.message}`);
+              }
+            }
+            // Red, although the merge itself went through: it is the check of the merge that is
+            // missing, and a green run would hide exactly that.
+            if (refused.length > 0) {
+              core.setFailed(`${ref} was merged into, and ${refused.join(' and ')} will not check it.`);
+            }

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Refuse a Dependabot merge gate that could never pass, or that has stopped covering a job.
+"""Refuse a Dependabot merge gate that cannot pass, misses a job, or leaves its merge unchecked.
 
 WHY THIS CHECK EXISTS
 ---------------------
@@ -24,6 +24,14 @@ of them silent:
   gate reads only what the file names. This check is what puts that addition in the same pull
   request.
 
+A third way concerns what happens after the gate merges (#180). The merge is a push made with
+GITHUB_TOKEN, which starts no workflow, so the gate dispatches every workflow it listens to on the
+default branch itself -- the one event that token can cause and still get a run for. It names them
+by FILE there, in the "WORKFLOW_FILES" of a step, where "on.workflow_run.workflows" names them by
+"name:", and GitHub refuses a dispatch to a workflow without a "workflow_dispatch" trigger. A
+workflow added to the second list and not the first, or a trigger removed, would leave every merge
+commit unchecked, and would only show -- as a red job, or not at all -- after the next merge.
+
 wader/postfix-relay keeps its own copy true with "tests/test_ruleset.py". This one does what that
 does, plus the second direction above, which postfix-relay needs less because GitHub enforces its
 file, and which this file needs because it names every job one by one rather than one aggregate job.
@@ -41,6 +49,8 @@ WHAT IT CHECKS
    matched against each workflow's top-level "name:"). The gate runs only when one of those
    completes, so a required job anywhere else could be the last to finish and never wake it.
 4. Every job of those workflows is required, unless NOT_REQUIRED below names it with its reason.
+5. The gate dispatches every one of those workflows after a merge -- its file is in the gate's
+   "WORKFLOW_FILES" -- and every file listed there exists and carries a "workflow_dispatch" trigger.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -48,6 +58,10 @@ Whether a required job actually RUNS on a pull request. A job that reports only 
 passes this check and then never reports on a Dependabot branch. Deciding that would mean reading
 "on:" and every "if:" and guessing at expressions only GitHub evaluates; it is a decision made where
 the list is edited, and the gate's own notice ("has not reported yet") is where a wrong one shows.
+
+Whether the step carrying "WORKFLOW_FILES" really dispatches them, with the permission and the "if:"
+that takes. That is a script and an expression GitHub runs, not a list; its job goes red, naming the
+workflow, on the first merge it fails to follow up.
 
 Its verification cases are Python literals rather than fixture files, for the reason CLAUDE.md
 gives: a fixture on disk is reachable by "ansible-lint --fix", which has rewritten one here before.
@@ -75,11 +89,36 @@ GATE = "dependabot-auto-merge.yml"
 # "gitleaks" reaches a verdict on every pull request.
 NOT_REQUIRED = {}
 
+# The environment variable, on a step of the gate, whose value is the space-separated FILE names of
+# the workflows that step dispatches on the default branch once the gate has merged (#180).
+DISPATCH_ENV = "WORKFLOW_FILES"
+
 
 def triggers(workflow):
     """The "on:" mapping. YAML 1.1 reads the bare key "on" as the boolean true, as PyYAML does."""
     found = workflow.get("on", workflow.get(True))
     return found if isinstance(found, dict) else {}
+
+
+def trigger_names(workflow):
+    """Every event a workflow runs on, whichever of its three forms "on:" is written in."""
+    found = workflow.get("on", workflow.get(True))
+    if isinstance(found, str):
+        return {found}
+    if isinstance(found, (dict, list)):
+        return set(found)
+    return set()
+
+
+def dispatched_files(gate):
+    """The workflow files the gate dispatches after a merge: DISPATCH_ENV, on any of its steps."""
+    files = []
+    for job in ((gate or {}).get("jobs") or {}).values():
+        for step in (job or {}).get("steps") or []:
+            value = ((step or {}).get("env") or {}).get(DISPATCH_ENV)
+            if value is not None:
+                files.extend(str(value).split())
+    return files
 
 
 def workflow_name(file_name, workflow):
@@ -156,6 +195,24 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED):
                              "merge itself. Add it to main.json, or to NOT_REQUIRED with its "
                              "reason." % (display, file_name))
 
+    # What the gate dispatches on the default branch once it has merged: every workflow it listens
+    # to, since its merge starts no "push" run of any of them.
+    if GATE in workflows:
+        dispatched = dispatched_files(workflows[GATE])
+        for file_name in dispatched:
+            if file_name not in workflows:
+                found.append('%s dispatches "%s" after a merge, and no workflow file has that name.'
+                             % (GATE, file_name))
+            elif "workflow_dispatch" not in trigger_names(workflows[file_name] or {}):
+                found.append("%s dispatches %s after a merge, and %s has no workflow_dispatch "
+                             "trigger: GitHub refuses the dispatch, so the merge goes unchecked."
+                             % (GATE, file_name, file_name))
+        for file_name, workflow in sorted(workflows.items()):
+            if workflow_name(file_name, workflow or {}) in listened and file_name not in dispatched:
+                found.append("%s listens to %s but does not dispatch it after a merge (%s): its "
+                             "merge starts no push run, so that merge commit goes unchecked."
+                             % (GATE, file_name, DISPATCH_ENV))
+
     return found
 
 
@@ -164,6 +221,7 @@ SELFTEST_CI = """
 name: CI
 on:
   pull_request:
+  workflow_dispatch:
 jobs:
   lint:
     name: the linter
@@ -182,6 +240,14 @@ jobs:
   merge:
     name: Merge
     runs-on: ubuntu-latest
+  recheck:
+    name: Recheck
+    needs: merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch
+        env:
+          WORKFLOW_FILES: ci.yml
 """
 
 SELFTEST_NIGHTLY = """
@@ -192,6 +258,17 @@ on:
 jobs:
   scan:
     name: scan
+    runs-on: ubuntu-latest
+"""
+
+SELFTEST_OTHER = """
+name: Other
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  scan:
+    name: the scanner
     runs-on: ubuntu-latest
 """
 
@@ -266,6 +343,39 @@ def selftest_cases():
         ("a second rule is refused",
          selftest_ruleset(*good, rules=rules + [{"type": "deletion"}]), selftest_workflows(),
          "expected exactly one"),
+        ("a listened workflow the gate does not dispatch after a merge is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace("WORKFLOW_FILES: ci.yml", "OTHER: ci.yml")),
+         "listens to ci.yml but does not dispatch it"),
+        ("a dispatch list that leaves out one listened workflow is refused",
+         selftest_ruleset(*good, "the scanner"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]'),
+                            extra=SELFTEST_OTHER),
+         "listens to extra.yml but does not dispatch it"),
+        ("a dispatch list naming several files, one per listened workflow, passes",
+         selftest_ruleset(*good, "the scanner"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]')
+                            .replace("WORKFLOW_FILES: ci.yml", "WORKFLOW_FILES: ci.yml extra.yml"),
+                            extra=SELFTEST_OTHER),
+         None),
+        ("a dispatched workflow without a workflow_dispatch trigger is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(ci=SELFTEST_CI.replace("  workflow_dispatch:\n", "")),
+         "ci.yml has no workflow_dispatch trigger"),
+        ("a dispatched file no workflow carries is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace("ci.yml", "ci.yml missing.yml")),
+         '"missing.yml" after a merge, and no workflow file has that name'),
+        ('"on:" written as a list is read, "workflow_dispatch" included',
+         selftest_ruleset(*good),
+         selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",
+                                                   "on: [pull_request, workflow_dispatch]\n")),
+         None),
+        ('"on:" written as a single event, other than "workflow_dispatch", is refused',
+         selftest_ruleset(*good),
+         selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",
+                                                   "on: pull_request\n")),
+         "ci.yml has no workflow_dispatch trigger"),
     )
 
 
@@ -300,7 +410,8 @@ def main():
     }
     found = problems(ruleset, workflows)
     if found:
-        print("%s no longer describes a gate that can pass:" % RULESET.relative_to(ROOT))
+        print("%s and the workflows no longer describe a gate that can pass and checks what it "
+              "merges:" % RULESET.relative_to(ROOT))
         for problem in found:
             print("  - %s" % problem)
         return 1
@@ -310,6 +421,8 @@ def main():
           % len(parameters))
     for check in parameters:
         print('  "%s"' % check["context"])
+    print("Dispatched on the default branch after each merge: %s"
+          % ", ".join(dispatched_files(workflows[GATE])))
     return 0
 
 
