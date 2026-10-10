@@ -353,22 +353,29 @@ and a runner to spare in `CI_RUNNER`, since the job holds one while it sleeps. S
 above, and for the same reason (#147).
 
 **Free GitHub-hosted minutes first; a self-hosted pool takes over the day they run out.** Every job
-takes its runner from the `CI_RUNNER` repository variable, and this repository leaves it unset, so
-its jobs run on the minutes GitHub includes for free until those are exhausted. The day they are,
-the maintainer sets the variable to `self-hosted`, once per repository, and that is the whole of
-the switch -- once a pool serves the organisation and its runners show "Idle"; the header of
-`.github/workflows/ansible-ci.yml` says how, and what a label no runner answers to costs. A session
-therefore never proposes setting it before then, and never makes a change that only pays once it is
-set -- pinning a job to `ubuntu-latest` so that the variable can be set early, say. Setting it
-moves every job that reads it, and two kinds of job need a decision before it is set: one that
-needs a Docker daemon, which a pool may not provide, and one that holds a credential of its own,
-since a pool's runners can share state between jobs that a hosted machine, fresh for every job,
-does not. The Dependabot merge jobs hold a write token, and the header of
-`.github/workflows/dependabot-auto-merge.yml` says why that is acceptable on a pool; the pull
-request updater above asks for a runner to spare in `CI_RUNNER`, so it stays switched off until
-then too. A session cannot read the variable, so it reads where a repository's jobs run from their
-runner names, "GitHub Actions" followed by a number for a hosted one. The maintainer set this rule
-on 2026-10-10 (#231).
+takes its runner from the `CI_RUNNER` repository variable, and this repository leaves it unset until
+then: its jobs run on the minutes GitHub includes for free. The day those are exhausted, and not
+before a pool serves the organisation and its runners show "Idle", the maintainer sets the variable
+to `self-hosted`, once per repository, and that is the whole of the switch; the header of
+`.github/workflows/ansible-ci.yml` says when, and what a label no runner answers to costs. A session
+therefore never proposes setting the variable, to any value, before then, and never makes a change
+that costs hosted minutes or adds machinery now for a pool that is not serving yet -- pinning a job
+to `ubuntu-latest` so that the variable can be set early, say. What the workflows already carry for
+the pool (`check-latest`, the longer timeouts) costs next to nothing and stays. Setting the variable
+moves every job that reads it, so a job that assumes more of its machine than the hosted image
+offers -- a Docker daemon, root, a preinstalled tool -- or that holds a credential of its own needs
+a decision first. The workflow headers record it for the jobs there are: the Dependabot merge jobs,
+the pull request updater and the hook job of `gitleaks.yml`, which needs root. A session that adds a
+job of either kind takes its runner from `CI_RUNNER` like the others and says in the pull request
+that the job needs that decision; it does not pin it to `ubuntu-latest`, since the day itself leaves
+no hosted minutes to run it on, and every job of `ansible-ci.yml` and `gitleaks.yml` gates the
+Dependabot merges. The pull request updater above wants a runner to spare in `CI_RUNNER`, so a
+session does not propose switching it on before then; the maintainer may still choose to spend
+private minutes on it earlier. A session cannot read the variable, so it reads where a repository's
+jobs run from a job's labels, `ubuntu-latest` or `self-hosted`, and from its runner name once it has
+run, "GitHub Actions" followed by a number for a hosted one. Shared with every repository of the
+maintainer that carries agent instructions, and written out in full in each. The maintainer set this
+rule on 2026-10-10 (#231).
 
 **Branches.** `claude/<short-topic>` for agent work, merged through a pull request. `main` is the only
 long-lived branch.

@@ -32,11 +32,10 @@ name: Ansible CI
 #   Actions -> Runners. A label no runner answers to does not fail: the job queues for 24 hours
 #   and is then cancelled, with no error anywhere.
 #
-# The "|| 'ubuntu-latest'" is what stops an unset variable from being that empty string. It leans
+# The "|| 'ubuntu-latest'" is what stops an unset variable from leaving "runs-on" empty. It leans
 # on "||" returning its first truthy operand rather than a boolean, which every workflow relies
-# on but GitHub's operators table does not state -- it says only "Or". Once CI_RUNNER is set, even
-# to "ubuntu-latest", the expression resolves to the bare variable, a form GitHub documents.
-# While it is unset the fallback resolves instead, which is the undocumented behaviour above.
+# on but GitHub's operators table does not state -- it says only "Or" -- and it leans on it just
+# the same once CI_RUNNER is set, since the expression is the same in both states.
 #
 # Repository scope only. "runs-on" is resolved before the job starts, so an environment variable is
 # never read there, and GitHub Free exposes no organisation variable to a private repository.
