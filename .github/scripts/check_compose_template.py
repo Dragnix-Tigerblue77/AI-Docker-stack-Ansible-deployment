@@ -53,6 +53,7 @@ import copy
 import sys
 from pathlib import Path
 
+import jinja2.meta
 import yaml
 from jinja2 import Environment, FileSystemLoader, meta
 
@@ -119,8 +120,8 @@ DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
 }
 
 
-def load_defaults(overrides=None):
-    """Read the role's defaults, resolving those that interpolate the others.
+def load_defaults(failures, text=None, overrides=None):
+    """Read the role's defaults, resolving those that interpolate the others the way Ansible does.
 
     Several defaults are derived -- a destination path is a directory plus a file name -- and
     "yaml.safe_load" has no reason to notice: it hands back the "{{ ... }}" as the literal string it
@@ -131,29 +132,142 @@ def load_defaults(overrides=None):
     independently, on separate branches -- and the by-hand form reported the first as an undeclared
     volume and would have carried the others' literals into a mount path
     unnoticed, since nothing here reads those keys. All are findings about the CHECK, phrased as
-    findings about the template, which is the shape that gets a real one waived. It resolves every
-    default now, by rendering each one against the others until nothing moves.
+    findings about the template, which is the shape that gets a real one waived.
+
+    #1 replaced it with a plain "Environment()" rendering every default against the others until
+    nothing moved, which was lenient where Ansible is strict and strict where Ansible is not (#184).
+    Its Undefined renders an unknown name as an empty string: a misspelled directory left a build
+    context of "claude_code_tigerblue77/" and the check passed, while Ansible stops on that very
+    line; the same slip in a configuration path came out as an undeclared volume. A default reaching
+    itself passed too, ten passes deep and still carrying its "{{". And "ternary", "bool" or
+    "lookup()", which Ansible resolves, raised out of the check as a traceback. So, here:
+
+    * one default at a time, its references first, each rendered ONCE -- Ansible does not render a
+      value's output a second time -- and a loop is named rather than iterated;
+    * with "StrictUndefined": a name this file neither defines nor declares as mandatory is a finding;
+    * a mandatory variable -- declared as a commented-out "# Name:" line, never given a value --
+      resolves the way "render" writes it: Jinja's lenient Undefined, empty, "| default()" applying.
+      A default derived from one is ordinary Ansible, not a misspelling;
+    * a filter, a test or a function only Ansible provides is a finding that says so. Imitating
+      Ansible here would be a second implementation to keep in step with the pinned one.
+
+    Every finding lands in `failures`, and "main" then renders nothing. `text` is the file's content:
+    "--selftest" hands it over, and it is read from disk otherwise.
 
     `overrides` is what a caller passes the role, applied BEFORE that resolution: Ansible reads a
     derived default lazily, so one built from a variable the caller overrides follows the override --
     the name of a Docker config is built from the checksum its file was written with (#161) -- where
     resolving first and overriding after would leave it on the value it had from the defaults alone.
+    An override naming a mandatory variable gives it a value, so it is no longer read as empty.
     """
-    defaults = yaml.safe_load((ROLE / "defaults" / "main.yml").read_text(encoding="utf-8"))
-    defaults.update(overrides or {})
-    environment = Environment()
-    # Bounded rather than "while changed": a default that interpolates itself would otherwise spin
-    # here forever. Ten passes is far past any real chain, and a value still carrying "{{" after them
-    # is a defect the render below surfaces anyway.
-    for _ in range(10):
-        rendered = {
-            key: environment.from_string(value).render(**defaults) if isinstance(value, str) and "{{" in value else value
-            for key, value in defaults.items()
-        }
-        if rendered == defaults:
-            break
-        defaults = rendered
-    return defaults
+    if text is None:
+        text = (ROLE / "defaults" / "main.yml").read_text(encoding="utf-8")
+    raw = yaml.safe_load(text) or {}
+    raw.update(overrides or {})
+    mandatory = mandatory_names(text) - set(raw)
+    environment = Environment(undefined=jinja2.StrictUndefined)
+    resolved = {}
+
+    def resolve(name, chain):
+        if name in resolved:
+            return resolved[name]
+        if name in chain:
+            loop = " -> ".join(chain[chain.index(name):] + (name,))
+            failures.append(f"{name}: interpolates itself ({loop}), which Ansible refuses as a recursive loop")
+            return UNRESOLVED
+        resolved[name] = resolve_value(name, raw[name], chain + (name,))
+        return resolved[name]
+
+    def resolve_value(name, value, chain):
+        # Ansible templates a string wherever it sits, so a list or a mapping is walked, not skipped.
+        if isinstance(value, (dict, list)):
+            items = value.items() if isinstance(value, dict) else enumerate(value)
+            walked = [(key, resolve_value(name, item, chain)) for key, item in items]
+            if any(item is UNRESOLVED for _, item in walked):
+                return UNRESOLVED
+            return dict(walked) if isinstance(value, dict) else [item for _, item in walked]
+        if not isinstance(value, str) or not any(marker in value for marker in ("{{", "{%", "{#")):
+            return value
+        try:
+            template = environment.from_string(value)
+            context, problems, broken = {}, [], False
+            for reference in sorted(jinja2.meta.find_undeclared_variables(environment.parse(value))):
+                if reference in raw:
+                    context[reference] = resolve(reference, chain)
+                    # Already reported, where it broke: once, rather than through every default
+                    # derived from it. The other references are still read, for their own findings.
+                    broken = broken or context[reference] is UNRESOLVED
+                elif reference in mandatory:
+                    context[reference] = jinja2.Undefined(name=reference)
+                elif reference in environment.globals:
+                    continue
+                elif reference in ANSIBLE_ONLY_FUNCTIONS:
+                    problems.append(
+                        f"{name}: calls {reference}(), which only Ansible provides -- this check renders defaults "
+                        "with plain Jinja2 and cannot resolve it: extend load_defaults() before a default relies on it"
+                    )
+                else:
+                    problems.append(
+                        f"{name}: references {reference!r}, which defaults/main.yml neither defines nor declares "
+                        f"as mandatory (a commented-out '# {reference}:' line) -- a misspelling, or a value only "
+                        "Ansible knows at run time, which this check cannot resolve"
+                    )
+            failures.extend(problems)
+            if problems or broken:
+                return UNRESOLVED
+            return template.render(context)
+        except jinja2.TemplateError as error:
+            failures.append(f"{name}: {describe_template_error(error)}")
+            return UNRESOLVED
+
+    for name in raw:
+        resolve(name, ())
+    return {name: resolved[name] for name in raw}
+
+
+# The functions Ansible adds to a template's globals, which a default may call and plain Jinja2 does
+# not have. Named so that a default calling one is told exactly that, rather than that it misspelled
+# a variable called "lookup".
+ANSIBLE_ONLY_FUNCTIONS = ("lookup", "query", "q", "now", "undef")
+
+
+class _Unresolved:
+    """Marker for a default this check could not resolve. The finding saying why is already filed."""
+
+    def __repr__(self):
+        return "UNRESOLVED"
+
+
+UNRESOLVED = _Unresolved()
+
+
+def mandatory_names(text):
+    """The variables "defaults/main.yml" declares without a default: a commented-out "# Name:" each.
+
+    The file's own convention, not one invented here: every mandatory variable of this role is
+    written that way, beside the comment saying why it has no default.
+    """
+    names = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") and stripped.endswith(":") and stripped[1:-1].strip().isidentifier():
+            names.add(stripped[1:-1].strip())
+    return names
+
+
+def describe_template_error(error):
+    """Say what Jinja2 refused in a default, naming an unknown filter or test for what it most likely is."""
+    message = error.message or str(error)
+    for kind in ("filter", "test"):
+        if message.startswith(f"No {kind} named '"):
+            unknown = message.split("'")[1]
+            return (
+                f"uses the {kind} {unknown!r}, which plain Jinja2 does not have -- an Ansible one, most likely: "
+                "this check does not know it, so extend load_defaults() before a default relies on it"
+            )
+    if isinstance(error, jinja2.TemplateSyntaxError):
+        return f"is not valid Jinja2: {message}"
+    return f"does not render: {message}"
 
 
 def render(context):
@@ -538,6 +652,99 @@ class _Absent:
 
 _ABSENT = _Absent()
 
+# (name, defaults/main.yml as text, expected substring or None, values the case must resolve to)
+#
+# Text rather than a mapping, because the comments are part of what is read: a mandatory variable is
+# declared by one. The values are what make an accepted case a test of the resolution rather than of
+# its silence -- a resolver answering "" everywhere would accept every case that expects no finding,
+# which is exactly how the misspelled build context got through (#184).
+DEFAULTS_CASES = [
+    # The shape of every derived default of this role, declared in the order a single pass over the
+    # file would get wrong.
+    ("nested defaults, declared before what they derive from",
+     'File_path: "{{ Sub_directory }}file.yml"\n'
+     'Sub_directory: "{{ Base_directory }}sub/"\n'
+     'Base_directory: "/srv/"\n',
+     None, {"File_path": "/srv/sub/file.yml", "Sub_directory": "/srv/sub/"}),
+    ("values that are not templates, and a filter Jinja2 has",
+     'Enabled: false\nUsers: []\nName: "stack"\nUpper_name: "{{ Name | upper }}"\n',
+     None, {"Enabled": False, "Users": [], "Upper_name": "STACK"}),
+    ("templates inside a list",
+     'Base_directory: "/srv/"\nPaths: ["{{ Base_directory }}a", "{{ Base_directory }}b"]\n',
+     None, {"Paths": ["/srv/a", "/srv/b"]}),
+    ("a Jinja2 global is not a misspelling",
+     'Count: "{{ range(3) | list | length }}"\n',
+     None, {"Count": "3"}),
+    # Legitimate Ansible, and the reason StrictUndefined stops at the file's declared names: the
+    # render writes a mandatory variable empty, so a default derived from one resolves the same way.
+    ("derived from a mandatory variable",
+     '# Workspace_directory:\n'
+     'Sub_path: "{{ Workspace_directory }}/sub"\n'
+     'With_fallback: "{{ Workspace_directory | default(\'/srv/fallback\') }}"\n',
+     None, {"Sub_path": "/sub", "With_fallback": "/srv/fallback"}),
+    ("misspelled reference",
+     'Base_directory: "/srv/"\nBuild_context: "{{ Base_dirctory }}build/"\n',
+     "Build_context: references 'Base_dirctory'", None),
+    ("misspelled mandatory variable",
+     '# Workspace_directory:\nSub_path: "{{ Workspace_dirctory }}/sub"\n',
+     "Sub_path: references 'Workspace_dirctory'", None),
+    # The two cases above never reach StrictUndefined: a misspelled NAME is caught by reading the
+    # template's references before it is rendered. What only the render can see is a miss one level
+    # down -- an attribute, a key, an index -- and the lenient Undefined renders that as "" exactly as
+    # it rendered the misspelled build context. Without these two, putting "Environment()" back left
+    # this selftest green. ansible-core 2.21.4 refuses both, "object of type 'dict' has no attribute
+    # 'apii'" and "object of type 'list' has no attribute 2".
+    ("misspelled attribute of a defined mapping",
+     'Ports: {"api": 4000}\nApi_URL: "http://x:{{ Ports.apii }}"\n',
+     "Api_URL: does not render", None),
+    ("index past the end of a defined list",
+     'Paths: ["/srv/a", "/srv/b"]\nThird_path: "{{ Paths[2] }}"\n',
+     "Third_path: does not render", None),
+    ("Ansible-only filter",
+     'Toggle: "{{ true | ternary(\'a\', \'b\') }}"\n',
+     "Toggle: uses the filter 'ternary'", None),
+    # Jinja2 only looks an unknown filter up when the branch holding it runs, so this one is refused
+    # at render time rather than at compile time: the other path to the same finding.
+    ("Ansible-only filter inside a branch",
+     'Flag: "{% if true %}{{ \'yes\' | bool }}{% endif %}"\n',
+     "Flag: uses the filter 'bool'", None),
+    ("Ansible-only test",
+     'Newer: "{{ \'1.2\' is version(\'1.0\', \'>=\') }}"\n',
+     "Newer: uses the test 'version'", None),
+    ("lookup()",
+     'Home: "{{ lookup(\'env\', \'HOME\') }}"\n',
+     "Home: calls lookup()", None),
+    ("a default interpolating itself",
+     'Build_context: "{{ Build_context }}sub/"\n',
+     "interpolates itself (Build_context -> Build_context)", None),
+    ("two defaults interpolating each other",
+     'First: "{{ Second }}"\nSecond: "{{ First }}"\n',
+     "interpolates itself (First -> Second -> First)", None),
+    ("not valid Jinja2",
+     'Broken: "{{ Base_directory }"\nBase_directory: "/srv/"\n',
+     "Broken: is not valid Jinja2", None),
+]
+
+# (name, defaults/main.yml as text, what the caller passes, expected substring or None, values the case
+# must resolve to). The caller's values are applied before the resolution, as Ansible reads a derived
+# default lazily: a name built from a checksum the caller sets (#161) has to carry it.
+DEFAULTS_OVERRIDE_CASES = [
+    ("a derived default follows the caller's value",
+     'Checksum: false\n'
+     'Config_name: "config{{ (\'-\' ~ Checksum[:8]) if Checksum is string else \'\' }}"\n',
+     {"Checksum": "0123456789abcdef"}, None, {"Config_name": "config-01234567"}),
+    ("the same default, with nothing passed",
+     'Checksum: false\n'
+     'Config_name: "config{{ (\'-\' ~ Checksum[:8]) if Checksum is string else \'\' }}"\n',
+     {}, None, {"Config_name": "config"}),
+    ("a caller's value gives a mandatory variable its content",
+     '# Workspace_directory:\nSub_path: "{{ Workspace_directory }}/sub"\n',
+     {"Workspace_directory": "/srv"}, None, {"Sub_path": "/srv/sub"}),
+    ("a caller's value does not excuse a misspelling",
+     'Checksum: false\nConfig_name: "config{{ Checksm }}"\n',
+     {"Checksum": "0123456789abcdef"}, "Config_name: references 'Checksm'", None),
+]
+
 # (name, document, expected substring or None when the document must be accepted)
 CONVENTION_CASES = [
     ("compliant service", {"services": {"svc": COMPLIANT_SERVICE}}, None),
@@ -765,6 +972,30 @@ def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
     problems = []
 
+    for name, text, expected, values in DEFAULTS_CASES:
+        failures = []
+        try:
+            resolved = load_defaults(failures, text)
+        except Exception as error:  # noqa: BLE001 - a traceback is precisely what this replaced
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+        for key, value in (values or {}).items():
+            if resolved.get(key) != value:
+                problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
+
+    for name, text, overrides, expected, values in DEFAULTS_OVERRIDE_CASES:
+        failures = []
+        try:
+            resolved = load_defaults(failures, text, overrides)
+        except Exception as error:  # noqa: BLE001 - a traceback is precisely what this replaced
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+        for key, value in (values or {}).items():
+            if resolved.get(key) != value:
+                problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
+
     for name, document, expected in CONVENTION_CASES:
         failures = []
         try:
@@ -818,9 +1049,10 @@ def selftest():
         return 1
 
     print(
-        f"check_compose_template selftest: {len(CONVENTION_CASES)} convention case(s), "
-        f"{len(STATE_CASES)} two-state case(s), {len(DOLLAR_CASES)} '$' case(s) and "
-        f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s) all judged as expected."
+        f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
+        f"{len(CONVENTION_CASES)} convention case(s), {len(STATE_CASES)} two-state case(s), "
+        f"{len(DOLLAR_CASES)} '$' case(s) and {len(DOLLAR_VARIABLE_CASES)} '$' selection case(s) "
+        "all judged as expected."
     )
     return 0
 
@@ -839,8 +1071,18 @@ def _verdict(name, failures, expected):
 
 
 def main():
-    defaults = load_defaults()
     failures = []
+    defaults = load_defaults(failures)
+    if failures:
+        print(f"{len(failures)} problem(s) resolving the defaults of defaults/main.yml:\n")
+        for failure in failures:
+            print(f"  {failure}")
+        print(
+            "\nThe template is not rendered: a default this check cannot resolve as Ansible does would "
+            "reach it as a value no deployment writes, and every finding after that would be about the "
+            "wrong file."
+        )
+        return 1
     documents = {}
 
     for state, extra in (
@@ -849,7 +1091,7 @@ def main():
         ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
         ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
     ):
-        context = dict(load_defaults(extra), **extra)
+        context = dict(load_defaults(failures, overrides=extra), **extra)
         try:
             rendered = render(context)
         except Exception as error:  # noqa: BLE001 - the message is the whole point
