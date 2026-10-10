@@ -27,12 +27,15 @@ name: Ansible CI
 # name is prepared, commented out, in the homelab repository
 # (Tigerblue77-personal/Homelab_Ansible_deployment#1028).
 #
-# ! Set CI_RUNNER to "self-hosted" only once that pool's runners show "Idle" under the
-#   organisation's Settings -> Actions -> Runners. A label no runner answers to does not fail: the
-#   job queues for 24 hours and is then cancelled, with no error anywhere. Until then, leave it
-#   unset or set it to "ubuntu-latest" -- the second is better, since it resolves through the bare
-#   variable form "runs-on" documents rather than through "||" returning its first truthy operand,
-#   which every workflow relies on but GitHub's operators table does not state.
+# ! Set CI_RUNNER to "self-hosted" only on the day the included minutes run out, and only once a
+#   pool serves the organisation and its runners show "Idle" under the organisation's Settings ->
+#   Actions -> Runners. A label no runner answers to does not fail: the job queues for 24 hours
+#   and is then cancelled, with no error anywhere.
+#
+# The "|| 'ubuntu-latest'" is what stops an unset variable from leaving "runs-on" empty. It leans
+# on "||" returning its first truthy operand rather than a boolean, which every workflow relies
+# on but GitHub's operators table does not state -- it says only "Or" -- and it leans on it just
+# the same once CI_RUNNER is set, since the expression is the same in both states.
 #
 # Repository scope only. "runs-on" is resolved before the job starts, so an environment variable is
 # never read there, and GitHub Free exposes no organisation variable to a private repository.
