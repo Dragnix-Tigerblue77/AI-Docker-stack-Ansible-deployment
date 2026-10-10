@@ -482,6 +482,13 @@ role's README rather than frozen into the role.
    a task-level `vars:`. Precedence 20 is the only form that beats a fact already set; below it, the
    fact wins, and a task connects as an account other than the one its `vars:` announced while
    reporting `ok`.
+
+   The checksums of the two mounted configurations travel that way too (#161), and the name of the
+   Docker config that carries each file is built from them. It is the only thing that changes the
+   compose file when only a mounted configuration changed; without it neither Compose nor Swarm
+   recreates the container, which keeps serving the old file while Ansible reports "changed". The files
+   are mounted through `configs`, never as a bind mount in `volumes`, where a changed file is invisible
+   again, and `check_compose_template.py` refuses either move.
 7. **`requirements.yml` exists since #76, and it names exactly one collection.** The role used only
    `ansible.builtin.assert` and `ansible.builtin.include_role` until then; LibreChat's admin account
    (#76) needs `community.docker.docker_host_info` and `docker_container_exec` to reach the running

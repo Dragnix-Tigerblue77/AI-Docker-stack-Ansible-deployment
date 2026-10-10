@@ -222,7 +222,6 @@ services:
     # PostgreSQL. Never write one for it, least of all upstream's deprecated "main-latest", which is
     # no longer fed and would freeze the deployment on an old image while looking current.
     image: ghcr.io/berriai/litellm
-
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
@@ -260,10 +259,16 @@ services:
       REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
       REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}"
 
-    volumes:
-      # Read-only: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
+    configs:
+      # A Docker config, not a bind mount: LiteLLM reads this file once, at start, and a changed routing
+      # changes nothing else in this file -- which is all "docker compose up" and "docker stack deploy"
+      # compare. The config's name carries the file's content (see "config_Docker_name" in
+      # "defaults/main.yml"), so a changed file is a new name: Compose recreates the container and Swarm
+      # updates the service, where a bind mount left it serving the old routing (#161). Read-only, as
+      # configs are: the gateway reads its routing configuration, it does not rewrite it. #2 fills the
       # model list; what this role renders is the file and its general settings.
-      - "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') }}:/app/config.yaml:ro"
+      - source: "{{ Artificial_Intelligence_LiteLLM_config_Docker_name }}"
+        target: /app/config.yaml
 
     command:
       - "--config"
@@ -476,9 +481,14 @@ services:
       JWT_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_secret | replace('$', '$$') }}"
       JWT_REFRESH_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_refresh_secret | replace('$', '$$') }}"
 
+    configs:
+      # A Docker config named after its content, for the reason on "litellm" above: LibreChat reads
+      # "librechat.yaml" at start only. Read-only: this is the Artificial Intelligence stack's copy,
+      # not LibreChat's to rewrite.
+      - source: "{{ Artificial_Intelligence_LibreChat_config_Docker_name }}"
+        target: /app/librechat.yaml
+
     volumes:
-      # Read-only: this is the Artificial Intelligence stack's copy, not LibreChat's to rewrite.
-      - "{{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') }}:/app/librechat.yaml:ro"
       - "{{ Artificial_Intelligence_LibreChat_uploads_Docker_volume_name }}:/app/uploads:rw"
 
     # Published: this is the Artificial Intelligence stack's human-facing chat interface, same reasoning as LiteLLM's "/ui"
@@ -612,6 +622,16 @@ services:
   #   # when none by that name exists and never compares it with its source.
   #   image: vendor/image
   #
+  #   # Only for a service that reads, at start, a configuration file this role writes and mounts:
+  #   # mount it as a Docker config named after the file's content, never as a bind mount in
+  #   # "volumes:", where a changed file is invisible in this one and neither Compose nor Swarm
+  #   # recreates the container that reads it. The task writing the file registers its result, and
+  #   # "tasks/main.yml" passes ".checksum" to the deployment role as an "include_role" parameter,
+  #   # "false" in "defaults/main.yml"; the name is derived from it there (#161).
+  #   configs:
+  #     - source: "{{ Artificial_Intelligence_service_config_Docker_name }}"
+  #       target: /path/in/the/container
+  #
   #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
   #   # Compose and Swarm honour. "restart: unless-stopped", "mem_limit:" and "cpus:" work in Compose
   #   # and are IGNORED by Swarm -- silently, which is the worst of both worlds. Writing under
@@ -686,6 +706,15 @@ services:
   #     # network is not declared and the service would not start.
   #     - {{ Artificial_Intelligence_published_Docker_network_name }}
 {% endraw %}
+
+configs:
+  # The files a container reads at start, one Docker config each, named after their content (#161):
+  # a changed file is a new name, which is what makes Compose recreate the container and Swarm update
+  # the service. "file" is the path of the rendered file on the host the stack is deployed from.
+  {{ Artificial_Intelligence_LiteLLM_config_Docker_name }}:
+    file: "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') }}"
+  {{ Artificial_Intelligence_LibreChat_config_Docker_name }}:
+    file: "{{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') }}"
 
 volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance

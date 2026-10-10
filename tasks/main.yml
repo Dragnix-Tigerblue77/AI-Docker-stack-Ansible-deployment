@@ -229,6 +229,9 @@
     owner: "root"
     group: "root"
     mode: "0644"
+  # Its "checksum" is what gets a changed configuration applied at all (#161): see the parameters of
+  # "Deploy the ... Docker stack" below.
+  register: Artificial_Intelligence_LiteLLM_config_rendering
 
 # Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja and no secret. Its
 # "apiKey" is "user_provided" since #103, each LibreChat account entering its own gateway key
@@ -240,6 +243,8 @@
     owner: "root"
     group: "root"
     mode: "0644"
+  # Same reason as the LiteLLM configuration above (#161).
+  register: Artificial_Intelligence_LibreChat_config_deployment
 
 - name: "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
@@ -249,6 +254,19 @@
     Docker_compose_file_name: "{{ Artificial_Intelligence_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_path }}"
+    # Not part of that contract (#161): the deployment role does nothing with these two but render
+    # the compose template in their scope, which it does anyway. The template names the Docker
+    # config that carries each file after its checksum, and a new name is the only thing that changes
+    # the compose file when only the configuration changed -- without it neither Compose nor Swarm
+    # sees a difference, and the container keeps running on the old file. See
+    # "Artificial_Intelligence_LiteLLM_config_Docker_name" in defaults/main.yml.
+    #
+    # "default(false)" is for "--check": a template or copy about to change its file returns no
+    # "checksum" in check mode -- the copy action returns before adding it to its result -- and
+    # "false" leaves the config's bare name in that dry run's compose file rather than failing on an
+    # undefined attribute.
+    Artificial_Intelligence_LiteLLM_config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_rendering.checksum | default(false) }}"
+    Artificial_Intelligence_LibreChat_config_checksum: "{{ Artificial_Intelligence_LibreChat_config_deployment.checksum | default(false) }}"
 
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.

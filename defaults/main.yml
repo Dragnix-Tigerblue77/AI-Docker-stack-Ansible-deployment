@@ -79,6 +79,30 @@ Artificial_Intelligence_published_Docker_network_definition: false
 Artificial_Intelligence_LiteLLM_config_file_name: "LiteLLM_config.yaml"
 Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LiteLLM_config_file_name }}"
 
+# NOT a setting: the SHA-1 of the file above as this run rendered it, which "tasks/main.yml" passes
+# to the deployment role as an "include_role" parameter -- precedence 20, above everything but an
+# extra var, so a value set here or in a caller's play never reaches the template (#161). It is what
+# the name of the Docker config below is derived from.
+#
+# "false" means not set: it is what a render from these defaults alone produces --
+# "check_compose_template.py" -- and what a "--check" run falls back to, the module returning no
+# checksum for a file it is only about to change.
+Artificial_Intelligence_LiteLLM_config_checksum: false
+
+# The Docker config that carries the file above into the "litellm" container, and the name it has: the
+# file's content is part of it, as "-" and the first 8 characters of the checksum, and unset it is the
+# bare name. That is what gets a changed configuration applied at all (#161). LiteLLM reads
+# "/app/config.yaml" once, at start, and a bind mount carries only a path: a new routing changes
+# nothing in the compose file, which is all "docker compose up" and "docker stack deploy" compare, so
+# neither recreated the container -- it went on serving the old routing while Ansible reported the new
+# one "changed". It did not even see the new file: "template" writes by atomic rename, under a new
+# inode, and a file bind mount stays on the old one. Measured with LiteLLM 1.100.0: same container,
+# same "StartedAt", old model names in "/v1/models". A Docker config is the object made for this:
+# Swarm configs are immutable, so a changed file has to be a new name, which is an ordinary service
+# update, and Compose recreates a container whose "configs" source changed. Derived, so it follows the
+# checksum above; not a setting.
+Artificial_Intelligence_LiteLLM_config_Docker_name: "LiteLLM_config{{ ('-' ~ Artificial_Intelligence_LiteLLM_config_checksum[:8]) if Artificial_Intelligence_LiteLLM_config_checksum is string else '' }}"
+
 # --------------------------------------------------------------------------------------------------
 # PostgreSQL -- the gateway's store (#1)
 # --------------------------------------------------------------------------------------------------
@@ -321,6 +345,16 @@ Artificial_Intelligence_LibreChat_allow_registration: false
 # key out of the container's environment.
 Artificial_Intelligence_LibreChat_config_file_name: "librechat.yaml"
 Artificial_Intelligence_LibreChat_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LibreChat_config_file_name }}"
+
+# NOT a setting either: the SHA-1 of the file above as this run copied it, which the name of its
+# Docker config is derived from -- LibreChat, too, reads its configuration only at start. The
+# reasoning is the one on "Artificial_Intelligence_LiteLLM_config_Docker_name" above, rather than a
+# second copy of it (#161).
+Artificial_Intelligence_LibreChat_config_checksum: false
+
+# The Docker config that carries "librechat.yaml" into the "librechat" container, named after its
+# content as the LiteLLM one is. Derived; not a setting.
+Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~ Artificial_Intelligence_LibreChat_config_checksum[:8]) if Artificial_Intelligence_LibreChat_config_checksum is string else '' }}"
 
 # Dragnix's own LibreChat account, created BY THE ROLE as the estate's first (and only automated)
 # account, then granted the ADMIN role directly in MongoDB -- see "tasks/main.yml" for why not the
