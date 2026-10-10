@@ -303,8 +303,8 @@ MongoDB, Qdrant -- whose data lives only in its own volume: a major bump lands o
 image does not read (PostgreSQL 18 moved its data directory, #168), so it is a deliberate move, made
 after a dump. It is pinned to the major it was initialised with, literally in the template, with the
 reason on the line above its `image:`. Redis holds a cache and floats. A variant tag a service
-genuinely needs is an exception of the same kind and says why in the same place. The one image
-that stays behind variables is the Claude Code agent's base, because it is built here and not pulled.
+genuinely needs is an exception of the same kind and says why in the same place. An image is pulled,
+never built here: a service carries no `build:` key, and `check_compose_template.py` refuses one.
 
 **The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
 provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a

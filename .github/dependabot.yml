@@ -20,9 +20,9 @@
 # ! Two kinds of pin have no Dependabot ecosystem, and are bumped by hand:
 #   - the gitleaks version pinned in "gitleaks.yml", and its SHA-256 checksum, which goes with it --
 #     a raw release download, from the project's releases page;
-#   - the image tags in "defaults/main.yml". The "docker" ecosystem reads a Dockerfile or a compose
-#     file, and every image here is written in a Jinja template with its tag in a role variable,
-#     which it cannot resolve. "requirements.yml" is the same case: no ecosystem reads it.
+#   - the database images pinned in the compose template, which move by a deliberate migration made
+#     after a dump, never by a bot ("CLAUDE.md" says why). "requirements.yml" is bumped by hand too:
+#     no ecosystem reads it.
 version: 2
 updates:
   - package-ecosystem: "pip"

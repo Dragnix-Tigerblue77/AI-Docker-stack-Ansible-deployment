@@ -260,49 +260,17 @@ Artificial_Intelligence_Qdrant_memory_limit: "1g"
 # it on is what switches "services:" from "{}" to a real mapping, in the template.
 Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
 
-# The image this service is BUILT ON, never installed a second time: it already carries the pinned
-# CLI, the non-root "node" user and the auto-updater switched off (see
-# "https://github.com/Dragnix-Tigerblue77/Claude-Code-Docker-container"). Pinned by tag AND digest,
-# per #13, and the one image of this role that is -- and kept as variables for that reason: it is
-# BUILT here, not pulled, so nothing would ever refresh a floating base, the container holds a GitHub
-# token and a virtual key, and both the Dockerfile and the compose template read these two values.
-Artificial_Intelligence_Claude_code_Docker_image_tag: "2.1.236"
-Artificial_Intelligence_Claude_code_Docker_image_digest: "sha256:025264aeda3bf906a26d1f9282f69dcbbb169e7fb7e5a4406d42f90311d5e35a"
-
-# Where the Dockerfile this role renders from "templates/claude_code_tigerblue77.Dockerfile.j2" lands
-# on the managed node, next to the rendered compose file: "build:" needs an actual path on that
-# machine, not something read out of this repository at deploy time.
-Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}claude_code_tigerblue77/"
-
-# NOT a setting: the SHA-1 of the Dockerfile above as this run rendered it, which "tasks/main.yml"
-# passes to the deployment role as an "include_role" parameter -- precedence 20, above everything but
-# an extra var, so a value set here or in a caller's play never reaches the template (#189). The
-# template appends it to the agent's image tag, and that suffix is what gets a changed Dockerfile
-# built at all.
-#
-# Compose builds a service's image only when no image by that name exists: "docker compose up" never
-# compares the Dockerfile with the image it once produced. Under the Claude Code tag alone, the name
-# said which published image the build starts FROM and nothing of what the Dockerfile adds on top, so
-# a Dockerfile changed under an unchanged tag -- an ansible-core bump, a package added -- was rendered,
-# reported "changed", and never built: the container went on running the old image. Measured with
-# Compose 5.1.1: compose file identical, same container, same "StartedAt", same image. A LABEL, the
-# fix #161 applies to a mounted configuration, would not do here: it would recreate the container on
-# that same old image.
-#
-# "false" means not set, and the template then writes the tag without a suffix, exactly as before
-# #189: it is what a render from these defaults alone produces -- "check_compose_template.py" -- and
-# what a "--check" run falls back to.
-Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum: false
-
 # MANDATORY when the service above is enabled, and without a default -- same reasoning as every other
 # secret this role interpolates. Created in the LiteLLM admin UI (#2, or by hand until #2 lands): the
 # model allow-list a virtual key carries is what stands between this container and every other
 # account's quota. NEVER the master key.
 # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key:
 
-# MANDATORY when the service above is enabled, and without a default. A personal access token, read
-# by both "gh" and git inside the container. #13 defers real repository access to the MCP GitHub
-# connector (#23); until that lands, this is how the agent reaches a repository at all.
+# MANDATORY when the service above is enabled, and without a default. A personal access token, set
+# as "GH_TOKEN" and "GITHUB_TOKEN" in the container, which is where "gh" reads it. The published
+# image does not carry "gh" (it carries git, ripgrep, jq and less), so until "gh" is added to that
+# image the token is set and the tool meant to read it is absent. #13 defers real repository access
+# to the MCP GitHub connector (#23); until that lands, this is how the agent reaches a repository.
 # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token:
 
 # MANDATORY when the service above is enabled, and without a default: a host path is inventory data,
@@ -314,8 +282,7 @@ Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum: false
 # subscription may ever sit behind it.
 Artificial_Intelligence_Claude_code_tigerblue77_model: "claude-code"
 
-# Starting value, to be recalled after measuring under load. Higher than a bare agent's would be: the
-# image adds "gh", "ansible-core" and build tooling on top of the published Claude Code image.
+# Starting value, to be recalled after measuring under load.
 Artificial_Intelligence_Claude_code_tigerblue77_memory_limit: "2g"
 
 # The named volume the WHOLE home directory lives in -- not only "~/.claude". "~/.claude.json" sits

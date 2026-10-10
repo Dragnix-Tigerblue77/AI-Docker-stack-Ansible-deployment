@@ -80,8 +80,8 @@ sections qui suivent.
 exécution, donc chaque déploiement apporte la version courante et ses correctifs. Seules les bases de
 données dont les données ne vivent que dans leur volume -- PostgreSQL, MongoDB, Qdrant -- sont épinglées,
 en dur dans le template, avec leur raison au-dessus de la ligne `image:` : une montée de majeur tombe
-sur une organisation des données que la nouvelle image ne lit pas. L'exception : la base de l'image de
-l'agent Claude Code, construite ici et non récupérée, qui garde ses deux variables (tag et digest).
+sur une organisation des données que la nouvelle image ne lit pas. Une image se récupère, elle ne se
+construit jamais ici : aucun service ne porte de clé `build:`, et `check_compose_template.py` en refuse une.
 
 Le stack porte déjà plusieurs services -- la passerelle et sa base, Redis, OmniRoute, Qdrant, LibreChat
 et sa base, l'agent Claude Code de tigerblue77 (désactivé par défaut) -- chacun arrivé par sa propre
@@ -162,11 +162,8 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
-| `Artificial_Intelligence_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum` | `false` | **Pas un réglage.** Le SHA-1 du `Dockerfile` tel que le run vient de le rendre : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Voir « Un `Dockerfile` modifié donne une nouvelle image » plus bas (#189). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
+| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). Posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` ; l'image publiée ne porte pas `gh` (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
@@ -566,55 +563,44 @@ cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
 
 ## L'agent Claude Code -- tigerblue77 (#13)
 
-Construit **sur** l'image publiée par `Claude-Code-Docker-container`, jamais reconstruit depuis une
-base nue : cette image porte déjà le CLI épinglé, l'utilisateur non-root `node` et l'auto-updater
-désactivé, et repartir d'une base Node nue referait tout cela une seconde fois, avec le risque de le
-refaire différemment.
+Déployé **tel quel** depuis l'image que publie `Claude-Code-Docker-container`
+(`ghcr.io/dragnix-tigerblue77/claude-code-docker-container`), écrite sans tag comme toutes les autres :
+le déployeur la récupère à chaque exécution, donc chaque déploiement apporte la version courante de Claude
+Code, sans variable ni épinglage de notre côté. Rien n'est construit ici.
 
-**`build:`, pas `image:` seul, parce que ce compte a besoin de plus que l'agent.** `gh`, `ansible-core`
-et de l'outillage de compilation s'ajoutent par-dessus l'image publiée -- ce sont les outils du travail
-d'infrastructure de tigerblue77, pas des besoins de Claude Code lui-même. Le `Dockerfile` est **rendu**
-par ce rôle (`templates/claude_code_tigerblue77.Dockerfile.j2`) plutôt que copié tel quel : l'image dont
-il part reste ainsi une seule valeur dans `defaults/main.yml`, épinglée par tag et digest, plutôt qu'une
-seconde copie figée dans un fichier statique.
+**Ce que l'image apporte, et ce qu'elle n'apporte pas.** Mesuré dans l'image publiée elle-même (sa
+configuration et les fichiers de ses couches) : l'utilisateur non-root `node`, `/workspace` comme répertoire
+de travail, l'auto-updater désactivé, `git`, `ripgrep`, `jq` et `less`. Elle ne porte ni `gh`, ni
+`ansible-core` (ni `python3`, ni `pip3`), ni client `docker`, ni `build-essential`, ni `curl`, ni
+`procps`. Ce sont les outils du travail d'infrastructure de tigerblue77 que l'ancien `Dockerfile` rendu par
+ce rôle ajoutait par-dessus ; ils manquent désormais, et la place pour les remettre est l'image publiée
+elle-même, ou une image dérivée si on y revient. #226 en garde le détail et les options écartées.
+
+**Le service démarre comme avant.** L'entrée de l'image publiée est `claude` seul, sans `CMD`, et le bloc du
+service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance `claude` sans argument,
+exactement ce que faisait `exec claude "$@"` de l'ancien script d'entrée quand `$@` était vide.
 
 **Le répertoire personnel monté est `/home/node` en entier, jamais `~/.claude` seul.** C'est le piège
 d'authentification que le dépôt amont documente sur lui-même : `~/.claude.json` vit À CÔTÉ de
 `~/.claude`, pas dedans, et un volume sur `~/.claude` seul perd la moitié de la session à chaque
-recréation du conteneur, sans qu'aucune erreur ne le signale. L'entrée du conteneur restaure ce fichier
-depuis la plus récente de ses propres sauvegardes si le volume est neuf.
-
-**Un `Dockerfile` modifié donne une nouvelle image, et un conteneur recréé dessus (#189).** Compose ne
-construit l'image d'un service que lorsqu'aucune image de ce nom n'existe : il ne compare jamais le
-`Dockerfile` à l'image qu'il en a tirée. Tant que l'image s'appelait
-`ais-claude-code-tigerblue77:<tag Claude Code>`, un `Dockerfile` modifié sous un tag inchangé -- une
-montée d'`ansible-core`, un paquet ajouté -- était rendu, affiché `changed`, et jamais construit : le
-fichier compose restait identique, et le conteneur continuait de tourner sur l'ancienne image. Mesuré
-avec Compose 5.1.1 : même conteneur, même `StartedAt`, même image. `tasks/main.yml` passe désormais le
-SHA-1 du `Dockerfile` rendu au rôle de déploiement, en paramètre d'`include_role`, et le template
-l'ajoute au **tag** : `ais-claude-code-tigerblue77:<tag Claude Code>-<SHA-1>`. Un `Dockerfile` modifié
-devient un nom qu'aucune image ne porte encore, que Compose construit, et un `image:` modifié, donc un
-conteneur recréé -- sans perte de session, le répertoire personnel étant monté en entier. Pas une
-étiquette, le remède d'une configuration montée (#161) : elle recréerait le conteneur sur l'ancienne
-image. Deux conséquences. Le premier run qui porte ce changement reconstruit l'image une fois, même si
-le `Dockerfile` n'a pas bougé, puisque le tag change de forme. Et les images précédentes restent sur le
-nœud : rien ne les supprime, comme avant à chaque changement de tag Claude Code. Un run `--check` sur
-le point de changer le `Dockerfile` écrit le tag sans suffixe, le module ne rendant pas de somme de
-contrôle dans ce cas. Sous Swarm, `docker stack deploy` ignore `build:`, avant comme après : l'image doit déjà
-exister sur le nœud, sous son nouveau nom. `check_compose_template.py` rend le template une fois de
-plus, agent activé et somme de contrôle renseignée, et refuse une image qui ne serait pas exactement
-celle de l'état non renseigné suivie de `-<SHA-1>`, un état non renseigné qui ne garderait pas le tag
-Claude Code seul, et tout autre changement.
+recréation du conteneur, sans qu'aucune erreur ne le signale. C'est ce montage qui tient la session, et il
+n'a pas changé. Ce qui disparaît avec l'ancien script d'entrée : la restauration de `~/.claude.json` depuis
+la plus récente des sauvegardes de `~/.claude/backups/` quand le fichier manque. Elle ne servait que si le
+fichier manquait alors que le répertoire de sauvegardes survivait -- un fichier effacé, ou un volume monté
+d'abord sur `~/.claude` seul -- et ne faisait rien sur un volume neuf, où il n'y a encore aucune
+sauvegarde. Dans ce cas, la copie se refait à la main depuis `~/.claude/backups/`.
 
 **Aucun montage de `docker.sock` dans cette issue.** #11 n'a pas encore conçu l'isolation qu'un agent
 doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce conteneur attend cette
-décision plutôt que de la devancer. `docker.io` est installé mais inerte : rien ne branche le socket
-tant que #11 n'a pas tranché.
+décision plutôt que de la devancer. L'image publiée ne porte d'ailleurs aucun client `docker` : rien ne
+branche le socket tant que #11 n'a pas tranché.
 
 **Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
 dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est ce qui permet à `gh` et à git de
-fonctionner à l'intérieur du conteneur.
+l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est ce qui doit permettre à `gh` et à git de
+fonctionner à l'intérieur du conteneur. Il est posé en `GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh`
+n'est pas dans l'image publiée, et git ne lit aucune de ces deux variables de lui-même. Tant que `gh` n'est pas
+dans l'image, le jeton est donc posé sans l'outil qui le lit.
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
@@ -728,8 +714,8 @@ python3 .github/scripts/check_compose_template.py
 Le dernier est celui qui compte pour le template. Il le rend dans ses **deux** états -- réseau publié
 renseigné et non renseigné -- parse les deux, compare les objets parsés plutôt que les fichiers, et tient
 chaque bloc de service aux conventions que le modèle commenté du template documente : image sans tag ou épinglée avec sa raison,
-limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et tout réseau ou volume
-référencé effectivement déclaré.
+limite mémoire, `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
+récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
