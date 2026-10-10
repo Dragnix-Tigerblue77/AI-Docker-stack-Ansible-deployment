@@ -78,7 +78,7 @@ CLAUDE_CODE_TIGERBLUE77_ENABLED = {
 
 # The values that HAVE a real default and whose grammar still admits a "$": a login, a model alias, a
 # database role and name, a host path. The mandatory ones and the empty ones need no list -- see
-# "dollar_variables". What is left out has a grammar with no "$" in it -- an image tag, a Docker
+# "dollar_variables". What is left out has a grammar with no "$" in it -- a Docker
 # object name, a memory size, a number, a time zone -- and the template writes it without the
 # "replace" for that reason. An optional free-form value whose default is "false", the role's idiom
 # for "not set", belongs here too: "false" is also how a toggle is written, so it cannot be derived.
@@ -88,7 +88,6 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_PostgreSQL_database",
     "Artificial_Intelligence_LiteLLM_config_file_destination_path",
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
-    "Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory",
     "Artificial_Intelligence_Claude_code_tigerblue77_model",
 )
 
@@ -108,12 +107,12 @@ def load_defaults():
 
     Several defaults are derived -- a destination path is a directory plus a file name -- and
     "yaml.safe_load" has no reason to notice: it hands back the "{{ ... }}" as the literal string it
-    is. Rendered into the template, that literal reaches the compose file, and a mount or a build
-    context written that way is read as naming something else entirely.
+    is. Rendered into the template, that literal reaches the compose file, and a mount path written
+    that way is read as naming something else entirely.
 
     This resolved one pair by hand while there was one pair. #1, #13 and #76 each added another --
     independently, on separate branches -- and the by-hand form reported the first as an undeclared
-    volume and would have carried the others' literals into "build.context" and a mount path
+    volume and would have carried the others' literals into a mount path
     unnoticed, since nothing here reads those keys. All are findings about the CHECK, phrased as
     findings about the template, which is the shape that gets a real one waived. It resolves every
     default now, by rendering each one against the others until nothing moves.
@@ -187,63 +186,6 @@ def volume_source(volume):
     return source
 
 
-# The checksum "tasks/main.yml" hands the deployment role for the Dockerfile it renders (#189), and
-# the service whose image TAG must carry it. Its default is "false", so the branch that appends it is
-# one no default render evaluates -- the blind spot of the agent's own toggle, one level further in.
-# A fake but well-formed SHA-1.
-DOCKERFILE_CHECKSUM_VARIABLE = "Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum"
-DOCKERFILE_CHECKSUM = "89abcdef0123456789abcdef0123456789abcdef"
-DOCKERFILE_CHECKSUM_CONSUMER = "claude_code_tigerblue77"
-
-
-def check_dockerfile_checksum(unset, checksum_set, base_tag, failures):
-    """Hold the agent's image to "<Claude Code tag>-<Dockerfile SHA-1>", and everything else to nothing.
-
-    The suffix is the whole mechanism of #189. Compose builds a service's image only when no image by
-    its name exists, and never compares the Dockerfile with what an existing image was built from.
-    Under the Claude Code tag alone, a changed Dockerfile left the compose file identical, so nothing
-    was built and nothing recreated: the container kept running the old image while Ansible reported
-    the Dockerfile "changed". A new name is what gets it built, which is why the checksum has to be
-    in the TAG. A label -- what #161 does for a mounted configuration, and so the obvious thing to
-    copy -- recreates the container on the OLD image, and is refused here as surely as no suffix.
-
-    Unset, the tag must be the Claude Code tag alone, exactly as before #189: that is what the
-    defaults and a "--check" run render. An interpolation left unguarded would write "-False" into
-    it instead -- a name that never changes with the Dockerfile again, which is the defect itself.
-    """
-    name = DOCKERFILE_CHECKSUM_CONSUMER
-    unset_services = mapping(unset, "services")
-    set_services = mapping(checksum_set, "services")
-    if name not in unset_services or name not in set_services:
-        failures.append(
-            f"service {name!r} is not rendered with the agent enabled: there is no image tag to check "
-            f"{DOCKERFILE_CHECKSUM_VARIABLE} against"
-        )
-        return
-    unset_image = str(mapping(unset_services, name).get("image") or "")
-    set_image = str(mapping(set_services, name).get("image") or "")
-    if unset_image.rsplit(":", 1)[-1] != base_tag:
-        failures.append(
-            f"[Dockerfile checksum unset] service {name!r}: image {unset_image!r} is not tagged {base_tag!r} "
-            f"alone, while {DOCKERFILE_CHECKSUM_VARIABLE} is false"
-        )
-    expected = f"{unset_image}-{DOCKERFILE_CHECKSUM}"
-    if set_image != expected:
-        failures.append(
-            f"[Dockerfile checksum set] service {name!r}: image is {set_image!r}, expected {expected!r} -- "
-            "the checksum appended to the TAG, never a label, which recreates the container on the old image"
-        )
-    # Put the unset image back and compare the whole documents: the checksum renames the image and
-    # does nothing else.
-    services = dict(set_services)
-    services[name] = dict(mapping(set_services, name), image=unset_image)
-    if dict(checksum_set, services=services) != unset:
-        failures.append(
-            f"setting {DOCKERFILE_CHECKSUM_VARIABLE} changed more than the agent's image tag: "
-            "it must change nothing else"
-        )
-
-
 def check_conventions(document, state, failures):
     """Hold one rendered document to what the template's own commented model promises."""
     services = document.get("services") or {}
@@ -268,6 +210,14 @@ def check_conventions(document, state, failures):
             failures.append(f"{where}: declares no image")
         elif "@" not in image and ":" in last_segment and last_segment.rsplit(":", 1)[-1] == "latest":
             failures.append(f"{where}: image {image!r} is tagged ':latest' -- write it with no tag, which means the same")
+
+        # An image is pulled, never built here. Compose builds a service's image only when none by that
+        # name exists and never compares it with its source, so a host that built it once goes on
+        # running an image nobody checks against that source; and what builds it is one more
+        # obligation on the deployer. "in" rather than ".get": "build:" written empty is still
+        # the key, and a mapping, a bare path and nothing at all are all refused alike.
+        if "build" in service:
+            failures.append(f"{where}: declares build -- an image is pulled, never built here")
 
         # A memory limit on every service. Without one, a container running away takes the others
         # down by OOM and the kernel log names the victim rather than the culprit.
@@ -470,50 +420,6 @@ def check_dollars(document, state, failures, left_elsewhere):
 # Every case names the substring the check must report, so a check that fails for the RIGHT reason
 # and a check that fails for another are not confused with each other.
 
-# (name, checksum unset, checksum set, expected substring or None) for "check_dockerfile_checksum"
-# (#189). Bare blocks rather than compliant ones: that check reads the image and compares the rest,
-# and holds nothing else to a convention. The agent's block sits beside another service, so that a
-# change leaking out of it is told apart from the rename itself.
-_AGENT = DOCKERFILE_CHECKSUM_CONSUMER
-_AGENT_TAG = "2.1.236"
-_AGENT_IMAGE = f"ais-claude-code-tigerblue77:{_AGENT_TAG}"
-_OTHER = {"image": "vendor/image:1.2.3"}
-_AGENT_UNSET = {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}}
-DOCKERFILE_CHECKSUM_CASES = [
-    ("checksum appended to the tag",
-     _AGENT_UNSET,
-     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
-     None),
-    ("checksum left out of the tag",
-     _AGENT_UNSET,
-     {"services": {"litellm": _OTHER, _AGENT: {"image": _AGENT_IMAGE}}},
-     "appended to the TAG"),
-    # The move #161 invites: the same image, and a label that changes nothing Compose builds from.
-    ("checksum written as a label",
-     _AGENT_UNSET,
-     {"services": {"litellm": _OTHER,
-                   _AGENT: {"image": _AGENT_IMAGE, "labels": {"artificial_intelligence.config_checksum": DOCKERFILE_CHECKSUM}}}},
-     "never a label"),
-    # "+" is SemVer's separator for build metadata, and a character a Docker tag cannot hold.
-    ("checksum joined with '+'",
-     _AGENT_UNSET,
-     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}+{DOCKERFILE_CHECKSUM}"}}},
-     "appended to the TAG"),
-    ("'-False' written while unset",
-     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-False"}}},
-     {"services": {"litellm": _OTHER, _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
-     f"is not tagged '{_AGENT_TAG}' alone"),
-    ("setting the checksum changed something else",
-     _AGENT_UNSET,
-     {"services": {"litellm": {"image": "vendor/image:9.9.9"},
-                   _AGENT: {"image": f"{_AGENT_IMAGE}-{DOCKERFILE_CHECKSUM}"}}},
-     "it must change nothing else"),
-    ("agent not rendered",
-     {"services": {"litellm": _OTHER}},
-     {"services": {"litellm": _OTHER}},
-     "is not rendered with the agent enabled"),
-]
-
 COMPLIANT_SERVICE = {
     "image": "vendor/image:1.2.3",
     "deploy": {
@@ -577,6 +483,15 @@ CONVENTION_CASES = [
      "expected 'any'"),
     ("container_name declared", {"services": {"svc": service(container_name="svc")}},
      "declares container_name"),
+    # A build context beside an image name. Refused in each spelling Compose accepts, because the
+    # check reads the key and not what it holds.
+    ("build with a context and an image",
+     {"services": {"svc": service(build={"context": "/srv/svc"})}},
+     "declares build"),
+    ("build as a bare path", {"services": {"svc": service(build="/srv/svc")}},
+     "declares build"),
+    ("build written empty", {"services": {"svc": service(build=None)}},
+     "declares build"),
     # Each verdict below is the one "docker stack config -c" gave on the same block (#154). The
     # first refused case is the one that matters: "docker compose config" accepts it, so nothing
     # else in CI would ever say a word about it.
@@ -706,15 +621,6 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
-    for name, unset, checksum_set, expected in DOCKERFILE_CHECKSUM_CASES:
-        failures = []
-        try:
-            check_dockerfile_checksum(unset, checksum_set, _AGENT_TAG, failures)
-        except Exception as error:  # noqa: BLE001
-            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
-            continue
-        problems.extend(_verdict(name, failures, expected))
-
     for name, off, on, expected in STATE_CASES:
         failures = []
         try:
@@ -779,8 +685,6 @@ def main():
         ("published network unset", {}),
         ("published network set", PUBLISHED_NETWORK),
         ("Claude Code agent (tigerblue77) enabled", CLAUDE_CODE_TIGERBLUE77_ENABLED),
-        ("Claude Code agent (tigerblue77) Dockerfile checksum set",
-         dict(CLAUDE_CODE_TIGERBLUE77_ENABLED, **{DOCKERFILE_CHECKSUM_VARIABLE: DOCKERFILE_CHECKSUM})),
     ):
         context = dict(defaults, **extra)
         try:
@@ -794,18 +698,6 @@ def main():
             failures.append(f"[{state}] the rendered file is not valid YAML: {error}")
             continue
         check_conventions(documents[state], state, failures)
-
-    agent, agent_checksum = (
-        "Claude Code agent (tigerblue77) enabled",
-        "Claude Code agent (tigerblue77) Dockerfile checksum set",
-    )
-    if agent in documents and agent_checksum in documents:
-        check_dockerfile_checksum(
-            documents[agent],
-            documents[agent_checksum],
-            defaults["Artificial_Intelligence_Claude_code_Docker_image_tag"],
-            failures,
-        )
 
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)

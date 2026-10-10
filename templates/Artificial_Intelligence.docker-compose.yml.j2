@@ -15,7 +15,7 @@
 # "$$" is how a literal "$" is spelt to them. Measured with Compose v5.1.1: "sk-Ab$cd9" reached the
 # container as "sk-Ab", "sk-Ab$HOME" as "sk-Ab/root", and "sk-Ab$$cd9" as "sk-Ab$cd9".
 #
-# Written without it, deliberately: image tags and digests, Docker object names, memory sizes,
+# Written without it, deliberately: Docker object names, memory sizes,
 # numbers and the time zone, whose own grammar has no "$" to escape, and the published network's
 # definition, which is compose YAML the caller already writes as such. A LITERAL "$" typed into this
 # template needs the "$$" by hand; there is none, and a "${VAR}" there would be a ".env" in disguise.
@@ -534,29 +534,13 @@ services:
   # ------------------------------------------------------------------------------------------------
   # Claude Code agent -- tigerblue77 (#13), OFF BY DEFAULT. #31 requires every service to declare
   # itself this way, and an agent that receives a person's own credentials is not something a fresh
-  # deployment should run without being asked. Built on the published Claude Code image rather than
-  # deployed straight from it: this account's own infrastructure work also needs "gh",
-  # "ansible-core" and the build tooling its Dockerfile adds, none of which the base image carries.
+  # deployment should run without being asked.
   # ------------------------------------------------------------------------------------------------
   claude_code_tigerblue77:
-    build:
-      context: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory | replace('$', '$$') }}"
-    # A locally built image still names a tag: the published Claude Code image it was built FROM,
-    # pinned by tag and digest in "defaults/main.yml". Nothing pulls it, so it cannot float.
-    #
-    # ! Suffixed with the SHA-1 of the Dockerfile this run rendered (#189). Compose builds this image
-    # only when no image by this name exists; it never compares the Dockerfile with what the image
-    # was built from. Under the Claude Code tag alone, a changed Dockerfile left this file identical,
-    # and the container went on running the old image while Ansible reported the Dockerfile
-    # "changed". With the suffix, a changed Dockerfile is a name no image carries yet -- so Compose
-    # builds it -- and a changed "image:" -- so it recreates the container on it. Not a label, the
-    # fix #161 applies to a mounted configuration: a label would recreate the container on the OLD
-    # image. A SHA-1 in hexadecimal, so no "$" for Compose to interpolate.
-{% if Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum is string %}
-    image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}-{{ Artificial_Intelligence_Claude_code_tigerblue77_Dockerfile_checksum }}"
-{% else %}
-    image: "ais-claude-code-tigerblue77:{{ Artificial_Intelligence_Claude_code_Docker_image_tag }}"
-{% endif %}
+    # Floats like the stack's other non-database images, written with no tag: the deployer pulls on
+    # every run. Built and published by Dragnix-Tigerblue77/Claude-Code-Docker-container, which
+    # follows npm's stable channel for Claude Code; nothing is built from this file (#226).
+    image: ghcr.io/dragnix-tigerblue77/claude-code-docker-container
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
     # server, and Claude Code's own entrypoint would otherwise exit the moment it reads EOF on stdin.
@@ -599,9 +583,7 @@ services:
         condition: any
       resources:
         limits:
-          # Starting value, to be recalled after measuring under load: higher than a bare agent's
-          # would be, since the image adds "gh", "ansible-core" and build tooling on top of the
-          # published Claude Code image.
+          # Starting value, to be recalled after measuring under load.
           memory: "{{ Artificial_Intelligence_Claude_code_tigerblue77_memory_limit }}"
 
     # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
@@ -626,9 +608,8 @@ services:
   #   # Floating by default, written with NO tag (no tag IS ":latest", so ":latest" is never written
   #   # either): the deployer pulls on every run. A database whose data lives only in its own volume
   #   # is pinned instead, to its major, literally here, with the reason on the line above.
-  #   # A service BUILT here, from a Dockerfile this role renders, also carries that Dockerfile's
-  #   # checksum in its tag: Compose builds only an image whose name is missing, so a tag the
-  #   # Dockerfile does not change never gets a new image built. See "claude_code_tigerblue77" (#189).
+  #   # An image is pulled, never built here, so there is no "build:" key: Compose builds an image only
+  #   # when none by that name exists and never compares it with its source.
   #   image: vendor/image
   #
   #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
