@@ -200,7 +200,7 @@ connexion ne le quitte, donc le service reste sain et ses journaux restent vides
 ## OmniRoute -- le repli gratuit et sans clé (#73)
 
 **Aucune clé de fournisseur n'est jamais connectée à ce service, et c'est le point central.** Il sert de
-dernier recours à chaque cascade de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
+dernier recours à plusieurs cascades de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
 épuisés, la requête atterrit ici plutôt que d'échouer. `check_LiteLLM_account_isolation.py` (#32)
 reconnaît une entrée dont la clé est une chaîne littérale -- jamais `os.environ/...` -- comme
 délibérément partagée entre tous les comptes, précisément parce qu'il n'y a aucun quota derrière elle à
