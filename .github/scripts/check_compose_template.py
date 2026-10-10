@@ -98,8 +98,6 @@ FREE_FORM_WITH_A_DEFAULT = (
 # outliving its reason is a hole with a label on it, and the first regression there walks through.
 DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
     "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
-    "services.postgres.environment.POSTGRES_USER": "#134, which rewrites the PostgreSQL identity",
-    "services.postgres.environment.POSTGRES_PASSWORD": "#134, which rewrites the PostgreSQL identity",
     "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
     "services.litellm.environment.REDIS_URL": "#130, which removes it",
 }
