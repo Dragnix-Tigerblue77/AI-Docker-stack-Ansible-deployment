@@ -78,7 +78,7 @@ CLAUDE_CODE_TIGERBLUE77_ENABLED = {
 
 # The values that HAVE a real default and whose grammar still admits a "$": a login, a model alias, a
 # database role and name, a host path. The mandatory ones and the empty ones need no list -- see
-# "dollar_variables". What is left out has a grammar with no "$" in it -- an image tag, a Docker
+# "dollar_variables". What is left out has a grammar with no "$" in it -- a Docker
 # object name, a memory size, a number, a time zone -- and the template writes it without the
 # "replace" for that reason. An optional free-form value whose default is "false", the role's idiom
 # for "not set", belongs here too: "false" is also how a toggle is written, so it cannot be derived.
@@ -107,12 +107,12 @@ def load_defaults():
 
     Several defaults are derived -- a destination path is a directory plus a file name -- and
     "yaml.safe_load" has no reason to notice: it hands back the "{{ ... }}" as the literal string it
-    is. Rendered into the template, that literal reaches the compose file, and a mount or a build
-    context written that way is read as naming something else entirely.
+    is. Rendered into the template, that literal reaches the compose file, and a mount path written
+    that way is read as naming something else entirely.
 
     This resolved one pair by hand while there was one pair. #1, #13 and #76 each added another --
     independently, on separate branches -- and the by-hand form reported the first as an undeclared
-    volume and would have carried the others' literals into "build.context" and a mount path
+    volume and would have carried the others' literals into a mount path
     unnoticed, since nothing here reads those keys. All are findings about the CHECK, phrased as
     findings about the template, which is the shape that gets a real one waived. It resolves every
     default now, by rendering each one against the others until nothing moves.
@@ -212,9 +212,9 @@ def check_conventions(document, state, failures):
             failures.append(f"{where}: image {image!r} is tagged ':latest' -- write it with no tag, which means the same")
 
         # An image is pulled, never built here. Compose builds a service's image only when none by that
-        # name exists and never again when the Dockerfile changes (#189), so a host that built it
-        # once goes on running an image nobody compares with its source; and what builds it is one
-        # more obligation on the deployer. "in" rather than ".get": "build:" written empty is still
+        # name exists and never compares it with its source, so a host that built it once goes on
+        # running an image nobody checks against that source; and what builds it is one more
+        # obligation on the deployer. "in" rather than ".get": "build:" written empty is still
         # the key, and a mapping, a bare path and nothing at all are all refused alike.
         if "build" in service:
             failures.append(f"{where}: declares build -- an image is pulled, never built here")
@@ -483,8 +483,8 @@ CONVENTION_CASES = [
      "expected 'any'"),
     ("container_name declared", {"services": {"svc": service(container_name="svc")}},
      "declares container_name"),
-    # The shape the agent had until it floated: a build context beside an image name. Refused in
-    # each spelling Compose accepts, because the check reads the key and not what it holds.
+    # A build context beside an image name. Refused in each spelling Compose accepts, because the
+    # check reads the key and not what it holds.
     ("build with a context and an image",
      {"services": {"svc": service(build={"context": "/srv/svc"})}},
      "declares build"),

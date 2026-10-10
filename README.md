@@ -357,7 +357,7 @@ souvent rien, avec un simple avertissement. Mesuré avec Compose v5.1.1 : `sk-Ab
 conteneur en `sk-Ab`, `sk-Ab$HOME` en `sk-Ab/root`, et `${` suivi d'un chiffre fait refuser le fichier
 entier. Le template écrit donc toute valeur de l'appelant dont la grammaire admet un `$` -- secrets,
 identifiants, alias de modèle, chemins d'hôte -- avec `| replace('$', '$$')`, que Compose ramène à un
-`$` unique. Restent sans : tags et digests d'image, noms d'objets Docker, limites mémoire, nombres et
+`$` unique. Restent sans : noms d'objets Docker, limites mémoire, nombres et
 fuseau horaire, dont la grammaire exclut le `$`. Côté appelant, rien à échapper : une valeur du vault se
 donne telle quelle, et doublée à la main elle arriverait fausse.
 
@@ -564,31 +564,34 @@ cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
 ## L'agent Claude Code -- tigerblue77 (#13)
 
 Déployé **tel quel** depuis l'image que publie `Claude-Code-Docker-container`
-(`ghcr.io/dragnix-tigerblue77/claude-code-docker-container`), écrite sans tag comme toutes les autres :
-le déployeur la récupère à chaque exécution, donc chaque déploiement apporte la version courante de Claude
-Code, sans variable ni épinglage de notre côté. Rien n'est construit ici.
+(`ghcr.io/dragnix-tigerblue77/claude-code-docker-container`), écrite sans tag comme les autres images
+qui ne sont pas des bases de données : le déployeur la récupère à chaque exécution, sans variable ni
+épinglage de notre côté. Rien n'est construit ici.
 
-**Ce que l'image apporte, et ce qu'elle n'apporte pas.** Mesuré dans l'image publiée elle-même (sa
-configuration et les fichiers de ses couches) : l'utilisateur non-root `node`, `/workspace` comme répertoire
-de travail, l'auto-updater désactivé, `git`, `ripgrep`, `jq` et `less`. Elle ne porte ni `gh`, ni
-`ansible-core` (ni `python3`, ni `pip3`), ni client `docker`, ni `build-essential`, ni `curl`, ni
-`procps`. Ce sont les outils du travail d'infrastructure de tigerblue77 que l'ancien `Dockerfile` rendu par
-ce rôle ajoutait par-dessus ; ils manquent désormais, et la place pour les remettre est l'image publiée
-elle-même, ou une image dérivée si on y revient. #226 en garde le détail et les options écartées.
+**Ce que « sans tag » veut dire pour cet agent.** Le tag `latest` de cette image suit le canal `stable` de
+npm, pas son canal `latest` : la version de Claude Code qu'il porte a quelques publications de retard, voulu
+par le dépôt amont. Un déploiement qui trouve une nouvelle image recrée le conteneur et met fin au
+processus `claude` en cours ; l'état de la conversation est dans le volume du répertoire personnel, et
+`claude --continue` la reprend. Pour revenir en arrière, écrire la version dans la ligne `image:` du
+template (`...:<version>`) le temps de corriger.
 
-**Le service démarre comme avant.** L'entrée de l'image publiée est `claude` seul, sans `CMD`, et le bloc du
-service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance `claude` sans argument,
-exactement ce que faisait `exec claude "$@"` de l'ancien script d'entrée quand `$@` était vide.
+**Ce que l'image apporte, et ce qu'elle n'apporte pas.** Mesuré le 2026-10-10 dans l'image publiée
+(Claude Code 2.1.287 ; le tag bouge, le README du dépôt amont fait foi) : l'utilisateur non-root `node`,
+`/workspace` comme répertoire de travail, l'auto-updater désactivé, `git`, `ripgrep`, `jq` et `less`. Elle ne
+porte ni `gh`, ni `ansible-core` (ni `python3`, ni `pip3`), ni client `docker`, ni `build-essential`, ni
+`curl`, ni `procps`, c'est-à-dire les outils du travail d'infrastructure de tigerblue77. Les avoir dans
+l'agent passe par l'image publiée elle-même, ou par une image dérivée publiée à part.
+
+**Le service démarre comme l'image le prévoit.** L'entrée de l'image publiée est `claude` seul, sans
+`CMD`, et le bloc du service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance
+`claude` sans argument.
 
 **Le répertoire personnel monté est `/home/node` en entier, jamais `~/.claude` seul.** C'est le piège
 d'authentification que le dépôt amont documente sur lui-même : `~/.claude.json` vit À CÔTÉ de
 `~/.claude`, pas dedans, et un volume sur `~/.claude` seul perd la moitié de la session à chaque
-recréation du conteneur, sans qu'aucune erreur ne le signale. C'est ce montage qui tient la session, et il
-n'a pas changé. Ce qui disparaît avec l'ancien script d'entrée : la restauration de `~/.claude.json` depuis
-la plus récente des sauvegardes de `~/.claude/backups/` quand le fichier manque. Elle ne servait que si le
-fichier manquait alors que le répertoire de sauvegardes survivait -- un fichier effacé, ou un volume monté
-d'abord sur `~/.claude` seul -- et ne faisait rien sur un volume neuf, où il n'y a encore aucune
-sauvegarde. Dans ce cas, la copie se refait à la main depuis `~/.claude/backups/`.
+recréation du conteneur, sans qu'aucune erreur ne le signale. C'est ce montage qui tient la session. Rien
+ne restaure `~/.claude.json` s'il manque alors que `~/.claude/backups/` survit (un fichier effacé, un
+volume monté d'abord sur `~/.claude` seul) : la copie se refait à la main depuis `~/.claude/backups/`.
 
 **Aucun montage de `docker.sock` dans cette issue.** #11 n'a pas encore conçu l'isolation qu'un agent
 doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce conteneur attend cette
@@ -597,10 +600,10 @@ branche le socket tant que #11 n'a pas tranché.
 
 **Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
 dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est ce qui doit permettre à `gh` et à git de
-fonctionner à l'intérieur du conteneur. Il est posé en `GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh`
-n'est pas dans l'image publiée, et git ne lit aucune de ces deux variables de lui-même. Tant que `gh` n'est pas
-dans l'image, le jeton est donc posé sans l'outil qui le lit.
+l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est le jeton destiné à `gh`. Il est posé en
+`GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh` n'est pas dans l'image publiée, et git ne lit aucune de
+ces deux variables de lui-même. Tant que `gh` n'est pas dans l'image, le jeton est donc posé sans l'outil
+qui le lit, et il reste obligatoire quand le service est activé.
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte

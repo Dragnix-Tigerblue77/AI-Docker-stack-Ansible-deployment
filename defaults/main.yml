@@ -267,10 +267,9 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
 # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key:
 
 # MANDATORY when the service above is enabled, and without a default. A personal access token, set
-# as "GH_TOKEN" and "GITHUB_TOKEN" in the container, which is where "gh" reads it. The published
-# image does not carry "gh" (it carries git, ripgrep, jq and less), so until "gh" is added to that
-# image the token is set and the tool meant to read it is absent. #13 defers real repository access
-# to the MCP GitHub connector (#23); until that lands, this is how the agent reaches a repository.
+# as "GH_TOKEN" and "GITHUB_TOKEN" in the container, which is where "gh" reads it. Set whether or not
+# the image carries a tool that reads it. #13 defers real repository access to the MCP GitHub
+# connector (#23); until that lands, this is how the agent reaches a repository.
 # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token:
 
 # MANDATORY when the service above is enabled, and without a default: a host path is inventory data,

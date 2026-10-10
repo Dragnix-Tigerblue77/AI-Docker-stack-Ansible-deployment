@@ -59,7 +59,6 @@ ALLOWED_HOSTS = {
     "docker.io": "image registry",
     "hub.docker.com": "image registry",
     "quay.io": "image registry",
-    "cli.github.com": "GitHub CLI's own apt package repository, used by the Claude Code agent (#13)",
     "docs.litellm.ai": "gateway documentation, cited in a comment",
     "code.claude.com": "Claude Code documentation, cited in .claude/README.md",
     "claude.ai": "address of a Claude Code session, in the signature CLAUDE.md prescribes for what a session posts on GitHub",

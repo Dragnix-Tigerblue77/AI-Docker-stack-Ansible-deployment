@@ -15,7 +15,7 @@
 # "$$" is how a literal "$" is spelt to them. Measured with Compose v5.1.1: "sk-Ab$cd9" reached the
 # container as "sk-Ab", "sk-Ab$HOME" as "sk-Ab/root", and "sk-Ab$$cd9" as "sk-Ab$cd9".
 #
-# Written without it, deliberately: image tags and digests, Docker object names, memory sizes,
+# Written without it, deliberately: Docker object names, memory sizes,
 # numbers and the time zone, whose own grammar has no "$" to escape, and the published network's
 # definition, which is compose YAML the caller already writes as such. A LITERAL "$" typed into this
 # template needs the "$$" by hand; there is none, and a "${VAR}" there would be a ".env" in disguise.
@@ -533,14 +533,12 @@ services:
   # ------------------------------------------------------------------------------------------------
   # Claude Code agent -- tigerblue77 (#13), OFF BY DEFAULT. #31 requires every service to declare
   # itself this way, and an agent that receives a person's own credentials is not something a fresh
-  # deployment should run without being asked. Deployed straight from the image its own repository
-  # publishes, nothing built on top of it here.
+  # deployment should run without being asked.
   # ------------------------------------------------------------------------------------------------
   claude_code_tigerblue77:
-    # Floats like every image of the stack, written with no tag: the deployer pulls on every run, so
-    # each deployment brings the current Claude Code release. Built and published by
-    # Dragnix-Tigerblue77/Claude-Code-Docker-container, which is why nothing is built from this file
-    # (#226).
+    # Floats like the stack's other non-database images, written with no tag: the deployer pulls on
+    # every run. Built and published by Dragnix-Tigerblue77/Claude-Code-Docker-container, which
+    # follows npm's stable channel for Claude Code; nothing is built from this file (#226).
     image: ghcr.io/dragnix-tigerblue77/claude-code-docker-container
 
     # Kept open rather than run-and-exit: this is a CLI meant to be reached with "docker exec", not a
@@ -610,7 +608,7 @@ services:
   #   # either): the deployer pulls on every run. A database whose data lives only in its own volume
   #   # is pinned instead, to its major, literally here, with the reason on the line above.
   #   # An image is pulled, never built here, so there is no "build:" key: Compose builds an image only
-  #   # when none by that name exists, and never rebuilds it when its Dockerfile changes (#189).
+  #   # when none by that name exists and never compares it with its source.
   #   image: vendor/image
   #
   #   # Everything below lives under "deploy:", and that is deliberate: it is the only form BOTH
