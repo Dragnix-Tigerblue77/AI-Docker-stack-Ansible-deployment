@@ -8,8 +8,7 @@
 #
 # Deliberately minimal. Every rule of the "default" profile stays on except the one that genuinely
 # clashes with how this repository is written, and it was found by running the linter rather than by
-# copying the sibling repository's waivers wholesale -- three of the four it carries are not needed
-# here.
+# copying another configuration's waivers wholesale.
 
 extends: default
 

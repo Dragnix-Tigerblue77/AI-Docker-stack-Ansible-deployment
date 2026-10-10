@@ -30,8 +30,10 @@ thing CLAUDE.md counts as verification.
 ## What you look for, in priority order
 
 1. **A new or changed service block missing a piece of the commented model.**
-   Every key it demonstrates is mandatory: `image:` pinned by explicit version
-   (never `:latest`, never the implicit tag); everything under `deploy:` and
+   Every key it demonstrates is mandatory: `image:` written with no tag when it floats
+   (never `:latest`, never a tag behind a variable), or pinned literally with its reason on the line
+   above when it is a database, and never a `build:` beside it (an image is pulled, not built
+   here); everything under `deploy:` and
    nothing as a bare `restart:`/`mem_limit:`/`cpus:` (Swarm silently ignores
    those); `deploy.restart_policy.condition: any`, never `on-failure` (an
    unhealthy container exits cleanly, and `on-failure` never replaces a task
@@ -41,8 +43,11 @@ thing CLAUDE.md counts as verification.
    Compose-only dependency that breaks at the Swarm switch); no `ports:` on an
    internal service (reached by service name over `Artificial_Intelligence_internal_Docker_network_name`
    -- only a human-facing web UI is published, and only through the caller's
-   reverse proxy, never a host port); `healthcheck:` only written where it
-   improves on the image's own, not duplicating it; `environment.TZ` from
+   reverse proxy, never a host port); `depends_on:`, where there is one, a
+   plain list of service names (the long form with `condition:` passes
+   `docker compose config` and gets the whole file refused by
+   `docker stack deploy`); `healthcheck:` only written where it improves on
+   the image's own, not duplicating it; `environment.TZ` from
    `Artificial_Intelligence_server_time_zone`.
 2. **A secret with a default.** Every `Artificial_Intelligence_*_password`, `*_key`, `*_token`,
    `*_secret` this role interpolates is written in `defaults/main.yml` as a

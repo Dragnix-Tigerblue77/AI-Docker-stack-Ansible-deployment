@@ -4,9 +4,8 @@
 # tasks file for deploy_Artificial_Intelligence_Docker_stack
 
 # Both checks are made HERE, up front and outside any condition, rather than left to whatever reads
-# the variable. It is the lesson of the homelab repository's "retrieve_value_or_create_Docker_secret":
-# a parameter read behind a condition that almost never holds is a parameter nobody notices is
-# missing, until the day it is missing on a fresh machine.
+# the variable: a parameter read behind a condition that almost never holds is a parameter nobody
+# notices is missing, until the day it is missing on a fresh machine.
 - name: "Check the Artificial Intelligence stack parameters"
   ansible.builtin.assert:
     that:
@@ -41,27 +40,26 @@
       "Artificial_Intelligence_LiteLLM_UI_password" is the only thing standing between the LAN and "/ui" now that its port
       is published, so it is held to the same standard as the other two.
 
-# The floor is checked HERE rather than trusted to whoever edits the tag, because that is the edit
-# where it gets forgotten: raising an image tag feels like a version bump, not like a security
-# decision. Four critical CVEs in four months on this product in 2026 -- among them a
-# PRE-AUTHENTICATED SQL injection whose target is exactly the PostgreSQL service this role deploys.
-#
-# "is version" compares as versions and not as strings, so "1.100.0" is correctly greater than
-# "1.84.0" -- which a string comparison gets backwards, and which is the whole reason this is not a
-# "|| >=" on the raw tag.
-- name: "Check the LiteLLM image tag clears the security floor"
+# After the task above, which has already refused an undefined LiteLLM password: the last line here
+# compares against it. Neither value is printed on failure -- "quiet" leaves only the expression.
+- name: "Check the PostgreSQL superuser is provided and kept apart from LiteLLM's role"
   ansible.builtin.assert:
     that:
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag is string
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag != "main-latest"
-      - Artificial_Intelligence_LiteLLM_Docker_image_tag | regex_replace('^v', '') is version(Artificial_Intelligence_LiteLLM_minimum_secure_version, '>=')
+      - Artificial_Intelligence_PostgreSQL_superuser is string
+      - Artificial_Intelligence_PostgreSQL_superuser | length > 0
+      - Artificial_Intelligence_PostgreSQL_superuser_password is defined
+      - Artificial_Intelligence_PostgreSQL_superuser_password is string
+      - Artificial_Intelligence_PostgreSQL_superuser_password | length > 0
+      - Artificial_Intelligence_PostgreSQL_superuser != Artificial_Intelligence_PostgreSQL_user
+      - Artificial_Intelligence_PostgreSQL_superuser_password != Artificial_Intelligence_PostgreSQL_password
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_LiteLLM_Docker_image_tag" ({{ Artificial_Intelligence_LiteLLM_Docker_image_tag }}) is below the security floor
-      "Artificial_Intelligence_LiteLLM_minimum_secure_version" ({{ Artificial_Intelligence_LiteLLM_minimum_secure_version }}), or is the
-      deprecated "main-latest" tag, which is no longer fed and freezes the deployment on an old image
-      while looking current. This container holds both accounts' provider keys and the master key.
-      Re-check the upstream security advisories and raise the tag -- never lower the floor.
+      "Artificial_Intelligence_PostgreSQL_superuser_password" is mandatory and has no default, and
+      "Artificial_Intelligence_PostgreSQL_superuser" and its password must both differ from LiteLLM's
+      own role and password (#159). LiteLLM connects as an ordinary role that owns its database and
+      nothing else, so that an SQL injection through the gateway cannot reach "COPY ... PROGRAM" --
+      a shell in the PostgreSQL container. The same name would make the init script fail on a role
+      that already exists; the same password would put the superuser's login in LiteLLM's environment.
 
 - name: "Check tigerblue77's LiteLLM provider keys are provided"
   ansible.builtin.assert:
@@ -72,9 +70,6 @@
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | length > 0
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is defined
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is string
       - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | length > 0
@@ -86,13 +81,14 @@
       - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | length > 0
     quiet: true
     fail_msg: >-
-      tigerblue77's six LiteLLM provider keys (Gemini, Mistral, Cerebras, Groq, OpenRouter, DeepSeek)
+      tigerblue77's five LiteLLM provider keys (Gemini, Mistral, Groq, OpenRouter, DeepSeek)
       are mandatory and have no default, like every other secret this role interpolates.
       "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
       any OTHER account's own provider keys are deliberately absent here: each one added through
       "Artificial_Intelligence_LiteLLM_internal_users" (#103) adds theirs themselves, from their own restricted "/ui"
       login, never tigerblue77's own admin one. The GitHub key is asserted nowhere: #109 retired every
-      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml).
+      "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml). Nor is
+      the Cerebras key: Cerebras has no free tier any more and its entries are commented out (#200).
 
 - name: "Check the Redis password is provided"
   ansible.builtin.assert:
@@ -216,9 +212,8 @@
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.
 #
 # Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
-# level "vars:": it is the only form that beats a fact already set, and that is what #459 cost the
-# homelab repository -- a task connecting as an account other than the one its "vars:" announced,
-# and reporting "ok".
+# level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a
+# task connects as an account other than the one its "vars:" announced while reporting "ok".
 # The two secrets never appear in a file of their own: they are interpolated straight into the
 # compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
 # file to secure -- the compose file itself already carries the "0600" / "diff: false" contract the
@@ -234,10 +229,13 @@
     owner: "root"
     group: "root"
     mode: "0644"
+  # Its "checksum" is what gets a changed configuration applied at all (#161): see the parameters of
+  # "Deploy the ... Docker stack" below.
+  register: Artificial_Intelligence_LiteLLM_config_rendering
 
-# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja of its own, only
-# LibreChat's own "${VAR}" syntax, which LibreChat itself resolves from its container's environment
-# at runtime -- Ansible has nothing to interpolate here.
+# Copied rather than rendered (#76): the file carries no "{{ ... }}" Jinja and no secret. Its
+# "apiKey" is "user_provided" since #103, each LibreChat account entering its own gateway key
+# itself, so Ansible has nothing to interpolate here.
 - name: "Deploy the LibreChat configuration"
   ansible.builtin.copy:
     src: "librechat/librechat.yaml"
@@ -245,31 +243,8 @@
     owner: "root"
     group: "root"
     mode: "0644"
-
-# "ansible.builtin.template" does not create the directories its "dest" lands in -- unlike
-# "Artificial_Intelligence_Docker_compose_file_destination_directory", which the deployment role is trusted to already
-# have prepared, this one is local to this build context and nothing else creates it.
-- name: "Create the Claude Code agent (tigerblue77) build context directory"
-  ansible.builtin.file:
-    path: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory }}"
-    state: directory
-    owner: "root"
-    group: "root"
-    mode: "0755"
-  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
-
-# "build:" needs an actual Dockerfile on the managed node, not something read out of this
-# repository's own checkout at deploy time -- which may not even be present there. Rendered rather
-# than copied so the image it is built FROM stays a single value in "defaults/main.yml", pinned by
-# tag and digest, instead of a second copy baked into a static file (#13).
-- name: "Render the Claude Code agent (tigerblue77) Dockerfile"
-  ansible.builtin.template:
-    src: "claude_code_tigerblue77.Dockerfile.j2"
-    dest: "{{ Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory }}Dockerfile"
-    owner: "root"
-    group: "root"
-    mode: "0644"
-  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+  # Same reason as the LiteLLM configuration above (#161).
+  register: Artificial_Intelligence_LibreChat_config_deployment
 
 - name: "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
@@ -279,6 +254,19 @@
     Docker_compose_file_name: "{{ Artificial_Intelligence_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_path }}"
+    # Not part of that contract (#161): the deployment role does nothing with these two but render
+    # the compose template in their scope, which it does anyway. The template names the Docker
+    # config that carries each file after its checksum, and a new name is the only thing that changes
+    # the compose file when only the configuration changed -- without it neither Compose nor Swarm
+    # sees a difference, and the container keeps running on the old file. See
+    # "Artificial_Intelligence_LiteLLM_config_Docker_name" in defaults/main.yml.
+    #
+    # "default(false)" is for "--check": a template or copy about to change its file returns no
+    # "checksum" in check mode -- the copy action returns before adding it to its result -- and
+    # "false" leaves the config's bare name in that dry run's compose file rather than failing on an
+    # undefined attribute.
+    Artificial_Intelligence_LiteLLM_config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_rendering.checksum | default(false) }}"
+    Artificial_Intelligence_LibreChat_config_checksum: "{{ Artificial_Intelligence_LibreChat_config_deployment.checksum | default(false) }}"
 
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.

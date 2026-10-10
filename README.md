@@ -33,10 +33,11 @@ mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Doc
 `Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
-Le modèle commenté en tête du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`) porte les conventions
-qu'un bloc de service doit tenir : image épinglée par version, limite mémoire déclarée,
-`deploy.restart_policy.condition: any`, aucun port publié pour un service interne, aucun secret en
-clair. Elles sont écrites là plutôt que dans un document séparé parce que c'est là qu'on les oublie.
+Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
+après les services, porte les conventions qu'un bloc de service doit tenir : image sans tag (ou, pour
+une base de données, épinglée avec sa raison), limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié pour un
+service interne, aucun secret en clair. Elles sont écrites là plutôt que dans un document séparé
+parce que c'est là qu'on les oublie.
 
 ## Un rôle paramétrable, pas un rôle spécifique
 
@@ -74,6 +75,14 @@ sections qui suivent.
 
 ## Variables du rôle
 
+**Aucune variable ne porte une image ni son tag.** Une image flotte par défaut et s'écrit sans tag
+(`image: redis`), puisque l'absence de tag *est* `latest` : le déployeur la récupère à chaque
+exécution, donc chaque déploiement apporte la version courante et ses correctifs. Seules les bases de
+données dont les données ne vivent que dans leur volume -- PostgreSQL, MongoDB, Qdrant -- sont épinglées,
+en dur dans le template, avec leur raison au-dessus de la ligne `image:` : une montée de majeur tombe
+sur une organisation des données que la nouvelle image ne lit pas. Une image se récupère, elle ne se
+construit jamais ici : aucun service ne porte de clé `build:`, et `check_compose_template.py` en refuse une.
+
 Le stack porte déjà plusieurs services -- la passerelle et sa base, Redis, OmniRoute, Qdrant, LibreChat
 et sa base, l'agent Claude Code de tigerblue77 (désactivé par défaut) -- chacun arrivé par sa propre
 issue de service, avec son bloc et ses variables. Ce que ce rôle apporte reste la forme plutôt que le
@@ -96,17 +105,17 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_password` | aucun | **Obligatoire.** Le mot de passe du rôle de LiteLLM, `Artificial_Intelligence_PostgreSQL_user` -- un rôle **ordinaire**, propriétaire de sa base et de rien d'autre, jamais superutilisateur (#159). Rendu depuis le vault de l'appelant. Sans défaut : un mot de passe par défaut est un mot de passe, et livré dans un dépôt, un mot de passe publié. |
+| `Artificial_Intelligence_PostgreSQL_superuser` | `postgres` | Le superutilisateur du cluster (#159). Rien ne s'y connecte : il crée le rôle de LiteLLM à l'initialisation, et sert à un humain par `docker exec … psql`. Doit différer du rôle de LiteLLM. |
+| `Artificial_Intelligence_PostgreSQL_superuser_password` | aucun | **Obligatoire** (#159). Rendu depuis le vault, et **différent** de `Artificial_Intelligence_PostgreSQL_password` : le rôle refuse la même valeur pour les deux. |
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
-| `Artificial_Intelligence_LiteLLM_Docker_image_tag` | `v1.100.0` | SemVer explicite, jamais `main-latest`. **À re-vérifier le jour du déploiement.** |
-| `Artificial_Intelligence_LiteLLM_minimum_secure_version` | `1.84.0` | Le plancher de sécurité que `tasks/main.yml` refuse de franchir vers le bas. |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
-| `Artificial_Intelligence_PostgreSQL_Docker_image_tag` | `17-alpine` | Majeur explicite : une montée de majeur impose un `pg_dump` / restauration. |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
+| `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les deux secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
@@ -119,7 +128,7 @@ les siennes ici) :
 | `Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77` | aucun | **Obligatoire.** |
-| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | aucun | **Obligatoire.** |
+| `Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77` | aucun | **Obligatoire.** |
 | `Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77` | aucun | **Obligatoire.** Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
@@ -128,7 +137,6 @@ Et celles que #71 apporte, pour Redis :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Redis_Docker_image_tag` | `7-alpine` | Majeur explicite, jamais `:latest`. |
 | `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
 | `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. |
 | `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
@@ -137,7 +145,6 @@ Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_OmniRoute_Docker_image_tag` | `3.8.50` | SemVer explicite, jamais `:latest` ni la variante `-web`. |
 | `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
 | `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
 | `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
@@ -146,7 +153,6 @@ Et celles que #3 apporte, pour Qdrant :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Qdrant_Docker_image_tag` | `v1.19.1` | SemVer explicite, jamais `:latest`. |
 | `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
 | `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
@@ -157,10 +163,8 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
-| `Artificial_Intelligence_Claude_code_Docker_image_tag` · `..._digest` | `2.1.236` / le digest publié | L'image dont l'agent est construit, épinglée par tag **et** digest -- jamais l'un sans l'autre. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_build_context_directory` | *dérivé* | Où le `Dockerfile` rendu atterrit sur le nœud géré, à côté du `docker-compose`. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). |
+| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). Posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` ; l'image publiée ne porte pas `gh` (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
@@ -170,8 +174,6 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LibreChat_Docker_image_tag` | `v0.8.7` | Version stable explicite, jamais `-dev` ni `:latest`. |
-| `Artificial_Intelligence_MongoDB_LibreChat_Docker_image_tag` | `8.0.20` | Majeur explicite. |
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
@@ -179,8 +181,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
-sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`. C'est l'idiome des rôles Docker et
-DNS du dépôt `Homelab_Ansible_deployment`, repris tel quel plutôt que réinventé.
+sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`.
 
 Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
@@ -197,7 +198,7 @@ connexion ne le quitte, donc le service reste sain et ses journaux restent vides
 ## OmniRoute -- le repli gratuit et sans clé (#73)
 
 **Aucune clé de fournisseur n'est jamais connectée à ce service, et c'est le point central.** Il sert de
-dernier recours à chaque cascade de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
+dernier recours à plusieurs cascades de repli de la passerelle (#2) : quand tous les fournisseurs à clé sont
 épuisés, la requête atterrit ici plutôt que d'échouer. `check_LiteLLM_account_isolation.py` (#32)
 reconnaît une entrée dont la clé est une chaîne littérale -- jamais `os.environ/...` -- comme
 délibérément partagée entre tous les comptes, précisément parce qu'il n'y a aucun quota derrière elle à
@@ -222,11 +223,12 @@ modèle commenté du template met en garde contre.
 
 ## LibreChat -- l'interface humaine du stack Artificial Intelligence (#76)
 
-**`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja : la clé
-d'API y est lue par LibreChat lui-même, avec sa propre syntaxe `${VAR}`, depuis l'environnement du
-conteneur -- Ansible n'a rien à y interpoler. Repris du POC fonctionnel de tigerblue77, avec trois
-corrections : deux identifiants de modèles absents du `model_list` réel de #2, et une `apiKey` qui
-portait la clé maîtresse de la passerelle plutôt qu'une clé virtuelle dédiée.
+**`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja, et il ne
+porte aucun secret : son `apiKey` vaut `"user_provided"` depuis #103, chaque compte LibreChat
+saisissant lui-même sa propre clé de la passerelle -- Ansible n'a rien à y interpoler. Repris du POC
+fonctionnel de tigerblue77, avec trois corrections : deux identifiants de modèles absents du
+`model_list` réel de #2, et une `apiKey` qui portait la clé maîtresse de la passerelle plutôt qu'une
+clé virtuelle dédiée.
 
 **L'inscription est fermée.** Le port `3080` est publié sur le LAN, et une inscription ouverte y
 donnerait à n'importe qui sur le réseau un accès aux quotas des deux comptes.
@@ -292,13 +294,20 @@ charge, et ce rôle-là doit :
    sans fournir la mécanique qui le déploie ;
 2. lire `Docker_stack_name`, `Docker_compose_file_destination_path` et
    `Docker_compose_file_destination_directory`, que `tasks/main.yml` lui passe en paramètres
-   d'`include_role` ;
-3. écrire le fichier rendu en **`0600` et avec `diff: false`**. Le stack n'interpole encore aucun secret,
-   mais il en interpolera dès la première issue de service -- clés d'API de quatre fournisseurs, clé
-   maîtresse de la passerelle, jetons. `/tmp` est le premier endroit où tout compte de la machine regarde,
-   et `--diff` imprimerait le fichier *entier* dans la sortie du run, donc dans tout ce qui la capture.
+   d'`include_role`. Les deux autres qu'il reçoit par le même chemin, les sommes de contrôle des
+   configurations montées (#161), ne lui demandent rien : c'est le template qui les lit ;
+3. écrire le fichier rendu en **`0600` et avec `diff: false`**. Il porte en clair les secrets des
+   services, qu'Ansible y interpole -- mots de passe des bases et des interfaces, clé maîtresse de la
+   passerelle, clés des fournisseurs, clés et jetons des services. `/tmp` est le premier endroit où
+   tout compte de la machine regarde, et `--diff` imprimerait le fichier *entier* dans la sortie du
+   run, donc dans tout ce qui la capture ;
+4. **récupérer les images à chaque exécution**, puisque la plupart des images du stack flottent.
+   `docker stack deploy` résout les empreintes à chaque appel ; Compose, lui, ne télécharge une image
+   que si elle manque en local, et un déployeur Compose doit donc la récupérer explicitement
+   (`docker compose pull`, `pull: always`). Sans cela, une image sans tag garde la première qu'elle a
+   eue, pour toujours.
 
-Et une quatrième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
+Et une cinquième obligation, qui pèse sur l'**appelant** et non sur le rôle nommé : **ce que ce rôle-là
 exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `assert` ne peuvent le deviner —
 le rôle de déploiement est désigné par une variable, donc son contenu est inconnu au moment où les
 vérifications tournent.
@@ -317,9 +326,25 @@ et `Docker_stack_deployment_state`.
 
 ## La passerelle et sa base (#1)
 
-Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte les deux
+Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte leurs
 secrets, interpolés directement par Ansible -- et la configuration de routage de LiteLLM, montée en
 lecture seule et sans secret propre.
+
+**Une configuration modifiée recrée le conteneur qui la lit (#161).** LiteLLM ne lit
+`LiteLLM_config.yaml` qu'au démarrage, LibreChat fait de même avec `librechat.yaml`. Montés en bind
+mounts, changer l'un ne changeait rien au fichier compose, qui n'en porte que le chemin -- or c'est lui
+seul que `docker compose up` et `docker stack deploy` comparent : le conteneur continuait de tourner sur
+l'ancienne configuration pendant qu'Ansible affichait `changed`, et il ne voyait même pas le nouveau
+fichier, écrit par renommage sous un nouvel inode. Mesuré avec LiteLLM 1.100.0 : même conteneur, même
+`StartedAt`, anciens noms de modèles dans `/v1/models`. Chaque fichier est donc monté comme une **config
+Docker**, dont le nom porte le contenu : `LiteLLM_config-<8 premiers caractères du SHA-1>`, et
+`LibreChat_config-<…>`. `tasks/main.yml` passe le SHA-1 de chaque fichier au rôle de déploiement, en
+paramètre d'`include_role`, et le template en tire le nom de la config, au niveau supérieur et dans le
+service qui la monte. Une config Swarm est immuable : un fichier modifié est un nouveau nom, donc une mise
+à jour ordinaire du service, et Compose recrée un conteneur dont la source de `configs` a changé. Un run
+`--check` sur le point de changer un fichier utilise le nom sans suffixe, le module ne rendant pas de
+somme de contrôle dans ce cas. Sous Swarm, les anciennes configs restent sur le nœud tant que personne ne
+les supprime (`docker config rm`) ; sous Compose, rien ne s'accumule.
 
 **Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, validée par
 tigerblue77 le 07/09/2026 : le compromis (HTTP sans TLS, authentification basique seule, port ouvert
@@ -333,30 +358,102 @@ sa place. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAM
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
 
-**Les deux secrets vivent dans le fichier compose, pas dans un `.env` à part.** `Artificial_Intelligence_PostgreSQL_password`
-et `Artificial_Intelligence_LiteLLM_master_key` sont interpolés par Ansible au rendu, comme le reste du template -- c'est ce
-qui permet à la même forme de servir Compose et Swarm sans y toucher : Ansible rend ce fichier de la
-même façon quel que soit celui qui le lira ensuite. C'est aussi pourquoi le fichier compose porte déjà
-l'obligation `0600` / `diff: false` du contrat du rôle de déploiement : elle existe depuis #31,
-précisément pour le jour où le template interpolerait un secret.
+**Les secrets vivent dans le fichier compose, pas dans un `.env` à part.**
+`Artificial_Intelligence_PostgreSQL_password` et `Artificial_Intelligence_LiteLLM_master_key` d'abord,
+puis ceux que chaque issue de service a apportés depuis (voir les tableaux de variables plus haut) --
+tous, sauf le mot de passe du compte LibreChat de Dragnix, que seul `create-user` reçoit (#76). Ce
+sont des variables du rôle, que l'appelant rend depuis son vault et qu'Ansible interpole au rendu,
+comme le reste du template -- c'est ce qui permet à la même forme de servir Compose et Swarm sans y
+toucher : Ansible rend ce fichier de la même façon quel que soit celui qui le lira ensuite. C'est aussi
+pourquoi le fichier compose porte l'obligation `0600` / `diff: false` du contrat du rôle de
+déploiement : elle existe depuis #31, précisément pour le jour où le template interpolerait un secret.
+
+**Et chaque `$` d'une valeur y est doublé (#155).** Compose -- comme `docker stack deploy` -- relit le
+fichier rendu avec sa propre interpolation `$VAR` / `${VAR}`, après Ansible : un `$` resté simple y est
+lu comme le début d'une variable à lui, remplacée par ce qu'elle vaut dans son environnement, le plus
+souvent rien, avec un simple avertissement. Mesuré avec Compose v5.1.1 : `sk-Ab$cd9` arrivait dans le
+conteneur en `sk-Ab`, `sk-Ab$HOME` en `sk-Ab/root`, et `${` suivi d'un chiffre fait refuser le fichier
+entier. Le template écrit donc toute valeur de l'appelant dont la grammaire admet un `$` -- secrets,
+identifiants, alias de modèle, chemins d'hôte -- avec `| replace('$', '$$')`, que Compose ramène à un
+`$` unique. Restent sans : noms d'objets Docker, limites mémoire, nombres et
+fuseau horaire, dont la grammaire exclut le `$`. Côté appelant, rien à échapper : une valeur du vault se
+donne telle quelle, et doublée à la main elle arriverait fausse.
 
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
 portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
 rend inutile tout le travail d'isolation de #2.
 
-**Le plancher de version est vérifié par le rôle, pas par la relecture.** `tasks/main.yml` refuse un tag
-inférieur à `Artificial_Intelligence_LiteLLM_minimum_secure_version`, et refuse `main-latest`. La comparaison se fait avec le
-test `version` d'Ansible et non en chaînes : `1.100.0` est bien supérieur à `1.84.0`, ce qu'une
-comparaison de chaînes affirme à l'envers. Le plancher est à **re-vérifier le jour du déploiement** contre
-les avis amont : quatre CVE critiques en quatre mois sur ce produit en 2026, dont une injection SQL
-*pré-authentifiée* visant précisément la base déployée ici.
+**Une migration de schéma qui échoue arrête LiteLLM, au lieu de le laisser servir sur l'ancien
+schéma.** LiteLLM applique ses migrations Prisma à chaque démarrage, et c'est une montée de tag -- celle
+que le paragraphe suivant réclame -- qui en apporte de nouvelles. Par défaut, une migration en échec
+est journalisée (« Database migration failed but continuing startup ») et le serveur démarre quand même :
+`/health/liveliness`, et même `/health/readiness` qui ne teste que la connexion, répondent 200, la
+politique de redémarrage n'a rien à rattraper, et c'est la première requête touchant une table absente
+qui échoue. Le template passe donc `--enforce_prisma_migration_check` : une migration en échec fait
+sortir le conteneur (code 1), la politique `condition: any` le relance, et la boucle de redémarrage
+reste visible jusqu'à ce que la cause soit levée -- la migration passe alors au démarrage suivant, sans
+autre intervention. Le prix : un échec passager coûte lui aussi un redémarrage. Si la boucle apparaît
+après une montée de tag, la migration en cause se lit dans les journaux du service `litellm`, sous
+`Error: P30…` ; retirer l'option pour que le service « démarre » ne ferait que rendre l'échec muet.
+
+**LiteLLM n'est pas le superutilisateur de sa base (#159).** L'image officielle fait de `POSTGRES_USER`
+le superutilisateur d'amorçage, et ce rôle ne peut jamais perdre l'attribut. LiteLLM se connectait avec
+lui : une injection SQL préalable à toute authentification (LiteLLM en a connu une en 2026) lui
+donnait `COPY … PROGRAM` -- un shell dans le conteneur `postgres` -- et la lecture de tout fichier du
+serveur. Il se connecte désormais avec un rôle ordinaire (`LOGIN`, rien d'autre), propriétaire de sa
+base et donc, depuis PostgreSQL 15, de son schéma
+`public` : c'est tout ce dont les migrations Prisma ont besoin, vérifié en direct avec LiteLLM
+v1.100.0 (161 migrations appliquées ; `COPY … PROGRAM`, `pg_read_file` et `CREATE EXTENSION dblink`
+refusés). Le superutilisateur est un autre rôle, `Artificial_Intelligence_PostgreSQL_superuser`, avec
+son propre mot de passe.
+
+Ce rôle est créé au premier démarrage par un script de `/docker-entrypoint-initdb.d/` que la `command:`
+du service `postgres` écrit dans le conteneur avant de passer la main à l'entrypoint de l'image. Ni
+fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la tâche, et `/tmp` ne garde
+pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
+
+**PostgreSQL 15 au minimum**, et rien ne le vérifie : le majeur est écrit en dur dans le template
+(`image: postgres:17-alpine`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
+valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
+`pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
+`14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
+command \getenv`, les redémarrages suivants sautent l'initialisation, et PostgreSQL tourne, sonde de
+santé au vert, sans aucun rôle avec lequel LiteLLM puisse se connecter. Le rôle ne répare pas ce
+volume ; il ne contient rien de LiteLLM, et le supprimer, tag relevé, est la seule sortie.
+`15-alpine`, lui, a porté les 161 migrations de LiteLLM v1.100.0 sous son rôle ordinaire.
+
+### Un volume créé avant le rôle dédié de LiteLLM
+
+L'image n'exécute `/docker-entrypoint-initdb.d/` que sur un répertoire de données **vide**. Sur un volume
+initialisé avant #159, rien ne change : le rôle de LiteLLM reste le superutilisateur d'amorçage,
+LiteLLM continue de fonctionner, et le rôle `Artificial_Intelligence_PostgreSQL_superuser` n'existe pas
+-- son mot de passe n'est lu nulle part. Rien ne casse, rien ne s'améliore. Aucune v1.0 n'ayant pu aboutir
+à un déploiement (#126), seuls des volumes de banc d'essai sont concernés ; si leur contenu ne compte pas,
+supprimer le volume et redéployer suffit.
+
+Pour garder les données (clés virtuelles, comptes, consommation), vérifié de bout en bout sous Compose,
+une clé créée avant la bascule retrouvée après :
+
+```bash
+# « litellm » est le défaut du rôle comme de la base : remplacer par les vôtres s'ils diffèrent.
+# 1. Exporter, avec l'ancien superutilisateur -- le rôle de LiteLLM, sur le socket du conteneur
+docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
+# 2. Arrêter le stack, puis supprimer SON volume PostgreSQL (docker volume ls pour son nom exact)
+docker volume rm <volume PostgreSQL du stack>
+# 3. Redéployer avec le rôle : l'initialisation crée le superutilisateur et le rôle de LiteLLM,
+#    et LiteLLM migre une base vide
+# 4. Arrêter LiteLLM (docker stop <conteneur litellm> sous Compose, docker service scale <stack>_litellm=0
+#    sous Swarm), restaurer EN TANT QUE rôle de LiteLLM, qui possède ainsi tout ce qu'il restaure, puis
+#    le relancer (docker start, ou scale à 1)
+docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
+```
 
 ### Un point qui attend la bascule Swarm, et un qui ne l'attend plus
 
 L'interpolation par Ansible plutôt que par un `.env` a réglé le premier problème d'elle-même : rendre
 le fichier compose est le travail d'Ansible, pas de l'orchestrateur, donc la bascule Compose → Swarm ne
-change rien à la façon dont les deux secrets y arrivent.
+change rien à la façon dont les secrets y arrivent.
 
 Ce qui reste à traiter à ce moment-là : **LiteLLM lit `os.environ/…`** pour sa clé maîtresse et son URL
 de base, valeurs que le compose lui passe en clair via `environment:`. Swarm sait faire pareil, à
@@ -364,20 +461,49 @@ l'identique -- ce n'est donc pas un blocage -- mais le jour de la bascule est le
 demander si les secrets natifs de Swarm ne valent pas mieux que des variables en clair dans le fichier
 rendu, question que Compose ne se pose de toute façon pas.
 
-`depends_on` relève d'un registre voisin : c'est une facilité de Compose, **Swarm l'ignore**. LiteLLM doit
-donc tolérer une base pas encore prête, et c'est la politique de redémarrage qui rattrape le cas — pas
-l'ordre de démarrage. Le bloc est conservé parce qu'il épargne un premier démarrage en échec au banc
-d'essai.
+`depends_on` relève d'un registre voisin, et il s'écrit **sous sa forme courte**, une simple liste de
+services. Compose démarre ces services d'abord, sans attendre qu'ils soient sains ; `docker stack deploy`
+accepte la liste et l'ignore. La forme longue (`condition: service_healthy`), qui ferait attendre Compose,
+n'est pas ignorée par Swarm, contrairement à ce que ce paragraphe affirmait jusqu'à #154 : docker/cli
+valide le fichier contre son propre schéma, où `depends_on` est une liste de chaînes, et **refuse le
+fichier entier** (`services.litellm.depends_on must be a list`) avant même de parler au démon.
+`check_compose_template.py` refuse donc toute autre forme que la liste.
+
+LiteLLM doit ainsi tolérer une base pas encore prête, sous les deux déployeurs, et c'est la politique de
+redémarrage `any` qui rattrape le cas -- pas l'ordre de démarrage. Mesuré avec une base retenue 45 s :
+le premier démarrage de LiteLLM échoue (`Application startup failed. Exiting.`), le conteneur est relancé
+une fois, et le second devient sain. Ce que la relance ne rattrape pas : LiteLLM poursuit son démarrage
+quand ses migrations échouent (`Database migration failed but continuing startup`), donc une base qui
+se met à répondre entre cet échec et la connexion de démarrage le laisse tourner sur un schéma non
+migré. C'est `ENFORCE_PRISMA_MIGRATION_CHECK` qui ferme cette fenêtre, sujet traité à part.
+
+**La sonde de santé de `postgres` passe par TCP, sur le port de `DATABASE_URL`, et pas par le socket
+Unix (#153).** Au premier démarrage, l'image initialise le volume sur un serveur temporaire qui
+n'écoute que sur le socket ; une sonde par socket le déclarait sain alors que le port 5432 refusait
+encore tout autre conteneur -- mesuré : `healthy` à 5 s, port ouvert à 21 s sur une initialisation
+tenue ouverte 20 s. Une porte `service_healthy` ne vaut que ce que vaut la sonde, et la sonde ne
+sert pas qu'à cette porte : c'est elle que lisent `docker compose ps`, `docker compose up --wait`,
+et sous Swarm l'état des tâches et la surveillance d'une mise à jour. Le prix est qu'elle échoue
+pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start_period` puis
+`retries` × `interval`), contre une à deux secondes mesurées pour un premier démarrage ordinaire.
 
 ## Le `model_list` de tigerblue77 (#2, périmètre v1)
 
-`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- une soixantaine
-d'entrées à travers Gemini, Mistral, Cerebras, Groq, OpenRouter (`:free`) et OmniRoute en dernier
-recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en
-accès direct, seul fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il
-apparaît, juste avant OmniRoute, qui reste le seul vraiment gratuit. GitHub Models, initialement du
-nombre, en a été retiré (#109) : totalement fermé par GitHub le 2026-07-30, ses six entrées restent
-dans le fichier à titre d'archive, commentées, mais ne comptent plus dans le total actif.
+`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel de tigerblue77 -- 52 entrées actives à
+travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
+propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, seul
+fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il apparaît, juste
+avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
+(`CLAUDE.md`, « The model list keeps only what can be called ») : un modèle retiré par son fournisseur
+est supprimé, un modèle servi mais délibérément non routé reste commenté avec sa raison, un nouveau
+modèle est ajouté. #169 l'a appliquée à Groq, #200 à tous les autres (recensement du 2026-09-27) :
+GitHub Models, fermé par GitHub le 2026-07-30 (#109), est supprimé et non plus archivé ; Cerebras n'a
+plus de palier gratuit permanent (5 $ de crédit après ajout d'un moyen de paiement, expirés au bout
+de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée
+obligatoire, n'est plus lue par aucune entrée active ; Mistral ne donne plus qu'un crédit de 10 $
+par mois (« Free mode », sans carte), traité comme gratuit. Les entrées `:free` d'OpenRouter
+partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
+10 crédits achetés.
 
 **Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** tigerblue77 ajoute les
 siennes lui-même depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même modèle que ses autres
@@ -455,33 +581,47 @@ cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
 
 ## L'agent Claude Code -- tigerblue77 (#13)
 
-Construit **sur** l'image publiée par `Claude-Code-Docker-container`, jamais reconstruit depuis une
-base nue : cette image porte déjà le CLI épinglé, l'utilisateur non-root `node` et l'auto-updater
-désactivé, et repartir d'une base Node nue referait tout cela une seconde fois, avec le risque de le
-refaire différemment.
+Déployé **tel quel** depuis l'image que publie `Claude-Code-Docker-container`
+(`ghcr.io/dragnix-tigerblue77/claude-code-docker-container`), écrite sans tag comme les autres images
+qui ne sont pas des bases de données : le déployeur la récupère à chaque exécution, sans variable ni
+épinglage de notre côté. Rien n'est construit ici.
 
-**`build:`, pas `image:` seul, parce que ce compte a besoin de plus que l'agent.** `gh`, `ansible-core`
-et de l'outillage de compilation s'ajoutent par-dessus l'image publiée -- ce sont les outils du travail
-d'infrastructure de tigerblue77, pas des besoins de Claude Code lui-même. Le `Dockerfile` est **rendu**
-par ce rôle (`templates/claude_code_tigerblue77.Dockerfile.j2`) plutôt que copié tel quel : l'image dont
-il part reste ainsi une seule valeur dans `defaults/main.yml`, épinglée par tag et digest, plutôt qu'une
-seconde copie figée dans un fichier statique.
+**Ce que « sans tag » veut dire pour cet agent.** Le tag `latest` de cette image suit le canal `stable` de
+npm, pas son canal `latest` : la version de Claude Code qu'il porte a quelques publications de retard, voulu
+par le dépôt amont. Un déploiement qui trouve une nouvelle image recrée le conteneur et met fin au
+processus `claude` en cours ; l'état de la conversation est dans le volume du répertoire personnel, et
+`claude --continue` la reprend. Pour revenir en arrière, écrire la version dans la ligne `image:` du
+template (`...:<version>`) le temps de corriger.
+
+**Ce que l'image apporte, et ce qu'elle n'apporte pas.** Mesuré le 2026-10-10 dans l'image publiée
+(Claude Code 2.1.287 ; le tag bouge, le README du dépôt amont fait foi) : l'utilisateur non-root `node`,
+`/workspace` comme répertoire de travail, l'auto-updater désactivé, `git`, `ripgrep`, `jq` et `less`. Elle ne
+porte ni `gh`, ni `ansible-core` (ni `python3`, ni `pip3`), ni client `docker`, ni `build-essential`, ni
+`curl`, ni `procps`, c'est-à-dire les outils du travail d'infrastructure de tigerblue77. Les avoir dans
+l'agent passe par l'image publiée elle-même, ou par une image dérivée publiée à part.
+
+**Le service démarre comme l'image le prévoit.** L'entrée de l'image publiée est `claude` seul, sans
+`CMD`, et le bloc du service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance
+`claude` sans argument.
 
 **Le répertoire personnel monté est `/home/node` en entier, jamais `~/.claude` seul.** C'est le piège
 d'authentification que le dépôt amont documente sur lui-même : `~/.claude.json` vit À CÔTÉ de
 `~/.claude`, pas dedans, et un volume sur `~/.claude` seul perd la moitié de la session à chaque
-recréation du conteneur, sans qu'aucune erreur ne le signale. L'entrée du conteneur restaure ce fichier
-depuis la plus récente de ses propres sauvegardes si le volume est neuf.
+recréation du conteneur, sans qu'aucune erreur ne le signale. C'est ce montage qui tient la session. Rien
+ne restaure `~/.claude.json` s'il manque alors que `~/.claude/backups/` survit (un fichier effacé, un
+volume monté d'abord sur `~/.claude` seul) : la copie se refait à la main depuis `~/.claude/backups/`.
 
 **Aucun montage de `docker.sock` dans cette issue.** #11 n'a pas encore conçu l'isolation qu'un agent
 doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce conteneur attend cette
-décision plutôt que de la devancer. `docker.io` est installé mais inerte : rien ne branche le socket
-tant que #11 n'a pas tranché.
+décision plutôt que de la devancer. L'image publiée ne porte d'ailleurs aucun client `docker` : rien ne
+branche le socket tant que #11 n'a pas tranché.
 
 **Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
 dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est ce qui permet à `gh` et à git de
-fonctionner à l'intérieur du conteneur.
+l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est le jeton destiné à `gh`. Il est posé en
+`GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh` n'est pas dans l'image publiée, et git ne lit aucune de
+ces deux variables de lui-même. Tant que `gh` n'est pas dans l'image, le jeton est donc posé sans l'outil
+qui le lit, et il reste obligatoire quand le service est activé.
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
@@ -491,6 +631,40 @@ alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonn
 **Ce service ne dépend pas de #1 pour être mergé, seulement pour tourner.** Il se déploie et se rend
 indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réellement présent, que
 `ANTHROPIC_BASE_URL` doit pouvoir le résoudre.
+
+## Monter PostgreSQL d'un majeur (#168)
+
+**Une migration, pas un changement de tag.** L'image est épinglée en dur dans le template
+(`postgres:17-alpine`), et le volume est monté là où l'image de ce majeur range ses données :
+`/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18, où l'image officielle
+garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux se changent ensemble,
+dans le même commit : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
+
+Sur un volume qui porte déjà un cluster, le nouveau majeur le refuse aussi, à l'un comme à l'autre
+chemin, et la politique `any` le relance en boucle : rien n'est perdu, rien ne démarre. Le passage,
+vérifié de 17 à 18 sous Compose avec LiteLLM v1.100.0 -- une clé virtuelle créée avant la montée
+retrouvée après, et l'ancien volume redémarrant toujours sous 17 :
+
+```bash
+# « litellm » est le défaut du rôle comme de la base : remplacer par les vôtres s'ils diffèrent.
+# 1. Sous l'ancien majeur, LiteLLM arrêté pour que plus rien n'écrive (docker stop <conteneur litellm>
+#    sous Compose, docker service scale <stack>_litellm=0 sous Swarm), exporter la base
+docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
+# 2. Monter le tag de `postgres` dans le template (et le chemin du volume, si l'on franchit 18) ET
+#    donner un nouveau nom à Artificial_Intelligence_PostgreSQL_data_Docker_volume_name : le nouveau
+#    majeur initialise un volume vide, et l'ancien reste intact pour revenir en arrière
+# 3. Redéployer avec le rôle -- LiteLLM migre une base vide --, l'arrêter de nouveau, restaurer,
+#    puis le relancer (docker start, ou scale à 1)
+docker exec -i <conteneur postgres> pg_restore -U litellm -d litellm --clean --if-exists --no-owner --no-privileges --exit-on-error < litellm.dump
+# 4. Une fois le nouveau volume éprouvé, et seulement alors, supprimer l'ancien
+docker volume rm <ancien volume PostgreSQL du stack>
+```
+
+`pg_upgrade` est l'autre voie, sur place et plus rapide sur une grosse base, mais il lui faut les
+binaires des deux majeurs dans un même conteneur, ce que l'image officielle ne fournit pas ; pour une
+base de cette taille, l'export est le plus simple des deux. Une tentative refusée, volume monté sur
+`/var/lib/postgresql`, laisse un répertoire vide `18/docker` à la racine de l'ancien cluster : 17
+redémarre dessus sans le voir.
 
 ## Ce que ce squelette ne fait pas
 
@@ -507,8 +681,10 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
   machine : la mesure sous charge des limites mémoire, la persistance après un `down` / `up`,
   l'idempotence sur un second passage, et, hors du périmètre de #3, la création des collections
   Qdrant une fois le modèle d'embedding choisi (#21).
-- **Il ne fournit ni `.gitignore`, ni `.env.example`, ni intégration continue.** #31 et #32 revendiquaient
-  tous deux le `.env.example` ; il revient à #32, avec les garde-fous dont il fait partie.
+- **Il ne fournit ni `.env` ni `.env.example`, et n'en fournira pas.** #31 et #32 revendiquaient tous
+  deux le `.env.example` ; #1 a tranché autrement : chaque secret est une variable du rôle, interpolée
+  par Ansible dans le fichier rendu (voir « Les secrets vivent dans le fichier compose » plus haut). Le
+  `.gitignore` et l'intégration continue sont arrivés avec #32.
 - **Il ne tranche pas la topologie réseau.** Un seul réseau interne, parce que #7 décidera la séparation
   collecteur / acteur et que c'est cette décision-là qui dira s'il en faut deux ou trois. Un squelette qui
   la préempterait ferait le contraire de son travail.
@@ -527,7 +703,8 @@ fichier.
 |---|---|---|
 | `restart: unless-stopped` | fonctionne | **ignoré** — il faut `deploy.restart_policy.condition: any` |
 | `mem_limit` / `cpus` | fonctionnent | **ignorés** — remplacés par `deploy.resources.limits` |
-| `depends_on` | ordonne le démarrage | accepté, **sans effet** |
+| `depends_on` en liste | démarre les services listés d'abord, sans attendre qu'ils soient sains | accepté, **sans effet** |
+| `depends_on` en forme longue (`condition:`) | attend la condition | **fichier entier refusé** — n'écrire que la liste |
 | `shm_size` | fonctionne | **ignoré** |
 | `container_name` | fonctionne | déprécié — ne jamais s'en servir comme nom d'hôte |
 | Secrets | fichier ou variable | secrets natifs de l'orchestrateur |
@@ -536,7 +713,7 @@ Sur `restart_policy` : `condition: any`, jamais `on-failure`. Quand un conteneur
 l'orchestrateur l'arrête **proprement** ; le processus sort avec le code 0 ; et `on-failure` ne remplace
 jamais une tâche sortie proprement. Le service reste à 0 réplique, le reverse proxy ne construit plus de
 route à partir des tâches en cours d'exécution, et l'URL répond un 404 nu sans que rien ne soit journalisé
-nulle part. C'est une panne que le dépôt `Homelab_Ansible_deployment` a déjà payée une fois.
+nulle part. Ce n'est pas une hypothèse : c'est une panne déjà payée une fois.
 
 Que Compose v2 honore bien `deploy.resources.limits` et `deploy.restart_policy` est l'hypothèse sur
 laquelle repose ce choix. Elle est documentée par Compose, et elle **reste à confirmer sur le banc
@@ -557,9 +734,14 @@ python3 .github/scripts/check_compose_template.py
 
 Le dernier est celui qui compte pour le template. Il le rend dans ses **deux** états -- réseau publié
 renseigné et non renseigné -- parse les deux, compare les objets parsés plutôt que les fichiers, et tient
-chaque bloc de service aux conventions que le modèle commenté du template documente : image épinglée,
-limite mémoire, `restart_policy.condition: any`, pas de `container_name`, et tout réseau ou volume
-référencé effectivement déclaré.
+chaque bloc de service aux conventions que le modèle commenté du template documente : image sans tag ou épinglée avec sa raison,
+limite mémoire, `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
+récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
+
+Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les
+défauts laissent à `false` : chaque fichier doit être monté par `configs` -- jamais en bind mount dans
+`volumes` --, sous une config déclarée au niveau supérieur avec son `file`, nommée d'après le contenu
+sans suffixe quand rien n'est renseigné, et sans que rien d'autre ne change entre les deux états.
 
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
@@ -573,7 +755,23 @@ lui-même aussi ; et un filtre, un test ou une fonction que seul Ansible fournit
 `lookup()`…) est signalé comme tel au lieu de faire planter le contrôle. Dans chacun de ces cas, comme
 pour un gabarit Jinja2 invalide, le template n'est pas rendu et le contrôle sort en erreur : le rendu
 porterait une valeur qu'aucun déploiement n'écrit. Un défaut dérivé d'une variable obligatoire, lui,
-est de l'Ansible ordinaire : il se résout comme le rendu écrit la variable elle-même, vide.
+est de l'Ansible ordinaire : il se résout comme le rendu écrit la variable elle-même, vide. Les valeurs que l'appelant passe au rôle, dans chacun des états rendus, sont appliquées avant cette
+résolution, comme Ansible lit un défaut dérivé : le nom d'une config Docker, construit sur la somme de contrôle de son
+fichier (#161), la porte donc bien.
+
+Il fait aussi un rendu de plus (#155), agent Claude Code activé, où portent `$`, `${`, `$$`, `/`, `@` et
+`#` : toute variable que le template lit et que `defaults/main.yml` ne définit pas ou laisse vide (`""`)
+-- les obligatoires, donc aussi le secret du prochain service, et les optionnelles vides comme la clé
+GitHub Models -- ainsi que les valeurs libres à vrai défaut que le script énumère dans
+`FREE_FORM_WITH_A_DEFAULT`. Il refuse alors toute chaîne du résultat où un `$` n'appartient pas à un
+`$$`, c'est-à-dire tout ce que Compose réinterpréterait. Les emplacements qu'une autre pull request
+réécrit déjà y sont exemptés un par un, avec leur numéro, et une exemption qui n'exempte plus rien fait
+échouer le contrôle.
+
+Ce n'est pas toute valeur de l'appelant : une nouvelle valeur libre dotée d'un vrai défaut, ou d'un
+défaut `false`, n'est rendue avec un `$` qu'une fois ajoutée à cette liste. Rien dans un défaut ne dit si
+sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. La dernière ligne du contrôle donne le
+nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du rendu.
 
 ## Exemple d'appel
 
