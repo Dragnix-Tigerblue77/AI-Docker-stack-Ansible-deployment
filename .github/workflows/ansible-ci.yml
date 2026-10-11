@@ -24,8 +24,7 @@ name: Ansible CI
 # "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
 # the organisation's included minutes run out (#162). #32 and #141 had left it out as an indirection
 # no variable would ever fill in; that reason went the day the switch was planned. The pool it would
-# name is prepared, commented out, in the homelab repository
-# (Tigerblue77-personal/Homelab_Ansible_deployment#1028).
+# name is prepared, switched off, outside this repository.
 #
 # ! Set CI_RUNNER to "self-hosted" only on the day the included minutes run out, and only once a
 #   pool serves the organisation and its runners show "Idle" under the organisation's Settings ->
@@ -74,8 +73,8 @@ jobs:
         with:
           python-version: "3.12"
           # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
-          # can name: the homelab repository's runner role keeps each runner's tool cache between
-          # jobs, and left at its "false" default setup-python looks in that cache FIRST and only
+          # can name: a self-hosted runner can keep its tool cache between jobs, and left at
+          # its "false" default setup-python looks in that cache FIRST and only
           # asks the versions manifest when it misses -- so the first 3.12 patch the cache ever holds
           # would be the one every later job gets, for ever. "true" resolves the newest patch from
           # the manifest before looking in the cache: one small HTTPS GET per job, and one download

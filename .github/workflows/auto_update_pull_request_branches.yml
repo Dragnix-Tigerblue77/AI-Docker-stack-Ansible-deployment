@@ -177,11 +177,10 @@ jobs:
     # mergeability flags. A self-hosted pool is also what takes the quiet
     # period's minutes off the bill, as long as it has a runner to spare while
     # the job sleeps. The step below needs gh and jq on whatever CI_RUNNER
-    # names: GitHub's hosted image has both, and so does
-    # myoung34/github-runner, the image the homelab repository's runner role
-    # deploys (its build/install_base.sh installs jq, its build/config.json the
-    # GitHub CLI). The header of "ansible-ci.yml" says what the variable may
-    # name, and when.
+    # names: GitHub's hosted image has both, and so does a self-hosted runner
+    # built on myoung34/github-runner (its build/install_base.sh installs jq,
+    # its build/config.json the GitHub CLI). The header of "ansible-ci.yml" says
+    # what the variable may name, and when.
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # The wait and then the pass, so it has to stay above QUIET_PERIOD_MINUTES by
     # as much as a pass may take. A hosted job is cut off at six hours.

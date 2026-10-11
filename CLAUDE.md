@@ -569,7 +569,7 @@ detail, and its last line for which checks the session can actually be trusted t
 
 **A session runs the same toolchain CI does, and the work to get there is #57.** The hook installs
 the five pins into a virtual environment built on the interpreter the CI workflow names, so
-`ansible-lint` here reports `using ansible-core:2.21.3` -- the pinned one. Trust a green lint in a
+`ansible-lint` here reports the `ansible-core` that `requirements.txt` pins. Trust a green lint in a
 session; it is the same run.
 
 Three things had to be got right for that, all measured, and none of them visible to CI, which gets
