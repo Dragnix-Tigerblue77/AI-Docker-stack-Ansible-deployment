@@ -148,11 +148,12 @@ because forgetting them costs the same time every session.
   issue) rather than a sentence in the chat.
 * **An issue is something to do, not something to remember.** It is opened for work to be done, now
   or later, and it closes when that work is done. A deferral the maintainer chose is such work, and
-  so is the follow-up of a problem upstream that this repository cannot fix, which stays open until
-  upstream does. A decision, a condition to wait for, a reason for not building something is never
-  kept alive as an open issue: it is written where it will be read when it matters -- a line in the
-  README, a comment above the code, this file -- and the issue that discussed it closes with the
-  reasoning in its description (#239).
+  so is the follow-up of a problem in a third-party project that this repository cannot fix, which
+  stays open, labelled `waiting-on-third-party`, until it is fixed there. A decision, a condition
+  to wait for, a reason for not building something is never kept alive as an open issue: it is
+  written where it will be read when it matters -- a line in the README, a comment above the code,
+  this file -- and the issue that discussed it closes with the reasoning in its description (#239,
+  #241).
 * **Issue and pull request text runs the full width GitHub gives it.** No hard line break inside a
   paragraph, in a body or in a comment: GitHub reflows prose to the reader's own window, so a body
   wrapped at 100 columns is a narrow strip down the middle of a wide screen, and every later edit has
