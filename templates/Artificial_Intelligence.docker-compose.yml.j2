@@ -722,6 +722,13 @@ services:
   #   # would be a second file to secure, a second path to keep in sync with the first, and a question
   #   # at the switch to Swarm that interpolating at render time never raises. Native orchestrator
   #   # secrets under "/run/secrets/" are an open question (#83), not an option yet.
+  #   #
+  #   # The one exception is a secret the service can genuinely do without, and it is rare (#245).
+  #   # Its default is "false" -- never "''" -- which this role reads as "not set"; the lines that
+  #   # carry it are written only inside a block conditioned on "X is string"; a task of its own in
+  #   # "tasks/main.yml" accepts "false" or a non-empty string and nothing else, so that a value
+  #   # which is given and unusable is refused rather than left out; and "FREE_FORM_WITH_A_DEFAULT"
+  #   # in "check_compose_template.py" names it, since a default of "false" hides it from the "$" render.
   #
   #   networks:
   #     - {{ Artificial_Intelligence_internal_Docker_network_name }}
