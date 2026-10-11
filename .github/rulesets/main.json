@@ -38,6 +38,9 @@
           },
           {
             "context": "does the pre-commit hook refuse a secret?"
+          },
+          {
+            "context": "sign-off"
           }
         ]
       }

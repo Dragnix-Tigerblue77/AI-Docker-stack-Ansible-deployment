@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+name: sign-off
+
+# CONTRIBUTING.md requires a Signed-off-by on every commit, and this is the job that looks for one.
+# ".github/scripts/check_sign_off.py" holds the decision and says why it is shaped the way it is.
+#
+# On pull requests only, and that is not a gap: the unsigned history already on main cannot be
+# signed without rewriting it, so a run on a push to main would be red for ever. There is no
+# "workflow_dispatch" either, since a run started by hand has no pull request and so no range, and
+# "dependabot-auto-merge.yml" does not dispatch this workflow after a merge for the same reason
+# (NOT_DISPATCHED in "check_required_checks.py").
+#
+# Like every job of "ansible-ci.yml" and "gitleaks.yml", its job is named in
+# ".github/rulesets/main.json" and gates Dependabot's merges: Dependabot signs its own commits, so
+# an update needs no exemption. The header of "ansible-ci.yml" says what CI_RUNNER may name, and
+# when.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sign-off:
+    name: sign-off
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # 15 and not 5: see the "REUSE compliance" job of "ansible-ci.yml".
+    timeout-minutes: 15
+    steps:
+      # The whole history, because the script reads base..head and a shallow checkout has neither
+      # end of that range: it would fail closed on every pull request, for a reason in this file
+      # and not in the contribution.
+      - name: Check the repository out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The script imports nothing outside the standard library, but the python3 of a runner is
+      # pinned by nobody. "check-latest" is explained in the "yamllint" job of "ansible-ci.yml";
+      # there is no "cache", since nothing is installed for it to keep.
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          check-latest: true
+
+      # The two SHAs travel as environment variables and are not expanded into the script line:
+      # they are hexadecimal and GitHub's own, but a "run:" that expands ${{ }} inline is the shape
+      # that goes wrong the day the value stops being a SHA.
+      - name: Check the sign-offs
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/check_sign_off.py "$BASE_SHA" "$HEAD_SHA"

@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Installs what the CI gates on, so that a Claude Code on the web session can run the same checks a
-# pull request will be judged by, instead of guessing. Registered as a SessionStart hook in
+# pull request will be judged by, instead of guessing, and gives the session the git identity its
+# commits need to pass the "sign-off" job. Registered as a SessionStart hook in
 # ".claude/settings.json".
 #
 # What it installs, and why each one is here rather than assumed present : every tool below is used
@@ -29,6 +30,9 @@
 #                         the checkout is named "deploy_Artificial_Intelligence_Docker_stack" any more for Ansible's own
 #                         role search to find. "~/.ansible/roles" is one of its built-in search
 #                         locations, so this needs no "ansible.cfg" entry, only the symlink itself.
+#   6. git identity       "Claude" as the author and a "git signoff" alias carrying the maintainer's
+#                         Signed-off-by, so that a commit made here passes the sign-off job of
+#                         ".github/workflows/sign-off.yml". Only on the maintainer's copy.
 #
 # One step this hook deliberately does NOT take :
 #
@@ -339,6 +343,66 @@ else
     note "could not symlink ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack, so \"- role: deploy_Artificial_Intelligence_Docker_stack\" in playbook.Artificial_Intelligence.example.yaml will not resolve." \
         "ansible-lint and --syntax-check on playbook.Artificial_Intelligence.example.yaml"
 fi
+
+# 6. The git identity and the "signoff" alias -------------------------------------------------------
+# A commit made here carries two identities that answer different questions. The AUTHOR is who wrote
+# the work, the tool: git log, git blame, git shortlog and the contributor graph read that field, so
+# recording the tool anywhere else is not recording it. The Signed-off-by is who certifies it, and
+# the Developer Certificate of Origin is first person -- "I certify" -- which a tool cannot say, so
+# that one is the maintainer's, made true by their review and merge. CONTRIBUTING.md, on contributions
+# written by an agent, is the full argument.
+#
+# ! The trailer cannot come from "git commit -s", which derives it from user.name and user.email --
+# the very fields that have to stay the tool's. It is passed whole through an alias instead, so that
+# it is a command and not something to remember. Not "trailer.<token>.key": spelled with its separator
+# in it ("Signed-off-by: "), that config writes a line which looks right and which a keyed read of
+# the trailers, the one ".github/scripts/check_sign_off.py" makes, returns empty -- a refusal with
+# nothing visible to explain it.
+#
+# ! Only where origin is a repository of the organisation that holds this one, not of any one owner.
+# This file is cloned with the tree, so a session on somebody's fork runs it exactly as the
+# maintainer's does, and there the alias would put the maintainer's attestation on work the
+# maintainer has never seen -- the one thing CONTRIBUTING.md tells a contributor not to do. The owner
+# is read as the path segment right after the host, in three forms of clone URL,
+# "https://github.com/<owner>/...", "git@github.com:<owner>/..." and a git proxy's
+# ".../git/<owner>/...", and not as any segment of the URL. It is lower-cased because a clone URL
+# keeps whatever case was typed while a login compares without it. Anything else, no origin
+# included, reads as not this repository: the opposite default hands a stranger's session an
+# identity that is not theirs.
+#
+# The two addresses are written in ".github/scripts/check_sign_off.py" too, which runs in a workflow
+# that never sources this file; its --selftest holds the two together. Repository-local, so nothing
+# reaches into a configuration the session may share with other work.
+#
+# REPOSITORY_OWNER is the line to change should the repository move to another owner: a copy under
+# any other reads as a fork.
+REPOSITORY_OWNER="dragnix-tigerblue77"
+SIGN_OFF_NAME="Tigerblue77"
+SIGN_OFF_EMAIL="37409593+tigerblue77@users.noreply.github.com"
+AGENT_NAME="Claude"
+AGENT_EMAIL="noreply@anthropic.com"
+
+ORIGIN_URL="$(git remote get-url origin 2> /dev/null)"
+ORIGIN_URL="${ORIGIN_URL,,}"
+
+case "$ORIGIN_URL" in
+    *[/@]github.com/"$REPOSITORY_OWNER"/* | *[/@]github.com:"$REPOSITORY_OWNER"/* | */git/"$REPOSITORY_OWNER"/*)
+        if git config user.name "$AGENT_NAME" \
+            && git config user.email "$AGENT_EMAIL" \
+            && git config alias.signoff "commit --trailer \"Signed-off-by: $SIGN_OFF_NAME <$SIGN_OFF_EMAIL>\""; then
+            printf 'git identity: commits are authored as %s and signed off as %s by "git signoff", never "git commit -s"\n' \
+                "$AGENT_NAME" "$SIGN_OFF_NAME"
+        else
+            note "could not set the git identity and the \"signoff\" alias: a commit made here would be authored and signed off by whatever git defaults to, and fail the sign-off job." \
+                "the git identity and the signoff alias"
+        fi
+        ;;
+    *)
+        # Not a gap to report: on a fork it is the intended outcome, and stdout is what the session
+        # reads, so a contributor's own agent learns here and not from a red pull request.
+        printf 'git identity: this is not the maintainer'"'"'s copy of the repository, so none was set: sign your own work, with your own name (CONTRIBUTING.md)\n'
+        ;;
+esac
 
 # ---------------------------------------------------------------------------------------------------
 # A SessionStart hook's stdout is handed to the session as context, so this last line is the one thing

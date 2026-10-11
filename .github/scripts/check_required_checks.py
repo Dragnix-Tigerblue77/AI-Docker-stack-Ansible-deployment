@@ -17,12 +17,11 @@ of them silent:
   leaves a context that never reports. Every Dependabot update then waits for a human, each gate run
   saying only that the check "has not reported yet", which is also what it says on every ordinary
   run while the other workflow is still going. Nothing about it looks broken.
-* A job is missing from the file. The file names every job of the two workflows the gate listens
-  to, one by one, rather than a single aggregate job (the merge workflow's header says why). The
-  price of that choice is that a job added to either workflow gates nothing until somebody adds it
-  here -- and meanwhile a Dependabot update that is red on that job alone merges itself, because the
-  gate reads only what the file names. This check is what puts that addition in the same pull
-  request.
+* A job is missing from the file. The file names every job of the workflows the gate listens to,
+  one by one, rather than a single aggregate job (the merge workflow's header says why). The price
+  of that choice is that a job added to any of them gates nothing until somebody adds it here -- and
+  meanwhile a Dependabot update that is red on that job alone merges itself, because the gate reads
+  only what the file names. This check is what puts that addition in the same pull request.
 
 A third way concerns what happens after the gate merges (#180). The merge is a push made with
 GITHUB_TOKEN, which starts no workflow, so the gate dispatches every workflow it listens to on the
@@ -30,7 +29,9 @@ default branch itself -- the one event that token can cause and still get a run 
 by FILE there, in the "WORKFLOW_FILES" of a step, where "on.workflow_run.workflows" names them by
 "name:", and GitHub refuses a dispatch to a workflow without a "workflow_dispatch" trigger. A
 workflow added to the second list and not the first, or a trigger removed, would leave every merge
-commit unchecked, and would only show -- as a red job, or not at all -- after the next merge.
+commit unchecked, and would only show -- as a red job, or not at all -- after the next merge. The
+one exception is a workflow that has nothing to say about the default branch, which NOT_DISPATCHED
+names with its reason.
 
 wader/postfix-relay keeps its own copy true with "tests/test_ruleset.py". This one does what that
 does, plus the second direction above, which postfix-relay needs less because GitHub enforces its
@@ -50,7 +51,11 @@ WHAT IT CHECKS
    completes, so a required job anywhere else could be the last to finish and never wake it.
 4. Every job of those workflows is required, unless NOT_REQUIRED below names it with its reason.
 5. The gate dispatches every one of those workflows after a merge -- its file is in the gate's
-   "WORKFLOW_FILES" -- and every file listed there exists and carries a "workflow_dispatch" trigger.
+   "WORKFLOW_FILES", unless NOT_DISPATCHED excuses it -- and every file listed there exists and
+   carries a "workflow_dispatch" trigger.
+6. Every NOT_DISPATCHED entry still excuses something: it names a workflow file that exists, that
+   the gate listens to, that has no "workflow_dispatch" trigger and that the gate does not dispatch.
+   An exclusion that has stopped being true would otherwise keep waving a workflow past item 5.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -85,9 +90,19 @@ GATE = "dependabot-auto-merge.yml"
 
 # Jobs of a workflow the gate listens to that are deliberately NOT required, each with its reason --
 # the same shape as the allowlist of "check_no_inventory_data.py", and for the same reason: an entry
-# without one turns the list into a catch-all. Empty today, because every job of "Ansible CI" and
-# "gitleaks" reaches a verdict on every pull request.
+# without one turns the list into a catch-all. Empty today, because every job of "Ansible CI",
+# "gitleaks" and "sign-off" reaches a verdict on every pull request.
 NOT_REQUIRED = {}
+
+# Workflows the gate listens to that it deliberately does NOT dispatch on the default branch after a
+# merge, each with its reason, under the same rule as NOT_REQUIRED. A workflow that reads the
+# commits of a pull request has nothing to say about a merge commit on the default branch, and a
+# dispatch there would only fail it for want of a range. An entry that stops being true is refused
+# (item 6 of the docstring), so this list cannot outlive the reason written beside it.
+NOT_DISPATCHED = {
+    "sign-off.yml": "it reads the range of a pull request, which a dispatch on the default branch "
+                    "does not have",
+}
 
 # The environment variable, on a step of the gate, whose value is the space-separated FILE names of
 # the workflows that step dispatches on the default branch once the gate has merged (#180).
@@ -126,7 +141,7 @@ def workflow_name(file_name, workflow):
     return workflow.get("name") or ".github/workflows/" + file_name
 
 
-def problems(ruleset, workflows, not_required=NOT_REQUIRED):
+def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_DISPATCHED):
     """Everything wrong with "ruleset" against "workflows", a {file name: parsed YAML} mapping."""
     found = []
 
@@ -208,10 +223,24 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED):
                              "trigger: GitHub refuses the dispatch, so the merge goes unchecked."
                              % (GATE, file_name, file_name))
         for file_name, workflow in sorted(workflows.items()):
-            if workflow_name(file_name, workflow or {}) in listened and file_name not in dispatched:
+            if (workflow_name(file_name, workflow or {}) in listened and file_name not in dispatched
+                    and file_name not in not_dispatched):
                 found.append("%s listens to %s but does not dispatch it after a merge (%s): its "
                              "merge starts no push run, so that merge commit goes unchecked."
                              % (GATE, file_name, DISPATCH_ENV))
+        for file_name in sorted(not_dispatched):
+            stale = "NOT_DISPATCHED names %s, and %s: the entry excuses nothing, drop it."
+            workflow = workflows.get(file_name)
+            if file_name not in workflows:
+                found.append(stale % (file_name, "no workflow file has that name"))
+            elif workflow_name(file_name, workflow or {}) not in listened:
+                found.append(stale % (file_name, "%s does not listen to it" % GATE))
+            elif "workflow_dispatch" in trigger_names(workflow or {}):
+                found.append("NOT_DISPATCHED names %s, which carries a workflow_dispatch trigger: "
+                             "it can be dispatched after a merge, so put it in %s and drop the "
+                             "entry." % (file_name, DISPATCH_ENV))
+            elif file_name in dispatched:
+                found.append(stale % (file_name, "%s dispatches it after a merge anyway" % GATE))
 
     return found
 
@@ -261,6 +290,16 @@ jobs:
     runs-on: ubuntu-latest
 """
 
+SELFTEST_PULL_REQUEST_ONLY = """
+name: Range
+on:
+  pull_request:
+jobs:
+  read:
+    name: the range reader
+    runs-on: ubuntu-latest
+"""
+
 SELFTEST_OTHER = """
 name: Other
 on:
@@ -305,7 +344,7 @@ def selftest_cases():
     rules = selftest_ruleset(*good)["rules"]
     return (
         # (what it proves, ruleset, workflows, text a problem must contain or None for no problem,
-        #  and optionally the NOT_REQUIRED mapping to use)
+        #  and optionally the NOT_REQUIRED mapping, then the NOT_DISPATCHED one, to use)
         ("the baseline passes, and a job without a name reports under its key",
          selftest_ruleset(*good), selftest_workflows(), None),
         ("a context naming a job by its key rather than its display name is refused",
@@ -358,6 +397,31 @@ def selftest_cases():
                             .replace("WORKFLOW_FILES: ci.yml", "WORKFLOW_FILES: ci.yml extra.yml"),
                             extra=SELFTEST_OTHER),
          None),
+        ("a pull-request-only workflow the gate listens to is refused while nothing excuses it",
+         selftest_ruleset(*good, "the range reader"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Range"]'),
+                            extra=SELFTEST_PULL_REQUEST_ONLY),
+         "listens to extra.yml but does not dispatch it"),
+        ("a pull-request-only workflow NOT_DISPATCHED names, with its reason, is let through",
+         selftest_ruleset(*good, "the range reader"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Range"]'),
+                            extra=SELFTEST_PULL_REQUEST_ONLY),
+         None, {}, {"extra.yml": "a reason"}),
+        ("a NOT_DISPATCHED entry naming no workflow file is refused",
+         selftest_ruleset(*good), selftest_workflows(), "no workflow file has that name: the entry",
+         {}, {"gone.yml": "a reason"}),
+        ("a NOT_DISPATCHED entry naming a workflow the gate does not listen to is refused",
+         selftest_ruleset(*good), selftest_workflows(), "does not listen to it: the entry",
+         {}, {"nightly.yml": "a reason"}),
+        ("a NOT_DISPATCHED entry naming a workflow that gained workflow_dispatch is refused",
+         selftest_ruleset(*good, "the scanner"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]'),
+                            extra=SELFTEST_OTHER),
+         "carries a workflow_dispatch trigger", {}, {"extra.yml": "a reason"}),
+        ("a NOT_DISPATCHED entry naming a workflow the gate dispatches anyway is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(ci=SELFTEST_CI.replace("  workflow_dispatch:\n", "")),
+         "dispatches it after a merge anyway", {}, {"ci.yml": "a reason"}),
         ("a dispatched workflow without a workflow_dispatch trigger is refused",
          selftest_ruleset(*good),
          selftest_workflows(ci=SELFTEST_CI.replace("  workflow_dispatch:\n", "")),
@@ -385,7 +449,8 @@ def run_selftest():
     for case in selftest_cases():
         purpose, ruleset, workflows, needle = case[:4]
         not_required = case[4] if len(case) > 4 else {}
-        found = problems(ruleset, workflows, not_required)
+        not_dispatched = case[5] if len(case) > 5 else {}
+        found = problems(ruleset, workflows, not_required, not_dispatched)
         if needle is None:
             passed = not found
         else:

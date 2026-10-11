@@ -31,7 +31,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
-| How to set a clone up, what to run before pushing, and what submitting a contribution grants | `CONTRIBUTING.md` |
+| How to set a clone up, what to run before pushing, what submitting a contribution grants, and what signing a commit off means | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
 
@@ -355,6 +355,32 @@ with the issue number in parentheses when there is one -- `Lay down the Ansible 
 skeleton of the AIS (#31)`. Body: prose paragraphs explaining *why* and what it cost to find out, not
 a bullet list of what changed.
 
+**Sign-off.** Every commit of a pull request carries a `Signed-off-by` trailer, the attestation of
+the Developer Certificate of Origin that `CONTRIBUTING.md` spells out. It certifies the right to
+submit the work under the open licence and says nothing of the commercial arm, which the grant in
+that file covers on submission, signed off or not. The `sign-off` job
+(`.github/workflows/sign-off.yml`, deciding in `.github/scripts/check_sign_off.py`) turns a pull
+request red when a commit's trailer is missing, is only quoted in the message, is not of the form
+`Name <address>`, or names only the agent; merge commits are skipped. Like every check here it
+informs the reviewer and stops no human's merge (*What blocks a pull request*): the maintainer's
+review is the only gate, and only Dependabot's merges wait on the job. The author and the signer are
+different identities and answer different questions. The commit is **authored** by the session,
+`Claude <noreply@anthropic.com>`, because that is who wrote it; the trailer names the
+**maintainer**, `Tigerblue77 <37409593+tigerblue77@users.noreply.github.com>`, because a tool
+certifies nothing and the maintainer certifies by reviewing and merging, so a commit the agent
+authored is flagged unless that address is among its sign-offs. A session therefore commits with
+**`git signoff`**, never `git commit -s`: `-s` derives the trailer from `user.name` and
+`user.email`, which are the tool's, and writes the one trailer the check turns down. It commits
+through git and that alias and not through a GitHub API file tool (`push_files`,
+`create_or_update_file`), which writes the commit from the message and the author it is given and
+never runs the alias. `.claude/hooks/session-start.sh` sets the identity and the alias at the start
+of a web session on the maintainer's copy, so nothing has to be remembered; on a fork it sets
+neither and tells the session to sign its own work. A local session commits as the person at the
+keyboard, who signs off with `-s`. The `Co-Authored-By` trailer a session adds stays, and the check
+does not read it. The history before the rule stays unsigned: signing it would mean rewriting a
+published branch. Dependabot's commits carry its own trailer, and the pull request updater either
+replays commits unchanged or writes a merge commit, which is skipped, so neither needs an exemption.
+
 **Dependabot's minor and patch updates merge themselves once CI is green, in every repository.** A
 Dependabot pull request sitting open with every check green is a defect in that process, not a task
 for a human. A public repository gets it the way wader/postfix-relay does: the required checks
@@ -402,9 +428,9 @@ a decision first. The workflow headers record it for the jobs there are: the Dep
 the pull request updater and the hook job of `gitleaks.yml`, which needs root. A session that adds a
 job of either kind takes its runner from `CI_RUNNER` like the others and says in the pull request
 that the job needs that decision; it does not pin it to `ubuntu-latest`, since the day itself leaves
-no hosted minutes to run it on, and every job of `ansible-ci.yml` and `gitleaks.yml` gates the
-Dependabot merges. The pull request updater above wants a runner to spare in `CI_RUNNER`, so a
-session does not propose switching it on before then; the maintainer may still choose to spend
+no hosted minutes to run it on, and every job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`
+gates the Dependabot merges. The pull request updater above wants a runner to spare in `CI_RUNNER`,
+so a session does not propose switching it on before then; the maintainer may still choose to spend
 private minutes on it earlier. A session cannot read the variable, so it reads where a repository's
 jobs run from a job's labels, `ubuntu-latest` or `self-hosted`, and from its runner name once it has
 run, "GitHub Actions" followed by a number for a hosted one. Shared with every repository of the
@@ -457,6 +483,8 @@ python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_sign_off.py --selftest
+python3 .github/scripts/check_sign_off.py origin/main HEAD  # a pull request's range, as its job reads it: exits 1 until the branch holds a commit
 python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
@@ -496,9 +524,11 @@ reviewer, they do not guard the door.
 
 **Dependabot's updates are the exception.** `dependabot-auto-merge.yml` merges a minor or patch one
 only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
-job of `ansible-ci.yml` and `gitleaks.yml`, by display name (invariant 9). Renaming a job or adding
-one therefore changes what gates those merges, and `check_required_checks.py` fails CI until the
-file follows.
+job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (invariant 9). Renaming
+a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
+CI until the file follows. Adding one also leaves every Dependabot pull request already open waiting
+on a check it never ran, which nothing wakes: `@dependabot rebase` on each makes every workflow run
+again.
 
 The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
@@ -577,10 +607,12 @@ role's README rather than frozen into the role.
    workflow, so its second job dispatches `ansible-ci.yml` and `gitleaks.yml` on `main` right after
    (#180): without it, that merge commit is the one head of `main` no run ever checks. Both keep a
    `workflow_dispatch:` trigger for it, and `check_required_checks.py` refuses a workflow the gate
-   listens to and does not dispatch. `main.json` names every job of the two workflows one by
-   one rather than one aggregate job (the workflow's header says why), and
-   `check_required_checks.py` holds it to them in both directions. The day the repository can
-   enforce a ruleset, import `main.json` and take postfix-relay's `--auto` workflow instead.
+   listens to and does not dispatch, bar `sign-off.yml`: it reads the range of a pull request, which
+   `main` has none of, so it has no such trigger and is named in the script's `NOT_DISPATCHED` with
+   its reason. `main.json` names every job of the workflows the gate listens to one by one rather
+   than one aggregate job (the workflow's header says why), and `check_required_checks.py` holds it
+   to them in both directions. The day the repository can enforce a ruleset, import `main.json` and
+   take postfix-relay's `--auto` workflow instead.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs
@@ -594,10 +626,12 @@ role's README rather than frozen into the role.
 
 ## Working in a Claude Code web session
 
-`.claude/hooks/session-start.sh` installs what CI gates on: the pinned Python tooling and `gitleaks`,
-and it enables `.githooks/` when both that directory and `gitleaks` are there. It is synchronous,
-idempotent, best-effort, and does nothing outside a remote session. See its own header for the
-detail, and its last line for which checks the session can actually be trusted to run.
+`.claude/hooks/session-start.sh` installs what CI gates on: the pinned Python tooling and
+`gitleaks`, and it enables `.githooks/` when both that directory and `gitleaks` are there. It also
+sets the git identity and the `git signoff` alias that a commit needs to pass the `sign-off` job, on
+the maintainer's copy only. It is synchronous, idempotent, best-effort, and does nothing outside a
+remote session. See its own header for the detail, and its last line for which checks the session
+can actually be trusted to run.
 
 **A session runs the same toolchain CI does, and the work to get there is #57.** The hook installs
 the five pins into a virtual environment built on the interpreter the CI workflow names, so

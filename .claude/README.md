@@ -87,6 +87,10 @@ service block inside `templates/Artificial_Intelligence.docker-compose.yml.j2`.
   `git commit`, `git checkout`, `git stash` and the narrowed `git push` are
   added for the same reason: without them, this repository's `.claude/`
   configuration could check a change but never actually deliver one.
+  `git signoff` is `git commit` with the maintainer's `Signed-off-by` passed
+  explicitly (`CONTRIBUTING.md`), and the two invocations of
+  `check_sign_off.py` are the documented ones, so they are allowed on the same
+  footing as the other home-made checks.
 - **No `defaultMode`.** The permission mode is the one knob that decides how
   much runs without you, so it is not checked into the repository. Choose it
   per run.
@@ -105,9 +109,10 @@ running a script, not the model deciding to behave.
 - **`hooks/gate-lint.sh`** on `TaskCompleted`. Runs `yamllint`, `reuse lint`,
   `ansible-lint`, `ansible-playbook --syntax-check`, every home-made check in
   `.github/scripts/` (`--selftest` then plain, same as CI's own
-  `home-made-checks` job), and `gitleaks` -- exactly what
-  `.github/workflows/ansible-ci.yml` and `gitleaks.yml` gate a pull request
-  on -- and refuses the completion while any of them is red.
+  `home-made-checks` job; for `check_sign_off.py` the `--selftest` alone, since
+  its plain form needs the range of a pull request), and `gitleaks` -- what
+  the workflows under `.github/workflows/` gate a pull request on -- and
+  refuses the completion while any of them is red.
 - **`hooks/gate-issue-priority.sh`** on `PreToolUse`, matched to
   `mcp__github__issue_write` (#97). Reads the call's `tool_input.issue_fields`
   and refuses -- via `hookSpecificOutput.permissionDecision: "deny"`, the
