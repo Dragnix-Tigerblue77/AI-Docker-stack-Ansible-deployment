@@ -171,6 +171,11 @@ because forgetting them costs the same time every session.
   change the answer calls for comes afterwards, as its own step for the maintainer to decide, and is
   never folded into the command that reads. The rule on questions staying open keeps an unanswered
   *decision* open; it does not turn a recollection into one.
+* **A question stands on its own.** The maintainer drives several sessions at once and reads each
+  question cold, so it has to be answerable without the conversation behind it: one sentence says
+  what it is about, an issue or pull request number comes with its title or what it does, the
+  session's recommendation comes first, and what each answer would change follows. Where it can be a
+  yes or a no, it is. A question the maintainer calls unclear is rewritten, not defended.
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
   first -- for a decision to take, what the maintainer gains and what it costs them, in two lines --
