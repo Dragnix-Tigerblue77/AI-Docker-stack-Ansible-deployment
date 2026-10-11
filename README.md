@@ -362,10 +362,10 @@ pas une clause de style.
 **La clé de sel (#164) chiffre ce que `/ui` enregistre, et ne change plus jamais.** Avec
 `STORE_MODEL_IN_DB`, LiteLLM garde en base ce que `/ui` ou son API d'administration lui confient -- les
 `litellm_params` d'un modèle, clé fournisseur comprise, les identifiants de `/credentials`, les
-variables d'environnement et les identifiants MCP -- chiffrés avec `LITELLM_SALT_KEY`, et **à défaut
-avec la clé maîtresse**. Le rôle passe donc `Artificial_Intelligence_LiteLLM_salt_key`, obligatoire, et
-refuse qu'elle soit vide ou égale à la clé maîtresse. C'est ce qui permet à la clé maîtresse de
-changer : en changeant sa variable et en redéployant, **jamais** par `POST /key/regenerate` et
+variables d'environnement et les identifiants MCP, entre autres -- chiffrés avec `LITELLM_SALT_KEY`, et
+**à défaut avec la clé maîtresse**. Le rôle passe donc `Artificial_Intelligence_LiteLLM_salt_key`,
+obligatoire, et refuse qu'elle soit vide ou égale à la clé maîtresse. C'est ce qui permet à la clé
+maîtresse de changer : en changeant sa variable et en redéployant, **jamais** par `POST /key/regenerate` et
 `new_master_key`, qui re-chiffre tout sous la nouvelle clé maîtresse alors que LiteLLM continue de
 déchiffrer avec la clé de sel. Mesuré sur LiteLLM `v1.100.0` : sans clé de sel, changer la clé maîtresse
 fait disparaître du routage chaque modèle enregistré (`Invalid model name`), le conteneur reste sain et
@@ -373,7 +373,7 @@ seul son log dit pourquoi ; avec, les mêmes modèles répondent et le fournisse
 L'image n'est plus épinglée à ce tag, mais le code n'a pas bougé sur ce point : `v1.105.0` choisit la clé
 de la même façon (relu le 11/10/2026). La clé de sel, elle, n'a aucune rotation documentée : la changer
 perd tout, de la même façon -- « Do not change it after adding a model », dit la
-[page « Production »](https://docs.litellm.ai/docs/proxy/prod) de LiteLLM.
+[page « Production Best Practices »](https://docs.litellm.ai/docs/proxy/prod) de LiteLLM.
 
 **Migrer un déploiement qui a tourné sans elle.** Ses identifiants sont chiffrés avec la clé maîtresse,
 et une clé de sel neuve les rendrait illisibles. Sur une base où rien n'a été enregistré, il n'y a rien
@@ -386,8 +386,9 @@ clé maîtresse n'est plus sûre, elle ne doit pas devenir la clé de sel : avan
 la base sous une clé de sel neuve, par l'API du LiteLLM **encore sans clé de sel** --
 `POST /key/regenerate`, avec la clé maîtresse actuelle en `key` et la future clé de sel en
 `new_master_key` ; la réponse contient cette valeur -- puis déployer aussitôt avec elle. Sauvegarder la
-base d'abord : ce chemin supprime et recrée les lignes des modèles. Les deux voies sont mesurées sur
-`v1.100.0`. En dernier recours, ressaisir les identifiants depuis `/ui`.
+base d'abord : la page amont prévient qu'un échec partiel de ce chemin peut laisser des lignes non
+re-chiffrées. Les deux voies sont mesurées sur `v1.100.0`. En dernier recours, ressaisir les identifiants
+depuis `/ui`.
 `LITELLM_MIGRATE_FROM_MASTER_KEY`, que LiteLLM apporte à partir de `v1.104.0` et que décrit la même page,
 ne sert pas ici : il re-chiffre sous la **nouvelle clé maîtresse**, pour un déploiement **sans** clé de
 sel, et LiteLLM le laisse sans effet dès que `LITELLM_SALT_KEY` est posée, ce que ce rôle fait toujours.
