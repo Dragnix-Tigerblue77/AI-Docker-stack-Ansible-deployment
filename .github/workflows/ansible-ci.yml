@@ -73,9 +73,9 @@ jobs:
         with:
           python-version: "3.12"
           # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
-          # can name: a self-hosted runner can keep its tool cache between jobs, and left at
-          # its "false" default setup-python looks in that cache FIRST and only
-          # asks the versions manifest when it misses -- so the first 3.12 patch the cache ever holds
+          # can name: a self-hosted runner can keep its tool cache between jobs, and left at its
+          # "false" default setup-python looks in that cache FIRST and only asks the versions
+          # manifest when it misses -- so the first 3.12 patch the cache ever holds
           # would be the one every later job gets, for ever. "true" resolves the newest patch from
           # the manifest before looking in the cache: one small HTTPS GET per job, and one download
           # on the day the patch changes.
@@ -91,12 +91,11 @@ jobs:
   reuse:
     name: REUSE compliance
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # 15 and not 5, for the self-hosted pool CI_RUNNER can name. This very job has been lost to a
-    # 5-minute limit on such a pool: killed at 5m19, 97 ms after "reuse lint" had printed its
-    # success -- the minutes had gone to setting the job up, never to the check. A job over its
-    # "timeout-minutes" concludes "cancelled", which "dependabot-auto-merge.yml" rightly refuses,
-    # so on that pool every Dependabot update would sit waiting for a human with nothing red to say
-    # why.
+    # 15 and not 5, for the self-hosted pool CI_RUNNER can name: on such a pool, setting the job up
+    # can use up a 5-minute limit before "reuse lint", which takes a second or two, even starts. A
+    # job over its "timeout-minutes" concludes "cancelled", which "dependabot-auto-merge.yml"
+    # rightly refuses, so on that pool every Dependabot update would sit waiting for a human with
+    # nothing red to say why.
     timeout-minutes: 15
     steps:
       # Symlinks are checked out as symlinks, which matters here: "LICENSE" is one, pointing at
