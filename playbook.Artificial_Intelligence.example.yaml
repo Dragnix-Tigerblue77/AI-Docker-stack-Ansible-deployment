@@ -64,6 +64,12 @@
         # allow-list, created in #2. A client holding this key makes that whole isolation pointless.
         Artificial_Intelligence_LiteLLM_master_key: "{{ vault_Artificial_Intelligence_LiteLLM_master_key }}"
 
+        # MANDATORY since #164, and without a default: the key LiteLLM encrypts the credentials stored
+        # from "/ui" with. A DIFFERENT value from the master key -- the role refuses the same one -- and
+        # one that never changes once a credential is stored. A deployment that ran without it needs
+        # the migration in the role's README, "La clé de sel (#164)", not a fresh value.
+        Artificial_Intelligence_LiteLLM_salt_key: "{{ vault_Artificial_Intelligence_LiteLLM_salt_key }}"
+
         # "/ui"'s own password, now that its port is published (see the role's README for why). Basic
         # protection -- a login form, not HTTP basic auth, and no TLS -- but the one thing standing
         # between the LAN and the dashboard of the container that holds both accounts' provider keys

@@ -224,6 +224,11 @@ services:
     image: ghcr.io/berriai/litellm
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
+      # The key everything "STORE_MODEL_IN_DB" below keeps in PostgreSQL is encrypted with -- the
+      # provider keys added from "/ui" first of all (#164). Without it LiteLLM falls back to the master
+      # key, and rotating the master key would make every stored credential unreadable. It never
+      # changes once one is stored, and it differs from the master key; "defaults/main.yml" says why.
+      LITELLM_SALT_KEY: "{{ Artificial_Intelligence_LiteLLM_salt_key | replace('$', '$$') }}"
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
       #

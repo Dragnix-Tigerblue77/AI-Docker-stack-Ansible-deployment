@@ -102,6 +102,24 @@
       be empty, which is no password at all -- defence in depth against a compromised workload on the
       internal network, same standard as "Artificial_Intelligence_Qdrant_API_key" (#3).
 
+# After the master key's own check above, which has already refused an undefined one: the last line
+# compares against it. "quiet" prints the failing expression, never either value.
+- name: "Check the LiteLLM salt key is provided and kept apart from the master key"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LiteLLM_salt_key is defined
+      - Artificial_Intelligence_LiteLLM_salt_key is string
+      - Artificial_Intelligence_LiteLLM_salt_key | length > 0
+      - Artificial_Intelligence_LiteLLM_salt_key != Artificial_Intelligence_LiteLLM_master_key
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LiteLLM_salt_key" is mandatory, has no default, and must differ from
+      "Artificial_Intelligence_LiteLLM_master_key" (#164). It is "LITELLM_SALT_KEY", the key LiteLLM
+      encrypts the credentials stored from "/ui" with. Without it LiteLLM encrypts them with the master
+      key, and rotating the master key makes every one of them unreadable; an empty value is not
+      "unset" to LiteLLM but a key anyone can compute. An EXISTING deployment must not simply be given
+      a fresh value: see "La clé de sel (#164)" in the README for the migration that keeps them.
+
 - name: "Check the Claude Code agent (tigerblue77) parameters are provided"
   ansible.builtin.assert:
     that:

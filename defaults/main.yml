@@ -178,6 +178,34 @@ Artificial_Intelligence_LiteLLM_memory_limit: "2g"
 Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # Artificial_Intelligence_LiteLLM_UI_password:
 
+# The key LiteLLM encrypts everything it stores in PostgreSQL with (#164): a model's "litellm_params"
+# (its provider key, its "api_base", even its upstream "model"), the "/credentials" entries, and the
+# environment variables and MCP server credentials saved from "/ui". MANDATORY and without a default,
+# like every other secret here. Without it LiteLLM falls back to the MASTER KEY ("_get_salt_key()" in
+# "litellm/proxy/common_utils/encrypt_decrypt_utils.py", the same at v1.100.0 and v1.105.0, read on
+# 2026-10-11), and changing the master key then loses every stored credential. Measured on v1.100.0:
+# the stored models drop out of routing ("Invalid model name"), the container stays healthy, and only
+# its log says why.
+#
+# ! NEVER change it once a credential has been stored: LiteLLM documents no rotation for it, and a
+# new value makes every stored credential unreadable, the same way -- "Do not change it after adding a
+# model", in "https://docs.litellm.ai/docs/proxy/prod". "tasks/main.yml" also refuses an empty one,
+# which LiteLLM would NOT treat as unset: "os.getenv" returns "", and the SHA-256 of the empty string
+# becomes the key.
+#
+# ! DIFFERENT from "Artificial_Intelligence_LiteLLM_master_key", which "tasks/main.yml" checks: the
+# master key goes to every admin client and to the API calls of this role (#103), and it is the one
+# secret meant to be rotated. With this key set, the master key is rotated by changing its variable
+# and deploying again -- NEVER through LiteLLM's "POST /key/regenerate" with "new_master_key", which
+# re-encrypts everything under the new master key while LiteLLM keeps decrypting with this one
+# ("https://docs.litellm.ai/docs/proxy/master_key_rotations" warns about exactly that). Measured on
+# v1.100.0: every stored model gone, as without a salt key.
+#
+# A fresh value is "openssl rand -hex 32", vaulted like the others ("ansible-vault encrypt_string").
+# An EXISTING deployment whose credentials were encrypted with the master key does not get a fresh
+# value: the README's "La clé de sel (#164)" says how to migrate it without losing them.
+# Artificial_Intelligence_LiteLLM_salt_key:
+
 # A LIST, empty by default, never a fixed pair of named variables (#103): each entry
 # ({"username": ..., "email": ...}) becomes its own restricted LiteLLM login -- "internal_user" role,
 # which can create/view/delete only ITS OWN keys and see only ITS OWN spend, never another account's
