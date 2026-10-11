@@ -187,8 +187,9 @@ because forgetting them costs the same time every session.
   it to stop.
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
-  first, then what it rests on, then what is being asked. The failure in the other direction costs
-  as much, and trimming is not the goal: a question the maintainer asked is answered, and what was
+  first -- for a decision to take, what the maintainer gains and what it costs them, in two lines --
+  then what it rests on, then what is being asked. The failure in the other direction costs as much,
+  and trimming is not the goal: a question the maintainer asked is answered, and what was
   done, how, and what it will cost them stay in. What comes out is the narration -- the steps in the
   order they happened, and the reasoning already written into the commit message and the pull request
   body, where it survives and where repeating it here is the second copy that drifts. Tables and
