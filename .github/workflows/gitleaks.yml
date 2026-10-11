@@ -17,9 +17,9 @@ name: gitleaks
 #   and listening for this workflow by its "name:" above. See the header of "ansible-ci.yml".
 #
 # Both jobs take their runner from CI_RUNNER, like every job of "ansible-ci.yml", whose header says
-# what the variable may name and when. The "sudo install" below needs nothing more on a self-hosted
-# runner: myoung34/github-runner, the image the homelab repository's runner role deploys, installs
-# sudo and gives it to its runner user without a password.
+# what the variable may name and when. The "sudo install" below needs a runner whose user has sudo
+# without a password: GitHub's hosted image has it, and so does a self-hosted runner built on
+# myoung34/github-runner.
 
 on:
   push:
