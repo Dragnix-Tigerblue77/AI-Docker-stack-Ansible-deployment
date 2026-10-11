@@ -260,8 +260,9 @@ jobs:
 
       # This check arrived with #31, and until now nothing was running it: the repository had no
       # workflow. It renders and parses the compose template in BOTH of its states, which none of
-      # the other jobs does -- reading a diff is not verification. Its dependencies (jinja2,
-      # PyYAML) arrive with ansible-core, already installed above.
+      # the other jobs does -- reading a diff is not verification. Its dependencies are ansible-core,
+      # installed above, whose own "to_json" filter the template uses (#188), and the jinja2 and
+      # PyYAML that arrive with it.
       - name: "Compose template: check the check itself"
         run: python3 .github/scripts/check_compose_template.py --selftest
 

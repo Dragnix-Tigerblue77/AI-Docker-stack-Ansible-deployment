@@ -414,6 +414,15 @@ identifiants, alias de modèle, chemins d'hôte -- avec `| replace('$', '$$')`, 
 fuseau horaire, dont la grammaire exclut le `$`. Côté appelant, rien à échapper : une valeur du vault se
 donne telle quelle, et doublée à la main elle arriverait fausse.
 
+**Puis écrite en chaîne JSON, sans guillemets autour (#188).** Entre guillemets doubles YAML, un `"`
+termine la chaîne et un `\` ouvre une séquence d'échappement. Mesuré avec la même version de Compose et
+avec `docker stack config` : `ab"cd` et `ab\qcd` faisaient refuser le fichier entier, `ab\tcd` arrivait
+avec une tabulation, `ab\x41cd` en `abAcd`, `ab\\cd` avec un seul `\`. Le template écrit donc chacune de
+ces valeurs `{{ variable | replace('$', '$$') | to_json(ensure_ascii=False) }}` : une chaîne JSON est un
+scalaire YAML entre guillemets doubles valide, où tout ce que YAML interpréterait est échappé.
+`ensure_ascii=False` n'est pas un détail : sans lui, `to_json` -- comme le `tojson` de Jinja -- écrit un
+emoji en paire de substitution, que Compose et Swarm refusent. Là encore, rien à échapper côté appelant.
+
 **La clé maîtresse ne sort pas du conteneur.** Elle sert à l'administration depuis Ansible, à rien
 d'autre. Open WebUI, N8N, le conteneur Claude Code et le bot Discord reçoivent chacun une clé virtuelle
 portant sa propre liste blanche de modèles — c'est #2 qui les crée. Un client qui détient la clé maîtresse
@@ -805,8 +814,18 @@ réécrit déjà y sont exemptés un par un, avec leur numéro, et une exemption
 
 Ce n'est pas toute valeur de l'appelant : une nouvelle valeur libre dotée d'un vrai défaut, ou d'un
 défaut `false`, n'est rendue avec un `$` qu'une fois ajoutée à cette liste. Rien dans un défaut ne dit si
-sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. La dernière ligne du contrôle donne le
-nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du rendu.
+sa grammaire admet un `$`, et `false` écrit aussi un interrupteur. L'avant-dernière ligne du contrôle
+donne le nombre de valeurs effectivement rendues avec un `$` : s'il baisse, une valeur est sortie du
+rendu.
+
+Les mêmes valeurs portent aussi `"`, `'`, `\t`, `\x41`, `\\` et un emoji (#188), et le contrôle suit
+chacune dans le résultat parsé : partout où elle est écrite telle quelle, elle doit arriver entière,
+telle que Compose la lira. Il la reconnaît à son marqueur -- le nom de la variable, `@` et `Ab` -- et ne
+suit pas un emplacement qui l'encode exprès, comme une URL de connexion, où `@` devient `%40`. Le filtre
+`to_json` de ce rendu est celui d'Ansible, importé : le fichier rendu est celui qu'écrirait le module
+`template`. Les variables qu'une ligne écrit encore brute, parce qu'une autre pull request réécrit cette
+ligne, sont rendues sans ces caractères -- un `"` brut ferait refuser tout le rendu -- et nommées une par
+une avec leur pull request ; là encore, une exemption qui n'exempte plus rien fait échouer le contrôle.
 
 ## Exemple d'appel
 

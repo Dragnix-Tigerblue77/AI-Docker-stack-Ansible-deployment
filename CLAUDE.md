@@ -306,7 +306,11 @@ in a secret reached the container as whatever it named in their environment, usu
 #155; the template's header says which values are exempt and why, and `check_compose_template.py`
 renders the ones it can find with a `$` and refuses the file where one arrives single. It finds a value
 with no default or an empty one by itself; one with a real default, or a `false` one, only once its
-`FREE_FORM_WITH_A_DEFAULT` names it, so add a new free-form value there in the same commit.
+`FREE_FORM_WITH_A_DEFAULT` names it, so add a new free-form value there in the same commit. **The
+result is then written as a JSON string, `| to_json(ensure_ascii=False)`, with no quotes of its own**,
+because a `"` in a double-quoted YAML string had the file refused and a `\` rewrote the secret without
+a word (#188); without `ensure_ascii=False` an emoji becomes a surrogate pair Compose refuses. The same
+render carries quotes and backslashes, and the check refuses a value that does not arrive whole.
 
 **Images float by default, and are pinned on purpose only where a database would lose its data.** An
 image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag

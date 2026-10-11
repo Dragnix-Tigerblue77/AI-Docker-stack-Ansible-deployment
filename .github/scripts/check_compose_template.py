@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Render the Artificial Intelligence compose template, parse it, and hold it to the conventions #31 sets.
+r"""Render the Artificial Intelligence compose template, parse it, and hold it to the conventions #31 sets.
 
 Why this exists
 ---------------
@@ -37,6 +37,15 @@ covered only once "FREE_FORM_WITH_A_DEFAULT" names it, and so is an optional one
 and it is the one place where a value added without a thought for this file renders with no "$" and
 passes unexamined.
 
+The same values also carry a double quote, a single one, three backslashes of the kinds YAML
+rewrites without a word -- "\t", "\x41", "\\" -- and an emoji (#188), and the check follows each
+one into the parsed result: wherever a value is written as it is, it has to arrive whole, as Compose
+will read it. A single "$" is one way of failing that; a quote that ends the YAML string early, or a
+backslash read as an escape, are others, and none of them showed in a render whose values held
+neither. A value is recognised by its marker -- the variable's own name, an "@" and "Ab" -- and a
+place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
+and is not followed: what an encoder does is that encoder's to justify.
+
 What it deliberately does NOT flag
 ----------------------------------
 * A published "ports:" mapping. Whether a service is web-facing is a deployment decision, not a
@@ -46,7 +55,10 @@ What it deliberately does NOT flag
   repository to be worth anything, and this one walks a single tree.
 * Anything about the deployment role. It is named by the caller and this script never loads it.
 
-Dependencies: jinja2 and PyYAML, both of which arrive with ansible-core, which CI installs anyway.
+Dependencies: ansible-core, which CI installs anyway, and the jinja2 and PyYAML that arrive with it.
+ansible-core itself is imported for one thing: the "to_json" filter the template uses, which plain
+Jinja2 does not have. It is Ansible's own, not an imitation of it, so what this renders is what the
+"template" module writes.
 """
 
 import copy
@@ -55,6 +67,7 @@ from pathlib import Path
 
 import jinja2.meta
 import yaml
+from ansible.plugins.filter.core import to_json
 from jinja2 import Environment, FileSystemLoader, meta
 
 ROLE = Path(__file__).resolve().parents[2]
@@ -117,6 +130,25 @@ DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
     "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
     "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
     "services.litellm.environment.REDIS_URL": "#130, which removes it",
+}
+
+# What a double-quoted YAML string reads as syntax rather than as text (#188), appended to every
+# value of the "$" render: a double quote, which ends the string; a single one, for the day a line is
+# written between those; a backslash in the three forms YAML rewrites without a word -- "\t" into a
+# tab, "\x41" into "A", "\\" into one backslash -- and an emoji, which "to_json" turns into a
+# surrogate pair Compose refuses unless it is told "ensure_ascii=False".
+QUOTE_SAMPLE = "\"i'j\\tk\\x41l\\\\m\U0001F600n"
+
+# The variables whose value some line still writes between quotes, raw, because another open pull
+# request is rewriting that line. Their values carry no QUOTE_SAMPLE: one raw double quote has YAML
+# refuse the whole render, which would hide every other finding. Each names its owner, and an entry
+# FAILS the check once giving that variable the sample too passes -- the same rule, and the same
+# reason, as for the places above.
+QUOTES_LEFT_TO_OTHER_PULL_REQUESTS = {
+    "Artificial_Intelligence_PostgreSQL_user": "#134, which rewrites POSTGRES_USER, then #188",
+    "Artificial_Intelligence_PostgreSQL_password": "#134, which rewrites POSTGRES_PASSWORD, then #188",
+    "Artificial_Intelligence_PostgreSQL_database": "#134, which rewrites POSTGRES_DB, then #188",
+    "Artificial_Intelligence_Redis_password": "#130, which removes REDIS_URL, and #134, which adds REDISCLI_AUTH",
 }
 
 
@@ -270,8 +302,15 @@ def describe_template_error(error):
     return f"does not render: {message}"
 
 
+def template_environment(**options):
+    """A Jinja2 environment carrying the one Ansible filter the template uses, Ansible's own."""
+    environment = Environment(**options)
+    environment.filters["to_json"] = to_json
+    return environment
+
+
 def render(context):
-    environment = Environment(loader=FileSystemLoader(str(ROLE / "templates")), keep_trailing_newline=True)
+    environment = template_environment(loader=FileSystemLoader(str(ROLE / "templates")), keep_trailing_newline=True)
     template = environment.get_template(f"{context['Artificial_Intelligence_Docker_compose_file_name']}.j2")
     return template.render(**context)
 
@@ -491,24 +530,38 @@ def check_states(off, on, failures):
         )
 
 
-def dollar_sample(name):
+def dollar_sample(name, quotes=True):
     """A value for `name` carrying every character that has cost a secret something here.
 
     "$" alone, "${" -- the form that makes Compose refuse the whole file rather than empty the value --
-    "$$" which must survive as two, and the "/", "@" and "#" a generated password is made of. A host
-    path -- a variable whose name ends in "_directory" or "_path", as every one of this role's does --
-    is given the shape of one, so that the render stays a stack a deployer would accept. The
-    variable's own name goes into its value, so a finding can be traced back to where it came from.
+    "$$" which must survive as two, the "/", "@" and "#" a generated password is made of, and unless
+    `quotes` is false, QUOTE_SAMPLE. A host path -- a variable whose name ends in "_directory" or
+    "_path", as every one of this role's does -- is given the shape of one, so that the render stays a
+    stack a deployer would accept. It ends in a "$", which Swarm refuses single where Compose keeps it.
+
+    It starts with its MARKER, the variable's own name then "@Ab": that is how "check_intact" finds
+    the value again in the parsed result, and how a finding is traced back to where it came from. The
+    "@" is what a percent-encoding turns into "%40", so an encoded copy is not taken for an altered one.
     """
     short = name.replace("Artificial_Intelligence_", "")
+    tail = QUOTE_SAMPLE if quotes else ""
     if name.endswith(("_directory", "_path")):
-        return f"/srv/{short}/Ab$cd${{HOME}}$$e@f#g$"
-    return f"{short}-Ab$cd${{HOME}}$$e/f@g#h$"
+        return f"/srv/{short}@Ab$cd${{HOME}}$$e@f#g{tail}$"
+    return f"{short}@Ab$cd${{HOME}}$$e/f@g#h{tail}$"
+
+
+def marker(sample):
+    """The part of a "dollar_sample" that names it: everything before its first "$"."""
+    return sample.split("$", 1)[0]
 
 
 def template_reads(defaults):
-    """Every variable the compose template reads, whether or not "defaults/main.yml" defines it."""
-    environment = Environment(loader=FileSystemLoader(str(ROLE / "templates")))
+    """Every variable the compose template reads, whether or not "defaults/main.yml" defines it.
+
+    The environment carries "to_json" here too: finding the variables compiles the template, and
+    Jinja2 refuses a filter it does not know at compile time.
+    """
+    environment = template_environment(loader=FileSystemLoader(str(ROLE / "templates")))
     name = f"{defaults['Artificial_Intelligence_Docker_compose_file_name']}.j2"
     return meta.find_undeclared_variables(environment.parse(environment.loader.get_source(environment, name)[0]))
 
@@ -539,10 +592,10 @@ def dollar_variables(read, defaults, free_form):
     return (read - set(defaults)) | empty | (set(free_form) & read)
 
 
-def dollar_context(defaults, failures):
-    """The render context in which every value "dollar_variables" selects carries a "$".
+def dollar_samples(defaults, failures, without_quotes=QUOTES_LEFT_TO_OTHER_PULL_REQUESTS):
+    """The value every variable "dollar_variables" selects is given, by variable name.
 
-    The Claude Code agent is switched on, so that its block is rendered too.
+    Those `without_quotes` names get no QUOTE_SAMPLE -- see QUOTES_LEFT_TO_OTHER_PULL_REQUESTS.
     """
     read = template_reads(defaults)
     for variable in FREE_FORM_WITH_A_DEFAULT:
@@ -551,10 +604,18 @@ def dollar_context(defaults, failures):
                 f"FREE_FORM_WITH_A_DEFAULT names {variable!r}, which the template does not read: "
                 "rename or remove the entry, or the '$' render silently stops covering what it meant to"
             )
-    context = dict(defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED)
-    for variable in sorted(dollar_variables(read, defaults, FREE_FORM_WITH_A_DEFAULT)):
-        context[variable] = dollar_sample(variable)
-    return context
+    return {
+        variable: dollar_sample(variable, quotes=variable not in without_quotes)
+        for variable in sorted(dollar_variables(read, defaults, FREE_FORM_WITH_A_DEFAULT))
+    }
+
+
+def dollar_context(defaults, failures, without_quotes=QUOTES_LEFT_TO_OTHER_PULL_REQUESTS):
+    """The render context in which every value "dollar_variables" selects carries a "$" and quotes.
+
+    The Claude Code agent is switched on, so that its block is rendered too.
+    """
+    return {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **dollar_samples(defaults, failures, without_quotes)}
 
 
 def strings(node, path=""):
@@ -581,6 +642,10 @@ def single_dollar(text):
     return "$" in text.replace("$$", "")
 
 
+# What a finding tells the reader to write instead: the form every caller value takes in the template.
+RECOMMENDED_FORM = "{{ variable | replace('$', '$$') | to_json(ensure_ascii=False) }}, with no quotes around it"
+
+
 def check_dollars(document, state, failures, left_elsewhere):
     """Refuse every string of `document` in which Compose would interpolate a "$".
 
@@ -591,13 +656,57 @@ def check_dollars(document, state, failures, left_elsewhere):
     for where in sorted(single - set(left_elsewhere)):
         failures.append(
             f"[{state}] {where}: carries a single '$', which Compose would interpolate -- write the "
-            "value with \"| replace('$', '$$')\""
+            f"value with {RECOMMENDED_FORM}"
         )
     for where, owner in sorted(left_elsewhere.items()):
         if where not in single:
             failures.append(
                 f"{where} is left to {owner.split(',')[0]} in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS, and carries "
                 "no single '$' any more: remove the entry, it would now hide a regression"
+            )
+
+
+
+def check_intact(document, state, failures, samples, left_elsewhere):
+    """Refuse every string of `document` that names a value of `samples` without carrying it whole.
+
+    "Whole" is as Compose will read it: with its "$" doubled, since Compose makes one of each pair.
+    A string that carries a value's marker and not the rest of it is one where the value was cut
+    short, or where a quote or a backslash in it was read as YAML -- the two ways it fails silently.
+    The places left to another pull request are skipped, as in "check_dollars", which already holds
+    them to their exemption.
+    """
+    for where, text in strings(document):
+        if where in left_elsewhere:
+            continue
+        for variable, sample in sorted(samples.items()):
+            if marker(sample) in text and sample.replace("$", "$$") not in text:
+                failures.append(
+                    f"[{state}] {where}: carries {variable} altered, as {text!r} -- write the value with "
+                    f"{RECOMMENDED_FORM}"
+                )
+
+
+def check_quote_exemptions(defaults, failures):
+    """Fail on every QUOTES_LEFT_TO_OTHER_PULL_REQUESTS entry that no longer exempts anything.
+
+    An entry is stale when giving that one variable QUOTE_SAMPLE too renders a file that parses and
+    passes both "check_dollars" and "check_intact": the line that wrote it raw has been fixed, or is
+    gone, and the entry now only keeps the check from seeing the next one that does.
+    """
+    for variable, owner in sorted(QUOTES_LEFT_TO_OTHER_PULL_REQUESTS.items()):
+        others = set(QUOTES_LEFT_TO_OTHER_PULL_REQUESTS) - {variable}
+        findings = []
+        try:
+            document = yaml.safe_load(render(dollar_context(defaults, [], without_quotes=others)))
+        except Exception:  # noqa: BLE001 - refused is exactly what an exemption still in use looks like
+            continue
+        check_dollars(document, "", findings, DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
+        check_intact(document, "", findings, dollar_samples(defaults, [], others), DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
+        if not findings:
+            failures.append(
+                f"{variable} is left to {owner.split(',')[0]} in QUOTES_LEFT_TO_OTHER_PULL_REQUESTS, and arrives "
+                "whole with quotes and backslashes in it now: remove the entry, it would now hide a regression"
             )
 
 
@@ -967,6 +1076,50 @@ DOLLAR_VARIABLE_CASES = [
     ("empty default, but not read", set(), {"optional_key": ""}, (), set()),
 ]
 
+# (name, document, value of each variable, places left to another pull request, expected or None)
+# The document is what YAML made of the file; the value is what the caller gave. "\t" below is a tab,
+# "\\t" a backslash and a "t".
+INTACT_CASES = [
+    ("value arrives whole",
+     {"services": {"svc": {"environment": {"KEY": "X@Ab$$cd\"e'f\\tg"}}}},
+     {"X": "X@Ab$cd\"e'f\\tg"}, {}, None),
+    ("backslash read as an escape",
+     {"services": {"svc": {"environment": {"KEY": "X@Ab$$cd\"e'f\tg"}}}},
+     {"X": "X@Ab$cd\"e'f\\tg"}, {}, "services.svc.environment.KEY: carries X altered"),
+    ("value cut short",
+     {"services": {"svc": {"command": ["--password", "X@Ab"]}}},
+     {"X": "X@Ab$cd"}, {}, "services.svc.command[1]: carries X altered"),
+    # A mount is "source:target:mode": the value is a part of the string, and is found there whole.
+    ("value inside a longer string",
+     {"services": {"svc": {"volumes": ["/srv/X@Ab$$cd\"e:/app/config.yaml:ro"]}}},
+     {"X": "/srv/X@Ab$cd\"e"}, {}, None),
+    ("percent-encoded on purpose, so not followed",
+     {"services": {"svc": {"environment": {"URL": "postgresql://X%40Ab%24cd%22e@postgres:5432/db"}}}},
+     {"X": "X@Ab$cd\"e"}, {}, None),
+    ("a place left to another pull request",
+     {"services": {"svc": {"environment": {"KEY": "X@Ab$cd"}}}},
+     {"X": "X@Ab$cd"}, {"services.svc.environment.KEY": "#0, selftest"}, None),
+]
+
+# (name, a line of template, expected or None)
+# Rendered with Ansible's own "to_json" and parsed, which is the only way to show which way of
+# writing a value survives YAML: the cases above take the parsed document as given. The value is a
+# full "dollar_sample", quotes and emoji included.
+TEMPLATE_LINE_CASES = [
+    ("the template's form",
+     "KEY: {{ value | replace('$', '$$') | to_json(ensure_ascii=False) }}", None),
+    ("between double quotes, as before #188",
+     "KEY: \"{{ value | replace('$', '$$') }}\"", "not valid YAML"),
+    # PyYAML reads the surrogate pair as two halves rather than refusing it as Compose does, so it
+    # shows here as an altered value -- which it is, one way or the other.
+    ("to_json left to its default ensure_ascii",
+     "KEY: {{ value | replace('$', '$$') | to_json }}", "carries value altered"),
+    ("the quote escaped by hand, the backslash not",
+     "KEY: \"{{ value | replace('$', '$$') | replace('\"', '\\\\\"') }}\"", "carries value altered"),
+    ("to_json without the replace",
+     "KEY: {{ value | to_json(ensure_ascii=False) }}", "carries a single '$'"),
+]
+
 
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
@@ -1041,6 +1194,32 @@ def selftest():
         if derived != expected:
             problems.append(f"{name!r}: gives a '$' to {sorted(derived)}, expected {sorted(expected)}")
 
+    for name, document, samples, left_elsewhere, expected in INTACT_CASES:
+        failures = []
+        try:
+            check_intact(document, "selftest", failures, samples, left_elsewhere)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, line, expected in TEMPLATE_LINE_CASES:
+        failures = []
+        sample = dollar_sample("value")
+        try:
+            text = template_environment().from_string(line).render(value=sample)
+            try:
+                document = yaml.safe_load(text)
+            except yaml.YAMLError as error:
+                failures.append(f"the rendered line is not valid YAML: {error}")
+            else:
+                check_dollars(document, "selftest", failures, {})
+                check_intact(document, "selftest", failures, {"value": sample}, {})
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     if problems:
         print(f"{len(problems)} selftest problem(s):\n")
         for problem in problems:
@@ -1051,7 +1230,8 @@ def selftest():
     print(
         f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
         f"{len(CONVENTION_CASES)} convention case(s), {len(STATE_CASES)} two-state case(s), "
-        f"{len(DOLLAR_CASES)} '$' case(s) and {len(DOLLAR_VARIABLE_CASES)} '$' selection case(s) "
+        f"{len(DOLLAR_CASES)} '$' case(s), {len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
+        f"{len(INTACT_CASES)} intact-value case(s) and {len(TEMPLATE_LINE_CASES)} template-line case(s) "
         "all judged as expected."
     )
     return 0
@@ -1115,13 +1295,21 @@ def main():
     # Kept apart from the loop above rather than added to it: that loop holds every state to the
     # service conventions, this one holds a single state to something else, and "check_states" reads
     # only the first two either way.
-    dollar_state = "caller values carrying '$'"
+    dollar_state = "caller values carrying '$', quotes and backslashes"
+    samples = dollar_samples(defaults, failures)
     try:
-        dollar_document = yaml.safe_load(render(dollar_context(defaults, failures)))
-    except Exception as error:  # noqa: BLE001 - a value breaking the render or the YAML is a finding
-        failures.append(f"[{dollar_state}] the template does not render into valid YAML: {error}")
+        dollar_document = yaml.safe_load(render({**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **samples}))
+    except yaml.YAMLError as error:
+        failures.append(
+            f"[{dollar_state}] the rendered file is not valid YAML -- most likely a value written between "
+            f"quotes rather than as {RECOMMENDED_FORM}: {error}"
+        )
+    except Exception as error:  # noqa: BLE001 - a value breaking the render is a finding
+        failures.append(f"[{dollar_state}] the template does not render: {error}")
     else:
         check_dollars(dollar_document, dollar_state, failures, DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
+        check_intact(dollar_document, dollar_state, failures, samples, DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
+    check_quote_exemptions(defaults, failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")
@@ -1141,10 +1329,15 @@ def main():
     # Printed on every run, so the places still waiting on another pull request stay in view, and so
     # does how many values the render actually gave a "$" -- a number that drops is a value lost.
     owners = sorted({owner.split(",")[0] for owner in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS.values()})
-    covered = len(dollar_variables(template_reads(defaults), defaults, FREE_FORM_WITH_A_DEFAULT))
     print(
-        f"No '$' reaches Compose single from the {covered} caller value(s) rendered with one"
+        f"No '$' reaches Compose single from the {len(samples)} caller value(s) rendered with one"
         + (f", {len(DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)} place(s) left to {', '.join(owners)}." if owners else ".")
+    )
+    quoted = [variable for variable in samples if variable not in QUOTES_LEFT_TO_OTHER_PULL_REQUESTS]
+    waiting = sorted({owner.split(",")[0] for owner in QUOTES_LEFT_TO_OTHER_PULL_REQUESTS.values()})
+    print(
+        f"Each of the {len(quoted)} rendered with quotes and backslashes too arrives whole"
+        + (f", {len(samples) - len(quoted)} rendered without them until {', '.join(waiting)}." if waiting else ".")
     )
     return 0
 

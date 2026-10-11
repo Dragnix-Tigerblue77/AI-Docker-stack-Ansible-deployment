@@ -30,8 +30,10 @@ Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docke
 #
 # The template writes a caller's value into this file through "| replace('$', '$$')": Compose and
 # "docker stack deploy" read it through their own "$VAR" interpolation after Ansible has rendered
-# it, and would otherwise cut a secret short at its first "$" (#155, see the template's header). A
-# vaulted value is therefore given as it is, never pre-escaped: escaped twice, it would arrive wrong.
+# it, and would otherwise cut a secret short at its first "$" (#155, see the template's header). It
+# then writes the result as a JSON string, "| to_json(ensure_ascii=False)", so that a quote or a
+# backslash in it is not read as YAML (#188). A vaulted value is therefore given as it is, never
+# pre-escaped: escaped twice, it would arrive wrong.
 Artificial_Intelligence_Docker_compose_file_destination_directory: "/tmp/"
 Artificial_Intelligence_Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_Docker_compose_file_name }}"
 
