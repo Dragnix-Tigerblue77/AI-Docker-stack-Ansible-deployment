@@ -14,11 +14,11 @@ name: Ansible CI
 #
 #   Dependabot's updates are the exception, and the one place these jobs do gate something:
 #   "dependabot-auto-merge.yml" merges a minor or patch update only once every job named in
-#   ".github/rulesets/main.json" has succeeded on it -- every job of this workflow and of
-#   "gitleaks.yml", by its display "name:". Renaming a job, or adding one, means editing that file
-#   in the same pull request; "check_required_checks.py" below fails until it is done. The
-#   workflow's own "name:" above is what "dependabot-auto-merge.yml" listens for, so it is
-#   load-bearing too.
+#   ".github/rulesets/main.json" has succeeded on it -- every job of this workflow, of
+#   "gitleaks.yml" and of "sign-off.yml", by its display "name:". Renaming a job, or adding one,
+#   means editing that file in the same pull request; "check_required_checks.py" below fails until
+#   it is done. The workflow's own "name:" above is what "dependabot-auto-merge.yml" listens for, so
+#   it is load-bearing too.
 #
 # Every job below takes its runner from the CI_RUNNER repository variable, and falls back to
 # "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
@@ -284,6 +284,13 @@ jobs:
       - name: "Hard-coded inventory data: read the repository"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py
+
+      # The job of "sign-off.yml" runs this check on a pull request's commits, and only there. This
+      # step proves the check itself on every event, against throwaway repositories and the
+      # session-start hook run in a sandbox, so it needs nothing but git and bash.
+      - name: "Sign-off: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_sign_off.py --selftest
 
       # The list of checks a Dependabot update must pass before "dependabot-auto-merge.yml"
       # merges it names jobs by their display name. A job renamed without that list is one every

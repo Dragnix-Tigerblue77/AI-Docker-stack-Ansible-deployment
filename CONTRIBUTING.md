@@ -37,15 +37,19 @@ garde pas la porte. Le hook, lui, refuse le commit.
 La seule fusion que la CI décide, c'est celle des mises à jour de Dependabot :
 `.github/workflows/dependabot-auto-merge.yml` fusionne une mise à jour mineure ou corrective une
 fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle — tous les jobs
-de `ansible-ci.yml` et de `gitleaks.yml`, par leur `name:`. Renommer ou ajouter un job, c'est donc
-modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue tant que ce n'est
-pas fait.
+de `ansible-ci.yml`, de `gitleaks.yml` et de `sign-off.yml`, par leur `name:`. Renommer ou ajouter
+un job, c'est donc modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue
+tant que ce n'est pas fait. Ajouter un job laisse aussi chaque pull request de Dependabot déjà ouverte
+attendre un contrôle qu'elle n'a jamais lancé, et rien ne la réveille : `@dependabot rebase` sur
+chacune relance tous les workflows.
 
 Cette fusion-là ne lance d'elle-même aucun workflow sur `main` : GitHub n'en démarre aucun pour un
 push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Ansible CI` et `gitleaks` sur
 `main` juste après avoir fusionné (#180) : ce sont les runs d'événement `workflow_dispatch` qu'on
-voit alors sur `main` dans l'onglet Actions. Les deux workflows gardent pour cela leur déclencheur
+voit alors sur `main` dans l'onglet Actions. Ces deux workflows gardent pour cela leur déclencheur
 `workflow_dispatch:`, qui permet aussi de les lancer à la main, sur n'importe quelle branche.
+`sign-off` n'en a pas, et n'est pas relancé : il lit les commits d'une pull request, et une exécution
+lancée à la main n'a pas de pull request, donc pas d'intervalle à lire.
 
 Deux propriétés à connaître plutôt qu'à découvrir :
 
@@ -72,6 +76,8 @@ python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_sign_off.py --selftest
+python3 .github/scripts/check_sign_off.py origin/main HEAD   # l'intervalle d'une pull request, comme son job le lit : sort en 1 tant que la branche n'a aucun commit
 python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
 
@@ -79,7 +85,7 @@ reuse lint
 gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
 ```
 
-`check_no_inventory_data.py` n'utilise que la bibliothèque standard.
+`check_no_inventory_data.py` et `check_sign_off.py` n'utilisent que la bibliothèque standard.
 `check_LiteLLM_account_isolation.py` lit PyYAML, et c'est la seule dépendance que ces contrôles se
 paient : sa version ligne à ligne ne voyait pas un repli inter-comptes écrit en style bloc — la
 forme même que produit tout sérialiseur YAML, donc `to_nice_yaml`. Un garde-fou qui dépend du style
@@ -88,7 +94,9 @@ puisqu'elle était déjà payée.
 
 Chacun sait se vérifier lui-même (`--selftest`) — un contrôle dont personne n'a jamais vu l'échec
 est un contrôle que personne ne croit. Le premier compare ses verdicts à neuf configurations dont
-huit sont délibérément fautives ; le second à seize lignes construites en mémoire.
+huit sont délibérément fautives ; le second à seize lignes construites en mémoire ; celui du
+sign-off construit de vrais dépôts git jetables dans un répertoire temporaire, et y rejoue aussi le
+hook de démarrage de session.
 
 > `gitleaks dir .` lancé **en local** sur un arbre contenant un vrai `.env` sort en 1, alors que le
 > job de CI est vert : `dir` lit l'arbre de travail et ne consulte pas le `.gitignore`, tandis que
@@ -101,7 +109,8 @@ huit sont délibérément fautives ; le second à seize lignes construites en m�
 | --- | --- |
 | `check_LiteLLM_account_isolation.py` | Une configuration où le quota d'une personne peut payer l'appel d'une autre : un `model_name` qui regroupe deux comptes, un repli qui traverse une frontière de compte, une entrée dont l'étiquette ne dit pas la même chose que sa clé. |
 | `check_no_inventory_data.py` | Une adresse IP ou un nom de domaine écrit en dur. Ils appartiennent à l'inventaire de l'appelant : un rôle qui les porte cesse d'être réutilisable, et publie le homelab au passage. |
-| `check_required_checks.py` | Une liste de contrôles requis, `.github/rulesets/main.json`, qui ne correspond plus aux workflows : un contexte qu'aucun job ne rapporte (chaque mise à jour de Dependabot attendrait alors un humain sans que rien ne paraisse cassé), ou un job de `ansible-ci.yml` ou de `gitleaks.yml` absent de la liste (une mise à jour rouge sur ce seul job fusionnerait quand même). Il refuse aussi un fichier qui ne vise plus la branche par défaut. |
+| `check_required_checks.py` | Une liste de contrôles requis, `.github/rulesets/main.json`, qui ne correspond plus aux workflows : un contexte qu'aucun job ne rapporte (chaque mise à jour de Dependabot attendrait alors un humain sans que rien ne paraisse cassé), ou un job de `ansible-ci.yml`, de `gitleaks.yml` ou de `sign-off.yml` absent de la liste (une mise à jour rouge sur ce seul job fusionnerait quand même). Il refuse aussi un fichier qui ne vise plus la branche par défaut. |
+| `check_sign_off.py` | Une pull request dont un commit n'a pas de `Signed-off-by` exploitable : absent, cité au milieu du message plutôt qu'en trailer, sans adresse, ou qui ne nomme que l'agent. Voir *Signer son travail* plus bas. |
 | `check_compose_template.py` | Arrivé avec #31, il rend le template de compose dans ses **deux** états et analyse le résultat — lire un diff n'est pas une vérification. Rien ne le lançait jusqu'ici, faute de workflow ; c'est cette PR qui le branche. |
 
 Le second fonctionne par **liste blanche**, et c'est la seule forme possible : une liste noire
@@ -120,6 +129,7 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
 * Aucune adresse IP ni nom d'hôte dans le code **ni dans les issues**. `gitleaks` ne lit que l'arbre
   de travail et le *secret scanning* de GitHub demanderait un plan que l'organisation n'a pas : le
   contenu des issues n'est couvert par **aucun** filet automatique, c'est une vigilance humaine.
+* Chaque commit d'une pull request porte un `Signed-off-by` : voir *Signer son travail* plus bas.
 * Les pull requests ne sont **jamais ouvertes en draft**. Ce qui n'est pas vérifié se dit dans le
   corps de la pull request.
 * En-tête SPDX sur chaque fichier, **vérifié par `reuse lint` en CI** (#52) — à une exception près :
@@ -184,12 +194,6 @@ alors inscrite dans le [`NOTICE`](NOTICE), parce qu'un licencié commercial n'a 
 d'apprendre où l'arm commercial ne va pas. Une contribution qui ne peut pas être doublement
 licenciée vaut mieux repérée en relecture qu'après la fusion.
 
-### Sur le *sign-off*
-
-L'historique n'en porte aucun et rien ne l'impose. Le grant ci-dessus est ce qu'un *Developer
-Certificate of Origin* serait là pour certifier, et il s'applique qu'une ligne `Signed-off-by` soit
-présente ou non. Si cela change, ce sera annoncé ici, pas appliqué en silence.
-
 ### Pourquoi cette clause arrive maintenant
 
 Parce qu'elle ne peut parler que des contributions soumises **après** son existence. À la date où
@@ -197,3 +201,100 @@ elle est écrite, `git shortlog -sne` sur `main` ne nomme que deux auteurs : le 
 et l'agent qui a commité pour lui et à sa demande. **Aucune contribution extérieure n'est encore
 arrivée**, donc la clause les couvre toutes — il n'y a rien derrière elle à rattraper. Écrite six
 mois plus tard, elle aurait laissé un trou.
+
+## Signer son travail — le *Developer Certificate of Origin*
+
+Chaque commit d'une pull request porte une ligne `Signed-off-by`. L'ajouter, c'est votre attestation du
+[Developer Certificate of Origin 1.1](https://developercertificate.org/), dont seul le texte anglais
+fait foi :
+
+> By making a contribution to this project, I certify that:
+>
+> (a) The contribution was created in whole or in part by me and I have the right to submit it under the open source license indicated in the file; or
+>
+> (b) The contribution is based upon previous work that, to the best of my knowledge, is covered under an appropriate open source license and I have the right under that license to submit that work with modifications, whether created in whole or in part by me, under the same open source license (unless I am permitted to submit under a different license), as indicated in the file; or
+>
+> (c) The contribution was provided directly to me by some other person who certified (a), (b) or (c) and I have not modified it.
+>
+> (d) I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be redistributed consistent with this project or the open source license(s) involved.
+
+Le sign-off atteste le DCO, et lui seul : le droit de soumettre la contribution sous la licence
+libre « indiquée dans le fichier », ici l'AGPL-3.0-only. Il ne dit rien de l'arm commercial, qui
+repose sur le grant de la section précédente (points 1 à 3), donné en soumettant la contribution,
+qu'une ligne `Signed-off-by` soit présente ou non. Le sign-off ne le remplace pas et n'en change pas
+les termes ; il y ajoute une trace, commit par commit, de l'engagement de l'auteur sur son droit de
+soumettre ce qu'il soumet, un droit que le point 3 du grant suppose lui aussi, mais pour les deux
+licences.
+
+Signez avec l'option `-s`, sous votre vrai nom et avec une adresse joignable :
+
+```bash
+git commit -s -m "Say what the change does"
+```
+
+qui ajoute :
+
+```
+Signed-off-by: Random J Developer <random@example.invalid>
+```
+
+Oublié sur le dernier commit ? `git commit --amend -s`. Sur plusieurs ? `git rebase --signoff <base>`, puis
+`git push --force-with-lease`.
+
+Le job **sign-off** (`.github/workflows/sign-off.yml`) lit les commits de chaque pull request et
+passe au rouge sur celle où l'un d'eux n'a pas de sign-off exploitable. Comme tous les contrôles de
+ce dépôt, il informe la relecture et n'empêche aucune fusion de la main du mainteneur : le hook
+ci-dessus ne lit pas les sign-offs, la relecture est donc la seule barrière, et seules les mises à
+jour de Dependabot attendent ce job. Les règles exactes, et pourquoi elles sont ce qu'elles sont,
+sont dans la docstring de `.github/scripts/check_sign_off.py` ; ce qu'il faut en savoir :
+
+* il lit un *trailer* au sens de git, de la forme `Signed-off-by: Nom <adresse>` : une ligne citée au
+  milieu d'un message n'en est pas un, et une ligne vide ou sans adresse ne certifie personne ;
+* les commits de fusion sont ignorés : git les écrit lui-même, ils n'apportent rien à attester, et ce
+  qu'ils amènent a été signé là où cela a été écrit ;
+* il ne regarde que les commits de la pull request. L'historique d'avant la règle n'en porte pour ainsi
+  dire pas, les commits de Dependabot mis à part, et n'est pas réécrit : signer une branche publiée
+  après coup demanderait de la réécrire ;
+* Dependabot signe lui-même ses commits, donc ses mises à jour n'ont besoin d'aucune exception ;
+* un commit fait dans l'éditeur web de GitHub n'en porte un que si le dépôt le demande, ce qui est
+  un réglage (« Require contributors to sign off on web-based commits ») et non un fichier ; un
+  commit écrit par un outil d'API de fichiers (`push_files`, `create_or_update_file`) n'en porte un
+  que si l'appel l'a écrit dans son message, et c'est pourquoi une session commite par git et par
+  l'alias, pas par l'API.
+
+### Contributions écrites par un agent
+
+Une partie de ce qui est ici est écrite par un agent de code, sur instruction du mainteneur. Le DCO
+ne plie pas pour cela : un commit écrit par un outil a autant besoin qu'un autre d'une attestation
+faite par quelqu'un qui puisse la faire.
+
+Un agent est un outil. Un outil ne certifie rien, et un `Signed-off-by` qui en nommerait un serait un
+trailer qui satisfait un contrôle en ne nommant personne qui puisse faire l'attestation ci-dessus. Mais
+c'est aussi lui qui a écrit le code, et un commit a la place de dire les deux. Pour ces commits :
+
+* **l'auteur est l'agent** (`Claude <noreply@anthropic.com>`). `git log`, `git blame`, `git shortlog` et
+  le graphe des contributeurs de GitHub lisent ce champ : c'est le seul endroit où consigner qui a écrit
+  le travail compte. Y mettre le mainteneur dirait qu'il a tapé ce qu'un outil a écrit ;
+* **le `Signed-off-by` est celui du mainteneur** (`Tigerblue77 <37409593+tigerblue77@users.noreply.github.com>`),
+  parce que l'attestation est la sienne. Elle ne peut pas venir de `git commit -s`, qui dérive le
+  trailer de l'identité configurée — celle qui doit rester l'agent. Elle est donc passée explicitement
+  par l'alias `git signoff` que `.claude/hooks/session-start.sh` pose au début de chaque session Claude
+  Code on the web sur la copie du mainteneur : une règle qu'il faut se rappeler à chaque fois est une
+  règle qu'on oublie. Une session locale commite sous le nom de la personne au clavier, qui signe avec
+  `-s` comme n'importe qui ;
+* **l'attestation est l'acte du mainteneur : relire, puis fusionner.** Le trailer l'énonce, la
+  relecture le rend vrai. Une pull request fusionnée sans être lue porte un sign-off qui ne veut
+  rien dire, et aucun workflow ne sait faire la différence. Le contrôle lit la forme du trailer et,
+  sur un commit dont l'agent est l'auteur, à quelle adresse il est : il signale un sign-off qui ne
+  nomme que l'agent, et un commit de l'agent signé par quelqu'un d'autre que le mainteneur. Que la
+  personne derrière l'adresse ait réellement relu quoi que ce soit, il ne peut pas le voir, et ne le
+  verra jamais.
+
+Le trailer `Co-Authored-By` que l'agent ajoute à ses commits reste en place : le contrôle n'en tient aucun
+compte.
+
+Si vous êtes un contributeur et non le mainteneur, presque rien de tout cela ne vous concerne :
+signez votre propre travail, sous votre nom. Une seule règle vaut pour tous : un commit dont
+l'auteur porte l'adresse de l'agent (`noreply@anthropic.com`) ne passe le contrôle qu'avec le
+sign-off du mainteneur. Le hook connaît la différence : il ne pose l'identité de l'agent que là où
+`origin` est un dépôt de l'organisation qui héberge celui-ci, et le dit sur un fork.

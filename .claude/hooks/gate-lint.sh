@@ -54,6 +54,7 @@ run_check "LiteLLM account isolation (selftest)"     python3 .github/scripts/che
 run_check "LiteLLM account isolation"                python3 .github/scripts/check_LiteLLM_account_isolation.py
 run_check "no inventory data (selftest)"             python3 .github/scripts/check_no_inventory_data.py --selftest
 run_check "no inventory data"                        python3 .github/scripts/check_no_inventory_data.py
+run_check "sign-off (selftest)"                      python3 .github/scripts/check_sign_off.py --selftest
 run_check "required checks (selftest)"               python3 .github/scripts/check_required_checks.py --selftest
 run_check "required checks"                          python3 .github/scripts/check_required_checks.py
 run_check "gitleaks"                                 gitleaks dir . --no-banner --redact
