@@ -179,13 +179,14 @@ because forgetting them costs the same time every session.
 * **A reply is as short as the decision it carries -- short, not thin.** A wall of prose is skipped
   whole, and what gets skipped includes the question that needed an answer; so the verdict comes
   first -- for a decision to take, what the maintainer gains and what it costs them, in two lines --
-  then what it rests on, then what is being asked. The failure in the other direction costs as much,
-  and trimming is not the goal: a question the maintainer asked is answered, and what was
-  done, how, and what it will cost them stay in. What comes out is the narration -- the steps in the
-  order they happened, and the reasoning already written into the commit message and the pull request
-  body, where it survives and where repeating it here is the second copy that drifts. Tables and
-  lists over paragraphs. The measure is not length, it is whether each line is one the maintainer
-  would otherwise have had to ask for.
+  then what it rests on, then what is being asked. Every question asked carries the session's
+  recommendation and its reason in one line, or says there is none and why. The failure in the other
+  direction, a reply cut too thin, costs as much, and trimming is not the goal: a question the
+  maintainer asked is answered, and what was done, how, and what it will cost them stay in. What
+  comes out is the narration -- the steps in the order they happened, and the reasoning already
+  written into the commit message and the pull request body, where it survives and where repeating it
+  here is the second copy that drifts. Tables and lists over paragraphs. The measure is not length,
+  it is whether each line is one the maintainer would otherwise have had to ask for.
 * **A request to merge says what the pull request brings.** Merging is the maintainer's act and
   nobody else's, so the ask carries what they need in order to decide, pull request by pull request:
   what it does, which goal it serves, what it changes, and -- whenever it changes something that runs
