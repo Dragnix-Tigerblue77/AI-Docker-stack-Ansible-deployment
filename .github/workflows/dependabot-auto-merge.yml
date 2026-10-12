@@ -5,7 +5,7 @@ name: Dependabot auto-merge
 
 # Merges Dependabot's minor and patch updates once every check .github/rulesets/main.json names is
 # green on the pull request's head commit. It keeps the promise wader/postfix-relay's workflow
-# makes, by a different mechanism, because this repository cannot use postfix-relay's.
+# makes, by a different mechanism, because this repository cannot use wader/postfix-relay's.
 #
 # There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
 # Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
@@ -19,7 +19,8 @@ name: Dependabot auto-merge
 # that edits the list of checks it has to pass must not be the one deciding what that list is. It is
 # in GitHub's ruleset export format so that the day this repository can enforce a ruleset -- made
 # public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
-# swapped for postfix-relay's "--auto" one without anyone re-deriving which checks gate a merge.
+# swapped for wader/postfix-relay's "--auto" one without anyone re-deriving which checks gate a
+# merge.
 #
 # The file names every job of "Ansible CI", "gitleaks" and "sign-off" one by one rather than a single
 # aggregate job. The step below already refuses a check that is missing, still running, cancelled or

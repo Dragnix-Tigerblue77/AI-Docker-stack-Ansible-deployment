@@ -592,7 +592,7 @@ the role.
    its reason. `main.json` names every job of the workflows the gate listens to one by one rather
    than one aggregate job (the workflow's header says why), and `check_required_checks.py` holds it
    to them in both directions. The day the repository can enforce a ruleset, import `main.json` and
-   take postfix-relay's `--auto` workflow instead.
+   take wader/postfix-relay's `--auto` workflow instead.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs
