@@ -124,6 +124,12 @@ because forgetting them costs the same time every session.
   pull request and ignores a negation, so "this does not close #NN" closes it on merge. A pull
   request that delivers only part of an issue writes "Refs #NN" and describes the rest without
   putting the keyword next to the number.
+* **A pull request starts from the default branch, never from another open pull request.** GitHub
+  merges a pull request into the branch it targets, so one built on another's branch, and merged
+  after that one but before its branch is gone, lands there and never reaches the default branch,
+  although it reads as merged. Two changes that depend on each other go in one pull request. A merge
+  is reported only once its content has been read on the default branch, never from the pull
+  request's status alone.
 * **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
   session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
   maintainer's to choose, and a session may propose one, with its reason, and wait for the answer. A
