@@ -285,6 +285,11 @@ the same test as everywhere else -- who reads it -- applied to three files that 
 In other words: anything a third party would read in the code or in a run's output stays in English.
 Only the conversation around the code is in French.
 
+The conversation itself is French as well: **every reply to the maintainer in a session is written
+in French**, whatever language the instructions, the code and the tool output around it are in.
+What it writes into commit messages, code and comments stays in English, as the table says, and the
+rule on keeping a reply short holds in French as in English.
+
 **This file is in English**, with the code rather than with the conversation: nearly every line of it
 quotes a task name, a commit subject, a variable or an error message, and those are English. A French
 sentence wrapped around an English quotation reads worse than either.
@@ -341,6 +346,42 @@ the answer to "why is it not used", so it is written once instead of being redis
 are **added** as providers publish them, so the list tracks each provider's current catalogue rather
 than the day it was written. Each claim cites the provider's own page and the date it was checked
 (#169).
+
+**Duplicated code is factored in the pull request that would duplicate it, without being asked.**
+Where a change would write the same tasks, template shape or filter chain in a second place that
+exists today, it factors them -- a loop, an included task file, a Jinja macro -- instead of copying
+them and leaving the factoring to review. A behaviour is not shared on a forecast of a second
+caller, since a wrong guess costs a rewrite to undo; once that caller is in the diff, sharing is
+part of the work.
+
+**A value turned once on the running host to get past a one-off situation stays on the host.** The
+repository describes the steady state, and a knob turned to work through a backlog, a migration or
+an incident is not part of it: committed, it would say the stack's value is the one that got past
+today, and a fresh deployment would inherit it. Edit the deployed configuration, let the one run
+happen, put it back, and commit only what the role is meant to say from then on.
+
+The line is drawn between the value and the occasion, not between "operational" and "declarative" --
+every default in this repository is operational. If the new value is what the role should use from
+now on, it is a default and it is committed with its reasoning, like any other. If it is what gets
+past today, it never enters the tree, and the pull request that would have carried it says so in its
+body instead.
+
+**A mechanism to maintain has to be paid for by an ongoing problem, and that is measured before it
+is built, not after.** A service, a script, a scheduled job -- anything that has to keep working and
+keep being understood -- costs something every month for as long as it exists, and two questions
+settle cheaply whether it is worth that: **who reads the value**, and **is the population finite or
+does it keep arriving**. Neither is a judgement call; both are answered by reading the code, in
+minutes: the expensive half is the building, not the measuring. This is not an argument against
+services: a recurring cost justifies a standing mechanism, while a finite one is paid off once, on
+the host as the rule above says, and a mechanism left behind to guard against its ghost is pure
+maintenance.
+
+**Comments say why, once, and briefly.** A comment states what the code cannot, the reason, in a
+line or two; how it was found out belongs in the commit message and the issue, not above the line.
+The comment density of the surrounding code is not a reason to match it. The scaffold's own line
+after the SPDX header of `tasks/main.yml`, `handlers/main.yml`, `vars/main.yml` and
+`defaults/main.yml` (`# tasks file for ...` and its siblings, the line `ansible-galaxy init` writes)
+is not subject to this. Pruning leaves it.
 
 **Commits.** Subject: one sentence, imperative, sentence case, no type prefix, no trailing full stop,
 with the issue number in parentheses when there is one -- `Lay down the Ansible role and compose
@@ -650,5 +691,27 @@ The pins are still installed one at a time rather than as a file, and that guard
 pip resolves a requirements file as one unit, so one pin it cannot satisfy would take all the others
 down with it. The hook also reads the installed versions back and names any drift from the file --
 if a future pin is refused, the session loses that one tool and says so, rather than everything.
+
+**The collections come from the one host a session may be refused, and what governs that is the
+cloud environment's Network access setting.** Step 2 of the hook installs `requirements.yml` from
+`galaxy.ansible.com` and from nowhere else:
+
+* **Full** -- Galaxy is reachable, and `community.docker` is installed exactly as CI installs it.
+* **Trusted** -- the setting the environment dialog *recommends*, and the one that breaks this. PyPI
+  and `github.com` stay allowed; `galaxy.ansible.com` is refused at the CONNECT with a 403 (`curl`
+  reports HTTP 000). The hook has no other route for the collection, so it says so on stderr and
+  carries on without it.
+
+Changing that setting reaches sessions **already running**, although the dialog says it applies to
+new sessions: test the session you are in before recreating one to pick a policy change up.
+
+Without `community.docker`:
+
+* `yamllint`, `reuse`, the home-made checks and `gitleaks` are unaffected;
+* `ansible-playbook --syntax-check` cannot resolve `docker_host_info` and `docker_container_exec`;
+* `ansible-lint` exits 1 before linting, because it runs its own `ansible-galaxy collection install`
+  first. `ansible-lint --offline` skips that and then reports `syntax-check[unknown-module]` for
+  them. That is the environment, not the diff: do not "fix" an unknown-module error, and do not
+  commit while that is the only evidence you have; say plainly which checks could not run.
 
 If a check could not be run, say so plainly rather than reporting it as passing.
