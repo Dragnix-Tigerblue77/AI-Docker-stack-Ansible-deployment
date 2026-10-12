@@ -119,6 +119,11 @@ because forgetting them costs the same time every session.
   the alternatives where the issue already lists them -- a branch is cheap to redirect, and a
   question waited out is a session's context thrown away. What does stay unwritten is a fix that
   would be guesswork: there the pull request is the one thing not opened, and the issue says so.
+* **A closing keyword closes whatever follows it, whatever surrounds it.** GitHub reads "close #NN",
+  "closes", "fix", "fixes", "resolve" and their other forms anywhere in the title or the body of a
+  pull request and ignores a negation, so "this does not close #NN" closes it on merge. A pull
+  request that delivers only part of an issue writes "Refs #NN" and describes the rest without
+  putting the keyword next to the number.
 * **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
   session that has the context for it: "later", "tomorrow" and "in a separate pull request" are the
   maintainer's to choose, and a session may propose one, with its reason, and wait for the answer. A
