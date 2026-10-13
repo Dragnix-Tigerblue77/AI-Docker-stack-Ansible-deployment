@@ -700,7 +700,8 @@ cloud environment's Network access setting.** Step 2 of the hook installs `requi
 * **Trusted** -- the setting the environment dialog *recommends*, and the one that breaks this. PyPI
   and `github.com` stay allowed; `galaxy.ansible.com` is refused at the CONNECT with a 403 (`curl`
   reports HTTP 000). The hook has no other route for the collection, so it says so on stderr and
-  carries on without it.
+  carries on without it. A second route, through `github.com`, was declined as not worth the
+  complexity it would add to the hook (#264).
 
 Changing that setting reaches sessions **already running**, although the dialog says it applies to
 new sessions: test the session you are in before recreating one to pick a policy change up.
