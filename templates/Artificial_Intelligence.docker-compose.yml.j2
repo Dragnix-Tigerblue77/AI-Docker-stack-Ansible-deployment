@@ -15,14 +15,27 @@
 # "$$" is how a literal "$" is spelt to them. Measured with Compose v5.1.1: "sk-Ab$cd9" reached the
 # container as "sk-Ab", "sk-Ab$HOME" as "sk-Ab/root", and "sk-Ab$$cd9" as "sk-Ab$cd9".
 #
-# Written without it, deliberately: Docker object names, memory sizes,
-# numbers and the time zone, whose own grammar has no "$" to escape, and the published network's
-# definition, which is compose YAML the caller already writes as such. A LITERAL "$" typed into this
-# template needs the "$$" by hand; there is none, and a "${VAR}" there would be a ".env" in disguise.
-# "check_compose_template.py" renders the values it can find with a "$" in them and refuses a single
-# one: those with no default or an empty one by itself, those with a real default only once its
-# "FREE_FORM_WITH_A_DEFAULT" names them. Where a line still lacks the "replace", its
-# "DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS" names the pull request that is rewriting that line.
+# ! And the result goes through "| to_json(ensure_ascii=False)", with no quotes of its own around it
+# (#188). Inside a double-quoted YAML string a backslash starts an escape and a double quote ends the
+# string, so a secret holding either was refused or silently rewritten. Measured with the same
+# Compose and with "docker stack config": 'ab"cd' and 'ab\qcd' had the whole file refused, 'ab\tcd'
+# reached the container with a tab in it, 'ab\x41cd' as "abAcd" and 'ab\\cd' with one backslash. A
+# JSON string is a valid double-quoted YAML scalar with every one of those escaped. "ensure_ascii" is
+# not optional: left at its default, "to_json" -- like Jinja's own "tojson" -- writes a character
+# outside the Basic Multilingual Plane, an emoji, as a surrogate pair that Compose and Swarm both
+# refuse the file for. Where the value is only part of a string -- a mount's "source:target:mode" --
+# the whole string is serialised. "replace" comes first, and "to_json" leaves its "$$" alone.
+#
+# Written without either, deliberately: Docker object names, memory sizes,
+# numbers and the time zone, whose own grammar has no "$", quote or backslash to escape, and the
+# published network's definition, which is compose YAML the caller already writes as such. A LITERAL
+# "$" typed into this template needs the "$$" by hand; there is none, and a "${VAR}" there would be a
+# ".env" in disguise. "check_compose_template.py" renders the values it can find with a "$", quotes
+# and backslashes in them, and refuses a single "$" as well as a value that does not arrive whole:
+# those with no default or an empty one by itself, those with a real default only once its
+# "FREE_FORM_WITH_A_DEFAULT" names them. Where a line still writes a value raw, its
+# "DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS" and "QUOTES_LEFT_TO_OTHER_PULL_REQUESTS" name the pull
+# request that is rewriting that line.
 
 # Each service issue adds its block here, on the commented model below, and its variables in
 # "defaults/main.yml".
@@ -93,12 +106,12 @@ services:
       #
       # "$" is doubled in every value added here, because Compose and Swarm both run this file
       # through their own "${VAR}" interpolation after Ansible has rendered it.
-      POSTGRES_USER: "{{ Artificial_Intelligence_PostgreSQL_superuser | replace('$', '$$') }}"
-      POSTGRES_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_superuser_password | replace('$', '$$') }}"
+      POSTGRES_USER: {{ Artificial_Intelligence_PostgreSQL_superuser | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      POSTGRES_PASSWORD: {{ Artificial_Intelligence_PostgreSQL_superuser_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # LiteLLM's own role, the one "DATABASE_URL" logs in as. Read by the init script above, and only
       # there: the entrypoint unsets every "POSTGRES_*" before it starts the server.
-      POSTGRES_LITELLM_USER: "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}"
-      POSTGRES_LITELLM_PASSWORD: "{{ Artificial_Intelligence_PostgreSQL_password | replace('$', '$$') }}"
+      POSTGRES_LITELLM_USER: {{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      POSTGRES_LITELLM_PASSWORD: {{ Artificial_Intelligence_PostgreSQL_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     volumes:
       # A NAMED volume, not a bind mount: surviving a container recreation is an acceptance criterion
@@ -143,7 +156,7 @@ services:
       # not for a shell. Neither value is a secret -- they are ordinary defaults of this role -- so
       # writing them into the rendered file costs nothing, and "CMD" without a shell is one less
       # thing between the probe and its answer.
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "{{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') }}", "-d", "{{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') }}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", {{ Artificial_Intelligence_PostgreSQL_user | replace('$', '$$') | to_json(ensure_ascii=False) }}, "-d", {{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') | to_json(ensure_ascii=False) }}]
       interval: 5s
       timeout: 5s
       start_period: 10s
@@ -178,7 +191,7 @@ services:
     command:
       - "redis-server"
       - "--requirepass"
-      - "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}"
+      - {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
       - "--save"
       - "60"
       - "1"
@@ -191,7 +204,7 @@ services:
     healthcheck:
       # "redis-cli" ships with the image, so this needs nothing it does not already have -- unlike
       # Qdrant (#3) or OmniRoute (#73), where the same reasoning ruled a healthcheck OUT instead.
-      test: ["CMD", "redis-cli", "-a", "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}", "--no-auth-warning", "ping"]
+      test: ["CMD", "redis-cli", "-a", {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}, "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 5s
       start_period: 10s
@@ -228,7 +241,7 @@ services:
       # provider keys added from "/ui" first of all (#164). Without it LiteLLM falls back to the master
       # key, and rotating the master key would make every stored credential unreadable. It never
       # changes once one is stored, and it differs from the master key; "defaults/main.yml" says why.
-      LITELLM_SALT_KEY: "{{ Artificial_Intelligence_LiteLLM_salt_key | replace('$', '$$') }}"
+      LITELLM_SALT_KEY: {{ Artificial_Intelligence_LiteLLM_salt_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # "postgres" is the SERVICE KEY declared above -- that is what Docker resolves in DNS. A
       # container_name would work under Compose and break under Swarm, which names its own tasks.
       #
@@ -241,28 +254,28 @@ services:
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
-      LITELLM_MASTER_KEY: "{{ Artificial_Intelligence_LiteLLM_master_key | replace('$', '$$') }}"
+      LITELLM_MASTER_KEY: {{ Artificial_Intelligence_LiteLLM_master_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       STORE_MODEL_IN_DB: "True"
       # "/ui" is where each account's own provider keys get added, one at a time, by the person who
       # holds them -- see the note on "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml" for why that is
       # the deployment's model rather than a vaulted variable per provider. Basic auth in front of it
       # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
-      UI_USERNAME: "{{ Artificial_Intelligence_LiteLLM_UI_username | replace('$', '$$') }}"
-      UI_PASSWORD: "{{ Artificial_Intelligence_LiteLLM_UI_password | replace('$', '$$') }}"
+      UI_USERNAME: {{ Artificial_Intelligence_LiteLLM_UI_username | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      UI_PASSWORD: {{ Artificial_Intelligence_LiteLLM_UI_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # tigerblue77's own provider keys (#2, v1 scope) -- read by "LiteLLM_config.yaml.j2" as
       # "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77". Dragnix's own keys are deliberately absent: he
       # adds them himself from "/ui" (see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml").
-      GEMINI_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 | replace('$', '$$') }}"
-      GITHUB_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 | replace('$', '$$') }}"
-      MISTRAL_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | replace('$', '$$') }}"
-      CEREBRAS_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | replace('$', '$$') }}"
-      GROQ_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | replace('$', '$$') }}"
-      OPENROUTER_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 | replace('$', '$$') }}"
-      DEEPSEEK_API_KEY_TIGERBLUE77: "{{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | replace('$', '$$') }}"
+      GEMINI_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      GITHUB_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      MISTRAL_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      CEREBRAS_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      GROQ_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      OPENROUTER_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      DEEPSEEK_API_KEY_TIGERBLUE77: {{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
       # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
       REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
-      REDIS_PASSWORD: "{{ Artificial_Intelligence_Redis_password | replace('$', '$$') }}"
+      REDIS_PASSWORD: {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     configs:
       # A Docker config, not a bind mount: LiteLLM reads this file once, at start, and a changed routing
@@ -365,7 +378,7 @@ services:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
       # Overrides the image's own "CHANGEME" default, which upstream documents as deliberately weak
       # to force a change -- never left as-is, same standard as "Artificial_Intelligence_LiteLLM_UI_password" (#1).
-      INITIAL_PASSWORD: "{{ Artificial_Intelligence_OmniRoute_dashboard_password | replace('$', '$$') }}"
+      INITIAL_PASSWORD: {{ Artificial_Intelligence_OmniRoute_dashboard_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # Keyless ON PURPOSE, and said here rather than left to the image: this is the account-agnostic
       # last resort some cascades end on (#2), and LiteLLM calls it with a placeholder key. The image
       # floats with no tag, so nothing holds its default still, and its Dockerfile sets
@@ -422,7 +435,7 @@ services:
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
-      QDRANT__SERVICE__API_KEY: "{{ Artificial_Intelligence_Qdrant_API_key | replace('$', '$$') }}"
+      QDRANT__SERVICE__API_KEY: {{ Artificial_Intelligence_Qdrant_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     volumes:
       - "{{ Artificial_Intelligence_Qdrant_data_Docker_volume_name }}:/qdrant/storage:rw"
@@ -481,10 +494,10 @@ services:
       ALLOW_REGISTRATION: "{{ Artificial_Intelligence_LibreChat_allow_registration | string | lower }}"
       # Without these four, LibreChat generates temporary values on first start and keeps them
       # nowhere but its own volume -- unsuitable for production by its own documentation.
-      CREDS_KEY: "{{ Artificial_Intelligence_LibreChat_creds_key | replace('$', '$$') }}"
-      CREDS_IV: "{{ Artificial_Intelligence_LibreChat_creds_IV | replace('$', '$$') }}"
-      JWT_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_secret | replace('$', '$$') }}"
-      JWT_REFRESH_SECRET: "{{ Artificial_Intelligence_LibreChat_JWT_refresh_secret | replace('$', '$$') }}"
+      CREDS_KEY: {{ Artificial_Intelligence_LibreChat_creds_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      CREDS_IV: {{ Artificial_Intelligence_LibreChat_creds_IV | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      JWT_SECRET: {{ Artificial_Intelligence_LibreChat_JWT_secret | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      JWT_REFRESH_SECRET: {{ Artificial_Intelligence_LibreChat_JWT_refresh_secret | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     configs:
       # A Docker config named after its content, for the reason on "litellm" above: LibreChat reads
@@ -568,20 +581,20 @@ services:
       # Anthropic's API directly -- #13's compliance point is that whatever this alias resolves to in
       # LiteLLM (#2) is never an Anthropic model backed by a subscription.
       ANTHROPIC_BASE_URL: "http://litellm:4000"
-      ANTHROPIC_API_KEY: "{{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | replace('$', '$$') }}"
-      ANTHROPIC_MODEL: "{{ Artificial_Intelligence_Claude_code_tigerblue77_model | replace('$', '$$') }}"
+      ANTHROPIC_API_KEY: {{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      ANTHROPIC_MODEL: {{ Artificial_Intelligence_Claude_code_tigerblue77_model | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # The alias resolves to a model Claude Code does not recognise by name, so its own context
       # window enforcement -- built around the models it DOES know -- has to be told what to allow
       # rather than refusing an unrecognised one outright.
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"
       CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1"
-      GH_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') }}"
-      GITHUB_TOKEN: "{{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') }}"
+      GH_TOKEN: {{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      GITHUB_TOKEN: {{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     volumes:
       # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
       # this role does not get to invent one, hence no default on the variable that names it.
-      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | replace('$', '$$') }}:/workspace:rw"
+      - {{ (Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | replace('$', '$$') ~ ':/workspace:rw') | to_json(ensure_ascii=False) }}
       # The WHOLE home directory, "~/.claude.json" included -- see the note on
       # "Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
       # on "~/.claude" alone would silently lose half the session on every recreation.
@@ -690,9 +703,11 @@ services:
   #
   #   environment:
   #     TZ: "{{ Artificial_Intelligence_server_time_zone }}"
-  #     # A value the caller supplies -- a secret above all -- has its "$" doubled: Compose reads
-  #     # this file through its own interpolation after Ansible (see this file's header).
-  #     SERVICE_API_KEY: "{{ Artificial_Intelligence_service_API_key | replace('$', '$$') }}"
+  #     # A value the caller supplies -- a secret above all -- has its "$" doubled, because Compose
+  #     # reads this file through its own interpolation after Ansible, and is then written as a JSON
+  #     # string rather than between quotes, because YAML reads a quote or a backslash in it as
+  #     # syntax. See this file's header for both, and for why "ensure_ascii=False" is not optional.
+  #     SERVICE_API_KEY: {{ Artificial_Intelligence_service_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
   #
   #   # A secret is never written in clear text in this repository, here or anywhere else. It is a
   #   # variable of this role, MANDATORY and without a default, that the caller fills from its vault,
@@ -717,9 +732,9 @@ configs:
   # a changed file is a new name, which is what makes Compose recreate the container and Swarm update
   # the service. "file" is the path of the rendered file on the host the stack is deployed from.
   {{ Artificial_Intelligence_LiteLLM_config_Docker_name }}:
-    file: "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') }}"
+    file: {{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') | to_json(ensure_ascii=False) }}
   {{ Artificial_Intelligence_LibreChat_config_Docker_name }}:
-    file: "{{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') }}"
+    file: {{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
 volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance
