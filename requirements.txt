@@ -5,7 +5,7 @@
 # mean two different verdicts on one same file. Dependabot (pip ecosystem) keeps them up to date; it
 # is ".github/dependabot.yml" that asks it to, and without that file nothing would move.
 ansible-core==2.21.5
-ansible-lint==26.9.0
+ansible-lint==26.10.1
 yamllint==1.38.0
 
 # Checks that every file carries a copyright line and an SPDX identifier, and that every identifier
