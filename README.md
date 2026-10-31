@@ -190,6 +190,8 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 (#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
 `is string`.
 
+Les secrets qui doivent différer entre eux (le mot de passe du superutilisateur et celui du rôle de LiteLLM, la clé de sel et la clé maîtresse, la clé virtuelle de l'agent et la clé maîtresse) sont comparés après que chacun a été reconnu comme fourni, et **pas avec `--check`** : un appelant dont la récupération des secrets ne peut pas lire le vault pendant un essai à blanc met un même substitut à la place de tous, et ces substituts sont alors égaux sans qu'aucun secret ne soit faux. Que chacun soit fourni, lui, est vérifié aussi avec `--check`.
+
 Les deux réseaux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
