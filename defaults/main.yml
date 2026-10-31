@@ -135,6 +135,18 @@ Artificial_Intelligence_PostgreSQL_superuser: "postgres"
 # and with it the superuser's login would be one role name away.
 # Artificial_Intelligence_PostgreSQL_superuser_password:
 
+# The image, pinned to the major the volume was initialised with -- never a floating tag, a database
+# losing its data to a moved tag being the one case where the role pins (see CLAUDE.md). Together with
+# the mount path below, it is the only pair to change when a deployment keeps an existing volume
+# under another major or flavour; raising the major of a volume that holds data is the dump and
+# restore of the README, not a change of this value.
+Artificial_Intelligence_PostgreSQL_image: "postgres:17-alpine"
+
+# Where the image keeps its data, which follows the major above: "/var/lib/postgresql/data" up to 17,
+# "/var/lib/postgresql" from 18 (docker-library/postgres#1259, #168). A mismatch is refused by the
+# image at start-up, on an empty volume too.
+Artificial_Intelligence_PostgreSQL_data_mount_path: "/var/lib/postgresql/data"
+
 # The named volume the store lives in. Named rather than a bind mount: surviving a container
 # recreation is an acceptance criterion of #1, and a bind mount would also tie the stack to a host
 # path this repository does not get to choose.

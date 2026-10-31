@@ -113,6 +113,8 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
+| `Artificial_Intelligence_PostgreSQL_image` | `postgres:17-alpine` | Image de PostgreSQL, **épinglée** au majeur avec lequel le volume a été initialisé (jamais un tag flottant). À changer, avec le suivant, pour garder un volume existant sous un autre majeur ou une autre variante (par exemple `postgres:18`). Monter le majeur d'un volume qui porte des données est la migration ci-dessous, pas un changement de cette valeur. |
+| `Artificial_Intelligence_PostgreSQL_data_mount_path` | `/var/lib/postgresql/data` | Point de montage du volume dans le conteneur, qui suit le majeur : `/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18. L'image refuse de démarrer sur un chemin qui ne correspond pas à son majeur, même sur un volume vide. |
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
@@ -678,11 +680,11 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
 
 ## Monter PostgreSQL d'un majeur (#168)
 
-**Une migration, pas un changement de tag.** L'image est épinglée en dur dans le template
-(`postgres:17-alpine`), et le volume est monté là où l'image de ce majeur range ses données :
+**Une migration, pas un changement de tag.** L'image est épinglée (`Artificial_Intelligence_PostgreSQL_image`,
+`postgres:17-alpine` par défaut), et le volume est monté là où l'image de ce majeur range ses données :
 `/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18, où l'image officielle
-garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux se changent ensemble,
-dans le même commit : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
+garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux (`..._PostgreSQL_image` et
+`..._PostgreSQL_data_mount_path`) se changent ensemble : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
 
 Sur un volume qui porte déjà un cluster, le nouveau majeur le refuse aussi, à l'un comme à l'autre
 chemin, et la politique `any` le relance en boucle : rien n'est perdu, rien ne démarre. Le passage,
@@ -694,7 +696,7 @@ retrouvée après, et l'ancien volume redémarrant toujours sous 17 :
 # 1. Sous l'ancien majeur, LiteLLM arrêté pour que plus rien n'écrive (docker stop <conteneur litellm>
 #    sous Compose, docker service scale <stack>_litellm=0 sous Swarm), exporter la base
 docker exec <conteneur postgres> pg_dump -U litellm --format=custom --no-owner --no-privileges litellm > litellm.dump
-# 2. Monter le tag de `postgres` dans le template (et le chemin du volume, si l'on franchit 18) ET
+# 2. Monter `Artificial_Intelligence_PostgreSQL_image` (et `..._data_mount_path`, si l'on franchit 18) ET
 #    donner un nouveau nom à Artificial_Intelligence_PostgreSQL_data_Docker_volume_name : le nouveau
 #    majeur initialise un volume vide, et l'ancien reste intact pour revenir en arrière
 # 3. Redéployer avec le rôle -- LiteLLM migre une base vide --, l'arrêter de nouveau, restaurer,

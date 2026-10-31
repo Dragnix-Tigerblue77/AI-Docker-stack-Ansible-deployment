@@ -315,12 +315,15 @@ render carries quotes and backslashes, and the check refuses a value that does n
 **Images float by default, and are pinned on purpose only where a database would lose its data.** An
 image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag
 held in a variable: no tag *is* `latest`, writing it out adds nothing, and a variable for it is a
-second place to keep in step with the first. The deployer pulls on every run, so each deployment
+second place to keep in step with the first. The one image held in a variable is PostgreSQL's
+(`Artificial_Intelligence_PostgreSQL_image`, with its data mount path): a caller whose volume was
+initialised under another major or flavour must keep that pin, and the variable still carries a pin
+and never a floating tag. The deployer pulls on every run, so each deployment
 brings the current release and its security fixes. The exception is a database -- PostgreSQL,
 MongoDB, Qdrant -- whose data lives only in its own volume: a major bump lands on a layout the new
 image does not read (PostgreSQL 18 moved its data directory, #168), so it is a deliberate move, made
-after a dump. It is pinned to the major it was initialised with, literally in the template, with the
-reason on the line above its `image:`. Redis holds a cache and floats. A variant tag a service
+after a dump. It is pinned to the major it was initialised with, in the template or in the variable
+above, with the reason on the line above its `image:`. Redis holds a cache and floats. A variant tag a service
 genuinely needs is an exception of the same kind and says why in the same place. An image is pulled,
 never built here: a service carries no `build:` key, and `check_compose_template.py` refuses one.
 
