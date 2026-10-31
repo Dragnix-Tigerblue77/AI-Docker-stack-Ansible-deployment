@@ -422,6 +422,16 @@ Artificial_Intelligence_MongoDB_LibreChat_memory_limit: false
 # closed.
 Artificial_Intelligence_LibreChat_allow_registration: false
 
+# "false" while LibreChat is reached over plain HTTP -- the case as long as nothing but its published
+# port stands in front of it. The image starts with NODE_ENV=production, and in production LibreChat marks
+# its session cookies Secure unless told otherwise ("shouldUseSecureCookie", in
+# packages/api/src/oauth/csrf.ts, used for the refresh token and the other session cookies). A browser on
+# a plain "http://" address drops a Secure cookie, so every reload, and every access-token expiry --
+# fifteen minutes by default -- sends the account back to the login page. "true" the day a TLS reverse
+# proxy is the only way in, and not before. Upstream's own ".env.example" documents the override for
+# exactly this.
+Artificial_Intelligence_LibreChat_session_cookie_secure: false
+
 # Where "files/librechat/librechat.yaml" lands on the managed node, mounted read-only into the
 # container. Copied rather than rendered: nothing in it needs Ansible interpolation -- the file
 # reads "apiKey: \"user_provided\"" for the gateway endpoint (#103), so LibreChat asks each of its
