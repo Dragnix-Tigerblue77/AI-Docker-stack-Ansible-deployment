@@ -49,8 +49,10 @@ services:
     # A database, so pinned on purpose to the major its volume was initialised with: a major bump
     # lands on a layout the new image does not read and imposes a pg_dump / restore (the README's
     # "Monter PostgreSQL d'un majeur"), so it must never happen because a tag moved under us. Check the
-    # major is one the Prisma schema of the running LiteLLM supports before raising it.
-    image: postgres:17-alpine
+    # major is one the Prisma schema of the running LiteLLM supports before raising it. The major only,
+    # on the Debian image: the Alpine variant sorts text with another C library, so it would be one more
+    # thing to keep unchanged on a volume for no gain.
+    image: postgres:18
 
     # LiteLLM is NOT this cluster's superuser (#159). The image makes "POSTGRES_USER" the bootstrap
     # superuser, and that role can never lose the attribute ("The bootstrap superuser must have the
@@ -126,11 +128,12 @@ services:
       #   left unused: the entrypoint refuses it as an "unused mount/volume" and exits 1, on an EMPTY
       #   volume on a fresh machine too -- measured with "postgres:18-alpine" (#168).
       #
-      #   The pin is 17, so the target is the ".../data" one. Raising the pin to 18 or later means
-      #   changing this target to "/var/lib/postgresql" in the same commit. A volume that already holds
-      #   another major's cluster is refused at either path, by the image itself: raising the major on
-      #   one is a migration, spelt out in the README.
-      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+      #   The pin is 18, so the target is the "/var/lib/postgresql" one. Lowering the pin to 17 or
+      #   earlier, or raising it past a major that moves the directory again, means changing this
+      #   target in the same commit. A volume that already holds another major's cluster is refused at
+      #   either path, by the image itself: raising the major on one is a migration, spelt out in the
+      #   README.
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
@@ -445,9 +448,9 @@ services:
   # picked.
   # ------------------------------------------------------------------------------------------------
   qdrant:
-    # A database, so pinned on purpose: the vectors live only in its volume, and a version change is a
-    # deliberate move made after a backup, not something a tag that moved should do.
-    image: qdrant/qdrant:v1.19.1
+    # A database, so pinned on purpose to its major: the vectors live only in its volume, and a major
+    # change is a deliberate move made after a backup, not something a tag that moved should do.
+    image: qdrant/qdrant:v1
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -581,10 +584,10 @@ services:
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
-    # A database, so pinned on purpose to its release series: "8.0" takes every 8.0.x patch as it
-    # ships, the way PostgreSQL takes its minor ones. A later series is a move made by hand, through
-    # MongoDB's upgrade procedure and its featureCompatibilityVersion step, never a moved tag.
-    image: mongo:8.0
+    # A database, so pinned on purpose to its major: "8" takes every 8.x release as it ships, the way
+    # PostgreSQL takes its minor ones. A later major is a move made by hand, through MongoDB's upgrade
+    # procedure and its featureCompatibilityVersion step, never a moved tag.
+    image: mongo:9
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
@@ -621,9 +624,8 @@ services:
 {% if Artificial_Intelligence_Claude_code_tigerblue77_enabled %}
 
   # ------------------------------------------------------------------------------------------------
-  # Claude Code agent -- tigerblue77 (#13), OFF BY DEFAULT. #31 requires every service to declare
-  # itself this way, and an agent that receives a person's own credentials is not something a fresh
-  # deployment should run without being asked.
+  # Claude Code agent -- tigerblue77 (#13). Deployed with the rest of the stack; the condition is the
+  # caller's way to leave it out, for a deployment that has no use for it.
   # ------------------------------------------------------------------------------------------------
   claude_code_tigerblue77:
     # Floats like the stack's other non-database images, written with no tag: the deployer pulls on
@@ -649,13 +651,23 @@ services:
       # rather than refusing an unrecognised one outright.
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000"
       CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1"
+{% if Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is string %}
+      # Only when the caller gives a token (#245). Claude Code reads both itself to call the GitHub API, for
+      # its PR status footer among others, and the image has no "gh" to fall back on; a deployment that
+      # would rather have no GitHub token in the container's environment gives none and loses the footer.
       GH_TOKEN: {{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') | to_json(ensure_ascii=False) }}
       GITHUB_TOKEN: {{ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | replace('$', '$$') | to_json(ensure_ascii=False) }}
+{% endif %}
 
     volumes:
-      # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
-      # this role does not get to invent one, hence no default on the variable that names it.
+{% if Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is string %}
+      # The caller asked for a directory of its own: a bind mount, which this role does not create.
       - {{ (Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | replace('$', '$$') ~ ':/workspace:rw') | to_json(ensure_ascii=False) }}
+{% else %}
+      # A named volume by default: nothing has to exist on the host before the first run. Docker fills
+      # an empty one from the image's own "/workspace", which belongs to the "node" user.
+      - "{{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name }}:/workspace:rw"
+{% endif %}
       # The WHOLE home directory, "~/.claude.json" included -- see the note on
       # "Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name" in "defaults/main.yml" for why a volume
       # on "~/.claude" alone would silently lose half the session on every recreation.
@@ -786,6 +798,13 @@ services:
   #   # would be a second file to secure, a second path to keep in sync with the first, and a question
   #   # at the switch to Swarm that interpolating at render time never raises. Native orchestrator
   #   # secrets under "/run/secrets/" are an open question (#83), not an option yet.
+  #   #
+  #   # The one exception is a secret the service can genuinely do without, and it is rare (#245).
+  #   # Its default is "false" -- never "''" -- which this role reads as "not set"; the lines that
+  #   # carry it are written only inside a block conditioned on "X is string"; a task of its own in
+  #   # "tasks/main.yml" accepts "false" or a non-empty string and nothing else, so that a value
+  #   # which is given and unusable is refused rather than left out; and "FREE_FORM_WITH_A_DEFAULT"
+  #   # in "check_compose_template.py" names it, since a default of "false" hides it from the "$" render.
   #
   #   networks:
   #     - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -821,6 +840,10 @@ volumes:
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.
   {{ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name }}:
+{% if Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is not string %}
+  # Its working directory, unless the caller bind-mounts one of its own.
+  {{ Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name }}:
+{% endif %}
 {% endif %}
 
   # Redis's own persistence (#71) -- "--save 60 1" above is worthless without a volume behind it.

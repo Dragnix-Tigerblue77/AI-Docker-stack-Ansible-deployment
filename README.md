@@ -84,7 +84,7 @@ sur une organisation des données que la nouvelle image ne lit pas. Une image se
 construit jamais ici : aucun service ne porte de clé `build:`, et `check_compose_template.py` en refuse une.
 
 Le stack porte déjà plusieurs services -- la passerelle et sa base, Redis, OmniRoute, Qdrant, LibreChat
-et sa base, l'agent Claude Code de tigerblue77 (désactivé par défaut) -- chacun arrivé par sa propre
+et sa base, l'agent Claude Code de tigerblue77 -- chacun arrivé par sa propre
 issue de service, avec son bloc et ses variables. Ce que ce rôle apporte reste la forme plutôt que le
 contenu : un rôle qui ne présuppose ni machine, ni domaine, ni compte, ni orchestrateur, et un template
 dont les conventions sont écrites à l'endroit où on les oublie.
@@ -122,6 +122,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
+| `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
 Et celles que #2 apporte, pour le `model_list` de tigerblue77 (voir plus bas pourquoi Dragnix n'a pas
 les siennes ici) :
@@ -160,16 +161,18 @@ Et celles que #3 apporte, pour Qdrant :
 | `Artificial_Intelligence_Qdrant_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. Le corpus visé par #3 est petit : une limite peut être généreuse. |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
 
-Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
-`Artificial_Intelligence_Claude_code_tigerblue77_enabled` reste à `false`**, sa valeur par défaut :
+Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- déployé **avec le reste du stack**,
+comme tous les autres services ; `Artificial_Intelligence_Claude_code_tigerblue77_enabled: false` le retire
+pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui enregistrent sa clé :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `false` | Active le service. #31 exige que chaque service se déclare ainsi. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** Clé virtuelle LiteLLM (#2), jamais la clé maîtresse. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). Posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` ; l'image publiée ne porte pas `gh` (voir « L'agent Claude Code »). |
-| `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `true` | Déploie le service. `false` le retire, lui et ses volumes ; le rôle n'enregistre alors aucune clé dans LiteLLM. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** La **valeur** de la clé virtuelle de l'agent, que l'appelant rend depuis son vault et que **le rôle enregistre lui-même dans LiteLLM** (voir « L'agent Claude Code »). Commence par `sk-`, au moins 16 caractères, jamais la clé maîtresse : le rôle refuse autrement. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name` | `Artificial_Intelligence_Claude_code_tigerblue77_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -184,10 +187,11 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
 | `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Dépréciées**, conservées pour les appelants existants : si `Artificial_Intelligence_LibreChat_users` est vide et que les quatre sont définies, elles forment un compte unique `admin: true`. |
 
-`false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
-sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`.
+`false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
+(#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
+`is string`.
 
-Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
+Les deux réseaux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
 
@@ -463,7 +467,7 @@ fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la t
 pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
 
 **PostgreSQL 15 au minimum**, et rien ne le vérifie : le majeur est écrit en dur dans le template
-(`image: postgres:17-alpine`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
+(`image: postgres:18`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
 valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
 `pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
 `14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
@@ -649,6 +653,48 @@ porte ni `gh`, ni `ansible-core` (ni `python3`, ni `pip3`), ni client `docker`, 
 `curl`, ni `procps`, c'est-à-dire les outils du travail d'infrastructure de tigerblue77. Les avoir dans
 l'agent passe par l'image publiée elle-même, ou par une image dérivée publiée à part.
 
+**Déployé comme les autres conteneurs, sans étape manuelle.** Le stack démarre avec l'agent : l'option
+`Artificial_Intelligence_Claude_code_tigerblue77_enabled` n'existe que pour qu'un appelant qui n'en veut
+pas le retire (`false`). Deux entrées ne peuvent pas exister au premier passage, et le rôle les fournit
+lui-même plutôt que de les laisser à l'appelant.
+
+**Le dossier de travail est un volume nommé par défaut.** `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory`
+vaut `false` (« non fourni ») et `/workspace` est alors le volume
+`Artificial_Intelligence_Claude_code_tigerblue77_workspace`, déclaré avec les autres : rien à préparer
+sur l'hôte. Le `Dockerfile` amont crée `/workspace` et le donne à l'utilisateur `node` avant de passer
+sous cet utilisateur, et Docker initialise un volume nommé vide depuis le contenu de l'image à ce chemin :
+le dossier est donc inscriptible par `node` (lu dans le `Dockerfile`, pas mesuré avec un démon). Le
+volume du répertoire personnel reste un volume à part : l'un tient la session, l'autre le travail. Une
+chaîne à la place est un chemin absolu de l'hôte, monté en bind ; le rôle ne le crée pas -- il doit
+exister, et être inscriptible par `node` (uid 1000 dans l'image) -- et refuse un chemin vide ou relatif,
+qu'un orchestrateur lirait comme un nom de volume. Passer d'un mode à l'autre change l'endroit où l'agent
+travaille : le contenu de l'un n'est pas recopié dans l'autre.
+
+**Le rôle enregistre lui-même la clé virtuelle de l'agent dans LiteLLM.** La **valeur** de
+`Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` reste un secret de l'appelant, vaulté et
+interpolé dans le fichier compose comme les autres (même `$` doublé, même chaîne JSON). Une fois LiteLLM
+prêt (`/health/readiness`, jusqu'à 150 s), le rôle demande à `GET /key/info` si cette clé existe -- par
+son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
+inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
+`key_alias` `claude_code_tigerblue77` et pour seule liste blanche l'alias du modèle
+(`Artificial_Intelligence_Claude_code_tigerblue77_model`) : c'est elle qui tient le conteneur à l'écart
+du quota de tous les autres comptes. Les appels s'authentifient avec la clé maîtresse, que l'agent ne
+détient jamais, et leurs tâches sont en `no_log`. Un second passage trouve la clé et ne change rien.
+
+Ce que cela ne fait pas : le rôle **crée** la clé, il ne **réconcilie** pas une clé qui existe déjà -- elle
+garde les modèles avec lesquels elle a été créée. Et **faire tourner la clé** demande d'abord de supprimer
+l'ancienne depuis `/ui` : son alias est unique, `POST /key/generate` refuserait la nouvelle tant que
+l'ancienne existe, et la tâche étant en `no_log`, l'échec n'en dit pas la cause. Le conteneur peut
+démarrer quelques secondes avant que sa clé existe : il n'appelle la passerelle que lorsqu'on s'en sert,
+et sa politique de redémarrage (`any`) le relance s'il sort entre-temps. Le rôle saute ces tâches avec
+`--check` : le stack n'y est que rendu, il n'y a pas de LiteLLM à interroger.
+
+Les champs de la requête (`key`, `key_alias`, `models`, le préfixe `sk-` et les 16 caractères minimum, le
+`404` de `/key/info` pour une clé inconnue, le SHA-256 en paramètre) sont lus dans le code de LiteLLM
+v1.106.6 (`litellm/proxy/management_endpoints/key_management_endpoints.py`), pas exécutés contre une
+passerelle vivante. Les valeurs refusées par LiteLLM (`disable_custom_api_keys`, un alias déjà pris) font
+échouer la tâche.
+
 **Le service démarre comme l'image le prévoit.** L'entrée de l'image publiée est `claude` seul, sans
 `CMD`, et le bloc du service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance
 `claude` sans argument.
@@ -665,12 +711,19 @@ doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce con
 décision plutôt que de la devancer. L'image publiée ne porte d'ailleurs aucun client `docker` : rien ne
 branche le socket tant que #11 n'a pas tranché.
 
-**Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
-dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est le jeton destiné à `gh`. Il est posé en
-`GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh` n'est pas dans l'image publiée, et git ne lit aucune de
-ces deux variables de lui-même. Tant que `gh` n'est pas dans l'image, le jeton est donc posé sans l'outil
-qui le lit, et il reste obligatoire quand le service est activé.
+**Le jeton GitHub est facultatif (#245).** #13 délègue l'accès aux dépôts au connecteur MCP GitHub (#23) et
+l'accès aux outils à la passerelle MCP (#7) ; `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` n'est pas
+cet accès, seulement un jeton personnel que le rôle pose dans le conteneur, en `GH_TOKEN` et `GITHUB_TOKEN`, s'il est
+fourni. Ce qui les lit, c'est Claude Code lui-même, sans passer par `gh` : il s'en sert pour interroger l'API GitHub, et
+son pied de page d'état de la pull request de la branche courante (réglage `prStatusFooterEnabled`, activé par défaut) en
+est l'usage établi. C'est une lecture des chaînes du binaire de la 2.1.287, la version mesurée plus haut, et non une
+exécution. L'image ne porte pas `gh`, le repli de Claude Code quand ces variables manquent, et git ne lit ni l'une ni
+l'autre de lui-même : sans jeton, ce même code affiche « install gh for PR status » à la place du pied de page, et ses
+autres appels à l'API GitHub qui se servent du jeton partent sans. Le bloc du service ne pose donc les deux variables
+que si le jeton est fourni : un déploiement qui préfère ne mettre aucun jeton GitHub dans l'environnement du
+conteneur -- où chaque `docker inspect` le montre -- n'en donne pas, et perd ce pied de page.
+Fournie, la variable doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle
+plutôt que d'être ignorée en silence. `false`, sa valeur par défaut, veut dire « non fourni ».
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
@@ -684,7 +737,7 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
 ## Monter PostgreSQL d'un majeur (#168)
 
 **Une migration, pas un changement de tag.** L'image est épinglée en dur dans le template
-(`postgres:17-alpine`), et le volume est monté là où l'image de ce majeur range ses données :
+(`postgres:18`), et le volume est monté là où l'image de ce majeur range ses données :
 `/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18, où l'image officielle
 garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux se changent ensemble,
 dans le même commit : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
@@ -720,9 +773,9 @@ redémarre dessus sans le voir.
 - **Il ne déploie plus rien de vide, mais il n'a pas été déployé.** Depuis #1, `services:` porte
   `postgres` et `litellm` **inconditionnellement**, et depuis #73, #3 et #76 `omniroute`, `qdrant` et
   `librechat`/`librechat_mongodb` les rejoignent, inconditionnellement aussi. Depuis #13,
-  `claude_code_tigerblue77` s'y ajoute en plus quand `Artificial_Intelligence_Claude_code_tigerblue77_enabled` vaut
-  `true` (`false` par défaut -- #31 exige que chaque service se déclare ainsi) ; dans tous les états,
-  les seuls ports qui apparaissent dans la configuration résolue sont le `4000` de LiteLLM, le
+  `claude_code_tigerblue77` s'y ajoute aussi, inconditionnellement tant que
+  `Artificial_Intelligence_Claude_code_tigerblue77_enabled` garde sa valeur par défaut `true` (un appelant
+  qui n'en veut pas le passe à `false`) ; dans tous les états, les seuls ports qui apparaissent dans la configuration résolue sont le `4000` de LiteLLM, le
   `20128` d'OmniRoute et le `3080` de LibreChat, publiés à dessein -- Qdrant n'en publie aucun. La
   case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient donc
   vérifiable sur le banc d'essai, pas avant. Les comptes LibreChat et leur promotion `ADMIN` sont
@@ -799,6 +852,14 @@ L'état « désactivé » est celui que personne ne regarde, et une condition Ji
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
 rendus, et que le contrôle refuse qu'activer le réseau publié change autre chose que le bloc `networks:`.
 
+L'agent Claude Code, déployé par défaut, a trois formes que le contrôle rend chacune : son dossier de
+travail en volume nommé (le défaut), en chemin d'hôte, et l'agent retiré (`enabled: false`). Il vérifie que
+`/workspace` est monté par le volume nommé dans le premier cas et par le chemin dans le second, que le
+volume de travail n'est déclaré que dans le premier -- un volume déclaré que rien ne monte est le reste
+d'une condition qui n'a pas suivi son interrupteur --, et que la troisième ne laisse ni service ni volume
+de l'agent. Sa clé virtuelle n'a pas de défaut : chaque état la reçoit, comme un appelant ; le jeton GitHub,
+facultatif, n'est donné qu'à l'état qui le juge.
+
 Avant tout rendu, il résout les valeurs par défaut qui en interpolent d'autres -- un chemin de
 destination est un répertoire suivi d'un nom de fichier -- et il les résout comme Ansible (#184) : une
 référence à un nom que `defaults/main.yml` ne définit pas, et qu'il ne déclare pas non plus obligatoire
@@ -811,7 +872,7 @@ est de l'Ansible ordinaire : il se résout comme le rendu écrit la variable ell
 résolution, comme Ansible lit un défaut dérivé : le nom d'une config Docker, construit sur la somme de contrôle de son
 fichier (#161), la porte donc bien.
 
-Il fait aussi un rendu de plus (#155), agent Claude Code activé, où portent `$`, `${`, `$$`, `/`, `@` et
+Il fait aussi un rendu de plus (#155), avec un chemin d'hôte pour l'agent Claude Code, où portent `$`, `${`, `$$`, `/`, `@` et
 `#` : toute variable que le template lit et que `defaults/main.yml` ne définit pas ou laisse vide (`""`)
 -- les obligatoires, donc aussi le secret du prochain service, et les optionnelles vides comme la clé
 GitHub Models -- ainsi que les valeurs libres à vrai défaut que le script énumère dans
@@ -834,6 +895,14 @@ suit pas un emplacement qui l'encode exprès, comme une URL de connexion, où `@
 `template`. Les variables qu'une ligne écrit encore brute, parce qu'une autre pull request réécrit cette
 ligne, sont rendues sans ces caractères -- un `"` brut ferait refuser tout le rendu -- et nommées une par
 une avec leur pull request ; là encore, une exemption qui n'exempte plus rien fait échouer le contrôle.
+
+Pour l'agent Claude Code, dont le jeton GitHub est facultatif (#245), le contrôle rend l'état activé **sans** le
+jeton -- le défaut --, où ni `GH_TOKEN` ni `GITHUB_TOKEN` ne doivent figurer, puis **avec**, où les deux doivent porter
+la valeur passée, sans que rien d'autre ne change entre les deux. Le jeton a pour défaut `false` : il est donc dans
+`FREE_FORM_WITH_A_DEFAULT`, et le rendu qui porte des `$` vérifie que les deux variables arrivent bien, avec leur `$`
+doublé. Le contrôle exige aussi que ce défaut soit exactement `false` : supprimé, il ne se verrait dans aucun rendu,
+puisque le contrôle y traite une variable sans valeur comme vide, alors qu'Ansible échoue sur `is string` d'une variable
+non définie, pour tout appelant qui laisse le jeton de côté.
 
 ## Exemple d'appel
 
