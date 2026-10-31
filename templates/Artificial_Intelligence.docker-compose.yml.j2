@@ -174,12 +174,11 @@ services:
         # Swarm only (Compose ignores it): a failed update goes back to the previous image instead of
         # leaving the service paused on the broken one.
         failure_action: rollback
+{% if Artificial_Intelligence_PostgreSQL_memory_limit is string %}
       resources:
         limits:
-          # Starting value, to be recalled after measuring under load with "docker stats". What
-          # matters today is that a limit EXISTS: without one, a container running away takes the
-          # others down by OOM and the kernel log names the victim rather than the culprit.
           memory: "{{ Artificial_Intelligence_PostgreSQL_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -223,9 +222,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_Redis_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Redis_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -366,12 +367,12 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_LiteLLM_memory_limit is string %}
       resources:
         limits:
-          # Depends on "--num_workers": each worker replicates the configuration. With 88 threads on
-          # the target host the temptation to raise the worker count is real, and this limit is what
-          # bounds the experiment.
+          # Depends on "--num_workers": each worker replicates the configuration.
           memory: "{{ Artificial_Intelligence_LiteLLM_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -430,9 +431,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_OmniRoute_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_OmniRoute_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -474,9 +477,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_Qdrant_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Qdrant_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -566,9 +571,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_LibreChat_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_LibreChat_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -606,9 +613,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_MongoDB_LibreChat_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_MongoDB_LibreChat_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -676,10 +685,11 @@ services:
       update_config:
         # Swarm only: see the note on "postgres".
         failure_action: rollback
+{% if Artificial_Intelligence_Claude_code_memory_limit is string %}
       resources:
         limits:
-          # Starting value, to be recalled after measuring under load.
           memory: "{{ Artificial_Intelligence_Claude_code_memory_limit }}"
+{% endif %}
 
     # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
@@ -734,10 +744,10 @@ services:
   #       failure_action: rollback
   #     resources:
   #       limits:
-  #         # Mandatory on EVERY service. Without a limit, one container running away takes all the
-  #         # others down by OOM, and the kernel log names the victim, not the culprit. An AI stack is
-  #         # exactly the ground where that happens: a model held in memory, a worker handed a
-  #         # document too large.
+  #         # Optional, and absent by default: the block is written under "if <variable> is string",
+  #         # so a caller who sets no "<service>_memory_limit" (false) gets no limit, and one who sets
+  #         # a size gets it. Without a limit, one container running away can take the others down
+  #         # by OOM, which is the caller's trade-off to make.
   #         memory: 512M
   #
   #   # Only when the service needs another one started first, and then as a plain LIST of service

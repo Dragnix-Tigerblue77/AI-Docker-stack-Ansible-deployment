@@ -35,7 +35,7 @@ orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà 
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
 après les services, porte les conventions qu'un bloc de service doit tenir : image sans tag (ou, pour
-une base de données, épinglée avec sa raison), limite mémoire déclarée, `deploy.restart_policy.condition: any`, aucun port publié pour un
+une base de données, épinglée avec sa raison), limite mémoire facultative (aucune par défaut), `deploy.restart_policy.condition: any`, aucun port publié pour un
 service interne, aucun secret en clair. Elles sont écrites là plutôt que dans un document séparé
 parce que c'est là qu'on les oublie.
 
@@ -113,10 +113,10 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
 | `Artificial_Intelligence_LiteLLM_salt_key` | aucun | **Obligatoire** (#164). `LITELLM_SALT_KEY`, la clé qui chiffre en base ce que `/ui` enregistre. **Ne change plus jamais** une fois un identifiant enregistré, et **différente** de la clé maîtresse, ce que le rôle vérifie. Un déploiement existant ne reçoit pas une valeur neuve : voir « La clé de sel (#164) » plus bas. |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
-| `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LiteLLM_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. À dimensionner avec le nombre de workers. |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
-| `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_PostgreSQL_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. Voir « Pourquoi tout vit sous `deploy:` ». |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
@@ -142,7 +142,7 @@ Et celles que #71 apporte, pour Redis :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
-| `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. |
+| `Artificial_Intelligence_Redis_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`256m`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
 
 Et celles que #73 apporte, pour OmniRoute :
@@ -150,7 +150,7 @@ Et celles que #73 apporte, pour OmniRoute :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
-| `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
+| `Artificial_Intelligence_OmniRoute_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. À dimensionner si l'usage dépasse le simple dernier recours. |
 | `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
 
 Et celles que #3 apporte, pour Qdrant :
@@ -158,7 +158,7 @@ Et celles que #3 apporte, pour Qdrant :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
-| `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
+| `Artificial_Intelligence_Qdrant_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. Le corpus visé par #3 est petit : une limite peut être généreuse. |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
 
 Et celles que #13 apporte, pour l'agent Claude Code -- déployé **avec le reste du stack**,
@@ -173,7 +173,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Artificial_Intelligence_Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent. |
-| `Artificial_Intelligence_Claude_code_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
 Et celles que #76 apporte, pour LibreChat et sa base :
@@ -183,7 +183,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
-| `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
@@ -812,6 +812,8 @@ fichier.
 | `container_name` | fonctionne | déprécié — ne jamais s'en servir comme nom d'hôte |
 | Secrets | fichier ou variable | secrets natifs de l'orchestrateur |
 
+Sur les limites mémoire : le rôle n'en pose aucune par défaut, et seul l'appelant en demande une, en donnant une taille (`"2g"`) à la variable `*_memory_limit` du service ; `false` laisse le service sans limite, et le rôle refuse toute autre valeur qu'une taille (un nombre, `true` ou une chaîne vide seraient sinon ignorés sans un mot ou écrits comme une limite invalide). Les tailles que le rôle a portées un temps n'ont jamais été mesurées, et sans limite un conteneur qui s'emballe peut entraîner les autres par OOM : c'est un arbitrage que le rôle laisse à l'appelant, qui connaît sa machine. Posée, la limite s'écrit sous `deploy.resources.limits.memory`, la seule forme que Compose et Swarm honorent tous les deux.
+
 Sur `restart_policy` : `condition: any`, jamais `on-failure`. Quand un conteneur devient malsain,
 l'orchestrateur l'arrête **proprement** ; le processus sort avec le code 0 ; et `on-failure` ne remplace
 jamais une tâche sortie proprement. Le service reste à 0 réplique, le reverse proxy ne construit plus de
@@ -838,7 +840,7 @@ python3 .github/scripts/check_compose_template.py
 Le dernier est celui qui compte pour le template. Il le rend dans ses **deux** états -- réseau publié
 renseigné et non renseigné -- parse les deux, compare les objets parsés plutôt que les fichiers, et tient
 chaque bloc de service aux conventions que le modèle commenté du template documente : image sans tag ou épinglée avec sa raison,
-limite mémoire, `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
+limite mémoire quand l'appelant en pose une (aucune par défaut), `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
 récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les
