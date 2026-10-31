@@ -19,6 +19,24 @@
       It has no default because having one would presuppose an orchestrator, which #31 forbids.
       See the "Le contrat du rôle de déploiement" section of the README.
 
+# The template writes a limit only for a string, so a number or `true` would silently leave the service
+# unlimited and an empty string would write an invalid limit. The names are read off the caller's
+# variables, so a service added later is covered without anyone remembering to list it here.
+- name: "Check every memory limit is false or a size"
+  ansible.builtin.assert:
+    that:
+      - >-
+        lookup('ansible.builtin.vars', item) is sameas false
+        or (lookup('ansible.builtin.vars', item) is string
+        and lookup('ansible.builtin.vars', item) is match('^[1-9][0-9]*[bkmgBKMG]?$'))
+    quiet: true
+    fail_msg: >-
+      "{{ item }}" is a memory limit: leave it false to set none, or give a size such as "2g". A number, true or
+      an empty string is refused rather than silently ignored.
+  loop: "{{ query('ansible.builtin.varnames', '^Artificial_Intelligence_.*_memory_limit$') }}"
+  loop_control:
+    label: "{{ item }}"
+
 - name: "Check the Artificial Intelligence stack secrets are provided"
   ansible.builtin.assert:
     that:
