@@ -708,6 +708,25 @@ def check_agent_token(without, with_token, token, failures):
         failures.append("giving the agent's GitHub token changed more than its two variables: it must change nothing else")
 
 
+def check_volume_name_defaults(defaults, failures):
+    """Refuse a default volume name that starts with the stack's name.
+
+    Compose and Swarm prefix every volume with the stack's name themselves, so a default written
+    "<stack name>_PostgreSQL_data" is deployed as "<stack name>_<stack name>_PostgreSQL_data". Renaming a
+    volume later is a data migration, which is why the doubled name is caught here and not after the first
+    deployment. The render cannot see it: the doubled name is a perfectly valid volume key.
+    """
+    stack = defaults.get("Artificial_Intelligence_Docker_stack_name")
+    for name, value in defaults.items():
+        if not name.endswith("_Docker_volume_name") or not isinstance(value, str):
+            continue
+        if isinstance(stack, str) and stack and value.startswith(stack + "_"):
+            failures.append(
+                f"{name} defaults to a name starting with the stack's own name: Compose and Swarm prefix it "
+                "again, so it would be deployed with the prefix twice"
+            )
+
+
 def check_agent_token_default(defaults, failures):
     """Hold the agent's GitHub token to defaulting to exactly "false", the role's idiom for "not set".
 
@@ -1445,6 +1464,15 @@ AGENT_TOKEN_DEFAULT_CASES = [
     ("a default of 0, which is not false", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: 0}, "of type int"),
 ]
 
+VOLUME_NAME_DEFAULT_CASES = [
+    ("a name without the stack's prefix",
+     {"Artificial_Intelligence_Docker_stack_name": "Stack",
+      "Artificial_Intelligence_X_Docker_volume_name": "X_data"}, None),
+    ("a name carrying the stack's prefix",
+     {"Artificial_Intelligence_Docker_stack_name": "Stack",
+      "Artificial_Intelligence_X_Docker_volume_name": "Stack_X_data"}, "starting with the stack's own name"),
+]
+
 # (name, document, the value both variables must hold, expected substring or None). The value is the
 # parsed one, so a "$" is doubled in it: that is how the "$" render proves it arrives.
 TOKEN_ARRIVES_CASES = [
@@ -1586,6 +1614,11 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, defaults, expected in VOLUME_NAME_DEFAULT_CASES:
+        failures = []
+        check_volume_name_defaults(defaults, failures)
+        problems.extend(_verdict(name, failures, expected))
+
     for name, defaults, expected in AGENT_TOKEN_DEFAULT_CASES:
         failures = []
         try:
@@ -1663,6 +1696,7 @@ def selftest():
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
+        f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s) and {len(AGENT_MODEL_CASES)} agent model "
         "case(s) all judged as expected."
     )
@@ -1730,6 +1764,7 @@ def main():
         )
 
     check_agent_token_default(defaults, failures)
+    check_volume_name_defaults(defaults, failures)
     if CLAUDE_CODE_STATE in documents and CLAUDE_CODE_TOKEN_STATE in documents:
         check_agent_token(
             documents[CLAUDE_CODE_STATE],
