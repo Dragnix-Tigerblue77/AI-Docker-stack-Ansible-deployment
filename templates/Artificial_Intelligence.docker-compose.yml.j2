@@ -52,7 +52,7 @@ services:
     # major is one the Prisma schema of the running LiteLLM supports before raising it. The major only,
     # on the Debian image: the Alpine variant sorts text with another C library, so it would be one more
     # thing to keep unchanged on a volume for no gain.
-    image: postgres:17
+    image: postgres:18
 
     # LiteLLM is NOT this cluster's superuser (#159). The image makes "POSTGRES_USER" the bootstrap
     # superuser, and that role can never lose the attribute ("The bootstrap superuser must have the
@@ -128,11 +128,12 @@ services:
       #   left unused: the entrypoint refuses it as an "unused mount/volume" and exits 1, on an EMPTY
       #   volume on a fresh machine too -- measured with "postgres:18-alpine" (#168).
       #
-      #   The pin is 17, so the target is the ".../data" one. Raising the pin to 18 or later means
-      #   changing this target to "/var/lib/postgresql" in the same commit. A volume that already holds
-      #   another major's cluster is refused at either path, by the image itself: raising the major on
-      #   one is a migration, spelt out in the README.
-      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql/data:rw"
+      #   The pin is 18, so the target is the "/var/lib/postgresql" one. Lowering the pin to 17 or
+      #   earlier, or raising it past a major that moves the directory again, means changing this
+      #   target in the same commit. A volume that already holds another major's cluster is refused at
+      #   either path, by the image itself: raising the major on one is a migration, spelt out in the
+      #   README.
+      - "{{ Artificial_Intelligence_PostgreSQL_data_Docker_volume_name }}:/var/lib/postgresql:rw"
 
     healthcheck:
       # "pg_isready" ships with the image, so this needs nothing the container does not already have.
@@ -579,7 +580,7 @@ services:
     # A database, so pinned on purpose to its major: "8" takes every 8.x release as it ships, the way
     # PostgreSQL takes its minor ones. A later major is a move made by hand, through MongoDB's upgrade
     # procedure and its featureCompatibilityVersion step, never a moved tag.
-    image: mongo:8
+    image: mongo:9
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"

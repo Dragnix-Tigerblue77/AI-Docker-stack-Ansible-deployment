@@ -464,7 +464,7 @@ fichier monté (un montage `bind` exige le chemin sur le nœud qui exécute la t
 pas un fichier, #137), ni `configs.content` (que `docker stack` refuse).
 
 **PostgreSQL 15 au minimum**, et rien ne le vérifie : le majeur est écrit en dur dans le template
-(`image: postgres:17`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
+(`image: postgres:18`), et le descendre sous 15 est une édition de ce fichier. Le script lit ses
 valeurs avec `\getenv`, apparu dans le `psql` de 15, et c'est 15 qui confie le schéma `public` à
 `pg_database_owner`. En dessous, l'échec est silencieux et ne se résorbe pas -- mesuré avec
 `14-alpine` : le premier démarrage initialise le répertoire de données puis s'arrête sur `invalid
@@ -692,7 +692,7 @@ indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réelleme
 ## Monter PostgreSQL d'un majeur (#168)
 
 **Une migration, pas un changement de tag.** L'image est épinglée en dur dans le template
-(`postgres:17`), et le volume est monté là où l'image de ce majeur range ses données :
+(`postgres:18`), et le volume est monté là où l'image de ce majeur range ses données :
 `/var/lib/postgresql/data` jusqu'à 17, `/var/lib/postgresql` à partir de 18, où l'image officielle
 garde chaque cluster dans un sous-répertoire à son nom (`18/docker`). Les deux se changent ensemble,
 dans le même commit : laissé sur l'ancien chemin, 18 refuse de démarrer, même sur un volume vide.
