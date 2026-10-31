@@ -115,13 +115,15 @@
         Artificial_Intelligence_LibreChat_JWT_secret: "{{ vault_Artificial_Intelligence_LibreChat_JWT_secret }}"
         Artificial_Intelligence_LibreChat_JWT_refresh_secret: "{{ vault_Artificial_Intelligence_LibreChat_JWT_refresh_secret }}"
 
-        # MANDATORY since #76, all four, without a default: Dragnix's own account, created by the
-        # role and granted the ADMIN role -- see "Le contrat du rôle de déploiement" in the role's
-        # README for why this only works when the deployment target is Compose.
-        Artificial_Intelligence_LibreChat_Dragnix_email: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_email }}"
-        Artificial_Intelligence_LibreChat_Dragnix_name: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_name }}"
-        Artificial_Intelligence_LibreChat_Dragnix_username: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_username }}"
-        Artificial_Intelligence_LibreChat_Dragnix_password: "{{ vault_Artificial_Intelligence_LibreChat_Dragnix_password }}"
+        # MANDATORY since #76, without a default: the LibreChat accounts the role creates, "admin: true"
+        # granting the ADMIN role. See "Le contrat du rôle de déploiement" in the role's README for why
+        # this only works when the deployment target is Compose.
+        Artificial_Intelligence_LibreChat_users:
+          - email: "{{ vault_Artificial_Intelligence_LibreChat_admin_email }}"
+            name: "{{ vault_Artificial_Intelligence_LibreChat_admin_name }}"
+            username: "{{ vault_Artificial_Intelligence_LibreChat_admin_username }}"
+            password: "{{ vault_Artificial_Intelligence_LibreChat_admin_password }}"
+            admin: true
 
         # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants

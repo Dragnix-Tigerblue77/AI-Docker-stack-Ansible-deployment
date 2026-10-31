@@ -179,7 +179,8 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
-| `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
+| `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
+| `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Dépréciées**, conservées pour les appelants existants : si `Artificial_Intelligence_LibreChat_users` est vide et que les quatre sont définies, elles forment un compte unique `admin: true`. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
 sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`.
@@ -238,14 +239,16 @@ donnerait à n'importe qui sur le réseau un accès aux quotas des deux comptes.
 au premier démarrage et les écrit dans son propre volume -- ce que sa documentation déconseille
 explicitement en production, précisément parce que rien ne les vaulte nulle part.
 
-**Le compte de Dragnix se crée tout seul ; celui de tigerblue77 se crée à la main.** Une fois le stack
-déployé, le rôle exécute lui-même `npm run create-user` dans le conteneur `librechat`, puis promeut ce
-compte `ADMIN` par une écriture directe dans MongoDB (`mongosh ... updateOne`) plutôt que de compter
-sur le comportement « le premier compte est admin » de LibreChat -- des retours d'expérience amont le
-signalent silencieusement inopérant, ce qui en aurait fait une hypothèse plutôt qu'un fait. Dragnix,
-une fois connecté avec ce compte admin, crée celui de tigerblue77 lui-même depuis le panneau
-d'administration : rien à automatiser côté Ansible pour un compte que la personne qui le possède peut
-créer en trente secondes une fois qu'elle a un accès admin.
+**Les comptes de `Artificial_Intelligence_LibreChat_users` se créent tout seuls.** Une fois le stack
+déployé, le rôle exécute lui-même `npm run create-user` dans le conteneur `librechat` pour chaque entrée,
+puis promeut `ADMIN` celles qui portent `admin: true` par une écriture directe dans MongoDB
+(`mongosh ... updateOne`) plutôt que de compter sur le comportement « le premier compte est admin » de
+LibreChat -- des retours d'expérience amont le signalent silencieusement inopérant, ce qui en aurait fait
+une hypothèse plutôt qu'un fait. Un compte qui existe déjà n'est pas touché (`create-user` le refuse, et le
+rôle lit ce refus sur la sortie standard comme sur la sortie d'erreur), donc un compte créé à la main avant
+le premier passage reste intact. La promotion filtre sur l'e-mail en minuscules, LibreChat les stockant
+ainsi. Le mot de passe voyage en argument de la commande : la tâche est en `no_log`, ce qui le garde hors
+des journaux d'Ansible, mais il reste visible un instant dans la liste des processus du conteneur.
 
 Techniquement, deux choses ont été vérifiées en direct plutôt que supposées avant d'écrire ces tâches :
 
@@ -396,7 +399,7 @@ sel, et LiteLLM le laisse sans effet dès que `LITELLM_SALT_KEY` est posée, ce 
 **Les secrets vivent dans le fichier compose, pas dans un `.env` à part.**
 `Artificial_Intelligence_PostgreSQL_password` et `Artificial_Intelligence_LiteLLM_master_key` d'abord,
 puis ceux que chaque issue de service a apportés depuis (voir les tableaux de variables plus haut) --
-tous, sauf le mot de passe du compte LibreChat de Dragnix, que seul `create-user` reçoit (#76). Ce
+tous, sauf les mots de passe des comptes LibreChat, que seul `create-user` reçoit (#76). Ce
 sont des variables du rôle, que l'appelant rend depuis son vault et qu'Ansible interpole au rendu,
 comme le reste du template -- c'est ce qui permet à la même forme de servir Compose et Swarm sans y
 toucher : Ansible rend ce fichier de la même façon quel que soit celui qui le lira ensuite. C'est aussi
@@ -720,7 +723,7 @@ redémarre dessus sans le voir.
   les seuls ports qui apparaissent dans la configuration résolue sont le `4000` de LiteLLM, le
   `20128` d'OmniRoute et le `3080` de LibreChat, publiés à dessein -- Qdrant n'en publie aucun. La
   case « le rôle se déploie sur la VM de test et les conteneurs démarrent » de #31 devient donc
-  vérifiable sur le banc d'essai, pas avant. Le compte de Dragnix et sa promotion `ADMIN` sont
+  vérifiable sur le banc d'essai, pas avant. Les comptes LibreChat et leur promotion `ADMIN` sont
   vérifiés contre un vrai `docker compose up` (voir plus haut) ; ce qui reste à faire sur une vraie
   machine : la mesure sous charge des limites mémoire, la persistance après un `down` / `up`,
   l'idempotence sur un second passage, et, hors du périmètre de #3, la création des collections
@@ -844,7 +847,7 @@ Aucune déclarée dans `meta/`. Le rôle en inclut une à l'exécution -- celle 
 précisément pour qu'elle ne soit pas déclarée ici qu'elle est un paramètre.
 
 Une collection, en revanche, l'est dans `requirements.yml` à la racine du dépôt depuis #76 :
-`community.docker`, pour les deux modules qui créent le compte de Dragnix. Voir « Prérequis » plus
+`community.docker`, pour les deux modules qui créent les comptes LibreChat. Voir « Prérequis » plus
 haut.
 
 ## Licence
