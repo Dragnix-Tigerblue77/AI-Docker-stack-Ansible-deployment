@@ -516,6 +516,9 @@ services:
       # Closed on purpose: the port below is on the LAN, and open registration there would hand
       # anyone on the network a seat on both accounts' quotas. See "defaults/main.yml".
       ALLOW_REGISTRATION: "{{ Artificial_Intelligence_LibreChat_allow_registration | string | lower }}"
+      # See "Artificial_Intelligence_LibreChat_session_cookie_secure" in "defaults/main.yml": Secure
+      # session cookies over plain HTTP are dropped by the browser, and every reload logs the account out.
+      SESSION_COOKIE_SECURE: "{{ Artificial_Intelligence_LibreChat_session_cookie_secure | string | lower }}"
       # Without these four, LibreChat generates temporary values on first start and keeps them
       # nowhere but its own volume -- unsuitable for production by its own documentation.
       CREDS_KEY: {{ Artificial_Intelligence_LibreChat_creds_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
