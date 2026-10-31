@@ -339,11 +339,20 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
 # account's quota. NEVER the master key.
 # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key:
 
-# MANDATORY when the service above is enabled, and without a default. A personal access token, set
-# as "GH_TOKEN" and "GITHUB_TOKEN" in the container, which is where "gh" reads it. Set whether or not
-# the image carries a tool that reads it. #13 defers real repository access to the MCP GitHub
-# connector (#23); until that lands, this is how the agent reaches a repository.
-# Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token:
+# OPTIONAL (#245). A personal access token, set as "GH_TOKEN" and "GITHUB_TOKEN" in the container only
+# when it is given. Claude Code reads both itself, with no "gh" involved, to call the GitHub API: its PR
+# status footer (setting "prStatusFooterEnabled", on by default) asks for the pull request of the
+# current branch with it. The published image carries no "gh" to fall back on, so a deployment without
+# a token gets the footer's hint "install gh for PR status" in its place, and Claude Code's other calls
+# to the GitHub API go out without a token; one with a token has it in the container's environment,
+# readable in every "docker inspect". git reads neither variable. That is a reading of the strings of
+# the 2.1.287 binary, not a run of it. #13 defers real repository access to the MCP GitHub connector
+# (#23), which this token does not stand in for.
+#
+# "false" rather than "''", like the published network at the top of this file: the template writes
+# "is string" to mean "set". A value that is given must be a non-empty string, and "tasks/main.yml"
+# refuses an empty or non-string one rather than leave it out of the container without a word.
+Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: false
 
 # MANDATORY when the service above is enabled, and without a default: a host path is inventory data,
 # which this role does not get to presuppose. The caller's own working tree for this agent.

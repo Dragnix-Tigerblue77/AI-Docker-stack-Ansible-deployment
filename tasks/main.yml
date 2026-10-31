@@ -126,19 +126,34 @@
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is defined
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is string
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | length > 0
-      - Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is defined
-      - Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is string
-      - Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | length > 0
       - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is defined
       - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is string
       - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | length > 0
     quiet: true
-    when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
     fail_msg: >-
-      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key", "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token" and
+      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key" and
       "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory" are mandatory once
-      "Artificial_Intelligence_Claude_code_tigerblue77_enabled" is true, and none of the three has a default: the first
-      two are secrets, the third is a host path, and this role presupposes neither. See #13.
+      "Artificial_Intelligence_Claude_code_tigerblue77_enabled" is true, and neither has a default: the first
+      is a secret, the second is a host path, and this role presupposes neither. See #13.
+  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+
+# The one optional parameter of the agent (#245), checked on its own so that it does not share a message
+# with the mandatory two. "false", its default, means "not set" ("sameas" is an identity test: 0 and ""
+# are not mistaken for it). Anything else must be a non-empty string, so that a value that is given and
+# unusable is refused rather than quietly left out of the container.
+- name: "Check the Claude Code agent (tigerblue77) GitHub token, when provided, is a non-empty string"
+  ansible.builtin.assert:
+    that:
+      - >-
+        Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is sameas false
+        or (Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is string
+        and Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | length > 0)
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token" is optional (#245) but, once given, must be a
+      non-empty string: an empty or non-string value is refused rather than ignored. Leave it unset to give the
+      agent no GitHub token, or pass the token itself.
+  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
 
 - name: "Check the OmniRoute dashboard password is provided"
   ansible.builtin.assert:

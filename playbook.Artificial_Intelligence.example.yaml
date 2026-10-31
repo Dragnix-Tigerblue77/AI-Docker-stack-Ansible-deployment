@@ -125,12 +125,18 @@
             password: "{{ vault_Artificial_Intelligence_LibreChat_admin_password }}"
             admin: true
 
-        # #13's agent is OFF by default -- these three only matter once it is turned on. Left here
+        # #13's agent is OFF by default -- these only matter once it is turned on. Left here
         # commented, the way the published network above is, rather than omitted: a caller who wants
         # the service finds every variable it needs in one place instead of discovering them one
         # "assert" failure at a time.
         #
+        # The virtual key and the workspace directory are mandatory. The GitHub token is OPTIONAL
+        # (#245): left out, the container gets no "GH_TOKEN" and no "GITHUB_TOKEN". Claude Code reads
+        # them itself to call the GitHub API, for its PR status footer among others, and the image has
+        # no "gh" to fall back on: a deployment without a token loses the footer, and its other calls
+        # go out without one. Given, it must be a non-empty string.
+        #
         # Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
         # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
-        # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
         # Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory: "/srv/Artificial_Intelligence/workspace/tigerblue77"
+        # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"

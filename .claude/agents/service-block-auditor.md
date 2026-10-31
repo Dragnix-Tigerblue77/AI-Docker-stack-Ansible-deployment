@@ -54,7 +54,15 @@ thing CLAUDE.md counts as verification.
    commented-out line with no value (`# Artificial_Intelligence_X_password:`), never as
    `Artificial_Intelligence_X_password: ""` -- a default is a password, and one shipped in a public
    repository is a published one. A new secret variable that does not follow
-   this exact form is the regression to catch before it merges.
+   this exact form is the regression to catch before it merges. The one
+   exception is a secret the service can genuinely do without (#245, the
+   Claude Code agent's GitHub token), in the form the commented model
+   describes: a default of `false`, never `""`; the lines that carry it
+   written only inside an `X is string` block of the template; an assert of
+   its own, `X is sameas false or (X is string and X | length > 0)`; and a
+   name in `FREE_FORM_WITH_A_DEFAULT` of `check_compose_template.py`. `false`
+   is no password, so that form is not a secret with a default -- one piece of
+   it missing is the regression.
 3. **The `is string` idiom weakened or bypassed.** ansible-core 2.19 rejects a
    bare truth test on a non-boolean, so an optional variable defaults to
    `false` and a task checks `is string` to mean "set" -- never a bare
