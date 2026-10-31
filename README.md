@@ -172,7 +172,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Artificial_Intelligence_Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
-| `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent. |
+| `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -730,6 +730,24 @@ la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTH
 l'alias `claude-code` que #2 résout dans LiteLLM. C'est le point de conformité de #13 : quoi que cet
 alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonnement.
 
+**Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
+requêtes principales : ses requêtes d'arrière-plan (titres, résumés courts) partent vers le modèle de classe Haiku, ses
+sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que l'alias
+(voir plus haut), et la `model_group_alias` de LiteLLM résout les noms Claude d'origine vers d'autres groupes
+(`claude-3-5-haiku` vers `flash-lite`, `claude-3-opus` vers `pro`) : une requête sous l'un de ces noms est refusée par la
+passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+`ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL` et `CLAUDE_CODE_SUBAGENT_MODEL`, toutes sur
+`Artificial_Intelligence_Claude_code_model`, sans second alias et sans élargir la liste blanche de la clé -- c'est elle
+qui tient le conteneur à l'écart du quota des autres comptes. Le coût : les requêtes d'arrière-plan et les sous-agents
+passent par le modèle principal. Les noms viennent de la documentation de Claude Code
+(« Model configuration » et « Environment variables », consultées le 2026-10-31) :
+`ANTHROPIC_SMALL_FAST_MODEL`, l'ancien nom de la variable Haiku, y est déclaré obsolète au profit de
+`ANTHROPIC_DEFAULT_HAIKU_MODEL`, et n'est pas posé. Ne le sont pas non plus `ANTHROPIC_DEFAULT_FABLE_MODEL` (l'alias
+`fable`, que la documentation lie à une sélection explicite et au repli automatique de modèle sur un fournisseur tiers)
+et `CLAUDE_CODE_AUTO_MODE_MODEL` (le classificateur du mode automatique) : ni l'un ni l'autre n'est un chemin que le
+déploiement emprunte tel quel, et leur effet derrière la passerelle n'est pas mesuré. Rien de tout cela n'a été exécuté : ni LiteLLM réel, ni Claude Code
+réel, donc ce que Claude Code affiche quand une requête est refusée reste non mesuré.
+
 **Ce service ne dépend pas de #1 pour être mergé, seulement pour tourner.** Il se déploie et se rend
 indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réellement présent, que
 `ANTHROPIC_BASE_URL` doit pouvoir le résoudre.
@@ -903,6 +921,11 @@ la valeur passée, sans que rien d'autre ne change entre les deux. Le jeton a po
 doublé. Le contrôle exige aussi que ce défaut soit exactement `false` : supprimé, il ne se verrait dans aucun rendu,
 puisque le contrôle y traite une variable sans valeur comme vide, alors qu'Ansible échoue sur `is string` d'une variable
 non définie, pour tout appelant qui laisse le jeton de côté.
+
+Pour l'agent Claude Code encore (#287), chaque rendu qui le porte -- l'état activé, avec le jeton, avec un dossier hôte, et
+le rendu qui porte des `$` -- est tenu de poser les cinq variables de modèle sur l'alias : l'une absente, ou à une autre
+valeur, fait échouer le contrôle, et dans le rendu à `$` l'alias arrive avec ses `$` doublés comme le reste. L'alias est dans
+`FREE_FORM_WITH_A_DEFAULT` pour cette raison.
 
 ## Exemple d'appel
 
