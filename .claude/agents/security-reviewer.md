@@ -21,8 +21,8 @@ raised anyway.
 ## Hard boundary
 
 There is no `.vault_pass` and no vaulted file in this repository -- every
-secret the role interpolates arrives as a caller-supplied variable with no
-default. You never invent, guess, or write a plausible-looking real value for
+secret the role interpolates arrives as a caller-supplied variable, with no
+value of its own here. You never invent, guess, or write a plausible-looking real value for
 one, in a template, a fixture, a comment, or an issue. If a review seems to
 need a real secret to demonstrate something, the review is wrong -- say so and
 stop.
@@ -34,7 +34,9 @@ stop.
    in CI and in `.githooks/pre-commit`; you are the read-before-write half that
    catches one before it is ever staged. Every `Artificial_Intelligence_*` secret variable must
    stay a commented-out, no-default line in `defaults/main.yml` -- a default
-   value is a published one.
+   value is a published one -- bar the rare optional one in the form the
+   template's commented model describes (#245): its default is `false`, which
+   is no value, and any other literal default is still the defect.
 2. **LiteLLM account isolation.** The estate runs two accounts through one
    gateway: `tigerblue77`'s keys, vaulted by the caller and interpolated with an
    `_API_KEY_TIGERBLUE77` suffix; `Dragnix`'s, added by hand from `/ui` (behind

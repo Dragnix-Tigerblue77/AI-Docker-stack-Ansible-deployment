@@ -169,7 +169,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 |---|---|---|
 | `Artificial_Intelligence_Claude_code_tigerblue77_enabled` | `true` | Déploie le service. `false` le retire, lui et ses volumes ; le rôle n'enregistre alors aucune clé dans LiteLLM. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_virtual_key` | aucun | **Obligatoire si activé.** La **valeur** de la clé virtuelle de l'agent, que l'appelant rend depuis son vault et que **le rôle enregistre lui-même dans LiteLLM** (voir « L'agent Claude Code »). Commence par `sk-`, au moins 16 caractères, jamais la clé maîtresse : le rôle refuse autrement. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). Posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` ; l'image publiée ne porte pas `gh` (voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name` | `Artificial_Intelligence_Claude_code_tigerblue77_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent. |
@@ -187,10 +187,11 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
 | `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Dépréciées**, conservées pour les appelants existants : si `Artificial_Intelligence_LibreChat_users` est vide et que les quatre sont définies, elles forment un compte unique `admin: true`. |
 
-`false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité
-sur autre chose qu'un booléen, donc « renseigné » s'écrit `is string`.
+`false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
+(#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
+`is string`.
 
-Les deux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
+Les deux réseaux se renseignent **ensemble ou pas du tout**, et le rôle le refuse autrement : n'en donner qu'un
 produit soit un `docker-compose` qui référence un réseau non déclaré -- que l'orchestrateur ne signale
 qu'au déploiement -- soit un réseau déclaré que personne n'utilise.
 
@@ -710,12 +711,19 @@ doit respecter avant de pouvoir atteindre le démon Docker de l'hôte, et ce con
 décision plutôt que de la devancer. L'image publiée ne porte d'ailleurs aucun client `docker` : rien ne
 branche le socket tant que #11 n'a pas tranché.
 
-**Le jeton GitHub est un jeton personnel, pas encore le connecteur MCP.** #13 délègue l'accès aux
-dépôts au connecteur MCP GitHub (#23) et l'accès aux outils à la passerelle MCP (#7) ; en attendant que
-l'un ou l'autre existe, `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` est le jeton destiné à `gh`. Il est posé en
-`GH_TOKEN` et `GITHUB_TOKEN`, que lit `gh` ; or `gh` n'est pas dans l'image publiée, et git ne lit aucune de
-ces deux variables de lui-même. Tant que `gh` n'est pas dans l'image, le jeton est donc posé sans l'outil
-qui le lit, et il reste obligatoire quand le service est activé.
+**Le jeton GitHub est facultatif (#245).** #13 délègue l'accès aux dépôts au connecteur MCP GitHub (#23) et
+l'accès aux outils à la passerelle MCP (#7) ; `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` n'est pas
+cet accès, seulement un jeton personnel que le rôle pose dans le conteneur, en `GH_TOKEN` et `GITHUB_TOKEN`, s'il est
+fourni. Ce qui les lit, c'est Claude Code lui-même, sans passer par `gh` : il s'en sert pour interroger l'API GitHub, et
+son pied de page d'état de la pull request de la branche courante (réglage `prStatusFooterEnabled`, activé par défaut) en
+est l'usage établi. C'est une lecture des chaînes du binaire de la 2.1.287, la version mesurée plus haut, et non une
+exécution. L'image ne porte pas `gh`, le repli de Claude Code quand ces variables manquent, et git ne lit ni l'une ni
+l'autre de lui-même : sans jeton, ce même code affiche « install gh for PR status » à la place du pied de page, et ses
+autres appels à l'API GitHub qui se servent du jeton partent sans. Le bloc du service ne pose donc les deux variables
+que si le jeton est fourni : un déploiement qui préfère ne mettre aucun jeton GitHub dans l'environnement du
+conteneur -- où chaque `docker inspect` le montre -- n'en donne pas, et perd ce pied de page.
+Fournie, la variable doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle
+plutôt que d'être ignorée en silence. `false`, sa valeur par défaut, veut dire « non fourni ».
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
@@ -847,7 +855,8 @@ travail en volume nommé (le défaut), en chemin d'hôte, et l'agent retiré (`e
 `/workspace` est monté par le volume nommé dans le premier cas et par le chemin dans le second, que le
 volume de travail n'est déclaré que dans le premier -- un volume déclaré que rien ne monte est le reste
 d'une condition qui n'a pas suivi son interrupteur --, et que la troisième ne laisse ni service ni volume
-de l'agent. Les deux secrets de l'agent n'ont pas de défaut : chaque état les reçoit, comme un appelant.
+de l'agent. Sa clé virtuelle n'a pas de défaut : chaque état la reçoit, comme un appelant ; le jeton GitHub,
+facultatif, n'est donné qu'à l'état qui le juge.
 
 Avant tout rendu, il résout les valeurs par défaut qui en interpolent d'autres -- un chemin de
 destination est un répertoire suivi d'un nom de fichier -- et il les résout comme Ansible (#184) : une
@@ -884,6 +893,14 @@ suit pas un emplacement qui l'encode exprès, comme une URL de connexion, où `@
 `template`. Les variables qu'une ligne écrit encore brute, parce qu'une autre pull request réécrit cette
 ligne, sont rendues sans ces caractères -- un `"` brut ferait refuser tout le rendu -- et nommées une par
 une avec leur pull request ; là encore, une exemption qui n'exempte plus rien fait échouer le contrôle.
+
+Pour l'agent Claude Code, dont le jeton GitHub est facultatif (#245), le contrôle rend l'état activé **sans** le
+jeton -- le défaut --, où ni `GH_TOKEN` ni `GITHUB_TOKEN` ne doivent figurer, puis **avec**, où les deux doivent porter
+la valeur passée, sans que rien d'autre ne change entre les deux. Le jeton a pour défaut `false` : il est donc dans
+`FREE_FORM_WITH_A_DEFAULT`, et le rendu qui porte des `$` vérifie que les deux variables arrivent bien, avec leur `$`
+doublé. Le contrôle exige aussi que ce défaut soit exactement `false` : supprimé, il ne se verrait dans aucun rendu,
+puisque le contrôle y traite une variable sans valeur comme vide, alors qu'Ansible échoue sur `is string` d'une variable
+non définie, pour tout appelant qui laisse le jeton de côté.
 
 ## Exemple d'appel
 
