@@ -155,7 +155,12 @@ Artificial_Intelligence_PostgreSQL_superuser: "postgres"
 # The named volume the store lives in. Named rather than a bind mount: surviving a container
 # recreation is an acceptance criterion of #1, and a bind mount would also tie the stack to a host
 # path this repository does not get to choose.
-Artificial_Intelligence_PostgreSQL_data_Docker_volume_name: "Artificial_Intelligence_PostgreSQL_data"
+#
+# Every "*_Docker_volume_name" of this file is written WITHOUT the stack's prefix: Compose and Swarm
+# prefix a volume with the stack's name themselves, so the deployed volume is
+# "<Artificial_Intelligence_Docker_stack_name>_PostgreSQL_data". Writing the prefix here too doubled it.
+# Renaming a volume later is a data migration, so a caller overriding a name does it before the first run.
+Artificial_Intelligence_PostgreSQL_data_Docker_volume_name: "PostgreSQL_data"
 
 # No memory limit by default, here and on every other "*_memory_limit" of this file: the sizes this
 # role once shipped were never measured, and limiting memory is the caller's call. A string (for
@@ -246,7 +251,7 @@ Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # where it is meant to end up.
 Artificial_Intelligence_LiteLLM_internal_users: []
 
-Artificial_Intelligence_Redis_data_Docker_volume_name: "Artificial_Intelligence_Redis_data"
+Artificial_Intelligence_Redis_data_Docker_volume_name: "Redis_data"
 
 # Unlimited by default. Response caching and per-worker cooldown state are both small compared to the
 # corpora the other services here hold (for example "256m").
@@ -299,7 +304,7 @@ Artificial_Intelligence_LiteLLM_Cerebras_API_key: ""
 
 # The named volume OmniRoute's SQLite store lives in, at the path its own Docker guide documents
 # ("/app/data") -- not a bind mount, for the same reason as every other stateful service here.
-Artificial_Intelligence_OmniRoute_data_Docker_volume_name: "Artificial_Intelligence_OmniRoute_data"
+Artificial_Intelligence_OmniRoute_data_Docker_volume_name: "OmniRoute_data"
 
 # Unlimited by default. The image's own default heap (1024 MB) is documented as sufficient for light,
 # occasional traffic -- which is exactly what a last-resort fallback is -- but not for a primary
@@ -318,7 +323,7 @@ Artificial_Intelligence_OmniRoute_memory_limit: false
 
 # Named volume for "/qdrant/storage". Persistence across a container recreation is an acceptance
 # criterion of #3, not a hope.
-Artificial_Intelligence_Qdrant_data_Docker_volume_name: "Artificial_Intelligence_Qdrant_data"
+Artificial_Intelligence_Qdrant_data_Docker_volume_name: "Qdrant_data"
 
 # Unlimited by default. The corpus #3 sizes this against (10,000-30,000 chunks, ~120 MB of vectors)
 # is small, so a limit, if set, can be generous rather than tight (for example "1g").
@@ -375,7 +380,7 @@ Artificial_Intelligence_Claude_code_workspace_directory: false
 
 # The named volume "/workspace" is when the variable above is not set. Named after the home volume
 # below, and kept apart from it: the home holds the session, the workspace holds the work.
-Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Artificial_Intelligence_Claude_code_workspace"
+Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Claude_code_workspace"
 
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
@@ -390,14 +395,14 @@ Artificial_Intelligence_Claude_code_memory_limit: false
 # BESIDE "~/.claude", never inside it: a volume on "~/.claude" alone persists half the session and
 # silently loses the other half on every recreation. See the upstream image's own README on this
 # trap, and #13's Definition of Done, which checks for it explicitly.
-Artificial_Intelligence_Claude_code_home_Docker_volume_name: "Artificial_Intelligence_Claude_code_home"
+Artificial_Intelligence_Claude_code_home_Docker_volume_name: "Claude_code_home"
 
 # --------------------------------------------------------------------------------------------------
 # LibreChat -- the Artificial Intelligence stack's human-facing chat interface (#76)
 # --------------------------------------------------------------------------------------------------
 
-Artificial_Intelligence_LibreChat_uploads_Docker_volume_name: "Artificial_Intelligence_LibreChat_uploads"
-Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name: "Artificial_Intelligence_MongoDB_LibreChat_data"
+Artificial_Intelligence_LibreChat_uploads_Docker_volume_name: "LibreChat_uploads"
+Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name: "MongoDB_LibreChat_data"
 
 # Unlimited by default (for example "1g" and "512m").
 Artificial_Intelligence_LibreChat_memory_limit: false
