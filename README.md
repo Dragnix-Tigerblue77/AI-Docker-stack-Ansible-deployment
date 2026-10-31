@@ -754,6 +754,7 @@ fichier.
 | `mem_limit` / `cpus` | fonctionnent | **ignorés** — remplacés par `deploy.resources.limits` |
 | `depends_on` en liste | démarre les services listés d'abord, sans attendre qu'ils soient sains | accepté, **sans effet** |
 | `depends_on` en forme longue (`condition:`) | attend la condition | **fichier entier refusé** — n'écrire que la liste |
+| `deploy.update_config.failure_action: rollback` | sans effet | une mise à jour qui échoue **revient à l'image précédente** ; sans la clé, le service reste en pause sur la version cassée |
 | `shm_size` | fonctionne | **ignoré** |
 | `container_name` | fonctionne | déprécié — ne jamais s'en servir comme nom d'hôte |
 | Secrets | fichier ou variable | secrets natifs de l'orchestrateur |
