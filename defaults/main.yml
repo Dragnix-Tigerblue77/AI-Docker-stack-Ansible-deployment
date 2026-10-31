@@ -72,6 +72,10 @@ Artificial_Intelligence_LiteLLM_port_to_expose: 4000
 Artificial_Intelligence_OmniRoute_port_to_expose: 20128
 Artificial_Intelligence_LibreChat_port_to_expose: 3080
 
+# NOT a setting: where the role's "uri" tasks reach LiteLLM's admin API, on the node that runs them.
+# Derived from the port above so that one place names it.
+Artificial_Intelligence_LiteLLM_admin_API_URL: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}"
+
 # LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
 # NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
 # list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.
@@ -327,27 +331,40 @@ Artificial_Intelligence_Qdrant_memory_limit: "1g"
 # Claude Code agent -- tigerblue77 (#13)
 # --------------------------------------------------------------------------------------------------
 
-# Off by default. #31 requires every service to be enabled or disabled by a variable, and an agent
-# that reaches an individual's own Claude Code session is not something a fresh deployment should
-# start running unasked. It is also the FIRST service of this template that ships disabled: turning
-# it on is what switches "services:" from "{}" to a real mapping, in the template.
-Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
+# On by default, like every other service of the stack: deploying the stack starts it. The toggle
+# stays so that a caller who does not want this agent -- it is one person's coding agent, and a
+# third party's deployment may have no use for it -- can switch it off with "false"; off, its service
+# and its volumes leave the rendered file, and so do the tasks that register its key in LiteLLM.
+Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
 
-# MANDATORY when the service above is enabled, and without a default -- same reasoning as every other
-# secret this role interpolates. Created in the LiteLLM admin UI (#2, or by hand until #2 lands): the
-# model allow-list a virtual key carries is what stands between this container and every other
-# account's quota. NEVER the master key.
+# MANDATORY while the service above is enabled, and without a default -- same reasoning as every other
+# secret this role interpolates. The VALUE is the caller's, vaulted like the others, and it is the
+# role that registers it in LiteLLM (POST "/key/generate" with this exact string as "key", see
+# "tasks/main.yml"), so there is nothing to create by hand and no second run to wait for. Not any
+# string: LiteLLM refuses a custom key that does not start with "sk-" or is shorter than 16
+# characters, which "tasks/main.yml" checks first, and a fresh value is "sk-$(openssl rand -hex 24)".
+# The allow-list that key carries -- the model alias below and nothing else -- is what stands between
+# this container and every other account's quota. NEVER the master key, which the role refuses.
 # Artificial_Intelligence_Claude_code_tigerblue77_virtual_key:
 
-# MANDATORY when the service above is enabled, and without a default. A personal access token, set
+# MANDATORY while the service above is enabled, and without a default. A personal access token, set
 # as "GH_TOKEN" and "GITHUB_TOKEN" in the container, which is where "gh" reads it. Set whether or not
 # the image carries a tool that reads it. #13 defers real repository access to the MCP GitHub
 # connector (#23); until that lands, this is how the agent reaches a repository.
 # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token:
 
-# MANDATORY when the service above is enabled, and without a default: a host path is inventory data,
-# which this role does not get to presuppose. The caller's own working tree for this agent.
-# Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory:
+# Where the agent works, mounted on "/workspace". "false", the role's idiom for "not set", means the
+# named volume below: nothing exists before the first run that this role would have to be told, so the
+# default needs no host path, which is inventory data this role does not get to presuppose. A string
+# is an absolute host path, bind-mounted instead -- for a caller who wants to reach the files from the
+# host. This role does not create that directory: it must exist, and be writable by the image's
+# "node" user, on the node that runs the container. The named volume needs neither, since Docker
+# initialises an empty one from what the image holds at that path, owned by "node".
+Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory: false
+
+# The named volume "/workspace" is when the variable above is not set. Named after the home volume
+# below, and kept apart from it: the home holds the session, the workspace holds the work.
+Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name: "Artificial_Intelligence_Claude_code_tigerblue77_workspace"
 
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
