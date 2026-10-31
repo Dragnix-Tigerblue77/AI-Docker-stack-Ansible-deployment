@@ -157,9 +157,11 @@ Artificial_Intelligence_PostgreSQL_superuser: "postgres"
 # path this repository does not get to choose.
 Artificial_Intelligence_PostgreSQL_data_Docker_volume_name: "Artificial_Intelligence_PostgreSQL_data"
 
-# Starting value, to be recalled after measuring under load with "docker stats". What matters today
-# is that a limit exists at all.
-Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
+# No memory limit by default, here and on every other "*_memory_limit" of this file: the sizes this
+# role once shipped were never measured, and limiting memory is the caller's call. A string (for
+# example "1g") limits the service to that size; false, the role's idiom for "not set", leaves it
+# unlimited. Measure under load with "docker stats" before choosing a value.
+Artificial_Intelligence_PostgreSQL_memory_limit: false
 
 # --------------------------------------------------------------------------------------------------
 # LiteLLM Proxy -- the single point every LLM call goes through (#1)
@@ -170,8 +172,9 @@ Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
 # bounds the temptation to raise this number. Measure before changing it.
 Artificial_Intelligence_LiteLLM_number_of_workers: "4"
 
-# Starting value, tied to the worker count above. To be recalled under load.
-Artificial_Intelligence_LiteLLM_memory_limit: "2g"
+# Unlimited by default. If set, size it against the worker count above, each worker replicating the
+# configuration (for example "2g").
+Artificial_Intelligence_LiteLLM_memory_limit: false
 
 # The two secrets, MANDATORY and without a default. No default on purpose: a default password is a
 # password, and one shipped in a public repository is a published one. The caller renders them from
@@ -246,9 +249,9 @@ Artificial_Intelligence_LiteLLM_internal_users: []
 
 Artificial_Intelligence_Redis_data_Docker_volume_name: "Artificial_Intelligence_Redis_data"
 
-# Starting value. Response caching and per-worker cooldown state are both small compared to the
-# corpora the other services here hold.
-Artificial_Intelligence_Redis_memory_limit: "256m"
+# Unlimited by default. Response caching and per-worker cooldown state are both small compared to the
+# corpora the other services here hold (for example "256m").
+Artificial_Intelligence_Redis_memory_limit: false
 
 # MANDATORY, without a default: "--requirepass" would otherwise be empty, which is no password at
 # all. Internal-only like Qdrant's API key (#3) -- defence in depth against a compromised workload on
@@ -299,10 +302,10 @@ Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: ""
 # ("/app/data") -- not a bind mount, for the same reason as every other stateful service here.
 Artificial_Intelligence_OmniRoute_data_Docker_volume_name: "Artificial_Intelligence_OmniRoute_data"
 
-# Starting value. The image's own default heap (1024 MB) is documented as sufficient for light,
+# Unlimited by default. The image's own default heap (1024 MB) is documented as sufficient for light,
 # occasional traffic -- which is exactly what a last-resort fallback is -- but not for a primary
-# coding-agent workload. Recall this if OmniRoute ever stops being a fallback.
-Artificial_Intelligence_OmniRoute_memory_limit: "2g"
+# coding-agent workload; size a limit accordingly if OmniRoute stops being a fallback (for example "2g").
+Artificial_Intelligence_OmniRoute_memory_limit: false
 
 # MANDATORY, without a default: the image ships "CHANGEME" otherwise, documented upstream as
 # deliberately weak to force a change. Treated exactly like "Artificial_Intelligence_LiteLLM_UI_password" (#1) -- the
@@ -318,9 +321,9 @@ Artificial_Intelligence_OmniRoute_memory_limit: "2g"
 # criterion of #3, not a hope.
 Artificial_Intelligence_Qdrant_data_Docker_volume_name: "Artificial_Intelligence_Qdrant_data"
 
-# Starting value, to be recalled after measuring under load. The corpus #3 sizes this against
-# (10,000-30,000 chunks, ~120 MB of vectors) is small; this is deliberately generous rather than tight.
-Artificial_Intelligence_Qdrant_memory_limit: "1g"
+# Unlimited by default. The corpus #3 sizes this against (10,000-30,000 chunks, ~120 MB of vectors)
+# is small, so a limit, if set, can be generous rather than tight (for example "1g").
+Artificial_Intelligence_Qdrant_memory_limit: false
 
 # MANDATORY, without a default: #3 requires an API key even though no port is published, as
 # defence-in-depth against a compromised workload on the internal network. No default on purpose --
@@ -380,8 +383,8 @@ Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name: "A
 # subscription may ever sit behind it.
 Artificial_Intelligence_Claude_code_tigerblue77_model: "claude-code"
 
-# Starting value, to be recalled after measuring under load.
-Artificial_Intelligence_Claude_code_tigerblue77_memory_limit: "2g"
+# Unlimited by default (for example "2g").
+Artificial_Intelligence_Claude_code_tigerblue77_memory_limit: false
 
 # The named volume the WHOLE home directory lives in -- not only "~/.claude". "~/.claude.json" sits
 # BESIDE "~/.claude", never inside it: a volume on "~/.claude" alone persists half the session and
@@ -396,8 +399,9 @@ Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name: "Artifi
 Artificial_Intelligence_LibreChat_uploads_Docker_volume_name: "Artificial_Intelligence_LibreChat_uploads"
 Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name: "Artificial_Intelligence_MongoDB_LibreChat_data"
 
-Artificial_Intelligence_LibreChat_memory_limit: "1g"
-Artificial_Intelligence_MongoDB_LibreChat_memory_limit: "512m"
+# Unlimited by default (for example "1g" and "512m").
+Artificial_Intelligence_LibreChat_memory_limit: false
+Artificial_Intelligence_MongoDB_LibreChat_memory_limit: false
 
 # MANDATORY, without a default, all four. LibreChat generates temporary values for these on first
 # start and stores them in its own volume if none are given -- documented upstream as unsuitable for
