@@ -49,8 +49,10 @@ services:
     # A database, so pinned on purpose to the major its volume was initialised with: a major bump
     # lands on a layout the new image does not read and imposes a pg_dump / restore (the README's
     # "Monter PostgreSQL d'un majeur"), so it must never happen because a tag moved under us. Check the
-    # major is one the Prisma schema of the running LiteLLM supports before raising it.
-    image: postgres:17-alpine
+    # major is one the Prisma schema of the running LiteLLM supports before raising it. The major only,
+    # on the Debian image: the Alpine variant sorts text with another C library, so it would be one more
+    # thing to keep unchanged on a volume for no gain.
+    image: postgres:17
 
     # LiteLLM is NOT this cluster's superuser (#159). The image makes "POSTGRES_USER" the bootstrap
     # superuser, and that role can never lose the attribute ("The bootstrap superuser must have the
@@ -442,9 +444,9 @@ services:
   # picked.
   # ------------------------------------------------------------------------------------------------
   qdrant:
-    # A database, so pinned on purpose: the vectors live only in its volume, and a version change is a
-    # deliberate move made after a backup, not something a tag that moved should do.
-    image: qdrant/qdrant:v1.19.1
+    # A database, so pinned on purpose to its major: the vectors live only in its volume, and a major
+    # change is a deliberate move made after a backup, not something a tag that moved should do.
+    image: qdrant/qdrant:v1
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
@@ -574,10 +576,10 @@ services:
   # MongoDB -- LibreChat's own store (#76). Reached only by LibreChat, over the internal network.
   # ------------------------------------------------------------------------------------------------
   librechat_mongodb:
-    # A database, so pinned on purpose to its release series: "8.0" takes every 8.0.x patch as it
-    # ships, the way PostgreSQL takes its minor ones. A later series is a move made by hand, through
-    # MongoDB's upgrade procedure and its featureCompatibilityVersion step, never a moved tag.
-    image: mongo:8.0
+    # A database, so pinned on purpose to its major: "8" takes every 8.x release as it ships, the way
+    # PostgreSQL takes its minor ones. A later major is a move made by hand, through MongoDB's upgrade
+    # procedure and its featureCompatibilityVersion step, never a moved tag.
+    image: mongo:8
     # Same reason as the "librechat" service above -- see the note there rather than a second copy.
     labels:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
