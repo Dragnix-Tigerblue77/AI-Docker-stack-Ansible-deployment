@@ -62,6 +62,7 @@ Jinja2 does not have. It is Ansible's own, not an imitation of it, so what this 
 """
 
 import copy
+import re
 import sys
 from pathlib import Path
 
@@ -98,11 +99,16 @@ MOUNTED_CONFIGS = {
 
 # #13's service is off by default, which is exactly the branch "check_conventions" never exercises
 # unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
-# a defect inside it -- an undeclared volume, a missing memory limit -- would render and parse cleanly
+# a defect inside it -- an undeclared volume, a malformed memory limit -- would render and parse cleanly
 # forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
-# Every "*_memory_limit" at "false", the role's idiom for "not set": the services must then carry no
-# limit, and nothing else of them may change. The names are read off the defaults, not listed here.
-LIMITS_UNSET_STATE = "memory limits unset"
+# The role limits no service's memory by default, and a caller who sets a "*_memory_limit" to a size
+# gets that limit: this state sets every one to a string, and every service must then carry a well
+# formed limit, and nothing else of them may change. The names are read off the defaults, not listed
+# here.
+LIMITS_SET_STATE = "memory limits set"
+MEMORY_LIMIT_SAMPLE = "512m"
+# What Compose reads as a byte count: digits and an optional unit.
+MEMORY_LIMIT_FORM = re.compile(r"^[1-9][0-9]*[bkmgBKMG]?$")
 
 CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
@@ -366,11 +372,12 @@ def volume_source(volume):
     return source
 
 
-def check_conventions(document, state, failures, limits_unset=False):
+def check_conventions(document, state, failures, limits_set=False):
     """Hold one rendered document to what the template's own commented model promises.
 
-    With `limits_unset`, the caller has opted out of every memory limit: the rule inverts, and a
-    service still carrying one means a variable set to "false" was not honoured.
+    A service carries no memory limit unless the caller asked for one. With `limits_set`, the caller
+    set every "*_memory_limit" to a size: the rule inverts, and a service without a well formed
+    limit means a variable set to a string was not honoured.
     """
     services = document.get("services") or {}
     declared_networks = set(mapping(document, "networks"))
@@ -403,14 +410,16 @@ def check_conventions(document, state, failures, limits_unset=False):
         if "build" in service:
             failures.append(f"{where}: declares build -- an image is pulled, never built here")
 
-        # A memory limit on every service. Without one, a container running away takes the others
-        # down by OOM and the kernel log names the victim rather than the culprit.
+        # No memory limit unless the caller set one: the sizes the role once shipped were never
+        # measured, so a limit nobody asked for is a guess. Asked for, it must arrive well formed.
         limit = mapping(mapping(deploy, "resources"), "limits").get("memory")
-        if limits_unset:
-            if limit:
-                failures.append(f"{where}: deploy.resources.limits.memory is {limit!r} although its variable is false")
-        elif not limit:
-            failures.append(f"{where}: no deploy.resources.limits.memory")
+        if limits_set:
+            if not limit:
+                failures.append(f"{where}: no deploy.resources.limits.memory although its variable is a string")
+            elif not isinstance(limit, str) or not MEMORY_LIMIT_FORM.match(limit):
+                failures.append(f"{where}: deploy.resources.limits.memory is {limit!r}, not a well formed size")
+        elif limit is not None or "resources" in deploy:
+            failures.append(f"{where}: deploy.resources is {deploy.get('resources')!r} although no memory limit was asked for")
 
         # "any", never "on-failure": the orchestrator stops an unhealthy container CLEANLY, so it
         # exits 0, and "on-failure" never replaces a task that exited cleanly.
@@ -745,7 +754,6 @@ COMPLIANT_SERVICE = {
     "image": "vendor/image:1.2.3",
     "deploy": {
         "restart_policy": {"condition": "any"},
-        "resources": {"limits": {"memory": "512M"}},
     },
 }
 
@@ -754,10 +762,7 @@ def service(**overrides):
     """The compliant block with one thing changed, so each case differs from it by exactly that."""
     block = {
         "image": COMPLIANT_SERVICE["image"],
-        "deploy": {
-            "restart_policy": dict(COMPLIANT_SERVICE["deploy"]["restart_policy"]),
-            "resources": {"limits": dict(COMPLIANT_SERVICE["deploy"]["resources"]["limits"])},
-        },
+        "deploy": {"restart_policy": dict(COMPLIANT_SERVICE["deploy"]["restart_policy"])},
     }
     for key, value in overrides.items():
         if value is _ABSENT:
@@ -772,6 +777,13 @@ class _Absent:
 
 
 _ABSENT = _Absent()
+
+
+def limited(memory="512M", **overrides):
+    """The compliant block as it renders once the caller set a memory limit."""
+    block = service(**overrides)
+    block["deploy"]["resources"] = {"limits": {"memory": memory}}
+    return block
 
 # (name, defaults/main.yml as text, expected substring or None, values the case must resolve to)
 #
@@ -880,20 +892,24 @@ CONVENTION_CASES = [
     # accepted cases: a check that cried wolf on them would be a check people learn to ignore.
     ("image pinned by digest", {"services": {"svc": service(image="vendor/image@sha256:abc123")}}, None),
     ("registry carrying a port", {"services": {"svc": service(image="registry:5000/vendor/image:1.2.3")}}, None),
-    ("no memory limit", {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"}})}},
-     "no deploy.resources.limits.memory"),
+    # The default state: no limit anywhere. One written anyway means a variable left at false was
+    # not honoured, whatever shape it took.
+    ("a memory limit nobody asked for", {"services": {"svc": limited()}},
+     "although no memory limit was asked for"),
     # "limits:" written with nothing under it parses as None, which is what made three earlier
     # versions of this file crash instead of reporting. A traceback hides the finding.
     ("limits written empty",
      {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"},
                                           "resources": {"limits": None}})}},
-     "no deploy.resources.limits.memory"),
+     "although no memory limit was asked for"),
+    ("resources written empty",
+     {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"}, "resources": None})}},
+     "although no memory limit was asked for"),
     ("restart_policy on-failure",
-     {"services": {"svc": service(deploy={"restart_policy": {"condition": "on-failure"},
-                                          "resources": {"limits": {"memory": "512M"}}})}},
+     {"services": {"svc": service(deploy={"restart_policy": {"condition": "on-failure"}})}},
      "expected 'any'"),
     ("no restart_policy",
-     {"services": {"svc": service(deploy={"resources": {"limits": {"memory": "512M"}}})}},
+     {"services": {"svc": service(deploy={})}},
      "expected 'any'"),
     ("container_name declared", {"services": {"svc": service(container_name="svc")}},
      "declares container_name"),
@@ -948,6 +964,25 @@ CONVENTION_CASES = [
      {"services": {"svc": service(volumes=[{"type": "bind", "source": "/srv/data", "target": "/data"}])}},
      None),
     ("anonymous volume", {"services": {"svc": service(volumes=["/data"])}}, None),
+]
+
+# The same convention once the caller set every "*_memory_limit" to a size: (name, document, expected).
+LIMITS_SET_CASES = [
+    ("limit set, well formed", {"services": {"svc": limited()}}, None),
+    ("limit set, lower-case unit", {"services": {"svc": limited("2g")}}, None),
+    ("limit set, bytes", {"services": {"svc": limited("1048576")}}, None),
+    ("limit set but not written", {"services": {"svc": service()}},
+     "no deploy.resources.limits.memory although its variable is a string"),
+    ("limit set but limits written empty",
+     {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"},
+                                          "resources": {"limits": None}})}},
+     "no deploy.resources.limits.memory although its variable is a string"),
+    ("limit set to an empty string", {"services": {"svc": limited("")}},
+     "no deploy.resources.limits.memory although its variable is a string"),
+    ("limit malformed", {"services": {"svc": limited("lots")}}, "not a well formed size"),
+    ("limit with a space", {"services": {"svc": limited("2 g")}}, "not a well formed size"),
+    ("limit zero", {"services": {"svc": limited("0")}}, "not a well formed size"),
+    ("limit not a string", {"services": {"svc": limited(512)}}, "not a well formed size"),
 ]
 
 # (name, checksums unset, checksums set, expected substring or None). Each document is what the
@@ -1170,15 +1205,14 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
-    # The inverted mode, for a caller who set every "*_memory_limit" to "false".
-    unlimited = {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"}})}}
-    limited = {"services": {"svc": service()}}
-    for name, document, expected in (
-        ("limits unset, none written", unlimited, None),
-        ("limits unset, one written anyway", limited, "although its variable is false"),
-    ):
+    # The inverted mode, for a caller who set every "*_memory_limit" to a size.
+    for name, document, expected in LIMITS_SET_CASES:
         failures = []
-        check_conventions(document, "selftest", failures, limits_unset=True)
+        try:
+            check_conventions(document, "selftest", failures, limits_set=True)
+        except Exception as error:  # noqa: BLE001 - a crash IS the finding here
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
         problems.extend(_verdict(name, failures, expected))
 
     for name, off, on, expected in CONFIG_CHECKSUM_CASES:
@@ -1252,7 +1286,7 @@ def selftest():
 
     print(
         f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
-        f"{len(CONVENTION_CASES)} convention case(s), {len(STATE_CASES)} two-state case(s), "
+        f"{len(CONVENTION_CASES)} convention case(s), {len(LIMITS_SET_CASES)} memory-limit case(s),{len(STATE_CASES)} two-state case(s), "
         f"{len(DOLLAR_CASES)} '$' case(s), {len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s) and {len(TEMPLATE_LINE_CASES)} template-line case(s) "
         "all judged as expected."
@@ -1315,22 +1349,25 @@ def main():
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
 
-    limits_off = {
-        name: False for name in defaults if name.endswith("_memory_limit")
-    }
-    limits_context = {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **limits_off}
+    limit_names = [name for name in defaults if name.endswith("_memory_limit")]
+    if not limit_names:
+        failures.append("defaults/main.yml declares no '*_memory_limit' variable: the limits state has nothing to set")
+    limits_on = {name: MEMORY_LIMIT_SAMPLE for name in limit_names}
+    limits_context = {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **limits_on}
     try:
         limits_document = yaml.safe_load(render(limits_context))
     except Exception as error:  # noqa: BLE001 - the message is the whole point
-        failures.append(f"[{LIMITS_UNSET_STATE}] the template does not render or parse: {error}")
+        failures.append(f"[{LIMITS_SET_STATE}] the template does not render or parse: {error}")
     else:
-        check_conventions(limits_document, LIMITS_UNSET_STATE, failures, limits_unset=True)
+        check_conventions(limits_document, LIMITS_SET_STATE, failures, limits_set=True)
         reference = documents.get("Claude Code agent (tigerblue77) enabled")
         if reference is not None:
-            for name, service in (reference.get("services") or {}).items():
+            if set(limits_document.get("services") or {}) != set(reference.get("services") or {}):
+                failures.append(f"[{LIMITS_SET_STATE}] the services differ from the unlimited state's")
+            for name, service in (limits_document.get("services") or {}).items():
                 stripped = {**service, "deploy": {k: v for k, v in service["deploy"].items() if k != "resources"}}
-                if (limits_document.get("services") or {}).get(name) != stripped:
-                    failures.append(f"[{LIMITS_UNSET_STATE}] service {name!r} differs from the limited one by more than its limit")
+                if (reference.get("services") or {}).get(name) != stripped:
+                    failures.append(f"[{LIMITS_SET_STATE}] service {name!r} differs from the unlimited one by more than its limit")
 
     # Kept apart from the loop above rather than added to it: that loop holds every state to the
     # service conventions, this one holds a single state to something else, and "check_states" reads
