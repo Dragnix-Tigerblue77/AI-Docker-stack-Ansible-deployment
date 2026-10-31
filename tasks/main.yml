@@ -58,8 +58,8 @@
       "Artificial_Intelligence_LiteLLM_UI_password" is the only thing standing between the LAN and "/ui" now that its port
       is published, so it is held to the same standard as the other two.
 
-# After the task above, which has already refused an undefined LiteLLM password: the last line here
-# compares against it. Neither value is printed on failure -- "quiet" leaves only the expression.
+# The superuser's password is compared with LiteLLM's further down, with the other secrets that must
+# differ, since that comparison does not run in check mode.
 - name: "Check the PostgreSQL superuser is provided and kept apart from LiteLLM's role"
   ansible.builtin.assert:
     that:
@@ -69,15 +69,13 @@
       - Artificial_Intelligence_PostgreSQL_superuser_password is string
       - Artificial_Intelligence_PostgreSQL_superuser_password | length > 0
       - Artificial_Intelligence_PostgreSQL_superuser != Artificial_Intelligence_PostgreSQL_user
-      - Artificial_Intelligence_PostgreSQL_superuser_password != Artificial_Intelligence_PostgreSQL_password
     quiet: true
     fail_msg: >-
       "Artificial_Intelligence_PostgreSQL_superuser_password" is mandatory and has no default, and
-      "Artificial_Intelligence_PostgreSQL_superuser" and its password must both differ from LiteLLM's
-      own role and password (#159). LiteLLM connects as an ordinary role that owns its database and
-      nothing else, so that an SQL injection through the gateway cannot reach "COPY ... PROGRAM" --
-      a shell in the PostgreSQL container. The same name would make the init script fail on a role
-      that already exists; the same password would put the superuser's login in LiteLLM's environment.
+      "Artificial_Intelligence_PostgreSQL_superuser" must differ from LiteLLM's own role (#159).
+      LiteLLM connects as an ordinary role that owns its database and nothing else, so that an SQL
+      injection through the gateway cannot reach "COPY ... PROGRAM" -- a shell in the PostgreSQL
+      container. The same name would make the init script fail on a role that already exists.
 
 - name: "Check the LiteLLM provider keys are provided"
   ansible.builtin.assert:
@@ -120,19 +118,16 @@
       be empty, which is no password at all -- defence in depth against a compromised workload on the
       internal network, same standard as "Artificial_Intelligence_Qdrant_API_key" (#3).
 
-# After the master key's own check above, which has already refused an undefined one: the last line
-# compares against it. "quiet" prints the failing expression, never either value.
-- name: "Check the LiteLLM salt key is provided and kept apart from the master key"
+- name: "Check the LiteLLM salt key is provided"
   ansible.builtin.assert:
     that:
       - Artificial_Intelligence_LiteLLM_salt_key is defined
       - Artificial_Intelligence_LiteLLM_salt_key is string
       - Artificial_Intelligence_LiteLLM_salt_key | length > 0
-      - Artificial_Intelligence_LiteLLM_salt_key != Artificial_Intelligence_LiteLLM_master_key
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_LiteLLM_salt_key" is mandatory, has no default, and must differ from
-      "Artificial_Intelligence_LiteLLM_master_key" (#164). It is "LITELLM_SALT_KEY", the key LiteLLM
+      "Artificial_Intelligence_LiteLLM_salt_key" is mandatory and has no default (#164). It is
+      "LITELLM_SALT_KEY", the key LiteLLM
       encrypts the credentials stored from "/ui" with. Without it LiteLLM encrypts them with the master
       key, and rotating the master key makes every one of them unreadable; an empty value is not
       "unset" to LiteLLM but a key anyone can compute. An EXISTING deployment must not simply be given
@@ -171,14 +166,13 @@
 
 # Not any string: the role hands this exact value to LiteLLM as a custom key, which LiteLLM refuses
 # unless it starts with "sk-" and holds at least 16 characters (read in its source, "key_management_
-# endpoints.py"), and the failure would otherwise surface from a task whose output is hidden. The last
-# line compares against the master key, whose own check is above: that key is for administration only.
+# endpoints.py"), and the failure would otherwise surface from a task whose output is hidden. It is
+# compared with the master key further down, with the other secrets that must differ.
 - name: "Check the Claude Code agent virtual key is one LiteLLM accepts"
   ansible.builtin.assert:
     that:
       - Artificial_Intelligence_Claude_code_virtual_key.startswith('sk-')
       - Artificial_Intelligence_Claude_code_virtual_key | length >= 16
-      - Artificial_Intelligence_Claude_code_virtual_key != Artificial_Intelligence_LiteLLM_master_key
     quiet: true
     fail_msg: >-
       "Artificial_Intelligence_Claude_code_virtual_key" must start with "sk-", hold at least
@@ -291,6 +285,46 @@
   loop: "{{ Artificial_Intelligence_LibreChat_users }}"
   loop_control:
     label: "{{ item.username | default('?') if item is mapping else '?' }}"
+
+# Secrets that must differ from each other, compared HERE and not in the tasks that check each one is
+# provided, so that every operand has been refused when undefined before it is read. Not in check mode:
+# a caller whose secret retrieval cannot read the vault in a dry run stands one placeholder in for every
+# secret, and the placeholders are then equal although no secret is wrong. Whether each one is provided
+# still runs there, above. "quiet" prints the failing expression, never either value.
+- name: "Check the secrets that must differ from each other do"
+  when: not ansible_check_mode
+  block:
+    - name: "Check the PostgreSQL superuser's password differs from LiteLLM's role's"
+      ansible.builtin.assert:
+        that:
+          - Artificial_Intelligence_PostgreSQL_superuser_password != Artificial_Intelligence_PostgreSQL_password
+        quiet: true
+        fail_msg: >-
+          "Artificial_Intelligence_PostgreSQL_superuser_password" must differ from
+          "Artificial_Intelligence_PostgreSQL_password" (#159): the same password would put the
+          superuser's login in LiteLLM's environment, and a shell in the PostgreSQL container one SQL
+          injection away.
+
+    - name: "Check the LiteLLM salt key differs from the master key"
+      ansible.builtin.assert:
+        that:
+          - Artificial_Intelligence_LiteLLM_salt_key != Artificial_Intelligence_LiteLLM_master_key
+        quiet: true
+        fail_msg: >-
+          "Artificial_Intelligence_LiteLLM_salt_key" must differ from
+          "Artificial_Intelligence_LiteLLM_master_key" (#164): with the same value, rotating the master
+          key makes every credential stored from "/ui" unreadable.
+
+    - name: "Check the Claude Code agent virtual key differs from the master key"
+      ansible.builtin.assert:
+        that:
+          - Artificial_Intelligence_Claude_code_virtual_key != Artificial_Intelligence_LiteLLM_master_key
+        quiet: true
+        fail_msg: >-
+          "Artificial_Intelligence_Claude_code_virtual_key" must differ from
+          "Artificial_Intelligence_LiteLLM_master_key" (#2): the master key is for administration only
+          and is never handed to a consumer.
+      when: Artificial_Intelligence_Claude_code_enabled
 
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
