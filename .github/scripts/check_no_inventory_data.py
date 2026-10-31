@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Refuse an IP address or a domain name hardcoded into the repository.
+"""Refuse an IP address or a domain name hardcoded into the repository, and a person's name in the role's interface.
 
 WHY THIS CHECK EXISTS
 ---------------------
@@ -29,6 +29,25 @@ WHAT IT DOES NOT DO
   mechanical rule tells such a name from an ordinary word; that one is a human read-through.
 * It does not read the issues. Neither does gitleaks, and GitHub's secret scanning would want a
   plan the organisation does not have. The content of the issues remains a human vigilance.
+
+A PERSON'S NAME IN THE ROLE'S INTERFACE
+----------------------------------------
+The role is used by third parties, so nothing it exposes may name a person: a variable, an
+environment variable, a service, a label, a volume or a task name that carries a maintainer's name
+makes every other caller write that name into their inventory. The same hunt as above, on another
+category of value: PERSON_NAMES lists the names to refuse (case-insensitively, so an upper-case
+environment variable is caught too), and INTERFACE_PATHS says where the role's interface lives --
+"defaults/", "tasks/", "templates/", "vars/", "handlers/", "files/", "meta/", the example playbook,
+and the table rows of the README, where the variables are documented. A comment in those files is
+read like the rest: a rendered file's comments are deployed, and a name written there is the first
+thing the next identifier copies.
+
+This one IS a denylist, unlike the hosts above, and for the opposite reason: the names to refuse are
+the maintainers' public handles, which are already written all over the repository (signatures,
+licence, copyright), so listing them leaks nothing. The price is that a name that is not listed is
+not seen: a new maintainer's handle is added to PERSON_NAMES in the commit that adds them. The
+exceptions are in PERSON_ALLOWED, each with its reason; prose elsewhere (the README outside its
+tables, CLAUDE.md, CONTRIBUTING.md, NOTICE, .claude/) is out of scope, since it is not the interface.
 
 HOW A NAME IS RECOGNISED
 ------------------------
@@ -133,6 +152,32 @@ SKIPPED_PATHS = {
     ".pytest_cache": "local cache",
 }
 
+# The names no identifier of the role's interface may carry, matched case-insensitively as substrings
+# so that "Claude_code_<name>_enabled", "<NAME>_API_KEY" and "claude-code-<name>" are all caught.
+# Add a maintainer's handle here in the commit that adds the maintainer.
+PERSON_NAMES = ("tigerblue77", "dragnix")
+
+# Where the role's interface lives: a path is in scope when it starts with one of these directories
+# or is one of these files. The README is handled separately (its table rows only, where the
+# variables are documented), and the checks, the workflows, CLAUDE.md, CONTRIBUTING.md, NOTICE and
+# .claude/ are deliberately outside: none of them is something a caller reads or writes.
+INTERFACE_DIRECTORIES = ("defaults/", "tasks/", "templates/", "vars/", "handlers/", "files/", "meta/")
+INTERFACE_FILES = ("playbook.Artificial_Intelligence.example.yaml",)
+README_PATH = "README.md"
+
+# What may carry a name in those files, each with its reason: the pattern is removed from the line
+# before the names are looked for, so it exempts that text and nothing else on the line.
+PERSON_ALLOWED = (
+    (re.compile(r"SPDX-FileCopyrightText:.*", re.IGNORECASE),
+     "the copyright holder is a legal fact, not an identifier"),
+    (re.compile(r"ghcr\.io/dragnix-tigerblue77/claude-code-docker-container", re.IGNORECASE),
+     "the image is published under the organisation's namespace, which the role has to name to pull it"),
+    (re.compile(r"Dragnix-Tigerblue77/Claude-Code-Docker-container", re.IGNORECASE),
+     "the repository that builds and publishes that image, cited where the template pulls it"),
+    (re.compile(r"^\s*author:.*"),
+     "galaxy_info.author of meta/main.yml names the author, as Galaxy asks; it is not an interface"),
+)
+
 # A region the check skips, delimited in the file itself. It exists for ONE case: a block whose
 # content IS a counter-example, like the verification cases further down -- this file reads itself,
 # and without this it would refuse its own test cases.
@@ -172,6 +217,24 @@ IPV6 = re.compile(
 def is_ipv4(candidate):
     parts = candidate.split(".")
     return len(parts) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in parts)
+
+
+def is_person_scope(relative_path, line):
+    """Is this line of this file part of the role's interface?"""
+    path = relative_path.replace(os.sep, "/")
+    if path == README_PATH:
+        return line.lstrip().startswith("|")
+    return path in INTERFACE_FILES or path.startswith(INTERFACE_DIRECTORIES)
+
+
+def person_findings_in_line(relative_path, line):
+    """The person names a line of the role's interface carries: [name]."""
+    if not is_person_scope(relative_path, line):
+        return []
+    for pattern, _reason in PERSON_ALLOWED:
+        line = pattern.sub("", line)
+    lowered = line.lower()
+    return [name for name in PERSON_NAMES if name in lowered]
 
 
 def is_skipped(relative_path):
@@ -268,12 +331,49 @@ SELFTEST_CASES = (
     ("  fichier: requirements.txt", 0, "a file name is not a domain"),
     ("  script: functions.sh", 0, "an extension that is also a TLD does not count"),
     ("  module: ansible.builtin.assert", 0, "a module name is not a domain"),
-    ("  cle: os.environ/GEMINI_API_KEY_DRAGNIX", 0, "a variable is not a domain"),
+    ("  cle: os.environ/GEMINI_API_KEY_ALPHA", 0, "a variable is not a domain"),
     ("  playbook: playbook.Artificial_Intelligence.example.yaml", 0, "a playbook name is not a domain"),
     ("  regle: traefik.http.routers.ais.rule", 0, "a Traefik label is not a domain"),
     ("  url: https://github.com/gitleaks/gitleaks", 0, "an upstream host in the allowlist passes"),
     ("  fqdn: ais.un-domaine-quelconque.fr", 1, "an FQDN outside the allowlist is refused"),
     ("  # commente: ais.un-domaine-quelconque.fr", 1, "a comment is read like the rest"),
+)
+# CONTROLE-IgnoreEnd
+
+# (path, line, number of findings expected, what the case proves). In an ignored region for the same
+# reason as the cases above: this file is not in scope itself, but the names would be read as a leak
+# by anything that greps the tree.
+# CONTROLE-IgnoreStart
+SELFTEST_PERSON_CASES = (
+    ("defaults/main.yml", "Artificial_Intelligence_Claude_code_tigerblue77_enabled: false", 1,
+     "a variable that names a person is refused"),
+    ("templates/Artificial_Intelligence.docker-compose.yml.j2", "      GEMINI_API_KEY_TIGERBLUE77: x", 1,
+     "an upper-case environment variable is refused as well"),
+    ("templates/Artificial_Intelligence.docker-compose.yml.j2", "  claude_code_tigerblue77:", 1,
+     "a service name is refused"),
+    ("tasks/main.yml", "# Dragnix adds his own models later", 1,
+     "a comment is read like the rest"),
+    ("playbook.Artificial_Intelligence.example.yaml", "  username: Dragnix", 1,
+     "the example playbook is part of the interface"),
+    ("README.md", "| `Artificial_Intelligence_LibreChat_Dragnix_email` | aucun | Dépréciée. |", 1,
+     "a README table row, where the variables are documented, is refused"),
+    ("README.md", "décision de Dragnix, validée par tigerblue77", 0,
+     "README prose outside its tables is not the interface"),
+    ("CONTRIBUTING.md", "| `tigerblue77` |", 0, "a file outside the interface is not read"),
+    (".claude/agents/doc-keeper.md", "tigerblue77", 0, "agent instructions are not the interface"),
+    ("defaults/main.yml", "# SPDX-FileCopyrightText: 2026 Tigerblue77", 0,
+     "the copyright line is allowed"),
+    ("templates/Artificial_Intelligence.docker-compose.yml.j2",
+     "    image: ghcr.io/dragnix-tigerblue77/claude-code-docker-container", 0,
+     "the published image path is allowed"),
+    ("templates/Artificial_Intelligence.docker-compose.yml.j2",
+     "    # Built and published by Dragnix-Tigerblue77/Claude-Code-Docker-container, which", 0,
+     "the repository that publishes the image is allowed"),
+    ("meta/main.yml", "  author: tigerblue77", 0, "the galaxy author field is allowed"),
+    ("defaults/main.yml", "image: ghcr.io/dragnix-tigerblue77/claude-code-docker-container # tigerblue77", 1,
+     "an allowed text exempts only itself, not the rest of the line"),
+    ("defaults/main.yml", "Artificial_Intelligence_Claude_code_enabled: false", 0,
+     "a neutral variable passes"),
 )
 # CONTROLE-IgnoreEnd
 
@@ -293,6 +393,14 @@ def run_selftest():
                   % (purpose, len(found), expected, line.strip()))
         else:
             print("selftest: ok -- %s" % purpose)
+    for path, line, expected, purpose in SELFTEST_PERSON_CASES:
+        found = person_findings_in_line(path, line)
+        if len(found) != expected:
+            failures += 1
+            print("selftest: FAILED (%s) -- %d finding(s), %d expected: %s: %s"
+                  % (purpose, len(found), expected, path, line.strip()))
+        else:
+            print("selftest: ok -- %s" % purpose)
     return 1 if failures else 0
 
 
@@ -302,6 +410,7 @@ def main():
         return run_selftest()
     root = arguments[0] if arguments else "."
     problems = []
+    person_problems = []
     ignored_regions = []
     file_names = repository_file_names(root)
 
@@ -339,6 +448,8 @@ def main():
                 continue
             for category, value in findings_in_line(line, file_names):
                 problems.append((relative, number, category, value))
+            for name in person_findings_in_line(relative, line):
+                person_problems.append((relative, number, name))
 
         if ignoring:
             # A region never closed again swallows the whole rest of the file. Without this check
@@ -372,7 +483,22 @@ def main():
         )
         return 1
 
-    print("No hardcoded IP address or domain name.")
+    if person_problems:
+        print("A person's name in the role's interface: %d finding(s).\n" % len(person_problems))
+        for relative, number, name in person_problems:
+            print("%s:%d: person name \"%s\"" % (relative, number, name))
+        print(
+            "\nThe role is used by third parties: nothing it exposes -- a variable, an environment\n"
+            "variable, a service, a label, a volume, a task name, a comment of a rendered file -- may\n"
+            "name a person. Name what the thing IS, not who it was written for.\n"
+            "\n"
+            "If a name legitimately has to appear (a publisher's namespace, say), add it to\n"
+            "PERSON_ALLOWED in %s WITH ITS REASON, in the same commit."
+            % os.path.relpath(os.path.abspath(__file__), os.path.abspath(root))
+        )
+        return 1
+
+    print("No hardcoded IP address or domain name, and no person's name in the role's interface.")
     return 0
 
 

@@ -2,9 +2,9 @@
 #
 # No SPDX header: like the compose template, this is written onto the node rather than kept here.
 #
-# #2, v1 SCOPE: tigerblue77's own account only. Dragnix adds his own models later, from "/ui" himself
-# -- his own decision, matching how he already runs every other self-hosted database of this estate
-# (deployed empty, populated live). No entry below carries a "model_info.access_groups": every key
+# #2, v1 SCOPE: one account only. Any other account adds its own models later, from "/ui" itself,
+# matching how every other self-hosted database of this estate runs (deployed empty, populated
+# live). No entry below carries a "model_info.access_groups": every key
 # reaches every model, on purpose -- a username has no more business being hardcoded into an
 # authorization label than into a hostname, and there is only one account to isolate from so far
 # anyway. What #2 asks beyond this -- "access_groups"-backed teams and virtual keys created by
@@ -19,29 +19,29 @@ model_list:
   - model_name: pro
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: flash
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: code
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # What issue #13's Claude Code agent actually asks for -- see its own compliance note: whatever
   # this resolves to must never be an Anthropic model backed by a subscription.
   - model_name: claude-code
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
@@ -55,31 +55,31 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-7-flash
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-6-flash
     litellm_params:
       model: gemini/gemini-3.6-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash
     litellm_params:
       model: gemini/gemini-3.5-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", checked
   # 2026-09-27, gives "Not available" in the Free Tier column for both its input and output price,
@@ -89,24 +89,24 @@ model_list:
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview
   #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/GEMINI_API_KEY"
   #
   # - model_name: gemini-3-1-pro-customtools
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview-customtools
-  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-flash-preview
     litellm_params:
       model: gemini/gemini-3-flash-preview
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to, for two reasons either of which would do. It is paid only:
   # "ai.google.dev/gemini-api/docs/pricing", checked 2026-09-27, gives "Not available" in its Free
@@ -117,7 +117,7 @@ model_list:
   #   litellm_params:
   #     model: gemini/gemini-omni-1.1-flash
   #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/GEMINI_API_KEY"
 
   # The 2.5 generation stays, checked 2026-09-27: "ai.google.dev/gemini-api/docs/deprecations"
   # gives no shutdown date for any of the three below, and since 2026-09-18 (".../changelog") Google
@@ -129,7 +129,7 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-pro
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
   # sits at the bottom of every cascade rather than near the top -- not yet confirmed retired, so not
@@ -138,13 +138,13 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-2-5-flash-lite
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
       api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
   # "ai.google.dev/gemini-api/docs/models/deep-research-pro-preview-12-2025" gives its "Agent code"
@@ -157,7 +157,7 @@ model_list:
   #   litellm_params:
   #     model: gemini/deep-research-pro-preview-12-2025
   #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
-  #     api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/GEMINI_API_KEY"
 
   # Gemma 4 through the Gemini API itself, added 2026-09-27. Free: the "Gemma 4" table of
   # "ai.google.dev/gemini-api/docs/pricing" gives "Free of charge" for input and output on the free
@@ -169,12 +169,12 @@ model_list:
   - model_name: gemma-4-31b-gemini
     litellm_params:
       model: gemini/gemma-4-31b-it
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemma-4-26b-gemini
     litellm_params:
       model: gemini/gemma-4-26b-a4b-it
-      api_key: "os.environ/GEMINI_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GEMINI_API_KEY"
 
   # ============================================================================
   # Mistral AI (Free mode: a $10 monthly API credit, no card)
@@ -192,27 +192,27 @@ model_list:
   - model_name: codestral
     litellm_params:
       model: mistral/codestral-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: codestral-2508
     litellm_params:
       model: mistral/codestral-2508
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-large
     litellm_params:
       model: mistral/mistral-large-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-medium
     litellm_params:
       model: mistral/mistral-medium-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-small
     litellm_params:
       model: mistral/mistral-small-latest
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   # Ministral 3 (Apache 2.0, "docs.mistral.ai/getting-started/models/models_overview") -- edge-sized
   # generalists, verified 2026-09-13. The 14B card describes it as "performance comparable to its
@@ -222,17 +222,17 @@ model_list:
   - model_name: ministral-14b
     litellm_params:
       model: mistral/ministral-14b-2512
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: ministral-8b
     litellm_params:
       model: mistral/ministral-8b-2512
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: ministral-3b
     litellm_params:
       model: mistral/ministral-3b-2512
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   # GLM, hosted by Mistral, added 2026-09-27. "docs.mistral.ai/models/zai-glm-5-3" and
   # ".../zai-glm-5-2" describe each as "A third-party open weight text model [...], hosted by Mistral
@@ -246,12 +246,12 @@ model_list:
   - model_name: glm-5-3-mistral
     litellm_params:
       model: mistral/zai-glm-5-3
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: glm-5-2-mistral
     litellm_params:
       model: mistral/zai-glm-5-2
-      api_key: "os.environ/MISTRAL_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/MISTRAL_API_KEY"
 
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
@@ -267,24 +267,24 @@ model_list:
   # - model_name: gpt-oss-120b-cerebras
   #   litellm_params:
   #     model: cerebras/gpt-oss-120b
-  #     api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/CEREBRAS_API_KEY"
   #
   # - model_name: qwen3-8-27b-cerebras
   #   litellm_params:
   #     model: cerebras/qwen-3.8-27b
-  #     api_key: "os.environ/CEREBRAS_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/CEREBRAS_API_KEY"
 
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
     litellm_params:
       model: groq/openai/gpt-oss-120b
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GROQ_API_KEY"
 
   - model_name: gpt-oss-20b-groq
     litellm_params:
       model: groq/openai/gpt-oss-20b
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GROQ_API_KEY"
 
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
@@ -297,7 +297,7 @@ model_list:
   - model_name: qwen3-8-27b-groq
     litellm_params:
       model: groq/qwen/qwen3.8-27b
-      api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/GROQ_API_KEY"
 
   # Usable on Groq but deliberately not routed to: Enterprise only. "console.groq.com/docs/model/
   # minimaxai/minimax-m2.7", checked 2026-09-27: "available to Enterprise customers. Contact sales for
@@ -305,7 +305,7 @@ model_list:
   # - model_name: minimax-m2-7-groq
   #   litellm_params:
   #     model: groq/minimaxai/minimax-m2.7
-  #     api_key: "os.environ/GROQ_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/GROQ_API_KEY"
 
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
@@ -324,43 +324,43 @@ model_list:
   #   litellm_params:
   #     model: openai/DeepSeek-V3.2
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: deepseek-v3-1-sambanova
   #   litellm_params:
   #     model: openai/DeepSeek-V3.1
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: llama-3-3-70b-sambanova
   #   litellm_params:
   #     model: openai/Meta-Llama-3.3-70B-Instruct
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: minimax-m3-sambanova
   #   litellm_params:
   #     model: openai/MiniMax-M3
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: minimax-m2-7-sambanova
   #   litellm_params:
   #     model: openai/MiniMax-M2.7
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: gemma-4-31b-sambanova
   #   litellm_params:
   #     model: openai/gemma-4-31B-it
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
   # - model_name: gpt-oss-120b-sambanova
   #   litellm_params:
   #     model: openai/gpt-oss-120b
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
 
   # ============================================================================
   # DeepSeek (direct API, #101) -- the only PAID provider in this file, unlike everything else here.
@@ -379,12 +379,12 @@ model_list:
   - model_name: deepseek-v4-pro-direct
     litellm_params:
       model: deepseek/deepseek-v4-pro
-      api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/DEEPSEEK_API_KEY"
 
   - model_name: deepseek-flash-direct
     litellm_params:
       model: deepseek/deepseek-flash
-      api_key: "os.environ/DEEPSEEK_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/DEEPSEEK_API_KEY"
 
   # ============================================================================
   # OpenRouter (":free" entries only)
@@ -399,32 +399,32 @@ model_list:
   - model_name: nemotron-ultra-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: nemotron-super-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: nemotron-reasoning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: nemotron-lightning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: gemma-4-31b-free
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: gemma-4-26b-free
     litellm_params:
       model: openrouter/google/gemma-4-26b-a4b-it:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Qwen3.8 27B, free on OpenRouter, added 2026-09-27: "qwen/qwen3.8-27b:free" in the catalogue,
   # 262k context, "tools" among its supported parameters. The same model as "qwen3-8-27b-groq" above,
@@ -435,37 +435,37 @@ model_list:
   - model_name: qwen3-8-27b-free
     litellm_params:
       model: openrouter/qwen/qwen3.8-27b:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: inkling-free
     litellm_params:
       model: openrouter/thinkingmachines/inkling:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: inkling-small-free
     litellm_params:
       model: openrouter/thinkingmachines/inkling-small:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: north-mini-code-free
     litellm_params:
       model: openrouter/cohere/north-mini-code:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: poolside-laguna-s-free
     litellm_params:
       model: openrouter/poolside/laguna-s-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: poolside-laguna-xs-free
     litellm_params:
       model: openrouter/poolside/laguna-xs-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: ling-flash-free
     litellm_params:
       model: openrouter/inclusionai/ling-3.0-flash-fin:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Same Ling 3.0 Flash family as the financial-tuned sibling above, health-tuned. Kept in the same
   # flash-lite cascade slot as its sibling, on the same reasoning already applied to it: a domain
@@ -473,22 +473,22 @@ model_list:
   - model_name: ling-flash-sante-free
     litellm_params:
       model: openrouter/inclusionai/ling-3.0-flash-sante:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: dots-note-free
     litellm_params:
       model: openrouter/dots-studio/dots-3-note-preview:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: lfm-free
     litellm_params:
       model: openrouter/liquid/lfm-2.5-2.6b:free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: openrouter-auto-free
     litellm_params:
       model: openrouter/openrouter/free
-      api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+      api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Served, but not routed to: a guardrail, not a generator. The catalogue describes
   # "nvidia/nemotron-3.5-content-safety:free" as "a compact 4B-parameter multimodal guardrail model"
@@ -497,7 +497,7 @@ model_list:
   # - model_name: nemotron-content-safety-free
   #   litellm_params:
   #     model: openrouter/nvidia/nemotron-3.5-content-safety:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Served at $0, but not routed to. The catalogue calls "stealth/space-bunny-alpha" "an anonymous
   # large model", so nobody can say whose weights would answer. Its only provider, "Stealth", is one
@@ -508,7 +508,7 @@ model_list:
   # - model_name: space-bunny-alpha
   #   litellm_params:
   #     model: openrouter/stealth/space-bunny-alpha
-  #     api_key: "os.environ/OPENROUTER_API_KEY_TIGERBLUE77"
+  #     api_key: "os.environ/OPENROUTER_API_KEY"
 
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
@@ -545,7 +545,7 @@ router_settings:
   redis_port: 6379
   redis_password: os.environ/REDIS_PASSWORD
 
-  # Every cascade below stays inside tigerblue77's own keys, end to end -- there is only one account
+  # Every cascade below stays inside the one account's keys, end to end -- there is only one account
   # in this file for v1 (see the note at the top), so there is nothing yet for a cascade to cross.
   # "check_LiteLLM_account_isolation.py" (#32) is what keeps that true once a second account's models
   # land here.

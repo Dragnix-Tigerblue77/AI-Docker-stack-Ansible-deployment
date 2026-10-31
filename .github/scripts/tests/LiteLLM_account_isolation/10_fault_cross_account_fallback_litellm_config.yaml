@@ -4,16 +4,16 @@
 ---
 # The visible vector: a fallback that names a model belonging to the other person.
 model_list:
-  - model_name: gen-chat-dragnix
+  - model_name: gen-chat-alpha
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+      api_key: os.environ/GEMINI_API_KEY_ALPHA
 
-  - model_name: gen-chat-tigerblue77
+  - model_name: gen-chat-beta
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+      api_key: os.environ/GEMINI_API_KEY_BETA
 
 router_settings:
   fallbacks:
-    - gen-chat-dragnix: ["gen-chat-tigerblue77"]
+    - gen-chat-alpha: ["gen-chat-beta"]

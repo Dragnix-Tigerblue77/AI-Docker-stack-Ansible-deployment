@@ -28,12 +28,16 @@ isolation will disappear without one test failing.
 WHAT DECIDES AN ACCOUNT'S IDENTITY
 ----------------------------------
 The name of the key's environment variable, and it alone: an "api_key" reading
-"os.environ/GROQ_API_KEY_DRAGNIX" belongs to the "DRAGNIX" account. It is the key that spends the
-quota; the "model_name" suffix and "model_info.access_groups" are only labels, and a label can lie.
+"os.environ/GROQ_API_KEY_ALPHA" belongs to the "ALPHA" account, and one reading
+"os.environ/GROQ_API_KEY", with no suffix, belongs to the DEFAULT account -- the one this role
+deploys today. It is the key that spends the quota; the "model_name" suffix and
+"model_info.access_groups" are only labels, and a label can lie.
 
-This script knows no list of people: the account is the segment that follows "_API_KEY_" in the
-variable's name, whatever it is. A third account, or #2's "SCI" billed project, work without one
-line here changing. An entry whose key does NOT allow a conclusion (a Jinja variable, a variable
+This script knows no list of accounts, and the role's interface names no person: the account is the
+segment that follows "_API_KEY_" in the variable's name, whatever the caller chose to call it, and
+the absence of a segment is the default account. A second account, or #2's "SCI" billed project,
+work without one line here changing; only the label is the caller's to pick, and it names an
+account, never a person. An entry whose key does NOT allow a conclusion (a Jinja variable, a variable
 name outside the convention, or no "api_key" at all) is not silently ignored: it is reported,
 because an entry the check cannot attribute is exactly an entry on which it protects nothing.
 
@@ -105,9 +109,14 @@ FALLBACK_KEYS = (
 )
 SETTINGS_SECTIONS = ("router_settings", "litellm_settings")
 
-# "os.environ/GROQ_API_KEY_DRAGNIX" -> account "DRAGNIX".
+# "os.environ/GROQ_API_KEY_ALPHA" -> account "ALPHA"; "os.environ/GROQ_API_KEY" -> the default one.
 ENVIRONMENT_REFERENCE = re.compile(r"^os\.environ/(?P<variable>[A-Za-z0-9_]+)$")
-ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY_(?P<account>[A-Za-z0-9_]+)$")
+ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY(?:_(?P<account>[A-Za-z0-9_]+))?$")
+
+# The label of the account whose key carries no suffix. Parenthesised so that it can never equal a
+# label a caller picks (an environment variable name has no parenthesis), and so that rules 3's
+# comparison against a "model_name" suffix or an access group never matches it by accident.
+DEFAULT_ACCOUNT = "(default)"
 
 # A sentinel, not a string: it must never compare equal to an account name, be sortable next to one,
 # or land in an f-string as if it were one. Every call site that can receive it is written to
@@ -167,10 +176,10 @@ def account_of_reference(value):
     account = ACCOUNT_FROM_VARIABLE.search(reference.group("variable"))
     if not account:
         return None, (
-            "the name \"%s\" does not follow the \"<PROVIDER>_API_KEY_<ACCOUNT>\" convention of #2"
+            "the name \"%s\" does not follow the \"<PROVIDER>_API_KEY[_<ACCOUNT>]\" convention of #2"
             % reference.group("variable")
         )
-    return account.group("account"), None
+    return account.group("account") or DEFAULT_ACCOUNT, None
 
 
 def normalise_fallbacks(section):
@@ -276,7 +285,7 @@ def check_document(path, document):
         problems.append(
             "%s: the entry \"%s\" has no identifiable account: %s.\n"
             "    None of the isolation rules can apply to it. Write the key in the form\n"
-            "    \"api_key: os.environ/<PROVIDER>_API_KEY_<ACCOUNT>\", as #2 prescribes."
+            "    \"api_key: os.environ/<PROVIDER>_API_KEY[_<ACCOUNT>]\", as #2 prescribes."
             % (path, entry["model_name"], reason)
         )
 

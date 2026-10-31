@@ -61,32 +61,32 @@
       a shell in the PostgreSQL container. The same name would make the init script fail on a role
       that already exists; the same password would put the superuser's login in LiteLLM's environment.
 
-- name: "Check tigerblue77's LiteLLM provider keys are provided"
+- name: "Check the LiteLLM provider keys are provided"
   ansible.builtin.assert:
     that:
-      - Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 | length > 0
-      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 is defined
-      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 is string
-      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77 | length > 0
+      - Artificial_Intelligence_LiteLLM_Gemini_API_key is defined
+      - Artificial_Intelligence_LiteLLM_Gemini_API_key is string
+      - Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0
+      - Artificial_Intelligence_LiteLLM_Mistral_API_key is defined
+      - Artificial_Intelligence_LiteLLM_Mistral_API_key is string
+      - Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0
+      - Artificial_Intelligence_LiteLLM_Groq_API_key is defined
+      - Artificial_Intelligence_LiteLLM_Groq_API_key is string
+      - Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0
+      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key is defined
+      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string
+      - Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0
+      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key is defined
+      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string
+      - Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
     quiet: true
     fail_msg: >-
-      tigerblue77's five LiteLLM provider keys (Gemini, Mistral, Groq, OpenRouter, DeepSeek)
+      The five LiteLLM provider keys of the gateway's account (Gemini, Mistral, Groq, OpenRouter, DeepSeek)
       are mandatory and have no default, like every other secret this role interpolates.
-      "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY_TIGERBLUE77" --
+      "LiteLLM_config.yaml.j2" (#2) reads each one as "os.environ/<PROVIDER>_API_KEY" --
       any OTHER account's own provider keys are deliberately absent here: each one added through
       "Artificial_Intelligence_LiteLLM_internal_users" (#103) adds theirs themselves, from their own restricted "/ui"
-      login, never tigerblue77's own admin one. The GitHub key is asserted nowhere: #109 retired every
+      login, never the admin one. The GitHub key is asserted nowhere: #109 retired every
       "github/*" entry of the model_list it fed, so it is optional now (see defaults/main.yml). Nor is
       the Cerebras key: Cerebras has no free tier any more and its entries are commented out (#200).
 
@@ -120,40 +120,40 @@
       "unset" to LiteLLM but a key anyone can compute. An EXISTING deployment must not simply be given
       a fresh value: see "La clé de sel (#164)" in the README for the migration that keeps them.
 
-- name: "Check the Claude Code agent (tigerblue77) parameters are provided"
+- name: "Check the Claude Code agent parameters are provided"
   ansible.builtin.assert:
     that:
-      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is defined
-      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is string
-      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | length > 0
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is defined
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is string
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | length > 0
+      - Artificial_Intelligence_Claude_code_virtual_key is defined
+      - Artificial_Intelligence_Claude_code_virtual_key is string
+      - Artificial_Intelligence_Claude_code_virtual_key | length > 0
+      - Artificial_Intelligence_Claude_code_workspace_directory is defined
+      - Artificial_Intelligence_Claude_code_workspace_directory is string
+      - Artificial_Intelligence_Claude_code_workspace_directory | length > 0
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key" and
-      "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory" are mandatory once
-      "Artificial_Intelligence_Claude_code_tigerblue77_enabled" is true, and neither has a default: the first
+      "Artificial_Intelligence_Claude_code_virtual_key" and
+      "Artificial_Intelligence_Claude_code_workspace_directory" are mandatory once
+      "Artificial_Intelligence_Claude_code_enabled" is true, and neither has a default: the first
       is a secret, the second is a host path, and this role presupposes neither. See #13.
-  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+  when: Artificial_Intelligence_Claude_code_enabled
 
 # The one optional parameter of the agent (#245), checked on its own so that it does not share a message
 # with the mandatory two. "false", its default, means "not set" ("sameas" is an identity test: 0 and ""
 # are not mistaken for it). Anything else must be a non-empty string, so that a value that is given and
 # unusable is refused rather than quietly left out of the container.
-- name: "Check the Claude Code agent (tigerblue77) GitHub token, when provided, is a non-empty string"
+- name: "Check the Claude Code agent GitHub token, when provided, is a non-empty string"
   ansible.builtin.assert:
     that:
       - >-
-        Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is sameas false
-        or (Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token is string
-        and Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token | length > 0)
+        Artificial_Intelligence_Claude_code_GitHub_token is sameas false
+        or (Artificial_Intelligence_Claude_code_GitHub_token is string
+        and Artificial_Intelligence_Claude_code_GitHub_token | length > 0)
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token" is optional (#245) but, once given, must be a
+      "Artificial_Intelligence_Claude_code_GitHub_token" is optional (#245) but, once given, must be a
       non-empty string: an empty or non-string value is refused rather than ignored. Leave it unset to give the
       agent no GitHub token, or pass the token itself.
-  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+  when: Artificial_Intelligence_Claude_code_enabled
 
 - name: "Check the OmniRoute dashboard password is provided"
   ansible.builtin.assert:
@@ -207,16 +207,14 @@
 - name: "Check the LibreChat accounts are provided"
   ansible.builtin.assert:
     that:
-      - Artificial_Intelligence_LibreChat_accounts | length > 0
+      - Artificial_Intelligence_LibreChat_users | length > 0
     quiet: true
     fail_msg: >-
       "Artificial_Intelligence_LibreChat_users" is mandatory and has no default (#76): this role does
       not get to presuppose who runs the estate. It lists the LibreChat accounts the role creates, one
       mapping per account with "email", "name", "username" and "password", and "admin: true" on those
       granted the ADMIN role -- see the "Deploy the LibreChat accounts" tasks below for why that is
-      not left to LibreChat's own "first user is admin" behaviour. The four legacy variables
-      "Artificial_Intelligence_LibreChat_Dragnix_email", "..._name", "..._username" and "..._password"
-      are still read, all four together, as one ADMIN account when the list is empty.
+      not left to LibreChat's own "first user is admin" behaviour.
 
 - name: "Check each LibreChat account is well formed"
   ansible.builtin.assert:
@@ -240,7 +238,7 @@
       Every entry of the LibreChat accounts needs a non-empty "email", "name", "username" and
       "password", and "admin", when given, must be a boolean (a string such as "true" is not one, and
       would silently grant nothing).
-  loop: "{{ Artificial_Intelligence_LibreChat_accounts }}"
+  loop: "{{ Artificial_Intelligence_LibreChat_users }}"
   loop_control:
     label: "{{ item.username | default('?') if item is mapping else '?' }}"
 
@@ -354,10 +352,9 @@
 # a virtual key is "/key/generate"'s one job, and its response shape is the one LiteLLM documents
 # consistently (a "key" field) across every endpoint that returns one.
 #
-# "access_group:<username>" is the SAME access-group mechanism "LiteLLM_config.yaml.j2" already tags
-# tigerblue77's own models with (#2) -- an account added here only ever sees models tagged for its
-# own name, "check_LiteLLM_account_isolation.py" already enforces that a model belongs to exactly
-# one account's access group.
+# "access_group:<username>" is LiteLLM's access-group mechanism (#2) -- an account added here only
+# ever sees models tagged for its own name, and "check_LiteLLM_account_isolation.py" already enforces
+# that a model belongs to exactly one account's access group.
 #
 # Gated on THIS run's own creation result rather than trusted to "/key/generate" being idempotent on
 # repeat calls (unverified -- see #103): the "when" below is true only the one run "/user/new" just
@@ -482,7 +479,7 @@
         Artificial_Intelligence_LibreChat_account_creation.rc != 0
         and "already exists" not in (Artificial_Intelligence_LibreChat_account_creation.stdout | default('')
         ~ Artificial_Intelligence_LibreChat_account_creation.stderr | default(''))
-      loop: "{{ Artificial_Intelligence_LibreChat_accounts }}"
+      loop: "{{ Artificial_Intelligence_LibreChat_users }}"
       loop_control:
         label: "{{ item.username }}"
       no_log: true
@@ -520,6 +517,6 @@
             ))
       register: Artificial_Intelligence_LibreChat_admin_grant
       changed_when: "'\"modifiedCount\":1' in Artificial_Intelligence_LibreChat_admin_grant.stdout"
-      loop: "{{ Artificial_Intelligence_LibreChat_accounts | selectattr('admin', 'defined') | selectattr('admin', 'equalto', true) | list }}"
+      loop: "{{ Artificial_Intelligence_LibreChat_users | selectattr('admin', 'defined') | selectattr('admin', 'equalto', true) | list }}"
       loop_control:
         label: "{{ item.username }}"

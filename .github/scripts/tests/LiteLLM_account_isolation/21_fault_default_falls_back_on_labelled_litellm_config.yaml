@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: fall back on
+---
+# A fallback from the default account's model onto another account's: the boundary is the same
+# whether or not the key carries a suffix.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gen-chat-alpha
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_ALPHA
+
+router_settings:
+  fallbacks:
+    - gen-chat: ["gen-chat-alpha"]

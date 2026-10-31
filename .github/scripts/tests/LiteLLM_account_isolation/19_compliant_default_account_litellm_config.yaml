@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 0
+---
+# What the role deploys: one account, whose keys carry no suffix. Every entry is attributed to the
+# default account, so the cascade stays inside the keys of one account and nothing is reported. A
+# second account would be written with a suffix of the caller's choosing, as the fixtures above do.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gen-code
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GROQ_API_KEY
+
+router_settings:
+  fallbacks:
+    - gen-chat: ["gen-code"]
