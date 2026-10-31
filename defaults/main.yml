@@ -64,6 +64,19 @@ Artificial_Intelligence_internal_Docker_network_name: "Artificial_Intelligence_i
 Artificial_Intelligence_published_Docker_network_name: false
 Artificial_Intelligence_published_Docker_network_definition: false
 
+# The host port each web-facing service is published on; the container side stays the service's own.
+# The defaults are the ports the stack has always published. A caller overrides one to dodge a clash
+# on its machine or a port its browsers refuse. "Artificial_Intelligence_LiteLLM_port_to_expose" is
+# also the port the role's own "uri" tasks call the gateway on.
+Artificial_Intelligence_LiteLLM_port_to_expose: 4000
+Artificial_Intelligence_OmniRoute_port_to_expose: 20128
+Artificial_Intelligence_LibreChat_port_to_expose: 3080
+
+# LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
+# NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
+# list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.
+Artificial_Intelligence_LibreChat_publish_in_host_mode: false
+
 # The role that actually deploys the stack, named by the caller. MANDATORY, no default.
 #
 # This is what keeps #31's promise: "the role presupposes neither machine, nor domain, nor account,
