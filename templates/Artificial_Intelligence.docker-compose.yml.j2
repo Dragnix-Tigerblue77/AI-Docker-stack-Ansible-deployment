@@ -615,9 +615,8 @@ services:
 {% if Artificial_Intelligence_Claude_code_enabled %}
 
   # ------------------------------------------------------------------------------------------------
-  # Claude Code agent (#13), OFF BY DEFAULT. #31 requires every service to declare
-  # itself this way, and an agent that receives a person's own credentials is not something a fresh
-  # deployment should run without being asked.
+  # Claude Code agent (#13). Deployed with the rest of the stack; the condition is the
+  # caller's way to leave it out, for a deployment that has no use for it.
   # ------------------------------------------------------------------------------------------------
   claude_code:
     # Floats like the stack's other non-database images, written with no tag: the deployer pulls on
@@ -652,9 +651,14 @@ services:
 {% endif %}
 
     volumes:
-      # The caller's own working tree for this agent -- a bind mount, and necessarily a host path:
-      # this role does not get to invent one, hence no default on the variable that names it.
+{% if Artificial_Intelligence_Claude_code_workspace_directory is string %}
+      # The caller asked for a directory of its own: a bind mount, which this role does not create.
       - {{ (Artificial_Intelligence_Claude_code_workspace_directory | replace('$', '$$') ~ ':/workspace:rw') | to_json(ensure_ascii=False) }}
+{% else %}
+      # A named volume by default: nothing has to exist on the host before the first run. Docker fills
+      # an empty one from the image's own "/workspace", which belongs to the "node" user.
+      - "{{ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name }}:/workspace:rw"
+{% endif %}
       # The WHOLE home directory, "~/.claude.json" included -- see the note on
       # "Artificial_Intelligence_Claude_code_home_Docker_volume_name" in "defaults/main.yml" for why a volume
       # on "~/.claude" alone would silently lose half the session on every recreation.
@@ -826,6 +830,10 @@ volumes:
   # The Claude Code agent's WHOLE home directory (#13) -- not only "~/.claude". See the note in
   # "defaults/main.yml" on why the two cannot be split without losing the session on every recreation.
   {{ Artificial_Intelligence_Claude_code_home_Docker_volume_name }}:
+{% if Artificial_Intelligence_Claude_code_workspace_directory is not string %}
+  # Its working directory, unless the caller bind-mounts one of its own.
+  {{ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name }}:
+{% endif %}
 {% endif %}
 
   # Redis's own persistence (#71) -- "--save 60 1" above is worthless without a volume behind it.

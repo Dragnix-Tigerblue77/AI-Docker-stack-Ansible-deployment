@@ -126,18 +126,25 @@
             password: "{{ vault_Artificial_Intelligence_LibreChat_admin_password }}"
             admin: true
 
-        # #13's agent is OFF by default -- these only matter once it is turned on. Left here
-        # commented, the way the published network above is, rather than omitted: a caller who wants
-        # the service finds every variable it needs in one place instead of discovering them one
-        # "assert" failure at a time.
+        # #13's agent is deployed with the stack, like every other service: its virtual key is
+        # MANDATORY, without a default. The key is a value YOU pick -- it starts with "sk-", holds at
+        # least 16 characters and differs from the master key -- and the role registers it in LiteLLM
+        # itself, with the agent's model as its only allow-list.
+        Artificial_Intelligence_Claude_code_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_virtual_key }}"
         #
-        # The virtual key and the workspace directory are mandatory. The GitHub token is OPTIONAL
-        # (#245): left out, the container gets no "GH_TOKEN" and no "GITHUB_TOKEN". Claude Code reads
-        # them itself to call the GitHub API, for its PR status footer among others, and the image has
-        # no "gh" to fall back on: a deployment without a token loses the footer, and its other calls
-        # go out without one. Given, it must be a non-empty string.
+        # The GitHub token is OPTIONAL (#245): left out, the container gets no "GH_TOKEN" and no
+        # "GITHUB_TOKEN". Claude Code reads them itself to call the GitHub API, for its PR status
+        # footer among others, and the image has no "gh" to fall back on: a deployment without a
+        # token loses the footer, and its other calls go out without one. Given, it must be a
+        # non-empty string.
         #
-        # Artificial_Intelligence_Claude_code_enabled: true
-        # Artificial_Intelligence_Claude_code_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_virtual_key }}"
+        # A caller that does not want the agent switches it off. Left here commented, the way the
+        # published network above is, rather than omitted.
+        #
+        # Artificial_Intelligence_Claude_code_enabled: false
+        #
+        # Its working directory is a named Docker volume unless you give an absolute path of the
+        # node, which must exist there and be writable by the image's "node" user.
+        #
         # Artificial_Intelligence_Claude_code_workspace_directory: "/srv/Artificial_Intelligence/workspace/claude_code"
         # Artificial_Intelligence_Claude_code_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_GitHub_token }}"

@@ -104,17 +104,27 @@ MOUNTED_CONFIGS = {
     "Artificial_Intelligence_LibreChat_config_checksum": ("librechat", "LibreChat_config", "/app/librechat.yaml"),
 }
 
-# #13's service is off by default, which is exactly the branch "check_conventions" never exercises
-# unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
-# a defect inside it -- an undeclared volume, a missing memory limit -- would render and parse cleanly
-# forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
+# #13's service is on by default and a caller can switch it off, so it has three shapes: its workspace
+# a named volume (the default), its workspace a host path, and no agent at all. A Jinja "{% if %}"
+# that is false at render time is not evaluated, so a defect inside a branch the default render does
+# not take -- an undeclared volume, a missing memory limit -- would render and parse cleanly forever:
+# each shape is rendered, and "check_agent_workspace" holds them to each other. Fake but well-formed
+# values. Its virtual key has no default, so every state is given it, as a caller must.
 #
 # Without the agent's GitHub token, which is optional since #245: this is the state a caller gets by
-# giving the mandatory two and nothing else, so it is the one rendered by default.
+# giving the key and nothing else, so it is the one rendered by default.
 CLAUDE_CODE_ENABLED = {
     "Artificial_Intelligence_Claude_code_enabled": True,
     "Artificial_Intelligence_Claude_code_virtual_key": "sk-selftest",
-    "Artificial_Intelligence_Claude_code_workspace_directory": "/srv/selftest/workspace",
+}
+CLAUDE_CODE_HOST_WORKSPACE_PATH = "/srv/selftest/workspace"
+CLAUDE_CODE_HOST_WORKSPACE = {
+    **CLAUDE_CODE_ENABLED,
+    "Artificial_Intelligence_Claude_code_workspace_directory": CLAUDE_CODE_HOST_WORKSPACE_PATH,
+}
+CLAUDE_CODE_DISABLED = {
+    **CLAUDE_CODE_ENABLED,
+    "Artificial_Intelligence_Claude_code_enabled": False,
 }
 
 # The optional token of the agent (#245) and where it must arrive: the two variables of its container's
@@ -144,6 +154,7 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_LiteLLM_config_file_destination_path",
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
     "Artificial_Intelligence_Claude_code_model",
+    "Artificial_Intelligence_Claude_code_workspace_directory",
     CLAUDE_CODE_GITHUB_TOKEN_VARIABLE,
 )
 
@@ -553,6 +564,40 @@ def check_states(off, on, failures):
             f"turning the published network on added {sorted(on_networks - off_networks)}, "
             f"expected exactly ['{published}']"
         )
+
+
+def check_agent_workspace(named, host, disabled, volumes, path, failures):
+    """Hold the Claude Code agent's three shapes to what each one promises about its volumes.
+
+    `volumes` is (workspace volume, home volume), the names "defaults/main.yml" gives them, and `path`
+    the host path the `host` render was given. Default: "/workspace" is the named volume and both
+    volumes are declared. Host path: "/workspace" is that bind mount, the workspace volume is NOT
+    declared -- a declared volume nothing mounts is the residue of a condition that did not follow its
+    toggle -- and the home volume still is. Disabled: no service and no volume of the agent at all.
+    "check_conventions" already refuses a mount of a volume nobody declared; it cannot see the reverse.
+    """
+    workspace_volume, home_volume = volumes
+    for state, document, mount, declared in (
+        ("agent workspace: default", named, f"{workspace_volume}:/workspace:rw", {workspace_volume, home_volume}),
+        ("agent workspace: host path", host, f"{path}:/workspace:rw", {home_volume}),
+    ):
+        agent = mapping(mapping(document, "services"), CLAUDE_CODE_SERVICE)
+        if not agent:
+            failures.append(f"[{state}] service {CLAUDE_CODE_SERVICE!r} is not rendered: its workspace cannot be judged")
+            continue
+        mounts = [volume for volume in agent.get("volumes") or [] if ":/workspace" in str(volume)]
+        if mounts != [mount]:
+            failures.append(f"[{state}] the agent's /workspace mount is {mounts!r}, expected [{mount!r}]")
+        present = {volume for volume in (workspace_volume, home_volume) if volume in mapping(document, "volumes")}
+        if present != declared:
+            failures.append(
+                f"[{state}] the agent's volumes declared are {sorted(present)}, expected {sorted(declared)}"
+            )
+    if CLAUDE_CODE_SERVICE in mapping(disabled, "services"):
+        failures.append(f"[agent disabled] service {CLAUDE_CODE_SERVICE!r} is still rendered")
+    leftover = [volume for volume in volumes if volume in mapping(disabled, "volumes")]
+    if leftover:
+        failures.append(f"[agent disabled] its volumes {leftover} are still declared")
 
 
 def agent_environment(document):
@@ -1129,6 +1174,41 @@ STATE_CASES = [
      "expected exactly ['DMZ']"),
 ]
 
+_AGENT_VOLUMES = ("ws", "home")
+_AGENT_PATH = "/srv/x"
+
+
+def agent_shape(mounts, declared, rendered=True):
+    """The agent as one render shows it: its mounts, and the volumes declared at the top."""
+    services = {CLAUDE_CODE_SERVICE: service(volumes=mounts)} if rendered else {}
+    return {"services": services, "volumes": {volume: None for volume in declared}}
+
+
+_AGENT_NAMED = agent_shape(["ws:/workspace:rw", "home:/home/node:rw"], ["ws", "home"])
+_AGENT_HOST = agent_shape([f"{_AGENT_PATH}:/workspace:rw", "home:/home/node:rw"], ["home"])
+_AGENT_OFF = agent_shape([], [], rendered=False)
+
+# (name, default render, host path render, disabled render, expected substring or None)
+AGENT_WORKSPACE_CASES = [
+    ("the three shapes agree", _AGENT_NAMED, _AGENT_HOST, _AGENT_OFF, None),
+    ("the default mounts a host path",
+     _AGENT_HOST, _AGENT_HOST, _AGENT_OFF, "[agent workspace: default] the agent's /workspace mount is"),
+    ("a host path that still mounts the volume",
+     _AGENT_NAMED, _AGENT_NAMED, _AGENT_OFF, "[agent workspace: host path] the agent's /workspace mount is"),
+    ("the workspace volume mounted and not declared",
+     agent_shape(["ws:/workspace:rw", "home:/home/node:rw"], ["home"]), _AGENT_HOST, _AGENT_OFF,
+     "[agent workspace: default] the agent's volumes declared are"),
+    ("the workspace volume declared beside a host path",
+     _AGENT_NAMED, agent_shape([f"{_AGENT_PATH}:/workspace:rw", "home:/home/node:rw"], ["ws", "home"]), _AGENT_OFF,
+     "[agent workspace: host path] the agent's volumes declared are"),
+    ("the agent still rendered when disabled",
+     _AGENT_NAMED, _AGENT_HOST, _AGENT_NAMED, "[agent disabled] service 'claude_code' is still rendered"),
+    ("a volume still declared when disabled",
+     _AGENT_NAMED, _AGENT_HOST, agent_shape([], ["home"], rendered=False), "[agent disabled] its volumes ['home']"),
+    ("no agent in the default render",
+     _AGENT_OFF, _AGENT_HOST, _AGENT_OFF, "[agent workspace: default] service 'claude_code' is not rendered"),
+]
+
 # (name, document, places left to another pull request, expected substring or None)
 DOLLAR_CASES = [
     ("every '$' doubled",
@@ -1350,6 +1430,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, named, host, disabled, expected in AGENT_WORKSPACE_CASES:
+        failures = []
+        try:
+            check_agent_workspace(named, host, disabled, _AGENT_VOLUMES, _AGENT_PATH, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, left_elsewhere, expected in DOLLAR_CASES:
         failures = []
         try:
@@ -1431,7 +1520,8 @@ def selftest():
     print(
         f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
         f"{len(CONVENTION_CASES)} convention case(s), {len(STATE_CASES)} two-state case(s), "
-        f"{len(DOLLAR_CASES)} '$' case(s), {len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
+        f"{len(AGENT_WORKSPACE_CASES)} agent workspace case(s), {len(DOLLAR_CASES)} '$' case(s), "
+        f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
         f"case(s) and {len(TOKEN_ARRIVES_CASES)} token arrival case(s) all judged as expected."
@@ -1475,8 +1565,12 @@ def main():
             CLAUDE_CODE_TOKEN_STATE,
             dict(CLAUDE_CODE_ENABLED, **CLAUDE_CODE_GITHUB_TOKEN),
         ),
+        ("Claude Code agent with a host workspace", CLAUDE_CODE_HOST_WORKSPACE),
+        ("Claude Code agent disabled", CLAUDE_CODE_DISABLED),
         ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
     ):
+        # The agent is on by default and its virtual key has no default: every state is given it.
+        extra = {**CLAUDE_CODE_ENABLED, **extra}
         context = dict(load_defaults(failures, overrides=extra), **extra)
         try:
             rendered = render(context)
@@ -1509,6 +1603,21 @@ def main():
 
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
+
+    host_state = "Claude Code agent with a host workspace"
+    off_state = "Claude Code agent disabled"
+    if {"published network unset", host_state, off_state} <= set(documents):
+        check_agent_workspace(
+            documents["published network unset"],
+            documents[host_state],
+            documents[off_state],
+            (
+                defaults["Artificial_Intelligence_Claude_code_workspace_Docker_volume_name"],
+                defaults["Artificial_Intelligence_Claude_code_home_Docker_volume_name"],
+            ),
+            CLAUDE_CODE_HOST_WORKSPACE_PATH,
+            failures,
+        )
 
     # Kept apart from the loop above rather than added to it: that loop holds every state to the
     # service conventions, this one holds a single state to something else, and "check_states" reads
