@@ -167,6 +167,10 @@ services:
         # "any", never "on-failure": the orchestrator stops an unhealthy container cleanly, so the
         # process exits 0, and "on-failure" never replaces a task that exited cleanly.
         condition: any
+      update_config:
+        # Swarm only (Compose ignores it): a failed update goes back to the previous image instead of
+        # leaving the service paused on the broken one.
+        failure_action: rollback
       resources:
         limits:
           # Starting value, to be recalled after measuring under load with "docker stats". What
@@ -213,6 +217,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Redis_memory_limit }}"
@@ -353,6 +360,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           # Depends on "--num_workers": each worker replicates the configuration. With 88 threads on
@@ -414,6 +424,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_OmniRoute_memory_limit }}"
@@ -455,6 +468,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Qdrant_memory_limit }}"
@@ -515,6 +531,21 @@ services:
     ports:
       - "3080:3080"
 
+    healthcheck:
+      # The image's own "node", never "curl": the LibreChat image carries no curl, so a probe calling
+      # it would fail on every run and Swarm would replace a healthy task forever. "127.0.0.1" rather
+      # than "localhost", which Node may resolve to "::1" first while LibreChat listens on IPv4 only.
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - "require('http').get('http://127.0.0.1:3080/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      # A success during it counts at once, so a long one costs nothing on the happy path.
+      start_period: 60s
+      retries: 3
+
     # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
       - librechat_mongodb
@@ -522,6 +553,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_LibreChat_memory_limit }}"
@@ -542,6 +576,14 @@ services:
       artificial_intelligence.stack: "{{ Artificial_Intelligence_Docker_stack_name }}"
       artificial_intelligence.service: "librechat_mongodb"
 
+    healthcheck:
+      # "mongosh" ships in the image, and "tasks/main.yml" already runs it against this container.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 30s
+      start_period: 0s
+      retries: 3
+
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
 
@@ -551,6 +593,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_MongoDB_LibreChat_memory_limit }}"
@@ -609,6 +654,9 @@ services:
     deploy:
       restart_policy:
         condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
       resources:
         limits:
           # Starting value, to be recalled after measuring under load.
@@ -661,6 +709,10 @@ services:
   #       # the service sits at 0 replicas, the reverse proxy stops building its router, and the URL
   #       # answers a bare 404 with nothing logged anywhere.
   #       condition: any
+  #     update_config:
+  #       # Swarm only, ignored by Compose: a failed update returns to the previous image rather than
+  #       # leaving the service paused on the broken one.
+  #       failure_action: rollback
   #     resources:
   #       limits:
   #         # Mandatory on EVERY service. Without a limit, one container running away takes all the
