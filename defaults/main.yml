@@ -141,7 +141,8 @@ Artificial_Intelligence_PostgreSQL_superuser: "postgres"
 Artificial_Intelligence_PostgreSQL_data_Docker_volume_name: "Artificial_Intelligence_PostgreSQL_data"
 
 # Starting value, to be recalled after measuring under load with "docker stats". What matters today
-# is that a limit exists at all.
+# is that a limit exists at all. Every "*_memory_limit" of this file may be set to false, the role's
+# idiom for "not set", for a caller who bounds memory elsewhere: the service then carries no limit.
 Artificial_Intelligence_PostgreSQL_memory_limit: "1g"
 
 # --------------------------------------------------------------------------------------------------

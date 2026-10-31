@@ -111,10 +111,10 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_master_key` | aucun | **Obligatoire.** Administration **uniquement** : chaque consommateur reçoit sa propre clé virtuelle (#2). |
 | `Artificial_Intelligence_LiteLLM_salt_key` | aucun | **Obligatoire** (#164). `LITELLM_SALT_KEY`, la clé qui chiffre en base ce que `/ui` enregistre. **Ne change plus jamais** une fois un identifiant enregistré, et **différente** de la clé maîtresse, ce que le rôle vérifie. Un déploiement existant ne reçoit pas une valeur neuve : voir « La clé de sel (#164) » plus bas. |
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
-| `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LiteLLM_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
 | `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
-| `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_PostgreSQL_memory_limit` | `1g` | Valeur de départ, à recaler sous charge. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
@@ -139,7 +139,7 @@ Et celles que #71 apporte, pour Redis :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
-| `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. |
+| `Artificial_Intelligence_Redis_memory_limit` | `256m` | Valeur de départ. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
 
 Et celles que #73 apporte, pour OmniRoute :
@@ -147,7 +147,7 @@ Et celles que #73 apporte, pour OmniRoute :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
-| `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. |
+| `Artificial_Intelligence_OmniRoute_memory_limit` | `2g` | Valeur de départ, à recaler si l'usage dépasse le simple dernier recours. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
 
 Et celles que #3 apporte, pour Qdrant :
@@ -155,7 +155,7 @@ Et celles que #3 apporte, pour Qdrant :
 | Variable | Défaut | Description |
 |---|---|---|
 | `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
-| `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. |
+| `Artificial_Intelligence_Qdrant_memory_limit` | `1g` | Valeur de départ, généreuse pour la taille du corpus visée par #3. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
 
 Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes sans effet tant que
@@ -168,7 +168,7 @@ Et celles que #13 apporte, pour l'agent Claude Code de tigerblue77 -- **toutes s
 | `Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token` | aucun | **Obligatoire si activé.** Jeton personnel, en attendant le connecteur MCP GitHub (#23). Posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` ; l'image publiée ne porte pas `gh` (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory` | aucun | **Obligatoire si activé.** Un chemin hôte : ce rôle ne peut pas en inventer un. |
 | `Artificial_Intelligence_Claude_code_tigerblue77_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. |
-| `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. |
+| `Artificial_Intelligence_Claude_code_tigerblue77_memory_limit` | `2g` | Valeur de départ, à recaler sous charge. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_tigerblue77_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
 Et celles que #76 apporte, pour LibreChat et sa base :
@@ -178,7 +178,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
-| `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. |
+| `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `1g` / `512m` | Valeurs de départ, à recaler sous charge. `false` supprime la limite du service (aucun bloc `deploy.resources`). |
 | `Artificial_Intelligence_LibreChat_Dragnix_email` · `..._name` · `..._username` · `..._password` | aucun | **Obligatoires**, les quatre. Le compte de Dragnix, créé par le rôle et promu `ADMIN` -- voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut : ansible-core 2.19 refuse un test de vérité

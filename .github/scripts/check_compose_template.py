@@ -100,6 +100,10 @@ MOUNTED_CONFIGS = {
 # unless something asks for it: a Jinja "{% if %}" that is false at render time is not evaluated, so
 # a defect inside it -- an undeclared volume, a missing memory limit -- would render and parse cleanly
 # forever. Fake but well-formed values, just enough to turn the toggle on and let the branch run.
+# Every "*_memory_limit" at "false", the role's idiom for "not set": the services must then carry no
+# limit, and nothing else of them may change. The names are read off the defaults, not listed here.
+LIMITS_UNSET_STATE = "memory limits unset"
+
 CLAUDE_CODE_TIGERBLUE77_ENABLED = {
     "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
     "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key": "sk-selftest",
@@ -362,8 +366,12 @@ def volume_source(volume):
     return source
 
 
-def check_conventions(document, state, failures):
-    """Hold one rendered document to what the template's own commented model promises."""
+def check_conventions(document, state, failures, limits_unset=False):
+    """Hold one rendered document to what the template's own commented model promises.
+
+    With `limits_unset`, the caller has opted out of every memory limit: the rule inverts, and a
+    service still carrying one means a variable set to "false" was not honoured.
+    """
     services = document.get("services") or {}
     declared_networks = set(mapping(document, "networks"))
     declared_volumes = set(mapping(document, "volumes"))
@@ -397,7 +405,11 @@ def check_conventions(document, state, failures):
 
         # A memory limit on every service. Without one, a container running away takes the others
         # down by OOM and the kernel log names the victim rather than the culprit.
-        if not mapping(mapping(deploy, "resources"), "limits").get("memory"):
+        limit = mapping(mapping(deploy, "resources"), "limits").get("memory")
+        if limits_unset:
+            if limit:
+                failures.append(f"{where}: deploy.resources.limits.memory is {limit!r} although its variable is false")
+        elif not limit:
             failures.append(f"{where}: no deploy.resources.limits.memory")
 
         # "any", never "on-failure": the orchestrator stops an unhealthy container CLEANLY, so it
@@ -1158,6 +1170,17 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    # The inverted mode, for a caller who set every "*_memory_limit" to "false".
+    unlimited = {"services": {"svc": service(deploy={"restart_policy": {"condition": "any"}})}}
+    limited = {"services": {"svc": service()}}
+    for name, document, expected in (
+        ("limits unset, none written", unlimited, None),
+        ("limits unset, one written anyway", limited, "although its variable is false"),
+    ):
+        failures = []
+        check_conventions(document, "selftest", failures, limits_unset=True)
+        problems.extend(_verdict(name, failures, expected))
+
     for name, off, on, expected in CONFIG_CHECKSUM_CASES:
         failures = []
         try:
@@ -1291,6 +1314,23 @@ def main():
 
     if "published network unset" in documents and "published network set" in documents:
         check_states(documents["published network unset"], documents["published network set"], failures)
+
+    limits_off = {
+        name: False for name in defaults if name.endswith("_memory_limit")
+    }
+    limits_context = {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **limits_off}
+    try:
+        limits_document = yaml.safe_load(render(limits_context))
+    except Exception as error:  # noqa: BLE001 - the message is the whole point
+        failures.append(f"[{LIMITS_UNSET_STATE}] the template does not render or parse: {error}")
+    else:
+        check_conventions(limits_document, LIMITS_UNSET_STATE, failures, limits_unset=True)
+        reference = documents.get("Claude Code agent (tigerblue77) enabled")
+        if reference is not None:
+            for name, service in (reference.get("services") or {}).items():
+                stripped = {**service, "deploy": {k: v for k, v in service["deploy"].items() if k != "resources"}}
+                if (limits_document.get("services") or {}).get(name) != stripped:
+                    failures.append(f"[{LIMITS_UNSET_STATE}] service {name!r} differs from the limited one by more than its limit")
 
     # Kept apart from the loop above rather than added to it: that loop holds every state to the
     # service conventions, this one holds a single state to something else, and "check_states" reads

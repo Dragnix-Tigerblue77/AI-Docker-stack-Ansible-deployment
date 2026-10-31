@@ -167,12 +167,14 @@ services:
         # "any", never "on-failure": the orchestrator stops an unhealthy container cleanly, so the
         # process exits 0, and "on-failure" never replaces a task that exited cleanly.
         condition: any
+{% if Artificial_Intelligence_PostgreSQL_memory_limit is string %}
       resources:
         limits:
           # Starting value, to be recalled after measuring under load with "docker stats". What
           # matters today is that a limit EXISTS: without one, a container running away takes the
           # others down by OOM and the kernel log names the victim rather than the culprit.
           memory: "{{ Artificial_Intelligence_PostgreSQL_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -213,9 +215,11 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_Redis_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Redis_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -353,12 +357,14 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_LiteLLM_memory_limit is string %}
       resources:
         limits:
           # Depends on "--num_workers": each worker replicates the configuration. With 88 threads on
           # the target host the temptation to raise the worker count is real, and this limit is what
           # bounds the experiment.
           memory: "{{ Artificial_Intelligence_LiteLLM_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -414,9 +420,11 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_OmniRoute_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_OmniRoute_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -455,9 +463,11 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_Qdrant_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_Qdrant_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -522,9 +532,11 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_LibreChat_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_LibreChat_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -551,9 +563,11 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_MongoDB_LibreChat_memory_limit is string %}
       resources:
         limits:
           memory: "{{ Artificial_Intelligence_MongoDB_LibreChat_memory_limit }}"
+{% endif %}
 
     networks:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
@@ -609,10 +623,12 @@ services:
     deploy:
       restart_policy:
         condition: any
+{% if Artificial_Intelligence_Claude_code_tigerblue77_memory_limit is string %}
       resources:
         limits:
           # Starting value, to be recalled after measuring under load.
           memory: "{{ Artificial_Intelligence_Claude_code_tigerblue77_memory_limit }}"
+{% endif %}
 
     # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
@@ -663,7 +679,8 @@ services:
   #       condition: any
   #     resources:
   #       limits:
-  #         # Mandatory on EVERY service. Without a limit, one container running away takes all the
+  #         # Mandatory on EVERY service; the block is written under "if <variable> is string", so a caller
+  #         # may opt out with "false". Without a limit, one container running away takes all the
   #         # others down by OOM, and the kernel log names the victim, not the culprit. An AI stack is
   #         # exactly the ground where that happens: a model held in memory, a worker handed a
   #         # document too large.
