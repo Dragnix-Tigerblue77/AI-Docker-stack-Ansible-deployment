@@ -64,6 +64,19 @@ Artificial_Intelligence_internal_Docker_network_name: "Artificial_Intelligence_i
 Artificial_Intelligence_published_Docker_network_name: false
 Artificial_Intelligence_published_Docker_network_definition: false
 
+# The host port each web-facing service is published on; the container side stays the service's own.
+# The defaults are the ports the stack has always published. A caller overrides one to dodge a clash
+# on its machine or a port its browsers refuse. "Artificial_Intelligence_LiteLLM_port_to_expose" is
+# also the port the role's own "uri" tasks call the gateway on.
+Artificial_Intelligence_LiteLLM_port_to_expose: 4000
+Artificial_Intelligence_OmniRoute_port_to_expose: 20128
+Artificial_Intelligence_LibreChat_port_to_expose: 3080
+
+# LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
+# NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
+# list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.
+Artificial_Intelligence_LibreChat_publish_in_host_mode: false
+
 # The role that actually deploys the stack, named by the caller. MANDATORY, no default.
 #
 # This is what keeps #31's promise: "the role presupposes neither machine, nor domain, nor account,
@@ -370,7 +383,7 @@ Artificial_Intelligence_MongoDB_LibreChat_memory_limit: "512m"
 # Artificial_Intelligence_LibreChat_JWT_refresh_secret:
 
 # Closed, not the image's own default: the port below is published on the LAN, and open registration
-# there would hand anyone on the network a seat on both accounts' quotas. The estate's own two
+# there would hand anyone on the network a seat on both accounts' quotas. The role's own
 # accounts are created with "docker exec ... npm run create-user", which works with registration
 # closed.
 Artificial_Intelligence_LibreChat_allow_registration: false
@@ -393,14 +406,42 @@ Artificial_Intelligence_LibreChat_config_checksum: false
 # content as the LiteLLM one is. Derived; not a setting.
 Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~ Artificial_Intelligence_LibreChat_config_checksum[:8]) if Artificial_Intelligence_LibreChat_config_checksum is string else '' }}"
 
-# Dragnix's own LibreChat account, created BY THE ROLE as the estate's first (and only automated)
-# account, then granted the ADMIN role directly in MongoDB -- see "tasks/main.yml" for why not the
-# "first user is auto-admin" behaviour some LibreChat deployments rely on, which is not reliable
-# enough to build on (upstream reports of it silently not applying). Dragnix creates tigerblue77's
-# account himself from the admin panel once logged in, which is not something Ansible has to automate.
+# The LibreChat accounts, created BY THE ROLE once the stack is running, then granted the ADMIN role
+# directly in MongoDB when "admin" is true -- see "tasks/main.yml" for why not the "first user is
+# auto-admin" behaviour some LibreChat deployments rely on, which is not reliable enough to build on
+# (upstream reports of it silently not applying). Creating an account that already exists changes
+# nothing, so an account made by hand beforehand is left as it is.
 #
-# MANDATORY, all four, without a default: this role does not get to presuppose who runs the estate.
+# MANDATORY, without a default: this role does not get to presuppose who runs the estate. One
+# mapping per account: "email", "name", "username" and "password" (all non-empty strings), and
+# "admin: true" for the ADMIN role (a boolean, false when omitted).
+# Artificial_Intelligence_LibreChat_users:
+#   - email:
+#     name:
+#     username:
+#     password:
+#     admin: true
+Artificial_Intelligence_LibreChat_users: []
+
+# The four variables this role read before the list above existed, still honoured when the list is
+# empty and all four are set: they become one account with "admin: true". Deprecated; kept so that a
+# caller written against them keeps working.
 # Artificial_Intelligence_LibreChat_Dragnix_email:
 # Artificial_Intelligence_LibreChat_Dragnix_name:
 # Artificial_Intelligence_LibreChat_Dragnix_username:
 # Artificial_Intelligence_LibreChat_Dragnix_password:
+
+# NOT a setting: the accounts the role acts on, being the list above or else the legacy account.
+Artificial_Intelligence_LibreChat_accounts: >-
+  {{ Artificial_Intelligence_LibreChat_users
+  if (Artificial_Intelligence_LibreChat_users | length > 0)
+  else ([{'email': Artificial_Intelligence_LibreChat_Dragnix_email,
+  'name': Artificial_Intelligence_LibreChat_Dragnix_name,
+  'username': Artificial_Intelligence_LibreChat_Dragnix_username,
+  'password': Artificial_Intelligence_LibreChat_Dragnix_password,
+  'admin': true}]
+  if (Artificial_Intelligence_LibreChat_Dragnix_email is defined
+  and Artificial_Intelligence_LibreChat_Dragnix_name is defined
+  and Artificial_Intelligence_LibreChat_Dragnix_username is defined
+  and Artificial_Intelligence_LibreChat_Dragnix_password is defined)
+  else []) }}
