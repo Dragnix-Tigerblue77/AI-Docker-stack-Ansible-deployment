@@ -28,9 +28,9 @@ isolation will disappear without one test failing.
 WHAT DECIDES AN ACCOUNT'S IDENTITY
 ----------------------------------
 The name of the key's environment variable, and it alone: an "api_key" reading
-"os.environ/GROQ_API_KEY_ALPHA" belongs to the "ALPHA" account, and one reading
 "os.environ/GROQ_API_KEY", with no suffix, belongs to the DEFAULT account -- the one this role
-deploys today. It is the key that spends the quota; the "model_name" suffix and
+deploys today -- and one reading "os.environ/GROQ_API_KEY_<ACCOUNT>" belongs to the account the
+caller labelled <ACCOUNT>. It is the key that spends the quota; the "model_name" suffix and
 "model_info.access_groups" are only labels, and a label can lie.
 
 This script knows no list of accounts, and the role's interface names no person: the account is the
@@ -109,7 +109,7 @@ FALLBACK_KEYS = (
 )
 SETTINGS_SECTIONS = ("router_settings", "litellm_settings")
 
-# "os.environ/GROQ_API_KEY_ALPHA" -> account "ALPHA"; "os.environ/GROQ_API_KEY" -> the default one.
+# "os.environ/GROQ_API_KEY" -> the default account; "os.environ/GROQ_API_KEY_<ACCOUNT>" -> <ACCOUNT>.
 ENVIRONMENT_REFERENCE = re.compile(r"^os\.environ/(?P<variable>[A-Za-z0-9_]+)$")
 ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY(?:_(?P<account>[A-Za-z0-9_]+))?$")
 
@@ -296,15 +296,22 @@ def check_document(path, document):
         account, _ = account_of_reference(entry["api_key"])
         if not account or account is SHARED or not isinstance(entry["model_name"], str):
             continue
-        suffix = entry["model_name"].rsplit("-", 1)[-1].upper()
-        if suffix != account and suffix in accounts_seen:
+        # A label is written the way an environment variable suffix is, in upper case with
+        # underscores, and the other places write it in lower case with hyphens ("team-a" for
+        # "TEAM_A"): compare them in the first form. The longest account the name ends with wins, so
+        # that "TEAM_A" is not also read as an account called "A".
+        normalised = entry["model_name"].upper().replace("-", "_")
+        announced = max((a for a in accounts_seen if a != DEFAULT_ACCOUNT and normalised.endswith("_" + a)),
+                        key=len, default=None)
+        if announced and announced != account:
             problems.append(
                 "%s: the model_name \"%s\" announces account \"%s\" but its key belongs to \"%s\".\n"
                 "    The label lies: a reviewer judging a fallback on the name they read gets it wrong."
-                % (path, entry["model_name"], suffix, account)
+                % (path, entry["model_name"], announced, account)
             )
         for group in entry["access_groups"]:
-            if group.upper() != account and group.upper() in accounts_seen:
+            group_label = group.upper().replace("-", "_")
+            if group_label != account and group_label in accounts_seen:
                 problems.append(
                     "%s: \"%s\" is in the access_group \"%s\" but its key belongs to \"%s\".\n"
                     "    One team's allow list would hand out access to the other's key."

@@ -7,19 +7,19 @@
 # shared and reachable by every account on purpose, because there is no quota behind it to protect.
 # Both accounts fall back onto it, and neither the grouping rule nor the attribution rule fires.
 model_list:
-  - model_name: gen-chat-alpha
+  - model_name: gen-chat-team-a
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_ALPHA
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
     model_info:
-      access_groups: ["alpha"]
+      access_groups: ["team-a"]
 
-  - model_name: gen-chat-beta
+  - model_name: gen-chat-team-b
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_BETA
+      api_key: os.environ/GEMINI_API_KEY_TEAM_B
     model_info:
-      access_groups: ["beta"]
+      access_groups: ["team-b"]
 
   - model_name: omniroute-free-auto
     litellm_params:
@@ -28,5 +28,5 @@ model_list:
 
 router_settings:
   fallbacks:
-    - gen-chat-alpha: ["omniroute-free-auto"]
-    - gen-chat-beta: ["omniroute-free-auto"]
+    - gen-chat-team-a: ["omniroute-free-auto"]
+    - gen-chat-team-b: ["omniroute-free-auto"]

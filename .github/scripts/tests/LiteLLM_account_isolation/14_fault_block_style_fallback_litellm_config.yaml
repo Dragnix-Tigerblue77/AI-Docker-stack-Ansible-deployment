@@ -7,17 +7,17 @@
 # YAML serialiser produces, so Ansible's "to_nice_yaml" filter, and it is the repository's majority
 # style. This fixture exists so that this hole never reopens.
 model_list:
-  - model_name: gen-chat-alpha
+  - model_name: gen-chat-team-a
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_ALPHA
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
 
-  - model_name: gen-chat-beta
+  - model_name: gen-chat-team-b
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_BETA
+      api_key: os.environ/GEMINI_API_KEY_TEAM_B
 
 router_settings:
   fallbacks:
-    - gen-chat-alpha:
-        - gen-chat-beta
+    - gen-chat-team-a:
+        - gen-chat-team-b

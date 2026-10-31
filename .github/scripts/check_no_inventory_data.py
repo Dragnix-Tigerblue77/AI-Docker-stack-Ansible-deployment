@@ -331,7 +331,7 @@ SELFTEST_CASES = (
     ("  fichier: requirements.txt", 0, "a file name is not a domain"),
     ("  script: functions.sh", 0, "an extension that is also a TLD does not count"),
     ("  module: ansible.builtin.assert", 0, "a module name is not a domain"),
-    ("  cle: os.environ/GEMINI_API_KEY_ALPHA", 0, "a variable is not a domain"),
+    ("  cle: os.environ/GEMINI_API_KEY_TEAM_A", 0, "a variable is not a domain"),
     ("  playbook: playbook.Artificial_Intelligence.example.yaml", 0, "a playbook name is not a domain"),
     ("  regle: traefik.http.routers.ais.rule", 0, "a Traefik label is not a domain"),
     ("  url: https://github.com/gitleaks/gitleaks", 0, "an upstream host in the allowlist passes"),

@@ -10,11 +10,11 @@ model_list:
       model: provider/identifier
       api_key: os.environ/GEMINI_API_KEY
 
-  - model_name: gen-chat-alpha
+  - model_name: gen-chat-team-a
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_ALPHA
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
 
 router_settings:
   fallbacks:
-    - gen-chat: ["gen-chat-alpha"]
+    - gen-chat: ["gen-chat-team-a"]
