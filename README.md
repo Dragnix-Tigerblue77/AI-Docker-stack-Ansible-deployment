@@ -100,6 +100,8 @@ dont les conventions sont écrites à l'endroit où on les oublie.
 | `Artificial_Intelligence_internal_Docker_network_name` | `Artificial_Intelligence_internal` | Le réseau que les services du stack utilisent entre eux. Déclaré par le stack, donc créé et détruit avec lui. |
 | `Artificial_Intelligence_published_Docker_network_name` | `false` | Le réseau publié de l'appelant, celui où écoute son reverse proxy. |
 | `Artificial_Intelligence_published_Docker_network_definition` | `false` | La déclaration de ce même réseau, telle qu'elle doit apparaître dans le bloc `networks:`. |
+| `Artificial_Intelligence_LiteLLM_port_to_expose` · `Artificial_Intelligence_OmniRoute_port_to_expose` · `Artificial_Intelligence_LibreChat_port_to_expose` | `4000` / `20128` / `3080` | Le port d'hôte sur lequel chaque service web est publié ; le port du conteneur ne change pas. Celui de LiteLLM est aussi le port que les tâches `uri` du rôle appellent. |
+| `Artificial_Intelligence_LibreChat_publish_in_host_mode` | `false` | `true` publie le port de LibreChat en `mode: host` (syntaxe longue) au lieu de la syntaxe courte : sous Swarm, le routing mesh masque l'adresse du client, qu'un appelant qui la décide ou la journalise doit conserver. |
 
 Et celles que #1 apporte, pour la passerelle et sa base :
 

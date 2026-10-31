@@ -321,7 +321,7 @@ services:
     # and they are all that stands between the LAN and the master key's container. Revisit the day a
     # reverse proxy is in front of it.
     ports:
-      - "4000:4000"
+      - "{{ Artificial_Intelligence_LiteLLM_port_to_expose }}:4000"
 
     healthcheck:
       # "/health" requires authentication; "/health/liveliness" does not. Written with the image's
@@ -395,7 +395,7 @@ services:
     # Published, for the same reason as LiteLLM's "/ui" (#1): the dashboard needs to be reachable
     # from a browser on the LAN, and "INITIAL_PASSWORD" above is what stands in front of it.
     ports:
-      - "20128:20128"
+      - "{{ Artificial_Intelligence_OmniRoute_port_to_expose }}:20128"
 
     healthcheck:
       # No "curl" guaranteed in a Node.js image any more than in LiteLLM's -- written with the
@@ -513,7 +513,14 @@ services:
     # (#1) and OmniRoute's dashboard (#73). "ALLOW_REGISTRATION: false" above is what stands between
     # the LAN and an unauthenticated seat on both accounts' quotas.
     ports:
-      - "3080:3080"
+{% if Artificial_Intelligence_LibreChat_publish_in_host_mode %}
+      - target: 3080
+        published: {{ Artificial_Intelligence_LibreChat_port_to_expose }}
+        protocol: tcp
+        mode: host
+{% else %}
+      - "{{ Artificial_Intelligence_LibreChat_port_to_expose }}:3080"
+{% endif %}
 
     # Short form only -- see the note on "litellm"'s "depends_on" for why the long one is refused.
     depends_on:
