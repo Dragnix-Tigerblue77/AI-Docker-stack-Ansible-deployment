@@ -5,15 +5,15 @@
 # "default_fallbacks" applies to every group at once: it crosses every boundary in a single go,
 # including the ones that do not exist yet.
 model_list:
-  - model_name: gen-chat-dragnix
+  - model_name: gen-chat-team-a
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
 
-  - model_name: gen-chat-tigerblue77
+  - model_name: gen-chat-team-b
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+      api_key: os.environ/GEMINI_API_KEY_TEAM_B
 
 router_settings:
-  default_fallbacks: ["gen-chat-tigerblue77"]
+  default_fallbacks: ["gen-chat-team-b"]

@@ -123,32 +123,32 @@ MEMORY_LIMIT_FORM = re.compile(r"^[1-9][0-9]*[bkmgBKMG]?$")
 #
 # Without the agent's GitHub token, which is optional since #245: this is the state a caller gets by
 # giving the key and nothing else, so it is the one rendered by default.
-CLAUDE_CODE_TIGERBLUE77_ENABLED = {
-    "Artificial_Intelligence_Claude_code_tigerblue77_enabled": True,
-    "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key": "sk-selftest",
+CLAUDE_CODE_ENABLED = {
+    "Artificial_Intelligence_Claude_code_enabled": True,
+    "Artificial_Intelligence_Claude_code_virtual_key": "sk-selftest",
 }
-CLAUDE_CODE_TIGERBLUE77_HOST_WORKSPACE_PATH = "/srv/selftest/workspace"
-CLAUDE_CODE_TIGERBLUE77_HOST_WORKSPACE = {
-    **CLAUDE_CODE_TIGERBLUE77_ENABLED,
-    "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory": CLAUDE_CODE_TIGERBLUE77_HOST_WORKSPACE_PATH,
+CLAUDE_CODE_HOST_WORKSPACE_PATH = "/srv/selftest/workspace"
+CLAUDE_CODE_HOST_WORKSPACE = {
+    **CLAUDE_CODE_ENABLED,
+    "Artificial_Intelligence_Claude_code_workspace_directory": CLAUDE_CODE_HOST_WORKSPACE_PATH,
 }
-CLAUDE_CODE_TIGERBLUE77_DISABLED = {
-    **CLAUDE_CODE_TIGERBLUE77_ENABLED,
-    "Artificial_Intelligence_Claude_code_tigerblue77_enabled": False,
+CLAUDE_CODE_DISABLED = {
+    **CLAUDE_CODE_ENABLED,
+    "Artificial_Intelligence_Claude_code_enabled": False,
 }
 
 # The optional token of the agent (#245) and where it must arrive: the two variables of its container's
 # environment, written only when a token is given. The template tests it with "is string" because its
 # default is "false", the role's idiom for "not set", so a branch that only holds when it is given is
 # another one no default render evaluates.
-CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE = "Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token"
-CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN = {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: "ghp_selftest"}
-CLAUDE_CODE_TIGERBLUE77_SERVICE = "claude_code_tigerblue77"
-CLAUDE_CODE_TIGERBLUE77_TOKEN_ENVIRONMENT = ("GH_TOKEN", "GITHUB_TOKEN")
+CLAUDE_CODE_GITHUB_TOKEN_VARIABLE = "Artificial_Intelligence_Claude_code_GitHub_token"
+CLAUDE_CODE_GITHUB_TOKEN = {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: "ghp_selftest"}
+CLAUDE_CODE_SERVICE = "claude_code"
+CLAUDE_CODE_TOKEN_ENVIRONMENT = ("GH_TOKEN", "GITHUB_TOKEN")
 # The two rendered states the token is judged between, named once: a label written twice is one that can
 # drift apart, and "main" would then skip the comparison without a word.
-CLAUDE_CODE_TIGERBLUE77_STATE = "Claude Code agent (tigerblue77) enabled"
-CLAUDE_CODE_TIGERBLUE77_TOKEN_STATE = f"{CLAUDE_CODE_TIGERBLUE77_STATE}, GitHub token set"
+CLAUDE_CODE_STATE = "Claude Code agent enabled"
+CLAUDE_CODE_TOKEN_STATE = f"{CLAUDE_CODE_STATE}, GitHub token set"
 
 # The values that HAVE a real default and whose grammar still admits a "$": a login, a model alias, a
 # database role and name, a host path. The mandatory ones and the empty ones need no list -- see
@@ -163,9 +163,9 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_PostgreSQL_database",
     "Artificial_Intelligence_LiteLLM_config_file_destination_path",
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
-    "Artificial_Intelligence_Claude_code_tigerblue77_model",
-    "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory",
-    CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE,
+    "Artificial_Intelligence_Claude_code_model",
+    "Artificial_Intelligence_Claude_code_workspace_directory",
+    CLAUDE_CODE_GITHUB_TOKEN_VARIABLE,
 )
 
 # The places another open pull request is rewriting anyway, and that this check therefore lets carry
@@ -215,7 +215,7 @@ def load_defaults(failures, text=None, overrides=None):
     #1 replaced it with a plain "Environment()" rendering every default against the others until
     nothing moved, which was lenient where Ansible is strict and strict where Ansible is not (#184).
     Its Undefined renders an unknown name as an empty string: a misspelled directory left a build
-    context of "claude_code_tigerblue77/" and the check passed, while Ansible stops on that very
+    context of "claude_code/" and the check passed, while Ansible stops on that very
     line; the same slip in a configuration path came out as an undeclared volume. A default reaching
     itself passed too, ten passes deep and still carrying its "{{". And "ternary", "bool" or
     "lookup()", which Ansible resolves, raised out of the check as a traceback. So, here:
@@ -602,9 +602,9 @@ def check_agent_workspace(named, host, disabled, volumes, path, failures):
         ("agent workspace: default", named, f"{workspace_volume}:/workspace:rw", {workspace_volume, home_volume}),
         ("agent workspace: host path", host, f"{path}:/workspace:rw", {home_volume}),
     ):
-        agent = mapping(mapping(document, "services"), CLAUDE_CODE_TIGERBLUE77_SERVICE)
+        agent = mapping(mapping(document, "services"), CLAUDE_CODE_SERVICE)
         if not agent:
-            failures.append(f"[{state}] service {CLAUDE_CODE_TIGERBLUE77_SERVICE!r} is not rendered: its workspace cannot be judged")
+            failures.append(f"[{state}] service {CLAUDE_CODE_SERVICE!r} is not rendered: its workspace cannot be judged")
             continue
         mounts = [volume for volume in agent.get("volumes") or [] if ":/workspace" in str(volume)]
         if mounts != [mount]:
@@ -614,8 +614,8 @@ def check_agent_workspace(named, host, disabled, volumes, path, failures):
             failures.append(
                 f"[{state}] the agent's volumes declared are {sorted(present)}, expected {sorted(declared)}"
             )
-    if CLAUDE_CODE_TIGERBLUE77_SERVICE in mapping(disabled, "services"):
-        failures.append(f"[agent disabled] service {CLAUDE_CODE_TIGERBLUE77_SERVICE!r} is still rendered")
+    if CLAUDE_CODE_SERVICE in mapping(disabled, "services"):
+        failures.append(f"[agent disabled] service {CLAUDE_CODE_SERVICE!r} is still rendered")
     leftover = [volume for volume in volumes if volume in mapping(disabled, "volumes")]
     if leftover:
         failures.append(f"[agent disabled] its volumes {leftover} are still declared")
@@ -623,7 +623,7 @@ def check_agent_workspace(named, host, disabled, volumes, path, failures):
 
 def agent_environment(document):
     """The environment of the Claude Code agent's service, empty when it has none or the service is absent."""
-    return mapping(mapping(mapping(document, "services"), CLAUDE_CODE_TIGERBLUE77_SERVICE), "environment")
+    return mapping(mapping(mapping(document, "services"), CLAUDE_CODE_SERVICE), "environment")
 
 
 def check_token_arrives(document, state, expected, failures):
@@ -634,7 +634,7 @@ def check_token_arrives(document, state, expected, failures):
     alone for the "$" render, where a token the template had stopped writing would leave no line to judge.
     """
     environment = agent_environment(document)
-    for key in CLAUDE_CODE_TIGERBLUE77_TOKEN_ENVIRONMENT:
+    for key in CLAUDE_CODE_TOKEN_ENVIRONMENT:
         if key not in environment:
             failures.append(
                 f"[{state}] {key} is missing from the agent's environment, although a GitHub token was given"
@@ -653,10 +653,10 @@ def check_agent_token(without, with_token, token, failures):
     Both have to render the service at all, or the rest would judge nothing.
     """
     for state, document in (("token unset", without), ("token set", with_token)):
-        if CLAUDE_CODE_TIGERBLUE77_SERVICE not in mapping(document, "services"):
-            failures.append(f"[{state}] service {CLAUDE_CODE_TIGERBLUE77_SERVICE!r} is not rendered: its token cannot be judged")
+        if CLAUDE_CODE_SERVICE not in mapping(document, "services"):
+            failures.append(f"[{state}] service {CLAUDE_CODE_SERVICE!r} is not rendered: its token cannot be judged")
             return
-    written = [key for key in CLAUDE_CODE_TIGERBLUE77_TOKEN_ENVIRONMENT if key in agent_environment(without)]
+    written = [key for key in CLAUDE_CODE_TOKEN_ENVIRONMENT if key in agent_environment(without)]
     if written:
         failures.append(
             f"[token unset] the agent's environment carries {written} although no GitHub token was given -- "
@@ -664,7 +664,7 @@ def check_agent_token(without, with_token, token, failures):
         )
     check_token_arrives(with_token, "token set", token, failures)
     expected = copy.deepcopy(with_token)
-    for key in CLAUDE_CODE_TIGERBLUE77_TOKEN_ENVIRONMENT:
+    for key in CLAUDE_CODE_TOKEN_ENVIRONMENT:
         agent_environment(expected).pop(key, None)
     if expected != without:
         failures.append("giving the agent's GitHub token changed more than its two variables: it must change nothing else")
@@ -680,7 +680,7 @@ def check_agent_token_default(defaults, failures):
     out. Any other default is wrong the other way -- an empty string is refused by the role's own assert,
     and a string is a token committed to the repository. The message names the type, never the value.
     """
-    name = CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE
+    name = CLAUDE_CODE_GITHUB_TOKEN_VARIABLE
     if name not in defaults:
         failures.append(
             f"{name} has no default in defaults/main.yml: it is optional (#245), and a caller who leaves it out "
@@ -746,7 +746,7 @@ def dollar_variables(read, defaults, free_form):
     * and every variable `free_form` names, since a real default says nothing about grammar.
 
     A default of "false" is deliberately none of these: it is the role's "not set", but it is also
-    how a toggle is written, and giving "Artificial_Intelligence_Claude_code_tigerblue77_enabled" a
+    how a toggle is written, and giving "Artificial_Intelligence_Claude_code_enabled" a
     string would turn a switch into a password. A free-form value defaulting to "false" goes in the
     list by hand. It takes its arguments rather than reading the constants so that "--selftest" can
     hold it to each of those rules.
@@ -781,7 +781,7 @@ def dollar_context(defaults, failures, without_quotes=QUOTES_LEFT_TO_OTHER_PULL_
 
     The Claude Code agent is switched on, so that its block is rendered too.
     """
-    return {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **dollar_samples(defaults, failures, without_quotes)}
+    return {**defaults, **CLAUDE_CODE_ENABLED, **dollar_samples(defaults, failures, without_quotes)}
 
 
 def strings(node, path=""):
@@ -1227,7 +1227,7 @@ _AGENT_PATH = "/srv/x"
 
 def agent_shape(mounts, declared, rendered=True):
     """The agent as one render shows it: its mounts, and the volumes declared at the top."""
-    services = {CLAUDE_CODE_TIGERBLUE77_SERVICE: service(volumes=mounts)} if rendered else {}
+    services = {CLAUDE_CODE_SERVICE: service(volumes=mounts)} if rendered else {}
     return {"services": services, "volumes": {volume: None for volume in declared}}
 
 
@@ -1249,11 +1249,11 @@ AGENT_WORKSPACE_CASES = [
      _AGENT_NAMED, agent_shape([f"{_AGENT_PATH}:/workspace:rw", "home:/home/node:rw"], ["ws", "home"]), _AGENT_OFF,
      "[agent workspace: host path] the agent's volumes declared are"),
     ("the agent still rendered when disabled",
-     _AGENT_NAMED, _AGENT_HOST, _AGENT_NAMED, "[agent disabled] service 'claude_code_tigerblue77' is still rendered"),
+     _AGENT_NAMED, _AGENT_HOST, _AGENT_NAMED, "[agent disabled] service 'claude_code' is still rendered"),
     ("a volume still declared when disabled",
      _AGENT_NAMED, _AGENT_HOST, agent_shape([], ["home"], rendered=False), "[agent disabled] its volumes ['home']"),
     ("no agent in the default render",
-     _AGENT_OFF, _AGENT_HOST, _AGENT_OFF, "[agent workspace: default] service 'claude_code_tigerblue77' is not rendered"),
+     _AGENT_OFF, _AGENT_HOST, _AGENT_OFF, "[agent workspace: default] service 'claude_code' is not rendered"),
 ]
 
 # (name, document, places left to another pull request, expected substring or None)
@@ -1350,7 +1350,7 @@ TEMPLATE_LINE_CASES = [
 
 def agent(environment, **changes):
     """The Claude Code agent's service as rendered, with the environment given."""
-    return {"services": {CLAUDE_CODE_TIGERBLUE77_SERVICE: service(environment=environment, **changes)}}
+    return {"services": {CLAUDE_CODE_SERVICE: service(environment=environment, **changes)}}
 
 
 _AGENT_ENVIRONMENT = {"TZ": "Etc/UTC", "ANTHROPIC_BASE_URL": "http://litellm:4000"}
@@ -1388,23 +1388,23 @@ AGENT_TOKEN_CASES = [
      "changed more than its two variables"),
     ("the agent not rendered without a token",
      {"services": {}}, agent(_AGENT_ENVIRONMENT_WITH_TOKEN),
-     "[token unset] service 'claude_code_tigerblue77' is not rendered"),
+     "[token unset] service 'claude_code' is not rendered"),
     ("the agent not rendered with a token",
      agent(_AGENT_ENVIRONMENT), {"services": {}},
-     "[token set] service 'claude_code_tigerblue77' is not rendered"),
+     "[token set] service 'claude_code' is not rendered"),
 ]
 
 # (name, the parsed defaults, expected substring or None). Only the verdict on the token's own default:
 # the others are not this check's business.
 AGENT_TOKEN_DEFAULT_CASES = [
-    ("a default of false", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: False}, None),
+    ("a default of false", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: False}, None),
     ("no default at all", {}, "has no default"),
-    ("an empty string", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: ""}, "of type str"),
-    ("a token committed as the default", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: "ghp_selftest"},
+    ("an empty string", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: ""}, "of type str"),
+    ("a token committed as the default", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: "ghp_selftest"},
      "of type str"),
-    ("a null default", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: None}, "of type NoneType"),
-    ("a default of true", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: True}, "of type bool"),
-    ("a default of 0, which is not false", {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE: 0}, "of type int"),
+    ("a null default", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: None}, "of type NoneType"),
+    ("a default of true", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: True}, "of type bool"),
+    ("a default of 0, which is not false", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: 0}, "of type int"),
 ]
 
 # (name, document, the value both variables must hold, expected substring or None). The value is the
@@ -1618,17 +1618,17 @@ def main():
     for state, extra in (
         ("published network unset", {}),
         ("published network set", PUBLISHED_NETWORK),
-        (CLAUDE_CODE_TIGERBLUE77_STATE, CLAUDE_CODE_TIGERBLUE77_ENABLED),
+        (CLAUDE_CODE_STATE, CLAUDE_CODE_ENABLED),
         (
-            CLAUDE_CODE_TIGERBLUE77_TOKEN_STATE,
-            dict(CLAUDE_CODE_TIGERBLUE77_ENABLED, **CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN),
+            CLAUDE_CODE_TOKEN_STATE,
+            dict(CLAUDE_CODE_ENABLED, **CLAUDE_CODE_GITHUB_TOKEN),
         ),
-        ("Claude Code agent (tigerblue77) with a host workspace", CLAUDE_CODE_TIGERBLUE77_HOST_WORKSPACE),
-        ("Claude Code agent (tigerblue77) disabled", CLAUDE_CODE_TIGERBLUE77_DISABLED),
+        ("Claude Code agent with a host workspace", CLAUDE_CODE_HOST_WORKSPACE),
+        ("Claude Code agent disabled", CLAUDE_CODE_DISABLED),
         ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
     ):
         # The agent is on by default and its virtual key has no default: every state is given it.
-        extra = {**CLAUDE_CODE_TIGERBLUE77_ENABLED, **extra}
+        extra = {**CLAUDE_CODE_ENABLED, **extra}
         context = dict(load_defaults(failures, overrides=extra), **extra)
         try:
             rendered = render(context)
@@ -1648,11 +1648,11 @@ def main():
         )
 
     check_agent_token_default(defaults, failures)
-    if CLAUDE_CODE_TIGERBLUE77_STATE in documents and CLAUDE_CODE_TIGERBLUE77_TOKEN_STATE in documents:
+    if CLAUDE_CODE_STATE in documents and CLAUDE_CODE_TOKEN_STATE in documents:
         check_agent_token(
-            documents[CLAUDE_CODE_TIGERBLUE77_STATE],
-            documents[CLAUDE_CODE_TIGERBLUE77_TOKEN_STATE],
-            CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN[CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE],
+            documents[CLAUDE_CODE_STATE],
+            documents[CLAUDE_CODE_TOKEN_STATE],
+            CLAUDE_CODE_GITHUB_TOKEN[CLAUDE_CODE_GITHUB_TOKEN_VARIABLE],
             failures,
         )
     elif not failures:
@@ -1666,14 +1666,14 @@ def main():
     if not limit_names:
         failures.append("defaults/main.yml declares no '*_memory_limit' variable: the limits state has nothing to set")
     limits_on = {name: MEMORY_LIMIT_SAMPLE for name in limit_names}
-    limits_context = {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **limits_on}
+    limits_context = {**defaults, **CLAUDE_CODE_ENABLED, **limits_on}
     try:
         limits_document = yaml.safe_load(render(limits_context))
     except Exception as error:  # noqa: BLE001 - the message is the whole point
         failures.append(f"[{LIMITS_SET_STATE}] the template does not render or parse: {error}")
     else:
         check_conventions(limits_document, LIMITS_SET_STATE, failures, limits_set=True)
-        reference = documents.get("Claude Code agent (tigerblue77) enabled")
+        reference = documents.get("Claude Code agent enabled")
         if reference is not None:
             if set(limits_document.get("services") or {}) != set(reference.get("services") or {}):
                 failures.append(f"[{LIMITS_SET_STATE}] the services differ from the unlimited state's")
@@ -1682,18 +1682,18 @@ def main():
                 if (reference.get("services") or {}).get(name) != stripped:
                     failures.append(f"[{LIMITS_SET_STATE}] service {name!r} differs from the unlimited one by more than its limit")
 
-    host_state = "Claude Code agent (tigerblue77) with a host workspace"
-    off_state = "Claude Code agent (tigerblue77) disabled"
+    host_state = "Claude Code agent with a host workspace"
+    off_state = "Claude Code agent disabled"
     if {"published network unset", host_state, off_state} <= set(documents):
         check_agent_workspace(
             documents["published network unset"],
             documents[host_state],
             documents[off_state],
             (
-                defaults["Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name"],
-                defaults["Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name"],
+                defaults["Artificial_Intelligence_Claude_code_workspace_Docker_volume_name"],
+                defaults["Artificial_Intelligence_Claude_code_home_Docker_volume_name"],
             ),
-            CLAUDE_CODE_TIGERBLUE77_HOST_WORKSPACE_PATH,
+            CLAUDE_CODE_HOST_WORKSPACE_PATH,
             failures,
         )
 
@@ -1703,7 +1703,7 @@ def main():
     dollar_state = "caller values carrying '$', quotes and backslashes"
     samples = dollar_samples(defaults, failures)
     try:
-        dollar_values = {**defaults, **CLAUDE_CODE_TIGERBLUE77_ENABLED, **samples}
+        dollar_values = {**defaults, **CLAUDE_CODE_ENABLED, **samples}
         dollar_document = yaml.safe_load(render(dollar_values))
     except yaml.YAMLError as error:
         failures.append(
@@ -1717,12 +1717,12 @@ def main():
         check_intact(dollar_document, dollar_state, failures, samples, DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS)
         # The token is optional, so its two lines are the ones that vanish without a word if the
         # template stops writing them: "check_dollars" has nothing to say about a line that is not there.
-        token = dollar_values.get(CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE)
+        token = dollar_values.get(CLAUDE_CODE_GITHUB_TOKEN_VARIABLE)
         if isinstance(token, str):
             check_token_arrives(dollar_document, dollar_state, token.replace("$", "$$"), failures)
         else:
             failures.append(
-                f"[{dollar_state}] {CLAUDE_CODE_TIGERBLUE77_GITHUB_TOKEN_VARIABLE} was not given a '$' value, so the "
+                f"[{dollar_state}] {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE} was not given a '$' value, so the "
                 "agent's token lines were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
             )
     check_quote_exemptions(defaults, failures)

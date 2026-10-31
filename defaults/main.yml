@@ -238,9 +238,8 @@ Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # NOT one of these: that login already has full admin access via LiteLLM's own bootstrap mechanism,
 # and giving it a second, restricted entry here would not add anything.
 #
-# Each entry's key is scoped to "access_group:<username>" (#2) at creation, the same access-group
-# mechanism "LiteLLM_config.yaml.j2" already tags tigerblue77's own models with -- so an account
-# added here only ever sees models tagged for its own name. That key is shown ONCE, in this role's
+# Each entry's key is scoped to "access_group:<username>" (#2) at creation, so an account added
+# here only ever sees models tagged for its own name. That key is shown ONCE, in this role's
 # own output, the run it is actually created: LiteLLM does not store it in a form the API can return
 # a second time, the same way a GitHub token or a Docker registry password is shown once and never
 # again. Save it somewhere durable then -- LibreChat's own "apiKey: \"user_provided\"" prompt is
@@ -259,32 +258,32 @@ Artificial_Intelligence_Redis_memory_limit: false
 # Artificial_Intelligence_Redis_password:
 
 # --------------------------------------------------------------------------------------------------
-# LiteLLM routing -- tigerblue77's own provider keys (#2, v1 scope)
+# LiteLLM routing -- the provider keys of the gateway's one account (#2, v1 scope)
 # --------------------------------------------------------------------------------------------------
 
-# tigerblue77's own provider keys, MANDATORY and without a default like every other secret this role
-# interpolates. Each is exposed to the "litellm" container under a "<PROVIDER>_API_KEY_TIGERBLUE77"
-# name -- not a style choice: "check_LiteLLM_account_isolation.py" (#32) uses exactly that
-# "_API_KEY_<ACCOUNT>" suffix to decide which account an entry of "LiteLLM_config.yaml.j2" belongs to,
-# and an entry it cannot attribute is refused, not silently let through.
+# The provider keys of the gateway's one account, MANDATORY and without a default like every other
+# secret this role interpolates. Each is exposed to the "litellm" container as "<PROVIDER>_API_KEY",
+# not a style choice: "check_LiteLLM_account_isolation.py" (#32) reads that unsuffixed name as the
+# default account and "<PROVIDER>_API_KEY_<LABEL>" as another one, whose label the caller picks, and
+# an entry it cannot attribute is refused, not silently let through.
 #
-# Dragnix's own keys are deliberately absent here: he adds them himself from "/ui" (see
-# "Artificial_Intelligence_LiteLLM_UI_password" above), so there is nothing for this role to vault on his behalf.
-# Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77:
-# Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77:
-# Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77:
-# Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77:
+# Any other account's keys are deliberately absent here: each account adds its own from "/ui" (see
+# "Artificial_Intelligence_LiteLLM_UI_password" above), so there is nothing for this role to vault for it.
+# Artificial_Intelligence_LiteLLM_Gemini_API_key:
+# Artificial_Intelligence_LiteLLM_Mistral_API_key:
+# Artificial_Intelligence_LiteLLM_Groq_API_key:
+# Artificial_Intelligence_LiteLLM_OpenRouter_API_key:
 # The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
 # every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) used to be
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
-# Artificial_Intelligence_LiteLLM_DeepSeek_API_key_tigerblue77:
+# Artificial_Intelligence_LiteLLM_DeepSeek_API_key:
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. Defaulted to empty rather
 # than left without one like the keys above -- it is no longer a secret guarding a real quota, just an
 # unused container environment variable, and "tasks/main.yml" no longer asserts it is provided.
-Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: ""
+Artificial_Intelligence_LiteLLM_GitHub_API_key: ""
 
 # Cerebras has had no permanent free tier since mid-2026 (#200): access needs a verified payment
 # method, then a 30-day $5 trial, then pay-as-you-go ("inference-docs.cerebras.ai/support/rate-limits",
@@ -292,7 +291,7 @@ Artificial_Intelligence_LiteLLM_GitHub_API_key_tigerblue77: ""
 # that reason, so nothing consumes this key any more: optional, defaulted to empty, and no longer
 # asserted, the same treatment as the GitHub key just above. Give it a value again only together with
 # uncommenting those entries, if Cerebras is ever kept as a paid last resort the way DeepSeek is.
-Artificial_Intelligence_LiteLLM_Cerebras_API_key_tigerblue77: ""
+Artificial_Intelligence_LiteLLM_Cerebras_API_key: ""
 
 # --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)
@@ -331,14 +330,14 @@ Artificial_Intelligence_Qdrant_memory_limit: false
 # Artificial_Intelligence_Qdrant_API_key:
 
 # --------------------------------------------------------------------------------------------------
-# Claude Code agent -- tigerblue77 (#13)
+# Claude Code agent (#13)
 # --------------------------------------------------------------------------------------------------
 
 # On by default, like every other service of the stack: deploying the stack starts it. The toggle
 # stays so that a caller who does not want this agent -- it is one person's coding agent, and a
 # third party's deployment may have no use for it -- can switch it off with "false"; off, its service
 # and its volumes leave the rendered file, and so do the tasks that register its key in LiteLLM.
-Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
+Artificial_Intelligence_Claude_code_enabled: true
 
 # MANDATORY while the service above is enabled, and without a default -- same reasoning as every other
 # secret this role interpolates. The VALUE is the caller's, vaulted like the others, and it is the
@@ -348,7 +347,7 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
 # characters, which "tasks/main.yml" checks first, and a fresh value is "sk-$(openssl rand -hex 24)".
 # The allow-list that key carries -- the model alias below and nothing else -- is what stands between
 # this container and every other account's quota. NEVER the master key, which the role refuses.
-# Artificial_Intelligence_Claude_code_tigerblue77_virtual_key:
+# Artificial_Intelligence_Claude_code_virtual_key:
 
 # OPTIONAL (#245). A personal access token, set as "GH_TOKEN" and "GITHUB_TOKEN" in the container only
 # when it is given. Claude Code reads both itself, with no "gh" involved, to call the GitHub API: its PR
@@ -363,7 +362,7 @@ Artificial_Intelligence_Claude_code_tigerblue77_enabled: true
 # "false" rather than "''", like the published network at the top of this file: the template writes
 # "is string" to mean "set". A value that is given must be a non-empty string, and "tasks/main.yml"
 # refuses an empty or non-string one rather than leave it out of the container without a word.
-Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: false
+Artificial_Intelligence_Claude_code_GitHub_token: false
 
 # Where the agent works, mounted on "/workspace". "false", the role's idiom for "not set", means the
 # named volume below: nothing exists before the first run that this role would have to be told, so the
@@ -372,25 +371,25 @@ Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: false
 # host. This role does not create that directory: it must exist, and be writable by the image's
 # "node" user, on the node that runs the container. The named volume needs neither, since Docker
 # initialises an empty one from what the image holds at that path, owned by "node".
-Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory: false
+Artificial_Intelligence_Claude_code_workspace_directory: false
 
 # The named volume "/workspace" is when the variable above is not set. Named after the home volume
 # below, and kept apart from it: the home holds the session, the workspace holds the work.
-Artificial_Intelligence_Claude_code_tigerblue77_workspace_Docker_volume_name: "Artificial_Intelligence_Claude_code_tigerblue77_workspace"
+Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Artificial_Intelligence_Claude_code_workspace"
 
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
 # subscription may ever sit behind it.
-Artificial_Intelligence_Claude_code_tigerblue77_model: "claude-code"
+Artificial_Intelligence_Claude_code_model: "claude-code"
 
 # Unlimited by default (for example "2g").
-Artificial_Intelligence_Claude_code_tigerblue77_memory_limit: false
+Artificial_Intelligence_Claude_code_memory_limit: false
 
 # The named volume the WHOLE home directory lives in -- not only "~/.claude". "~/.claude.json" sits
 # BESIDE "~/.claude", never inside it: a volume on "~/.claude" alone persists half the session and
 # silently loses the other half on every recreation. See the upstream image's own README on this
 # trap, and #13's Definition of Done, which checks for it explicitly.
-Artificial_Intelligence_Claude_code_tigerblue77_home_Docker_volume_name: "Artificial_Intelligence_Claude_code_tigerblue77_home"
+Artificial_Intelligence_Claude_code_home_Docker_volume_name: "Artificial_Intelligence_Claude_code_home"
 
 # --------------------------------------------------------------------------------------------------
 # LibreChat -- the Artificial Intelligence stack's human-facing chat interface (#76)
@@ -451,26 +450,3 @@ Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~
 #     password:
 #     admin: true
 Artificial_Intelligence_LibreChat_users: []
-
-# The four variables this role read before the list above existed, still honoured when the list is
-# empty and all four are set: they become one account with "admin: true". Deprecated; kept so that a
-# caller written against them keeps working.
-# Artificial_Intelligence_LibreChat_Dragnix_email:
-# Artificial_Intelligence_LibreChat_Dragnix_name:
-# Artificial_Intelligence_LibreChat_Dragnix_username:
-# Artificial_Intelligence_LibreChat_Dragnix_password:
-
-# NOT a setting: the accounts the role acts on, being the list above or else the legacy account.
-Artificial_Intelligence_LibreChat_accounts: >-
-  {{ Artificial_Intelligence_LibreChat_users
-  if (Artificial_Intelligence_LibreChat_users | length > 0)
-  else ([{'email': Artificial_Intelligence_LibreChat_Dragnix_email,
-  'name': Artificial_Intelligence_LibreChat_Dragnix_name,
-  'username': Artificial_Intelligence_LibreChat_Dragnix_username,
-  'password': Artificial_Intelligence_LibreChat_Dragnix_password,
-  'admin': true}]
-  if (Artificial_Intelligence_LibreChat_Dragnix_email is defined
-  and Artificial_Intelligence_LibreChat_Dragnix_name is defined
-  and Artificial_Intelligence_LibreChat_Dragnix_username is defined
-  and Artificial_Intelligence_LibreChat_Dragnix_password is defined)
-  else []) }}

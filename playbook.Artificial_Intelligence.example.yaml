@@ -77,22 +77,23 @@
         Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
 
-        # tigerblue77's own provider keys (#2, v1 scope). Any OTHER account's own are deliberately
-        # absent: each one added below adds theirs themselves, from their own restricted "/ui" login.
+        # The provider keys of the gateway's one account (#2, v1 scope). Any OTHER account's own are
+        # deliberately absent: each one added below adds theirs themselves, from their own restricted
+        # "/ui" login.
         # No GitHub key here: GitHub Models is retired (#109), and the role no longer asks for one. No
         # Cerebras key either: Cerebras has no free tier any more, its entries are commented out (#200).
-        Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key_tigerblue77 }}"
-        Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key_tigerblue77 }}"
-        Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key_tigerblue77 }}"
-        Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key_tigerblue77 }}"
+        Artificial_Intelligence_LiteLLM_Gemini_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key }}"
+        Artificial_Intelligence_LiteLLM_Mistral_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key }}"
+        Artificial_Intelligence_LiteLLM_Groq_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key }}"
+        Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login, scoped to "access_group:<username>". Adding a
         # third person is adding a third entry here, never a new pair of variables named after them.
         # See the role's README, "Un compte par personne, pas une paire figée".
         Artificial_Intelligence_LiteLLM_internal_users:
-          - username: "Dragnix"
-            email: "{{ vault_Artificial_Intelligence_LiteLLM_Dragnix_email }}"
+          - username: "alice"
+            email: "{{ vault_Artificial_Intelligence_LiteLLM_alice_email }}"
 
         # MANDATORY since #71, and without a default: "--requirepass" would otherwise be empty.
         Artificial_Intelligence_Redis_password: "{{ vault_Artificial_Intelligence_Redis_password }}"
@@ -129,7 +130,7 @@
         # MANDATORY, without a default. The key is a value YOU pick -- it starts with "sk-", holds at
         # least 16 characters and differs from the master key -- and the role registers it in LiteLLM
         # itself, with the agent's model as its only allow-list.
-        Artificial_Intelligence_Claude_code_tigerblue77_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
+        Artificial_Intelligence_Claude_code_virtual_key: "{{ vault_Artificial_Intelligence_Claude_code_virtual_key }}"
         #
         # The GitHub token is OPTIONAL (#245): left out, the container gets no "GH_TOKEN" and no
         # "GITHUB_TOKEN". Claude Code reads them itself to call the GitHub API, for its PR status
@@ -140,10 +141,10 @@
         # A caller that does not want the agent switches it off. Left here commented, the way the
         # published network above is, rather than omitted.
         #
-        # Artificial_Intelligence_Claude_code_tigerblue77_enabled: false
+        # Artificial_Intelligence_Claude_code_enabled: false
         #
         # Its working directory is a named Docker volume unless you give an absolute path of the
         # node, which must exist there and be writable by the image's "node" user.
         #
-        # Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory: "/srv/Artificial_Intelligence/workspace/tigerblue77"
-        # Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_tigerblue77_GitHub_token }}"
+        # Artificial_Intelligence_Claude_code_workspace_directory: "/srv/Artificial_Intelligence/workspace/claude_code"
+        # Artificial_Intelligence_Claude_code_GitHub_token: "{{ vault_Artificial_Intelligence_Claude_code_GitHub_token }}"

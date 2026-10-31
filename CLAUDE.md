@@ -287,6 +287,22 @@ name, `Artificial_Intelligence_`, which is what the caller has in mind. `var-nam
 and the pattern is widened rather than disabled, so a space, a dash or a leading digit in a name is
 still an error.
 
+**Nothing the role exposes names a person, or an organisation of the maintainer's.** A variable, an
+environment variable of a container, a service, a label, a volume, a Docker config or secret, a task
+name, a comment of a rendered file: the role is used by third parties, and a `..._<name>_...`
+identifier makes each of them write somebody else's name into their inventory, then breaks the day a
+second account needs the same variable (#286). Name what the thing is: the Claude Code agent's
+variables are `Artificial_Intelligence_Claude_code_*`, the gateway account's provider keys
+`Artificial_Intelligence_LiteLLM_<Provider>_API_key`. Two accounts of one gateway are told apart by a
+label the caller picks (`<PROVIDER>_API_KEY` is the default account, `<PROVIDER>_API_KEY_<LABEL>` any
+other), never by a person. `check_no_inventory_data.py` is this rule too: it refuses the names of its
+`PERSON_NAMES` in the interface files (`defaults/`, `tasks/`, `templates/`, `vars/`, `handlers/`,
+`files/`, `meta/`, the example playbook and the README's table rows), and its `PERSON_ALLOWED` holds the
+few exceptions, each with its reason: the copyright line, the namespace the published image lives under
+and the galaxy `author`. Signatures, `NOTICE`, the licence files, `CONTRIBUTING.md`, `.claude/` and the
+README's prose are out of scope, since a caller neither reads nor writes them. A new maintainer's handle
+is added to `PERSON_NAMES` in the commit that adds them.
+
 **No inventory data, anywhere.** No IP address, no hostname, no domain, in the code or in an issue.
 They belong to the caller's inventory: a role that carries them stops being reusable, and publishes
 the homelab on the way. `check_no_inventory_data.py` is this rule, and it has a `--selftest` that checks the check itself.

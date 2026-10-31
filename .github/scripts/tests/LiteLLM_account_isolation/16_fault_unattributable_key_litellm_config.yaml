@@ -6,11 +6,11 @@
 # entry is exactly an entry on which none of the rules protects anything.
 # Here, a key outside the naming convention and an entry with no "api_key" at all.
 model_list:
-  - model_name: gen-chat-dragnix
+  - model_name: gen-chat-team-a
     litellm_params:
       model: provider/identifier
       api_key: os.environ/A_KEY_WITHOUT_CONVENTION
 
-  - model_name: gen-chat-tigerblue77
+  - model_name: gen-chat-team-b
     litellm_params:
       model: provider/identifier

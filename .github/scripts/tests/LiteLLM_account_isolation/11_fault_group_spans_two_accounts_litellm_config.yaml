@@ -9,9 +9,9 @@ model_list:
   - model_name: gen-chat
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_DRAGNIX
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
 
   - model_name: gen-chat
     litellm_params:
       model: provider/identifier
-      api_key: os.environ/GEMINI_API_KEY_TIGERBLUE77
+      api_key: os.environ/GEMINI_API_KEY_TEAM_B

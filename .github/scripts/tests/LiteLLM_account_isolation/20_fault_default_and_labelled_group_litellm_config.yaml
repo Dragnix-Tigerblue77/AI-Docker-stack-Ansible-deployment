@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: groups deployments
+---
+# The invisible vector again, with the default account on one side: the unsuffixed key and a
+# suffixed one under a single model_name. The default account is an account like any other, and the
+# Router would have the two relay each other's 429s.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
