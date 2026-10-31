@@ -126,19 +126,15 @@
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is defined
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key is string
       - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | length > 0
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is defined
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is string
-      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | length > 0
     quiet: true
     fail_msg: >-
-      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key" and
-      "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory" are mandatory once
-      "Artificial_Intelligence_Claude_code_tigerblue77_enabled" is true, and neither has a default: the first
-      is a secret, the second is a host path, and this role presupposes neither. See #13.
+      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key" is mandatory while
+      "Artificial_Intelligence_Claude_code_tigerblue77_enabled" is true, and has no default: it is a
+      secret, and this role presupposes none. See #13.
   when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
 
-# The one optional parameter of the agent (#245), checked on its own so that it does not share a message
-# with the mandatory two. "false", its default, means "not set" ("sameas" is an identity test: 0 and ""
+# The one optional secret of the agent (#245), checked on its own so that it does not share a message
+# with the mandatory key. "false", its default, means "not set" ("sameas" is an identity test: 0 and ""
 # are not mistaken for it). Anything else must be a non-empty string, so that a value that is given and
 # unusable is refused rather than quietly left out of the container.
 - name: "Check the Claude Code agent (tigerblue77) GitHub token, when provided, is a non-empty string"
@@ -154,6 +150,42 @@
       non-empty string: an empty or non-string value is refused rather than ignored. Leave it unset to give the
       agent no GitHub token, or pass the token itself.
   when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+
+# Not any string: the role hands this exact value to LiteLLM as a custom key, which LiteLLM refuses
+# unless it starts with "sk-" and holds at least 16 characters (read in its source, "key_management_
+# endpoints.py"), and the failure would otherwise surface from a task whose output is hidden. The last
+# line compares against the master key, whose own check is above: that key is for administration only.
+- name: "Check the Claude Code agent (tigerblue77) virtual key is one LiteLLM accepts"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key.startswith('sk-')
+      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | length >= 16
+      - Artificial_Intelligence_Claude_code_tigerblue77_virtual_key != Artificial_Intelligence_LiteLLM_master_key
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_Claude_code_tigerblue77_virtual_key" must start with "sk-", hold at least
+      16 characters, and differ from "Artificial_Intelligence_LiteLLM_master_key": this role registers
+      that very value in LiteLLM as the agent's key, LiteLLM refuses any other shape, and the master key
+      is never handed to a consumer (#2). A fresh value is "sk-" followed by "openssl rand -hex 24".
+  when: Artificial_Intelligence_Claude_code_tigerblue77_enabled
+
+# Only for the host-path case: by default the workspace is a named volume and there is nothing to
+# check. "false" is "not set" (invariant 2), so a string is what asks for a bind mount, and an empty
+# one or a relative one is refused here instead of reaching the orchestrator as a mount it reads
+# otherwise (a relative source is a volume name, not a path).
+- name: "Check the Claude Code agent (tigerblue77) host workspace directory is an absolute path"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory | length > 0
+      - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory.startswith('/')
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory" is optional: leave it unset
+      (false) for the agent's workspace to be a named Docker volume, or give the absolute path of a
+      directory of the node that runs the container.
+  when:
+    - Artificial_Intelligence_Claude_code_tigerblue77_enabled
+    - Artificial_Intelligence_Claude_code_tigerblue77_workspace_directory is string
 
 - name: "Check the OmniRoute dashboard password is provided"
   ansible.builtin.assert:
@@ -329,7 +361,7 @@
 # not confirm exists is not a user it should silently skip.
 - name: "Create each additional LiteLLM internal user"
   ansible.builtin.uri:
-    url: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}/user/new"
+    url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
     method: POST
     headers:
       Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
@@ -366,7 +398,7 @@
 # "/key/generate" alone would have done.
 - name: "Generate each newly created internal user's scoped virtual key"
   ansible.builtin.uri:
-    url: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}/key/generate"
+    url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
     method: POST
     headers:
       Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
@@ -399,6 +431,71 @@
   loop_control:
     label: "{{ item.item.item.username }}"
   when: item is not skipped
+
+# The Claude Code agent's virtual key (#13), registered by the role under the VALUE the caller
+# vaulted, so that the agent needs nothing by hand and no second run: the key cannot exist before
+# LiteLLM does, and this is the first moment it can be created. The container may start a few seconds
+# before it does; it only calls the gateway when someone uses it, and its restart policy ("any")
+# covers the case where it exits meanwhile.
+#
+# The master key authenticates the calls and is never what the agent holds. The allow-list is the
+# model alias the agent asks for and nothing else, which is what keeps it away from every other
+# account's quota.
+#
+# Idempotent by LOOKING FIRST rather than by trusting "/key/generate" on a repeat: "/key/info" answers
+# 404 for a key it has never seen and 200 for one it has, and it takes the key's SHA-256 (what LiteLLM
+# stores) so that the secret stays out of the URL. A key LiteLLM reports as "deleted" is registered
+# again. The role creates the key and does not reconcile one that exists: an existing key keeps the
+# models it was created with. Rotating it means deleting the old key from "/ui" first -- its alias is
+# unique, so "/key/generate" would refuse the new one while the old stays -- and then deploying.
+#
+# Skipped in "--check": the stack is only rendered then, and there is no LiteLLM to ask.
+#
+# "no_log" everywhere the key or the master key could be printed, so a failure there is silent about
+# its cause: the readiness probe, which carries no secret, is the task that names an unreachable
+# gateway.
+- name: "Register the Claude Code agent's LiteLLM virtual key"
+  when:
+    - Artificial_Intelligence_Claude_code_tigerblue77_enabled
+    - not ansible_check_mode
+  block:
+    - name: "Wait for LiteLLM to answer"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness"
+        status_code: [200]
+      register: Artificial_Intelligence_LiteLLM_readiness
+      until: Artificial_Intelligence_LiteLLM_readiness.status is defined and Artificial_Intelligence_LiteLLM_readiness.status == 200
+      retries: 30
+      delay: 5
+      changed_when: false
+
+    - name: "Look up the Claude Code agent's LiteLLM virtual key"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/info?key={{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key | hash('sha256') }}"
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        status_code: [200, 404]
+      register: Artificial_Intelligence_Claude_code_tigerblue77_key_lookup
+      no_log: true
+      changed_when: false
+
+    - name: "Register the Claude Code agent's LiteLLM virtual key where it is missing"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        body_format: json
+        body:
+          key: "{{ Artificial_Intelligence_Claude_code_tigerblue77_virtual_key }}"
+          key_alias: "claude_code_tigerblue77"
+          models: ["{{ Artificial_Intelligence_Claude_code_tigerblue77_model }}"]
+        status_code: [200]
+      no_log: true
+      changed_when: true
+      when: >-
+        Artificial_Intelligence_Claude_code_tigerblue77_key_lookup.status == 404
+        or Artificial_Intelligence_Claude_code_tigerblue77_key_lookup.json.info.status | default('') == 'deleted'
 
 # The LibreChat accounts (#76), created BY THE ROLE once the stack it belongs to is actually
 # running -- everything below needs a live "librechat" container, which is why it comes after the
