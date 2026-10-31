@@ -24,6 +24,11 @@ leave the "$" render below with nothing to judge on those two lines -- so that r
 producing them too. The default itself is held to being exactly "false": deleted, it would show in no
 render here, whose Undefined is lenient, where Ansible raises on it.
 
+The agent's key allows its model alias and nothing else (#287), and Claude Code sends background and
+subagent requests under the names its other model variables hold, so every one of them has to carry that
+alias: one left at another value, or dropped, is a request the gateway refuses, with nothing failing here.
+"check_agent_models" holds each agent render to it, the render with a "$" in the alias included.
+
 Every check below is vacuous today, because "services:" is an empty mapping. That is deliberate:
 they are wired now so they bite on the first service block rather than being written after the
 convention has already been broken.
@@ -145,6 +150,17 @@ CLAUDE_CODE_GITHUB_TOKEN_VARIABLE = "Artificial_Intelligence_Claude_code_GitHub_
 CLAUDE_CODE_GITHUB_TOKEN = {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: "ghp_selftest"}
 CLAUDE_CODE_SERVICE = "claude_code"
 CLAUDE_CODE_TOKEN_ENVIRONMENT = ("GH_TOKEN", "GITHUB_TOKEN")
+# The variables Claude Code takes a model name from (#287), all of which must hold the agent's alias:
+# the main model, the Haiku-class one that background requests use, the Sonnet and Opus aliases, and
+# the subagents'. ANTHROPIC_SMALL_FAST_MODEL is deprecated for ANTHROPIC_DEFAULT_HAIKU_MODEL and is not set.
+CLAUDE_CODE_MODEL_VARIABLE = "Artificial_Intelligence_Claude_code_model"
+CLAUDE_CODE_MODEL_ENVIRONMENT = (
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+)
 # The two rendered states the token is judged between, named once: a label written twice is one that can
 # drift apart, and "main" would then skip the comparison without a word.
 CLAUDE_CODE_STATE = "Claude Code agent enabled"
@@ -163,7 +179,7 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_PostgreSQL_database",
     "Artificial_Intelligence_LiteLLM_config_file_destination_path",
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
-    "Artificial_Intelligence_Claude_code_model",
+    CLAUDE_CODE_MODEL_VARIABLE,
     "Artificial_Intelligence_Claude_code_workspace_directory",
     CLAUDE_CODE_GITHUB_TOKEN_VARIABLE,
 )
@@ -624,6 +640,28 @@ def check_agent_workspace(named, host, disabled, volumes, path, failures):
 def agent_environment(document):
     """The environment of the Claude Code agent's service, empty when it has none or the service is absent."""
     return mapping(mapping(mapping(document, "services"), CLAUDE_CODE_SERVICE), "environment")
+
+
+def check_agent_models(document, state, expected, failures):
+    """Hold every model variable of the agent's environment to carrying the agent's alias, as `expected`.
+
+    `expected` is what the parsed document holds, so a "$" is doubled in it, as for the token. The agent
+    must be rendered at all, or nothing would be judged and the check would pass on an empty environment.
+    """
+    if CLAUDE_CODE_SERVICE not in mapping(document, "services"):
+        failures.append(f"[{state}] service {CLAUDE_CODE_SERVICE!r} is not rendered: its model variables cannot be judged")
+        return
+    environment = agent_environment(document)
+    for key in CLAUDE_CODE_MODEL_ENVIRONMENT:
+        if key not in environment:
+            failures.append(
+                f"[{state}] {key} is missing from the agent's environment: Claude Code would send requests "
+                "under a model name the agent's key does not allow (#287)"
+            )
+        elif environment[key] != expected:
+            failures.append(
+                f"[{state}] {key} is {environment[key]!r} in the agent's environment, expected the alias {expected!r} (#287)"
+            )
 
 
 def check_token_arrives(document, state, expected, failures):
@@ -1422,6 +1460,40 @@ TOKEN_ARRIVES_CASES = [
 ]
 
 
+def _agent_models(**changes):
+    """The agent with every model variable on the alias, then `changes` applied; a None value removes one."""
+    models = {**_AGENT_MODELS, **changes}
+    return agent(dict(_AGENT_ENVIRONMENT, **{key: value for key, value in models.items() if value is not None}))
+
+
+# (name, document, the alias, expected substring or None).
+_AGENT_ALIAS = "claude-code"
+_AGENT_MODELS = {key: _AGENT_ALIAS for key in CLAUDE_CODE_MODEL_ENVIRONMENT}
+AGENT_MODEL_CASES = [
+    ("every model variable carries the alias", _agent_models(), _AGENT_ALIAS, None),
+    ("the Haiku variable left at another model", _agent_models(ANTHROPIC_DEFAULT_HAIKU_MODEL="flash-lite"),
+     _AGENT_ALIAS, "ANTHROPIC_DEFAULT_HAIKU_MODEL is 'flash-lite'"),
+    ("the Sonnet variable left at another model", _agent_models(ANTHROPIC_DEFAULT_SONNET_MODEL="sonnet"),
+     _AGENT_ALIAS, "ANTHROPIC_DEFAULT_SONNET_MODEL is 'sonnet'"),
+    ("the Opus variable left at another model", _agent_models(ANTHROPIC_DEFAULT_OPUS_MODEL="pro"),
+     _AGENT_ALIAS, "ANTHROPIC_DEFAULT_OPUS_MODEL is 'pro'"),
+    ("the subagent variable left at another model", _agent_models(CLAUDE_CODE_SUBAGENT_MODEL="haiku"),
+     _AGENT_ALIAS, "CLAUDE_CODE_SUBAGENT_MODEL is 'haiku'"),
+    ("the main model left at another model", _agent_models(ANTHROPIC_MODEL="claude-opus"),
+     _AGENT_ALIAS, "ANTHROPIC_MODEL is 'claude-opus'"),
+    ("the Haiku variable removed", _agent_models(ANTHROPIC_DEFAULT_HAIKU_MODEL=None),
+     _AGENT_ALIAS, "ANTHROPIC_DEFAULT_HAIKU_MODEL is missing"),
+    ("the subagent variable removed", _agent_models(CLAUDE_CODE_SUBAGENT_MODEL=None),
+     _AGENT_ALIAS, "CLAUDE_CODE_SUBAGENT_MODEL is missing"),
+    ("no model variable at all", agent(_AGENT_ENVIRONMENT), _AGENT_ALIAS, "ANTHROPIC_MODEL is missing"),
+    ("a '$' arrived single in one variable",
+     agent({**_AGENT_ENVIRONMENT, **dict.fromkeys(CLAUDE_CODE_MODEL_ENVIRONMENT, "a$$b"),
+            "CLAUDE_CODE_SUBAGENT_MODEL": "a$b"}),
+     "a$$b", "CLAUDE_CODE_SUBAGENT_MODEL is 'a$b'"),
+    ("the agent not rendered", {"services": {}}, _AGENT_ALIAS, "service 'claude_code' is not rendered"),
+]
+
+
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
     problems = []
@@ -1523,6 +1595,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, document, alias, expected in AGENT_MODEL_CASES:
+        failures = []
+        try:
+            check_agent_models(document, "selftest", alias, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, value, expected in TOKEN_ARRIVES_CASES:
         failures = []
         try:
@@ -1582,7 +1663,8 @@ def selftest():
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
-        f"case(s) and {len(TOKEN_ARRIVES_CASES)} token arrival case(s) all judged as expected."
+        f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s) and {len(AGENT_MODEL_CASES)} agent model "
+        "case(s) all judged as expected."
     )
     return 0
 
@@ -1683,6 +1765,9 @@ def main():
                     failures.append(f"[{LIMITS_SET_STATE}] service {name!r} differs from the unlimited one by more than its limit")
 
     host_state = "Claude Code agent with a host workspace"
+    for state in (CLAUDE_CODE_STATE, CLAUDE_CODE_TOKEN_STATE, host_state):
+        if state in documents:
+            check_agent_models(documents[state], state, defaults[CLAUDE_CODE_MODEL_VARIABLE], failures)
     off_state = "Claude Code agent disabled"
     if {"published network unset", host_state, off_state} <= set(documents):
         check_agent_workspace(
@@ -1724,6 +1809,14 @@ def main():
             failures.append(
                 f"[{dollar_state}] {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE} was not given a '$' value, so the "
                 "agent's token lines were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
+            )
+        alias = dollar_values.get(CLAUDE_CODE_MODEL_VARIABLE)
+        if isinstance(alias, str):
+            check_agent_models(dollar_document, dollar_state, alias.replace("$", "$$"), failures)
+        else:
+            failures.append(
+                f"[{dollar_state}] {CLAUDE_CODE_MODEL_VARIABLE} was not given a '$' value, so the agent's "
+                "model variables were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
             )
     check_quote_exemptions(defaults, failures)
 
