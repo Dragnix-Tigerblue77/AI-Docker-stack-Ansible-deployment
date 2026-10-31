@@ -115,7 +115,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_number_of_workers` | `4` | Chaque worker réplique la configuration : ce nombre multiplie l'empreinte mémoire. |
 | `Artificial_Intelligence_LiteLLM_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. À dimensionner avec le nombre de workers. |
 | `Artificial_Intelligence_PostgreSQL_database` · `Artificial_Intelligence_PostgreSQL_user` | `litellm` | Base et rôle de la passerelle. |
-| `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `Artificial_Intelligence_PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. |
+| `Artificial_Intelligence_PostgreSQL_data_Docker_volume_name` | `PostgreSQL_data` | Volume **nommé** : survivre à une recréation de conteneur est un critère d'acceptation. Tous les noms de volume par défaut sont écrits **sans** le préfixe du stack : Compose et Swarm le préfixent eux-mêmes du nom du stack, le volume déployé est donc `<nom du stack>_PostgreSQL_data`, soit `Artificial_Intelligence_PostgreSQL_data` avec le nom de stack par défaut. Renommer un volume après coup est une migration de données. |
 | `Artificial_Intelligence_PostgreSQL_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. Voir « Pourquoi tout vit sous `deploy:` ». |
 | `Artificial_Intelligence_LiteLLM_config_file_name` · `..._destination_path` | `LiteLLM_config.yaml` | La configuration de routage, montée en lecture seule. #2 en remplit le `model_list`. |
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
@@ -141,7 +141,7 @@ Et celles que #71 apporte, pour Redis :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Artificial_Intelligence_Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
+| `Artificial_Intelligence_Redis_data_Docker_volume_name` | `Redis_data` | Volume nommé : `--save 60 1` sans volume derrière ne sert à rien. |
 | `Artificial_Intelligence_Redis_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`256m`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Redis_password` | aucun | **Obligatoire.** `--requirepass` serait vide sinon. |
 
@@ -149,7 +149,7 @@ Et celles que #73 apporte, pour OmniRoute :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `Artificial_Intelligence_OmniRoute_data` | Volume nommé pour son magasin SQLite. |
+| `Artificial_Intelligence_OmniRoute_data_Docker_volume_name` | `OmniRoute_data` | Volume nommé pour son magasin SQLite. |
 | `Artificial_Intelligence_OmniRoute_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. À dimensionner si l'usage dépasse le simple dernier recours. |
 | `Artificial_Intelligence_OmniRoute_dashboard_password` | aucun | **Obligatoire.** Remplace le `CHANGEME` de l'image. |
 
@@ -157,7 +157,7 @@ Et celles que #3 apporte, pour Qdrant :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Artificial_Intelligence_Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
+| `Artificial_Intelligence_Qdrant_data_Docker_volume_name` | `Qdrant_data` | Volume nommé pour `/qdrant/storage`. |
 | `Artificial_Intelligence_Qdrant_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. Le corpus visé par #3 est petit : une limite peut être généreuse. |
 | `Artificial_Intelligence_Qdrant_API_key` | aucun | **Obligatoire.** Défense en profondeur, même sans port publié. |
 
@@ -171,10 +171,10 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_virtual_key` | aucun | **Obligatoire si activé.** La **valeur** de la clé virtuelle de l'agent, que l'appelant rend depuis son vault et que **le rôle enregistre lui-même dans LiteLLM** (voir « L'agent Claude Code »). Commence par `sk-`, au moins 16 caractères, jamais la clé maîtresse : le rôle refuse autrement. |
 | `Artificial_Intelligence_Claude_code_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
-| `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Artificial_Intelligence_Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
+| `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
-| `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Artificial_Intelligence_Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
+| `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
 Et celles que #76 apporte, pour LibreChat et sa base :
 
@@ -182,7 +182,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 |---|---|---|
 | `Artificial_Intelligence_LibreChat_creds_key` · `..._creds_IV` · `..._JWT_secret` · `..._JWT_refresh_secret` | aucun | **Obligatoires**, les quatre. Sans eux, LibreChat en génère des temporaires au premier démarrage. |
 | `Artificial_Intelligence_LibreChat_allow_registration` | `false` | Fermé : le port est publié sur le LAN. Comptes créés via `create-user`. |
-| `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | dérivés | Volumes nommés pour les pièces jointes et la base. |
+| `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | `LibreChat_uploads` · `MongoDB_LibreChat_data` | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
 
@@ -662,7 +662,7 @@ lui-même plutôt que de les laisser à l'appelant.
 
 **Le dossier de travail est un volume nommé par défaut.** `Artificial_Intelligence_Claude_code_workspace_directory`
 vaut `false` (« non fourni ») et `/workspace` est alors le volume
-`Artificial_Intelligence_Claude_code_workspace`, déclaré avec les autres : rien à préparer
+`Claude_code_workspace`, déclaré avec les autres : rien à préparer
 sur l'hôte. Le `Dockerfile` amont crée `/workspace` et le donne à l'utilisateur `node` avant de passer
 sous cet utilisateur, et Docker initialise un volume nommé vide depuis le contenu de l'image à ce chemin :
 le dossier est donc inscriptible par `node` (lu dans le `Dockerfile`, pas mesuré avec un démon). Le
@@ -867,6 +867,8 @@ Il le rend aussi avec les sommes de contrôle des configurations montées rensei
 défauts laissent à `false` : chaque fichier doit être monté par `configs` -- jamais en bind mount dans
 `volumes` --, sous une config déclarée au niveau supérieur avec son `file`, nommée d'après le contenu
 sans suffixe quand rien n'est renseigné, et sans que rien d'autre ne change entre les deux états.
+
+Il refuse aussi un nom de volume par défaut qui commence par le nom du stack, que Compose et Swarm préfixeraient une seconde fois.
 
 L'état « désactivé » est celui que personne ne regarde, et une condition Jinja qui ne marche que quand la
 fonctionnalité est active est un défaut qui part en production. C'est pour cela que les deux états sont
