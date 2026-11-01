@@ -409,6 +409,11 @@
 # published port -- "until"/"retries" ride out that window rather than presuppose it has already
 # passed; a hard failure past the retry budget still fails the play, since a user this role could
 # not confirm exists is not a user it should silently skip.
+#
+# ! Three minutes, not the 25 seconds this first shipped with. Measured on LiteLLM 1.100.0 with four
+# workers: about 45 seconds between the container being recreated and "/user/new" answering, and a
+# first start on an empty database applies 161 Prisma migrations before that. 25 seconds failed the
+# play every time.
 - name: "Create each additional LiteLLM internal user"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
@@ -423,7 +428,7 @@
     status_code: [200, 201, 409]
   register: Artificial_Intelligence_LiteLLM_internal_user_creation
   until: Artificial_Intelligence_LiteLLM_internal_user_creation.status is defined and Artificial_Intelligence_LiteLLM_internal_user_creation.status in [200, 201, 409]
-  retries: 5
+  retries: 36
   delay: 5
   no_log: true
   loop: "{{ Artificial_Intelligence_LiteLLM_internal_users }}"

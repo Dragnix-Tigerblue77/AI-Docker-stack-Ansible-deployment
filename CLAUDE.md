@@ -502,7 +502,17 @@ python3 .github/scripts/check_sign_off.py origin/main HEAD  # a pull request's r
 python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
+
+# The "role run" jobs: the example playbook RUN, not read -- needs Docker, "pip install docker", and
+# ".github/role_run/stand_in_gateway.py" listening (agent on). This is the agent-on job; agent-off adds
+# "-e @.github/role_run/vars.claude_code_agent_off.yml"
+ANSIBLE_ROLES_PATH=.github/role_run/roles:~/.ansible/roles ansible-playbook \
+  -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml playbook.Artificial_Intelligence.example.yaml
 ```
+
+Every other line above reads the role; the last one runs it, and it exists because reading was not
+enough: v1.0 shipped with a task that failed on every run and an example that failed the role's own
+asserts, and every check above was green on both.
 
 Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody
 has ever seen is a check nobody believes. `check_compose_template.py`'s cases are Python literals
@@ -599,9 +609,9 @@ the role.
    costs something.** Ansible's own role search never treats "the directory this playbook happens to
    sit in" as a candidate -- only `<playbook_dir>/roles/` and a short list of well-known locations,
    `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_Artificial_Intelligence_Docker_stack`
-   would not resolve against this checkout on its own. The `ansible-lint` and `syntax-check` jobs of
-   `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`, and
-   `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
+   would not resolve against this checkout on its own. The `ansible-lint`, `syntax-check` and two
+   `role run` jobs of `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`,
+   and `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
    `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
    example playbook. Nothing else in this repository needs it: every other job lints or reads the
    role's own files directly, at their own path, with no role resolution involved.
@@ -621,8 +631,12 @@ the role.
    listens to and does not dispatch, bar those its `NOT_DISPATCHED` excuses (`sign-off.yml`, which
    has no range to read on `main`). `main.json` names every job of the workflows the gate listens to
    one by one rather than one aggregate job (the workflow's header says why), and
-   `check_required_checks.py` holds it to them in both directions. The workflow's header also says
-   what replaces it the day the repository can enforce a ruleset.
+   `check_required_checks.py` holds it to them in both directions. No job of those workflows is a
+   matrix or has an expression in its `name:`: GitHub renders such a name per run, so `main.json`
+   could only list the unrendered one, which the check accepts and no check run ever reports --
+   every update would then wait for ever. That is why the role run is two jobs sharing one anchored
+   `steps:` list rather than a matrix. The workflow's header also says what replaces it the day the
+   repository can enforce a ruleset.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs

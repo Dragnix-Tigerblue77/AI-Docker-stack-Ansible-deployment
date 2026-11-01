@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# A stand-in for the deployment role a caller names -- CI only. It keeps the half of the README's
+# contract ("Le contrat du rôle de déploiement") that can be kept without starting anything: render
+# the CALLER's template, "0600" and undiffable, then have the real Docker Compose accept the result.
+# Starting the stack would pull more than ten gigabytes of images on every pull request; what this
+# stops short of is covered by #85, on a machine that looks like the target.
+
+- name: "Render the stack's compose file from the caller's templates"
+  ansible.builtin.template:
+    src: "{{ Docker_compose_file_name }}.j2"
+    dest: "{{ Docker_compose_file_destination_path }}"
+    mode: "0600"
+  diff: false
+
+# The project name lowercased: current Compose releases refuse one with a capital letter, and the
+# stack's default name has two.
+- name: "Have Docker Compose itself accept the rendered file"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --project-name
+      - "{{ Docker_stack_name | lower }}"
+      - --file
+      - "{{ Docker_compose_file_destination_path }}"
+      - config
+      - --quiet
+  changed_when: false

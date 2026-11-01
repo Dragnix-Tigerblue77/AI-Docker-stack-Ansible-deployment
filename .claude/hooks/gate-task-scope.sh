@@ -22,13 +22,15 @@ deny() {
   exit 2
 }
 
-# A real ansible-playbook run. --syntax-check is the one form CONTRIBUTING.md and
-# CI both use, so it alone is not refused; anything else is a real run against
-# whatever the caller passes as -i, and this repository ships no inventory of its
-# own to reach with it ("No inventory data, anywhere", CLAUDE.md).
+# A real ansible-playbook run. --syntax-check is the one form a session validates
+# with, so it alone is not refused. CI goes one step further, and only CI: its two
+# "role run" jobs run the example playbook against a stand-in deployer and
+# ".github/role_run/inventory.ini", on a runner that has Docker. Anything else is a
+# real run against whatever the caller passes as -i, and this repository ships no
+# inventory of its own to reach with it ("No inventory data, anywhere", CLAUDE.md).
 if printf '%s' "$payload" | grep -Eqi 'ansible-playbook' \
   && ! printf '%s' "$payload" | grep -Eqi -- '--syntax-check'; then
-  deny "this task runs ansible-playbook for real. Validation stops at --syntax-check -- CI and CONTRIBUTING.md never go further."
+  deny "this task runs ansible-playbook for real. A session validates with --syntax-check; the one real run is CI's two role run jobs, against a stand-in deployer."
 fi
 
 # An ad-hoc Ansible module run, or an explicit inventory/limit flag on anything.
