@@ -699,7 +699,6 @@ general_settings:
   # file is mounted read-only into the container and would otherwise carry both in clear text.
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
-  redis_url: os.environ/REDIS_URL
 
 litellm_settings:
   request_timeout: 120          # long enough for heavy reasoning models' thinking phase
@@ -713,12 +712,23 @@ litellm_settings:
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
   turn_off_message_logging: true
 
-  # Response caching, to preserve the free tiers' TPM quotas (#71). Upstream documents proxy-level
-  # caching as key/team/org-scoped by default, which would mean a cached answer never crosses an
-  # account boundary -- but that scoping is NOT verified from this session (no Docker daemon to test
-  # against), and #71's own Definition of Done says so explicitly. Confirm it on the test bench
-  # before trusting it: this is exactly the kind of guarantee #2 exists to hold accountable.
-  enable_caching: true
-  cache_params:
-    type: "redis"
-    supported_call_types: ["completion", "cache_read", "cache_write"]
+  # Response caching stays OFF, deliberately -- #79's own Definition of Done, applied to a measurement.
+  #
+  # It had in fact never been on. The two lines that were here, "enable_caching: true" and a
+  # "cache_params" block, meant nothing to LiteLLM: the proxy turns its cache on for "cache: true" and
+  # for no other key -- "enable_caching" appears nowhere in its source -- and the "cache_params" it
+  # would then have read listed "cache_read" and "cache_write" as call types, which LiteLLM does not
+  # have, next to "completion" alone, which the proxy never calls ("acompletion" is what it calls).
+  #
+  # And turned on properly, it crosses accounts. Measured 2026-09-26 on LiteLLM 1.100.0 with
+  # "cache: true", a Redis cache and two virtual keys: the same request sent with key B came back
+  # carrying the id key A's request had been answered with, from the cache. The EXACT cache's key is
+  # the model plus the request's own parameters, nothing about who asked; only the SEMANTIC caches
+  # add the calling key, team and organisation to it (LiteLLM's own "_SEMANTIC_CACHE_TENANT_SCOPE_
+  # FIELDS"). The "scoped by default" this comment used to quote from upstream does not hold for the
+  # exact cache. There being no way to scope it per key, #79's rule decides: off, and said so here.
+  #
+  # Redis stays: the router's shared cooldown state above is what it is for now. Turning the cache on
+  # again is one line ("cache: true", with "supported_call_types" naming "acompletion") -- and a
+  # decision to let one account be answered from another's history, on an identical request.
+  cache: false

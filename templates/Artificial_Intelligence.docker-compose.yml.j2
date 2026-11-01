@@ -184,11 +184,13 @@ services:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
-  # Redis -- LiteLLM's shared cooldown state and response cache backend (#71).
+  # Redis -- LiteLLM's shared cooldown state between workers (#71). Not a response cache: that stays
+  # off, since LiteLLM's exact cache answers one account from another's (#79, see the note at the
+  # bottom of "LiteLLM_config.yaml.j2").
   # ------------------------------------------------------------------------------------------------
   redis:
-    # Floating, with no tag at all (no tag IS "latest"): it holds only a cooldown state and a cache
-    # here, both rebuilt on their own after a restart, so nothing is lost when the major moves.
+    # Floating, with no tag at all (no tag IS "latest"): it holds only a cooldown state here, rebuilt
+    # on its own after a restart, so nothing is lost when the major moves.
     image: redis
 
     # No secret written on the command line: it would be visible in "docker inspect" / process
@@ -283,9 +285,10 @@ services:
       GROQ_API_KEY: {{ Artificial_Intelligence_LiteLLM_Groq_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       OPENROUTER_API_KEY: {{ Artificial_Intelligence_LiteLLM_OpenRouter_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       DEEPSEEK_API_KEY: {{ Artificial_Intelligence_LiteLLM_DeepSeek_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
-      # Shared cooldown state between workers, and the backend for response caching (#71). "redis" is
-      # the SERVICE KEY declared below, same DNS-resolution reasoning as "postgres" above.
-      REDIS_URL: "redis://:{{ Artificial_Intelligence_Redis_password }}@redis:6379"
+      # The workers' shared cooldown state (#71) reaches Redis through "router_settings" in
+      # "LiteLLM_config.yaml.j2" -- "redis_host", "redis_port", and this as "redis_password".
+      # No REDIS_URL any more: the response cache it was also meant for stays off (#79), its key
+      # ignoring the caller, and nothing else reads it -- LiteLLM drops it once a host is named.
       REDIS_PASSWORD: {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
     configs:
