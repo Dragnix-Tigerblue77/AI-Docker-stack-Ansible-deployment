@@ -101,7 +101,7 @@ services:
       # unchanged: Ansible renders this file the same way regardless of which one reads it next. The
       # literal value never appears anywhere else -- it is why the caller's deployment role has to
       # write THIS file "0600" and with "diff: false".
-      POSTGRES_DB: "{{ Artificial_Intelligence_PostgreSQL_database }}"
+      POSTGRES_DB: {{ Artificial_Intelligence_PostgreSQL_database | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # The cluster's superuser, and nothing connects as it: it exists for the init above and for a
       # human at "docker exec ... psql". Its password is not LiteLLM's -- "tasks/main.yml" refuses the
       # same value for both, or LiteLLM's own environment would hold the superuser's login.
@@ -191,9 +191,11 @@ services:
     # here, both rebuilt on their own after a restart, so nothing is lost when the major moves.
     image: redis
 
-    # No secret written on the command line: it would be visible in "docker inspect" / process
-    # listings on the host. Read from a file instead, itself rendered from the same vaulted variable
-    # every other secret in this role comes from.
+    # The password IS on the server's command line. What that exposes is "docker inspect", which also
+    # shows every environment variable of this file, so nothing past what root and the "docker" group
+    # can already read: Redis rewrites its own process title ("redis-server *:6379"), so the host's
+    # "ps" does not show it. Moving it out would mean starting the server through a shell, which
+    # bypasses the image entrypoint's drop to the "redis" user -- a worse trade than the one it fixes.
     command:
       - "redis-server"
       - "--requirepass"
@@ -207,10 +209,16 @@ services:
     volumes:
       - "{{ Artificial_Intelligence_Redis_data_Docker_volume_name }}:/data:rw"
 
+    # Read by "redis-cli" on its own, which keeps the password off the healthcheck's command line
+    # below: "redis-cli -a <password>" ran every ten seconds as a process any account of the host
+    # could read the arguments of -- unlike the server's.
+    environment:
+      REDISCLI_AUTH: {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
+
     healthcheck:
       # "redis-cli" ships with the image, so this needs nothing it does not already have -- unlike
       # Qdrant (#3) or OmniRoute (#73), where the same reasoning ruled a healthcheck OUT instead.
-      test: ["CMD", "redis-cli", "-a", {{ Artificial_Intelligence_Redis_password | replace('$', '$$') | to_json(ensure_ascii=False) }}, "--no-auth-warning", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       start_period: 10s
@@ -261,7 +269,18 @@ services:
       # container environment, at the "os.environ/..." references "LiteLLM_config.yaml.j2" carries for
       # them: what Ansible changes is where that environment variable gets
       # its value from, never how LiteLLM consumes it.
-      DATABASE_URL: "postgresql://{{ Artificial_Intelligence_PostgreSQL_user }}:{{ Artificial_Intelligence_PostgreSQL_password }}@postgres:5432/{{ Artificial_Intelligence_PostgreSQL_database }}"
+      #
+      # ! The user and the password are PERCENT-ENCODED, which a URL needs and the raw values do not give
+      # it: a "/", "?" or "#" -- "/" is in the base64 alphabet -- ends the authority early, and Prisma
+      # then refuses the whole string (P1013) so LiteLLM never starts; a ":" breaks the user, a "%" is
+      # read as an escape in both. Jinja's "urlencode" leaves "/" alone, hence the "replace".
+      #
+      # ! The database is NOT encoded, because Prisma does not decode it: encoded here, a name holding
+      #   "/", "?" or "#" made LiteLLM create and migrate a second database named after the encoded
+      #   string, report healthy, and leave "POSTGRES_DB" empty. A name that needs encoding cannot
+      #   reach Prisma intact in any form, so "tasks/main.yml" refuses one; what it lets through needs
+      #   only its "$" doubled, as everywhere in this file. The encoded parts hold no "$" ("%24").
+      DATABASE_URL: {{ ('postgresql://' ~ (Artificial_Intelligence_PostgreSQL_user | urlencode | replace('/', '%2F')) ~ ':' ~ (Artificial_Intelligence_PostgreSQL_password | urlencode | replace('/', '%2F')) ~ '@postgres:5432/' ~ Artificial_Intelligence_PostgreSQL_database) | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # Administration only, from Ansible. It is NEVER handed to a consumer: every client gets its
       # own virtual key with its own model allow-list (#2). A client holding this key makes the whole
       # isolation work of #2 pointless.
