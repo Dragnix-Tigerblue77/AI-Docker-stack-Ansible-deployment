@@ -85,7 +85,9 @@ Offline, the default, run on every pull request. It reads the file and nothing e
 
   (a) every fallback cascade member (source and targets, under the four fallback keys of both
       "router_settings" and "litellm_settings") and every "model_group_alias" target names an
-      ACTIVE "model_name" -- a commented-out entry is not one;
+      ACTIVE "model_name" -- a commented-out entry is not one. A cascade's SOURCE may also be a
+      "model_group_alias" key of the same section: LiteLLM looks for fallbacks under the name that was
+      asked for, so an alias has a cascade of its own (#300), and the proxy accepts an alias as a name;
   (b) no "model_name" is declared twice, counting commented-out entries: uncommenting one is the
       documented way back, and would then create the duplicate. LiteLLM itself accepts duplicates
       -- it is how it load-balances -- so the day this file wants one, this rule is the line to
@@ -767,6 +769,8 @@ def read_template(text):
         section = document.get(section_name)
         if not isinstance(section, dict):
             continue
+        alias_names = section.get("model_group_alias")
+        alias_names = set(alias_names) if isinstance(alias_names, dict) else set()
         for key in FALLBACK_KEYS:
             if key not in section:
                 continue
@@ -782,7 +786,8 @@ def read_template(text):
                                     "expected." % (where, mapping))
                     continue
                 for source, targets in mapping.items():
-                    require(source, '%s, the cascade "%s" itself,' % (where, source))
+                    if source not in alias_names:
+                        require(source, '%s, the cascade "%s" itself,' % (where, source))
                     for target in targets if isinstance(targets, list) else [targets]:
                         require(target, '%s, in the cascade "%s",' % (where, source))
         aliases = section.get("model_group_alias")
@@ -2625,6 +2630,8 @@ OFFLINE_CASES = (
      ("        - local\n", "        - paid-one\n"), "only a commented-out entry"),
     ("a cascade whose own name is no entry is refused",
      ("    - flash:\n", "    - vanished:\n"), 'the cascade "vanished" itself'),
+    ("a cascade keyed on an alias is accepted",
+     ("    - flash:\n", "    - auto:\n"), None),
     ("an alias pointing nowhere is refused",
      ('"auto": "flash"', '"auto": "gone"'), 'the alias "auto"'),
     ("an alias written as a mapping is read too",
