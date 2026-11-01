@@ -37,6 +37,19 @@ Artificial_Intelligence_Docker_compose_file_name: "Artificial_Intelligence.docke
 Artificial_Intelligence_Docker_compose_file_destination_directory: "/tmp/"
 Artificial_Intelligence_Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_Docker_compose_file_name }}"
 
+# Where the files the CONTAINERS mount at runtime land -- LiteLLM's routing configuration and
+# LibreChat's own. Deliberately NOT the directory above, and never "/tmp/": the compose file is read
+# once, at deployment, while these two are read again at every start of their container, for as long
+# as the stack runs. They used to sit in "/tmp/", and "/tmp" does not keep a file that long: Debian 13
+# makes it a tmpfs, emptied at every boot, and cleans what nobody touched for ten days even without
+# one. What Docker does then is the worst of the options: it creates an empty DIRECTORY at the
+# missing path and the container can no longer start ("error mounting ..."). Measured by deleting the
+# file and restarting LiteLLM. Re-running the playbook did not repair it either, "template" writing
+# INTO a destination that has become a directory -- so the role now removes such an empty directory
+# before rendering, for a file that goes missing from here all the same (see "tasks/main.yml"). The
+# role creates this one itself.
+Artificial_Intelligence_configuration_directory: "/etc/Artificial_Intelligence/"
+
 # The time zone handed to every container through "TZ". A caller may well carry a time zone variable
 # of its own, but this role cannot presuppose that it has one, nor what it is called: it is
 # therefore restated here under a name of its own, with a neutral default. A caller that already has
@@ -102,7 +115,7 @@ Artificial_Intelligence_LibreChat_publish_in_host_mode: false
 # needs is an "os.environ/..." reference to the gateway container's environment, which the compose
 # template fills -- so it needs neither "0600" nor "no_log".
 Artificial_Intelligence_LiteLLM_config_file_name: "LiteLLM_config.yaml"
-Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LiteLLM_config_file_name }}"
+Artificial_Intelligence_LiteLLM_config_file_destination_path: "{{ Artificial_Intelligence_configuration_directory }}{{ Artificial_Intelligence_LiteLLM_config_file_name }}"
 
 # NOT a setting: the SHA-1 of the file above as this run rendered it, which "tasks/main.yml" passes
 # to the deployment role as an "include_role" parameter -- precedence 20, above everything but an
@@ -438,7 +451,7 @@ Artificial_Intelligence_LibreChat_session_cookie_secure: false
 # OWN accounts for their own virtual key the first time they use it, rather than reading one shared
 # key out of the container's environment.
 Artificial_Intelligence_LibreChat_config_file_name: "librechat.yaml"
-Artificial_Intelligence_LibreChat_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_LibreChat_config_file_name }}"
+Artificial_Intelligence_LibreChat_config_file_destination_path: "{{ Artificial_Intelligence_configuration_directory }}{{ Artificial_Intelligence_LibreChat_config_file_name }}"
 
 # NOT a setting either: the SHA-1 of the file above as this run copied it, which the name of its
 # Docker config is derived from -- LibreChat, too, reads its configuration only at start. The

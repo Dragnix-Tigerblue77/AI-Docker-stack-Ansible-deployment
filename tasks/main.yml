@@ -338,19 +338,81 @@
       that either references an undeclared network, or declares one nobody uses -- and in the first
       case the orchestrator only says so at deployment time.
 
-# The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
-# not contain. The four variables below are the contract: they carry the names the homelab
-# repository's deployment roles expect, unprefixed, because they are theirs and not ours.
+# The runtime configuration files live outside the compose file's directory, somewhere that survives a
+# reboot -- see "Artificial_Intelligence_configuration_directory" in defaults/main.yml -- and nothing
+# else creates it: "ansible.builtin.template" and "ansible.builtin.copy" do not create the directory
+# their "dest" lands in.
+- name: "Create the {{ Artificial_Intelligence_Docker_stack_name }} stack configuration directory"
+  ansible.builtin.file:
+    path: "{{ Artificial_Intelligence_configuration_directory }}"
+    state: directory
+    owner: "root"
+    group: "root"
+    mode: "0755"
+
+# Docker's placeholder, undone before anything is rendered (#137). When a file a container mounts
+# goes missing -- "/tmp" emptied under it, which the directory above now avoids, or a file deleted by
+# hand, which nothing can -- the next start of that container does not fail cleanly: Docker CREATES
+# an empty directory at the missing path, and the container can no longer start, a directory being
+# impossible to mount where its file used to be. "ansible.builtin.template" and
+# "ansible.builtin.copy" do not repair that on their own: a "dest" that is a directory is written
+# INTO, so the file lands one level down and the directory stays. Measured: file deleted, container
+# restarted, the two tasks below re-run, container still down.
 #
-# Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
-# level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a
-# task connects as an account other than the one its "vars:" announced while reporting "ok".
-# The two secrets never appear in a file of their own: they are interpolated straight into the
-# compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
-# file to secure -- the compose file itself already carries the "0600" / "diff: false" contract the
-# deployment role owes it, in "Le contrat du rôle de déploiement" above, for exactly this reason.
-#
-# No secret in this one either -- the gateway reads the master key and the database URL from its
+# An EMPTY directory at one of these paths can only be that placeholder -- nothing in this role ever
+# makes one there -- so it is removed and the file rendered in its place. A directory with anything
+# in it is not Docker's to have left nor this role's to delete: the run stops, before removing
+# anything, and says where.
+- name: "Inspect the paths of the files the containers mount"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+  loop:
+    - "{{ Artificial_Intelligence_LiteLLM_config_file_destination_path }}"
+    - "{{ Artificial_Intelligence_LibreChat_config_file_destination_path }}"
+  register: Artificial_Intelligence_mounted_file_path_status
+
+- name: "List what a directory standing in place of a mounted file contains"
+  ansible.builtin.find:
+    paths: "{{ item.item }}"
+    file_type: any
+    hidden: true
+  loop: "{{ Artificial_Intelligence_mounted_file_path_status.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.stat.isdir | default(false)
+  register: Artificial_Intelligence_mounted_file_path_contents
+
+- name: "Check no mounted file's path is taken by a non-empty directory"
+  ansible.builtin.assert:
+    that:
+      - item is skipped or item.matched == 0
+    quiet: true
+    fail_msg: >-
+      "{{ item.item.item }}" is a directory, and not an empty one, where this role renders a file a
+      container mounts. An empty one would be Docker's placeholder for a missing bind source, which
+      the role removes by itself; this one holds
+      "{{ (item.files | default([]) | map(attribute='path') | map('basename') | list)[:5] | join('", "') }}"{{ ', and more' if item.matched | default(0) > 5 else '' }},
+      so it is left alone and nothing was removed. One way to get here is a run of the role from before
+      this check, which wrote the configuration INTO Docker's placeholder instead of replacing it: a
+      lone "LiteLLM_config.yaml.j2" or "librechat.yaml" inside is that copy. Move out whatever should
+      be kept, remove the directory, and run the role again.
+  loop: "{{ Artificial_Intelligence_mounted_file_path_contents.results }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+
+- name: "Remove the empty directory Docker left in place of a mounted file"
+  ansible.builtin.file:
+    path: "{{ item.item.item }}"
+    state: absent
+  loop: "{{ Artificial_Intelligence_mounted_file_path_contents.results }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+  when:
+    - item is not skipped
+    - item.matched == 0
+
+# No secret in this file -- the gateway reads the master key and the database URL from its
 # own container environment, not from here -- so it is neither "no_log" nor undiffable. It is
 # mounted read-only: the gateway reads its routing configuration, it does not rewrite it.
 - name: "Render the {{ Artificial_Intelligence_Docker_stack_name }} stack LiteLLM configuration"
@@ -377,6 +439,21 @@
   # Same reason as the LiteLLM configuration above (#161).
   register: Artificial_Intelligence_LibreChat_config_deployment
 
+# The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
+# not contain. The four variables below are the contract: they carry the names the homelab
+# repository's deployment roles expect, unprefixed, because they are theirs and not ours.
+#
+# Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
+# level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a
+# task connects as an account other than the one its "vars:" announced while reporting "ok". The
+# "vars:" of an "include_role" task ARE those parameters, which is why the keyword below is not the
+# task-level "vars:" that sentence warns against.
+#
+# The stack's secrets never appear in a file of their own: they are interpolated straight into the
+# compose template by Ansible, alongside everything else it already renders (#1). That is one fewer
+# file to secure -- the compose file itself carries the "0600" / "diff: false" contract the
+# deployment role owes it, in the README's "Le contrat du rôle de déploiement", for exactly this
+# reason.
 - name: "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
     name: "{{ Artificial_Intelligence_Docker_stack_deployment_role_name }}"
