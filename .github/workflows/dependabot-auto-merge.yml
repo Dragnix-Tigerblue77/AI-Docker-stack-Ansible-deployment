@@ -49,16 +49,40 @@ name: Dependabot auto-merge
 # Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml" says
 # what the variable may name, and when.
 #
+# The same step also merges the pull request that "LiteLLM_model_drift.yml" opens every week to
+# delete the models their provider has retired, and nothing else the workflow's own token opens. It
+# is not Dependabot's, so it is held to what makes it safe in its own terms, all read from GitHub's
+# own account of the pull request and none from the text the workflow wrote into it:
+#
+#   * it is on that workflow's one fixed branch, from this repository, and carries one commit,
+#     which the workflow's own author made;
+#   * it changes one file, the model list's template, and adds no line to it: a pull request that
+#     can only take lines away cannot bring in a model, an address or a key, whatever made it;
+#   * it deletes at most REMOVALS_MAX_ENTRIES models and REMOVALS_MAX_LINES lines, counted in the
+#     diff: a run that would delete more than a handful has read a catalogue that is wrong, or is
+#     being made to, and a person looks first;
+#   * its body has no "À relire" section. The script lists there what a person has to read once
+#     the models are gone (a comment that names one, the reason of a group that lost a member): a
+#     pull request with such a section waits for that person, as it did before it could merge;
+#   * every check the ruleset names is green on its head, "sign-off" excepted. That check reads the
+#     commits of a pull request, which GitHub never starts for one opened with GITHUB_TOKEN, and
+#     certifies the right to submit what a commit adds: this one adds nothing.
+#
+# The branch name is written here, in the "if:" of the job and in the step below, and in
+# "LiteLLM_model_drift.yml", where it is made: "check_required_checks.py" fails CI when they differ.
+#
 # What the step below refuses, and why each refusal is there:
 #
-#   * a pull request not opened by Dependabot, or not based on main, or whose head is not the commit
-#     that was just checked -- the merge is pinned to that SHA, so a push that lands between the
-#     check and the merge makes GitHub refuse the merge rather than merge unchecked code;
-#   * any update that is not semver-minor or semver-patch, read from the metadata block Dependabot
-#     writes into its own commit message. A major waits for a human;
-#   * any commit on the branch that is not Dependabot's own and signed as such. A branch someone
-#     pushed to has stopped being a Dependabot update, whatever its title says. Nothing in this
-#     repository writes to a Dependabot branch, so there is no exception to that;
+#   * a pull request neither opened by Dependabot nor the model-drift deletions above, or not based
+#     on main, or whose head is not the commit that was just checked -- the merge is pinned to that
+#     SHA, so a push that lands between the check and the merge makes GitHub refuse the merge
+#     rather than merge unchecked code;
+#   * (Dependabot) any update that is not semver-minor or semver-patch, read from the metadata
+#     block Dependabot writes into its own commit message. A major waits for a human;
+#   * (Dependabot) any commit on the branch that is not Dependabot's own and signed as such. A
+#     branch someone pushed to has stopped being a Dependabot update, whatever its title says.
+#     Nothing in this repository writes to a Dependabot branch, so there is no exception to that;
+#   * (the deletions) anything the list above does not allow;
 #   * a required check that is missing, still running, or anything but a success -- cancelled and
 #     skipped included, since neither says the change was checked.
 #
@@ -95,7 +119,7 @@ concurrency:
 
 jobs:
   merge:
-    name: Merge a green minor or patch Dependabot update
+    name: Merge a green Dependabot update or weekly model deletion
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
@@ -103,7 +127,8 @@ jobs:
     # itself, and a branch merely named "dependabot/..." gets no further than that.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+      (startsWith(github.event.workflow_run.head_branch, 'dependabot/') ||
+      github.event.workflow_run.head_branch == 'claude/LiteLLM-model-drift-removals')
     permissions:
       # Merging a pull request is a write to the repository's contents; nothing else here writes.
       contents: write
@@ -120,6 +145,11 @@ jobs:
         uses: actions/github-script@v9
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # The weekly model-drift deletions: see the header.
+          REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
+          REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
+          REMOVALS_MAX_ENTRIES: '5'
+          REMOVALS_MAX_LINES: '200'
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -161,40 +191,83 @@ jobs:
             const pr = candidates[0];
             const label = `#${pr.number} (${pr.title})`;
 
-            if (pr.user.login !== 'dependabot[bot]' || pr.draft) {
-              core.notice(`${label} is not a Dependabot pull request ready for review. Left alone.`);
+            const dependabot = pr.user.login === 'dependabot[bot]';
+            // The weekly model-drift deletions: opened with the workflow's own token, on its one
+            // fixed branch. What else that token opens is none of this step's business.
+            const removals = pr.user.login === 'github-actions[bot]' &&
+              pr.head.ref === process.env.REMOVALS_BRANCH;
+            if ((!dependabot && !removals) || pr.draft) {
+              core.notice(`${label} is neither a Dependabot pull request nor the weekly model deletions, or is a draft. Left alone.`);
               return;
             }
 
             const commits = await github.paginate(github.rest.pulls.listCommits, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });
-            const updateTypes = [];
-            for (const commit of commits) {
-              const author = commit.author?.login;
-              const signed = commit.commit.verification?.verified === true;
-              if (author !== 'dependabot[bot]' || !signed) {
-                core.notice(`${label} carries ${commit.sha}, which is not a signed Dependabot commit. It is waiting for a human.`);
+            // Checks the ruleset names that do not apply to this kind of pull request.
+            const notApplicable = new Set();
+            if (dependabot) {
+              const updateTypes = [];
+              for (const commit of commits) {
+                const author = commit.author?.login;
+                const signed = commit.commit.verification?.verified === true;
+                if (author !== 'dependabot[bot]' || !signed) {
+                  core.notice(`${label} carries ${commit.sha}, which is not a signed Dependabot commit. It is waiting for a human.`);
+                  return;
+                }
+                for (const match of commit.commit.message.matchAll(/^\s*update-type:\s*(\S+)\s*$/gm)) {
+                  updateTypes.push(match[1]);
+                }
+              }
+              if (updateTypes.length === 0) {
+                core.notice(`${label}: no update-type found in Dependabot's commit metadata. It is waiting for a human.`);
                 return;
               }
-              for (const match of commit.commit.message.matchAll(/^\s*update-type:\s*(\S+)\s*$/gm)) {
-                updateTypes.push(match[1]);
+              const refused = updateTypes.filter((type) => !allowedUpdateTypes.has(type));
+              if (refused.length > 0) {
+                core.notice(`${label} includes ${[...new Set(refused)].join(', ')}. Only minor and patch updates merge themselves; this one is waiting for a human.`);
+                return;
               }
-            }
-            if (updateTypes.length === 0) {
-              core.notice(`${label}: no update-type found in Dependabot's commit metadata. It is waiting for a human.`);
-              return;
-            }
-            const refused = updateTypes.filter((type) => !allowedUpdateTypes.has(type));
-            if (refused.length > 0) {
-              core.notice(`${label} includes ${[...new Set(refused)].join(', ')}. Only minor and patch updates merge themselves; this one is waiting for a human.`);
-              return;
+            } else {
+              // Not signed, unlike Dependabot's: the workflow makes its commit through the API with
+              // an author of its own, which GitHub does not sign. The author is told by name, and
+              // is no boundary against someone who can push here -- they can push to main. What
+              // bounds this merge is that it can only take lines away, below.
+              if (commits.length !== 1 || commits[0].author?.login !== 'github-actions[bot]') {
+                core.notice(`${label}: the branch is not main plus the one commit the workflow made. It is waiting for a human.`);
+                return;
+              }
+              if (/^## À relire\s*$/m.test(pr.body ?? '')) {
+                core.notice(`${label} lists what a person has to read once these models are gone. It is waiting for a human.`);
+                return;
+              }
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: pr.number, per_page: 100,
+              });
+              const file = files[0];
+              if (files.length !== 1 || file.filename !== process.env.REMOVALS_FILE ||
+                  file.status !== 'modified' || file.additions !== 0 || !file.patch) {
+                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone. It is waiting for a human.`);
+                return;
+              }
+              // Every line of a patch that starts with "-" is a deleted one, a YAML list item
+              // included ("-  - model_name: x"): the patch carries no "---" file header.
+              const deleted = file.patch.split('\n').filter((line) => line.startsWith('-'));
+              const entries = deleted.filter((line) => /^-\s*(?:#\s*)?-\s+model_name\s*:/.test(line)).length;
+              const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
+              const maxLines = Number(process.env.REMOVALS_MAX_LINES);
+              if (deleted.length !== file.deletions || entries === 0 || entries > maxEntries || deleted.length > maxLines) {
+                core.notice(`${label} deletes ${entries} model(s) in ${deleted.length} line(s) (${file.deletions} counted by GitHub); only 1 to ${maxEntries} models and ${maxLines} lines merge themselves. It is waiting for a human.`);
+                return;
+              }
+              notApplicable.add('sign-off');
             }
 
             const checkRuns = await github.paginate(github.rest.checks.listForRef, {
               owner, repo, ref: headSha, per_page: 100,
             });
             for (const context of required) {
+              if (notApplicable.has(context)) continue;
               // Only GitHub Actions' own check runs count: a check of the same name posted by
               // anything else is not the job the ruleset means.
               const runs = checkRuns
@@ -229,7 +302,7 @@ jobs:
               }
               throw error;
             }
-            core.notice(`${label} merged: ${required.map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);
+            core.notice(`${label} merged: ${required.filter((context) => !notApplicable.has(context)).map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);
             core.setOutput('merged', 'true');
 
   # The merge above is a push to main made with GITHUB_TOKEN, which starts no workflow: this job is

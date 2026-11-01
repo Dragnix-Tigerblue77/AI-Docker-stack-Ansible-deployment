@@ -2405,6 +2405,11 @@ def render_pr_body(result, link=None):
         "les fournisseurs ne listent toujours pas ces modèles ; fusionnée, ces modèles "
         "disparaissent de l'issue hebdomadaire à l'exécution d'après.",
         "",
+        "Elle se fusionne seule quand aucune section « À relire » n'y figure, qu'elle ne supprime "
+        "pas plus de modèles que le plafond fixé par `.github/workflows/dependabot-auto-merge.yml`, "
+        "qu'aucune ligne n'est ajoutée au fichier et que tous les contrôles sont verts. Sinon "
+        "elle attend une personne.",
+        "",
         "## %s" % ("Suppression" if len(applied) == 1 else "Suppressions"),
         "",
     ]
@@ -2442,6 +2447,8 @@ def render_pr_body(result, link=None):
     review = sorted(((report, finding, item) for report, finding in applied
                      for item in finding["removal"]["review"]), key=lambda row: row[2]["line"])
     if review:
+        # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no
+        # section of this exact title: a person has to read what this lists.
         out += ["## À relire", "",
                 "Le workflow ne réécrit aucune prose, et le contrôle ne lit pas les commentaires : "
                 "un commentaire peut dire ce qui n'est plus vrai une fois ces entrées parties, ou "
@@ -4039,6 +4046,23 @@ def online_apply_cases():
             return "the commit subject is %r" % commit.splitlines()[0]
         return None
 
+    def nothing_to_read(result, new_text, report, issue, pr, commit):
+        # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no
+        # "À relire" section: this is the case where it has none.
+        if "groq/vendor/fast" in new_text:
+            return "the retired entry is still in the file"
+        if pr is None or re.search(r"^## À relire\s*$", pr, re.MULTILINE):
+            return "the pull request asks a person to read something although nothing is left over"
+        return None
+
+    def something_to_read(result, new_text, report, issue, pr, commit):
+        # ... and the case where it has one, which has to be a person's to merge.
+        if "groq/vendor/fast" in new_text:
+            return "the retired entry is still in the file"
+        if pr is None or not re.search(r"^## À relire\s*$", pr, re.MULTILINE):
+            return "the prose left above a deleted entry is not listed under \"À relire\""
+        return None
+
     def keeps_free_one(result, new_text, report, issue, pr, commit):
         if new_text != SELFTEST_TEMPLATE:
             return "the file changed although the only retired model is behind an alias"
@@ -4316,6 +4340,17 @@ def online_apply_cases():
          SELFTEST_TEMPLATE,
          changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
          deletes_fast, 1),
+        ("a deletion that leaves nothing for a person to read has no section asking for it",
+         SELFTEST_TEMPLATE,
+         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         nothing_to_read, 1),
+        ("one that leaves prose above the deleted entry lists it under \"À relire\"",
+         SELFTEST_TEMPLATE.replace(
+             "  - model_name: fast\n",
+             "  # Prose about fast, which may as well be about its neighbours.\n"
+             "  - model_name: fast\n", 1),
+         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         something_to_read, 1),
         ("a retired model an alias points at is left alone, and the issue says why in French",
          SELFTEST_TEMPLATE, changed(openrouter=lacking("openrouter", "vendor/one:free")),
          keeps_free_one, 1),

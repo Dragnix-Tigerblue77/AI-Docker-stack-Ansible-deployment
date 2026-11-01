@@ -567,7 +567,10 @@ reviewer, they do not guard the door.
 only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
 job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (invariant 9). Renaming
 a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
-CI until the file follows.
+CI until the file follows. So is the pull request the weekly model-drift run opens to delete the
+models their provider has retired: the same workflow merges it, but only a diff that adds no line to
+`templates/LiteLLM_config.yaml.j2`, deletes a handful of models and leaves nothing for a person to
+read (the workflow's header lists the conditions).
 
 The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
@@ -660,7 +663,11 @@ the role.
    providers' keys installs PyYAML and Jinja2 and runs the script with a read-only token, the one
    that writes runs none of it. That bounds the token that writes, not the keys, which share a job
    with PyYAML and Jinja2 and are dedicated and revocable for that reason; its header says so, and
-   why.
+   why. The deletion pull request that workflow opens is merged by `dependabot-auto-merge.yml`
+   under conditions of its own, all read from GitHub's account of the pull request and none from
+   the text the workflow wrote into it, bar the one section of the body that says a person has to
+   read: no line added, one file, a handful of models, the same checks bar `sign-off`. Loosen any
+   of them and a compromised `read` job gets more than a few models off the list.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs

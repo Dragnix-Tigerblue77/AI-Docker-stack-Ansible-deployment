@@ -59,11 +59,13 @@ name: LiteLLM model drift
 # "read" holds them next to them, so a bad release could send the keys anywhere. That is
 # accepted, because what they open is a list of models -- one list request per provider per week,
 # no model called -- and they are dedicated to this workflow, revocable without touching
-# LiteLLM's own. What a compromised
-# "read" can make "publish" do is open a pull request that deletes lines of the template, which a
-# person has to read and merge, and write an issue: not push to main, which is what "contents:
+# LiteLLM's own. What a compromised "read" can make "publish" do is open a pull request that
+# deletes lines of the template, and write an issue: not push to main, which is what "contents:
 # write" next to such code would allow on a repository whose main no ruleset can protect (the
-# header of "ansible-ci.yml" has the measurement).
+# header of "ansible-ci.yml" has the measurement). That pull request can merge itself, under the
+# conditions "dependabot-auto-merge.yml" lists, and what those leave is a handful of models taken
+# off the list in a commit git keeps and a revert undoes: never a line added, so no model, no
+# address and no key that was not there.
 #
 # Why never on a pull request, and from main. This is the one workflow here that holds the
 # providers' keys, and no job may hold them next to the code of a pull request, which nobody has
@@ -112,7 +114,9 @@ name: LiteLLM model drift
 # its own heading.
 #
 # The pull request. One branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
-# and never a draft. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
+# and never a draft. It merges itself when "dependabot-auto-merge.yml" finds nothing in it for a
+# person to read, no more than a handful of models deleted and every check green; otherwise it waits
+# for tigerblue77, who merges it or closes it. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
 # rewritten at every run that finds something to delete, so that it follows main and what the
 # providers list; the title and the body are rewritten with it when they differ, so an edit made to
 # either by hand is lost at the next run. A run that finds nothing leaves the branch alone.

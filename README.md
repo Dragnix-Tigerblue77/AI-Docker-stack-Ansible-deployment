@@ -639,6 +639,18 @@ sauf si un fournisseur n'a pas pu être lu ou n'a pas de clé, ou si un modèle 
 supprimé, car « rien à supprimer » voudrait alors dire « rien vu » ou « rien que je puisse
 supprimer ».
 
+**Elle se fusionne seule, à des conditions qui tiennent toutes à ce que GitHub dit d'elle** et à rien
+de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
+fusionne les mises à jour de Dependabot, la fusionne quand elle porte un seul commit, celui du
+workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; qu'elle
+supprime cinq modèles au plus, en deux cents lignes au plus ; que son corps n'a pas de section
+« À relire » (voir plus bas) ; et que chaque contrôle que le jeu de règles nomme est vert sur son
+dernier commit. Le contrôle `sign-off` n'est pas attendu : il lit les commits d'une pull request
+que GitHub ne lance jamais pour une pull request ouverte avec le jeton du workflow, et il certifie
+le droit de soumettre ce qu'un commit ajoute, ce que celui-ci ne fait pas. Une pull request qui
+sort de ces conditions reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont
+`REMOVALS_MAX_ENTRIES` et `REMOVALS_MAX_LINES` dans le workflow de fusion.
+
 **Un commit de quelqu'un d'autre sur la branche arrête tout, et l'exécution échoue pour le dire**,
 chaque semaine, jusqu'à ce que la branche soit supprimée (le workflow la refait alors depuis
 `main`) : écraser le travail d'une personne, ou fermer ce sur quoi elle travaille, est la seule chose
@@ -650,17 +662,23 @@ dans l'historique de `main` continue de compter, tant que la branche n'est pas s
 Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
 dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
 routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade,
-une entrée dont la suppression emporterait une partie d'un bloc Jinja, un catalogue vide ou qui
-omet plus de la moitié des identifiants du fichier pour son fournisseur (une réponse tronquée
-ressemble à un retrait massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine
-moins la suppression.
+un modèle que le modèle de configuration nomme dans une instruction Jinja (la table `head` dit
+quel modèle remplace un routeur sans entrée propre, et rien ici ne sait modifier ce qu'une
+instruction calcule), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
+rendu (un `else`, une boucle qui répète une entrée), un catalogue vide ou qui omet plus de la
+moitié des identifiants du fichier pour son fournisseur (une réponse tronquée ressemble à un retrait
+massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine moins la suppression.
+Les instructions Jinja qui entourent une entrée supprimée restent : le bloc d'un fournisseur dont
+la dernière entrée part est laissé vide, et le rendu n'en change pas.
 
 Aucun commentaire n'est réécrit, et la relecture du résultat porte sur la structure du fichier, pas
 sur sa prose : la pull request liste donc, sous « À relire », ce qu'une suppression a pu rendre faux
 -- le commentaire au-dessus d'une entrée active supprimée, la raison gardée au-dessus des entrées
 commentées qui restent d'un groupe dont certaines sont parties (elle peut les compter), l'en-tête
 d'une section restée sans entrée, et toute ligne de commentaire qui cite un nom ou un identifiant
-supprimé.
+supprimé. Une pull request qui a cette section ne se fusionne pas seule : c'est ce qui laisse à une
+personne de quoi relire, et la moitié environ des suppressions n'en laissent aucune. Elles partent,
+elles, sans que personne n'ait rien à faire.
 
 Tout le reste se décide à la main, et c'est voulu : ajouter un modèle est un choix (gratuit ? dans
 quelle cascade, à quel rang ?), un retrait seulement annoncé n'en est pas encore un, un modèle
@@ -686,13 +704,15 @@ contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par
 dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ».
 
 Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
-ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML, que Dependabot fusionne
-seule, en est). Il se fait donc en **deux travaux** reliés par un artefact : `read` (les clés, un
+ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML ou de Jinja2, que Dependabot
+fusionne seule, en est). Il se fait donc en **deux travaux** reliés par un artefact : `read` (les clés, un
 jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
 dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
-pull request qui supprime des lignes du fichier, qu'une personne doit lire et fusionner. Il ne
-garde pas les clés de PyYAML, avec qui elles partagent `read` : c'est pourquoi elles doivent être
-dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
+pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
+plus haut), à des conditions qui ne laissent au pire que quelques modèles retirés de la liste, dans
+un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée, donc ni modèle, ni
+adresse, ni clé qui n'y était pas. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
 s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas
 plus protégée qu'une autre branche.
