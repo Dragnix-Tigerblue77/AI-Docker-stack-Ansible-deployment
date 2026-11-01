@@ -529,6 +529,8 @@ python3 .github/scripts/check_sign_off.py --selftest
 python3 .github/scripts/check_sign_off.py origin/main HEAD  # a pull request's range: exits 1 until the branch holds a commit
 python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
+python3 .github/scripts/check_auto_merge_gate.py --selftest   # needs node on the PATH
+python3 .github/scripts/check_auto_merge_gate.py
 gitleaks dir . --no-banner --redact
 
 # The "role run" jobs: the example playbook RUN, not read -- needs Docker, the "docker" SDK that
@@ -584,7 +586,7 @@ job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (inv
 a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
 CI until the file follows. So is the pull request the weekly model-drift run opens to delete the
 models their provider has retired: the same workflow merges it, but only a diff that adds no line to
-`templates/LiteLLM_config.yaml.j2`, deletes a handful of models and leaves nothing for a person to
+`templates/LiteLLM_config.yaml.j2`, deletes at most five entries and leaves nothing for a person to
 read (the workflow's header lists the conditions).
 
 The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
@@ -680,8 +682,12 @@ the role.
    why. The deletion pull request that workflow opens is merged by `dependabot-auto-merge.yml`
    under conditions of its own, all read from GitHub's account of the pull request and none from
    the text the workflow wrote into it, bar the one section of the body that says a person has to
-   read: no line added, one file, a handful of models, the same checks bar `sign-off`. Loosen any
-   of them and a compromised `read` job gets more than a few models off the list.
+   read: no line added, one file, five entries and two hundred lines at most, every deleted line a
+   whole entry, a cascade slot of one deleted in the same diff, a comment or a blank line, a head
+   that contains all of `main`, the same checks bar a `sign-off` that never started. Loosen any of
+   them and a compromised `read` job gets more of the file deleted: counting lines alone would let it
+   delete settings. `check_auto_merge_gate.py` plays the step against made-up pull requests and breaks
+   its script a guard at a time, so a guard that stops guarding fails CI instead of going unseen.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs
