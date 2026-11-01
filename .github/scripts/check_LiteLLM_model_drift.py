@@ -243,26 +243,31 @@ for that model (all of its entries or none):
 
 * a model_name that a cascade starts from (the virtual routers: "pro", "flash"...), or that a
   "model_group_alias" points at, since what should answer for that name is a choice;
-* the last target of a cascade, decided on the whole set at once: two models that are each the
-  other's only companion in a cascade are neither of them deleted;
+* the last target of a cascade, decided on the whole set at once and for each set of provider keys
+  separately, not on the union: the cascade that holds the members of a single provider is empty
+  for every set of keys that leaves that provider out. Two models that are each the other's only
+  companion in a cascade are neither of them deleted;
 * a cascade slot that is not a line of its own (a flow list, "- flash: free-one"), which this does
-  not edit, and a name that is used anywhere else in the file, which it knows nothing about;
-* a deletion that would take part of a Jinja block. An entry's lines run up to the next entry, so
-  the statements between two entries ("{% endif %}", "{% else %}", the "{% if %}" of the next
-  block) are in the extent of the entry above, and taking them changes what the template renders
-  while the YAML check, which blanks the statements before it parses, sees nothing: the "else"
-  branch re-parented under the "if" condition, the entry after an "{% endif %}{% if %}" handed the
-  condition of the one deleted. A block is therefore taken whole -- its statements and everything
-  between them -- or not at all, and a statement that opens no block ("set x = 1", "include") is
-  never taken. A file whose blocks do not pair up is not edited at all. So an entry of its own
-  "{% if %}" is left to a person, and so is the last entry of a block;
+  not edit, and a name that is used anywhere else in the file, which it knows nothing about: in a
+  Jinja statement or expression, such as the "head" table that says which model a router stands for,
+  or in a place the YAML reading does not declare;
+* a deletion that would take part of a Jinja block, or a line of a Jinja statement that runs over
+  several lines. The statements that open or close a block wider than the entry they sit next to --
+  the "{% endif %}" after the last entry of a provider's block, the "{% if %}" of the next block --
+  are not part of that entry: they stay, and the block is left empty, which renders as nothing. What
+  the net behind that does refuse is a set of lines that takes a statement of a block and leaves
+  another part of the same block behind: the "else" branch re-parented under the "if" condition,
+  the entry after an "{% endif %}{% if %}" handed the condition of the one deleted. A statement
+  that opens no block ("set x = 1", "include") is never taken, and a file whose blocks do not pair
+  up is not edited at all;
 * anything whose result fails verification, whatever the reason: each deletion is tried alone and
   read back, then all of them together. The result must parse; it must break no offline rule the
   original did not already break; it must have as many Jinja blocks opened as closed, as a second
   net behind the check above; and it must be, parsed, the original model list without the deleted
   entries and the original cascades without their slots, with the commented-out entries and the
-  "drift-ignore:" lines the original had besides. That comparison is written apart from the
-  editing, so that the one is not wrong in the way of the other;
+  "drift-ignore:" lines the original had besides -- and the same for the file rendered with each
+  set of provider keys, none of which may be left with an empty cascade. That comparison is written
+  apart from the editing, so that the one is not wrong in the way of the other;
 * a commented-out entry whose body goes on past a bare "#" line, which cannot be told from prose;
 * every id of a provider whose catalogue lists no model at all: an empty answer is a failed read,
   not a provider that retired everything. A catalogue that could not be read (an HTTP error, a
@@ -342,6 +347,7 @@ import difflib
 import http.client
 import http.server
 import io
+import itertools
 import json
 import os
 import re
@@ -409,6 +415,11 @@ NON_CHAT_MARKERS = (
     "audio", "embed", "guard", "image", "imagen", "lyria", "moderation", "ocr", "orpheus",
     "playai", "rerank", "speech", "transcribe", "tts", "veo", "whisper",
 )
+
+# The title of the section of the pull request body that lists what a person has to read.
+# "dependabot-auto-merge.yml" lets the pull request merge itself only when the body has no section
+# of this title, and "check_required_checks.py" holds the two to the same text.
+REVIEW_HEADING = "## À relire"
 
 # The exit status of a crash: 0, 1 and 2 mean something, and the status of an uncaught exception
 # (1) would be read as drift.
@@ -481,6 +492,13 @@ def jinja_syntax_finding(environment, text, error):
 
 def render_every_key(text):
     """The file as this check's plain Jinja2 sandbox renders it with all five keys given."""
+    return render_with_keys(text, None)
+
+
+def render_with_keys(text, given):
+    """The file as the sandbox renders it with the provider keys of "given" (a collection of the
+    variables of PROVIDER_KEY_VARIABLES) given and the others empty, which the template reads as
+    not given; every key when "given" is None."""
     # Imported here and not above, so that the message can name the file that pins it.
     try:
         import jinja2
@@ -510,7 +528,8 @@ def render_every_key(text):
     if unknown:
         raise RenderError("the file reads %s, which is none of the five provider keys"
                           % ", ".join(unknown))
-    context = {variable: "placeholder" for variable in PROVIDER_KEY_VARIABLES}
+    context = {variable: "placeholder" if given is None or variable in given else ""
+               for variable in PROVIDER_KEY_VARIABLES}
     try:
         return environment.from_string(text).render(context)
     except jinja2.TemplateSyntaxError as error:  # which an unknown filter outside an "if" is too
@@ -607,6 +626,68 @@ def entry_of(item):
         "api_key": parameters.get("api_key"),
         "item": item,
     }
+
+
+def fallback_lists(document):
+    """{(section.key, source): [targets]} of every fallback list of a parsed file, "source" being
+    None for "default_fallbacks". A cascade with nothing under it is an empty list."""
+    found = {}
+    if not isinstance(document, dict):
+        return found
+    for section_name in SETTINGS_SECTIONS:
+        section = document.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        for key in FALLBACK_KEYS:
+            if key not in section:
+                continue
+            value = section[key]
+            where = "%s.%s" % (section_name, key)
+            if key == "default_fallbacks":
+                found[(where, None)] = [name for name in (value if isinstance(value, list) else [value])
+                                        if isinstance(name, str)]
+                continue
+            for mapping in value if isinstance(value, list) else [value]:
+                if not isinstance(mapping, dict):
+                    continue
+                for source, targets in mapping.items():
+                    found[(where, source)] = [name for name in (
+                        targets if isinstance(targets, list) else [targets]) if isinstance(name, str)]
+    return found
+
+
+def keyset_documents(text):
+    """[(given, parsed document)] of the file rendered for each non-empty set of the provider keys
+    it reads, "given" being a tuple of the names of the keys given; the document is None for a set
+    that does not render. A file that reads no key renders once. The rest of this check reads the
+    file with all five keys given, and a cascade that holds only the members of one provider is empty
+    for the sets that leave that provider out: what is judged here is each of them."""
+    try:
+        import jinja2
+        import jinja2.meta
+        from jinja2.sandbox import SandboxedEnvironment
+        tree = SandboxedEnvironment().parse(text)
+        read = jinja2.meta.find_undeclared_variables(tree) & set(PROVIDER_KEY_VARIABLES)
+    except Exception:  # the file is not valid Jinja: read_template has said so
+        return []
+    names = [variable for variable in PROVIDER_KEY_VARIABLES if variable in read]
+    sets = [tuple(chosen) for size in range(1, len(names) + 1)
+            for chosen in itertools.combinations(names, size)] or [tuple()]
+    return [(given, render_keyset(text, given)) for given in sets]
+
+
+def render_keyset(text, given):
+    """The parsed file rendered with the keys of "given" given, or None when it does not render."""
+    try:
+        return yaml.safe_load(render_with_keys(text, frozenset(given)))
+    except (RenderError, yaml.YAMLError):
+        return None
+
+
+def given_text(given):
+    """The providers of a set of key variables, for a message."""
+    names = [variable.split("_")[-3] for variable in given]
+    return ", ".join(names) if names else "no key"
 
 
 def commented_blocks(lines):
@@ -1191,8 +1272,11 @@ REFUSALS = {
         "sa place dans %s n'est pas une ligne de liste simple, que cet outil ne sait pas modifier",
     ),
     "stray": (
-        "its name is also used at %s, a place this tool knows nothing about",
-        "son nom est aussi utilisé à %s, un endroit que cet outil ne connaît pas",
+        "its name is also used at line %s, in a Jinja statement or a place of the file this tool does "
+        "not edit (the \"head\" table, which says which model a router stands for, for instance)",
+        "son nom est aussi utilisé à la ligne %s, dans une instruction Jinja ou un endroit du fichier "
+        "que cet outil ne modifie pas (la table `head`, qui dit quel modèle remplace un routeur, par "
+        "exemple)",
     ),
     "verification": (
         "deleting it makes the result fail verification: %s",
@@ -1427,20 +1511,38 @@ def read_layout(text, template):
             r"\s*-\s+(?:\"%s\"|'%s'|%s)\s*(?:#.*)?" % ((re.escape(name),) * 3), line))
         if reference["role"] in ("target", "default"):
             groups.setdefault(reference["group"], []).append(reference)
+    # The lines a Jinja statement runs over when it takes more than one: jinja_structure reads a
+    # line at a time and cannot see it, and a deletion that took one of its lines would leave half of
+    # a statement behind.
+    spanning = set()
+    for match in JINJA_STATEMENT.finditer(text):
+        first, last = text.count("\n", 0, match.start()), text.count("\n", 0, match.end())
+        if last > first:
+            spanning.update(range(first, last + 1))
     return {"lines": lines, "raw": text.splitlines(keepends=True), "entries": entries,
             "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
             "references": references, "groups": groups, "strays": strays,
-            "jinja": structure[0], "jinja_single": structure[1]}, None
+            "jinja": structure[0], "jinja_single": structure[1], "jinja_spanning": spanning,
+            "keysets": keyset_documents(text)}, None
 
 
-def comments_above(layout, start):
+def comments_above(layout, start, entry=None):
     """The comment lines directly above line "start", top to bottom, up to the first blank line, the
-    first line that is not a comment, or the first line of a commented-out entry."""
+    first line that is not a comment, or the first line of a commented-out entry. With the active
+    "entry" that starts there, the one statement line that opens a block closing right after it is
+    stepped over: prose written above "{% if x %}" and the entry it wraps is about that entry."""
     found = []
     number = start - 1
-    while number >= 0 and number not in layout["owner"] \
-            and comment_content(layout["lines"][number]) is not None:
-        found.append(number)
+    while number >= 0 and number not in layout["owner"]:
+        line = layout["lines"][number]
+        if comment_content(line) is not None:
+            found.append(number)
+        elif entry is not None and number == start - 1 and any(
+                min(block) == number and max(block) - entry["end"] <= 2
+                for block in layout["jinja"]):
+            pass
+        else:
+            break
         number -= 1
     return found[::-1]
 
@@ -1449,7 +1551,7 @@ def left_behind(layout, entry):
     """The comment lines above an active entry that a deletion leaves where they are: the prose
     about it, which may as well be about its neighbours, and which only a person can tell. A section
     banner is none of that, so everything up to the last banner rule is cut off."""
-    found = comments_above(layout, entry["start"])
+    found = comments_above(layout, entry["start"], entry)
     cut = max((position for position, number in enumerate(found)
                if BANNER_RULE.match(layout["lines"][number])), default=-1)
     found = found[cut + 1:]
@@ -1646,6 +1748,10 @@ def jinja_refusal(layout, marks):
             return ("it would take a statement of the Jinja block that runs from line %d to line %d "
                     "and leave line %d, which is part of it or inside it, behind"
                     % (first + 1, last + 1, left[0] + 1))
+    spanning = layout["jinja_spanning"] & marks
+    if spanning:
+        return ("it would take a line of the Jinja statement that runs over several lines at line "
+                "%d, whose effect on the rest of the file this tool cannot read" % (min(spanning) + 1))
     statement = layout["jinja_single"] & marks
     if statement:
         return ("it would take the Jinja statement at line %d, whose effect on the rest of the "
@@ -1698,6 +1804,36 @@ def verify_removal(text, keys, new_text, original=None):
                               if id(item) not in removed]
     if strip_names(expected, slot_names) != result["document"]:
         return "the result is not the original without the deleted entries and their cascade slots"
+
+    # And on every set of keys, which is where a cascade is emptied: the model list is the original's
+    # without the deleted entries, each fallback list the original's without the deleted slots, and
+    # none that had members has none left.
+    deleted_names = {entry["name"] for entry in deleted if entry["state"] == "active"}
+    for given, before in layout["keysets"]:
+        if not isinstance(before, dict):
+            continue
+        after = render_keyset(new_text, given)
+        if not isinstance(after, dict):
+            return "the result does not render when only %s given" % given_text(given)
+        names = [item.get("model_name") for item in before.get("model_list") or []
+                 if isinstance(item, dict)]
+        left_names = [item.get("model_name") for item in after.get("model_list") or []
+                      if isinstance(item, dict)]
+        if left_names != [name for name in names if name not in deleted_names]:
+            return "the model list of the result is not the original's without the deleted entries " \
+                   "when only %s given" % given_text(given)
+        lists_before, lists_after = fallback_lists(before), fallback_lists(after)
+        if set(lists_after) - set(lists_before):
+            return "the result has a fallback list the original did not when only %s given" \
+                   % given_text(given)
+        for group, targets in lists_before.items():
+            wanted = [name for name in targets if name not in slot_names]
+            if lists_after.get(group, []) != wanted:
+                return "%s is not the original's without the deleted slots when only %s given" \
+                       % (place(group), given_text(given))
+            if targets and not wanted:
+                return "%s is left with no member when only %s given" % (place(group),
+                                                                         given_text(given))
 
     def summary(entries):
         return [(entry["name"], entry["model"], entry["api_base"]) for entry in entries]
@@ -1753,7 +1889,15 @@ def static_refusals(layout, keys):
                 refuse_name(member["name"], "emptied", place(group))
     for name in owners:
         if layout["strays"].get(name):
-            refuse_name(name, "stray", "line %d" % layout["strays"][name][0])
+            refuse_name(name, "stray", str(layout["strays"][name][0]))
+    # A cascade that is left with nothing is judged for each set of keys, not on the union: the one
+    # that holds the members of a single provider is empty for every set that leaves it out.
+    for given, document in layout["keysets"]:
+        for group, targets in fallback_lists(document).items():
+            if targets and all(target in owners for target in targets):
+                for target in targets:
+                    refuse_name(target, "emptied", "%s, when only %s given" % (place(group),
+                                                                               given_text(given)))
     return found
 
 
@@ -2454,7 +2598,7 @@ def render_pr_body(result, link=None):
     if review:
         # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no
         # section of this exact title: a person has to read what this lists.
-        out += ["## À relire", "",
+        out += [REVIEW_HEADING, "",
                 "Le workflow ne réécrit aucune prose, et le contrôle ne lit pas les commentaires : "
                 "un commentaire peut dire ce qui n'est plus vrai une fois ces entrées parties, ou "
                 "décrire une entrée voisine, et seule une personne le voit. Ces lignes du nouveau "
@@ -3550,6 +3694,24 @@ APPLY_CASES = (
        "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n      api_key: \"os.environ/GROQ_API_KEY_SELFTEST\"\n{% endif %}\n\n", ""),
       ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
      {}),
+    ("a model named inside a Jinja statement is not deleted: the statement computes with its name",
+     (("model_list:\n", "{% set head = {'x': 'solo-groq'} %}\nmodel_list:\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "stray"}),
+    ("nor one named inside a Jinja expression",
+     (("model_list:\n", "# {{ 'solo-groq' }}\nmodel_list:\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "stray"}),
+    ("nor one followed by a Jinja statement that runs over two lines: half of it would stay",
+     ((groq_entry("solo-groq", "solo"),
+       groq_entry("solo-groq", "solo") + "{% set account =\n 'main' %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "verification"}),
+    ("a file whose block opens over two lines and closes on one is not edited at all",
+     ((groq_entry("solo-groq", "solo"),
+       "{% if\n Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("solo-groq", "solo") + "{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
     ("a Jinja comment line after an entry is not the entry's, and stays",
      ((groq_entry("solo-groq", "solo"),
        groq_entry("solo-groq", "solo") + "{# the next entry is the shared one #}\n"),),
@@ -3773,9 +3935,150 @@ REVIEW_CASES = (
      (("  - model_name: gamma-groq", "  # beta-groq:free is another model.\n"
        "  - model_name: gamma-groq"),),
      [("groq", "vendor/beta", "retired")], []),
+    ("a comment naming a deleted bare id is pointed at",
+     (("  - model_name: gamma-groq", "  # vendor/beta is the cheap one\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")],
+     [("mention", "vendor/beta is the cheap one", 1, "vendor/beta")]),
+    ("a comment naming it by its provider-qualified id is pointed at",
+     (("  - model_name: gamma-groq", "  # groq/vendor/beta is the cheap one\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")],
+     [("mention", "groq/vendor/beta is the cheap one", 1, "groq/vendor/beta")]),
+    ("the prose above the statement that wraps an entry is about that entry, and is pointed at",
+     ((groq_entry("beta-groq", "beta"),
+       "  # Prose about beta, written above its condition\n{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"
+       + groq_entry("beta-groq", "beta") + "{% endif %}\n"),),
+     [("groq", "vendor/beta", "retired")],
+     [("left", "Prose about beta, written above its condition", 1, None)]),
     ("a deletion no comment is about points nowhere",
      (), [("groq", "vendor/solo", "retired")], []),
 )
+
+
+KEYSET_TEMPLATE = """\
+model_list:
+{% if Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0 %}
+  - model_name: only-groq
+    litellm_params:
+      model: groq/vendor/one
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+{% endif %}
+{% if Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0 %}
+  - model_name: only-mistral
+    litellm_params:
+      model: mistral/vendor/two
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+
+  - model_name: unrouted-mistral
+    litellm_params:
+      model: mistral/vendor/three
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+{% endif %}
+  - model_name: always
+    litellm_params:
+      model: openai/auto/always
+      api_base: "http://stand-in.invalid/v1"
+      api_key: "stand-in"
+
+router_settings:
+  fallbacks:
+    - always:
+{% if Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0 %}
+        - only-groq
+{% endif %}
+{% if Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0 %}
+        - only-mistral
+{% endif %}
+    - only-groq-or-mistral-first:
+        - always
+"""
+
+KEYSET_CASES = (
+    ("a model that is the only member of a cascade for some set of keys is not deleted, though "
+     "another set of keys leaves the cascade a member",
+     [("groq", "vendor/one", "retired")], "emptied"),
+    ("and one that no cascade names goes",
+     [("mistral", "vendor/three", "retired")], None),
+)
+
+
+def run_keyset_cases():
+    """A cascade is judged for every set of provider keys, not on the union: the one that holds a
+    provider's members alone is empty for each set that leaves the provider out."""
+    failures = 0
+    # The cascade above lists only-groq and only-mistral after "always", so "always" keeps it
+    # non-empty for every set; the cases below use the template with "always" taken out of it.
+    text = KEYSET_TEMPLATE.replace("    - always:\n", "    - only-groq-or-mistral:\n", 1).replace(
+        "    - only-groq-or-mistral-first:\n        - always\n", "", 1)
+    for purpose, wanted, expected in KEYSET_CASES:
+        new_text, outcomes = apply_removals(text, wanted)
+        got = outcomes[0]["reason"][0] if outcomes[0]["status"] == "refused" else None
+        why = None
+        if got != expected:
+            why = "refused as %r, expected %r (%r)" % (got, expected, outcomes[0]["reason"])
+        elif expected is None and not (new_text != text and "unrouted-mistral" not in new_text):
+            why = "the entry that no cascade names was not deleted"
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    # The reading behind that rule, called on its own: a result that is the same file with all five
+    # keys given and another for the set that gives one provider alone is refused.
+    good, _ = apply_removals(text, [("mistral", "vendor/three", "retired")])
+    guard = "{% if @@ is string and @@ | length > 0 %}\n        - only-mistral\n"
+
+    def guarded(provider):
+        return guard.replace("@@", "Artificial_Intelligence_LiteLLM_%s_API_key" % provider)
+
+    entry_guard = "{% if @@ is string and @@ | length > 0 %}\n  - model_name: only-mistral\n"
+
+    def entry_guarded(provider):
+        return entry_guard.replace("@@", "Artificial_Intelligence_LiteLLM_%s_API_key" % provider)
+
+    for purpose, bad, wanted in (
+            ("a result whose cascade differs for one set of keys only is refused",
+             good.replace(guarded("Mistral"), guarded("Groq")), "only Mistral given"),
+            ("and so is one whose model list does",
+             good.replace(entry_guarded("Mistral"), entry_guarded("Groq")), "only Mistral given")):
+        problem = verify_removal(text, {("mistral", "vendor/three")}, bad)
+        if bad == good or not problem or wanted not in problem:
+            failures += 1
+            print("selftest: FAILED (%s) -- %r" % (purpose, problem))
+        else:
+            print("selftest: ok -- %s" % purpose)
+    return failures
+
+
+def run_jinja_net_cases():
+    """The net behind the block rule, called on its own: the cases above never reach it, since a
+    statement that wraps an entry is trimmed off it before the net is asked."""
+    failures = 0
+    text = edited(APPLY_TEMPLATE, ((groq_entry("solo-groq", "solo"), "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"
+                                    + groq_entry("solo-groq", "solo") + "{% endif %}\n"),),
+                  "the Jinja net")
+    template, _ = read_template(text) if text else (None, None)
+    layout = read_layout(text, template)[0] if template else None
+    if layout is None:
+        print("selftest: FAILED (the Jinja net cases could not be built)")
+        return 1
+    lines = layout["lines"]
+    opener = next(number for number, line in enumerate(lines) if line.startswith("{% if "))
+    closer = next(number for number, line in enumerate(lines) if line.startswith("{% endif %}"))
+    body = set(range(opener, closer + 1))
+    for purpose, marks, refused in (
+            ("the end of a block taken without its start is refused", {closer}, True),
+            ("the two ends of a block taken without what they enclose are refused",
+             {opener, closer}, True),
+            ("a block taken whole, with what is between its ends, is not", body, False)):
+        got = jinja_refusal(layout, marks)
+        if (got is not None) != refused:
+            failures += 1
+            print("selftest: FAILED (%s) -- got %r" % (purpose, got))
+        else:
+            print("selftest: ok -- %s" % purpose)
+    return failures
 
 
 def run_review_cases():
@@ -4534,6 +4837,18 @@ def run_command_line_cases():
 
 def run_selftest():
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
+    # What the weekly workflow sets in the job that runs this check makes the issue carry a link to
+    # the pull request, which the cases below do not expect: the selftest runs without them.
+    kept = {name: os.environ.pop(name) for name in (
+        "REMOVALS_BRANCH", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
+        if name in os.environ}
+    try:
+        return run_selftest_cases()
+    finally:
+        os.environ.update(kept)
+
+
+def run_selftest_cases():
     failures = 0
 
     for base, cases in ((SELFTEST_TEMPLATE, OFFLINE_CASES), (SELFTEST_JINJA_TEMPLATE, JINJA_CASES)):
@@ -4585,6 +4900,8 @@ def run_selftest():
     failures += run_safety_net_case()
     failures += run_online_apply_cases()
     failures += run_review_cases()
+    failures += run_keyset_cases()
+    failures += run_jinja_net_cases()
     failures += run_hardening_cases()
     failures += run_command_line_cases()
     return 1 if failures else 0

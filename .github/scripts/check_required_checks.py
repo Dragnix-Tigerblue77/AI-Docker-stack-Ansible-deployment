@@ -2,12 +2,12 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Refuse a Dependabot merge gate that cannot pass, misses a job, or leaves its merge unchecked.
+"""Refuse a merge gate that cannot pass, misses a job, or leaves its merge unchecked.
 
 WHY THIS CHECK EXISTS
 ---------------------
-".github/rulesets/main.json" is the list of checks a Dependabot update has to pass before
-".github/workflows/dependabot-auto-merge.yml" merges it. Nothing on GitHub's side reads that file:
+".github/rulesets/main.json" is the list of checks a Dependabot update, or the weekly model-deletion
+pull request, has to pass before ".github/workflows/dependabot-auto-merge.yml" merges it. Nothing on GitHub's side reads that file:
 the organisation's plan enforces no ruleset on a private repository, so the merge workflow reads it
 itself. That makes it a file nothing else keeps honest, and it can go wrong in two directions, both
 of them silent:
@@ -62,7 +62,6 @@ WHAT IT CHECKS
    gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
    gate would leave the deletion pull request without it, which only shows as a check that is not
    there.
-
 8. The branch the weekly model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
    is the one the gate merges, and the `if:` of the gate's job lets a run on it through. The gate
    merges that pull request by itself, and a branch named differently on either side would leave
@@ -301,6 +300,10 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
         elif not filtered_on(workflows[GATE], made[0]):
             found.append("%s never lets a run of %s through its job filter: the `if:` of its job "
                          "does not name the branch." % (GATE, made[0]))
+    elif GATE in workflows and env_values(workflows[GATE], BRANCH_ENV):
+        found.append("%s merges the pull request of a branch (%s) that no workflow named %s makes: "
+                     "a rename of that workflow would leave the gate waiting for ever."
+                     % (GATE, ", ".join(sorted(set(env_values(workflows[GATE], BRANCH_ENV)))), DRIFT))
 
     return found
 
@@ -343,6 +346,11 @@ jobs:
         env:
           WORKFLOW_FILES: ci.yml
 """
+
+# The gate as the cases that say nothing of the deletion pull request want it: no branch, no filter.
+SELFTEST_GATE_PLAIN = SELFTEST_GATE.replace(
+    "    if: github.event.workflow_run.head_branch == 'removals'\n    steps:\n      - name: Merge\n"
+    "        env:\n          REMOVALS_BRANCH: removals\n", "")
 
 SELFTEST_NIGHTLY = """
 name: Nightly
@@ -413,8 +421,10 @@ def selftest_ruleset(*contexts, **overrides):
     return ruleset
 
 
-def selftest_workflows(ci=SELFTEST_CI, gate=SELFTEST_GATE, extra=None, drift=None):
+def selftest_workflows(ci=SELFTEST_CI, gate="default", extra=None, drift=None):
     workflows = {"ci.yml": yaml.safe_load(ci), "nightly.yml": yaml.safe_load(SELFTEST_NIGHTLY)}
+    if gate == "default":
+        gate = SELFTEST_GATE if drift is not None else SELFTEST_GATE_PLAIN
     if gate is not None:
         workflows[GATE] = yaml.safe_load(gate)
     if extra is not None:
@@ -478,7 +488,7 @@ def selftest_cases():
          "listens to extra.yml but does not dispatch it"),
         ("a dispatch list naming several files, one per listened workflow, passes",
          selftest_ruleset(*good, "the scanner"),
-         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]')
+         selftest_workflows(gate=SELFTEST_GATE_PLAIN.replace('["CI"]', '["CI", "Other"]')
                             .replace("WORKFLOW_FILES: ci.yml", "WORKFLOW_FILES: ci.yml extra.yml"),
                             extra=SELFTEST_OTHER),
          None),
@@ -489,7 +499,7 @@ def selftest_cases():
          "listens to extra.yml but does not dispatch it"),
         ("a pull-request-only workflow NOT_DISPATCHED names, with its reason, is let through",
          selftest_ruleset(*good, "the range reader"),
-         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Range"]'),
+         selftest_workflows(gate=SELFTEST_GATE_PLAIN.replace('["CI"]', '["CI", "Range"]'),
                             extra=SELFTEST_PULL_REQUEST_ONLY),
          None, {}, {"extra.yml": "a reason"}),
         ("a NOT_DISPATCHED entry naming no workflow file is refused",
@@ -547,6 +557,22 @@ def selftest_cases():
          selftest_workflows(gate=SELFTEST_GATE.replace("== 'removals'", "== 'other'"),
                             drift=SELFTEST_DRIFT),
          "does not name the branch"),
+        ("a gate that names a branch when there is no drift workflow is refused",
+         selftest_ruleset(*good), selftest_workflows(gate=SELFTEST_GATE),
+         "that no workflow named"),
+        ("a drift workflow that gives two different branches in two jobs is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace(
+             "jobs:\n", "jobs:\n  other:\n    name: other\n    runs-on: ubuntu-latest\n    env:\n"
+             "      REMOVALS_BRANCH: other\n    steps: []\n", 1)),
+         "must give REMOVALS_BRANCH one value"),
+        ("a gate that carries a second, wrong branch beside the right one is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace(
+             "          REMOVALS_BRANCH: removals\n",
+             "          REMOVALS_BRANCH: removals\n      - name: Other\n        env:\n"
+             "          REMOVALS_BRANCH: other\n", 1), drift=SELFTEST_DRIFT),
+         "they must be the same branch"),
         ("a drift workflow that names no branch is refused",
          selftest_ruleset(*good),
          selftest_workflows(drift=SELFTEST_DRIFT.replace("REMOVALS_BRANCH: removals",

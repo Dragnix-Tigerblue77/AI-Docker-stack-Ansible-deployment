@@ -12,9 +12,10 @@ name: gitleaks
 #   no CI check can be made required before merging. The guard that really refuses is
 #   ".githooks/pre-commit".
 #
-#   The exception is Dependabot's own updates: "dependabot-auto-merge.yml" merges one only once both
-#   jobs below have succeeded on it, reading their display names from ".github/rulesets/main.json"
-#   and listening for this workflow by its "name:" above. See the header of "ansible-ci.yml".
+#   The exceptions are Dependabot's own updates and the weekly model-deletion pull request:
+#   "dependabot-auto-merge.yml" merges one only once both jobs below have succeeded on it, reading
+#   their display names from ".github/rulesets/main.json" and listening for this workflow by its
+#   "name:" above. See the header of "ansible-ci.yml".
 #
 # Both jobs take their runner from CI_RUNNER, like every job of "ansible-ci.yml", whose header says
 # what the variable may name and when. The "sudo install" below needs a runner whose user has sudo

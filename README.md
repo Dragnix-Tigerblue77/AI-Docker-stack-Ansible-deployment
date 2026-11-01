@@ -652,8 +652,8 @@ conservée). Le workflow en fait **une seule pull request**, sur la branche
 `claude/LiteLLM-model-drift-removals`, assignée à tigerblue77 : son corps cite, pour chaque
 suppression, le fournisseur, l'identifiant, le catalogue lu et la date, et le workflow relance
 lui-même `ansible-ci.yml` et `gitleaks.yml` sur la branche, puisqu'une pull request ouverte avec son
-jeton n'en déclenche aucun. Elle est réécrite à chaque exécution (titre et corps compris : une
-modification à la main est perdue), et fermée avec un commentaire quand plus rien ne se supprime --
+jeton n'en déclenche aucun. Elle est réécrite à chaque exécution qui trouve quelque chose à
+supprimer (titre et corps compris : une modification à la main est perdue), et fermée avec un commentaire quand plus rien ne se supprime --
 sauf si un fournisseur n'a pas pu être lu ou n'a pas de clé, ou si un modèle retiré n'a pas pu être
 supprimé, car « rien à supprimer » voudrait alors dire « rien vu » ou « rien que je puisse
 supprimer ».
@@ -662,7 +662,7 @@ supprimer ».
 de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
 fusionne les mises à jour de Dependabot, la fusionne quand elle porte un seul commit, celui du
 workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; qu'elle
-supprime cinq modèles au plus, en deux cents lignes au plus ; que son corps n'a pas de section
+supprime cinq entrées au plus (les entrées commentées comptent), en deux cents lignes au plus ; que son corps n'a pas de section
 « À relire » (voir plus bas) ; et que chaque contrôle que le jeu de règles nomme est vert sur son
 dernier commit. Le contrôle `sign-off` n'est pas attendu : il lit les commits d'une pull request
 que GitHub ne lance jamais pour une pull request ouverte avec le jeton du workflow, et il certifie
@@ -680,12 +680,12 @@ dans l'historique de `main` continue de compter, tant que la branche n'est pas s
 
 Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
 dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
-routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade,
-un modèle que le modèle de configuration nomme dans une instruction Jinja (la table `head` dit
+routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade (pour chaque jeu de clés de fournisseur,
+pas sur leur union), un modèle que le modèle de configuration nomme dans une instruction Jinja (la table `head` dit
 quel modèle remplace un routeur sans entrée propre, et rien ici ne sait modifier ce qu'une
 instruction calcule), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
 rendu (un `else`, une boucle qui répète une entrée), un catalogue vide ou qui omet plus de la
-moitié des identifiants du fichier pour son fournisseur (une réponse tronquée ressemble à un retrait
+moitié des identifiants du fichier pour son fournisseur, à partir de trois (une réponse tronquée ressemble à un retrait
 massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine moins la suppression.
 Les instructions Jinja qui entourent une entrée supprimée restent : le bloc d'un fournisseur dont
 la dernière entrée part est laissé vide, et le rendu n'en change pas.
@@ -728,9 +728,9 @@ fusionne seule, en est). Il se fait donc en **deux travaux** reliés par un arte
 jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
 dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
 pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
-plus haut), à des conditions qui ne laissent au pire que quelques modèles retirés de la liste, dans
-un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée, donc ni modèle, ni
-adresse, ni clé qui n'y était pas. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+plus haut), à des conditions qui bornent le nombre de lignes retirées (cinq entrées et deux cents
+lignes au plus) mais pas encore lesquelles, dans un commit que git garde et qu'un `revert` défait --
+jamais une ligne ajoutée. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
 partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
 s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas

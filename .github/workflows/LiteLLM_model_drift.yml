@@ -4,153 +4,110 @@
 name: LiteLLM model drift
 
 # Once a week, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
-# lists today, keeps ONE rolling issue in step with the answer, and opens ONE pull request
-# that deletes the models a provider no longer lists. Those deletions are the only thing it
-# edits, because they are the only part of the rule that needs no judgment: CLAUDE.md ("The model
-# list keeps only what can be called") says a retired model is deleted, entry and cascade slots
-# alike, and a provider that no longer lists an id has said that it is retired. No model reads a
-# catalogue and none writes a line here: "check_LiteLLM_model_drift.py --apply" does it, deletes
-# only what it can read back as the original minus the deletion, and leaves in the issue, with its
-# reason, whatever it cannot delete without choosing: a virtual router, a model an alias points at,
-# the last target of a cascade, an answer too short to be believed. What each finding means, how
-# each provider is read, and what is deliberately not reported is in the docstring of that script,
-# which this workflow only runs.
+# lists, keeps ONE rolling issue in step with the answer, and opens ONE pull request that deletes
+# the models a provider no longer lists. Deletions are the only thing it edits, because they need no
+# judgment: CLAUDE.md ("The model list keeps only what can be called") says a retired model is
+# deleted, entry and cascade slots alike. No model reads a catalogue or writes a line here:
+# "check_LiteLLM_model_drift.py --apply" does it, and deletes only what it can read back as the
+# original minus the deletion. What it cannot delete without choosing stays in the issue with its
+# reason, and so does everything that is a decision: an addition, an announced retirement, a model
+# free again. What each finding means is in the docstring of that script, which this workflow only
+# runs. The README says what the repository needs for it, the setting "Allow GitHub Actions to
+# create and approve pull requests" included: while it is off, the step that opens the pull request
+# fails and names it.
 #
-# What stays manual, and why. An addition is a choice (does it earn a place, in which cascade, at
-# which rank?), so the issue gives every new id an entry to complete and the file is left alone. A
-# retirement a provider only announces is not one yet. A model free again on OpenRouter reopens a
-# reason somebody wrote. The rule wants every claim in the list to cite the provider's own page and
-# the date it was checked: a deletion cites the catalogue this run read and the date of the run, in
-# the pull request body, which is the same claim made by the machine that read the catalogue. The
-# comments a deletion may have made false are not rewritten either: the pull request lists them
-# under "À relire".
-#
-# What it needs from the repository, once: the setting "Allow GitHub Actions to create and approve
-# pull requests", under Settings -> Actions -> General -> Workflow permissions (or, where that box
-# is greyed out, the same setting of the organisation that owns the repository). While it is off the
-# run still pushes the branch and keeps the issue, and it fails on the step that opens the pull
-# request, with a message that names the setting and links its page.
-#
-# Why weekly. Providers announce a retirement weeks ahead -- Groq gave four weeks for Compound
-# (announced 2026-08-24, shut 2026-09-21, "console.groq.com/docs/deprecations") and two months for
-# Llama 3.3 70B -- and where their API carries the announcement (OpenRouter's "expiration_date",
-# Mistral's "deprecation"), a weekly run sees it with weeks to spare. Where it does not, the run
-# sees the model gone within a week of its shutdown: a week of a cascade one entry shorter, since a
-# refused call only moves the request on, and nothing worse. A daily run would mostly rewrite the
-# same issue with the same findings. Monday 05:17 UTC: early in the week the finding is read in,
-# and off the top of the hour, when every scheduled workflow on GitHub starts at once and some
-# start late.
+# Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
+# announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
+# the run sees the model gone within a week: a cascade one entry shorter for that week, since a
+# refused call only moves the request on. Monday 05:17 UTC, off the top of the hour, when every
+# scheduled workflow on GitHub starts at once.
 #
 # Two jobs, because no job may both hold a write token and run code nobody has reviewed yet -- the
 # rule "dependabot-auto-merge.yml" is built on. A freshly bumped PyYAML or Jinja2 is such code:
-# Dependabot's updates merge themselves once CI is green, and the script below imports both.
+# Dependabot's updates merge themselves once CI is green, and the script imports both.
 #
 #   "read"     holds the providers' keys and a READ-ONLY token. It checks main out, installs
-#              PyYAML and Jinja2, runs the script, and hands the texts, the edited template and
-#              three values to the next job as an artifact. Whatever it is made to do, it can
-#              write nothing to the repository.
-#   "publish"  holds the token that writes, and no key. It checks nothing out, installs nothing and
-#              runs no script of this repository: it downloads the artifact, takes every value in
-#              it as data (a status among three, a coverage among two, a count, a commit that must
-#              be on main, a template it uploads only once it has checked that it is main's own
-#              with lines deleted), and calls the API.
+#              PyYAML and Jinja2, runs the script, and hands the texts and the edited template to
+#              the next job as an artifact, and five values as job outputs.
+#   "publish"  holds the token that writes, and no key. It checks nothing out and runs nothing of
+#              this repository: it takes what it receives as data (a status among three, a
+#              coverage among two, a flag among three, a count, a commit of main, and a template it
+#              uploads only once it has checked that it is main's own with lines deleted) and calls
+#              the API.
 #
-# The split bounds the token that writes. It does not keep the keys away from those two libraries:
-# "read" holds them next to them, so a bad release could send the keys anywhere. That is
-# accepted, because what they open is a list of models -- one list request per provider per week,
-# no model called -- and they are dedicated to this workflow, revocable without touching
-# LiteLLM's own. What a compromised "read" can make "publish" do is open a pull request that
-# deletes lines of the template, and write an issue: not push to main, which is what "contents:
-# write" next to such code would allow on a repository whose main no ruleset can protect (the
-# header of "ansible-ci.yml" has the measurement). That pull request can merge itself, under the
-# conditions "dependabot-auto-merge.yml" lists, and what those leave is a handful of models taken
-# off the list in a commit git keeps and a revert undoes: never a line added, so no model, no
-# address and no key that was not there.
+# The split bounds the token that writes, not the keys: "read" holds them next to those two
+# libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
+# (one list request per provider per week, no model called), they are dedicated to this workflow and
+# revocable without touching LiteLLM's own. What a compromised "read" can make "publish" do is open
+# a pull request that deletes lines of the template, and write an issue -- not push to main, which
+# "contents: write" next to such code would allow on a repository whose main no ruleset can protect
+# (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
+# itself is for "dependabot-auto-merge.yml" to say.
 #
-# Why never on a pull request, and from main. This is the one workflow here that holds the
-# providers' keys, and no job may hold them next to the code of a pull request, which nobody has
-# reviewed yet: a "pull_request" run executes the branch's own version of the script, which could
-# send the keys anywhere. So it runs on a schedule and by hand, and both jobs refuse to start from
-# any ref but main -- which guards against a run started by mistake from another ref, and is no
-# boundary against a person who can push to this repository: they could edit this file on a branch
-# and dispatch it there, with the secrets, and main is no more protected than any other branch
-# here. The first job checks main out explicitly: the issue describes main, and the deletions are
-# made on it. The offline half of the check, which needs no key, runs on every pull request anyway,
-# as a step of the "home-made checks" job of "ansible-ci.yml".
+# Never on a pull request, and from main: this is the one workflow that holds the providers' keys,
+# and no job may hold them next to the code of a pull request, which nobody has reviewed yet. So it
+# runs on a schedule and by hand, and both jobs refuse any ref but main -- a guard against a run
+# started by mistake, no boundary against a person who can push here, who could dispatch an edited
+# copy of this file from a branch, with the secrets. The offline half of the check, which needs no
+# key, runs on every pull request in "ansible-ci.yml".
 #
-# What reaches a write call. Everything in a provider's answer is untrusted text, and none of it is
-# ever put in a command line, a branch name or an expression of this file: the script reads the
-# answers, cleans what it shows (an id spelt unusually is not offered, a name is cut to plain words)
-# and writes files; the steps below read those files, and the one fixed path they touch, and take
-# every other value from the environment. The branch has a fixed name, the title a fixed text.
-# Nothing a catalogue says can reach the pull request, the issue or the log in any other way, and
-# no key does: a failed read is reported with its HTTP status and nothing else, any key of the run
-# found in an error is replaced, and a redirect is not followed, since the keys travel in the
-# headers of the request.
+# What reaches a write call. Everything in a provider's answer is untrusted, and none of it is ever
+# put in a command line, a branch name or an expression of this file: the script cleans what it
+# shows (an id spelt unusually is not offered, a name is cut to plain words) and writes files, and
+# the steps below read those files and take every other value from the environment. The branch has
+# a fixed name, the title a fixed text. No key reaches the output either: a failed read is reported
+# with its HTTP status and nothing else, a key found in an error is replaced, and a redirect is not
+# followed, since the keys travel in the headers.
 #
-# The secrets, each optional. Without one, its provider is listed as "not covered (no key)" in the
-# issue, every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova publish
-# their catalogue without a key and are always covered. No model is ever called -- one list request
-# per provider per week, no token spent -- and a key dedicated to this workflow can be revoked
-# without touching LiteLLM's own.
+# Secrets, each optional. A provider without one is listed as "not covered (no key)" in the issue
+# every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova need none.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
 #   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
-#   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries, the GLM pair it hosts included
+#   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries
 #   MODEL_DRIFT_DEEPSEEK_API_KEY  DeepSeek, direct API -- "deepseek/" entries
 #
-# What it costs: two jobs of well under a minute each, billed as one minute each, once a week --
-# about eight to ten of the organisation's included minutes a month, this repository being private
-# -- plus, in the weeks when something is deleted, the two workflows it dispatches on the branch
-# (see below).
+# Cost: two jobs of under a minute each, once a week -- about eight to ten of the included minutes a
+# month on this private repository -- plus, when something is deleted, the two workflows dispatched
+# on the branch.
 #
-# The issue is found by its exact title AND a hidden marker in its body, which the script writes
-# (ISSUE_MARKER), and only among the issues this workflow's own token opened: no label has to exist,
-# and an issue somebody else writes with the same title is never overwritten. It is closed as soon
-# as a run finds nothing, and the same issue is reopened the next time something drifts, so the
-# history of every drift stays in one place. A run that could not read a provider (a key expired, a
-# provider down) opens it too: an incomplete report is something to know about. A deletion the pull
-# request proposes counts as drift until it is merged, and is listed in the issue as such, under
-# its own heading.
+# The issue is found by its exact title and a hidden marker in its body (ISSUE_MARKER), among the
+# issues this workflow's own token opened: no label to create, and an issue somebody else writes
+# with the same title is never overwritten. It closes at the first run that finds nothing and the
+# same one reopens at the next drift; a run that could not read a provider opens it too. A deletion
+# the pull request proposes counts as drift until it is merged, and is listed under its own heading.
 #
-# The pull request. One branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
-# and never a draft. It merges itself when "dependabot-auto-merge.yml" finds nothing in it for a
-# person to read, no more than a handful of models deleted and every check green; otherwise it waits
-# for tigerblue77, who merges it or closes it. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
+# The pull request: one branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
+# and never a draft. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
 # rewritten at every run that finds something to delete, so that it follows main and what the
-# providers list; the title and the body are rewritten with it when they differ, so an edit made to
-# either by hand is lost at the next run. A run that finds nothing leaves the branch alone.
+# providers list; the title and the body are rewritten with it, and an edit made to either by hand
+# is lost at the next run. A run that finds nothing leaves the branch alone and closes an open pull
+# request with a comment -- unless a provider could not be read or has no key, or a retired model
+# was refused (UNDELETED), since "nothing to delete" would then only mean "nothing seen". A pull
+# request closed by a person is replaced the following week while the providers still do not list
+# the models. Whether it merges by itself is "dependabot-auto-merge.yml"'s to say; if it does not,
+# tigerblue77 merges it or closes it.
 #
-# A person's commit on that branch stops all of it, and the run FAILS to say so. Force-pushing over
-# somebody's work, or closing what they are working on, is the one thing a weekly job must not do:
-# when the branch holds a commit that is neither the workflow's own (told by its author,
-# "github-actions[bot]") nor a merge commit, the step fails naming it, closing included, and does so
-# again every week until the branch is deleted -- the deletions are then made again from main. A
-# merge commit is not somebody's work: the "Update branch" button and the merge-commit fallback of
-# "auto_update_pull_request_branches.yml" add one, and the next run rebuilds the branch from main
-# without it. A person's commit that a squash or rebase merge of the pull request left out of
-# main's history keeps counting until the branch is deleted; a merge commit brings it in.
+# A person's commit on the branch freezes it, and the run FAILS to say so, every week, until the
+# branch is deleted (the deletions are then made again from main): force-pushing over somebody's
+# work, or closing what they are working on, is what a weekly job must not do. The workflow's own
+# commits are told by their author, "github-actions[bot]"; a merge commit is not somebody's work
+# (the "Update branch" button and the merge fallback of "auto_update_pull_request_branches.yml" add
+# one, and the next run rebuilds the branch without it). A person's commit that a squash or rebase
+# merge left out of main's history keeps counting until the branch is deleted.
 #
-# A pull request that is open when a run finds nothing left to delete is closed with a comment --
-# unless a provider could not be read in that run or has no key, or a retired model was refused
-# deletion (UNDELETED), since "nothing to delete" would then only mean "nothing seen" or "nothing
-# that I may delete". A pull request closed by a person without being merged is replaced by a new
-# one the following week, as long as the providers still do not list the models.
+# A push and a pull request made with GITHUB_TOKEN start no workflow, so the run dispatches
+# "ansible-ci.yml" and "gitleaks.yml" on the branch itself -- the one event that token can cause and
+# still get a run for -- for every workflow with no run yet on the branch's head, so that a run
+# that failed half way is repaired by the next. The list is the gate's own "WORKFLOW_FILES", which
+# "check_required_checks.py" holds equal. The commit carries the Actions bot's Signed-off-by, as
+# Dependabot's do: the pull request starts no "sign-off" run, but one a person approves is green.
 #
-# A push, and a pull request, made with GITHUB_TOKEN start no workflow. So the run dispatches
-# "ansible-ci.yml" and "gitleaks.yml" on the branch itself: the one event that token can cause and
-# still get a run for, the same one "recheck-main" of "dependabot-auto-merge.yml" uses for the
-# merge commits it makes. It does so for every workflow that has no run yet on the branch's
-# head, rather than after the pushes of this run alone, so that a run that failed half way is
-# repaired by the next. Their results show on the pull request like any others. The list is the
-# gate's own "WORKFLOW_FILES", and "check_required_checks.py" fails CI when the two differ.
-#
-# Both jobs take their runner from CI_RUNNER like every other job here; the header of
-# "ansible-ci.yml" says what the variable may name, and when. The keys and the token that writes
-# may reach a self-hosted runner that way, which holds only for a runner that is thrown away after
-# each job: nothing from a pull request runs in these jobs, but a persistent pool that also serves
+# Both jobs take their runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
+# says what it may name). The keys and the write token may reach a self-hosted runner that way,
+# which is safe only for one thrown away after each job: a persistent pool that also serves
 # "ansible-ci.yml" has run a pull request's code before them, and what that code left behind would
-# run next to the keys or the token. Whoever points CI_RUNNER at such a pool takes that risk.
+# run next to the keys or the token.
 
 on:
   schedule:
@@ -500,7 +457,10 @@ jobs:
               return;
             }
 
-            const message = fs.readFileSync(process.env.COMMIT_MESSAGE, 'utf8');
+            // Signed as Dependabot signs its commits: the certificate asks for a Name <address>
+            // and the commit adds nothing a person could certify, only deletions.
+            const message = fs.readFileSync(process.env.COMMIT_MESSAGE, 'utf8').trimEnd() +
+              `\n\nSigned-off-by: ${bot.name} <${bot.email}>\n`;
             const body = fs.readFileSync(process.env.PR_BODY, 'utf8');
             const content = fs.readFileSync(process.env.TEMPLATE_FILE);
 
