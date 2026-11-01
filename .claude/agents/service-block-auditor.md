@@ -70,10 +70,10 @@ thing CLAUDE.md counts as verification.
 4. **A LiteLLM-routing variable that breaks the `_API_KEY_<ACCOUNT>` naming.**
    `check_LiteLLM_account_isolation.py` (#32) decides which account an entry of
    the rendered LiteLLM config belongs to purely from that suffix. A new
-   provider key that does not carry an account suffix matching one of the
-   estate's two accounts (`tigerblue77`, vaulted by the caller; `Dragnix`, added
-   by hand from `/ui` -- see `Artificial_Intelligence_LiteLLM_UI_password`) breaks the isolation
-   property the script exists to prove, even if the script itself still passes
+   provider key that is neither the unsuffixed default account's nor
+   `<PROVIDER>_API_KEY_<LABEL>` for a label the caller picks (another account's
+   keys are vaulted the same way once they arrive -- #107, not added from `/ui`)
+   breaks the isolation property the script exists to prove, even if the script itself still passes
    on the file as rendered today.
 5. **Variable naming and placement.** `Capitalised_Snake_Case`, prefixed `Artificial_Intelligence_`
    (the stack's name), never the role's own name -- `var-naming[no-role-prefix]`

@@ -27,6 +27,12 @@ reuse==6.2.0
 # this pin and the next one, each read from its line.
 PyYAML==6.0.3
 
+# The Python SDK that the modules of "community.docker" reach the Docker Engine API through. The role
+# needs it on the MANAGED NODE (README, "Prérequis"); it is listed here because the "role run" jobs of
+# ansible-ci.yml run the example playbook against their own interpreter, which is that node there.
+# Pinned like the rest, so that a release of the SDK cannot turn those jobs red on a tree nobody touched.
+docker==7.2.0
+
 # Renders the model list for "check_LiteLLM_model_drift.py". Pinned here although ansible-core also
 # brings Jinja2: the weekly drift workflow installs PyYAML and this line alone, without ansible-core,
 # and reads the version from this line, so Dependabot moves it with the other pins and every job

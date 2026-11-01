@@ -93,10 +93,10 @@
       At least one of the five LiteLLM provider keys of the gateway's account (Gemini, Mistral, Groq,
       OpenRouter, DeepSeek) must be a non-empty string (#296): without one the gateway has no model to
       route to. They are all empty by default, and "LiteLLM_config.yaml.j2" (#2) renders only the
-      providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Any OTHER account's own
-      provider keys are deliberately absent here: each one added through
-      "Artificial_Intelligence_LiteLLM_internal_users" (#103) adds theirs themselves, from their own
-      restricted "/ui" login, never the admin one. The GitHub key counts for nothing: #109 retired every
+      providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Another account's own
+      provider keys are not asked for here: they arrive as model_list entries of their own (#107). Not
+      from that account's own "/ui" login -- LiteLLM keeps "/model/new" to the proxy admin. The GitHub
+      key counts for nothing: #109 retired every
       "github/*" entry of the model_list it fed. Nor does the Cerebras key: Cerebras has no free tier
       any more and its entries are commented out (#200).
 
@@ -344,6 +344,26 @@
           and is never handed to a consumer.
       when: Artificial_Intelligence_Claude_code_enabled
 
+# The database name is the one value of "DATABASE_URL" that cannot be percent-encoded: Prisma does
+# not decode it (#133, measured). The allowed set is RFC 3986's unreserved characters, which no URL
+# parser encodes or decodes, plus "$", which none does either and which the compose template doubles
+# for Compose's own interpolation. Written as "nothing is left once they are removed" rather than as
+# an anchored "match", whose "$" also matches before a trailing newline.
+- name: "Check the PostgreSQL database name survives LiteLLM's connection string"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_PostgreSQL_database is string
+      - Artificial_Intelligence_PostgreSQL_database | length > 0
+      - Artificial_Intelligence_PostgreSQL_database | regex_replace('[A-Za-z0-9._~$-]', '') | length == 0
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_PostgreSQL_database" may hold only ASCII letters, digits, "-", ".",
+      "_", "~" and "$". LiteLLM's Prisma reads the database name out of "DATABASE_URL" without
+      decoding it, so a character a URL has to encode -- "/", "?", "#", "{", a space, anything
+      non-ASCII -- reaches it as some other name, raw or encoded, and "%" means one thing to Prisma
+      and another to psql. It fails silently: LiteLLM creates and migrates the database it was
+      handed, reports healthy, and the one "POSTGRES_DB" created stays empty.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:
@@ -417,6 +437,18 @@
     Artificial_Intelligence_LiteLLM_config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_rendering.checksum | default(false) }}"
     Artificial_Intelligence_LibreChat_config_checksum: "{{ Artificial_Intelligence_LibreChat_config_deployment.checksum | default(false) }}"
 
+    # Back only once the stack has CONVERGED, for a deployer that can wait: every service running, and
+    # healthy where a healthcheck says so. Everything below talks to what this has just deployed --
+    # LiteLLM's admin API, then "docker exec" into LibreChat and its MongoDB. A Swarm deployer detached
+    # by default returns the moment Swarm holds the new specification, so on a first deployment the API
+    # calls below would race images still being pulled and a LiteLLM still running its migrations, and
+    # the LibreChat lookup would find no container and skip both accounts without a word. These two are
+    # the parameters such a deployer takes to wait; one that does not know them ignores them, and the
+    # retries below are then the only line of defence. Thirty minutes because a first deployment pulls
+    # every image first.
+    Docker_stack_deployment_detached: false
+    Docker_stack_deployment_timeout_in_seconds: 1800
+
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
 # "/user/new" is confirmed (read in LiteLLM's own source, "internal_user_endpoints.py") to answer
@@ -426,7 +458,9 @@
 # LiteLLM needs a moment after the stack deployment task above to actually start answering on its
 # published port -- "until"/"retries" ride out that window rather than presuppose it has already
 # passed; a hard failure past the retry budget still fails the play, since a user this role could
-# not confirm exists is not a user it should silently skip.
+# not confirm exists is not a user it should silently skip. Two minutes, not the 25 seconds this
+# used to allow : the template gives LiteLLM a 90-second "start_period" for its first schema
+# migrations, and a deployer that cannot wait for convergence returns before any of that is done.
 - name: "Create each additional LiteLLM internal user"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
@@ -438,11 +472,16 @@
       user_id: "{{ item.username }}"
       user_email: "{{ item.email }}"
       user_role: "internal_user"
+      # "/user/new" mints a key of its own by default, with no model restriction, and this task never
+      # showed it to anyone: every account ended up with a second, unseen key next to the one the
+      # task below prints. Measured on LiteLLM 1.100.0 through "/user/info". The key comes from
+      # "/key/generate" below, and from nowhere else.
+      auto_create_key: false
     status_code: [200, 201, 409]
   register: Artificial_Intelligence_LiteLLM_internal_user_creation
   until: Artificial_Intelligence_LiteLLM_internal_user_creation.status is defined and Artificial_Intelligence_LiteLLM_internal_user_creation.status in [200, 201, 409]
-  retries: 5
-  delay: 5
+  retries: 12
+  delay: 10
   no_log: true
   loop: "{{ Artificial_Intelligence_LiteLLM_internal_users }}"
   loop_control:
@@ -454,16 +493,22 @@
 # a virtual key is "/key/generate"'s one job, and its response shape is the one LiteLLM documents
 # consistently (a "key" field) across every endpoint that returns one.
 #
-# "access_group:<username>" is LiteLLM's access-group mechanism (#2) -- an account added here only
-# ever sees models tagged for its own name, and "check_LiteLLM_account_isolation.py" already enforces
-# that a model belongs to exactly one account's access group.
+# No "models" restriction on the key, deliberately: every key reaches every model until #2 builds
+# the real per-account isolation -- the behaviour #114 wrote down as the expected one. This key used
+# to carry "models: [access_group:<username>]", which is not a LiteLLM syntax: an access group is
+# named BARE in a key's "models", and the prefixed string was taken as the name of a model nobody
+# declares. Measured on LiteLLM 1.100.0, the key could reach nothing -- "/v1/models" listed only
+# "access_group:<username>", and a call to "flash" came back 403 "key not allowed to access model"
+# -- so the account it was minted for could not use LibreChat at all. When #2 lands, an account's
+# scope comes back from a role variable, on the key AND on the user, never from a spelling guessed
+# here.
 #
 # Gated on THIS run's own creation result rather than trusted to "/key/generate" being idempotent on
 # repeat calls (unverified -- see #103): the "when" below is true only the one run "/user/new" just
 # now returned 200/201 for this exact user, never again once it settles on 409 forever after. A key
 # is therefore minted exactly once per account, ever, regardless of what a bare repeat call to
 # "/key/generate" alone would have done.
-- name: "Generate each newly created internal user's scoped virtual key"
+- name: "Generate each newly created internal user's virtual key"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
     method: POST
@@ -473,7 +518,6 @@
     body:
       user_id: "{{ item.item.username }}"
       key_alias: "{{ item.item.username }}-personal"
-      models: ["access_group:{{ item.item.username }}"]
     status_code: [200]
   register: Artificial_Intelligence_LiteLLM_internal_user_key
   no_log: true

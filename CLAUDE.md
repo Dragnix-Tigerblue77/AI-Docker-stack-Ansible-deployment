@@ -511,8 +511,8 @@ python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
 
-# The "role run" jobs: the example playbook RUN, not read -- needs Docker, "pip install docker", and
-# ".github/role_run/stand_in_gateway.py" listening (agent on). This is the agent-on job; agent-off adds
+# The "role run" jobs: the example playbook RUN, not read -- needs Docker, the "docker" SDK that
+# requirements.txt pins, and ".github/role_run/stand_in_gateway.py" listening (agent on). This is the agent-on job; agent-off adds
 # "-e @.github/role_run/vars.claude_code_agent_off.yml"
 ANSIBLE_ROLES_PATH=.github/role_run/roles:~/.ansible/roles ansible-playbook \
   -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml playbook.Artificial_Intelligence.example.yaml
@@ -578,9 +578,8 @@ the role.
 
 1. **`services:` carries the gateway since #1, and the empty-mapping rule still applies to whoever
    empties it.** The rendered file passes `docker compose config`, and `litellm` publishes `4000` --
-   a reversal of #1's own original call, behind `UI_USERNAME` / `UI_PASSWORD`, made so an account can
-   add its own provider keys from `/ui` on the LAN (see the role's README, "La passerelle et sa
-   base"). What has not changed is the spelling trap the skeleton was written around: a bare
+   a reversal of #1's own original call, behind `UI_USERNAME` / `UI_PASSWORD`, so the admin and each
+   internal user can reach `/ui` on the LAN (see the role's README, "La passerelle et sa base"). What has not changed is the spelling trap the skeleton was written around: a bare
    `services:` with no value fails at `config` with `services must be a mapping`, which is why the
    empty state is spelled `{}` and not left blank.
 2. **`false`, not `''`, means "not set".** ansible-core 2.19 rejects a bare truth test on a
