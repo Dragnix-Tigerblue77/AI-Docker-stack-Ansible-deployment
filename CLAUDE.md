@@ -361,6 +361,12 @@ free again stay a person's too, since each claim in the list cites the provider'
 What the workflow needs and what it refuses to delete are in its header and in the docstring of the
 script.
 
+A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
+and "two places only" are made false by a deletion that nobody is shown, where a comment that names a
+deleted model is listed in that pull request for a person to read. A claim about the list as it stands
+keeps the date it was checked and is true of that day for good; a claim that is a count is true of no
+day after the next deletion.
+
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
 exists today, it factors them -- a loop, an included task file, a Jinja macro -- instead of copying
