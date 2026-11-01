@@ -283,13 +283,13 @@ model_list:
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
   # ============================================================================
-  # Cerebras: both models below are still in its Shared Inference catalogue
+  # Cerebras: the models below are still in its Shared Inference catalogue
   # ("inference-docs.cerebras.ai/models/overview", checked 2026-09-27), but not routed to, because a
   # bank card is now required and nothing stays free. The FAQ of "inference-docs.cerebras.ai/support/
   # rate-limits", same date: "New accounts receive $5 in free credits after adding a verified payment
   # method. These credits expire 30 days after they're granted." -- and to "Is there a permanently
   # free tier?", "No." Routing to them again as a paid tail, the way DeepSeek is (#101), is
-  # uncommenting these two entries and putting their names back into the cascades. "qwen-3.8-27b" is
+  # uncommenting these entries and putting their names back into the cascades. "qwen-3.8-27b" is
   # Cerebras' own hyphenated spelling, distinct from Groq's "qwen3.8-27b" below.
   # - model_name: gpt-oss-120b-cerebras
   #   litellm_params:
@@ -317,7 +317,7 @@ model_list:
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
   # the name: on the free tier ("console.groq.com/docs/rate-limits", Free Plan Limits: 30 RPM, 8K TPM,
-  # the same as both gpt-oss entries above), and in instruct mode unless a request asks otherwise --
+  # the same as the gpt-oss entries above), and in instruct mode unless a request asks otherwise --
   # the API reference gives "none" as its default "reasoning_effort", no thinking phase, which is what
   # makes it a candidate for flash-lite's latency profile at all. Listed among Groq's "Preview Models",
   # which "may be discontinued at short notice": the first entry of this block to recheck at the next
@@ -339,7 +339,7 @@ model_list:
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
   #
-  # All seven ids below are still served, checked 2026-09-27 against "api.sambanova.ai/v1/models"
+  # The ids below are still served, checked 2026-09-27 against "api.sambanova.ai/v1/models"
   # (readable without a key). What stops them is the console a new account lands on,
   # "cloud.sambanova.ai/plans": its Free plan reads "Add a payment method and purchase credits to run
   # your first requests", and the page's own configuration carries "signupCredits":false -- no
@@ -635,7 +635,7 @@ router_settings:
 
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPU (Groq) -> Mistral -> OpenRouter -> DeepSeek direct (#101,
-    # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Two entries sit with their
+    # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
     # twin rather than with their provider: "qwen3-8-27b-free" (OpenRouter) right behind
     # "qwen3-8-27b-groq", and "gemma-4-31b-gemini" (Google) right ahead of "gemma-4-31b-free" -- the
     # same model through a second quota, ranked where the model ranks, and the OpenRouter one second
@@ -755,7 +755,7 @@ router_settings:
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
-    # both its models support tool calls, but it is the only paid provider in this cascade.
+    # its models support tool calls, but it is the only paid provider in this cascade.
     # "glm-5-3-mistral" is just ahead of it, and alone of its pair: an agentic session resends its
     # whole context on every turn, and at $1.4 per 1M input tokens a session at 128k context spends
     # the whole $10 credit in about fifty uncached turns -- one GLM slot is as much as it carries.
