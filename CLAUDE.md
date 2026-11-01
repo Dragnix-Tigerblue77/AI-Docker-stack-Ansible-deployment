@@ -386,6 +386,15 @@ with the issue number in parentheses when there is one -- `Lay down the Ansible 
 skeleton of the AIS (#31)`. Body: prose paragraphs explaining *why* and what it cost to find out, not
 a bullet list of what changed.
 
+**No issue or pull request number in a comment or in the README.** The comments, docstrings and
+README lines a change adds say what the thing is and why in their own words, and cite no `#NN`: an
+issue is renumbered, moved, closed or forgotten, and a sentence that points at one goes stale without
+anything failing, while the reader has to leave the file to understand it. A number stays where the
+convention puts it -- the subject of a commit, the closing keyword of a pull request, the issues and
+pull requests themselves. Lines already in a file are left as they are; an edit to one that cites a
+number takes it out. The maintainer asked for it on 2026-11-01, about a docstring heading in one pull
+request, and for every pull request.
+
 **Sign-off.** Every commit of a pull request carries a `Signed-off-by` trailer, the Developer
 Certificate of Origin that `CONTRIBUTING.md` spells out, and the `sign-off` job
 (`.github/workflows/sign-off.yml`, deciding in `.github/scripts/check_sign_off.py`, whose docstring
