@@ -46,6 +46,13 @@ model_list:
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
   # ============================================================================
+  # No "api_base" on any "gemini/" entry. LiteLLM's "gemini/" provider speaks Google's NATIVE API and
+  # builds "<api_base>/models/<model>:generateContent" itself; pointed at Google's OpenAI-compatible
+  # base ".../v1beta/openai/", that gives ".../v1beta/openai//models/...:generateContent", which Google
+  # answers 404 with an empty body -- measured with litellm 1.103.0, where the default base gives
+  # ".../v1beta/models/...:generateContent" and a real answer. The virtual routers above never carried
+  # one, which is why they worked while every entry below them would have failed over.
+  #
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
   # model, engineered for long-horizon software engineering, autonomous agents, and complex
@@ -54,31 +61,26 @@ model_list:
   - model_name: gemini-3-8-flash
     litellm_params:
       model: gemini/gemini-3.8-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-7-flash
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-6-flash
     litellm_params:
       model: gemini/gemini-3.6-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash
     litellm_params:
       model: gemini/gemini-3.5-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", checked
@@ -88,7 +90,6 @@ model_list:
   # - model_name: gemini-3-1-pro
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
   #
   # - model_name: gemini-3-1-pro-customtools
@@ -99,13 +100,11 @@ model_list:
   - model_name: gemini-3-1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-flash-preview
     litellm_params:
       model: gemini/gemini-3-flash-preview
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to, for two reasons either of which would do. It is paid only:
@@ -116,7 +115,6 @@ model_list:
   # - model_name: gemini-omni-1-1-flash
   #   litellm_params:
   #     model: gemini/gemini-omni-1.1-flash
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   # The 2.5 generation stays, checked 2026-09-27: "ai.google.dev/gemini-api/docs/deprecations"
@@ -128,7 +126,6 @@ model_list:
   - model_name: gemini-2-5-pro
     litellm_params:
       model: gemini/gemini-2.5-pro
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
@@ -137,13 +134,11 @@ model_list:
   - model_name: gemini-2-5-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-2-5-flash-lite
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
@@ -156,7 +151,6 @@ model_list:
   # - model_name: deep-research-pro
   #   litellm_params:
   #     model: gemini/deep-research-pro-preview-12-2025
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   # Gemma 4 through the Gemini API itself, added 2026-09-27. Free: the "Gemma 4" table of
