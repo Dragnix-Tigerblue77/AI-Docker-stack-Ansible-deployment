@@ -100,10 +100,10 @@
       "github/*" entry of the model_list it fed. Nor does the Cerebras key: Cerebras has no free tier
       any more and its entries are commented out (#200).
 
-# The agent asks for "claude-code" by default, a router whose cascade holds only models that support
-# structured tool calls, and only Gemini, Mistral and DeepSeek serve any (see its comment in
-# "LiteLLM_config.yaml.j2"). Without one of those keys the router does not exist and the agent's
-# every request would be refused.
+# The agent asks for "claude-code" by default, a router whose cascade is held to strict tool calls and a
+# 128k context (see its comment in "LiteLLM_config.yaml.j2") and holds, today, models of Gemini, Mistral
+# and DeepSeek only. Without one of those keys the router does not exist and the agent's every request
+# would be refused.
 - name: "Check the Claude Code agent has a provider that can serve its model"
   ansible.builtin.assert:
     that:

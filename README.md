@@ -611,9 +611,11 @@ l'**alias** du premier modèle de sa cascade dont la clé est donnée, et garde 
 sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les noms `claude-3-5-haiku*` pour
 `flash-lite`, par exemple). À connaître :
 
-- `claude-code` ne route que vers Gemini, Mistral et DeepSeek, les seuls dont les modèles appellent des outils de
-  façon structurée. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement, sauf si
-  l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
+- La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
+  moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
+  Gemini, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que les autres fournisseurs n'en ont
+  aucun qui convienne. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
+  sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
   (`Artificial_Intelligence_Claude_code_model`).
 - Sans clé Gemini, la tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête
   en échec coûte une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
