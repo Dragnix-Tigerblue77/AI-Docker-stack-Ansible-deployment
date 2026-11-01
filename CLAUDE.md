@@ -30,6 +30,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
+| What the weekly model-drift issue is, which secrets feed it, and why it never runs on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
 | How to set a clone up, what to run before pushing, what submitting a contribution grants, and what signing a commit off means | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
@@ -349,6 +350,11 @@ the answer to "why is it not used", so it is written once instead of being redis
 are **added** as providers publish them, so the list tracks each provider's current catalogue rather
 than the day it was written. Each claim cites the provider's own page and the date it was checked
 (#169).
+`check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
+every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
+active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
+catalogues weekly, reporting what drifted in one rolling issue for a human to act on. It never
+edits the list.
 
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
@@ -504,6 +510,8 @@ python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
+python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
+python3 .github/scripts/check_LiteLLM_model_drift.py       # offline; --online reads the providers' catalogues
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
 python3 .github/scripts/check_sign_off.py --selftest

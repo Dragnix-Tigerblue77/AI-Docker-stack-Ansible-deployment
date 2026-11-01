@@ -333,8 +333,10 @@ jobs:
     #
     # "check_no_inventory_data.py" imports nothing outside the standard library.
     # "check_LiteLLM_account_isolation.py" and "check_required_checks.py" read PyYAML: it is the
-    # only dependency of these checks, and it was taken knowingly (the reason is written in the
-    # first one's header and in "requirements.txt"). The install step below is what it costs.
+    # only dependency of those two, and it was taken knowingly (the reason is written in the first
+    # one's header and in "requirements.txt"). "check_LiteLLM_model_drift.py" reads PyYAML too and
+    # renders the model list with Jinja2, pinned in "requirements.txt" as well. The install step
+    # below is what it costs.
     #
     # The price is real and worth stating: the check list of a pull request carries one line instead
     # of three, so a red cross no longer says WHICH one failed without opening the run. A step that
@@ -377,6 +379,17 @@ jobs:
       - name: "LiteLLM account isolation: read the repository's configuration"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_account_isolation.py
+
+      # The offline half of the drift check: cascades and aliases name active entries, no name twice, every
+      # commented-out entry gives its reason. The online half reads the providers' catalogues with
+      # their keys, and so never runs on a pull request -- "LiteLLM_model_drift.yml" runs it weekly.
+      - name: "LiteLLM model list: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
+
+      - name: "LiteLLM model list: hold it to its rule"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_LiteLLM_model_drift.py
 
       - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}

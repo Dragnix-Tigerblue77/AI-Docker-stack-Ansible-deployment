@@ -620,6 +620,31 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les n
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
+### Une issue par semaine pour ce qui a bougé chez les fournisseurs
+
+La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
+sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
+fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, les cinq clés de
+fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
+de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
+commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
+`.github/workflows/LiteLLM_model_drift.yml` la lit chaque lundi dans le catalogue des fournisseurs, et
+la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM », assignée à
+tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter,
+nouveaux modèles -- gratuits sur OpenRouter, « à examiner »
+ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit. L'issue est réécrite à chaque
+exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite. Rien n'y est
+corrigé automatiquement : chaque constat se vérifie sur la page du fournisseur avant de toucher à la
+liste. Un modèle examiné et écarté cesse d'être signalé par une ligne
+`# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
+
+OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
+créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
+`MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
+chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
+contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
+dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ».
+
 ### Un compte par personne, pas une paire figée (#103)
 
 `Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais une variable nommée par

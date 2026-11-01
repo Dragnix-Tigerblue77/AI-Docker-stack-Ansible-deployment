@@ -1,0 +1,184 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+name: LiteLLM model drift
+
+# Once a week, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
+# lists today, and keeps ONE rolling issue in step with the answer. It reports, and that is
+# all it does: it never edits the model list and never opens a pull request. The rule it serves
+# (CLAUDE.md, "The model list keeps only what can be called") wants every claim in that list to
+# cite the provider's own page and the date it was checked, which a machine reading a catalogue
+# does not have -- so a finding here is where a human's check starts, not a substitute for it. What
+# each finding means, how each provider is read, and what is deliberately not reported is in the
+# docstring of ".github/scripts/check_LiteLLM_model_drift.py", which this workflow only runs.
+#
+# Why weekly. Providers announce a retirement weeks ahead -- Groq gave four weeks for Compound
+# (announced 2026-08-24, shut 2026-09-21, "console.groq.com/docs/deprecations") and two months for
+# Llama 3.3 70B -- and where their API carries the announcement (OpenRouter's "expiration_date",
+# Mistral's "deprecation"), a weekly run sees it with weeks to spare. Where it does not, the run
+# sees the model gone within a week of its shutdown: a week of a cascade one entry shorter, since a
+# refused call only moves the request on, and nothing worse. A daily run would mostly rewrite the
+# same issue with the same findings. Monday 05:17 UTC: early in the week the finding is read in,
+# and off the top of the hour, when every scheduled workflow on GitHub starts at once and some
+# start late.
+#
+# Why never on a pull request. This is the one workflow here that holds the providers' keys, and
+# no job may both hold a secret and run code nobody has reviewed yet: a "pull_request" run executes
+# the branch's own version of the script, which could send the keys anywhere. So it runs on a
+# schedule and by hand, and checks out main explicitly -- the issue describes main, whichever
+# branch a manual run was started from. The offline half of the check, which needs no key, runs on
+# every pull request anyway, as a step of the "home-made checks" job of "ansible-ci.yml".
+#
+# The secrets, each optional. Without one, its provider is listed as "not covered (no key)" in the
+# issue, every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova publish
+# their catalogue without a key and are always covered. No model is ever called -- one list request
+# per provider per week, no token spent -- and a key dedicated to this workflow can be revoked
+# without touching LiteLLM's own.
+#
+#   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
+#   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
+#   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries, the GLM pair it hosts included
+#   MODEL_DRIFT_DEEPSEEK_API_KEY  DeepSeek, direct API -- "deepseek/" entries
+#
+# What it costs: one job of well under a minute, billed as one minute, once a week -- about four or
+# five of the organisation's included minutes a month, this repository being private.
+#
+# The issue is found by its exact title AND a hidden marker in its body, which the script writes
+# (ISSUE_MARKER), and only among the issues this workflow's own token opened: no label has to exist,
+# and an issue somebody else writes with the same title is never overwritten. It is closed as soon
+# as a run finds nothing, and the same issue is reopened the next time something drifts, so the
+# history of every drift stays in one place. A run that could not read a provider (a key expired, a
+# provider down) opens it too: an incomplete report is something to know about.
+#
+# The job takes its runner from CI_RUNNER like every other job here; the header of
+# "ansible-ci.yml" says what the variable may name, and when. The keys may reach a self-hosted
+# runner that way, which is acceptable for the reason above: nothing from a pull request runs here.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# A manual run started while the scheduled one is going would otherwise race it to create the issue,
+# and two issues would be the result.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: report LiteLLM model drift
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - name: Check main out
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          # See the "yamllint" job of "ansible-ci.yml".
+          check-latest: true
+
+      # PyYAML and Jinja2 alone, each at the version requirements.txt pins, rather than the whole
+      # file: the script reads the model list with the first and renders it with the second, needs
+      # nothing else, and ansible-core and ansible-lint would triple the job's length for nothing.
+      # Read from the file, so each pin still has one home, and Dependabot still moves them. A pin
+      # line missing from the file leaves pip an empty requirement, which it refuses.
+      - name: Install PyYAML and Jinja2
+        run: pip install "$(grep -E '^PyYAML==' requirements.txt)" "$(grep -E '^Jinja2==' requirements.txt)"
+
+      # 0 no drift, 1 drift, 2 a provider could not be read: all three are handled by the next step,
+      # so none of them fails this one. Anything else is a crash, and the next step refuses it.
+      - name: Compare the model list with every provider's catalogue
+        id: drift
+        env:
+          MODEL_DRIFT_GEMINI_API_KEY: ${{ secrets.MODEL_DRIFT_GEMINI_API_KEY }}
+          MODEL_DRIFT_GROQ_API_KEY: ${{ secrets.MODEL_DRIFT_GROQ_API_KEY }}
+          MODEL_DRIFT_MISTRAL_API_KEY: ${{ secrets.MODEL_DRIFT_MISTRAL_API_KEY }}
+          MODEL_DRIFT_DEEPSEEK_API_KEY: ${{ secrets.MODEL_DRIFT_DEEPSEEK_API_KEY }}
+        run: |
+          status=0
+          python3 .github/scripts/check_LiteLLM_model_drift.py --online \
+            --issue-body "$RUNNER_TEMP/LiteLLM_model_drift.md" || status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      # github-script rather than gh, for the reason "dependabot-auto-merge.yml" gives: the runner's
+      # own Node is the one thing every runner is guaranteed to have, hosted or self-hosted.
+      - name: Create, update or close the rolling issue
+        uses: actions/github-script@v9
+        env:
+          DRIFT_STATUS: ${{ steps.drift.outputs.status }}
+          DRIFT_BODY: ${{ runner.temp }}/LiteLLM_model_drift.md
+        with:
+          script: |
+            const fs = require('fs');
+            // The script writes the marker too, as ISSUE_MARKER: change it there and here in the
+            // same commit.
+            const title = 'Dérive de la liste de modèles LiteLLM';
+            const marker = '<!-- LiteLLM-model-drift -->';
+            const assignee = 'tigerblue77';
+            const status = process.env.DRIFT_STATUS;
+            const { owner, repo } = context.repo;
+
+            if (!['0', '1', '2'].includes(status)) {
+              core.setFailed(`The drift check exited ${status}, which is neither 0, 1 nor 2: it crashed, and there is no report to trust. Its log is in the step above.`);
+              return;
+            }
+            let body;
+            try {
+              body = fs.readFileSync(process.env.DRIFT_BODY, 'utf8');
+            } catch (error) {
+              core.setFailed(`The drift check wrote no issue body (${error.message}).`);
+              return;
+            }
+            if (!body.includes(marker)) {
+              core.setFailed('The issue body lacks its marker: the script and this workflow disagree on it, and a body without it would open a second issue next week.');
+              return;
+            }
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'all', per_page: 100,
+            });
+            const existing = issues
+              .filter((issue) => !issue.pull_request &&
+                issue.user?.login === 'github-actions[bot]' &&
+                issue.title === title &&
+                (issue.body ?? '').includes(marker))
+              .sort((a, b) => a.number - b.number)[0];
+
+            if (status === '0') {
+              if (existing && existing.state === 'open') {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, body,
+                  state: 'closed', state_reason: 'completed',
+                });
+                core.notice(`No drift any more: #${existing.number} closed.`);
+              } else {
+                core.notice('No drift, and no open drift issue: nothing to do.');
+              }
+              return;
+            }
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number, body, state: 'open',
+              });
+              await github.rest.issues.addAssignees({
+                owner, repo, issue_number: existing.number, assignees: [assignee],
+              });
+              core.notice(`Drift reported in #${existing.number}.`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner, repo, title, body, assignees: [assignee],
+              });
+              core.notice(`Drift reported in the new issue #${created.number}.`);
+            }
