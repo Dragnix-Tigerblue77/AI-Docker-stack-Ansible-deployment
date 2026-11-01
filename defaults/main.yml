@@ -256,8 +256,9 @@ Artificial_Intelligence_LiteLLM_internal_users: []
 
 Artificial_Intelligence_Redis_data_Docker_volume_name: "Redis_data"
 
-# Unlimited by default. Response caching and per-worker cooldown state are both small compared to the
-# corpora the other services here hold (for example "256m").
+# Unlimited by default. Cooldown state is small compared to the corpora the other services here hold
+# -- measured at 4 MiB with the stack idle -- and the response cache that would have grown it is off
+# (#79). For example "256m".
 Artificial_Intelligence_Redis_memory_limit: false
 
 # MANDATORY, without a default: "--requirepass" would otherwise be empty, which is no password at

@@ -408,7 +408,7 @@ esac
 # A SessionStart hook's stdout is handed to the session as context, so this last line is the one thing
 # the agent reads. It says which checks can be trusted, which is the only question that matters here.
 if [ ${#MISSING[@]} -eq 0 ]; then
-    printf 'All CI-gating checks can be run in this session. See the "Commands" section of CLAUDE.md.\n'
+    printf 'All CI-gating checks but the two role run jobs, which need a Docker daemon, can be run in this session. See the "Commands" section of CLAUDE.md.\n'
 else
     # ! IFS=';' and not IFS='; ' : bash joins "${array[*]}" with the FIRST character of IFS only, so
     # the space in the two-character version was silently dropped. The space belongs in the format.

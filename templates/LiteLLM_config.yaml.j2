@@ -699,7 +699,6 @@ general_settings:
   # file is mounted read-only into the container and would otherwise carry both in clear text.
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
-  redis_url: os.environ/REDIS_URL
 
 litellm_settings:
   request_timeout: 120          # long enough for heavy reasoning models' thinking phase
@@ -713,12 +712,13 @@ litellm_settings:
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
   turn_off_message_logging: true
 
-  # Response caching, to preserve the free tiers' TPM quotas (#71). Upstream documents proxy-level
-  # caching as key/team/org-scoped by default, which would mean a cached answer never crosses an
-  # account boundary -- but that scoping is NOT verified from this session (no Docker daemon to test
-  # against), and #71's own Definition of Done says so explicitly. Confirm it on the test bench
-  # before trusting it: this is exactly the kind of guarantee #2 exists to hold accountable.
-  enable_caching: true
-  cache_params:
-    type: "redis"
-    supported_call_types: ["completion", "cache_read", "cache_write"]
+  # No response cache, on purpose (#79). The two lines that were here, "enable_caching" and a
+  # "cache_params" block, meant nothing to LiteLLM, which turns its cache on for "cache: true" and for
+  # no other key: it had never been on, and leaving the key out keeps it off.
+  #
+  # It should stay off. The exact cache's key holds the whole "messages" list and the request's
+  # parameters, and nothing about the caller: measured 2026-09-26 on LiteLLM 1.100.0 with two virtual
+  # keys, an identical request sent with key B came back from the cache filled by key A, and only the
+  # semantic caches add the key, team and organisation. A chat client resends a history that differs
+  # almost every turn, so it hardly ever hits; what is left to gain is a workflow repeating one
+  # stateless prompt within a short TTL.
