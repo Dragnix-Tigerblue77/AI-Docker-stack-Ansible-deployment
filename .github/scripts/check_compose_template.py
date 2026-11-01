@@ -198,8 +198,6 @@ FREE_FORM_WITH_A_DEFAULT = (
 # entry that no longer exempts anything -- the place fixed, or gone -- FAILS the check: an exemption
 # outliving its reason is a hole with a label on it, and the first regression there walks through.
 DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
-    "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
-    "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
 }
 
 # What a double-quoted YAML string reads as syntax rather than as text (#188), appended to every
@@ -215,9 +213,6 @@ QUOTE_SAMPLE = "\"i'j\\tk\\x41l\\\\m\U0001F600n"
 # FAILS the check once giving that variable the sample too passes -- the same rule, and the same
 # reason, as for the places above.
 QUOTES_LEFT_TO_OTHER_PULL_REQUESTS = {
-    "Artificial_Intelligence_PostgreSQL_user": "#134, which rewrites POSTGRES_USER, then #188",
-    "Artificial_Intelligence_PostgreSQL_password": "#134, which rewrites POSTGRES_PASSWORD, then #188",
-    "Artificial_Intelligence_PostgreSQL_database": "#134, which rewrites POSTGRES_DB, then #188",
 }
 
 

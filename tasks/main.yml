@@ -344,6 +344,26 @@
           and is never handed to a consumer.
       when: Artificial_Intelligence_Claude_code_enabled
 
+# The database name is the one value of "DATABASE_URL" that cannot be percent-encoded: Prisma does
+# not decode it (#133, measured). The allowed set is RFC 3986's unreserved characters, which no URL
+# parser encodes or decodes, plus "$", which none does either and which the compose template doubles
+# for Compose's own interpolation. Written as "nothing is left once they are removed" rather than as
+# an anchored "match", whose "$" also matches before a trailing newline.
+- name: "Check the PostgreSQL database name survives LiteLLM's connection string"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_PostgreSQL_database is string
+      - Artificial_Intelligence_PostgreSQL_database | length > 0
+      - Artificial_Intelligence_PostgreSQL_database | regex_replace('[A-Za-z0-9._~$-]', '') | length == 0
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_PostgreSQL_database" may hold only ASCII letters, digits, "-", ".",
+      "_", "~" and "$". LiteLLM's Prisma reads the database name out of "DATABASE_URL" without
+      decoding it, so a character a URL has to encode -- "/", "?", "#", "{", a space, anything
+      non-ASCII -- reaches it as some other name, raw or encoded, and "%" means one thing to Prisma
+      and another to psql. It fails silently: LiteLLM creates and migrates the database it was
+      handed, reports healthy, and the one "POSTGRES_DB" created stays empty.
+
 - name: "Check the published network parameters are consistent"
   ansible.builtin.assert:
     that:

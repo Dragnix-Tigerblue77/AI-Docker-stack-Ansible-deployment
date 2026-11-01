@@ -132,6 +132,9 @@ Artificial_Intelligence_LiteLLM_config_Docker_name: "LiteLLM_config{{ ('-' ~ Art
 # PostgreSQL -- the gateway's store (#1)
 # --------------------------------------------------------------------------------------------------
 
+# The database name may hold only ASCII letters, digits, "-", ".", "_", "~" and "$", and
+# "tasks/main.yml" refuses anything else, because LiteLLM's Prisma reads it out of "DATABASE_URL"
+# without decoding it -- the assert says what that costs (#133).
 Artificial_Intelligence_PostgreSQL_database: "litellm"
 # LiteLLM's role (#159): LOGIN, owner of the database above, and NOTHING else -- never a superuser,
 # so that an SQL injection through the gateway stays inside the gateway's own tables. Its password is
