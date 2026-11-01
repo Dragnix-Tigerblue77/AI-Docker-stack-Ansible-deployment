@@ -29,9 +29,9 @@
 # of keys and holds each alias to the first member of its cascade.
 {% set head = {
   'pro': 'nemotron-ultra-free' if has.OpenRouter else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gpt-oss-120b-groq' if has.Groq else 'qwen3-8-27b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'flash': 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
-  'code': 'qwen3-8-27b-groq' if has.Groq else 'qwen3-8-27b-free' if has.OpenRouter else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'code': 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'north-mini-code-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 {% set to = {
@@ -236,9 +236,14 @@ model_list:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY"
 
+  # Mistral Large 4, in Public Preview since 2026-10-06: "docs.mistral.ai/models/mistral-large-4-0" (read
+  # 2026-11-01) gives the name "mistral-large-4", a 1M context, function calling, and $0.7 in / $2.1 out per
+  # million tokens, drawn from the same Free mode credit as every entry here. It replaces
+  # "mistral-large-latest", which that page no longer names and the catalogue the drift workflow read that
+  # day (#305) no longer lists.
   - model_name: mistral-large
     litellm_params:
-      model: mistral/mistral-large-latest
+      model: mistral/mistral-large-4
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-medium
@@ -424,17 +429,6 @@ model_list:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  # Qwen3.8 27B, free on OpenRouter, added 2026-09-27: "qwen/qwen3.8-27b:free" in the catalogue,
-  # 262k context, "tools" among its supported parameters. The same model as "qwen3-8-27b-groq" above,
-  # and listed right after it in "flash" and "code": a second quota for the same capability, behind
-  # Groq's because this one spends the shared daily count. Not in "claude-code": no coding benchmark
-  # was found to rank it there, and an agentic session's stream of calls would drain that count for
-  # every other ":free" entry.
-  - model_name: qwen3-8-27b-free
-    litellm_params:
-      model: openrouter/qwen/qwen3.8-27b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   - model_name: inkling-free
     litellm_params:
       model: openrouter/thinkingmachines/inkling:free
@@ -569,11 +563,10 @@ router_settings:
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPU (Groq) -> Mistral -> OpenRouter -> DeepSeek direct (#101,
     # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
-    # twin rather than with their provider: "qwen3-8-27b-free" (OpenRouter) right behind
-    # "qwen3-8-27b-groq", and "gemma-4-31b-gemini" (Google) right ahead of "gemma-4-31b-free" -- the
-    # same model through a second quota, ranked where the model ranks, and the OpenRouter one second
-    # because its quota is the daily count all ":free" entries share. "compound-groq" dropped by #169:
-    # decommissioned by Groq 2026-09-21, with no replacement.
+    # twin rather than with their provider: "gemma-4-31b-gemini" (Google) right ahead of
+    # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
+    # the OpenRouter one second because its quota is the daily count all ":free" entries share.
+    # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
 {% if to['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
@@ -585,9 +578,6 @@ router_settings:
 {% if has.Groq %}
         - gpt-oss-120b-groq
         - qwen3-8-27b-groq
-{% endif %}
-{% if has.OpenRouter %}
-        - qwen3-8-27b-free
 {% endif %}
 {% if has.Mistral %}
         - mistral-small
@@ -660,9 +650,6 @@ router_settings:
 {% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
-{% endif %}
-{% if has.OpenRouter %}
-        - qwen3-8-27b-free
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
