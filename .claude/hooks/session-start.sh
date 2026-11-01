@@ -9,12 +9,13 @@
 #
 # What it installs, and why each one is here rather than assumed present : every tool below is used
 # by a job of ".github/workflows/ansible-ci.yml" or ".github/workflows/gitleaks.yml", and none of
-# them ships in the remote image AT THE PINNED VERSION. PyYAML is the exception that matters and the
-# reason step 1 needs a retry : the image carries Debian's 6.0.1, which is not the 6.0.3 pinned and
-# cannot be removed to make way for it. See the comment on "pip_install".
+# them ships in the remote image AT THE PINNED VERSION. PyYAML is the one that used to bite : the
+# image carries Debian's 6.0.1, which is not the 6.0.3 pinned and cannot be removed to make way for
+# it. The virtual environment of step 1 is what steps around it -- see the comment on "VENV_PATH".
 #
-#   1. requirements.txt   ansible-core, ansible-lint, yamllint, PyYAML -- the yamllint, ansible-lint,
-#                         syntax-check and home-made-checks jobs of ansible-ci.yml
+#   1. requirements.txt   ansible-core, ansible-lint, yamllint, reuse, PyYAML -- the yamllint, REUSE
+#                         compliance, ansible-lint, syntax-check and home-made-checks jobs of
+#                         ansible-ci.yml
 #   2. requirements.yml   community.docker -- the ansible-lint and syntax-check jobs, since #76 needs
 #                         "docker_host_info" and "docker_container_exec" to resolve
 #   3. gitleaks           its own workflow, and the ".githooks/pre-commit" that CONTRIBUTING.md asks
@@ -86,25 +87,6 @@ note() {
 }
 
 # 1. Python tooling ---------------------------------------------------------------------------------
-# "pip install -r" is idempotent by itself -- a satisfied "==" pin is resolved against what is already
-# installed, without a round trip -- so there is nothing to check first.
-# "--root-user-action=ignore" only silences pip's advice to use a virtualenv: this container is thrown
-# away with the session, and the hook's stderr is where a real failure has to be visible.
-#
-# ! The retry is not belt and braces, it is the only path that works in this image. The pins include
-# "PyYAML==6.0.3" and the remote image carries Debian's own PyYAML 6.0.1 in "/usr/lib/python3/
-# dist-packages", installed by dpkg and therefore without the "RECORD" file pip needs to remove a
-# distribution. pip refuses the whole transaction with "Cannot uninstall PyYAML 6.0.1, RECORD file
-# not found. Hint: The package was installed by debian." -- so ansible-core, ansible-lint and
-# yamllint are not installed either, over a package nobody asked to change.
-#
-# "--ignore-installed" installs the pinned versions BESIDE the distribution's instead of replacing
-# them: they land in "/usr/local/lib/python3.11/dist-packages", which precedes "/usr/lib/python3/
-# dist-packages" on sys.path, so an "import yaml" resolves to 6.0.3. Verified rather than assumed.
-#
-# It is a retry and not the first attempt on purpose: where the plain install works -- which is what
-# the CI's own "actions/setup-python" gives it, on a clean interpreter -- it is the honest one, and
-# leaving two copies of a package on the path is a cost worth paying only once it buys something.
 # ! WHICH INTERPRETER, and it is not the default one. "python3" here is 3.11, while the CI gives
 # itself 3.12 through actions/setup-python -- and "ansible-core" has declared "Requires-Python >=
 # 3.12" since 2.20. Installed against 3.11 it is simply refused, so a session used to start with no
@@ -175,10 +157,10 @@ link_venv_binaries() {
 
 # ! One "pip install" per pin, not one transaction over "requirements.txt", and that is #57. pip
 # resolves a requirements file as a single unit: ONE pin it cannot satisfy fails the whole thing, and
-# the other three are not installed either. Measured on this image -- "ansible-core==2.21.3" declares
+# the others are not installed either. Measured on this image -- "ansible-core==2.21.3" declares
 # "Requires-Python >= 3.12" and the image has 3.11, so pip answers "No matching distribution found"
-# and the session starts with no yamllint, no ansible-lint and no PyYAML, over a package the other
-# three do not need. Per pin, the same session keeps everything except ansible-core.
+# and the session starts with no yamllint, no ansible-lint and no PyYAML, over a package the others
+# do not need. Per pin, the same session keeps everything except ansible-core.
 #
 # CI is unaffected either way, which is exactly why this is worth doing here: "actions/setup-python"
 # gives it 3.12, so the transaction succeeds there and the failure is invisible to every job.
