@@ -411,7 +411,9 @@ def judge(cases, results):
 
 
 # One entry per guard: (what it is, [(text in the step's script, what it is replaced with)]). Every text
-# must occur once in the script, which is how a guard that moved is noticed here.
+# must occur once in the script, which is how a guard that moved is noticed here. A guard that another
+# one makes redundant is not listed: the missing patch, for one, would throw further down and match no
+# entry, so breaking it alone proves nothing; its scenario still has to refuse.
 MUTATIONS = [
     ("the shape of the deleted lines is not asked", [
         ("const shape = removalsPatchProblem(file.patch);", "const shape = null;")]),
@@ -434,7 +436,6 @@ MUTATIONS = [
     ("a second file passes", [("files.length !== 1 ||", "")]),
     ("another file passes", [("file.filename !== process.env.REMOVALS_FILE ||", "")]),
     ("a renamed file passes", [("file.status !== 'modified' ||", "")]),
-    ("a missing patch passes", [("|| !file.patch", "")]),
     ("a second commit passes", [("commits.length !== 1 ||", "")]),
     ("a person's commit passes", [("commits[0].author?.login !== 'github-actions[bot]'", "false")]),
     ("the body is not read", [(".test(pr.body ?? '')", ".test('')")]),
@@ -495,7 +496,16 @@ def run_selftest():
             continue
         for old, new in edits:
             broken = broken.replace(old, new)
-        wrong = judge(cases, play(broken, env, cases))
+        results = play(broken, env, cases)
+        crashed = [got["crashed"] for got in results if got["crashed"]]
+        if crashed:
+            # A script that no longer runs fails every scenario, which would count as noticing a guard
+            # that was never tested: the break has to leave a script that runs.
+            print("selftest: FAILED (%s) -- the broken script throws, so it proves nothing: %s"
+                  % (purpose, crashed[0].splitlines()[0]))
+            failures += 1
+            continue
+        wrong = judge(cases, results)
         if wrong:
             print("selftest: ok -- %s (caught by: %s)" % (purpose, wrong[0][0]))
         else:
