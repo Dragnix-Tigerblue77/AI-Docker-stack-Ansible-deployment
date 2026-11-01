@@ -366,13 +366,11 @@ services:
         - "python"
         - "-c"
         - "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness').read()"
-      interval: {{ Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds | int }}s
+      interval: 30s
       timeout: 10s
-      # The first run applies the Prisma migrations, which is the slow start this window covers. The
-      # three numbers are role variables because the role waits for the gateway for as long as they allow
-      # it, and so that changing one changes the other (#295).
-      start_period: {{ Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds | int }}s
-      retries: {{ Artificial_Intelligence_LiteLLM_healthcheck_retries | int }}
+      # The first run applies the Prisma migrations, which is the slow start this window covers.
+      start_period: 90s
+      retries: 3
 
     # The SHORT form, a plain list, and never the long one. Compose starts these two first, without
     # waiting for them to turn healthy; "docker stack deploy" accepts the list and ignores it. The

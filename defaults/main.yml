@@ -76,23 +76,6 @@ Artificial_Intelligence_LibreChat_port_to_expose: 3080
 # Derived from the port above so that one place names it.
 Artificial_Intelligence_LiteLLM_admin_API_URL: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}"
 
-# What the gateway's healthcheck allows it, which is also how long the role waits for it (#295). The
-# template writes the first three into the "litellm" service's healthcheck; the budget is derived from
-# them -- "start_period" plus "interval" times "retries", the time the orchestrator itself allows before
-# it declares the container failed (and, under Swarm, replaces it) -- so that changing one changes the
-# other. Waiting longer than that is pointless, and waiting less fails a start the orchestrator still
-# judges normal. "start_period" is the slow first start, the Prisma migrations (161 of them, about
-# 45 s measured on LiteLLM 1.100.0 with 4 workers).
-Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds: 90
-Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds: 30
-Artificial_Intelligence_LiteLLM_healthcheck_retries: 3
-Artificial_Intelligence_LiteLLM_startup_budget_in_seconds: "{{ (Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds | int) + (Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds | int) * (Artificial_Intelligence_LiteLLM_healthcheck_retries | int) }}"
-
-# How often the wait asks the gateway, and how long one request may take. A polling period, not a
-# budget: the wait makes budget / period tries, and a gateway that accepts the connection and never
-# answers makes each of them take up to this long on top.
-Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds: 5
-
 # LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
 # NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
 # list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.

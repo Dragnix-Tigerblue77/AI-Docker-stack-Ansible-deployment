@@ -451,37 +451,23 @@
 
 # The one wait for the gateway, before the two tasks that call its admin API (#295): the creation of the
 # internal users and the registration of the Claude Code agent's key. "/health/readiness" tests the
-# database connection and calls no model; its budget is the healthcheck's (defaults/main.yml). A deployer
-# that waits for convergence (above) has normally got the gateway healthy already; this covers one that
-# cannot, and the gap between a container that is alive and an API that answers. Skipped in "--check"
-# and when neither task runs.
+# database connection and calls no model. About 45 s were measured between the container's recreation and
+# the first answer of the admin API on a first start (161 Prisma migrations, LiteLLM 1.100.0, 4 workers),
+# so three minutes leave four times that. A deployer that waits for convergence (above) has normally got
+# the gateway running already; this covers one that cannot. Skipped in "--check" and when neither task runs.
 - name: "Wait for the LiteLLM gateway to answer"
+  ansible.builtin.uri:
+    url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness"
+    status_code: [200]
+    timeout: 5 # A connection accepted and never answered would otherwise hold each try for 30 s
+  register: Artificial_Intelligence_LiteLLM_readiness
+  until: Artificial_Intelligence_LiteLLM_readiness.status is defined and Artificial_Intelligence_LiteLLM_readiness.status == 200
+  retries: 36
+  delay: 5
+  changed_when: false
   when:
     - not ansible_check_mode
     - (Artificial_Intelligence_LiteLLM_internal_users | length > 0) or Artificial_Intelligence_Claude_code_enabled
-  block:
-    - name: "Ask LiteLLM whether it is ready"
-      ansible.builtin.uri:
-        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness"
-        status_code: [200]
-        timeout: "{{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }}"
-      register: Artificial_Intelligence_LiteLLM_readiness
-      until: Artificial_Intelligence_LiteLLM_readiness.status is defined and Artificial_Intelligence_LiteLLM_readiness.status == 200
-      retries: "{{ ((Artificial_Intelligence_LiteLLM_startup_budget_in_seconds | int) / (Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds | int)) | round(0, 'ceil') | int }}"
-      delay: "{{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }}"
-      changed_when: false
-  rescue:
-    - name: "Say how long LiteLLM was waited for"
-      ansible.builtin.fail:
-        msg: >-
-          LiteLLM did not answer "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness" with 200
-          within {{ Artificial_Intelligence_LiteLLM_startup_budget_in_seconds }} seconds, asking every
-          {{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }} seconds. That is what its healthcheck
-          allows before the orchestrator gives up on the container: start_period
-          {{ Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds }} s, then
-          {{ Artificial_Intelligence_LiteLLM_healthcheck_retries }} tries
-          {{ Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds }} s apart. Last answer:
-          {{ ansible_failed_result.msg | default('none') }}
 
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
