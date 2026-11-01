@@ -86,8 +86,9 @@
         Artificial_Intelligence_LiteLLM_Mistral_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key }}"
         Artificial_Intelligence_LiteLLM_Groq_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key }}"
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
-        # The one PAID provider of the list (#101), asserted like the free ones above: leaving it out
-        # is what made this example fail the role's own "assert" before anything was rendered.
+        # The one PAID provider of the list (#101). The role asks for all five keys today, so leaving it
+        # out makes this example fail the role's own "assert"; #296 makes the rule "at least one", and
+        # this line goes with it.
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
