@@ -732,7 +732,7 @@ travaille : le contenu de l'un n'est pas recopié dans l'autre.
 **Le rôle enregistre lui-même la clé virtuelle de l'agent dans LiteLLM.** La **valeur** de
 `Artificial_Intelligence_Claude_code_virtual_key` reste un secret de l'appelant, vaulté et
 interpolé dans le fichier compose comme les autres (même `$` doublé, même chaîne JSON). Une fois LiteLLM
-prêt (`/health/readiness`, jusqu'à 150 s), le rôle demande à `GET /key/info` si cette clé existe -- par
+prêt (l'attente décrite plus haut, 180 s par défaut), le rôle demande à `GET /key/info` si cette clé existe -- par
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour seule liste blanche l'alias du modèle

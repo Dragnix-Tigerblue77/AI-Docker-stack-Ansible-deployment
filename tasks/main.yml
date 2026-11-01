@@ -449,16 +449,12 @@
     Docker_stack_deployment_detached: false
     Docker_stack_deployment_timeout_in_seconds: 1800
 
-# The one wait for the gateway, before the two tasks that call its admin API: the creation of the internal
-# users and the registration of the Claude Code agent's key (#295). "/health/readiness" tests the
-# connection to the database, calls no model and carries no secret. The budget is what the service's own
-# healthcheck allows (see defaults/main.yml): the orchestrator gives up on the container after that, so
-# waiting longer is pointless and waiting less fails a start it still judges normal. A deployer that
-# waits for convergence (above) has normally got the gateway healthy by now; this covers one that cannot,
-# and the gap between a container that is alive and an API that answers.
-#
-# Skipped in "--check", where the stack is only rendered, and when neither of the two tasks runs. The
-# failure says how long the gateway was waited for, since "until" alone only says it ran out of tries.
+# The one wait for the gateway, before the two tasks that call its admin API (#295): the creation of the
+# internal users and the registration of the Claude Code agent's key. "/health/readiness" tests the
+# database connection and calls no model; its budget is the healthcheck's (defaults/main.yml). A deployer
+# that waits for convergence (above) has normally got the gateway healthy already; this covers one that
+# cannot, and the gap between a container that is alive and an API that answers. Skipped in "--check"
+# and when neither task runs.
 - name: "Wait for the LiteLLM gateway to answer"
   when:
     - not ansible_check_mode

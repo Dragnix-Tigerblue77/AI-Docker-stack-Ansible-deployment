@@ -89,7 +89,8 @@ Artificial_Intelligence_LiteLLM_healthcheck_retries: 3
 Artificial_Intelligence_LiteLLM_startup_budget_in_seconds: "{{ (Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds | int) + (Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds | int) * (Artificial_Intelligence_LiteLLM_healthcheck_retries | int) }}"
 
 # How often the wait asks the gateway, and how long one request may take. A polling period, not a
-# budget: the budget above is what bounds the wait.
+# budget: the wait makes budget / period tries, and a gateway that accepts the connection and never
+# answers makes each of them take up to this long on top.
 Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds: 5
 
 # LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
