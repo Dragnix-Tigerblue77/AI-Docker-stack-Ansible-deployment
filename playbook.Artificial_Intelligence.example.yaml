@@ -77,9 +77,9 @@
         Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
 
-        # The provider keys of the gateway's one account (#2, v1 scope). Any OTHER account's own are
-        # deliberately absent: each one added below adds theirs themselves, from their own restricted
-        # "/ui" login.
+        # The provider keys of the gateway's one account (#2, v1 scope). Another account's own arrive
+        # as model_list entries of their own (#107) -- not from its "/ui" login, which LiteLLM does
+        # not let add a model.
         # No GitHub key here: GitHub Models is retired (#109), and the role no longer asks for one. No
         # Cerebras key either: Cerebras has no free tier any more, its entries are commented out (#200).
         Artificial_Intelligence_LiteLLM_Gemini_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key }}"
@@ -88,8 +88,9 @@
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
-        # restricted "internal_user" LiteLLM login, scoped to "access_group:<username>". Adding a
-        # third person is adding a third entry here, never a new pair of variables named after them.
+        # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model
+        # until #2 builds per-account isolation (#114). Adding a third person is adding a third entry
+        # here, never a new pair of variables named after them.
         # See the role's README, "Un compte par personne, pas une paire figée".
         Artificial_Intelligence_LiteLLM_internal_users:
           - username: "alice"

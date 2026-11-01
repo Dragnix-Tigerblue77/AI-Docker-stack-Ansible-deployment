@@ -37,10 +37,11 @@ stop.
    value is a published one -- bar the rare optional one in the form the
    template's commented model describes (#245): its default is `false`, which
    is no value, and any other literal default is still the defect.
-2. **LiteLLM account isolation.** The estate runs two accounts through one
-   gateway: `tigerblue77`'s keys, vaulted by the caller and interpolated with an
-   `_API_KEY_TIGERBLUE77` suffix; `Dragnix`'s, added by hand from `/ui` (behind
-   `Artificial_Intelligence_LiteLLM_UI_username`/`_password`) and never vaulted here at all. Check
+2. **LiteLLM account isolation.** One gateway can serve several accounts: the
+   gateway account's keys, vaulted by the caller and exposed as
+   `<PROVIDER>_API_KEY`; another account's, to come the same way as
+   `<PROVIDER>_API_KEY_<LABEL>` under a label the caller picks (#107) -- not from
+   `/ui`, where an internal user's login cannot add a model. Check
    that a new service or routing change does not blur that line: a shared
    `model_name` grouping deployments from different accounts, a fallback
    crossing accounts, a label claiming an account it does not carry the key

@@ -2,9 +2,9 @@
 #
 # No SPDX header: like the compose template, this is written onto the node rather than kept here.
 #
-# #2, v1 SCOPE: one account only. Any other account adds its own models later, from "/ui" itself,
-# matching how every other self-hosted database of this estate runs (deployed empty, populated
-# live). No entry below carries a "model_info.access_groups": every key
+# #2, v1 SCOPE: one account only. Another account's models come later, as entries of its own
+# carrying keys of its own (#107) -- not from its "/ui" login, which LiteLLM does not let add a
+# model. No entry below carries a "model_info.access_groups": every key
 # reaches every model, on purpose -- a username has no more business being hardcoded into an
 # authorization label than into a hostname, and there is only one account to isolate from so far
 # anyway. What #2 asks beyond this -- "access_groups"-backed teams and virtual keys created by
