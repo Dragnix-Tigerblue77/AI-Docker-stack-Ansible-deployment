@@ -163,6 +163,8 @@ CLAUDE_CODE_TOKEN_ENVIRONMENT = ("GH_TOKEN", "GITHUB_TOKEN")
 # the main model, the Haiku-class one that background requests use, the Sonnet and Opus aliases, and
 # the subagents'. ANTHROPIC_SMALL_FAST_MODEL is deprecated for ANTHROPIC_DEFAULT_HAIKU_MODEL and is not set.
 CLAUDE_CODE_MODEL_VARIABLE = "Artificial_Intelligence_Claude_code_model"
+# The routers the agent's key allows besides that alias (#307): the key's allow-list, which no render reads.
+CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE = "Artificial_Intelligence_Claude_code_additional_models"
 CLAUDE_CODE_MODEL_ENVIRONMENT = (
     "ANTHROPIC_MODEL",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
@@ -750,6 +752,40 @@ def check_agent_token_default(defaults, failures):
             f"{name} defaults to a value of type {type(defaults[name]).__name__}, and must default to false: "
             "that is how the role says 'not set' (#245), and the template and the role's assert both read it that way"
         )
+
+
+def check_agent_additional_models_default(defaults, failures):
+    """Hold the agent's additional models to being the template's routers, the alias it asks for left out.
+
+    The list is the allow-list of the agent's key (#307), which no render reads: a router missing from it
+    is one the agent cannot be told to use, and the gateway refuses it the same way it refuses a name that
+    does not exist, so nothing says it was forgotten. A name in it that is no router is a model the key
+    lets the agent ask for and nobody meant. The routers are LITELLM_ROUTERS, which the LiteLLM render is
+    already held to serving; the alias is left out because the key carries it from its own variable.
+    """
+    name = CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE
+    value = defaults.get(name)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        failures.append(
+            f"{name} must default to a list of strings, the key's allow-list (#307), not "
+            f"{type(value).__name__ if name in defaults else 'nothing: it has no default'}"
+        )
+        return
+    alias = defaults.get(CLAUDE_CODE_MODEL_VARIABLE)
+    unknown = sorted(set(value) - set(LITELLM_ROUTERS))
+    missing = sorted(set(LITELLM_ROUTERS) - {alias} - set(value))
+    if unknown:
+        failures.append(
+            f"{name} lists {', '.join(map(repr, unknown))}, which is no router of LiteLLM_config.yaml.j2: the "
+            "key would let the agent ask for a name nobody meant it to (#307)"
+        )
+    if missing:
+        failures.append(
+            f"{name} leaves out the router(s) {', '.join(map(repr, missing))}: the agent could not be told "
+            "to use them, and the gateway would only say that the key does not allow them (#307)"
+        )
+    if len(set(value)) != len(value):
+        failures.append(f"{name} lists a name twice")
 
 
 def dollar_sample(name, quotes=True):
@@ -1466,6 +1502,32 @@ AGENT_TOKEN_DEFAULT_CASES = [
     ("a default of 0, which is not false", {CLAUDE_CODE_GITHUB_TOKEN_VARIABLE: 0}, "of type int"),
 ]
 
+# (name, the parsed defaults, expected substring or None). The router names are the ones the check holds
+# the LiteLLM render to serving, "claude-code" being the alias the agent asks for by default.
+_ROUTERS_BESIDES_THE_ALIAS = ["pro", "flash", "flash-lite", "code"]
+AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
+    ("every router but the alias",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS},
+     None),
+    ("the alias listed too is accepted, the key writing it once",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["claude-code"] + _ROUTERS_BESIDES_THE_ALIAS}, None),
+    ("a router forgotten",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["pro", "flash", "code"]},
+     "leaves out the router(s) 'flash-lite'"),
+    ("a name that is no router",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["auto"]},
+     "lists 'auto', which is no router"),
+    ("a name twice",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["pro"]}, "lists a name twice"),
+    ("a bare string, which Ansible would read as characters",
+     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: "pro"},
+     "must default to a list of strings, the key's allow-list (#307), not str"),
+    ("no default at all", {CLAUDE_CODE_MODEL_VARIABLE: "claude-code"}, "it has no default"),
+]
+
 VOLUME_NAME_DEFAULT_CASES = [
     ("a name without the stack's prefix",
      {"Artificial_Intelligence_Docker_stack_name": "Stack",
@@ -1832,6 +1894,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, defaults, expected in AGENT_ADDITIONAL_MODELS_DEFAULT_CASES:
+        failures = []
+        try:
+            check_agent_additional_models_default(defaults, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, alias, expected in AGENT_MODEL_CASES:
         failures = []
         try:
@@ -1900,6 +1971,7 @@ def selftest():
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
+        f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
         f"case(s) and {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) all judged as expected."
@@ -1968,6 +2040,7 @@ def main():
         )
 
     check_agent_token_default(defaults, failures)
+    check_agent_additional_models_default(defaults, failures)
     check_volume_name_defaults(defaults, failures)
     if CLAUDE_CODE_STATE in documents and CLAUDE_CODE_TOKEN_STATE in documents:
         check_agent_token(

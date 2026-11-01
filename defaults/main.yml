@@ -366,8 +366,9 @@ Artificial_Intelligence_Claude_code_enabled: true
 # "tasks/main.yml"), so there is nothing to create by hand and no second run to wait for. Not any
 # string: LiteLLM refuses a custom key that does not start with "sk-" or is shorter than 16
 # characters, which "tasks/main.yml" checks first, and a fresh value is "sk-$(openssl rand -hex 24)".
-# The allow-list that key carries -- the model alias below and nothing else -- is what stands between
-# this container and every other account's quota. NEVER the master key, which the role refuses.
+# The allow-list that key carries -- the model alias below, the routers listed after it, and nothing
+# else -- is what stands between this container and every other account's quota. NEVER the master key,
+# which the role refuses.
 # Artificial_Intelligence_Claude_code_virtual_key:
 
 # OPTIONAL (#245). A personal access token, set as "GH_TOKEN" and "GITHUB_TOKEN" in the container only
@@ -401,8 +402,23 @@ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Claude_code_w
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
 # subscription may ever sit behind it. Every model variable of the agent's container carries it (#287):
-# the key allows this alias alone, so a request under any other model name would be refused.
+# the key allows this alias and the routers below, so a request under any other model name would be
+# refused.
 Artificial_Intelligence_Claude_code_model: "claude-code"
+
+# The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
+# above, which stays what the container asks for when nobody chooses. They go into the key's allow-list
+# and nowhere else: the container's own model variables are untouched. These are the other four routers
+# of "LiteLLM_config.yaml.j2", all backed by the default account's models, so the agent reaches no
+# quota it does not already reach through the alias. A router with no provider key is absent from the
+# gateway and a name that nothing serves is refused there, not here; "check_compose_template.py" keeps
+# this list level with the template's routers. The role creates the key and does not reconcile an
+# existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
+Artificial_Intelligence_Claude_code_additional_models:
+  - "pro"
+  - "flash"
+  - "flash-lite"
+  - "code"
 
 # Unlimited by default (for example "2g").
 Artificial_Intelligence_Claude_code_memory_limit: false
