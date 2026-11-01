@@ -631,9 +631,9 @@ d'y faire confiance ; #79 est ouverte pour ça, voir aussi le commentaire dans
 `LiteLLM_config.yaml.j2`.
 
 **Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
-derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --
-mais rien ne confirme qu'il soit réellement retiré, et il ne figure qu'en dernier recours dans les
-cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
+derrière la ligne `gemini-3.x`, et #2 le signale comme tel -- mais rien ne confirme qu'il soit
+réellement retiré. Il ne figure dans aucune cascade : on ne l'atteint qu'en le demandant par son
+nom. Retiré ou confirmé au prochain audit de #2, pas ici.
 
 ## L'agent Claude Code (#13)
 
