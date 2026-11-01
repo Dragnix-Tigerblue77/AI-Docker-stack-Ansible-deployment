@@ -279,10 +279,10 @@ jobs:
           check-latest: true
           cache: "pip"
 
-      # "docker" is the Python SDK the role's "community.docker" modules need ON THE MANAGED NODE -- which,
-      # in this run, is this very interpreter (see ".github/role_run/inventory.ini").
+      # "requirements.txt" carries "docker" too: the Python SDK the role's "community.docker" modules need ON
+      # THE MANAGED NODE -- which, in this run, is this very interpreter (see ".github/role_run/inventory.ini").
       - name: Install the tooling
-        run: pip install -r requirements.txt docker
+        run: pip install -r requirements.txt
 
       - name: Install the collections
         run: ansible-galaxy collection install -r requirements.yml

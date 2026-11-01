@@ -503,8 +503,8 @@ python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
 gitleaks dir . --no-banner --redact
 
-# The "role run" jobs: the example playbook RUN, not read -- needs Docker, "pip install docker", and
-# ".github/role_run/stand_in_gateway.py" listening (agent on). This is the agent-on job; agent-off adds
+# The "role run" jobs: the example playbook RUN, not read -- needs Docker, the "docker" SDK that
+# requirements.txt pins, and ".github/role_run/stand_in_gateway.py" listening (agent on). This is the agent-on job; agent-off adds
 # "-e @.github/role_run/vars.claude_code_agent_off.yml"
 ANSIBLE_ROLES_PATH=.github/role_run/roles:~/.ansible/roles ansible-playbook \
   -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml playbook.Artificial_Intelligence.example.yaml

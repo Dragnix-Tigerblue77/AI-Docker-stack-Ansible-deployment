@@ -24,3 +24,9 @@ reuse==6.2.0
 # a job costs less than a bypassed quota. ".github/scripts/check_required_checks.py" reads the
 # workflows with it too, since it was already paid for.
 PyYAML==6.0.3
+
+# The Python SDK that the modules of "community.docker" reach the Docker Engine API through. The role
+# needs it on the MANAGED NODE (README, "Prérequis"); it is listed here because the "role run" jobs of
+# ansible-ci.yml run the example playbook against their own interpreter, which is that node there.
+# Pinned like the rest, so that a release of the SDK cannot turn those jobs red on a tree nobody touched.
+docker==7.2.0
