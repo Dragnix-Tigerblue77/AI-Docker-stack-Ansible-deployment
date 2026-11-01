@@ -101,8 +101,9 @@ d'écriture de ce qu'il surveille n'en est pas un. `check_required_checks.py` la
 puisqu'elle était déjà payée.
 
 Chacun sait se vérifier lui-même (`--selftest`) — un contrôle dont personne n'a jamais vu l'échec
-est un contrôle que personne ne croit. Le premier compare ses verdicts à neuf configurations dont
-huit sont délibérément fautives ; le second à seize lignes construites en mémoire ; celui du
+est un contrôle que personne ne croit. Le premier compare ses verdicts aux configurations de
+`.github/scripts/tests/LiteLLM_account_isolation/`, fautives exprès pour la plupart, chacune annonçant
+en tête le verdict qu'elle attend ; le second à seize lignes construites en mémoire ; celui du
 sign-off construit de vrais dépôts git jetables dans un répertoire temporaire, et y rejoue aussi le
 hook de démarrage de session.
 

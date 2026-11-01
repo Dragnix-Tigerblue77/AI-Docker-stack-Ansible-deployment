@@ -159,8 +159,8 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
 
   # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
-  # sits at the bottom of every cascade rather than near the top -- not yet confirmed retired, so not
-  # removed outright for v1. Candidate for a follow-up cleanup once #2's own model-audit work lands.
+  # sits in no cascade at all -- reachable only when asked for by name. Not yet confirmed retired, so
+  # not removed outright. Candidate for a follow-up cleanup once #2's own model-audit work lands.
   - model_name: gemini-2-5-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
@@ -600,7 +600,9 @@ router_settings:
     # has since left that cascade altogether, having no free tier (see its model_list comment). Inside
     # "code", the ranking criterion switches to coding benchmarks specifically, which is what put
     # OpenRouter's free GLM 5.2 (SWE-bench Pro 62.1%) at the head of that cascade until its ":free"
-    # tier was dropped (#111).
+    # tier was dropped (#111). Its name stayed there after #111 commented the entry out, pointing at a
+    # group that no longer existed; "check_LiteLLM_account_isolation.py" now refuses a fallback to an
+    # undeclared name (its rule 5).
     #
     # Cost enters in two places only. DeepSeek direct (#101), the one paid provider, ranks after every
     # free entry. And Mistral's GLM pair, the dearest draw on the $10 Free mode credit every Mistral
