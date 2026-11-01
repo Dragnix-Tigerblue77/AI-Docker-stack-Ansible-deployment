@@ -621,14 +621,19 @@ règle au passage le problème d'ordre de démarrage que ce même `assert` posai
 pour émettre une clé via son propre `/key/generate`, et rien ne se déployait tant que l'`assert`
 n'était pas satisfait).
 
-**Redis, déployé par #71.** Le cache de réponses (préserve les quotas TPM des paliers gratuits) et
-l'état de cooldown partagé entre les workers de LiteLLM en avaient besoin ; ni #1 ni #2 n'en avait le
-périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement que la clé
-d'API de Qdrant (#3) : défense en profondeur sur un service interne, sans port publié. **Le
-cloisonnement du cache entre comptes n'est pas vérifié depuis cette session** -- documenté en amont
-comme limité à la clé/l'équipe/l'organisation par défaut, mais à confirmer sur le banc d'essai avant
-d'y faire confiance ; #79 est ouverte pour ça, voir aussi le commentaire dans
-`LiteLLM_config.yaml.j2`.
+**Redis, déployé par #71, pour l'état de cooldown partagé entre les workers de LiteLLM** ; ni #1 ni
+#2 n'en avait le périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement
+que la clé d'API de Qdrant (#3) : défense en profondeur sur un service interne, sans port publié.
+
+**Le cache de réponses, l'autre raison de #71, n'existe pas -- et c'est mesuré (#79).** Il n'avait en
+fait jamais été actif : la configuration disait `enable_caching: true`, une clé que LiteLLM ne connaît
+pas (la sienne est `cache: true`, et sans elle il n'y a pas de cache). Activé correctement, il
+**franchit la frontière entre comptes** : sur LiteLLM 1.100.0, une requête identique envoyée avec la
+clé virtuelle B a reçu la réponse mise en cache pour la clé A. La clé du cache exact contient la
+liste `messages` entière (tout l'historique et le prompt système), le modèle et les paramètres, mais
+rien sur l'appelant ; seuls les caches *sémantiques* y ajoutent son identité. Il ne vaut de toute façon
+presque rien ici : un client de conversation renvoie un historique qui diffère à chaque tour, donc il
+ne tombe presque jamais sur une requête identique. La raison est écrite dans `LiteLLM_config.yaml.j2`.
 
 **Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
 derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --

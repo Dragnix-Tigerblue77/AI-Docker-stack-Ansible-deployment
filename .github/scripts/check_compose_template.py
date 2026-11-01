@@ -191,7 +191,6 @@ FREE_FORM_WITH_A_DEFAULT = (
 DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
     "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
     "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
-    "services.litellm.environment.REDIS_URL": "#130, which removes it",
 }
 
 # What a double-quoted YAML string reads as syntax rather than as text (#188), appended to every
@@ -210,7 +209,6 @@ QUOTES_LEFT_TO_OTHER_PULL_REQUESTS = {
     "Artificial_Intelligence_PostgreSQL_user": "#134, which rewrites POSTGRES_USER, then #188",
     "Artificial_Intelligence_PostgreSQL_password": "#134, which rewrites POSTGRES_PASSWORD, then #188",
     "Artificial_Intelligence_PostgreSQL_database": "#134, which rewrites POSTGRES_DB, then #188",
-    "Artificial_Intelligence_Redis_password": "#130, which removes REDIS_URL, and #134, which adds REDISCLI_AUTH",
 }
 
 
