@@ -52,21 +52,34 @@ name: Dependabot auto-merge
 # The same step also merges the pull request that "LiteLLM_model_drift.yml" opens every week to
 # delete the models their provider has retired, and nothing else the workflow's own token opens. It
 # is not Dependabot's, so it is held to what makes it safe in its own terms, all read from GitHub's
-# own account of the pull request and none from the text the workflow wrote into it:
+# own account of the pull request, bar the one heading of its body that says a person has to read:
 #
 #   * it is on that workflow's one fixed branch, from this repository, and carries one commit,
 #     which the workflow's own author made;
 #   * it changes one file, the model list's template, and adds no line to it: a pull request that
 #     can only take lines away cannot bring in a model, an address or a key, whatever made it;
-#   * it deletes at most REMOVALS_MAX_ENTRIES models and REMOVALS_MAX_LINES lines, counted in the
-#     diff: a run that would delete more than a handful has read a catalogue that is wrong, or is
-#     being made to, and a person looks first;
+#   * what it takes away is read line by line in the diff, not counted: whole model entries, the
+#     cascade slots that name an entry going in the same diff, comments and blank lines, and
+#     nothing else. A setting, an address, or the model of an entry that stays is not a model, and
+#     a person reads a diff that deletes one. Counting alone would let settings through under the
+#     name of a deletion, as long as there were few enough;
+#   * it deletes at least one and at most REMOVALS_MAX_ENTRIES entries and REMOVALS_MAX_LINES
+#     lines, counted in the diff, the entries a commented-out one included: a run that would delete
+#     more has read a catalogue that is wrong, or is being made to, and a person looks first;
 #   * its body has no "À relire" section. The script lists there what a person has to read once
 #     the models are gone (a comment that names one, the reason of a group that lost a member): a
 #     pull request with such a section waits for that person, as it did before it could merge;
-#   * every check the ruleset names is green on its head, "sign-off" excepted. That check reads the
-#     commits of a pull request, which GitHub never starts for one opened with GITHUB_TOKEN, and
-#     certifies the right to submit what a commit adds: this one adds nothing.
+#   * its head contains all of main. The checks ran on that head, and what lands is that head merged
+#     into main as it is when the merge happens: only a head that is not behind makes the two the
+#     same tree, and a head that is behind is rebuilt by the next weekly run;
+#   * every check the ruleset names is green on its head, "sign-off" excepted when it never started.
+#     That check reads the commits of a pull request, which GitHub never starts for one opened with
+#     GITHUB_TOKEN, and certifies the right to submit what a commit adds: this one adds nothing.
+#     One that did start is judged like the others.
+#
+# "check_auto_merge_gate.py" runs the step below against made-up pull requests -- those that must
+# merge and, one by one, the shapes that must not -- and breaks its script a guard at a time to prove
+# a scenario notices each. A guard that stops guarding is otherwise seen by nobody.
 #
 # The branch name is written here, in the "if:" of the job and in the step below, and in
 # "LiteLLM_model_drift.yml", where it is made: "check_required_checks.py" fails CI when they differ.
@@ -150,10 +163,114 @@ jobs:
           REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
+          # The checks the ruleset names that never start for this pull request, and the title of
+          # the section of its body that asks a person to read. "check_auto_merge_gate.py" reads
+          # the ruleset and the script that writes that section, and fails if either stops fitting.
+          REMOVALS_NOT_APPLICABLE: sign-off
+          REMOVALS_REVIEW_HEADING: '## À relire'
         with:
           script: |
             const { owner, repo } = context.repo;
             const headSha = process.env.HEAD_SHA;
+
+            // The question this answers: is every line the patch deletes part of a whole model entry, a
+            // cascade slot of one of those entries, a comment or a blank line? Anything else -- a setting,
+            // the "model:" of an entry that stays, an "api_base" -- is not a model, whatever else the patch
+            // is, and a person reads it. A diff may put one deletion a few identical lines higher or lower
+            // than another would: the question is asked of the file that results, so any placement that is
+            // a whole deletion counts.
+            function removalsPatchProblem(patch) {
+              const BLANK = /^\s*$/;
+              const COMMENT = /^\s*#/;
+              const HEADER = /^ {2}- model_name:\s*(\S.*?)\s*$/;
+              const BODY = /^( {4}litellm_params:| {6}(model|api_key|api_base):\s*\S.*?)\s*$/;
+              const SLOT = /^ {8}- ([A-Za-z0-9_.:/-]+)\s*$/;
+              const REACH = 3;
+              const cut = (text) => (text.length > 60 ? text.slice(0, 57) + '...' : text);
+
+              // Each hunk is read as the lines it holds of the old file, with the runs of deleted ones marked.
+              const hunks = [];
+              let hunk = null;
+              let after = false;
+              const rows = patch.split('\n');
+              rows.forEach((row, index) => {
+                if (row.startsWith('@@')) { hunk = { old: [], owner: [], runs: [] }; hunks.push(hunk); after = false; return; }
+                if (!hunk || row.startsWith('\\') || (row === '' && index === rows.length - 1)) return;
+                const tag = row.charAt(0);
+                if (tag === '+') hunk.added = true;
+                hunk.old.push(row.slice(1));
+                if (tag === '-') {
+                  if (!after) hunk.runs.push({ start: hunk.old.length - 1, length: 0 });
+                  hunk.runs[hunk.runs.length - 1].length += 1;
+                  hunk.owner.push(hunk.runs.length - 1);
+                  after = true;
+                } else {
+                  hunk.owner.push(-1);
+                  after = false;
+                }
+              });
+              if (hunks.some((each) => each.added)) return 'a line is added';
+              if (hunks.length === 0) return 'the patch holds no change';
+
+              const kindOf = (line) => (
+                BLANK.test(line) ? 'blank' : COMMENT.test(line) ? 'comment' : HEADER.test(line) ? 'header'
+                  : BODY.test(line) ? 'body' : SLOT.test(line) ? 'slot' : null);
+
+              // What a run of deleted lines is, if it is something the tool deletes: whole entries, or cascade slots.
+              const judge = (lines, next) => {
+                const kinds = lines.map(kindOf);
+                const odd = kinds.indexOf(null);
+                if (odd >= 0) return { problem: `a deleted line is not a model entry, a cascade slot, a comment or a blank line: "${cut(lines[odd].trim())}"` };
+                const significant = kinds.filter((kind) => kind !== 'blank' && kind !== 'comment');
+                if (significant.length === 0) return { entries: [], slots: [] };
+                if (significant[0] === 'slot') {
+                  if (significant.some((kind) => kind !== 'slot')) return { problem: 'a run of deleted cascade slots is mixed with something else' };
+                  return { entries: [], slots: lines.filter((line, i) => kinds[i] === 'slot').map((line) => SLOT.exec(line)[1]) };
+                }
+                if (significant[0] !== 'header') return { problem: 'a run of deleted lines starts inside an entry, not at its first line' };
+                if (significant.includes('slot')) return { problem: 'a run of deleted lines mixes entries and cascade slots' };
+                if (next !== undefined && /^ {3,}\S/.test(next) && !COMMENT.test(next)) {
+                  return { problem: `the deleted entry is cut short: "${cut(next.trim())}" is left behind` };
+                }
+                return { entries: lines.filter((line, i) => kinds[i] === 'header').map((line) => HEADER.exec(line)[1].replace(/^["']|["']$/g, '')), slots: [] };
+              };
+
+              const entryNames = new Set();
+              const slotNames = [];
+              for (const each of hunks) {
+                each.runs.forEach((run, id) => {
+                  if (run.verdict) return;
+                  // A diff may put the same deletion a few identical lines higher or lower (the "api_key" of the entry
+                  // above instead of the entry below): the file that results is the same, so any placement that is a
+                  // whole deletion makes it one.
+                  const without = (start) => each.old.slice(0, start).concat(each.old.slice(start + run.length)).join('\n');
+                  const result = without(run.start);
+                  let first = null;
+                  for (let shift = 0; shift <= 2 * REACH && !run.verdict; shift++) {
+                    const move = shift === 0 ? 0 : (shift % 2 === 1 ? 1 : -1) * Math.ceil(shift / 2);
+                    const start = run.start + move;
+                    if (start < 0 || start + run.length > each.old.length) continue;
+                    if (each.owner.slice(start, start + run.length).some((owner) => owner !== -1 && owner !== id)) continue;
+                    if (move !== 0 && without(start) !== result) continue;
+                    const verdict = judge(each.old.slice(start, start + run.length), each.old[start + run.length]);
+                    if (first === null) first = verdict;
+                    if (!verdict.problem) run.verdict = verdict;
+                  }
+                  if (!run.verdict) run.verdict = first;
+                });
+                for (const run of each.runs) {
+                  if (run.verdict.problem) return run.verdict.problem;
+                  run.verdict.entries.forEach((name) => entryNames.add(name));
+                  slotNames.push(...run.verdict.slots);
+                }
+              }
+              for (const name of slotNames) {
+                if (!entryNames.has(name)) return `a cascade slot "${cut(name)}" is deleted but the entry it names is not`;
+              }
+              return null;
+            }
+
+
             const defaultBranch = context.payload.repository.default_branch;
             const allowedUpdateTypes = new Set([
               'version-update:semver-minor',
@@ -237,7 +354,8 @@ jobs:
                 core.notice(`${label}: the branch is not main plus the one commit the workflow made. It is waiting for a human.`);
                 return;
               }
-              if (/^## À relire\s*$/m.test(pr.body ?? '')) {
+              const heading = process.env.REMOVALS_REVIEW_HEADING.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              if (new RegExp(`^${heading}\\s*$`, 'm').test(pr.body ?? '')) {
                 core.notice(`${label} lists what a person has to read once these models are gone. It is waiting for a human.`);
                 return;
               }
@@ -250,30 +368,54 @@ jobs:
                 core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone. It is waiting for a human.`);
                 return;
               }
+              // A cap that is not a number would let every comparison below pass: refuse to merge
+              // anything, loudly, rather than merge without it.
+              const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
+              const maxLines = Number(process.env.REMOVALS_MAX_LINES);
+              if (!Number.isInteger(maxEntries) || !Number.isInteger(maxLines) || maxEntries < 1 || maxLines < 1) {
+                core.setFailed(`REMOVALS_MAX_ENTRIES ("${process.env.REMOVALS_MAX_ENTRIES}") and REMOVALS_MAX_LINES ("${process.env.REMOVALS_MAX_LINES}") must be positive whole numbers: no deletion pull request merges until they are.`);
+                return;
+              }
               // Every line of a patch that starts with "-" is a deleted one, a YAML list item
               // included ("-  - model_name: x"): the patch carries no "---" file header.
               const deleted = file.patch.split('\n').filter((line) => line.startsWith('-'));
               const entries = deleted.filter((line) => /^-\s*(?:#\s*)?-\s+model_name\s*:/.test(line)).length;
-              const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
-              const maxLines = Number(process.env.REMOVALS_MAX_LINES);
-              if (deleted.length !== file.deletions || entries === 0 || entries > maxEntries || deleted.length > maxLines) {
-                core.notice(`${label} deletes ${entries} model(s) in ${deleted.length} line(s) (${file.deletions} counted by GitHub); only 1 to ${maxEntries} models and ${maxLines} lines merge themselves. It is waiting for a human.`);
+              if (deleted.length !== file.deletions || entries === 0 || !(entries <= maxEntries) || !(deleted.length <= maxLines)) {
+                core.notice(`${label} deletes ${entries} entries in ${deleted.length} line(s) (${file.deletions} counted by GitHub); only 1 to ${maxEntries} entries and ${maxLines} lines merge themselves. It is waiting for a human.`);
                 return;
               }
-              notApplicable.add('sign-off');
+              const shape = removalsPatchProblem(file.patch);
+              if (shape) {
+                core.notice(`${label}: ${shape}. It is waiting for a human.`);
+                return;
+              }
+              // The checks ran on this head, and what lands is this head merged into main as it is
+              // now: only a head that contains all of main makes the two the same tree.
+              const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${defaultBranch}...${headSha}`, per_page: 1,
+              });
+              if (comparison.behind_by !== 0) {
+                core.notice(`${label} is ${comparison.behind_by} commit(s) behind ${defaultBranch}, so the checks did not run on the tree that would land. The next weekly run rebuilds it.`);
+                return;
+              }
+              for (const context of process.env.REMOVALS_NOT_APPLICABLE.split(/\s+/).filter(Boolean)) {
+                notApplicable.add(context);
+              }
             }
 
             const checkRuns = await github.paginate(github.rest.checks.listForRef, {
               owner, repo, ref: headSha, per_page: 100,
             });
             for (const context of required) {
-              if (notApplicable.has(context)) continue;
               // Only GitHub Actions' own check runs count: a check of the same name posted by
               // anything else is not the job the ruleset means.
               const runs = checkRuns
                 .filter((run) => run.name === context && run.app?.slug === 'github-actions')
                 .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''));
               if (runs.length === 0) {
+                // An excused check that never started is the expected state; one that did start
+                // is judged like the others.
+                if (notApplicable.has(context)) continue;
                 core.notice(`${label}: "${context}" has not reported on ${headSha} yet. The run that completes it will try again.`);
                 return;
               }

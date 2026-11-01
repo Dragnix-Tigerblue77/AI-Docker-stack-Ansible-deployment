@@ -362,6 +362,14 @@ jobs:
       - name: Install the tooling
         run: pip install -r requirements.txt
 
+      # "check_auto_merge_gate.py" runs the script of the Dependabot merge step with Node. The Node
+      # an action runs on belongs to the runner and is not on the PATH of a step, so one is
+      # installed here rather than assumed, which is what keeps this job runnable on any runner.
+      - name: Install Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+
       # This check arrived with #31, and until now nothing was running it: the repository had no
       # workflow. It renders and parses the compose template in BOTH of its states, which none of
       # the other jobs does -- reading a diff is not verification. Its dependencies are ansible-core,
@@ -419,3 +427,13 @@ jobs:
       - name: "Dependabot merge gate: hold .github/rulesets/main.json to the workflows"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_required_checks.py
+
+      # The merge step is JavaScript in a YAML string, with a write token: nothing else here ever
+      # runs it, so a guard that stopped guarding would be found on the day it should have refused.
+      - name: "Dependabot merge step: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_auto_merge_gate.py --selftest
+
+      - name: "Dependabot merge step: play it against made-up pull requests"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_auto_merge_gate.py

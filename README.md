@@ -661,14 +661,21 @@ supprimer ».
 **Elle se fusionne seule, à des conditions qui tiennent toutes à ce que GitHub dit d'elle** et à rien
 de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
 fusionne les mises à jour de Dependabot, la fusionne quand elle porte un seul commit, celui du
-workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; qu'elle
-supprime cinq entrées au plus (les entrées commentées comptent), en deux cents lignes au plus ; que son corps n'a pas de section
-« À relire » (voir plus bas) ; et que chaque contrôle que le jeu de règles nomme est vert sur son
-dernier commit. Le contrôle `sign-off` n'est pas attendu : il lit les commits d'une pull request
-que GitHub ne lance jamais pour une pull request ouverte avec le jeton du workflow, et il certifie
-le droit de soumettre ce qu'un commit ajoute, ce que celui-ci ne fait pas. Une pull request qui
-sort de ces conditions reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont
-`REMOVALS_MAX_ENTRIES` et `REMOVALS_MAX_LINES` dans le workflow de fusion.
+workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; que les
+lignes qu'elle retire sont, une à une, des entrées de modèle entières, les places de cascade qui
+nomment une entrée retirée dans la même pull request, des commentaires ou des lignes vides, et rien
+d'autre (un réglage, une adresse ou le modèle d'une entrée qui reste n'en sont pas) ; qu'elle
+supprime une entrée au moins et cinq au plus (les entrées commentées comptent), en deux cents lignes
+au plus ; que son corps n'a pas de section « À relire » (voir plus bas) ; que sa branche contient
+tout `main`, faute de quoi les contrôles n'ont pas tourné sur l'arbre qui serait fusionné ; et que
+chaque contrôle que le jeu de règles nomme est vert sur son dernier commit. Le contrôle `sign-off`
+n'est pas attendu s'il n'a pas démarré : il lit les commits d'une pull request que GitHub ne lance
+jamais pour une pull request ouverte avec le jeton du workflow, et il certifie le droit de soumettre
+ce qu'un commit ajoute, ce que celui-ci ne fait pas. Une pull request qui sort de ces conditions
+reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont `REMOVALS_MAX_ENTRIES` et
+`REMOVALS_MAX_LINES` dans le workflow de fusion, et `check_auto_merge_gate.py` joue ces conditions
+contre des pull requests inventées : celles qui doivent fusionner et, une à une, celles qui ne le
+doivent pas.
 
 **Un commit de quelqu'un d'autre sur la branche arrête tout, et l'exécution échoue pour le dire**,
 chaque semaine, jusqu'à ce que la branche soit supprimée (le workflow la refait alors depuis
@@ -728,9 +735,9 @@ fusionne seule, en est). Il se fait donc en **deux travaux** reliés par un arte
 jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
 dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
 pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
-plus haut), à des conditions qui bornent le nombre de lignes retirées (cinq entrées et deux cents
-lignes au plus) mais pas encore lesquelles, dans un commit que git garde et qu'un `revert` défait --
-jamais une ligne ajoutée. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+plus haut), à des conditions qui bornent les lignes retirées (cinq entrées et deux cents lignes au plus,
+et rien d'autre que des entrées de modèle, leurs places de cascade, des commentaires et des lignes vides),
+dans un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
 partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
 s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas
