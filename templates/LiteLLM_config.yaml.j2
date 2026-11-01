@@ -269,15 +269,6 @@ model_list:
   # ("docs.mistral.ai/inference/pricing"), against $0.5 / $1.5 for mistral-large and $0.3 / $0.9 for
   # codestral, all drawn from the same $10 credit. That, not their capability, is what places them
   # in the cascades below.
-  - model_name: glm-5-3-mistral
-    litellm_params:
-      model: mistral/zai-glm-5-3
-      api_key: "os.environ/MISTRAL_API_KEY"
-
-  - model_name: glm-5-2-mistral
-    litellm_params:
-      model: mistral/zai-glm-5-2
-      api_key: "os.environ/MISTRAL_API_KEY"
 
 {% endif %}
   # ============================================================================
@@ -327,14 +318,6 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
 
-  # Usable on Groq but deliberately not routed to: Enterprise only. "console.groq.com/docs/model/
-  # minimaxai/minimax-m2.7", checked 2026-09-27: "available to Enterprise customers. Contact sales for
-  # access." -- it has no row in the Free Plan Limits table, and no free or developer quota to route to.
-  # - model_name: minimax-m2-7-groq
-  #   litellm_params:
-  #     model: groq/minimaxai/minimax-m2.7
-  #     api_key: "os.environ/GROQ_API_KEY"
-
 {% endif %}
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
@@ -364,18 +347,6 @@ model_list:
   # - model_name: llama-3-3-70b-sambanova
   #   litellm_params:
   #     model: openai/Meta-Llama-3.3-70B-Instruct
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: minimax-m3-sambanova
-  #   litellm_params:
-  #     model: openai/MiniMax-M3
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: minimax-m2-7-sambanova
-  #   litellm_params:
-  #     model: openai/MiniMax-M2.7
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
@@ -433,11 +404,6 @@ model_list:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  - model_name: nemotron-super-free
-    litellm_params:
-      model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   - model_name: nemotron-reasoning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
@@ -484,28 +450,9 @@ model_list:
       model: openrouter/cohere/north-mini-code:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  - model_name: poolside-laguna-s-free
-    litellm_params:
-      model: openrouter/poolside/laguna-s-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: poolside-laguna-xs-free
-    litellm_params:
-      model: openrouter/poolside/laguna-xs-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: ling-flash-free
-    litellm_params:
-      model: openrouter/inclusionai/ling-3.0-flash-fin:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   # Same Ling 3.0 Flash family as the financial-tuned sibling above, health-tuned. Kept in the same
   # flash-lite cascade slot as its sibling, on the same reasoning already applied to it: a domain
   # fine-tune is still a general-purpose fallback, not excluded from the generic cascades.
-  - model_name: ling-flash-sante-free
-    litellm_params:
-      model: openrouter/inclusionai/ling-3.0-flash-sante:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: dots-note-free
     litellm_params:
@@ -529,17 +476,6 @@ model_list:
   # - model_name: nemotron-content-safety-free
   #   litellm_params:
   #     model: openrouter/nvidia/nemotron-3.5-content-safety:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY"
-
-  # Served at $0, but not routed to. The catalogue calls "stealth/space-bunny-alpha" "an anonymous
-  # large model", so nobody can say whose weights would answer. Its only provider, "Stealth", is one
-  # that may train on prompts and retains them, per the table of "openrouter.ai/docs/guides/privacy/
-  # provider-logging". And it has no ":free" suffix: the free limits in this section's header are
-  # documented for ":free" ids only, so what it allows, and for how long it stays at $0, is written
-  # nowhere.
-  # - model_name: space-bunny-alpha
-  #   litellm_params:
-  #     model: openrouter/stealth/space-bunny-alpha
   #     api_key: "os.environ/OPENROUTER_API_KEY"
 
 {% endif %}
@@ -662,7 +598,6 @@ router_settings:
         - ministral-8b
 {% endif %}
 {% if has.OpenRouter %}
-        - nemotron-super-free
 {% endif %}
 {% if has.Gemini %}
         - gemma-4-31b-gemini
@@ -702,11 +637,8 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
-        - ling-flash-free
-        - ling-flash-sante-free
         - inkling-small-free
         - dots-note-free
-        - poolside-laguna-xs-free
         - lfm-free
 {% endif %}
 {% endif %}
@@ -740,12 +672,9 @@ router_settings:
         - codestral-2508
 {% endif %}
 {% if has.OpenRouter %}
-        - poolside-laguna-s-free
         - north-mini-code-free
 {% endif %}
 {% if has.Mistral %}
-        - glm-5-3-mistral
-        - glm-5-2-mistral
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
@@ -770,7 +699,6 @@ router_settings:
 {% if has.Mistral %}
         - mistral-large
         - codestral
-        - glm-5-3-mistral
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
