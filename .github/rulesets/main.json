@@ -31,6 +31,12 @@
             "context": "ansible-playbook --syntax-check"
           },
           {
+            "context": "role run (Claude Code agent off)"
+          },
+          {
+            "context": "role run (Claude Code agent on)"
+          },
+          {
             "context": "home-made checks"
           },
           {

@@ -83,6 +83,13 @@ python3 .github/scripts/check_required_checks.py
 
 reuse lint
 gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
+
+# Les deux jobs « role run » : le playbook d'exemple EXÉCUTÉ, pas seulement lu -- il faut Docker,
+# « pip install docker » et, pour l'agent Claude Code allumé, « .github/role_run/stand_in_gateway.py »
+# qui écoute. Voici celui où l'agent est allumé ; l'autre ajoute
+# « -e @.github/role_run/vars.claude_code_agent_off.yml ».
+ANSIBLE_ROLES_PATH=.github/role_run/roles:~/.ansible/roles ansible-playbook \
+  -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml playbook.Artificial_Intelligence.example.yaml
 ```
 
 `check_no_inventory_data.py` et `check_sign_off.py` n'utilisent que la bibliothèque standard.

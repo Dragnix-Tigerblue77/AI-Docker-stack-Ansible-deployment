@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# What the agent-off "role run" job adds to "vars.yml": the same run with the Claude Code agent (#13)
+# switched off, the one toggle the example playbook leaves at its default, which is on. Both states
+# have a block, an assert and registration tasks of their own that the other never touches.
+Artificial_Intelligence_Claude_code_enabled: false

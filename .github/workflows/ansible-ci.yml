@@ -18,7 +18,8 @@ name: Ansible CI
 #   "gitleaks.yml" and of "sign-off.yml", by its display "name:". Renaming a job, or adding one,
 #   means editing that file in the same pull request; "check_required_checks.py" below fails until
 #   it is done. The workflow's own "name:" above is what "dependabot-auto-merge.yml" listens for, so
-#   it is load-bearing too.
+#   it is load-bearing too. So is every job's "name:" being a plain string, never rendered from a
+#   matrix: the two "role run" jobs below say why.
 #
 # Every job below takes its runner from the CI_RUNNER repository variable, and falls back to
 # "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
@@ -221,6 +222,105 @@ jobs:
             echo "--- $playbook"
             ansible-playbook --syntax-check "$playbook"
           done
+
+  # Every job above READS the role: lint, syntax, render, parse. None of them had ever RUN it, and v1.0
+  # shipped with a task that failed on every run regardless of variables -- a "when" indented one level
+  # too deep, read as an argument of "ansible.builtin.assert" -- plus an example playbook that did not
+  # pass the role's own asserts. Both are invisible to reading, and both are the first thing a run hits.
+  #
+  # So this job runs "playbook.Artificial_Intelligence.example.yaml" itself, unedited, on the runner, to
+  # its last task: every assert, every rendered file, the deployment role's include, and the
+  # post-deployment tasks. The deployer is the stand-in in ".github/role_run/roles/", which renders the
+  # compose file and has the real Docker Compose validate it -- starting the stack would pull more than
+  # ten gigabytes of images per pull request. What therefore stays unexercised here is everything that
+  # needs a running container: the tasks that look for one find none and skip, exactly as written to.
+  # The one exception is the agent's key registration, which talks to the gateway's admin API and would
+  # wait for a gateway that was never started: "stand_in_gateway.py" answers its three calls, and
+  # refuses any other. The rest of that half is #85's, on a machine that looks like the target.
+  #
+  # Twice: with the Claude Code agent on (the example's default), and off, since each state has an
+  # assert, a compose block and registration tasks of its own that the other never touches.
+  #
+  # ! Two jobs, not a matrix. "dependabot-auto-merge.yml" requires a check by the exact name GitHub
+  #   reports it under, and ".github/rulesets/main.json" can only list a name written somewhere. A
+  #   matrix job's "name:" is rendered once per leg at run time, by a rule GitHub documents nowhere,
+  #   so the one string this file would hold -- "role run (Claude Code agent ${{ matrix.<key> }})" --
+  #   is a name no check run ever carries. Listed in main.json, it satisfies
+  #   "check_required_checks.py" and holds every Dependabot update for ever, each gate run saying only
+  #   that the check "has not reported yet". A static "name:" per job is a name this file states, and
+  #   the two below are exactly the ones the matrix legs reported under on GitHub.
+  #
+  #   The steps are written once, anchored as "&role_run_steps" and aliased as "*role_run_steps",
+  #   which Actions reads since 18 September 2025. Only "steps:" is shared: aliasing the whole job and
+  #   overriding its "name:" would need the merge key "<<", which Actions refuses -- while PyYAML,
+  #   yamllint and "check_required_checks.py" all accept it, so it would pass every local check and
+  #   fail on GitHub. What tells the two jobs apart is their own ROLE_RUN_CLAUDE_CODE_AGENT, and the
+  #   last step refuses any value but "off" or "on" rather than quietly running the default twice.
+  #
+  # Their runner comes from CI_RUNNER, like every other job's (see the header), and whatever pool that
+  # names needs what GitHub's hosted runners already have for these two: a Docker daemon and Compose
+  # v2. Without them the stand-in deployer's "docker compose config" fails, so the jobs go red rather
+  # than wait -- the loud way, and the one "dependabot-auto-merge.yml" reads correctly.
+  role-run-agent-off:
+    name: role run (Claude Code agent off)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    env:
+      ROLE_RUN_CLAUDE_CODE_AGENT: "off"
+    steps: &role_run_steps
+      - name: Check the repository out
+        uses: actions/checkout@v7
+
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          # See the "yamllint" job above.
+          check-latest: true
+          cache: "pip"
+
+      # "docker" is the Python SDK the role's "community.docker" modules need ON THE MANAGED NODE -- which,
+      # in this run, is this very interpreter (see ".github/role_run/inventory.ini").
+      - name: Install the tooling
+        run: pip install -r requirements.txt docker
+
+      - name: Install the collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      # Same reason as the identical step of the "ansible-lint" job above.
+      - name: Make this checkout resolvable as the "deploy_Artificial_Intelligence_Docker_stack" role
+        run: |
+          mkdir -p ~/.ansible/roles
+          ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack
+
+      # Listens on 127.0.0.1:4000 until the job ends. Started here for both jobs, though only the agent-on
+      # one calls it: one step list is the reason these are two jobs and not a matrix.
+      - name: Start the stand-in for the gateway's admin API
+        run: nohup python3 .github/role_run/stand_in_gateway.py > "$RUNNER_TEMP/stand_in_gateway.log" 2>&1 &
+
+      - name: Run the example playbook
+        env:
+          ANSIBLE_ROLES_PATH: ${{ github.workspace }}/.github/role_run/roles:~/.ansible/roles
+          ANSIBLE_FORCE_COLOR: "1"
+        run: |
+          extra_vars=(-e @.github/role_run/vars.yml)
+          case "$ROLE_RUN_CLAUDE_CODE_AGENT" in
+            on) ;;
+            off) extra_vars+=(-e @.github/role_run/vars.claude_code_agent_off.yml) ;;
+            *)
+              echo "::error title=Unknown role run variant::ROLE_RUN_CLAUDE_CODE_AGENT is '$ROLE_RUN_CLAUDE_CODE_AGENT', expected off or on."
+              exit 1
+              ;;
+          esac
+          ansible-playbook -i .github/role_run/inventory.ini "${extra_vars[@]}" playbook.Artificial_Intelligence.example.yaml
+
+  role-run-agent-on:
+    name: role run (Claude Code agent on)
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    env:
+      ROLE_RUN_CLAUDE_CODE_AGENT: "on"
+    steps: *role_run_steps
 
   home-made-checks:
     name: home-made checks
