@@ -336,6 +336,14 @@ Les deux rôles rendent en plus deux faits que les issues de service voudront li
 `Docker_stack_first_deployment`, qui dit si le stack est déployé pour la première fois sur cette machine,
 et `Docker_stack_deployment_state`.
 
+**Ce rôle demande au rôle de déploiement d'attendre que le stack ait convergé**, avec
+`Docker_stack_deployment_detached: false` et `Docker_stack_deployment_timeout_in_seconds: 1800`, les
+deux paramètres par lesquels un rôle de déploiement Swarm attend que chaque service tourne, et soit sain
+quand il a un healthcheck, avant de rendre la main. Tout ce qui suit le déploiement parle à ce qu'il
+vient de déployer : l'API d'administration de LiteLLM, puis `docker exec` dans LibreChat et sa MongoDB.
+Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; les tentatives répétées des
+appels à l'API, deux minutes au total, restent alors la seule protection.
+
 ## La passerelle et sa base (#1)
 
 Deux services, et deux fichiers rendus sur le nœud : le `docker-compose` -- qui porte leurs
