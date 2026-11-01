@@ -172,7 +172,8 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
-| `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_additional_models` | `[pro, flash, flash-lite, code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model flash`, #307), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le rôle ne réconcilie pas une clé qui existe : un changement n'atteint un agent déjà déployé qu'une fois sa clé supprimée depuis `/ui` (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -837,13 +838,15 @@ interpolé dans le fichier compose comme les autres (même `$` doublé, même ch
 prêt (l'attente décrite plus haut, trois minutes au plus), le rôle demande à `GET /key/info` si cette clé existe -- par
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
-`key_alias` `claude_code` et pour seule liste blanche l'alias du modèle
-(`Artificial_Intelligence_Claude_code_model`) : c'est elle qui tient le conteneur à l'écart
+`key_alias` `claude_code` et pour liste blanche l'alias du modèle
+(`Artificial_Intelligence_Claude_code_model`) suivi des routeurs de
+`Artificial_Intelligence_Claude_code_additional_models` : c'est elle qui tient le conteneur à l'écart
 du quota de tous les autres comptes. Les appels s'authentifient avec la clé maîtresse, que l'agent ne
 détient jamais, et leurs tâches sont en `no_log`. Un second passage trouve la clé et ne change rien.
 
 Ce que cela ne fait pas : le rôle **crée** la clé, il ne **réconcilie** pas une clé qui existe déjà -- elle
-garde les modèles avec lesquels elle a été créée. Et **faire tourner la clé** demande d'abord de supprimer
+garde les modèles avec lesquels elle a été créée (la liste de `Artificial_Intelligence_Claude_code_additional_models`
+comprise, #307). Et **faire tourner la clé** demande d'abord de supprimer
 l'ancienne depuis `/ui` : son alias est unique, `POST /key/generate` refuserait la nouvelle tant que
 l'ancienne existe, et la tâche étant en `no_log`, l'échec n'en dit pas la cause. Le conteneur peut
 démarrer quelques secondes avant que sa clé existe : il n'appelle la passerelle que lorsqu'on s'en sert,
@@ -893,12 +896,13 @@ alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonn
 
 **Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
 requêtes principales : ses requêtes d'arrière-plan (titres, résumés courts) partent vers le modèle de classe Haiku, ses
-sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que l'alias
-(voir plus haut) : une requête sous un autre nom, celui d'un autre routeur compris, est refusée par la passerelle. Le
-bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que
+l'alias et les routeurs de `Artificial_Intelligence_Claude_code_additional_models` (voir plus haut) : une requête sous
+un autre nom est refusée par la passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL` et `CLAUDE_CODE_SUBAGENT_MODEL`, toutes sur
-`Artificial_Intelligence_Claude_code_model`, sans second alias et sans élargir la liste blanche de la clé -- c'est elle
-qui tient le conteneur à l'écart du quota des autres comptes. Le coût : les requêtes d'arrière-plan et les sous-agents
+`Artificial_Intelligence_Claude_code_model`, sans second alias : la liste blanche de la clé ne s'élargit que par les
+routeurs de `Artificial_Intelligence_Claude_code_additional_models`, et c'est elle qui tient le conteneur à l'écart du
+quota des autres comptes. Le coût : les requêtes d'arrière-plan et les sous-agents
 passent par le modèle principal. Les noms viennent de la documentation de Claude Code
 (« Model configuration » et « Environment variables », consultées le 2026-10-31) :
 `ANTHROPIC_SMALL_FAST_MODEL`, l'ancien nom de la variable Haiku, y est déclaré obsolète au profit de
@@ -907,6 +911,19 @@ passent par le modèle principal. Les noms viennent de la documentation de Claud
 et `CLAUDE_CODE_AUTO_MODE_MODEL` (le classificateur du mode automatique) : ni l'un ni l'autre n'est un chemin que le
 déploiement emprunte tel quel, et leur effet derrière la passerelle n'est pas mesuré. Rien de tout cela n'a été exécuté : ni LiteLLM réel, ni Claude Code
 réel, donc ce que Claude Code affiche quand une requête est refusée reste non mesuré.
+
+**Choisir son routeur depuis Claude Code (#307).** Sans rien faire, le conteneur demande `claude-code`. Pour un autre
+routeur, on le nomme : `/model flash` en session, ou `claude --model flash` au lancement. Claude Code envoie alors ce
+nom tel quel (mesuré avec `--model` sur la version 2.1.316 ; la saisie `/model` n'a pas été mesurée), et la passerelle
+l'accepte parce que la clé de l'agent l'autorise : `pro`, `flash`, `flash-lite` et `code` par défaut
+(`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, tous adossés aux modèles
+du compte par défaut -- l'agent n'atteint donc aucun quota qu'il n'atteignait pas déjà par `claude-code`. Un nom hors de
+la liste, celui d'un modèle d'un autre compte compris, reste refusé. Les paliers du CLI (`opus`, `sonnet`, `haiku`) ne
+choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur sans clé fournisseur n'existe pas dans la
+passerelle, et le demander est refusé par elle, pas par le rôle ; LiteLLM 1.100.0 n'examine pas les noms de `models`
+d'une clé sans équipe ni projet à sa création (lu dans son code), si bien qu'un routeur absent peut figurer dans la
+liste sans erreur. **Un agent déjà déployé ne reçoit pas la nouvelle liste** : supprimez sa clé depuis `/ui` avant de
+redéployer.
 
 **Ce service ne dépend pas de #1 pour être mergé, seulement pour tourner.** Il se déploie et se rend
 indépendamment ; c'est au démarrage du conteneur, une fois `litellm` réellement présent, que

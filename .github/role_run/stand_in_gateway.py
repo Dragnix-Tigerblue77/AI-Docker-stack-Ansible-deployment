@@ -11,7 +11,8 @@ task, and holds the role to the calls it is written to make:
 
   GET  /health/readiness       200
   GET  /key/info?key=<sha256>  404 until that key was generated, 200 after (the role looks first)
-  POST /key/generate           200, with the key, its alias and its model allow-list in the body
+  POST /key/generate           200, with the key, its alias and its model allow-list in the body: a list
+                               of distinct non-empty strings, as LiteLLM's own "models" is (#307)
 
 Every call but the first must carry the master key as a bearer token. Anything else is answered 500 and
 printed, so the role's task fails with the reason on the runner's log rather than a quiet success.
@@ -80,6 +81,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if missing:
             self.refuse(f"the body lacks {', '.join(missing)}")
             return
+        models = body["models"]
+        well_formed = isinstance(models, list) and all(isinstance(name, str) and name for name in models)
+        if not well_formed or len(set(models)) != len(models):
+            self.refuse(f"models is not a list of distinct non-empty strings: {models!r}")
+            return
+        print(f"stand-in gateway: key {body['key_alias']!r} allows {models}", flush=True)
         GENERATED.add(hashlib.sha256(body["key"].encode()).hexdigest())
         self.reply(200, {"key": body["key"]})
 
