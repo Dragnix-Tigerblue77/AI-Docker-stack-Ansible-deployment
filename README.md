@@ -341,8 +341,14 @@ et `Docker_stack_deployment_state`.
 deux paramètres par lesquels un rôle de déploiement Swarm attend que chaque service tourne, et soit sain
 quand il a un healthcheck, avant de rendre la main. Tout ce qui suit le déploiement parle à ce qu'il
 vient de déployer : l'API d'administration de LiteLLM, puis `docker exec` dans LibreChat et sa MongoDB.
-Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; les tentatives répétées des
-appels à l'API, deux minutes au total, restent alors la seule protection.
+Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; l'attente décrite juste
+après reste alors la seule protection.
+
+**Le rôle attend ensuite lui-même la passerelle (#295)**, une seule fois, avant d'appeler son API
+d'administration : il interroge `/health/readiness`, qui ne teste que la connexion à la base et n'appelle
+aucun modèle, pendant trois minutes au plus (36 essais, 5 secondes d'écart). Un premier démarrage a été
+mesuré à environ 45 secondes, le temps des migrations de Prisma. L'attente est sautée en `--check`, et quand
+ni les comptes internes ni l'agent Claude Code n'appellent la passerelle.
 
 ## La passerelle et sa base (#1)
 
@@ -826,7 +832,7 @@ travaille : le contenu de l'un n'est pas recopié dans l'autre.
 **Le rôle enregistre lui-même la clé virtuelle de l'agent dans LiteLLM.** La **valeur** de
 `Artificial_Intelligence_Claude_code_virtual_key` reste un secret de l'appelant, vaulté et
 interpolé dans le fichier compose comme les autres (même `$` doublé, même chaîne JSON). Une fois LiteLLM
-prêt (`/health/readiness`, jusqu'à 150 s), le rôle demande à `GET /key/info` si cette clé existe -- par
+prêt (l'attente décrite plus haut, trois minutes au plus), le rôle demande à `GET /key/info` si cette clé existe -- par
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour seule liste blanche l'alias du modèle
