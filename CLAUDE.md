@@ -30,7 +30,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
-| What the weekly model-drift issue is, which secrets feed it, and why it never runs on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
+| What the weekly model-drift issue and its deletion pull request are, which secrets feed them, what repository setting they need, and why they never run on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
 | How to set a clone up, what to run before pushing, what submitting a contribution grants, and what signing a commit off means | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
@@ -353,8 +353,13 @@ than the day it was written. Each claim cites the provider's own page and the da
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
-catalogues weekly, reporting what drifted in one rolling issue for a human to act on. It never
-edits the list.
+catalogues weekly, reporting what drifted in one rolling issue for a human to act on. A model its
+provider no longer lists is deleted by that script, not by a model, in a pull request the same
+workflow opens, wherever it can read the result back as the original minus the deletion; what it
+refuses to delete stays a person's, from the issue. An addition, an announced retirement and a model
+free again stay a person's too, since each claim in the list cites the provider's page and the date.
+What the workflow needs and what it refuses to delete are in its header and in the docstring of the
+script.
 
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
@@ -531,6 +536,11 @@ Every other line above reads the role; the last one runs it, and it exists becau
 enough: v1.0 shipped with a task that failed on every run and an example that failed the role's own
 asserts, and every check above was green on both.
 
+The weekly workflow also runs `check_LiteLLM_model_drift.py --online --apply`, on a checkout it
+throws away. That is not part of this suite and is not run on a working tree: it rewrites
+`templates/LiteLLM_config.yaml.j2` in place, and reads the catalogues of the providers whose keys
+are set. Its docstring says how.
+
 Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody
 has ever seen is a check nobody believes. `check_compose_template.py`'s cases are Python literals
 rather than fixture files, because a fixture on disk is reachable by `ansible-lint --fix` (#58).
@@ -566,7 +576,10 @@ reviewer, they do not guard the door.
 only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
 job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (invariant 9). Renaming
 a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
-CI until the file follows.
+CI until the file follows. So is the pull request the weekly model-drift run opens to delete the
+models their provider has retired: the same workflow merges it, but only a diff that adds no line to
+`templates/LiteLLM_config.yaml.j2`, deletes a handful of models and leaves nothing for a person to
+read (the workflow's header lists the conditions).
 
 The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
@@ -638,9 +651,9 @@ the role.
    that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
    ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
    checking lands updates nothing checked: nothing else here would stop it. It runs on
-   `workflow_run`, from `main`'s definition, and checks nothing out, because it has the only jobs
-   holding a write token and no job may both hold one and run code from a pull request -- a freshly
-   bumped dependency is exactly that code. Its merge, a push made with `GITHUB_TOKEN`, starts no
+   `workflow_run`, from `main`'s definition, and checks nothing out, because its jobs hold a write
+   token and no job may both hold one and run code from a pull request -- a freshly bumped
+   dependency is exactly that code. The gate's merge, a push made with `GITHUB_TOKEN`, starts no
    workflow, so its second job dispatches `ansible-ci.yml` and `gitleaks.yml` on `main` right after
    (#180): without it, that merge commit is the one head of `main` no run ever checks. Both keep a
    `workflow_dispatch:` trigger for it, and `check_required_checks.py` refuses a workflow the gate
@@ -653,6 +666,16 @@ the role.
    every update would then wait for ever. That is why the role run is two jobs sharing one anchored
    `steps:` list rather than a matrix. The workflow's header also says what replaces it the day the
    repository can enforce a ruleset.
+
+   The weekly model-drift workflow keeps the same rule with two jobs: the one that holds the
+   providers' keys installs PyYAML and Jinja2 and runs the script with a read-only token, the one
+   that writes runs none of it. That bounds the token that writes, not the keys, which share a job
+   with PyYAML and Jinja2 and are dedicated and revocable for that reason; its header says so, and
+   why. The deletion pull request that workflow opens is merged by `dependabot-auto-merge.yml`
+   under conditions of its own, all read from GitHub's account of the pull request and none from
+   the text the workflow wrote into it, bar the one section of the body that says a person has to
+   read: no line added, one file, a handful of models, the same checks bar `sign-off`. Loosen any
+   of them and a compromised `read` job gets more than a few models off the list.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs

@@ -56,6 +56,17 @@ WHAT IT CHECKS
 6. Every NOT_DISPATCHED entry still excuses something: it names a workflow file that exists, that
    the gate listens to, that has no "workflow_dispatch" trigger and that the gate does not dispatch.
    An exclusion that has stopped being true would otherwise keep waving a workflow past item 5.
+7. The weekly model-drift workflow, when there is one, dispatches the very same files on the branch
+   of the pull request it opens: its own "WORKFLOW_FILES" lists exactly the gate's. A pull
+   request opened with GITHUB_TOKEN gets no check from GitHub either, so that list is a copy of the
+   gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
+   gate would leave the deletion pull request without it, which only shows as a check that is not
+   there.
+
+8. The branch the weekly model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
+   is the one the gate merges, and the `if:` of the gate's job lets a run on it through. The gate
+   merges that pull request by itself, and a branch named differently on either side would leave
+   it open for ever with every check green, which shows as nothing at all.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -87,6 +98,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 GATE = "dependabot-auto-merge.yml"
+DRIFT = "LiteLLM_model_drift.yml"
 
 # Jobs of a workflow the gate listens to that are deliberately NOT required, each with its reason --
 # the same shape as the allowlist of "check_no_inventory_data.py", and for the same reason: an entry
@@ -107,6 +119,8 @@ NOT_DISPATCHED = {
 # The environment variable, on a step of the gate, whose value is the space-separated FILE names of
 # the workflows that step dispatches on the default branch once the gate has merged (#180).
 DISPATCH_ENV = "WORKFLOW_FILES"
+# The branch of the weekly deletions, written where it is made and where it is merged.
+BRANCH_ENV = "REMOVALS_BRANCH"
 
 
 def triggers(workflow):
@@ -134,6 +148,23 @@ def dispatched_files(gate):
             if value is not None:
                 files.extend(str(value).split())
     return files
+
+
+def env_values(workflow, name):
+    """Every value the env variable `name` is given in a workflow, on a job or on one of its steps."""
+    values = []
+    for job in ((workflow or {}).get("jobs") or {}).values():
+        for scope in [job or {}] + [step or {} for step in (job or {}).get("steps") or []]:
+            value = (scope.get("env") or {}).get(name)
+            if value is not None:
+                values.append(str(value))
+    return values
+
+
+def filtered_on(workflow, text):
+    """Whether the `if:` of a job of the workflow mentions `text`."""
+    return any(text in str((job or {}).get("if") or "")
+               for job in ((workflow or {}).get("jobs") or {}).values())
 
 
 def workflow_name(file_name, workflow):
@@ -242,6 +273,35 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
             elif file_name in dispatched:
                 found.append(stale % (file_name, "%s dispatches it after a merge anyway" % GATE))
 
+    # The same files, dispatched by the workflow that opens a pull request with the same token.
+    if GATE in workflows and DRIFT in workflows:
+        gate_files = dispatched_files(workflows[GATE])
+        drift_files = dispatched_files(workflows[DRIFT])
+        if not drift_files:
+            found.append("%s dispatches nothing on the pull request it opens (%s): a pull request "
+                         "opened with GITHUB_TOKEN starts no workflow, so it would go unchecked."
+                         % (DRIFT, DISPATCH_ENV))
+        elif sorted(set(drift_files)) != sorted(set(gate_files)):
+            found.append("%s dispatches %s on its pull request, and %s dispatches %s after a "
+                         "merge: the two lists name the checks a change has to pass, and must be "
+                         "the same." % (DRIFT, " ".join(sorted(set(drift_files))), GATE,
+                                        " ".join(sorted(set(gate_files)))))
+
+    # The branch the weekly deletions are made on, which the gate merges: written in three places.
+    if GATE in workflows and DRIFT in workflows:
+        made = sorted(set(env_values(workflows[DRIFT], BRANCH_ENV)))
+        merged = sorted(set(env_values(workflows[GATE], BRANCH_ENV)))
+        if len(made) != 1:
+            found.append("%s must give %s one value, the branch of the pull request it opens; it "
+                         "gives %s." % (DRIFT, BRANCH_ENV, ", ".join(made) or "none"))
+        elif merged != made:
+            found.append("%s merges the pull request of the branch %s, and %s makes it on %s: "
+                         "they must be the same branch, or the deletions never merge."
+                         % (GATE, ", ".join(merged) or "(none)", DRIFT, made[0]))
+        elif not filtered_on(workflows[GATE], made[0]):
+            found.append("%s never lets a run of %s through its job filter: the `if:` of its job "
+                         "does not name the branch." % (GATE, made[0]))
+
     return found
 
 
@@ -269,6 +329,11 @@ jobs:
   merge:
     name: Merge
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.head_branch == 'removals'
+    steps:
+      - name: Merge
+        env:
+          REMOVALS_BRANCH: removals
   recheck:
     name: Recheck
     needs: merge
@@ -312,6 +377,24 @@ jobs:
 """
 
 
+SELFTEST_DRIFT = """
+name: Drift
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+jobs:
+  open:
+    name: open the pull request
+    runs-on: ubuntu-latest
+    env:
+      REMOVALS_BRANCH: removals
+    steps:
+      - name: Dispatch
+        env:
+          WORKFLOW_FILES: ci.yml
+"""
+
+
 def selftest_ruleset(*contexts, **overrides):
     ruleset = {
         "name": "main",
@@ -330,12 +413,14 @@ def selftest_ruleset(*contexts, **overrides):
     return ruleset
 
 
-def selftest_workflows(ci=SELFTEST_CI, gate=SELFTEST_GATE, extra=None):
+def selftest_workflows(ci=SELFTEST_CI, gate=SELFTEST_GATE, extra=None, drift=None):
     workflows = {"ci.yml": yaml.safe_load(ci), "nightly.yml": yaml.safe_load(SELFTEST_NIGHTLY)}
     if gate is not None:
         workflows[GATE] = yaml.safe_load(gate)
     if extra is not None:
         workflows["extra.yml"] = yaml.safe_load(extra)
+    if drift is not None:
+        workflows[DRIFT] = yaml.safe_load(drift)
     return workflows
 
 
@@ -435,6 +520,38 @@ def selftest_cases():
          selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",
                                                    "on: [pull_request, workflow_dispatch]\n")),
          None),
+        ("a drift workflow dispatching the very files the gate does passes",
+         selftest_ruleset(*good), selftest_workflows(drift=SELFTEST_DRIFT), None),
+        ("a drift workflow that dispatches nothing is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("WORKFLOW_FILES: ci.yml", "OTHER: ci.yml")),
+         "dispatches nothing on the pull request it opens"),
+        ("a drift workflow dispatching a file the gate does not is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("ci.yml", "ci.yml nightly.yml")),
+         "the two lists name the checks a change has to pass, and must be the same"),
+        ("a drift workflow leaving out one the gate dispatches is refused",
+         selftest_ruleset(*good, "the scanner"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]')
+                            .replace("WORKFLOW_FILES: ci.yml", "WORKFLOW_FILES: ci.yml extra.yml"),
+                            extra=SELFTEST_OTHER, drift=SELFTEST_DRIFT),
+         "the two lists name the checks a change has to pass, and must be the same"),
+        ("a gate that merges another branch than the one the drift workflow makes is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace("REMOVALS_BRANCH: removals",
+                                                       "REMOVALS_BRANCH: other"),
+                            drift=SELFTEST_DRIFT),
+         "they must be the same branch"),
+        ("a gate whose job filter does not name the branch is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace("== 'removals'", "== 'other'"),
+                            drift=SELFTEST_DRIFT),
+         "does not name the branch"),
+        ("a drift workflow that names no branch is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("REMOVALS_BRANCH: removals",
+                                                         "OTHER: removals")),
+         "must give REMOVALS_BRANCH one value"),
         ('"on:" written as a single event, other than "workflow_dispatch", is refused',
          selftest_ruleset(*good),
          selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",

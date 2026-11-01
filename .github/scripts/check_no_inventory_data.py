@@ -71,6 +71,7 @@ ALLOWED_HOSTS = {
     "api.github.com": "GitHub API",
     "objects.githubusercontent.com": "release download redirection",
     "docs.github.com": "documentation cited in a comment",
+    "users.noreply.github.com": "the Actions bot's address, author of the model-list deletion commit",
     "pypi.org": "installation of the tools in requirements.txt",
     "files.pythonhosted.org": "artefacts served by PyPI",
     "galaxy.ansible.com": "Ansible collections",
