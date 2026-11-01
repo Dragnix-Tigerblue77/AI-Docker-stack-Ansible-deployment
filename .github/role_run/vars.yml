@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# Extra vars for both "role run" jobs of ".github/workflows/ansible-ci.yml", which run the EXAMPLE
+# playbook itself, unedited, to its last task.
+#
+# Every "vault_*" the example reads gets a placeholder here. None of them is a secret, and none has to
+# work: nothing is started, so nothing ever authenticates with them. What they have to do is exist, and
+# differ from each other where the role's asserts say so, so that the role judges the example exactly
+# as it would judge a caller copying it. All five provider keys are given, though one would do (#296):
+# the example reads all five, and "check_compose_template.py" is what renders the other sets of keys.
+vault_Artificial_Intelligence_Claude_code_virtual_key: "sk-role-run-placeholder-claude-code"
+vault_Artificial_Intelligence_LibreChat_JWT_refresh_secret: "role-run-placeholder-LibreChat_JWT_refresh_secret"
+vault_Artificial_Intelligence_LibreChat_JWT_secret: "role-run-placeholder-LibreChat_JWT_secret"
+vault_Artificial_Intelligence_LibreChat_admin_email: "role-run-placeholder-LibreChat_admin_email"
+vault_Artificial_Intelligence_LibreChat_admin_name: "role-run-placeholder-LibreChat_admin_name"
+vault_Artificial_Intelligence_LibreChat_admin_password: "role-run-placeholder-LibreChat_admin_password"
+vault_Artificial_Intelligence_LibreChat_admin_username: "role-run-placeholder-LibreChat_admin_username"
+vault_Artificial_Intelligence_LibreChat_creds_IV: "role-run-placeholder-LibreChat_creds_IV"
+vault_Artificial_Intelligence_LibreChat_creds_key: "role-run-placeholder-LibreChat_creds_key"
+vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "role-run-placeholder-LiteLLM_DeepSeek_API_key"
+vault_Artificial_Intelligence_LiteLLM_Gemini_API_key: "role-run-placeholder-LiteLLM_Gemini_API_key"
+vault_Artificial_Intelligence_LiteLLM_Groq_API_key: "role-run-placeholder-LiteLLM_Groq_API_key"
+vault_Artificial_Intelligence_LiteLLM_Mistral_API_key: "role-run-placeholder-LiteLLM_Mistral_API_key"
+vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "role-run-placeholder-LiteLLM_OpenRouter_API_key"
+vault_Artificial_Intelligence_LiteLLM_UI_password: "role-run-placeholder-LiteLLM_UI_password"
+vault_Artificial_Intelligence_LiteLLM_alice_email: "role-run-placeholder-LiteLLM_alice_email"
+vault_Artificial_Intelligence_LiteLLM_master_key: "role-run-placeholder-LiteLLM_master_key"
+vault_Artificial_Intelligence_LiteLLM_salt_key: "role-run-placeholder-LiteLLM_salt_key"
+vault_Artificial_Intelligence_OmniRoute_dashboard_password: "role-run-placeholder-OmniRoute_dashboard_password"
+vault_Artificial_Intelligence_PostgreSQL_password: "role-run-placeholder-PostgreSQL_password"
+vault_Artificial_Intelligence_PostgreSQL_superuser_password: "role-run-placeholder-PostgreSQL_superuser_password"
+vault_Artificial_Intelligence_Qdrant_API_key: "role-run-placeholder-Qdrant_API_key"
+vault_Artificial_Intelligence_Redis_password: "role-run-placeholder-Redis_password"
+
+# The two overrides the run needs, both extra vars so they win over the example's own role
+# parameters without the example being edited:
+#
+#   * the deployer is the stand-in under ".github/role_run/roles/", not the caller's own
+#     deployment role, which this repository does not contain;
+#   * no LiteLLM internal user, since provisioning one needs a gateway actually answering on
+#     port 4000, and this run starts no container.
+Artificial_Intelligence_Docker_stack_deployment_role_name: "role_run_deployer"
+Artificial_Intelligence_LiteLLM_internal_users: []

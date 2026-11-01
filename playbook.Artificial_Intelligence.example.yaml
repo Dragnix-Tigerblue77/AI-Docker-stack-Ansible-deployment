@@ -77,15 +77,18 @@
         Artificial_Intelligence_LiteLLM_UI_password: "{{ vault_Artificial_Intelligence_LiteLLM_UI_password }}"
 
 
-        # The provider keys of the gateway's one account (#2, v1 scope). Another account's own arrive
-        # as model_list entries of their own (#107) -- not from its "/ui" login, which LiteLLM does
-        # not let add a model.
+        # The provider keys of the gateway's one account (#2, v1 scope). Give at least one (#296): a
+        # provider whose key is left out, or empty, has no model in the gateway at all. Another
+        # account's own arrive as model_list entries of their own (#107) -- not from its "/ui" login,
+        # which LiteLLM does not let add a model.
         # No GitHub key here: GitHub Models is retired (#109), and the role no longer asks for one. No
         # Cerebras key either: Cerebras has no free tier any more, its entries are commented out (#200).
         Artificial_Intelligence_LiteLLM_Gemini_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key }}"
         Artificial_Intelligence_LiteLLM_Mistral_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key }}"
         Artificial_Intelligence_LiteLLM_Groq_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key }}"
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
+        # The one PAID provider of the list (#101).
+        Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

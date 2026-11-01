@@ -261,8 +261,9 @@ Artificial_Intelligence_LiteLLM_internal_users: []
 
 Artificial_Intelligence_Redis_data_Docker_volume_name: "Redis_data"
 
-# Unlimited by default. Response caching and per-worker cooldown state are both small compared to the
-# corpora the other services here hold (for example "256m").
+# Unlimited by default. Cooldown state is small compared to the corpora the other services here hold
+# -- measured at 4 MiB with the stack idle -- and the response cache that would have grown it is off
+# (#79). For example "256m".
 Artificial_Intelligence_Redis_memory_limit: false
 
 # MANDATORY, without a default: "--requirepass" would otherwise be empty, which is no password at
@@ -274,29 +275,32 @@ Artificial_Intelligence_Redis_memory_limit: false
 # LiteLLM routing -- the provider keys of the gateway's one account (#2, v1 scope)
 # --------------------------------------------------------------------------------------------------
 
-# The provider keys of the gateway's one account, MANDATORY and without a default like every other
-# secret this role interpolates. Each is exposed to the "litellm" container as "<PROVIDER>_API_KEY",
-# not a style choice: "check_LiteLLM_account_isolation.py" (#32) reads that unsuffixed name as the
-# default account and "<PROVIDER>_API_KEY_<LABEL>" as another one, whose label the caller picks, and
-# an entry it cannot attribute is refused, not silently let through.
+# The provider keys of the gateway's one account, of which AT LEAST ONE must be given (#296): the role
+# fails, naming all five, when every one is empty. Each is empty by default, and a provider whose key is
+# empty has no entry in the rendered "LiteLLM_config.yaml.j2" at all -- no model listed that cannot
+# answer, no cascade slot that pays a failed call before the next one. Each key is exposed to the
+# "litellm" container as "<PROVIDER>_API_KEY", not a style choice: "check_LiteLLM_account_isolation.py"
+# (#32) reads that unsuffixed name as the default account and "<PROVIDER>_API_KEY_<LABEL>" as another
+# one, whose label the caller picks, and an entry it cannot attribute is refused, not silently let
+# through.
 #
 # Another account's keys are not here yet: they arrive as model_list entries of their own (#107) --
 # not from that account's "/ui" login, which cannot add a model (see
 # "Artificial_Intelligence_LiteLLM_internal_users" above).
-# Artificial_Intelligence_LiteLLM_Gemini_API_key:
-# Artificial_Intelligence_LiteLLM_Mistral_API_key:
-# Artificial_Intelligence_LiteLLM_Groq_API_key:
-# Artificial_Intelligence_LiteLLM_OpenRouter_API_key:
+Artificial_Intelligence_LiteLLM_Gemini_API_key: ""
+Artificial_Intelligence_LiteLLM_Mistral_API_key: ""
+Artificial_Intelligence_LiteLLM_Groq_API_key: ""
+Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
 # The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
 # every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) used to be
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
-# Artificial_Intelligence_LiteLLM_DeepSeek_API_key:
+Artificial_Intelligence_LiteLLM_DeepSeek_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
-# used to read this key is commented out, so nothing consumes it any more. Defaulted to empty rather
-# than left without one like the keys above -- it is no longer a secret guarding a real quota, just an
-# unused container environment variable, and "tasks/main.yml" no longer asserts it is provided.
+# used to read this key is commented out, so nothing consumes it any more. It is no longer a secret
+# guarding a real quota, just an unused container environment variable, and "tasks/main.yml" does not
+# count it among the keys of which one must be given.
 Artificial_Intelligence_LiteLLM_GitHub_API_key: ""
 
 # Cerebras has had no permanent free tier since mid-2026 (#200): access needs a verified payment

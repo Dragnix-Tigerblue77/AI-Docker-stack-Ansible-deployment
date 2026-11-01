@@ -59,6 +59,14 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the five
+provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
+whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
+can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
+the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
+router points at the first member of the router's own cascade, the one thing the template's two lists of
+heads and cascades could drift apart on without any single render looking wrong.
+
 What it deliberately does NOT flag
 ----------------------------------
 * A published "ports:" mapping. Whether a service is web-facing is a deployment decision, not a
@@ -75,6 +83,7 @@ Jinja2 does not have. It is Ansible's own, not an imitation of it, so what this 
 """
 
 import copy
+import itertools
 import re
 import sys
 from pathlib import Path
@@ -191,7 +200,6 @@ FREE_FORM_WITH_A_DEFAULT = (
 DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS = {
     "services.postgres.environment.POSTGRES_DB": "#134, which rewrites the PostgreSQL identity",
     "services.litellm.environment.DATABASE_URL": "#134, which percent-encodes it",
-    "services.litellm.environment.REDIS_URL": "#130, which removes it",
 }
 
 # What a double-quoted YAML string reads as syntax rather than as text (#188), appended to every
@@ -210,7 +218,6 @@ QUOTES_LEFT_TO_OTHER_PULL_REQUESTS = {
     "Artificial_Intelligence_PostgreSQL_user": "#134, which rewrites POSTGRES_USER, then #188",
     "Artificial_Intelligence_PostgreSQL_password": "#134, which rewrites POSTGRES_PASSWORD, then #188",
     "Artificial_Intelligence_PostgreSQL_database": "#134, which rewrites POSTGRES_DB, then #188",
-    "Artificial_Intelligence_Redis_password": "#130, which removes REDIS_URL, and #134, which adds REDISCLI_AUTH",
 }
 
 
@@ -1522,6 +1529,199 @@ AGENT_MODEL_CASES = [
 ]
 
 
+# --- The LiteLLM routing configuration, rendered for every set of provider keys (#296) --------------
+
+LITELLM_CONFIG_TEMPLATE = "LiteLLM_config.yaml.j2"
+# The provider, and the environment variable its key reaches the gateway under.
+LITELLM_PROVIDERS = {
+    "Gemini": "GEMINI_API_KEY",
+    "Mistral": "MISTRAL_API_KEY",
+    "Groq": "GROQ_API_KEY",
+    "OpenRouter": "OPENROUTER_API_KEY",
+    "DeepSeek": "DEEPSEEK_API_KEY",
+}
+# The five virtual routers: Gemini-backed entries when Gemini has a key, aliases of their cascade's
+# first member otherwise, and absent when no member of the cascade has a key.
+LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
+# The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Mistral", "DeepSeek"})
+
+
+def litellm_key_sets():
+    """Every non-empty set of the five provider keys, in a stable order."""
+    names = list(LITELLM_PROVIDERS)
+    return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
+
+
+def render_litellm_config(keys):
+    """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
+    environment = template_environment(
+        loader=FileSystemLoader(str(ROLE / "templates")),
+        undefined=jinja2.StrictUndefined,  # the file reads these five variables and nothing else
+        trim_blocks=True,  # the "template" module's default, which the compose render does not need
+        keep_trailing_newline=True,
+    )
+    context = {
+        f"Artificial_Intelligence_LiteLLM_{provider}_API_key": "given" if provider in keys else ""
+        for provider in LITELLM_PROVIDERS
+    }
+    return environment.get_template(LITELLM_CONFIG_TEMPLATE).render(**context)
+
+
+def check_litellm_config(document, keys, failures):
+    """Hold one rendering of the routing configuration to what the keys it was rendered for allow."""
+    state = "LiteLLM config, keys: " + ("+".join(p for p in LITELLM_PROVIDERS if p in keys) or "none")
+    router_settings = mapping(document, "router_settings")
+    entries = [entry for entry in document.get("model_list") or [] if isinstance(entry, dict)]
+    declared = {entry.get("model_name") for entry in entries}
+    aliases = mapping(router_settings, "model_group_alias")
+    given = {LITELLM_PROVIDERS[provider] for provider in keys}
+
+    read = set()
+    for entry in entries:
+        reference = mapping(entry, "litellm_params").get("api_key")
+        variable = reference[len("os.environ/"):] if isinstance(reference, str) else None
+        if variable in LITELLM_PROVIDERS.values():
+            read.add(variable)
+            if variable not in given:
+                failures.append(
+                    f"[{state}] the entry {entry.get('model_name')!r} reads {variable}, whose key was not given: it "
+                    "can only fail, and every cascade holding it pays that failure before moving on"
+                )
+    for provider, variable in LITELLM_PROVIDERS.items():
+        if variable in given and variable not in read:
+            failures.append(f"[{state}] the {provider} key was given and no entry reads {variable}")
+
+    cascades = {}
+    for item in router_settings.get("fallbacks") or []:
+        for name, members in (item or {}).items():
+            if name in cascades:
+                failures.append(f"[{state}] the fallbacks list {name!r} twice")
+            cascades[name] = members if isinstance(members, list) else []
+    for name, members in cascades.items():
+        if name not in declared and name not in aliases:
+            failures.append(
+                f"[{state}] a cascade is keyed on {name!r}, which is neither a model_list entry nor an alias: the "
+                "proxy refuses a name it does not recognise, so nothing could ever reach that cascade"
+            )
+        if not members:
+            failures.append(f"[{state}] the cascade of {name!r} is empty")
+        for member in members:
+            if member not in declared:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, which is not a model_list entry in this "
+                    "rendering: LiteLLM would refuse the request that reached it"
+                )
+    for alias, target in aliases.items():
+        if target not in declared:
+            failures.append(
+                f"[{state}] the alias {alias!r} points at {target!r}, which is not a model_list entry: LiteLLM "
+                "resolves an alias once and does not follow a second one"
+            )
+
+    for router in LITELLM_ROUTERS:
+        is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
+        if is_entry and is_alias:
+            failures.append(f"[{state}] {router!r} is both a model_list entry and an alias")
+        if (is_entry or is_alias) != has_cascade:
+            failures.append(
+                f"[{state}] {router!r} is {'served' if is_entry or is_alias else 'not served'} but "
+                f"{'has' if has_cascade else 'has no'} cascade: a router and its cascade stand or fall together"
+            )
+        if is_alias and has_cascade and cascades[router] and aliases[router] != cascades[router][0]:
+            failures.append(
+                f"[{state}] the alias {router!r} points at {aliases[router]!r} but its cascade starts at "
+                f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
+            )
+        if "Gemini" in keys and not is_entry:
+            failures.append(f"[{state}] {router!r} should be a Gemini-backed entry, Gemini having a key")
+    claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
+    if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
+        failures.append(
+            f"[{state}] 'claude-code' is {'absent' if claude_code_expected else 'served'}, although the keys "
+            f"{'allow' if claude_code_expected else 'do not allow'} it: the agent's assert in tasks/main.yml "
+            "rests on exactly that"
+        )
+
+
+def check_litellm_configs(failures):
+    """Render the routing configuration for every non-empty set of provider keys and judge each one."""
+    rendered = 0
+    for keys in litellm_key_sets():
+        try:
+            document = yaml.safe_load(render_litellm_config(keys))
+        except Exception as error:  # noqa: BLE001 - the message is the whole point
+            failures.append(f"[LiteLLM config, keys: {'+'.join(sorted(keys))}] does not render: {error}")
+            continue
+        check_litellm_config(document, keys, failures)
+        rendered += 1
+    return rendered
+
+
+def _litellm_document(entries, cascades, aliases):
+    return {
+        "model_list": [
+            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key}} for name, key in entries
+        ],
+        "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
+    }
+
+
+_MISTRAL_ONLY = _litellm_document(
+    [("mistral-large", "os.environ/MISTRAL_API_KEY")],
+    [("claude-code", ["mistral-large"])],
+    {"claude-code": "mistral-large", "claude-3-5-sonnet": "mistral-large"},
+)
+
+LITELLM_CONFIG_CASES = [
+    ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
+    ("an entry reading a key nobody gave",
+     _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large"])], {"claude-code": "mistral-large"}),
+     {"Mistral"}, "whose key was not given"),
+    ("a key given and read by no entry",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
+                       {"claude-code": "mistral-large"}),
+     {"Mistral", "Groq"}, "no entry reads GROQ_API_KEY"),
+    ("a cascade naming a model that is not listed",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large", "codestral"])], {"claude-code": "mistral-large"}),
+     {"Mistral"}, "names 'codestral'"),
+    ("a cascade keyed on a name the proxy does not know",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large"]), ("flash", ["mistral-large"])],
+                       {"claude-code": "mistral-large"}),
+     {"Mistral"}, "neither a model_list entry nor an alias"),
+    ("an alias of an alias", _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                                               [("claude-code", ["mistral-large"])],
+                                               {"claude-code": "mistral-large", "auto": "claude-code"}),
+     {"Mistral"}, "resolves an alias once"),
+    ("an alias that is not its cascade's head",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY"), ("codestral", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large", "codestral"])], {"claude-code": "codestral"}),
+     {"Mistral"}, "have drifted apart"),
+    ("a cascade listed twice",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large"]), ("claude-code", ["mistral-large"])],
+                       {"claude-code": "mistral-large"}),
+     {"Mistral"}, "twice"),
+    ("an empty cascade",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", [])],
+                       {"claude-code": "mistral-large"}),
+     {"Mistral"}, "is empty"),
+    ("claude-code missing although Mistral has a key",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [], {}),
+     {"Mistral"}, "'claude-code' is absent"),
+    ("claude-code served by a Groq key alone",
+     _litellm_document([("gpt", "os.environ/GROQ_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
+     {"Groq"}, "'claude-code' is served"),
+    ("a router as an alias although Gemini has a key",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
+                       [("pro", ["gemini-3-8-flash"])], {"pro": "gemini-3-8-flash"}),
+     {"Gemini"}, "should be a Gemini-backed entry"),
+]
+
+
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
     problems = []
@@ -1549,6 +1749,15 @@ def selftest():
         for key, value in (values or {}).items():
             if resolved.get(key) != value:
                 problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
+
+    for name, document, keys, expected in LITELLM_CONFIG_CASES:
+        failures = []
+        try:
+            check_litellm_config(document, frozenset(keys), failures)
+        except Exception as error:  # noqa: BLE001 - a crash IS the finding here
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
 
     for name, document, expected in CONVENTION_CASES:
         failures = []
@@ -1697,8 +1906,8 @@ def selftest():
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
-        f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s) and {len(AGENT_MODEL_CASES)} agent model "
-        "case(s) all judged as expected."
+        f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
+        f"case(s) and {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) all judged as expected."
     )
     return 0
 
@@ -1854,6 +2063,7 @@ def main():
                 "model variables were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
             )
     check_quote_exemptions(defaults, failures)
+    key_sets = check_litellm_configs(failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")
@@ -1870,6 +2080,7 @@ def main():
         f"Artificial Intelligence compose template: renders and parses in both states, {services} service(s) checked "
         "against the conventions of #31."
     )
+    print(f"LiteLLM routing configuration: renders and holds its cascade rules for each of the {key_sets} non-empty sets of provider keys.")
     # Printed on every run, so the places still waiting on another pull request stay in view, and so
     # does how many values the render actually gave a "$" -- a number that drops is a value lost.
     owners = sorted({owner.split(",")[0] for owner in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS.values()})

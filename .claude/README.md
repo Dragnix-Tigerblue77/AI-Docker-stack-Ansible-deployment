@@ -111,8 +111,9 @@ running a script, not the model deciding to behave.
   `.github/scripts/` (`--selftest` then plain, same as CI's own
   `home-made-checks` job; for `check_sign_off.py` the `--selftest` alone, since
   its plain form needs the range of a pull request), and `gitleaks` -- what
-  the workflows under `.github/workflows/` gate a pull request on -- and
-  refuses the completion while any of them is red.
+  the workflows under `.github/workflows/` gate a pull request on, except
+  the two `role run` jobs, which need a Docker daemon -- and refuses the
+  completion while any of them is red.
 - **`hooks/gate-issue-priority.sh`** on `PreToolUse`, matched to
   `mcp__github__issue_write` (#97). Reads the call's `tool_input.issue_fields`
   and refuses -- via `hookSpecificOutput.permissionDecision: "deny"`, the

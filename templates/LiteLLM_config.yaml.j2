@@ -12,7 +12,37 @@
 # sensitivity split, and the executable cross-account negative test -- is real and still open, and
 # deliberately NOT attempted here; when it lands, an account's identity has to come from a role
 # variable, never from a name written into this template.
+# #296: only the providers whose key the caller gives are rendered. A provider without a key has no
+# entry below and no slot in any cascade: a model listed that cannot answer would be tried, fail, and
+# only then hand the request on.
+{% set has = {
+  'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
+  'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
+  'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
+  'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
+  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
+} %}
+# The five routers below are Gemini-backed entries. Without a Gemini key they are not entries at all but
+# aliases of the first model of their own cascade that has a key (the proxy accepts a name only if it is
+# a model_list entry or an alias, so a router that exists as a cascade alone would be refused), or are
+# left out when no model of the cascade has one. "check_compose_template.py" renders every non-empty set
+# of keys and holds each alias to the first member of its cascade.
+{% set head = {
+  'pro': 'nemotron-ultra-free' if has.OpenRouter else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
+  'flash': 'gpt-oss-120b-groq' if has.Groq else 'qwen3-8-27b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'flash-lite': 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
+  'code': 'qwen3-8-27b-groq' if has.Groq else 'qwen3-8-27b-free' if has.OpenRouter else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+} %}
+{% set to = {
+  'pro': 'pro' if has.Gemini else head['pro'],
+  'flash': 'flash' if has.Gemini else head['flash'],
+  'flash-lite': 'flash-lite' if has.Gemini else head['flash-lite'],
+  'code': 'code' if has.Gemini else head['code'],
+  'claude-code': 'claude-code' if has.Gemini else head['claude-code']
+} %}
 model_list:
+{% if has.Gemini %}
   # ============================================================================
   # Virtual routers -- the names LibreChat and Claude Code actually ask for.
   # ============================================================================
@@ -46,6 +76,13 @@ model_list:
   # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
   # ============================================================================
+  # No "api_base" on any "gemini/" entry. LiteLLM's "gemini/" provider speaks Google's NATIVE API and
+  # builds "<api_base>/models/<model>:generateContent" itself; pointed at Google's OpenAI-compatible
+  # base ".../v1beta/openai/", that gives ".../v1beta/openai//models/...:generateContent", which Google
+  # answers 404 with an empty body -- measured with litellm 1.103.0, where the default base gives
+  # ".../v1beta/models/...:generateContent" and a real answer. The virtual routers above never carried
+  # one, which is why they worked while every entry below them would have failed over.
+  #
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
   # model, engineered for long-horizon software engineering, autonomous agents, and complex
@@ -54,31 +91,26 @@ model_list:
   - model_name: gemini-3-8-flash
     litellm_params:
       model: gemini/gemini-3.8-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-7-flash
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-6-flash
     litellm_params:
       model: gemini/gemini-3.6-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash
     litellm_params:
       model: gemini/gemini-3.5-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash-lite
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", checked
@@ -88,7 +120,6 @@ model_list:
   # - model_name: gemini-3-1-pro
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
   #
   # - model_name: gemini-3-1-pro-customtools
@@ -99,13 +130,11 @@ model_list:
   - model_name: gemini-3-1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-flash-preview
     litellm_params:
       model: gemini/gemini-3-flash-preview
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to, for two reasons either of which would do. It is paid only:
@@ -116,7 +145,6 @@ model_list:
   # - model_name: gemini-omni-1-1-flash
   #   litellm_params:
   #     model: gemini/gemini-omni-1.1-flash
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   # The 2.5 generation stays, checked 2026-09-27: "ai.google.dev/gemini-api/docs/deprecations"
@@ -128,7 +156,6 @@ model_list:
   - model_name: gemini-2-5-pro
     litellm_params:
       model: gemini/gemini-2.5-pro
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
@@ -137,13 +164,11 @@ model_list:
   - model_name: gemini-2-5-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-2-5-flash-lite
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
-      api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
       api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
@@ -156,7 +181,6 @@ model_list:
   # - model_name: deep-research-pro
   #   litellm_params:
   #     model: gemini/deep-research-pro-preview-12-2025
-  #     api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   # Gemma 4 through the Gemini API itself, added 2026-09-27. Free: the "Gemma 4" table of
@@ -176,6 +200,8 @@ model_list:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
+{% endif %}
+{% if has.Mistral %}
   # ============================================================================
   # Mistral AI (Free mode: a $10 monthly API credit, no card)
   #
@@ -253,6 +279,7 @@ model_list:
       model: mistral/zai-glm-5-2
       api_key: "os.environ/MISTRAL_API_KEY"
 
+{% endif %}
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
   # ============================================================================
@@ -274,6 +301,7 @@ model_list:
   #     model: cerebras/qwen-3.8-27b
   #     api_key: "os.environ/CEREBRAS_API_KEY"
 
+{% if has.Groq %}
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
@@ -307,6 +335,7 @@ model_list:
   #     model: groq/minimaxai/minimax-m2.7
   #     api_key: "os.environ/GROQ_API_KEY"
 
+{% endif %}
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
   #
@@ -362,6 +391,7 @@ model_list:
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
 
+{% if has.DeepSeek %}
   # ============================================================================
   # DeepSeek (direct API, #101) -- the only PAID provider in this file, unlike everything else here.
   # DeepSeek's own API has no persistent free tier: calls are metered against a prepaid balance, not
@@ -386,6 +416,8 @@ model_list:
       model: deepseek/deepseek-flash
       api_key: "os.environ/DEEPSEEK_API_KEY"
 
+{% endif %}
+{% if has.OpenRouter %}
   # ============================================================================
   # OpenRouter (":free" entries only)
   #
@@ -510,6 +542,7 @@ model_list:
   #     model: openrouter/stealth/space-bunny-alpha
   #     api_key: "os.environ/OPENROUTER_API_KEY"
 
+{% endif %}
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
@@ -577,14 +610,26 @@ router_settings:
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
     # resort before the fully free OmniRoute) -> OmniRoute.
+{% if to['pro'] %}
     - pro:
+{% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
+{% endif %}
+{% if has.OpenRouter %}
         - nemotron-ultra-free
+{% endif %}
+{% if has.Mistral %}
         - mistral-large
+{% endif %}
+{% if has.OpenRouter %}
         - nemotron-reasoning-free
+{% endif %}
+{% if has.DeepSeek %}
         - deepseek-v4-pro-direct
+{% endif %}
         - omniroute-free-reasoning
+{% endif %}
 
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPU (Groq) -> Mistral -> OpenRouter -> DeepSeek direct (#101,
@@ -594,23 +639,41 @@ router_settings:
     # same model through a second quota, ranked where the model ranks, and the OpenRouter one second
     # because its quota is the daily count all ":free" entries share. "compound-groq" dropped by #169:
     # decommissioned by Groq 2026-09-21, with no replacement.
+{% if to['flash'] %}
     - flash:
+{% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-3-6-flash
         - gemini-3-5-flash
         - gemini-3-flash-preview
+{% endif %}
+{% if has.Groq %}
         - gpt-oss-120b-groq
         - qwen3-8-27b-groq
+{% endif %}
+{% if has.OpenRouter %}
         - qwen3-8-27b-free
+{% endif %}
+{% if has.Mistral %}
         - mistral-small
         - ministral-14b
         - ministral-8b
+{% endif %}
+{% if has.OpenRouter %}
         - nemotron-super-free
+{% endif %}
+{% if has.Gemini %}
         - gemma-4-31b-gemini
+{% endif %}
+{% if has.OpenRouter %}
         - gemma-4-31b-free
         - openrouter-auto-free
+{% endif %}
+{% if has.DeepSeek %}
         - deepseek-flash-direct
+{% endif %}
         - omniroute-free-auto
+{% endif %}
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
     # ultra-high speed. "compound-mini-groq" and "qwen3-6-27b-groq" dropped by #169, both retired by
@@ -618,13 +681,23 @@ router_settings:
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
     # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
+{% if to['flash-lite'] %}
     - flash-lite:
+{% if has.Gemini %}
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
+{% endif %}
+{% if has.Mistral %}
         - ministral-3b
+{% endif %}
+{% if has.Groq %}
         - gpt-oss-20b-groq
         - qwen3-8-27b-groq
+{% endif %}
+{% if has.Gemini %}
         - gemma-4-26b-gemini
+{% endif %}
+{% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
         - ling-flash-free
@@ -633,6 +706,8 @@ router_settings:
         - dots-note-free
         - poolside-laguna-xs-free
         - lfm-free
+{% endif %}
+{% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
     # Ranked by coding-specific benchmarks (SWE-bench Pro, Aider polyglot, LiveCodeBench) rather than
@@ -643,20 +718,38 @@ router_settings:
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists -> Mistral's GLM pair (the dearest draw on its $10 credit) ->
     # DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
+{% if to['code'] %}
     - code:
+{% if has.Gemini %}
         - gemini-3-8-flash
+{% endif %}
+{% if has.Groq %}
         - qwen3-8-27b-groq
+{% endif %}
+{% if has.OpenRouter %}
         - qwen3-8-27b-free
+{% endif %}
+{% if has.Gemini %}
         - gemini-3-6-flash
         - gemini-3-5-flash
+{% endif %}
+{% if has.Mistral %}
         - codestral
         - codestral-2508
+{% endif %}
+{% if has.OpenRouter %}
         - poolside-laguna-s-free
         - north-mini-code-free
+{% endif %}
+{% if has.Mistral %}
         - glm-5-3-mistral
         - glm-5-2-mistral
+{% endif %}
+{% if has.DeepSeek %}
         - deepseek-v4-pro-direct
+{% endif %}
         - omniroute-free-code
+{% endif %}
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
@@ -664,42 +757,69 @@ router_settings:
     # "glm-5-3-mistral" is just ahead of it, and alone of its pair: an agentic session resends its
     # whole context on every turn, and at $1.4 per 1M input tokens a session at 128k context spends
     # the whole $10 credit in about fifty uncached turns -- one GLM slot is as much as it carries.
+{% if to['claude-code'] %}
     - claude-code:
+{% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
         - gemini-3-6-flash
         - gemini-3-5-flash
+{% endif %}
+{% if has.Mistral %}
         - mistral-large
         - codestral
         - glm-5-3-mistral
+{% endif %}
+{% if has.DeepSeek %}
         - deepseek-v4-pro-direct
+{% endif %}
+{% endif %}
 
   # Transparent alias mappings.
   model_group_alias:
-    "auto": "flash"
-    "auto-flash": "flash"
-    "auto-pro": "pro"
-    "auto-flash-lite": "flash-lite"
-    "auto-code": "code"
-    "auto-fast": "flash"
+{% if not has.Gemini %}
+    # The routers that have no entry of their own without a Gemini key (see the top of this file).
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if head[router] %}
+    "{{ router }}": "{{ head[router] }}"
+{% endfor %}
+{% endif %}
+{% if to['flash'] %}
+    "auto": "{{ to['flash'] }}"
+    "auto-flash": "{{ to['flash'] }}"
+    "auto-fast": "{{ to['flash'] }}"
+{% endif %}
+{% if to['pro'] %}
+    "auto-pro": "{{ to['pro'] }}"
+{% endif %}
+{% if to['flash-lite'] %}
+    "auto-flash-lite": "{{ to['flash-lite'] }}"
+{% endif %}
+{% if to['code'] %}
+    "auto-code": "{{ to['code'] }}"
+{% endif %}
 
     # Intercepts the Claude Code CLI's own model names, per issue #13's compliance note: none of
     # these ever reach a real Anthropic model backed by a subscription.
-    "claude-3-7-sonnet": "claude-code"
-    "claude-3-7-sonnet-20250219": "claude-code"
-    "claude-3-5-sonnet": "claude-code"
-    "claude-3-5-sonnet-20241022": "claude-code"
-    "claude-3-opus": "pro"
-    "claude-3-opus-20240229": "pro"
-    "claude-3-5-haiku": "flash-lite"
-    "claude-3-5-haiku-20241022": "flash-lite"
+{% if to['claude-code'] %}
+    "claude-3-7-sonnet": "{{ to['claude-code'] }}"
+    "claude-3-7-sonnet-20250219": "{{ to['claude-code'] }}"
+    "claude-3-5-sonnet": "{{ to['claude-code'] }}"
+    "claude-3-5-sonnet-20241022": "{{ to['claude-code'] }}"
+{% endif %}
+{% if to['pro'] %}
+    "claude-3-opus": "{{ to['pro'] }}"
+    "claude-3-opus-20240229": "{{ to['pro'] }}"
+{% endif %}
+{% if to['flash-lite'] %}
+    "claude-3-5-haiku": "{{ to['flash-lite'] }}"
+    "claude-3-5-haiku-20241022": "{{ to['flash-lite'] }}"
+{% endif %}
 
 general_settings:
   # The master key and the database URL are read from the environment rather than written here: this
   # file is mounted read-only into the container and would otherwise carry both in clear text.
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
-  redis_url: os.environ/REDIS_URL
 
 litellm_settings:
   request_timeout: 120          # long enough for heavy reasoning models' thinking phase
@@ -713,12 +833,13 @@ litellm_settings:
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
   turn_off_message_logging: true
 
-  # Response caching, to preserve the free tiers' TPM quotas (#71). Upstream documents proxy-level
-  # caching as key/team/org-scoped by default, which would mean a cached answer never crosses an
-  # account boundary -- but that scoping is NOT verified from this session (no Docker daemon to test
-  # against), and #71's own Definition of Done says so explicitly. Confirm it on the test bench
-  # before trusting it: this is exactly the kind of guarantee #2 exists to hold accountable.
-  enable_caching: true
-  cache_params:
-    type: "redis"
-    supported_call_types: ["completion", "cache_read", "cache_write"]
+  # No response cache, on purpose (#79). The two lines that were here, "enable_caching" and a
+  # "cache_params" block, meant nothing to LiteLLM, which turns its cache on for "cache: true" and for
+  # no other key: it had never been on, and leaving the key out keeps it off.
+  #
+  # It should stay off. The exact cache's key holds the whole "messages" list and the request's
+  # parameters, and nothing about the caller: measured 2026-09-26 on LiteLLM 1.100.0 with two virtual
+  # keys, an identical request sent with key B came back from the cache filled by key A, and only the
+  # semantic caches add the key, team and organisation. A chat client resends a history that differs
+  # almost every turn, so it hardly ever hits; what is left to gain is a workflow repeating one
+  # stateless prompt within a short TTL.
