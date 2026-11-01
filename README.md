@@ -94,7 +94,7 @@ dont les conventions sont écrites à l'endroit où on les oublie.
 | `Artificial_Intelligence_Docker_stack_deployment_role_name` | aucun | **Obligatoire.** Le rôle qui déploie réellement le stack. Sans défaut, délibérément : en avoir un présupposerait un orchestrateur. |
 | `Artificial_Intelligence_Docker_stack_name` | `Artificial_Intelligence` | Le « namespace » du stack chez l'orchestrateur. Compose le normalise en minuscules pour son nom de projet. |
 | `Artificial_Intelligence_Docker_compose_file_name` | `Artificial_Intelligence.docker-compose.yml` | Le template rendu, sans le suffixe `.j2`. |
-| `Artificial_Intelligence_Docker_compose_file_destination_directory` | `/tmp/` | Où le fichier rendu atterrit sur le nœud géré. |
+| `Artificial_Intelligence_Docker_compose_file_destination_directory` | `/tmp/` | Où le fichier rendu atterrit sur le nœud géré, et aussi les configurations de LiteLLM et de LibreChat que leurs conteneurs montent. **Sous Compose**, ces deux fichiers sont relus à chaque démarrage de leur conteneur, et Debian 13 vide `/tmp` au démarrage puis après dix jours sans accès : Docker crée alors un répertoire vide à la place du fichier et le conteneur ne redémarre plus (#137). Un appelant sous Compose donne ici un répertoire persistant. **Sous Swarm**, c'est sans effet après le déploiement : les configurations sont copiées dans le cluster (#161). |
 | `Artificial_Intelligence_Docker_compose_file_destination_path` | *dérivé des deux précédents* | Chemin complet. À ne surcharger que si l'on veut le découpler du répertoire. |
 | `Artificial_Intelligence_server_time_zone` | `Etc/UTC` | Le `TZ` injecté dans chaque conteneur. Un appelant qui a déjà le sien le passe ici. |
 | `Artificial_Intelligence_internal_Docker_network_name` | `Artificial_Intelligence_internal` | Le réseau que les services du stack utilisent entre eux. Déclaré par le stack, donc créé et détruit avec lui. |
@@ -621,6 +621,113 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les n
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
+### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime
+
+La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
+sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
+fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, les cinq clés de
+fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
+de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
+commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
+`.github/workflows/LiteLLM_model_drift.yml` la lit chaque lundi dans le catalogue des fournisseurs, et
+la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM », assignée à
+tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter,
+nouveaux modèles -- gratuits sur OpenRouter, « à examiner »
+ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit. L'issue est réécrite à chaque
+exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
+
+Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
+un modèle que son fournisseur ne liste plus. `check_LiteLLM_model_drift.py --online --apply` le
+supprime du `model_list` avec ses places dans les quatre listes de repli, et avec la raison écrite
+au-dessus quand elle ne motivait que lui (une raison partagée avec une entrée qui reste est
+conservée). Le workflow en fait **une seule pull request**, sur la branche
+`claude/LiteLLM-model-drift-removals`, assignée à tigerblue77 : son corps cite, pour chaque
+suppression, le fournisseur, l'identifiant, le catalogue lu et la date, et le workflow relance
+lui-même `ansible-ci.yml` et `gitleaks.yml` sur la branche, puisqu'une pull request ouverte avec son
+jeton n'en déclenche aucun. Elle est réécrite à chaque exécution (titre et corps compris : une
+modification à la main est perdue), et fermée avec un commentaire quand plus rien ne se supprime --
+sauf si un fournisseur n'a pas pu être lu ou n'a pas de clé, ou si un modèle retiré n'a pas pu être
+supprimé, car « rien à supprimer » voudrait alors dire « rien vu » ou « rien que je puisse
+supprimer ».
+
+**Elle se fusionne seule, à des conditions qui tiennent toutes à ce que GitHub dit d'elle** et à rien
+de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
+fusionne les mises à jour de Dependabot, la fusionne quand elle porte un seul commit, celui du
+workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; qu'elle
+supprime cinq modèles au plus, en deux cents lignes au plus ; que son corps n'a pas de section
+« À relire » (voir plus bas) ; et que chaque contrôle que le jeu de règles nomme est vert sur son
+dernier commit. Le contrôle `sign-off` n'est pas attendu : il lit les commits d'une pull request
+que GitHub ne lance jamais pour une pull request ouverte avec le jeton du workflow, et il certifie
+le droit de soumettre ce qu'un commit ajoute, ce que celui-ci ne fait pas. Une pull request qui
+sort de ces conditions reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont
+`REMOVALS_MAX_ENTRIES` et `REMOVALS_MAX_LINES` dans le workflow de fusion.
+
+**Un commit de quelqu'un d'autre sur la branche arrête tout, et l'exécution échoue pour le dire**,
+chaque semaine, jusqu'à ce que la branche soit supprimée (le workflow la refait alors depuis
+`main`) : écraser le travail d'une personne, ou fermer ce sur quoi elle travaille, est la seule chose
+qu'une tâche hebdomadaire ne doit pas faire. Un commit de fusion, comme celui du bouton
+« Update branch », n'est le travail de personne : le workflow reconstruit la branche sans lui. Le
+commit d'une personne qu'une fusion « squash » ou « rebase » de la pull request n'a pas fait entrer
+dans l'historique de `main` continue de compter, tant que la branche n'est pas supprimée.
+
+Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
+dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
+routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade,
+un modèle que le modèle de configuration nomme dans une instruction Jinja (la table `head` dit
+quel modèle remplace un routeur sans entrée propre, et rien ici ne sait modifier ce qu'une
+instruction calcule), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
+rendu (un `else`, une boucle qui répète une entrée), un catalogue vide ou qui omet plus de la
+moitié des identifiants du fichier pour son fournisseur (une réponse tronquée ressemble à un retrait
+massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine moins la suppression.
+Les instructions Jinja qui entourent une entrée supprimée restent : le bloc d'un fournisseur dont
+la dernière entrée part est laissé vide, et le rendu n'en change pas.
+
+Aucun commentaire n'est réécrit, et la relecture du résultat porte sur la structure du fichier, pas
+sur sa prose : la pull request liste donc, sous « À relire », ce qu'une suppression a pu rendre faux
+-- le commentaire au-dessus d'une entrée active supprimée, la raison gardée au-dessus des entrées
+commentées qui restent d'un groupe dont certaines sont parties (elle peut les compter), l'en-tête
+d'une section restée sans entrée, et toute ligne de commentaire qui cite un nom ou un identifiant
+supprimé. Une pull request qui a cette section ne se fusionne pas seule : c'est ce qui laisse à une
+personne de quoi relire, et la moitié environ des suppressions n'en laissent aucune. Elles partent,
+elles, sans que personne n'ait rien à faire.
+
+Tout le reste se décide à la main, et c'est voulu : ajouter un modèle est un choix (gratuit ? dans
+quelle cascade, à quel rang ?), un retrait seulement annoncé n'en est pas encore un, un modèle
+redevenu gratuit rouvre une raison que quelqu'un a écrite -- et la règle veut que chaque affirmation
+de la liste cite la page du fournisseur et la date de la vérification. Chaque nouvel identifiant
+arrive donc dans l'issue avec une entrée à compléter (nom proposé, clé et `api_base` repris des
+entrées du même fournisseur), à coller telle quelle pour l'activer ou, pour une entrée non routée, à
+commenter avec sa raison. Un modèle examiné et écarté cesse d'être signalé par une ligne
+`# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
+
+**Une condition, une seule fois** : cocher *Allow GitHub Actions to create and approve pull requests*
+dans *Settings → Actions → General → Workflow permissions*
+(<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
+si la case est grisée, le même réglage au niveau de l'organisation. Tant qu'elle ne l'est pas, le
+workflow pousse la branche, tient l'issue à jour et échoue à l'étape qui ouvre la pull request, en
+nommant ce réglage et en donnant son lien.
+
+OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
+créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
+`MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
+chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
+contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
+dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ».
+
+Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
+ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML ou de Jinja2, que Dependabot
+fusionne seule, en est). Il se fait donc en **deux travaux** reliés par un artefact : `read` (les clés, un
+jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
+dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
+pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
+plus haut), à des conditions qui ne laissent au pire que quelques modèles retirés de la liste, dans
+un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée, donc ni modèle, ni
+adresse, ni clé qui n'y était pas. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
+s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
+depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas
+plus protégée qu'une autre branche.
+
 ### Un compte par personne, pas une paire figée (#103)
 
 `Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais une variable nommée par
@@ -675,9 +782,9 @@ presque rien ici : un client de conversation renvoie un historique qui diffère 
 ne tombe presque jamais sur une requête identique. La raison est écrite dans `LiteLLM_config.yaml.j2`.
 
 **Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
-derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --
-mais rien ne confirme qu'il soit réellement retiré, et il ne figure qu'en dernier recours dans les
-cascades. Retiré ou confirmé au prochain audit de #2, pas ici.
+derrière la ligne `gemini-3.x`, et #2 le signale comme tel -- mais rien ne confirme qu'il soit
+réellement retiré. Il ne figure dans aucune cascade : on ne l'atteint qu'en le demandant par son
+nom. Retiré ou confirmé au prochain audit de #2, pas ici.
 
 ## L'agent Claude Code (#13)
 

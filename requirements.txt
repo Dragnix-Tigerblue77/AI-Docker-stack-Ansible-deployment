@@ -17,12 +17,14 @@ yamllint==1.38.0
 # held to "reuse lint" in CI stays whole. The difference is not discipline, it is this job.
 reuse==6.2.0
 
-# Read by ".github/scripts/check_LiteLLM_account_isolation.py". It is the only dependency these
-# checks pay for, and it was bought knowingly: the line-by-line version of the check did not see a
-# cross-account fallback written in block style -- the very form any YAML serialiser produces. A
-# guard that depends on the writing style of what it watches is not one, and a "pip install" step in
-# a job costs less than a bypassed quota. ".github/scripts/check_required_checks.py" reads the
-# workflows with it too, since it was already paid for.
+# Read by ".github/scripts/check_LiteLLM_account_isolation.py". It is the only dependency of this
+# check and of "check_required_checks.py" (named below), and it was bought knowingly: the
+# line-by-line version of the check did not see a cross-account fallback written in block style --
+# the very form any YAML serialiser produces. A guard that depends on the writing style of what it
+# watches is not one, and a "pip install" step in a job costs less than a bypassed quota.
+# ".github/scripts/check_required_checks.py" reads the workflows with it too, since it was already
+# paid for, and "check_LiteLLM_model_drift.py" the model list; that one's weekly workflow installs
+# this pin and the next one, each read from its line.
 PyYAML==6.0.3
 
 # The Python SDK that the modules of "community.docker" reach the Docker Engine API through. The role
@@ -30,3 +32,9 @@ PyYAML==6.0.3
 # ansible-ci.yml run the example playbook against their own interpreter, which is that node there.
 # Pinned like the rest, so that a release of the SDK cannot turn those jobs red on a tree nobody touched.
 docker==7.2.0
+
+# Renders the model list for "check_LiteLLM_model_drift.py". Pinned here although ansible-core also
+# brings Jinja2: the weekly drift workflow installs PyYAML and this line alone, without ansible-core,
+# and reads the version from this line, so Dependabot moves it with the other pins and every job
+# renders the model list with the same version.
+Jinja2==3.1.6

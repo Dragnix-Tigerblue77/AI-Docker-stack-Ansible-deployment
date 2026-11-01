@@ -25,6 +25,10 @@ configuration is perfectly valid YAML, which yamllint and ansible-lint both acce
 remark. The day the 429s become tiresome, someone will add a fallback in good faith, and the
 isolation will disappear without one test failing.
 
+It also refuses a fallback naming a model group the file does not declare (rule 5): a name it
+cannot attribute is a name it protects nothing on -- #111 left exactly that at the head of a
+cascade, pointing at an entry it had just commented out.
+
 WHAT DECIDES AN ACCOUNT'S IDENTITY
 ----------------------------------
 The name of the key's environment variable, and it alone: an "api_key" reading
@@ -248,7 +252,7 @@ def check_document(path, document):
             accounts_seen.add(account)
 
     # Rule 1 -- a "model_name" never groups two accounts together.
-    # This is the one that closes the automatic cooldown, so the most important of the four.
+    # This is the one that closes the automatic cooldown, so the most important of them all.
     # "SHARED" is excluded from the grouping itself, not just from "accounts_seen": it is not a
     # second account to detect a mix with, it is the absence of one, same as an entry the check
     # cannot read at all -- and unlike a real account, it cannot be sorted next to one.
@@ -341,6 +345,33 @@ def check_document(path, document):
                         "    A legitimate call by one would spend the other's quota. A fallback stays\n"
                         "    inside the keys of ONE SINGLE person."
                         % (path, section_name, key, source, source_account, target, target_account)
+                    )
+
+    # Rule 5 -- a fallback names only model groups this file declares.
+    # Rule 4 can only judge a name it can attribute, and it used to let every OTHER name through
+    # without a word -- which is the opposite of rule 2's whole point: a name the check cannot
+    # attribute is a name on which it protects nothing. It is also a plain defect on its own: #111
+    # commented "glm-5-2-free" out of the model_list and left it at the HEAD of the "code" cascade,
+    # where every "code" request that fails over tries a group that does not exist first. And the day
+    # someone declares that name again, under whichever account's key, the cascade silently starts
+    # pointing at it. "model_group_alias" keys count as declared: the Router resolves them.
+    declared = {entry["model_name"] for entry in entries if isinstance(entry["model_name"], str)}
+    for section_name in SETTINGS_SECTIONS:
+        section = document.get(section_name) if isinstance(document, dict) else None
+        aliases = section.get("model_group_alias") if isinstance(section, dict) else None
+        if isinstance(aliases, dict):
+            declared.update(name for name in aliases if isinstance(name, str))
+    for section_name in SETTINGS_SECTIONS:
+        section = document.get(section_name) if isinstance(document, dict) else None
+        for key, source, targets in normalise_fallbacks(section):
+            for name in ([source] if source is not None else []) + targets:
+                if name not in declared:
+                    problems.append(
+                        "%s: \"%s.%s\" names \"%s\", which no model_list entry declares.\n"
+                        "    A fallback to a group that does not exist is a wasted step at best, and a\n"
+                        "    cascade that silently changes owner the day that name is declared again.\n"
+                        "    Remove it from the cascade, or declare it."
+                        % (path, section_name, key, name)
                     )
     return problems
 

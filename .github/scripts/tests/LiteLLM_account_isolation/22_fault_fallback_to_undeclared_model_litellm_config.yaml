@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: which no model_list entry declares
+---
+# The shape #111 left behind: an entry commented out of the model_list, its name still in a cascade.
+# Every account is the same one here, so rules 1 to 4 have nothing to say -- only rule 5 does. The
+# alias target proves "model_group_alias" keys count as declared.
+model_list:
+  - model_name: code
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: code-backup
+    litellm_params:
+      model: provider/other-identifier
+      api_key: os.environ/MISTRAL_API_KEY
+
+  # - model_name: retired-free
+  #   litellm_params:
+  #     model: provider/retired
+  #     api_key: os.environ/OPENROUTER_API_KEY
+
+router_settings:
+  fallbacks:
+    - code:
+        - retired-free
+        - code-backup
+        - auto-code
+  model_group_alias:
+    "auto-code": "code"
