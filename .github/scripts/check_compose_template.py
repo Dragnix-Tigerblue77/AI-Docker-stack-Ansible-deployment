@@ -65,7 +65,8 @@ whole: its models, its slots in the cascades, and the routers it alone backs. A 
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
 the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
-heads and cascades could drift apart on without any single render looking wrong.
+heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
+cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
 
 What it deliberately does NOT flag
 ----------------------------------
@@ -1613,6 +1614,11 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {alias!r} points at {target!r}, which is not a model_list entry: LiteLLM "
                 "resolves an alias once and does not follow a second one"
             )
+        if alias not in cascades:
+            failures.append(
+                f"[{state}] the alias {alias!r} has no cascade under its own name: LiteLLM looks for fallbacks "
+                "under the name that was asked for, so a request made under it would not fall back at all (#300)"
+            )
 
     for router in LITELLM_ROUTERS:
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
@@ -1664,12 +1670,16 @@ def _litellm_document(entries, cascades, aliases):
 
 _MISTRAL_ONLY = _litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
-    [("claude-code", ["mistral-large"])],
-    {"claude-code": "mistral-large", "claude-3-5-sonnet": "mistral-large"},
+    [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
+    {"claude-code": "mistral-large", "auto-code": "mistral-large"},
 )
 
 LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
+    ("an alias with no cascade of its own",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
+                       {"claude-code": "mistral-large", "auto-code": "mistral-large"}),
+     {"Mistral"}, "has no cascade under its own name"),
     ("an entry reading a key nobody gave",
      _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("mistral-large", "os.environ/MISTRAL_API_KEY")],
                        [("claude-code", ["mistral-large"])], {"claude-code": "mistral-large"}),
