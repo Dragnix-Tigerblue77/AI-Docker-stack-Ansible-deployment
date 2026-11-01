@@ -610,7 +610,7 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les n
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
-### Une issue par semaine pour ce qui a bougé chez les fournisseurs
+### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
@@ -623,10 +623,60 @@ la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM
 tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter,
 nouveaux modèles -- gratuits sur OpenRouter, « à examiner »
 ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit. L'issue est réécrite à chaque
-exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite. Rien n'y est
-corrigé automatiquement : chaque constat se vérifie sur la page du fournisseur avant de toucher à la
-liste. Un modèle examiné et écarté cesse d'être signalé par une ligne
+exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
+
+Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
+un modèle que son fournisseur ne liste plus. `check_LiteLLM_model_drift.py --online --apply` le
+supprime du `model_list` avec ses places dans les quatre listes de repli, et avec la raison écrite
+au-dessus quand elle ne motivait que lui (une raison partagée avec une entrée qui reste est
+conservée). Le workflow en fait **une seule pull request**, sur la branche
+`claude/LiteLLM-model-drift-removals`, assignée à tigerblue77 : son corps cite, pour chaque
+suppression, le fournisseur, l'identifiant, le catalogue lu et la date, et le workflow relance
+lui-même `ansible-ci.yml` et `gitleaks.yml` sur la branche, puisqu'une pull request ouverte avec son
+jeton n'en déclenche aucun. Elle est réécrite à chaque exécution (titre et corps compris : une
+modification à la main est perdue), et fermée avec un commentaire quand plus rien ne se supprime --
+sauf si un fournisseur n'a pas pu être lu ou n'a pas de clé, ou si un modèle retiré n'a pas pu être
+supprimé, car « rien à supprimer » voudrait alors dire « rien vu » ou « rien que je puisse
+supprimer ».
+
+**Un commit de quelqu'un d'autre sur la branche arrête tout, et l'exécution échoue pour le dire**,
+chaque semaine, jusqu'à ce que la branche soit supprimée (le workflow la refait alors depuis
+`main`) : écraser le travail d'une personne, ou fermer ce sur quoi elle travaille, est la seule chose
+qu'une tâche hebdomadaire ne doit pas faire. Un commit de fusion, comme celui du bouton
+« Update branch », n'est le travail de personne : le workflow reconstruit la branche sans lui. Le
+commit d'une personne qu'une fusion « squash » ou « rebase » de la pull request n'a pas fait entrer
+dans l'historique de `main` continue de compter, tant que la branche n'est pas supprimée.
+
+Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
+dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
+routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade,
+une entrée dont la suppression emporterait une partie d'un bloc Jinja, un catalogue vide ou qui
+omet plus de la moitié des identifiants du fichier pour son fournisseur (une réponse tronquée
+ressemble à un retrait massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine
+moins la suppression.
+
+Aucun commentaire n'est réécrit, et la relecture du résultat porte sur la structure du fichier, pas
+sur sa prose : la pull request liste donc, sous « À relire », ce qu'une suppression a pu rendre faux
+-- le commentaire au-dessus d'une entrée active supprimée, la raison gardée au-dessus des entrées
+commentées qui restent d'un groupe dont certaines sont parties (elle peut les compter), l'en-tête
+d'une section restée sans entrée, et toute ligne de commentaire qui cite un nom ou un identifiant
+supprimé.
+
+Tout le reste se décide à la main, et c'est voulu : ajouter un modèle est un choix (gratuit ? dans
+quelle cascade, à quel rang ?), un retrait seulement annoncé n'en est pas encore un, un modèle
+redevenu gratuit rouvre une raison que quelqu'un a écrite -- et la règle veut que chaque affirmation
+de la liste cite la page du fournisseur et la date de la vérification. Chaque nouvel identifiant
+arrive donc dans l'issue avec une entrée à compléter (nom proposé, clé et `api_base` repris des
+entrées du même fournisseur), à coller telle quelle pour l'activer ou, pour une entrée non routée, à
+commenter avec sa raison. Un modèle examiné et écarté cesse d'être signalé par une ligne
 `# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
+
+**Une condition, une seule fois** : cocher *Allow GitHub Actions to create and approve pull requests*
+dans *Settings → Actions → General → Workflow permissions*
+(<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
+si la case est grisée, le même réglage au niveau de l'organisation. Tant qu'elle ne l'est pas, le
+workflow pousse la branche, tient l'issue à jour et échoue à l'étape qui ouvre la pull request, en
+nommant ce réglage et en donnant son lien.
 
 OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
 créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
@@ -634,6 +684,18 @@ créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_
 chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
 contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
 dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ».
+
+Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
+ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML, que Dependabot fusionne
+seule, en est). Il se fait donc en **deux travaux** reliés par un artefact : `read` (les clés, un
+jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
+dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
+pull request qui supprime des lignes du fichier, qu'une personne doit lire et fusionner. Il ne
+garde pas les clés de PyYAML, avec qui elles partagent `read` : c'est pourquoi elles doivent être
+dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
+s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
+depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas
+plus protégée qu'une autre branche.
 
 ### Un compte par personne, pas une paire figée (#103)
 

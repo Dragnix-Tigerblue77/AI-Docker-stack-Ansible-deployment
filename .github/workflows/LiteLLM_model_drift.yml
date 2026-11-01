@@ -4,13 +4,32 @@
 name: LiteLLM model drift
 
 # Once a week, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
-# lists today, and keeps ONE rolling issue in step with the answer. It reports, and that is
-# all it does: it never edits the model list and never opens a pull request. The rule it serves
-# (CLAUDE.md, "The model list keeps only what can be called") wants every claim in that list to
-# cite the provider's own page and the date it was checked, which a machine reading a catalogue
-# does not have -- so a finding here is where a human's check starts, not a substitute for it. What
-# each finding means, how each provider is read, and what is deliberately not reported is in the
-# docstring of ".github/scripts/check_LiteLLM_model_drift.py", which this workflow only runs.
+# lists today, keeps ONE rolling issue in step with the answer, and opens ONE pull request
+# that deletes the models a provider no longer lists. Those deletions are the only thing it
+# edits, because they are the only part of the rule that needs no judgment: CLAUDE.md ("The model
+# list keeps only what can be called") says a retired model is deleted, entry and cascade slots
+# alike, and a provider that no longer lists an id has said that it is retired. No model reads a
+# catalogue and none writes a line here: "check_LiteLLM_model_drift.py --apply" does it, deletes
+# only what it can read back as the original minus the deletion, and leaves in the issue, with its
+# reason, whatever it cannot delete without choosing: a virtual router, a model an alias points at,
+# the last target of a cascade, an answer too short to be believed. What each finding means, how
+# each provider is read, and what is deliberately not reported is in the docstring of that script,
+# which this workflow only runs.
+#
+# What stays manual, and why. An addition is a choice (does it earn a place, in which cascade, at
+# which rank?), so the issue gives every new id an entry to complete and the file is left alone. A
+# retirement a provider only announces is not one yet. A model free again on OpenRouter reopens a
+# reason somebody wrote. The rule wants every claim in the list to cite the provider's own page and
+# the date it was checked: a deletion cites the catalogue this run read and the date of the run, in
+# the pull request body, which is the same claim made by the machine that read the catalogue. The
+# comments a deletion may have made false are not rewritten either: the pull request lists them
+# under "À relire".
+#
+# What it needs from the repository, once: the setting "Allow GitHub Actions to create and approve
+# pull requests", under Settings -> Actions -> General -> Workflow permissions (or, where that box
+# is greyed out, the same setting of the organisation that owns the repository). While it is off the
+# run still pushes the branch and keeps the issue, and it fails on the step that opens the pull
+# request, with a message that names the setting and links its page.
 #
 # Why weekly. Providers announce a retirement weeks ahead -- Groq gave four weeks for Compound
 # (announced 2026-08-24, shut 2026-09-21, "console.groq.com/docs/deprecations") and two months for
@@ -22,12 +41,50 @@ name: LiteLLM model drift
 # and off the top of the hour, when every scheduled workflow on GitHub starts at once and some
 # start late.
 #
-# Why never on a pull request. This is the one workflow here that holds the providers' keys, and
-# no job may both hold a secret and run code nobody has reviewed yet: a "pull_request" run executes
-# the branch's own version of the script, which could send the keys anywhere. So it runs on a
-# schedule and by hand, and checks out main explicitly -- the issue describes main, whichever
-# branch a manual run was started from. The offline half of the check, which needs no key, runs on
-# every pull request anyway, as a step of the "home-made checks" job of "ansible-ci.yml".
+# Two jobs, because no job may both hold a write token and run code nobody has reviewed yet -- the
+# rule "dependabot-auto-merge.yml" is built on. A freshly bumped PyYAML or Jinja2 is such code:
+# Dependabot's updates merge themselves once CI is green, and the script below imports both.
+#
+#   "read"     holds the providers' keys and a READ-ONLY token. It checks main out, installs
+#              PyYAML and Jinja2, runs the script, and hands the texts, the edited template and
+#              three values to the next job as an artifact. Whatever it is made to do, it can
+#              write nothing to the repository.
+#   "publish"  holds the token that writes, and no key. It checks nothing out, installs nothing and
+#              runs no script of this repository: it downloads the artifact, takes every value in
+#              it as data (a status among three, a coverage among two, a count, a commit that must
+#              be on main, a template it uploads only once it has checked that it is main's own
+#              with lines deleted), and calls the API.
+#
+# The split bounds the token that writes. It does not keep the keys away from those two libraries:
+# "read" holds them next to them, so a bad release could send the keys anywhere. That is
+# accepted, because what they open is a list of models -- one list request per provider per week,
+# no model called -- and they are dedicated to this workflow, revocable without touching
+# LiteLLM's own. What a compromised
+# "read" can make "publish" do is open a pull request that deletes lines of the template, which a
+# person has to read and merge, and write an issue: not push to main, which is what "contents:
+# write" next to such code would allow on a repository whose main no ruleset can protect (the
+# header of "ansible-ci.yml" has the measurement).
+#
+# Why never on a pull request, and from main. This is the one workflow here that holds the
+# providers' keys, and no job may hold them next to the code of a pull request, which nobody has
+# reviewed yet: a "pull_request" run executes the branch's own version of the script, which could
+# send the keys anywhere. So it runs on a schedule and by hand, and both jobs refuse to start from
+# any ref but main -- which guards against a run started by mistake from another ref, and is no
+# boundary against a person who can push to this repository: they could edit this file on a branch
+# and dispatch it there, with the secrets, and main is no more protected than any other branch
+# here. The first job checks main out explicitly: the issue describes main, and the deletions are
+# made on it. The offline half of the check, which needs no key, runs on every pull request anyway,
+# as a step of the "home-made checks" job of "ansible-ci.yml".
+#
+# What reaches a write call. Everything in a provider's answer is untrusted text, and none of it is
+# ever put in a command line, a branch name or an expression of this file: the script reads the
+# answers, cleans what it shows (an id spelt unusually is not offered, a name is cut to plain words)
+# and writes files; the steps below read those files, and the one fixed path they touch, and take
+# every other value from the environment. The branch has a fixed name, the title a fixed text.
+# Nothing a catalogue says can reach the pull request, the issue or the log in any other way, and
+# no key does: a failed read is reported with its HTTP status and nothing else, any key of the run
+# found in an error is replaced, and a redirect is not followed, since the keys travel in the
+# headers of the request.
 #
 # The secrets, each optional. Without one, its provider is listed as "not covered (no key)" in the
 # issue, every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova publish
@@ -40,40 +97,94 @@ name: LiteLLM model drift
 #   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries, the GLM pair it hosts included
 #   MODEL_DRIFT_DEEPSEEK_API_KEY  DeepSeek, direct API -- "deepseek/" entries
 #
-# What it costs: one job of well under a minute, billed as one minute, once a week -- about four or
-# five of the organisation's included minutes a month, this repository being private.
+# What it costs: two jobs of well under a minute each, billed as one minute each, once a week --
+# about eight to ten of the organisation's included minutes a month, this repository being private
+# -- plus, in the weeks when something is deleted, the two workflows it dispatches on the branch
+# (see below).
 #
 # The issue is found by its exact title AND a hidden marker in its body, which the script writes
 # (ISSUE_MARKER), and only among the issues this workflow's own token opened: no label has to exist,
 # and an issue somebody else writes with the same title is never overwritten. It is closed as soon
 # as a run finds nothing, and the same issue is reopened the next time something drifts, so the
 # history of every drift stays in one place. A run that could not read a provider (a key expired, a
-# provider down) opens it too: an incomplete report is something to know about.
+# provider down) opens it too: an incomplete report is something to know about. A deletion the pull
+# request proposes counts as drift until it is merged, and is listed in the issue as such, under
+# its own heading.
 #
-# The job takes its runner from CI_RUNNER like every other job here; the header of
-# "ansible-ci.yml" says what the variable may name, and when. The keys may reach a self-hosted
-# runner that way, which is acceptable for the reason above: nothing from a pull request runs here.
+# The pull request. One branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
+# and never a draft. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
+# rewritten at every run that finds something to delete, so that it follows main and what the
+# providers list; the title and the body are rewritten with it when they differ, so an edit made to
+# either by hand is lost at the next run. A run that finds nothing leaves the branch alone.
+#
+# A person's commit on that branch stops all of it, and the run FAILS to say so. Force-pushing over
+# somebody's work, or closing what they are working on, is the one thing a weekly job must not do:
+# when the branch holds a commit that is neither the workflow's own (told by its author,
+# "github-actions[bot]") nor a merge commit, the step fails naming it, closing included, and does so
+# again every week until the branch is deleted -- the deletions are then made again from main. A
+# merge commit is not somebody's work: the "Update branch" button and the merge-commit fallback of
+# "auto_update_pull_request_branches.yml" add one, and the next run rebuilds the branch from main
+# without it. A person's commit that a squash or rebase merge of the pull request left out of
+# main's history keeps counting until the branch is deleted; a merge commit brings it in.
+#
+# A pull request that is open when a run finds nothing left to delete is closed with a comment --
+# unless a provider could not be read in that run or has no key, or a retired model was refused
+# deletion (UNDELETED), since "nothing to delete" would then only mean "nothing seen" or "nothing
+# that I may delete". A pull request closed by a person without being merged is replaced by a new
+# one the following week, as long as the providers still do not list the models.
+#
+# A push, and a pull request, made with GITHUB_TOKEN start no workflow. So the run dispatches
+# "ansible-ci.yml" and "gitleaks.yml" on the branch itself: the one event that token can cause and
+# still get a run for, the same one "recheck-main" of "dependabot-auto-merge.yml" uses for the
+# merge commits it makes. It does so for every workflow that has no run yet on the branch's
+# head, rather than after the pushes of this run alone, so that a run that failed half way is
+# repaired by the next. Their results show on the pull request like any others. The list is the
+# gate's own "WORKFLOW_FILES", and "check_required_checks.py" fails CI when the two differ.
+#
+# Both jobs take their runner from CI_RUNNER like every other job here; the header of
+# "ansible-ci.yml" says what the variable may name, and when. The keys and the token that writes
+# may reach a self-hosted runner that way, which holds only for a runner that is thrown away after
+# each job: nothing from a pull request runs in these jobs, but a persistent pool that also serves
+# "ansible-ci.yml" has run a pull request's code before them, and what that code left behind would
+# run next to the keys or the token. Whoever points CI_RUNNER at such a pool takes that risk.
 
 on:
   schedule:
     - cron: "17 5 * * 1"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
+permissions: {}
 
 # A manual run started while the scheduled one is going would otherwise race it to create the issue,
-# and two issues would be the result.
+# and two issues would be the result -- or push the branch from under it.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
-  drift:
-    name: report LiteLLM model drift
+  read:
+    name: read the providers' catalogues
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
+    # The keys, and no write. Checking out needs to read.
+    permissions:
+      contents: read
+    env:
+      # The script links the pull request by it (pulls_link). Fixed here and in the next job, and
+      # nowhere else.
+      REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
+    outputs:
+      # 0 no drift, 1 drift, 2 a provider could not be read.
+      status: ${{ steps.drift.outputs.status }}
+      # "complete" when every provider's catalogue was read, "partial" otherwise.
+      covered: ${{ steps.drift.outputs.covered }}
+      # How many retired models the script did not delete, or "unknown".
+      undeleted: ${{ steps.drift.outputs.undeleted }}
+      # "true" when the template was changed, "false" when not, "invalid" when something else was.
+      changed: ${{ steps.changes.outputs.changed }}
+      # The commit of main the deletions were made on.
+      base: ${{ steps.changes.outputs.base }}
     steps:
       - name: Check main out
         uses: actions/checkout@v7
@@ -96,9 +207,14 @@ jobs:
       - name: Install PyYAML and Jinja2
         run: pip install "$(grep -E '^PyYAML==' requirements.txt)" "$(grep -E '^Jinja2==' requirements.txt)"
 
-      # 0 no drift, 1 drift, 2 a provider could not be read: all three are handled by the next step,
-      # so none of them fails this one. Anything else is a crash, and the next step refuses it.
-      - name: Compare the model list with every provider's catalogue
+      # 0 no drift, 1 drift, 2 a provider could not be read: the next job handles all three, so
+      # none of them fails this step. Anything else is a crash, and this step fails on it: the
+      # script gives a crash a status of its own (70) because an uncaught exception would exit 1,
+      # which is "drift", and the next job would act on a report nobody wrote.
+      # "--apply" edits the checked-out model list in place and writes the pull request's body and
+      # the commit's message beside the issue's; the first two do not exist when nothing was
+      # deleted. All of it goes to one directory, which is what the next job receives.
+      - name: Compare the model list with every provider's catalogue, and delete what they retired
         id: drift
         env:
           MODEL_DRIFT_GEMINI_API_KEY: ${{ secrets.MODEL_DRIFT_GEMINI_API_KEY }}
@@ -106,18 +222,97 @@ jobs:
           MODEL_DRIFT_MISTRAL_API_KEY: ${{ secrets.MODEL_DRIFT_MISTRAL_API_KEY }}
           MODEL_DRIFT_DEEPSEEK_API_KEY: ${{ secrets.MODEL_DRIFT_DEEPSEEK_API_KEY }}
         run: |
+          out="$RUNNER_TEMP/drift"
+          mkdir -p "$out"
           status=0
-          python3 .github/scripts/check_LiteLLM_model_drift.py --online \
-            --issue-body "$RUNNER_TEMP/LiteLLM_model_drift.md" || status=$?
-          echo "status=$status" >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply \
+            --issue-body "$out/issue.md" \
+            --pr-body "$out/pull_request.md" \
+            --commit-message "$out/commit.txt" \
+            --coverage "$out/coverage.txt" \
+            --undeleted "$out/undeleted.txt" || status=$?
+          case "$status" in
+            0 | 1 | 2) ;;
+            *)
+              echo "::error::The drift check exited $status, which is neither 0, 1 nor 2: it crashed, and there is no report to trust. Its log is above."
+              exit 1
+              ;;
+          esac
+          covered=partial
+          if [ -f "$out/coverage.txt" ]; then
+            covered="$(tr -d '[:space:]' < "$out/coverage.txt")"
+          fi
+          undeleted=unknown
+          if [ -f "$out/undeleted.txt" ]; then
+            undeleted="$(tr -d '[:space:]' < "$out/undeleted.txt")"
+          fi
+          {
+            echo "status=$status"
+            echo "covered=$covered"
+            echo "undeleted=$undeleted"
+          } >> "$GITHUB_OUTPUT"
+
+      # What the script changed in the checkout. It edits one file and no other: anything else
+      # modified here is a bug to stop at, not a change to push, and the next job says so.
+      - name: Find what the deletions changed
+        id: changes
+        run: |
+          changed="$(git status --porcelain --untracked-files=no)"
+          if [ -z "$changed" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$changed" = " M templates/LiteLLM_config.yaml.j2" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            cp templates/LiteLLM_config.yaml.j2 "$RUNNER_TEMP/drift/LiteLLM_config.yaml.j2"
+          else
+            echo "::error::The drift check changed something other than templates/LiteLLM_config.yaml.j2. Nothing will be pushed."
+            echo "changed=invalid" >> "$GITHUB_OUTPUT"
+          fi
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Hand the texts to the job that writes
+        uses: actions/upload-artifact@v7
+        with:
+          name: LiteLLM-model-drift
+          path: ${{ runner.temp }}/drift
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish the issue and the deletion pull request
+    needs: read
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    # The token that writes, and none of the providers' keys. This job checks nothing out, installs
+    # nothing and runs no script of this repository.
+    permissions:
+      # The branch and its commit, written through the API.
+      contents: write
+      # The deletion pull request: opened, updated, or closed.
+      pull-requests: write
+      # The rolling issue, and the pull request's assignee, which is an issue's.
+      issues: write
+      # Dispatching "ansible-ci.yml" and "gitleaks.yml" on the branch, the checks of a pull request
+      # this token opened and starts none of itself; and downloading the artifact.
+      actions: write
+    env:
+      REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
+    steps:
+      - name: Receive what the other job made
+        id: receive
+        uses: actions/download-artifact@v8
+        with:
+          name: LiteLLM-model-drift
+          path: ${{ runner.temp }}/drift
 
       # github-script rather than gh, for the reason "dependabot-auto-merge.yml" gives: the runner's
       # own Node is the one thing every runner is guaranteed to have, hosted or self-hosted.
       - name: Create, update or close the rolling issue
+        id: issue
         uses: actions/github-script@v9
         env:
-          DRIFT_STATUS: ${{ steps.drift.outputs.status }}
-          DRIFT_BODY: ${{ runner.temp }}/LiteLLM_model_drift.md
+          DRIFT_STATUS: ${{ needs.read.outputs.status }}
+          DRIFT_BODY: ${{ runner.temp }}/drift/issue.md
         with:
           script: |
             const fs = require('fs');
@@ -130,7 +325,7 @@ jobs:
             const { owner, repo } = context.repo;
 
             if (!['0', '1', '2'].includes(status)) {
-              core.setFailed(`The drift check exited ${status}, which is neither 0, 1 nor 2: it crashed, and there is no report to trust. Its log is in the step above.`);
+              core.setFailed(`The drift check reported the status "${status}", which is neither 0, 1 nor 2: there is no report to trust.`);
               return;
             }
             let body;
@@ -181,4 +376,236 @@ jobs:
                 owner, repo, title, body, assignees: [assignee],
               });
               core.notice(`Drift reported in the new issue #${created.number}.`);
+            }
+
+      # Runs even if the issue step failed, since the two have nothing to do with each other, but not
+      # without what the other job made.
+      - name: Open, update or close the deletion pull request
+        if: ${{ !cancelled() && steps.receive.outcome == 'success' }}
+        uses: actions/github-script@v9
+        env:
+          DRIFT_STATUS: ${{ needs.read.outputs.status }}
+          COVERED: ${{ needs.read.outputs.covered }}
+          # Whether the report of this run was trusted enough to be written: a pull request is
+          # closed over "nothing left to delete" only on a report that was.
+          ISSUE_OUTCOME: ${{ steps.issue.outcome }}
+          CHANGED: ${{ needs.read.outputs.changed }}
+          # How many retired models the script did not delete: a pull request is closed over
+          # "nothing left to delete" only at "0".
+          UNDELETED: ${{ needs.read.outputs.undeleted }}
+          BASE_SHA: ${{ needs.read.outputs.base }}
+          PR_BODY: ${{ runner.temp }}/drift/pull_request.md
+          COMMIT_MESSAGE: ${{ runner.temp }}/drift/commit.txt
+          TEMPLATE_FILE: ${{ runner.temp }}/drift/LiteLLM_config.yaml.j2
+          # The FILES of the workflows a pull request is checked by, which GITHUB_TOKEN starts none
+          # of: the very list "dependabot-auto-merge.yml" dispatches after a merge, each carrying the
+          # "workflow_dispatch" trigger. "check_required_checks.py" fails CI when the two differ.
+          WORKFLOW_FILES: ansible-ci.yml gitleaks.yml
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const branch = process.env.REMOVALS_BRANCH;
+            const baseBranch = 'main';
+            const template = 'templates/LiteLLM_config.yaml.j2';
+            const title = 'Supprimer de la liste LiteLLM les modèles que leur fournisseur a retirés';
+            const assignee = 'tigerblue77';
+            const workflows = process.env.WORKFLOW_FILES.split(/\s+/).filter(Boolean);
+            const bot = { name: 'github-actions[bot]', email: '41898282+github-actions[bot]@users.noreply.github.com' };
+            const status = process.env.DRIFT_STATUS;
+            const covered = process.env.COVERED;
+            const changed = process.env.CHANGED;
+            const undeleted = process.env.UNDELETED;
+            const base = process.env.BASE_SHA;
+            const same = (a, b) => (a ?? '').replace(/\r\n/g, '\n').trim() === (b ?? '').replace(/\r\n/g, '\n').trim();
+
+            // What the other job reports is data, and is checked before anything is done with it.
+            if (!['0', '1', '2'].includes(status) || !['complete', 'partial'].includes(covered) ||
+                !['true', 'false', 'invalid'].includes(changed) || !/^([0-9]+|unknown)$/.test(undeleted)) {
+              core.setFailed(`The drift check reported something this step does not know: status "${status}", coverage "${covered}", changed "${changed}", undeleted "${undeleted}".`);
+              return;
+            }
+            if (changed === 'invalid') {
+              core.setFailed('The drift check changed something other than ' + template + '. Nothing is pushed.');
+              return;
+            }
+
+            const { data: open } = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:${branch}`, base: baseBranch, per_page: 10,
+            });
+            const existing = open[0];
+            if (changed === 'false' && !existing) {
+              core.notice('Nothing to delete, and no deletion pull request open.');
+              return;
+            }
+
+            // The branch is the workflow's own, but a person may have added a commit to it. That
+            // commit is never overwritten, and the pull request it belongs to is neither updated
+            // nor closed: the branch and the pull request are left as they are, and the step fails
+            // so that somebody knows, every week, until the branch is deleted. A merge commit is
+            // not a person's work (the "Update branch" button adds one): the next run rebuilds the
+            // branch from main without it.
+            let head = null;
+            try {
+              head = (await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` })).data.object.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (head) {
+              const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: `${baseBranch}...${head}`, per_page: 100,
+              });
+              const foreign = comparison.commits.filter((commit) =>
+                commit.commit.author?.name !== bot.name && commit.parents.length < 2);
+              const unseen = comparison.total_commits - comparison.commits.length;
+              if (foreign.length > 0 || unseen > 0) {
+                core.setFailed(`${branch} holds ${foreign.length > 0 ? `a commit the workflow did not make, ${foreign[0].sha}` : 'more commits than this step reads'}, so neither the branch nor its pull request is touched. Delete the branch (merge or close its pull request first if somebody is working on it) and the next run makes it again from ${baseBranch}.`);
+                return;
+              }
+            }
+
+            if (changed === 'false') {
+              // 2, or a provider without its key: "nothing to delete" may only be "nothing seen". A
+              // retired model the script refused to delete is still retired, and nothing here may
+              // call it gone. And a report whose issue step failed is one nobody trusted.
+              if (status === '2' || covered !== 'complete' || undeleted !== '0' ||
+                  process.env.ISSUE_OUTCOME !== 'success') {
+                core.notice(`Nothing was deleted in this run, but it did not see every catalogue, or a retired model was left to a person, or its report is not trusted: #${existing.number} is left open.`);
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: 'Plus rien à supprimer : le catalogue de chaque fournisseur, lu à la dernière exécution de `.github/workflows/LiteLLM_model_drift.yml`, liste toutes les entrées de `main` (ou ces suppressions ont été faites par ailleurs). Pull request fermée par le workflow.',
+              });
+              await github.rest.pulls.update({ owner, repo, pull_number: existing.number, state: 'closed' });
+              core.notice(`Nothing left to delete: #${existing.number} closed.`);
+              return;
+            }
+
+            if (!/^[0-9a-f]{40}$/.test(base)) {
+              core.setFailed(`The drift check reported "${base}" as the commit it worked on, which is no commit.`);
+              return;
+            }
+            // The commit the deletions were made on is main's, or an ancestor of it: the branch is
+            // main plus one commit and nothing else.
+            const { data: ancestry } = await github.rest.repos.compareCommitsWithBasehead({
+              owner, repo, basehead: `${base}...${baseBranch}`, per_page: 1,
+            });
+            if (!['ahead', 'identical'].includes(ancestry.status)) {
+              core.setFailed(`${base} is not on ${baseBranch} (${ancestry.status}): the deletions were made on a commit this branch must not be built on.`);
+              return;
+            }
+
+            const message = fs.readFileSync(process.env.COMMIT_MESSAGE, 'utf8');
+            const body = fs.readFileSync(process.env.PR_BODY, 'utf8');
+            const content = fs.readFileSync(process.env.TEMPLATE_FILE);
+
+            // The job that made the template is trusted with deleting lines and nothing else: the
+            // file it handed over must be the template on that commit with lines taken out, none
+            // added and none changed, or nothing is pushed.
+            const { data: original } = await github.rest.repos.getContent({
+              owner, repo, path: template, ref: base,
+            });
+            if (original.type !== 'file' || original.encoding !== 'base64') {
+              core.setFailed(`${template} on ${base} is not a file this step can read.`);
+              return;
+            }
+            const kept = Buffer.from(original.content, 'base64').toString('utf8').split('\n');
+            let at = 0;
+            const added = content.toString('utf8').split('\n').some((line) => {
+              while (at < kept.length && kept[at] !== line) at += 1;
+              if (at === kept.length) return true;
+              at += 1;
+              return false;
+            });
+            if (added) {
+              core.setFailed(`The template the other job handed over holds a line that ${template} on ${base} does not hold, or holds them in another order: it is not that file with lines deleted, and nothing is pushed.`);
+              return;
+            }
+
+            const { data: baseCommit } = await github.rest.git.getCommit({ owner, repo, commit_sha: base });
+            const { data: blob } = await github.rest.git.createBlob({
+              owner, repo, content: content.toString('base64'), encoding: 'base64',
+            });
+            const { data: tree } = await github.rest.git.createTree({
+              owner, repo, base_tree: baseCommit.tree.sha,
+              tree: [{ path: template, mode: '100644', type: 'blob', sha: blob.sha }],
+            });
+
+            let tip = head;
+            const current = head ? (await github.rest.git.getCommit({ owner, repo, commit_sha: head })).data : null;
+            if (current && current.tree.sha === tree.sha) {
+              core.notice(`${branch} already holds these deletions.`);
+            } else {
+              const stamp = { ...bot, date: new Date().toISOString() };
+              const { data: commit } = await github.rest.git.createCommit({
+                owner, repo, message, tree: tree.sha, parents: [base], author: stamp, committer: stamp,
+              });
+              if (head) {
+                // The API has no compare-and-swap, so look again just before: a person who pushed
+                // since the check above is not overwritten either.
+                const { data: now } = await github.rest.git.getRef({ owner, repo, ref: `heads/${branch}` });
+                if (now.object.sha !== head) {
+                  core.warning(`${branch} moved while this run was working (${head} to ${now.object.sha}): neither the branch nor the pull request is touched.`);
+                  return;
+                }
+                await github.rest.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: commit.sha, force: true });
+              } else {
+                await github.rest.git.createRef({ owner, repo, ref: `refs/heads/${branch}`, sha: commit.sha });
+              }
+              tip = commit.sha;
+              core.notice(`${branch} now holds ${commit.sha}.`);
+            }
+
+            const problems = [];
+            let pr = existing;
+            let created = false;
+            try {
+              if (!pr) {
+                ({ data: pr } = await github.rest.pulls.create({
+                  owner, repo, title, head: branch, base: baseBranch, body, draft: false,
+                }));
+                created = true;
+              } else if (pr.title !== title || !same(pr.body, body)) {
+                await github.rest.pulls.update({ owner, repo, pull_number: pr.number, title, body });
+              }
+            } catch (error) {
+              if (error.status === 403 && /not permitted to create or approve pull requests/i.test(error.message)) {
+                core.setFailed(`GitHub refused to open the pull request: the repository setting "Allow GitHub Actions to create and approve pull requests" is off. Turn it on at https://github.com/${owner}/${repo}/settings/actions (under "Workflow permissions"; if the box is greyed out, the same setting at the organisation level), then run this workflow again. The deletions are already on the branch ${branch}.`);
+                return;
+              }
+              throw error;
+            }
+            core.notice(created ? `Opened pull request #${pr.number}.` : `Pull request #${pr.number} is up to date.`);
+
+            // The checks of this commit: asked for whichever of them has no run on it yet, whatever
+            // this run did or did not do before, so that a run that failed half way is repaired by
+            // the next one.
+            for (const workflow of workflows) {
+              try {
+                const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                  owner, repo, workflow_id: workflow, head_sha: tip, per_page: 1,
+                });
+                if (runs.total_count > 0) {
+                  console.log(`${workflow} has already run on ${tip}.`);
+                  continue;
+                }
+                await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: workflow, ref: branch });
+                core.notice(`${workflow} dispatched on ${branch}.`);
+              } catch (error) {
+                problems.push(workflow);
+                core.error(`${workflow} could not be dispatched on ${branch}: ${error.message}`);
+              }
+            }
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner, repo, issue_number: pr.number, assignees: [assignee],
+              });
+            } catch (error) {
+              core.error(`#${pr.number} could not be assigned to ${assignee}: ${error.message}`);
+              problems.push('the assignee');
+            }
+            if (problems.length > 0) {
+              core.setFailed(`The pull request #${pr.number} is open, but ${problems.join(' and ')} could not be set: see the errors above. The next run tries again.`);
             }

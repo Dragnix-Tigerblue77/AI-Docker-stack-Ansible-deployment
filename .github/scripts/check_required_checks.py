@@ -56,6 +56,12 @@ WHAT IT CHECKS
 6. Every NOT_DISPATCHED entry still excuses something: it names a workflow file that exists, that
    the gate listens to, that has no "workflow_dispatch" trigger and that the gate does not dispatch.
    An exclusion that has stopped being true would otherwise keep waving a workflow past item 5.
+7. The weekly model-drift workflow, when there is one, dispatches the very same files on the branch
+   of the pull request it opens: its own "WORKFLOW_FILES" lists exactly the gate's. A pull
+   request opened with GITHUB_TOKEN gets no check from GitHub either, so that list is a copy of the
+   gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
+   gate would leave the deletion pull request without it, which only shows as a check that is not
+   there.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -87,6 +93,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 GATE = "dependabot-auto-merge.yml"
+DRIFT = "LiteLLM_model_drift.yml"
 
 # Jobs of a workflow the gate listens to that are deliberately NOT required, each with its reason --
 # the same shape as the allowlist of "check_no_inventory_data.py", and for the same reason: an entry
@@ -242,6 +249,20 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
             elif file_name in dispatched:
                 found.append(stale % (file_name, "%s dispatches it after a merge anyway" % GATE))
 
+    # The same files, dispatched by the workflow that opens a pull request with the same token.
+    if GATE in workflows and DRIFT in workflows:
+        gate_files = dispatched_files(workflows[GATE])
+        drift_files = dispatched_files(workflows[DRIFT])
+        if not drift_files:
+            found.append("%s dispatches nothing on the pull request it opens (%s): a pull request "
+                         "opened with GITHUB_TOKEN starts no workflow, so it would go unchecked."
+                         % (DRIFT, DISPATCH_ENV))
+        elif sorted(set(drift_files)) != sorted(set(gate_files)):
+            found.append("%s dispatches %s on its pull request, and %s dispatches %s after a "
+                         "merge: the two lists name the checks a change has to pass, and must be "
+                         "the same." % (DRIFT, " ".join(sorted(set(drift_files))), GATE,
+                                        " ".join(sorted(set(gate_files)))))
+
     return found
 
 
@@ -312,6 +333,22 @@ jobs:
 """
 
 
+SELFTEST_DRIFT = """
+name: Drift
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+jobs:
+  open:
+    name: open the pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch
+        env:
+          WORKFLOW_FILES: ci.yml
+"""
+
+
 def selftest_ruleset(*contexts, **overrides):
     ruleset = {
         "name": "main",
@@ -330,12 +367,14 @@ def selftest_ruleset(*contexts, **overrides):
     return ruleset
 
 
-def selftest_workflows(ci=SELFTEST_CI, gate=SELFTEST_GATE, extra=None):
+def selftest_workflows(ci=SELFTEST_CI, gate=SELFTEST_GATE, extra=None, drift=None):
     workflows = {"ci.yml": yaml.safe_load(ci), "nightly.yml": yaml.safe_load(SELFTEST_NIGHTLY)}
     if gate is not None:
         workflows[GATE] = yaml.safe_load(gate)
     if extra is not None:
         workflows["extra.yml"] = yaml.safe_load(extra)
+    if drift is not None:
+        workflows[DRIFT] = yaml.safe_load(drift)
     return workflows
 
 
@@ -435,6 +474,22 @@ def selftest_cases():
          selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",
                                                    "on: [pull_request, workflow_dispatch]\n")),
          None),
+        ("a drift workflow dispatching the very files the gate does passes",
+         selftest_ruleset(*good), selftest_workflows(drift=SELFTEST_DRIFT), None),
+        ("a drift workflow that dispatches nothing is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("WORKFLOW_FILES: ci.yml", "OTHER: ci.yml")),
+         "dispatches nothing on the pull request it opens"),
+        ("a drift workflow dispatching a file the gate does not is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("ci.yml", "ci.yml nightly.yml")),
+         "the two lists name the checks a change has to pass, and must be the same"),
+        ("a drift workflow leaving out one the gate dispatches is refused",
+         selftest_ruleset(*good, "the scanner"),
+         selftest_workflows(gate=SELFTEST_GATE.replace('["CI"]', '["CI", "Other"]')
+                            .replace("WORKFLOW_FILES: ci.yml", "WORKFLOW_FILES: ci.yml extra.yml"),
+                            extra=SELFTEST_OTHER, drift=SELFTEST_DRIFT),
+         "the two lists name the checks a change has to pass, and must be the same"),
         ('"on:" written as a single event, other than "workflow_dispatch", is refused',
          selftest_ruleset(*good),
          selftest_workflows(ci=SELFTEST_CI.replace("on:\n  pull_request:\n  workflow_dispatch:\n",

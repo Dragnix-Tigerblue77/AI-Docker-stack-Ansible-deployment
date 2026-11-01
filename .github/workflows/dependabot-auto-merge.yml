@@ -37,17 +37,17 @@ name: Dependabot auto-merge
 #     "sign-off" completes, it starts only once there is something to read, and whichever of them
 #     finishes last is the run that finds every check green.
 #   * The definition that runs is the one on main, and nothing from the pull request is checked out
-#     or executed. This workflow's two jobs are the only ones in the repository holding a write
-#     token, and that is what makes holding one acceptable: no job may both write and run code
-#     nobody has reviewed yet -- a freshly bumped dependency included, since that is exactly what a
-#     Dependabot branch carries.
+#     or executed. This workflow's two jobs hold a write token, as does the "publish" job of
+#     "LiteLLM_model_drift.yml", and that is what makes holding one acceptable: no job may both
+#     write and run code nobody has reviewed yet -- a freshly bumped dependency included, since
+#     that is exactly what a Dependabot branch carries.
 #
-# Both jobs take their runner from CI_RUNNER like every other job here (#162), although they are
-# the ones holding a write token. The second point above is what allows it: nothing from a pull
-# request is checked out or executed, so a self-hosted runner never holds both a write token and
-# code nobody has reviewed. Left on the hosted runners, "merge" would also be the job that stops
-# merging Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml"
-# says what the variable may name, and when.
+# Both jobs take their runner from CI_RUNNER like every other job here, although they hold
+# a write token. The second point above is what allows it: nothing from a pull request is checked
+# out or executed, so a self-hosted runner never holds both a write token and code nobody has
+# reviewed. Left on the hosted runners, "merge" would also be the job that stops merging
+# Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml" says
+# what the variable may name, and when.
 #
 # What the step below refuses, and why each refusal is there:
 #
@@ -260,7 +260,9 @@ jobs:
           # The FILES of the workflows "on.workflow_run.workflows" above names by their "name:",
           # bar those "check_required_checks.py" lists as NOT_DISPATCHED with their reason. It holds
           # the two lists to each other, and each file listed here to carrying the
-          # "workflow_dispatch:" trigger GitHub refuses a dispatch without.
+          # "workflow_dispatch:" trigger GitHub refuses a dispatch without. It also holds the copy
+          # of this list in LiteLLM_model_drift.yml to it: that workflow dispatches the same files
+          # on the branch of the pull request it opens.
           WORKFLOW_FILES: ansible-ci.yml gitleaks.yml
         with:
           script: |

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Hold LiteLLM's model list to its rule, and report where it has drifted from the providers.
+"""Hold LiteLLM's model list to its rule, report where it has drifted, and delete what is retired.
 
 WHY THIS CHECK EXISTS
 ---------------------
@@ -24,7 +24,8 @@ providers publish them. Every part of that rule decays in silence:
 * A new model is, by definition, one nobody here has heard of yet.
 
 Nothing else in this CI can see any of that: the file is valid YAML either way. This check, and
-the weekly issue it feeds, exist to see it.
+the weekly issue it feeds, exist to see it; the deletion of what a provider has retired, which nobody
+should have to do by hand, is its third mode.
 
 HOW THE FILE IS READ
 --------------------
@@ -67,9 +68,19 @@ in the same change.
   looking, not a diagnosis. The one number a finding carries is the line Jinja was reading when it
   gave up, in the template as written: for a block left open that is the end of the file, so the
   message names the block's opener instead.
+* "--apply" edits the file AS WRITTEN, and has to know which line is which, which the rendering
+  cannot say. So it reads the file a second time with its Jinja made parsable -- comments and
+  statements blanked, expressions turned into a word, every line left on its own number -- and
+  holds that reading to say the same as the rendering: the same entries in the same order, the
+  same commented-out entries. If it does not (a branch written only for some of the keys, an
+  "else", a loop that repeats an entry), nothing is edited. A model named inside a statement or an
+  expression is not deleted either: the template's "head" names the model each router stands for
+  when it has no entry of its own, and nothing here can edit what a statement computes. A statement
+  that opens or closes a block wider than the entry it sits next to is not part of that entry, and
+  stays; the block is left empty, which Jinja renders as nothing.
 
-TWO MODES
----------
+THREE MODES
+-----------
 Offline, the default, run on every pull request. It reads the file and nothing else:
 
   (a) every fallback cascade member (source and targets, under the four fallback keys of both
@@ -82,14 +93,30 @@ Offline, the default, run on every pull request. It reads the file and nothing e
   (c) every commented-out entry carries its reason (defined below);
   (d) every "# drift-ignore:" line is well formed and gives its reason.
 
-"--online" reads each provider's model catalogue as well, and reports the drift, without ever
-editing the file: it prints a plain-text report and, with "--issue-body PATH", writes the body of
-the rolling issue ".github/workflows/LiteLLM_model_drift.yml" keeps up to date. That body is in
-French, since an issue is read by the maintainers (CLAUDE.md, "Language"); the report is English,
-like any run's output. Exit status: 0 no drift, 1 drift, 2 a provider, or the file itself, could
-not be read (an error outranks drift, since it means the report is incomplete). The offline
-rules are applied in this mode too: nothing blocks a human's merge here, so a red pull request can
-still land on main, and the weekly run is the next place it shows.
+"--online" reads each provider's model catalogue as well, and reports the drift: it prints a
+plain-text report and, with "--issue-body PATH", writes the body of the rolling issue
+".github/workflows/LiteLLM_model_drift.yml" keeps up to date. That body is in French, since an issue
+is read by the maintainers (CLAUDE.md, "Language"); the report is English, like any run's output.
+Exit status: 0 no drift, 1 drift, 2 a provider, or the file itself, could not be read (an error outranks
+drift, since it means the report is incomplete), 70 a crash: the script's own bug, or an
+answer it could not read at all, which prints the kind of error and where and never its message.
+An uncaught exception would exit 1 and be read as drift, which is why a crash has a status of its
+own. The offline rules are applied in this mode too: nothing blocks a human's merge here, so a red
+pull request can still land on main, and the weekly run is the next place it shows.
+"--coverage PATH" writes "complete" or "partial" to PATH: "partial" when a provider was not read
+(no key, or an error), whatever the exit status says, since a provider that is not covered yields
+no finding and a run can exit 0 having seen only some of the catalogues. "--undeleted PATH" writes
+how many RETIRED and GONE findings the run did not delete (all of them without "--apply"), and no
+file at all when the model list could not be read: a deletion pull request is closed over "nothing
+left to delete" only when that is 0, since a run that changed nothing may also have refused
+everything, and a model it refused to delete is still retired.
+
+"--online --apply" is the same run, and then deletes what can be deleted (see below). It rewrites
+the file given by "--config" IN PLACE, so it is run on a checkout that can be thrown away, as the
+workflow does. The exit status is the one "--online" gives: a deletion made is still a drift until
+it is merged. "--pr-body PATH" and "--commit-message PATH" write the body of the pull request
+(French) and the message of the commit (English) that carry the deletions, and only when something
+was deleted; a file left at that path by an earlier run is removed first.
 
 WHAT COUNTS AS A REASON
 -----------------------
@@ -104,7 +131,7 @@ it is what keeps a section banner that merely happens to sit above an entry from
 reason.
 
 Several commented-out entries separated only by bare "#" lines form a run, and share the reason
-above the first of them -- the SambaNova block is seven entries under one reason. An entry after a
+above the first of them -- the SambaNova block is one such run. An entry after a
 blank line starts a new run and needs its own; one with its own prose above it is judged on that
 prose alone, and does not inherit the reason of the entry before.
 
@@ -163,6 +190,102 @@ Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a 
 other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free.
 
+In the issue, every NEW id comes with an entry to complete, ready to paste: the "model:" with its
+provider prefix, a model_name proposed the way the file's own names are made (the id with its dots
+turned to dashes, and the provider's name as a suffix for the providers whose names carry one, a
+name already taken getting it anyway), and the "api_key" and "api_base" most of that provider's
+existing entries use, the first being the name of the environment variable the key is read from. A
+provider with no entry yet gets a placeholder for the key. Pasted as it is, it is an active entry;
+for one that is not routed to, a "# " goes in after the two spaces of indentation of each line, as
+the file's other commented-out entries have it (a "# " in front of the indentation is a comment
+this check does not read as an entry), and the reason goes above, with the provider's page and the
+date, which only a person can write. The snippets are left out when they would take the issue past
+the size GitHub accepts.
+
+DELETING WHAT A PROVIDER HAS RETIRED
+------------------------------------
+RETIRED and GONE are the one kind of finding that needs no judgment: the provider's own catalogue
+no longer lists the id, so the model cannot be called, and CLAUDE.md says what becomes of such a
+model. "--apply" deletes, for each such id, in a single pass over the file:
+
+* every entry attributed to it, active or commented out, and the model_name's slot in each of the
+  four fallback keys of both sections. The blank line that separated an active entry from the next
+  goes with it, unless the entry had prose above it.
+* of a commented-out entry, the reason prose that belongs to it alone. A run of entries shares the
+  reason above its first (see above), so the reason stays while an entry of the run does, now over
+  the first that stays, and goes when the last one does. A section banner goes with a run only when
+  the banner is itself the reason ("SambaNova -- not routed to: ..."); one that is a heading over
+  entries that may stay ("Cerebras & Groq") is kept, and so is a "# drift-ignore:" line, which is a
+  statement about an id and not about the run.
+
+What it leaves where it is, because only a person can tell, is every comment: none is rewritten, and
+a comment can say what is no longer so. Verification reads the structure of the file, not its
+prose, so the pull request body lists under "À relire", by their line numbers in the new file,
+the places a deletion may have made false:
+
+* the comment above a deleted ACTIVE entry, which may describe that entry or the group it opens;
+* the reason over a run of commented-out entries some of which are gone, kept over the ones that
+  stay, which may count them ("All seven ids below") or name one that is gone;
+* a section banner left over no entry at all;
+* any other comment line naming a deleted model_name, or a deleted id that no entry that stays
+  carries (a word match, so "gemini-3-8-flash" is found and "gemini-3-8-flash-lite" is not).
+
+That list is what the tool can find, not everything a deletion may have made false. It does not
+see a heading that names a provider none of whose entries is left ("Cerebras & Groq" over the
+Groq entries alone), nor a provider-qualified mention ("distinct from Groq's qwen3.8-27b") of an
+id that a surviving entry of another provider carries too, which the bare-id match leaves alone.
+The pull request is read by a person, whose job this is.
+
+What it refuses to delete, leaving the finding in the issue with the reason, and writing nothing
+for that model (all of its entries or none):
+
+* a model_name that a cascade starts from (the virtual routers: "pro", "flash"...), or that a
+  "model_group_alias" points at, since what should answer for that name is a choice;
+* the last target of a cascade, decided on the whole set at once: two models that are each the
+  other's only companion in a cascade are neither of them deleted;
+* a cascade slot that is not a line of its own (a flow list, "- flash: free-one"), which this does
+  not edit, and a name that is used anywhere else in the file, which it knows nothing about;
+* a deletion that would take part of a Jinja block. An entry's lines run up to the next entry, so
+  the statements between two entries ("{% endif %}", "{% else %}", the "{% if %}" of the next
+  block) are in the extent of the entry above, and taking them changes what the template renders
+  while the YAML check, which blanks the statements before it parses, sees nothing: the "else"
+  branch re-parented under the "if" condition, the entry after an "{% endif %}{% if %}" handed the
+  condition of the one deleted. A block is therefore taken whole -- its statements and everything
+  between them -- or not at all, and a statement that opens no block ("set x = 1", "include") is
+  never taken. A file whose blocks do not pair up is not edited at all. So an entry of its own
+  "{% if %}" is left to a person, and so is the last entry of a block;
+* anything whose result fails verification, whatever the reason: each deletion is tried alone and
+  read back, then all of them together. The result must parse; it must break no offline rule the
+  original did not already break; it must have as many Jinja blocks opened as closed, as a second
+  net behind the check above; and it must be, parsed, the original model list without the deleted
+  entries and the original cascades without their slots, with the commented-out entries and the
+  "drift-ignore:" lines the original had besides. That comparison is written apart from the
+  editing, so that the one is not wrong in the way of the other;
+* a commented-out entry whose body goes on past a bare "#" line, which cannot be told from prose;
+* every id of a provider whose catalogue lists no model at all: an empty answer is a failed read,
+  not a provider that retired everything. A catalogue that could not be read (an HTTP error, a
+  wrong shape) yields no finding to begin with, as ever;
+* every id of a provider whose catalogue omits more than half of the ids the file holds for it,
+  once that is three or more: a short but valid answer (a key that sees another tier, a truncated
+  page, a provider in an incident) is what a mass retirement looks like too, and a deletion pull
+  request of a hundred lines rewritten every week on its word is not worth the risk. The issue
+  lists them, and a person decides.
+
+UNTRUSTED TEXT
+--------------
+What a catalogue says -- an id, a name, a date -- ends up in the log, in an issue, in a pull request
+and in a snippet someone pastes, and is read as untrusted. An id is offered as NEW only when it is
+spelt the way ids are (letters, digits and "._:/+~-", no "::", no "//", so that no address and no
+workflow command can be one); any other piece of an answer that is shown is cut to plain words, in
+which no newline, backtick, "@", angle bracket, square bracket or "::" survives, and is shown in a
+code span. The catalogue's members are never filtered, since an id is retired by not being among
+ALL of them. No key and no response body is ever printed: a failed read says its HTTP status and
+nothing else (the reason phrase can carry a key as the body can, and HTTP/2 has none), whatever
+else of an error is shown has every key of the run replaced by "***", and the issue shows it in a
+code span. A redirect is never followed, since the keys travel in the
+headers of the request, which urllib sends again to wherever the redirect points: it is reported
+as the HTTP status it is.
+
 A catalogue that could not be read is an error for that provider, reported with the HTTP status and
 nothing else: the answer's body is never printed, because a provider may echo the key back in it
 (DeepSeek does: "Your api key: ****ogus is invalid", measured with a bogus key). Above all, a failed
@@ -170,9 +293,14 @@ read never turns into "every model retired".
 
 WHAT IT DELIBERATELY DOES NOT DO
 --------------------------------
-* It never edits the file, and never opens a pull request. Every claim in the list cites the
-  provider's own page and the date it was checked; a machine reading a catalogue has neither, so
-  what it produces is where a human's check starts, not a substitute for it.
+* It never adds a model, and never writes a reason. Every claim in the list cites the provider's
+  own page and the date it was checked. A deletion can cite the catalogue it read and the day it
+  read it, and the pull request body does; an addition is a choice, and a reason is somebody's
+  statement, so what the check produces for those -- NEW, BACK, NOTICE -- is where a person's
+  check starts, not a substitute for it.
+* It opens no pull request and pushes nothing: it edits a file and writes the texts it is given
+  a path for (the issue, the pull request, the commit message, the coverage and the count of what
+  it did not delete). The workflow that runs it does the rest.
 * It does not call any model. A listed model can still refuse a given key -- Google restricts
   Gemini 2.5 to accounts that used it before -- and only LiteLLM's own health check on the node
   would see that.
@@ -195,17 +323,34 @@ Run it from the repository root:
     python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
     python3 .github/scripts/check_LiteLLM_model_drift.py
     python3 .github/scripts/check_LiteLLM_model_drift.py --online --issue-body /tmp/body.md
+
+and, on a checkout you can throw away, what the workflow runs:
+
+    python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply --issue-body /tmp/body.md \\
+        --pr-body /tmp/pull_request.md --commit-message /tmp/commit.txt \\
+        --coverage /tmp/coverage.txt --undeleted /tmp/undeleted.txt
 """
 
 import argparse
+import collections
+import contextlib
+import copy
 import datetime
+import difflib
 import http.client
+import http.server
 import io
 import json
 import os
 import re
+import runpy
 import sys
+import tempfile
+import textwrap
+import threading
+import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -249,12 +394,23 @@ PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek")
 )
+JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
+JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
+JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
+JINJA_COMMENT_LINE = re.compile(r"^\s*\{#.*#\}\s*$")
+JINJA_TAG = re.compile(r"\{%-?\s*(end)?(\w+)(.*?)-?%\}", re.DOTALL)
+# The Jinja statements that open a block and the "end..." that closes it.
+JINJA_BLOCKS = ("if", "for", "macro", "call", "filter", "block", "with", "raw", "autoescape")
 
 # Substrings of an id that name a use other than chat. They narrow NEW only, never RETIRED.
 NON_CHAT_MARKERS = (
     "audio", "embed", "guard", "image", "imagen", "lyria", "moderation", "ocr", "orpheus",
     "playai", "rerank", "speech", "transcribe", "tts", "veo", "whisper",
 )
+
+# The exit status of a crash: 0, 1 and 2 mean something, and the status of an uncaught exception
+# (1) would be read as drift.
+CRASH_STATUS = 70
 
 TIMEOUT = 30
 MAX_PAGES = 20
@@ -405,6 +561,19 @@ def yaml_error_text(error, lines):
     return text
 
 
+def neutralise_jinja(text):
+    """The file with its Jinja made parsable and every line still on its own line number: a comment
+    or a statement goes, an expression becomes a word, and the newlines inside either are kept.
+    Deleting lines has to be done on the file as written, so this is how it is located -- the
+    rendering that every other rule reads has no line numbers of the file's."""
+    def keep_lines(replacement):
+        return lambda match: replacement + "\n" * match.group(0).count("\n")
+
+    text = JINJA_COMMENT.sub(keep_lines(""), text)
+    text = JINJA_STATEMENT.sub(keep_lines(""), text)
+    return JINJA_EXPRESSION.sub(keep_lines("JINJA"), text)
+
+
 def comment_content(line):
     """The text of a comment line without its "#" and one space, or None for any other line."""
     match = COMMENT.match(line)
@@ -433,7 +602,32 @@ def entry_of(item):
         "name": item.get("model_name") if isinstance(item, dict) else None,
         "model": parameters.get("model"),
         "api_base": parameters.get("api_base"),
+        "api_key": parameters.get("api_key"),
+        "item": item,
     }
+
+
+def commented_blocks(lines):
+    """[(start, end, content)] of the commented-out entries: "end" is exclusive, "content" the
+    block's lines with their "#" and one space removed, which is what parses as an entry."""
+    blocks = []
+    index = 0
+    while index < len(lines):
+        content = comment_content(lines[index])
+        if content is None or not COMMENTED_ENTRY.match(content):
+            index += 1
+            continue
+        start = index
+        block = [content]
+        index += 1
+        while index < len(lines):
+            following = comment_content(lines[index])
+            if following is None or not following.strip() or not following.startswith(" "):
+                break
+            block.append(following)
+            index += 1
+        blocks.append((start, index, block))
+    return blocks
 
 
 def read_template(text):
@@ -461,22 +655,8 @@ def read_template(text):
     # Commented-out entries: each block is uncommented and parsed like any other entry.
     commented = []
     owner = {}
-    index = 0
-    while index < len(lines):
-        content = comment_content(lines[index])
-        if content is None or not COMMENTED_ENTRY.match(content):
-            index += 1
-            continue
-        start = index
-        block = [content]
-        index += 1
-        while index < len(lines):
-            following = comment_content(lines[index])
-            if following is None or not following.strip() or not following.startswith(" "):
-                break
-            block.append(following)
-            index += 1
-        for number in range(start, index):
+    for start, end, block in commented_blocks(lines):
+        for number in range(start, end):
             owner[number] = len(commented)
         try:
             parsed = yaml.safe_load("\n".join(block))
@@ -494,6 +674,7 @@ def read_template(text):
         # What the messages call it: its name, or failing that the line that opens it.
         entry["shown"] = entry["name"] if isinstance(entry["name"], str) else block[0]
         entry["start"] = start
+        entry["end"] = end
         commented.append(entry)
 
     # (c) Every commented-out entry has its reason. Entries are judged top-down, so that one which
@@ -612,7 +793,7 @@ def read_template(text):
                 require(target,
                         '"%s.model_group_alias", for the alias "%s",' % (section_name, alias))
 
-    template = {"active": active, "commented": commented, "ignored": ignored}
+    template = {"active": active, "commented": commented, "ignored": ignored, "document": document}
     return template, problems
 
 
@@ -624,9 +805,18 @@ class FetchError(Exception):
     """A catalogue that could not be read. Its message never carries a key nor a response body."""
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse to follow a redirect. urllib sends the request's headers again to wherever the
+    "Location" names, host included, and the keys travel in those headers: a catalogue that
+    redirects is an error to report (HTTP 302...), never a place to send a key to."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def urllib_opener(url, headers):
     request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.build_opener(NoRedirect).open(request, timeout=TIMEOUT) as response:
         return response.read()
 
 
@@ -634,22 +824,35 @@ def fetch_json(opener, url, headers):
     try:
         raw = opener(url, headers)
     except urllib.error.HTTPError as error:
-        # The body is never read: a provider may echo the key back in it.
-        raise FetchError("HTTP %d %s" % (error.code, error.reason)) from None
+        # Neither the body nor the reason phrase is read: a provider may echo the key back in
+        # either, and the status says all a person needs to know (HTTP/2 has no phrase at all).
+        raise FetchError("HTTP %d" % error.code) from None
     except urllib.error.URLError as error:
-        raise FetchError("network error: %s" % (error.reason,)) from None
+        raise FetchError("network error: %s" % safe_text(error.reason)) from None
     except (OSError, ValueError, http.client.HTTPException) as error:
         raise FetchError("network error: %s" % error.__class__.__name__) from None
     try:
         return json.loads(raw)
     except ValueError:
         raise FetchError("the answer is not JSON") from None
+    except RecursionError:
+        raise FetchError("the answer is nested too deeply to read") from None
+
+
+def scrub(text, environment):
+    """"text" with every key of the run replaced by "***". No message here is meant to carry one,
+    and this is what stands between a surprise and the log, the issue and the pull request."""
+    for provider in PROVIDERS:
+        key = (environment.get(provider[2]) or "").strip() if provider[2] else ""
+        if key:
+            text = text.replace(key, "***")
+    return text
 
 
 def is_zero(price):
     try:
         return float(price) == 0
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return False
 
 
@@ -665,8 +868,33 @@ def listed(payload, key="data"):
     return [item for item in items if isinstance(item, dict) and isinstance(item.get("id"), str)]
 
 
+# Everything a provider's answer says is untrusted text, and ends up in a run's log, an issue, a pull
+# request and a YAML snippet someone pastes. An id is therefore offered as NEW only when it is spelt
+# the way ids are (SAFE_ID), and every other piece of the answer that is shown -- a name, a date, a
+# replacement, a reason phrase -- is cut down to plain words by safe_text(): no newline, no
+# backtick, no "@", no angle bracket, so that it can neither start a workflow command at the head
+# of a log line, nor mention somebody, nor close a code span and write markup of its own. The
+# catalogue's "members" are never filtered: an id is retired by not being among ALL of them.
+SAFE_ID = re.compile(r"(?!.*(?:::|//))[A-Za-z0-9~][A-Za-z0-9._:/+~-]{0,199}")
+UNSAFE_TEXT = re.compile(r"[^\w .,:;+()/'-]")
+
+
+def safe_text(value, limit=80):
+    text = " ".join(str(value).split())
+    # No two colons side by side either: "::" is how a workflow command starts.
+    return re.sub(r":(?=:)", ": ", UNSAFE_TEXT.sub("?", text))[:limit]
+
+
 def new_catalogue():
-    return {"members": set(), "candidates": {}, "notices": {}, "aliases": {}}
+    return {"members": set(), "candidates": {}, "notices": {}, "aliases": {}, "unsafe": 0}
+
+
+def offer(catalogue, identifier, label=""):
+    """Put "identifier" up as a NEW candidate, unless it is not spelt like an id."""
+    if SAFE_ID.fullmatch(identifier):
+        catalogue["candidates"][identifier] = safe_text(label)
+    else:
+        catalogue["unsafe"] += 1
 
 
 def read_openrouter(pages):
@@ -676,7 +904,7 @@ def read_openrouter(pages):
         catalogue["members"].add(identifier)
         if model.get("expiration_date"):
             catalogue["notices"][identifier] = {"what": "expiration",
-                                                "date": str(model["expiration_date"])}
+                                                "date": safe_text(model["expiration_date"])}
         pricing = model.get("pricing") if isinstance(model.get("pricing"), dict) else {}
         architecture = model.get("architecture")
         architecture = architecture if isinstance(architecture, dict) else {}
@@ -684,7 +912,7 @@ def read_openrouter(pages):
                 and is_zero(pricing.get("prompt")) and is_zero(pricing.get("completion"))
                 and architecture.get("output_modalities") == ["text"]
                 and chat_like(identifier)):
-            catalogue["candidates"][identifier] = model.get("name") or ""
+            offer(catalogue, identifier, model.get("name") or "")
     return catalogue
 
 
@@ -697,7 +925,7 @@ def read_flagged(pages):
         if model.get("deprecated") is True:
             catalogue["notices"][identifier] = {"what": "deprecation"}
         elif chat_like(identifier):
-            catalogue["candidates"][identifier] = model.get("name") or ""
+            offer(catalogue, identifier, model.get("name") or "")
     return catalogue
 
 
@@ -713,9 +941,10 @@ def read_gemini(pages):
                 continue
             identifier = name[len("models/"):] if name.startswith("models/") else name
             catalogue["members"].add(identifier)
-            methods = model.get("supportedGenerationMethods") or []
+            methods = model.get("supportedGenerationMethods")
+            methods = methods if isinstance(methods, list) else []
             if "generateContent" in methods and chat_like(identifier):
-                catalogue["candidates"][identifier] = model.get("displayName") or ""
+                offer(catalogue, identifier, model.get("displayName") or "")
     return catalogue
 
 
@@ -727,7 +956,7 @@ def read_groq(pages):
         if model.get("active") is False:
             catalogue["notices"][identifier] = {"what": "inactive"}
         elif chat_like(identifier):
-            catalogue["candidates"][identifier] = model.get("owned_by") or ""
+            offer(catalogue, identifier, model.get("owned_by") or "")
     return catalogue
 
 
@@ -735,14 +964,17 @@ def read_mistral(pages):
     catalogue = new_catalogue()
     for model in listed(pages[0]):
         identifier = model["id"]
-        aliases = {alias for alias in model.get("aliases") or [] if isinstance(alias, str)}
+        aliases = model.get("aliases")
+        aliases = {alias for alias in aliases if isinstance(alias, str)} if isinstance(
+            aliases, list) else set()
         catalogue["members"].add(identifier)
         catalogue["members"].update(aliases)
         catalogue["aliases"].setdefault(identifier, set()).update(aliases)
         deprecation = model.get("deprecation")
         if deprecation:
-            notice = {"what": "deprecation", "date": str(deprecation),
-                      "replacement": model.get("deprecation_replacement_model")}
+            replacement = model.get("deprecation_replacement_model")
+            notice = {"what": "deprecation", "date": safe_text(deprecation),
+                      "replacement": safe_text(replacement) if replacement else None}
             for name in {identifier} | aliases:
                 catalogue["notices"][name] = notice
             continue
@@ -750,7 +982,7 @@ def read_mistral(pages):
         capabilities = capabilities if isinstance(capabilities, dict) else {}
         if (capabilities.get("completion_chat") is True and not identifier.startswith("ft:")
                 and chat_like(identifier)):
-            catalogue["candidates"][identifier] = model.get("name") or ""
+            offer(catalogue, identifier, model.get("name") or "")
     return catalogue
 
 
@@ -760,13 +992,15 @@ def read_plain(pages):
     for model in listed(pages[0]):
         catalogue["members"].add(model["id"])
         if chat_like(model["id"]):
-            catalogue["candidates"][model["id"]] = ""
+            offer(catalogue, model["id"])
     return catalogue
 
 
 def gemini_next(url, page):
     token = page.get("nextPageToken") if isinstance(page, dict) else None
-    return url.split("&pageToken=")[0] + "&pageToken=" + token if token else None
+    if not (isinstance(token, str) and token):
+        return None
+    return url.split("&pageToken=")[0] + "&pageToken=" + token
 
 
 def bearer(key):
@@ -802,7 +1036,14 @@ def read_catalogue(opener, url, headers, reader, next_page):
         page = fetch_json(opener, url, headers)
         pages.append(page)
         url = next_page(url, page) if next_page else None
-    return reader(pages)
+    try:
+        return reader(pages)
+    except (TypeError, AttributeError, KeyError, IndexError, ValueError):
+        # The readers are written for the shapes the providers document and guard the ones they
+        # have thought of. An answer of a shape nobody thought of is that provider's error to
+        # report, status 2, and not a crash of the whole run, which would leave every other
+        # provider unread as well.
+        raise FetchError("the answer has a shape this check does not read") from None
 
 
 # ------------------------------------------------------------------------------------------------
@@ -860,6 +1101,8 @@ def run_online(text, environment, opener, today):
               "unreadable": template is None}
     if template is None:
         return result
+    result["names"] = sorted({entry["name"] for entry in template["active"] + template["commented"]
+                              if isinstance(entry["name"], str)})
     result["unattributed"] = sorted({
         entry["model"] for entry in template["active"]
         if attribute(entry["model"], entry["api_base"]) is None and isinstance(entry["model"], str)
@@ -869,7 +1112,9 @@ def run_online(text, environment, opener, today):
         commented = known_ids(template["commented"], name)
         ignored = {identifier for provider, identifier in template["ignored"] if provider == name}
         report = {"name": name, "active": len(active), "commented": len(commented),
-                  "key": key_variable, "status": "read", "findings": []}
+                  "known": len(set(active) | set(commented)),
+                  "key": key_variable, "status": "read", "findings": [],
+                  "basis": provider_basis(template["active"] + template["commented"], name)}
         result["providers"].append(report)
         headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
         if key_variable:
@@ -882,10 +1127,11 @@ def run_online(text, environment, opener, today):
             catalogue = read_catalogue(opener, url, headers, reader, next_page)
         except FetchError as error:
             report["status"] = "error"
-            report["error"] = str(error)
+            report["error"] = scrub(str(error), environment)
             continue
         report["members"] = len(catalogue["members"])
         report["candidates"] = len(catalogue["candidates"])
+        report["unsafe"] = catalogue["unsafe"]
         report["findings"] = diff(name, catalogue, active, commented, ignored)
     return result
 
@@ -898,11 +1144,845 @@ def exit_status(result):
     return 0
 
 
+def is_complete(result):
+    """True when every provider's catalogue was read. Not the same as the exit status: a provider
+    whose key is missing is reported "not covered" and is no error, so a run that read nothing of it
+    can still exit 0 -- and "nothing to delete" then only means "nothing seen" for that provider."""
+    return not result["unreadable"] and all(p["status"] == "read" for p in result["providers"])
+
+
+def undeleted_count(result):
+    """How many RETIRED and GONE findings the run did not delete: those it refused to, and all of
+    them when it was not asked to delete anything. A deletion pull request is closed over "nothing
+    left to delete" only when this is 0 -- "changed nothing" also means "refused everything"."""
+    return sum(1 for report in result["providers"] for finding in report["findings"]
+               if finding["kind"] in ("retired", "gone")
+               and finding.get("removal", {}).get("status") != "applied")
+
+
 # ------------------------------------------------------------------------------------------------
-# The two renderings: the run's report in English, the issue's body in French
+# Deleting what a provider has retired
+# ------------------------------------------------------------------------------------------------
+
+BANNER_RULE = re.compile(r"^\s*#\s*={8,}\s*$")
+
+# Why a deletion is left to a human: (the run's report, in English; the issue, in French). The %s is
+# the place the reason is about, which is always a name or a position read from the file itself.
+REFUSALS = {
+    "source": (
+        "it is the entry point of %s, and choosing what answers for that name is not mechanical",
+        "c'est le point d'entrée de %s : choisir ce qui répond à ce nom n'a rien de mécanique",
+    ),
+    "alias": (
+        "the alias %s points at it and would be left with no active target",
+        "l'alias %s pointe vers lui et n'aurait plus de cible active",
+    ),
+    "emptied": (
+        "it is the last target of %s, which would be left with none",
+        "c'est la dernière cible de %s, qui n'en aurait plus",
+    ),
+    "form": (
+        "its place in %s is not a plain list line, which this tool does not edit",
+        "sa place dans %s n'est pas une ligne de liste simple, que cet outil ne sait pas modifier",
+    ),
+    "stray": (
+        "its name is also used at %s, a place this tool knows nothing about",
+        "son nom est aussi utilisé à %s, un endroit que cet outil ne connaît pas",
+    ),
+    "verification": (
+        "deleting it makes the result fail verification: %s",
+        "sa suppression ne passe pas la vérification du résultat : %s",
+    ),
+    "unlocated": (
+        "it could not be located in the file reliably: %s",
+        "il n'a pas pu être localisé de façon fiable dans le fichier : %s",
+    ),
+    "empty": (
+        "its catalogue lists no model at all, which reads as a failed fetch and not as everything "
+        "retired",
+        "son catalogue ne liste aucun modèle, ce qui se lit comme une lecture ratée et non comme "
+        "un retrait de tout",
+    ),
+    "implausible": (
+        "its catalogue omits %d of the %d ids this file holds for that provider, which reads as a "
+        "partial answer and not as that many retirements at once",
+        "son catalogue ne liste pas %d des %d identifiants que ce fichier compte pour ce "
+        "fournisseur, ce qui se lit comme une réponse partielle et non comme autant de retraits "
+        "d'un coup",
+    ),
+}
+
+
+def refusal_text(removal, french=False):
+    code, detail = removal["reason"]
+    template = REFUSALS[code][1 if french else 0]
+    return template % detail if "%" in template else template
+
+
+def is_comment(line):
+    return comment_content(line) is not None
+
+
+def indentation(line):
+    return len(line) - len(line.lstrip())
+
+
+def is_bare(line):
+    """A comment line with nothing after its "#": what separates the entries of a run."""
+    content = comment_content(line)
+    return content is not None and not content.strip()
+
+
+def place(group):
+    """How a cascade or an alias is named in a message: the section and key, then its source."""
+    where, source = group
+    return '"%s"%s' % (where, ', cascade "%s"' % source if source else "")
+
+
+def find_references(neutral, names):
+    """Every place the settings name a model group, with the line it sits on, the lines where one
+    of "names" turns up in a place nothing here knows about, and the first and last line of each
+    entry of the model list. Read from the YAML nodes rather than the parsed values, since a node
+    knows its line and a value does not -- and knows where a mapping ends, comments inside it
+    included, which indentation does not."""
+    root = yaml.compose(neutral)
+    rows = neutral.splitlines()
+    references = []
+    spans = []
+    known = set()
+
+    def after(mark):
+        """The index of the first line a node that ends at "mark" does not cover. A node ends where
+        the next token begins, which is at the start of the line it is on -- unless the file ends
+        on no newline, when the node ends after the content of its own last line."""
+        if mark.line < len(rows) and rows[mark.line][:mark.column].strip():
+            return mark.line + 1
+        return mark.line
+
+    def add(role, node, group):
+        if isinstance(node, yaml.ScalarNode):
+            known.add(id(node))
+            references.append({"role": role, "name": node.value, "line": node.start_mark.line,
+                               "group": group})
+
+    def sequence_of(node):
+        return node.value if isinstance(node, yaml.SequenceNode) else [node]
+
+    for section_key, section in root.value if isinstance(root, yaml.MappingNode) else []:
+        if section_key.value == "model_list" and isinstance(section, yaml.SequenceNode):
+            for item in section.value:
+                if isinstance(item, yaml.MappingNode):
+                    spans.append([item.start_mark.line, after(item.end_mark), None])
+                for key, value in item.value if isinstance(item, yaml.MappingNode) else []:
+                    if key.value == "model_name":
+                        known.add(id(value))
+                        spans[-1][2] = value.value
+        if section_key.value not in SETTINGS_SECTIONS or not isinstance(section, yaml.MappingNode):
+            continue
+        for key_node, value in section.value:
+            key = key_node.value
+            where = "%s.%s" % (section_key.value, key)
+            if key == "default_fallbacks":
+                for item in sequence_of(value):
+                    add("default", item, (where, None))
+            elif key in FALLBACK_KEYS:
+                for mapping in sequence_of(value):
+                    for source_node, targets in mapping.value if isinstance(
+                            mapping, yaml.MappingNode) else []:
+                        add("source", source_node, (where, source_node.value))
+                        for target in sequence_of(targets):
+                            add("target", target, (where, source_node.value))
+            elif key == "model_group_alias" and isinstance(value, yaml.MappingNode):
+                for alias_node, target in value.value:
+                    if isinstance(target, yaml.MappingNode):
+                        target = next((inner for name, inner in target.value
+                                       if name.value == "model"), target)
+                    add("alias", target, (where, alias_node.value))
+
+    strays = {}
+    seen = set()
+
+    def walk(node):
+        if id(node) in seen:
+            return
+        seen.add(id(node))
+        if isinstance(node, yaml.ScalarNode):
+            if id(node) not in known and node.value in names:
+                strays.setdefault(node.value, []).append(node.start_mark.line + 1)
+        elif isinstance(node, yaml.SequenceNode):
+            for item in node.value:
+                walk(item)
+        elif isinstance(node, yaml.MappingNode):
+            for key, value in node.value:
+                walk(key)
+                walk(value)
+
+    walk(root)
+    return references, strays, spans
+
+
+def read_layout(text, template):
+    """Where everything a deletion has to touch sits in "text". Returns (layout, None), or
+    (None, why) when the file cannot be located reliably, in which case nothing is edited.
+
+    "template" is what read_template made of the RENDERED file, which has no line numbers of the
+    file's: the lines are found in the file as written, Jinja made parsable, and the two are held
+    to say the same thing before a line is trusted."""
+    lines = text.splitlines()
+    neutral = neutralise_jinja(text)
+    if len(neutral.splitlines()) != len(lines):
+        return None, "the file with its Jinja made parsable does not keep its line numbers"
+    structure = jinja_structure(lines)
+    if structure is None:
+        return None, "the Jinja statements of the file do not pair up, so a block cannot be told"
+    names = {entry["name"] for entry in template["active"] + template["commented"]
+             if isinstance(entry["name"], str)}
+    try:
+        references, strays, spans = find_references(neutral, names)
+    except yaml.YAMLError as error:
+        return None, "the file does not compose: %s" % str(error).splitlines()[0]
+    # The entries read from the file as written are the entries of the rendering, in the same
+    # order: a block written only for some of the keys, or a loop, would break that.
+    if [name for _, _, name in spans] != [entry["name"] for entry in template["active"]]:
+        return None, ("the entries of the model list, read without rendering the file, are not "
+                      "those of the rendering")
+    # What the Jinja statements and expressions name is read by the template, not by the settings
+    # above: "head" says which model a router stands for when it has no entry of its own.
+    for match in list(JINJA_STATEMENT.finditer(text)) + list(JINJA_EXPRESSION.finditer(text)):
+        first = text.count("\n", 0, match.start())
+        for offset, row in enumerate(match.group(0).split("\n")):
+            for name in names:
+                if re.search(r"[\"']%s[\"']" % re.escape(name), row):
+                    strays.setdefault(name, []).append(first + offset + 1)
+    entries = []
+    for entry, (start, end, _) in zip(template["active"], spans):
+        # A node ends where the next token begins: the blank lines and the comments between two
+        # entries are before that, and belong to neither. A comment indented deeper than the
+        # entry's dash is the entry's own, though: nothing but its body is written that far in.
+        dash = indentation(lines[start])
+
+        def of_a_block_beyond(number):
+            """A statement of a block that does not lie wholly within the entry: the "endif" that
+            closes the provider's block the last entry sits in, the "if" that opens the next."""
+            return any(number in block and (min(block) < start or max(block) >= end)
+                       for block in structure[0])
+
+        while end > start + 1 and (
+                not lines[end - 1].strip() or JINJA_COMMENT_LINE.match(lines[end - 1])
+                or (is_comment(lines[end - 1]) and indentation(lines[end - 1]) <= dash)
+                or of_a_block_beyond(end - 1)):
+            end -= 1
+        entries.append(dict(entry, state="active", start=start, end=end))
+    # The commented-out entries, where the file as written has them: the rendering numbers its own
+    # lines, so what it found is kept as it is and only the position is replaced.
+    blocks = commented_blocks(lines)
+    if len(blocks) != len(template["commented"]):
+        return None, ("the commented-out entries of the file as written are not those of the "
+                      "rendering")
+    commented = []
+    for entry, (start, end, _) in zip(template["commented"], blocks):
+        commented.append(dict(entry, state="commented", rendered_start=entry["start"],
+                              start=start, end=end))
+    for entry in commented:
+        # A bare "#" ends a commented-out entry, as it separates two of a run. An entry whose body
+        # goes on past one -- indented comment lines after it -- would be cut short, and what it has
+        # left would be mistaken for prose: this tool does not delete such an entry.
+        following = entry["end"]
+        while following < len(lines) and is_bare(lines[following]):
+            following += 1
+        content = comment_content(lines[following]) if following < len(lines) else None
+        entry["continues"] = bool(following > entry["end"] and content and content.strip()
+                                  and content.startswith(" "))
+    entries += commented
+    by_key = {}
+    for entry in entries:
+        entry["key"] = attribute(entry["model"], entry["api_base"])
+        if entry["key"]:
+            by_key.setdefault(entry["key"], []).append(entry)
+
+    owner = {number: index for index, entry in enumerate(commented)
+             for number in range(entry["start"], entry["end"])}
+    # A run is what the offline rules call one: commented-out entries with nothing but bare "#"
+    # lines between them, which share the reason written above the first.
+    runs = []
+    for index, entry in enumerate(commented):
+        previous = commented[index - 1] if index else None
+        if previous and all(is_bare(lines[number])
+                            for number in range(previous["end"], entry["start"])):
+            runs[-1].append(index)
+        else:
+            runs.append([index])
+
+    groups = {}
+    for reference in references:
+        name = reference["name"]
+        line = lines[reference["line"]] if reference["line"] < len(lines) else ""
+        # A slot is deletable as a line when that line holds the slot and nothing else.
+        reference["editable"] = bool(re.fullmatch(
+            r"\s*-\s+(?:\"%s\"|'%s'|%s)\s*(?:#.*)?" % ((re.escape(name),) * 3), line))
+        if reference["role"] in ("target", "default"):
+            groups.setdefault(reference["group"], []).append(reference)
+    return {"lines": lines, "raw": text.splitlines(keepends=True), "entries": entries,
+            "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
+            "references": references, "groups": groups, "strays": strays,
+            "jinja": structure[0], "jinja_single": structure[1]}, None
+
+
+def comments_above(layout, start):
+    """The comment lines directly above line "start", top to bottom, up to the first blank line, the
+    first line that is not a comment, or the first line of a commented-out entry."""
+    found = []
+    number = start - 1
+    while number >= 0 and number not in layout["owner"] \
+            and comment_content(layout["lines"][number]) is not None:
+        found.append(number)
+        number -= 1
+    return found[::-1]
+
+
+def left_behind(layout, entry):
+    """The comment lines above an active entry that a deletion leaves where they are: the prose
+    about it, which may as well be about its neighbours, and which only a person can tell. A section
+    banner is none of that, so everything up to the last banner rule is cut off."""
+    found = comments_above(layout, entry["start"])
+    cut = max((position for position, number in enumerate(found)
+               if BANNER_RULE.match(layout["lines"][number])), default=-1)
+    found = found[cut + 1:]
+    while found and is_bare(layout["lines"][found[0]]):
+        found.pop(0)
+    return found
+
+
+def reason_lines(layout, prose):
+    """Which of the comment lines above a run that is deleted whole go with it: the free prose, and
+    a section banner only when the banner is itself the reason ("SambaNova -- not routed to: ...").
+    A banner that is merely a heading -- "Cerebras & Groq" -- may head entries that stay, and a
+    "drift-ignore:" line is a declaration about an id, not about the run."""
+    lines = layout["lines"]
+    keep = set()
+    opened = None
+    spans = []
+    for position, number in enumerate(prose):
+        if BANNER_RULE.match(lines[number]):
+            if opened is None:
+                opened = position
+            else:
+                spans.append((opened, position))
+                opened = None
+    if opened is not None:
+        spans.append((opened, len(prose) - 1))
+    for first, last in spans:
+        text = " ".join(comment_content(lines[number]).strip() for number in prose[first:last + 1])
+        if not REASON.search(text):
+            keep.update(prose[first:last + 1])
+    for number in prose:
+        if DRIFT_IGNORE_START.match(comment_content(lines[number])):
+            keep.add(number)
+    kept_text = [number for number in keep if not is_bare(lines[number])]
+    for number in prose:
+        # A bare line stays only between two lines that stay.
+        if is_bare(lines[number]) and any(k < number for k in kept_text) \
+                and any(k > number for k in kept_text):
+            keep.add(number)
+    return [number for number in prose if number not in keep]
+
+
+def plan_lines(layout, keys):
+    """The line numbers to delete so that every entry attributed to a key of "keys" is gone with
+    its cascade slots, and what was done for each key. Nothing is edited here."""
+    lines = layout["lines"]
+    entries = [entry for entry in layout["entries"] if entry["key"] in keys]
+    surviving = {entry["name"] for entry in layout["entries"] if entry["key"] not in keys}
+    owners = {entry["name"]: entry["key"] for entry in entries if isinstance(entry["name"], str)}
+    slot_names = {name for name in owners if name not in surviving}
+    marks = set()
+    notes = {key: {"entries": [], "slots": [], "prose": [], "left": []} for key in keys}
+
+    for entry in entries:
+        note = notes[entry["key"]]
+        note["entries"].append({"name": entry["name"], "state": entry["state"],
+                                "line": entry["start"] + 1})
+        if entry["state"] != "active":
+            continue
+        marks.update(range(entry["start"], entry["end"]))
+        left = left_behind(layout, entry)
+        if left:
+            note["left"].append(left)
+        elif entry["end"] < len(lines) and not lines[entry["end"]].strip():
+            marks.add(entry["end"])
+
+    for run in layout["runs"]:
+        members = [layout["commented"][index] for index in run]
+        gone = [member for member in members if member["key"] in keys]
+        if not gone:
+            continue
+        if len(gone) == len(members):
+            marks.update(range(members[0]["start"], members[-1]["end"]))
+            prose = reason_lines(layout, comments_above(layout, members[0]["start"]))
+            marks.update(prose)
+            if prose:
+                text = [comment_content(lines[number]).strip() for number in prose]
+                first = next((line for line in text if re.search(r"[A-Za-z]", line)), "")
+                notes[members[0]["key"]]["prose"].append({"lines": len(prose), "first": first})
+            continue
+        for member in gone:
+            marks.update(range(member["start"], member["end"]))
+        # Of the separators, a run keeps one between two entries that stay, and no other.
+        for position in range(len(members) - 1):
+            stays = members[position]["key"] not in keys and \
+                any(later["key"] not in keys for later in members[position + 1:])
+            if not stays:
+                marks.update(range(members[position]["end"], members[position + 1]["start"]))
+
+    for reference in layout["references"]:
+        if reference["role"] in ("target", "default") and reference["name"] in slot_names:
+            marks.add(reference["line"])
+            notes[owners[reference["name"]]]["slots"].append(reference["group"])
+    return marks, notes, slot_names
+
+
+def assemble(layout, marks):
+    """The text without the marked lines, and without the double blank line a deletion would have
+    left where it took out what lay between two blank lines, nor the blank line it would have left
+    at the end of a file that did not end on one. A file's last line keeps the ending it had: with
+    none, the file still has none."""
+    raw = layout["raw"]
+    kept = []
+    for number in range(len(raw)):
+        if number in marks:
+            continue
+        if kept and not raw[number].strip() and not raw[kept[-1]].strip() and number != kept[-1] + 1:
+            continue
+        kept.append(number)
+    if raw and raw[-1].strip():
+        while kept and not raw[kept[-1]].strip():
+            kept.pop()
+    text = "".join(raw[number] for number in kept)
+    if raw and not raw[-1].endswith(("\n", "\r")) and kept and kept[-1] != len(raw) - 1:
+        text = re.sub(r"\r?\n\Z", "", text)
+    return text, kept
+
+
+def strip_names(document, names):
+    """"document" without "names" in its cascades: the oracle of verify_removal, written apart from
+    the code that edits the text, so that the one cannot be wrong in the way of the other."""
+    stripped = copy.deepcopy(document)
+    for section_name in SETTINGS_SECTIONS:
+        section = stripped.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        for key in FALLBACK_KEYS:
+            value = section.get(key)
+            if key == "default_fallbacks" and isinstance(value, list):
+                section[key] = [target for target in value if target not in names]
+            elif isinstance(value, list):
+                for mapping in value:
+                    if isinstance(mapping, dict):
+                        for source, targets in list(mapping.items()):
+                            if isinstance(targets, list):
+                                mapping[source] = [t for t in targets if t not in names]
+    return stripped
+
+
+def normalised(problems):
+    return [re.sub(r"\bline (?:\d+|\?)", "line N", " ".join(problem.split()))
+            for problem in problems]
+
+
+def jinja_structure(lines):
+    """(blocks, single) of the Jinja statements of "lines", or None when they do not pair up.
+    "blocks" holds, for each block, the set of the line indexes of its opening statement, of each
+    "else" and "elif" of it, and of its "end"; "single" the line indexes of the statements that
+    open no block and are not an "else" ("set x = 1", "include", "import"...). Statements and
+    comments that span lines are not read: read_layout has refused the file by then."""
+    blocks = []
+    single = set()
+    stack = []
+    for number, line in enumerate(lines):
+        for match in JINJA_TAG.finditer(JINJA_COMMENT.sub("", line)):
+            closing, tag, rest = match.groups()
+            if stack and stack[-1][0] == "raw" and not (closing and tag == "raw"):
+                continue
+            if closing:
+                if not stack or stack[-1][0] != tag:
+                    return None
+                stack[-1][1].add(number)
+                blocks.append(frozenset(stack.pop()[1]))
+            elif tag in JINJA_BLOCKS or (tag == "set" and "=" not in rest):
+                stack.append((tag, {number}))
+            elif tag in ("else", "elif"):
+                if not stack or stack[-1][0] not in (("if", "for") if tag == "else" else ("if",)):
+                    return None
+                stack[-1][1].add(number)
+            else:
+                single.add(number)
+    return None if stack else (blocks, single)
+
+
+def jinja_refusal(layout, marks):
+    """None, or why the lines "marks" cannot be deleted from a file with Jinja statements in it.
+    A statement is part of the block it belongs to, and a block's parts hold each other up: an
+    "{% endif %}" taken with the entry above it while its "{% if %}" stays, an "{% else %}" taken
+    with the entry of the branch before it (which re-parents the branch after it), an "{% endif %}"
+    and the "{% if %}" of the next block taken together (which hands the next entry the condition
+    of the one deleted) all leave a template that still parses as YAML, and renders another model
+    list. So a block is taken whole -- its statements and everything between -- or not at all, and
+    a statement that opens no block is not taken, since nothing here knows what it set."""
+    lines = layout["lines"]
+    for block in layout["jinja"]:
+        if not block & marks:
+            continue
+        # Some statement of the block goes: so must every line from its first statement to its last,
+        # the other statements and what they enclose.
+        first, last = min(block), max(block)
+        left = [number for number in range(first, last + 1)
+                if number not in marks and lines[number].strip()]
+        if left:
+            return ("it would take a statement of the Jinja block that runs from line %d to line %d "
+                    "and leave line %d, which is part of it or inside it, behind"
+                    % (first + 1, last + 1, left[0] + 1))
+    statement = layout["jinja_single"] & marks
+    if statement:
+        return ("it would take the Jinja statement at line %d, whose effect on the rest of the "
+                "file this tool cannot read" % (min(statement) + 1))
+    return None
+
+
+def jinja_balance(text):
+    """{block statement: opened minus closed} of the Jinja in "text", the statements that balance
+    left out. The YAML check cannot see Jinja -- the statements are blanked before the parse -- so
+    an "{% endif %}" taken with the entry above it, its "{% if %}" left behind, reads as fine."""
+    balance = collections.Counter()
+    for match in JINJA_TAG.finditer(JINJA_COMMENT.sub("", text)):
+        closing, tag, rest = match.groups()
+        # "{% set x %}" opens a block, "{% set x = 1 %}" does not.
+        if tag in JINJA_BLOCKS or (tag == "set" and "=" not in rest):
+            balance[tag] += -1 if closing else 1
+    return {tag: count for tag, count in balance.items() if count}
+
+
+def verify_removal(text, keys, new_text, original=None):
+    """None when "new_text" is "text" minus the entries of "keys" and their cascade slots, and
+    breaks no rule "text" did not already break; otherwise why not. The deletion is edited text, and
+    text can be wrong in ways its author cannot see: this reads the result back, and compares what it
+    says with what it should say. "original" is (template, problems, layout) of "text" when the
+    caller has them, since each deletion is verified on its own and the original does not change."""
+    if original is None:
+        template, problems = read_template(text)
+        layout = read_layout(text, template)[0] if template else None
+        original = (template, problems, layout)
+    template, problems, layout = original
+    if layout is None:
+        return "the original could not be read back"
+    result, result_problems = read_template(new_text)
+    if result is None:
+        return "the result is not readable: %s" % result_problems[0]
+    worse = collections.Counter(normalised(result_problems)) - collections.Counter(
+        normalised(problems))
+    if worse:
+        return "the offline rules fail on the result: %s" % next(iter(worse))
+    if jinja_balance(text) != jinja_balance(new_text):
+        return ("the deletion takes a Jinja block statement and leaves the other end of its block "
+                "behind, so the template would no longer render")
+    deleted = [entry for entry in layout["entries"] if entry["key"] in keys]
+    surviving = {entry["name"] for entry in layout["entries"] if entry["key"] not in keys}
+    slot_names = {entry["name"] for entry in deleted} - surviving
+    removed = {id(entry["item"]) for entry in deleted if entry["state"] == "active"}
+    expected = dict(template["document"])
+    expected["model_list"] = [item for item in template["document"]["model_list"]
+                              if id(item) not in removed]
+    if strip_names(expected, slot_names) != result["document"]:
+        return "the result is not the original without the deleted entries and their cascade slots"
+
+    def summary(entries):
+        return [(entry["name"], entry["model"], entry["api_base"]) for entry in entries]
+
+    gone = {entry["rendered_start"] for entry in deleted if entry["state"] == "commented"}
+    left = [entry for entry in template["commented"] if entry["start"] not in gone]
+    if summary(result["commented"]) != summary(left):
+        return "the commented-out entries of the result are not the original ones minus the deleted"
+    if result["ignored"] != template["ignored"]:
+        return 'the "drift-ignore:" lines of the result are not the original ones'
+    return None
+
+
+def refuse(outcome, code, detail=""):
+    outcome["status"] = "refused"
+    outcome["reason"] = (code, detail)
+
+
+def static_refusals(layout, keys):
+    """{key: (code, detail)} for every key of "keys" whose deletion would leave the settings
+    pointing at nothing, or at a place this tool cannot edit. Decided on the whole set together: two
+    models that are each one of a cascade's two targets are not deletable one after the other."""
+    surviving = {entry["name"] for entry in layout["entries"] if entry["key"] not in keys}
+    owners = {}
+    for entry in layout["entries"]:
+        if entry["key"] in keys and isinstance(entry["name"], str) and entry["name"] not in surviving:
+            owners.setdefault(entry["name"], set()).add(entry["key"])
+    found = {}
+    for entry in layout["commented"]:
+        if entry["key"] in keys and entry["continues"]:
+            found.setdefault(entry["key"], (
+                "unlocated", "the commented-out entry at line %d goes on after a bare # line, "
+                "which cannot be told from prose" % (entry["start"] + 1)))
+
+    def refuse_name(name, code, detail):
+        for key in owners[name]:
+            found.setdefault(key, (code, detail))
+
+    for reference in layout["references"]:
+        name = reference["name"]
+        if name not in owners:
+            continue
+        if reference["role"] == "source":
+            refuse_name(name, "source", place(reference["group"]))
+        elif reference["role"] == "alias":
+            refuse_name(name, "alias", '"%s"' % reference["group"][1])
+        elif not reference["editable"]:
+            refuse_name(name, "form", place(reference["group"]))
+    for group, members in layout["groups"].items():
+        gone = [member for member in members if member["name"] in owners]
+        if gone and len(gone) == len(members):
+            for member in gone:
+                refuse_name(member["name"], "emptied", place(group))
+    for name in owners:
+        if layout["strays"].get(name):
+            refuse_name(name, "stray", "line %d" % layout["strays"][name][0])
+    return found
+
+
+def banner_blocks(layout):
+    """[(first, last)] of the comment blocks that open with a banner rule: the contiguous comment
+    lines from a rule that follows a blank or a non-comment line, up to the first blank line, the
+    first line that is no comment, or the first line of a commented-out entry. A banner that is
+    closed by a second rule is one block with whatever prose follows it, and so is one that is not
+    (the DeepSeek one), which is why a rule is not paired with the next."""
+    lines = layout["lines"]
+    blocks = []
+    number = 0
+    while number < len(lines):
+        if BANNER_RULE.match(lines[number]) and (number == 0 or not is_comment(lines[number - 1])):
+            last = number
+            while last + 1 < len(lines) and is_comment(lines[last + 1]) \
+                    and last + 1 not in layout["owner"]:
+                last += 1
+            blocks.append((number, last))
+            number = last
+        number += 1
+    return blocks
+
+
+def mention_pattern(token):
+    """A regular expression for "token" standing alone in prose: not inside a longer id, though the
+    full stop or the colon that ends a clause does not make it part of one."""
+    return re.compile(r"(?<![A-Za-z0-9_.-])%s(?![A-Za-z0-9_-]|[.:][A-Za-z0-9])" % re.escape(token))
+
+
+def review_items(layout, accepted, notes, slot_names, position):
+    """{key: [item]} of the places in the NEW file a person has to read after the deletions of
+    "accepted", since a comment can say what is no longer so and no edit here could tell. Each
+    item is {"line", "last", "first", "why", "subject"}, "why" being one of:
+
+    left     prose above a deleted active entry, left where it was
+    kept     the reason over a run of commented-out entries some of which are gone, kept over the
+             ones that stay: it may count them, or name one that is gone
+    banner   a section heading, now over no entry at all
+    mention  a comment line naming a deleted model_name or id, the "subject"
+
+    "position" maps a kept line's index in the old file to its number in the new one."""
+    lines = layout["lines"]
+    old_index = {new: old for old, new in position.items()}
+    items = {key: [] for key in accepted}
+    pointed = set()
+
+    def point(key, numbers, why, subject=None):
+        spans = []
+        for number in sorted(position[n] for n in numbers if n in position):
+            if spans and number == spans[-1][1] + 1:
+                spans[-1][1] = number
+            else:
+                spans.append([number, number])
+        for first, last in spans:
+            if pointed & set(range(first, last + 1)):
+                continue
+            pointed.update(range(first, last + 1))
+            prose = [comment_content(lines[old_index[number]]) or ""
+                     for number in range(first, last + 1)
+                     if not BANNER_RULE.match(lines[old_index[number]])]
+            items[key].append({"line": first, "last": last, "why": why, "subject": subject,
+                               "first": next((text.strip() for text in prose
+                                              if re.search(r"[A-Za-z]", text)), "")})
+
+    for key in sorted(accepted):
+        for group in notes[key]["left"]:
+            point(key, group, "left")
+
+    for run in layout["runs"]:
+        members = [layout["commented"][index] for index in run]
+        gone = [member for member in members if member["key"] in accepted]
+        if gone and len(gone) < len(members):
+            point(gone[0]["key"], comments_above(layout, members[0]["start"]), "kept")
+
+    blocks = banner_blocks(layout)
+    for index, (first, last) in enumerate(blocks):
+        until = blocks[index + 1][0] if index + 1 < len(blocks) else len(lines)
+        section = [entry for entry in layout["entries"] if last < entry["start"] < until]
+        if section and all(entry["key"] in accepted for entry in section):
+            point(section[0]["key"], range(first, last + 1), "banner")
+
+    # What each deleted model is called in prose: its provider-qualified id, its bare id unless a
+    # surviving entry carries the same one (the same name at another provider is not a stale
+    # mention), and its model_name unless a surviving entry carries that.
+    survivors = [entry["model"] for entry in layout["entries"]
+                 if entry["key"] not in accepted and isinstance(entry["model"], str)]
+    names = {}
+    for provider, identifier in accepted:
+        called = [litellm_id(provider, identifier)[0]]
+        if not any(mention_pattern(identifier).search(model) for model in survivors):
+            called.append(identifier)
+        called += [entry["name"] for entry in layout["entries"]
+                   if entry["key"] == (provider, identifier) and entry["name"] in slot_names]
+        names[(provider, identifier)] = [(token, mention_pattern(token))
+                                         for token in dict.fromkeys(called)]
+    for number in sorted(position):
+        content = comment_content(lines[number])
+        if content is None:
+            continue
+        for key in sorted(names):
+            hit = next((token for token, pattern in names[key] if pattern.search(content)), None)
+            if hit:
+                point(key, [number], "mention", hit)
+                break
+    return items
+
+
+def apply_removals(text, wanted):
+    """Delete from "text" every entry the providers have retired that can be deleted without
+    anybody's judgment. "wanted" is a list of (provider, id, kind). Returns (new_text, outcomes),
+    one outcome per wanted item, in order: "status" is "applied" or "refused", and a refusal
+    carries its "reason" -- a deletion that is not safe on its own terms is not made, and the
+    finding stays where a person reads it. Nothing is written anywhere here."""
+    # One outcome per (provider, id): a finding asked for twice is one deletion.
+    wanted = list({(provider, identifier): (provider, identifier, kind)
+                   for provider, identifier, kind in wanted}.values())
+    outcomes = [{"provider": provider, "id": identifier, "kind": kind, "status": "refused",
+                 "reason": None, "entries": [], "slots": [], "prose": [], "review": []}
+                for provider, identifier, kind in wanted]
+    by_key = {(o["provider"], o["id"]): o for o in outcomes}
+    template, problems = read_template(text)
+    layout, why = read_layout(text, template) if template else (None, problems[0])
+    if layout is None:
+        for outcome in outcomes:
+            refuse(outcome, "unlocated", why)
+        return text, outcomes
+
+    accepted = set()
+    for key, outcome in by_key.items():
+        if layout["by_key"].get(key):
+            accepted.add(key)
+        else:
+            refuse(outcome, "unlocated", "no entry of the file is attributed to it")
+    while accepted:
+        refusals = static_refusals(layout, accepted)
+        if not refusals:
+            break
+        for key, (code, detail) in refusals.items():
+            refuse(by_key[key], code, detail)
+            accepted.discard(key)
+
+    # Each deletion is also tried alone, and read back: what fails does so under its own name, and
+    # the others still go through.
+    for key in sorted(accepted):
+        marks, _, _ = plan_lines(layout, {key})
+        problem = jinja_refusal(layout, marks) or verify_removal(
+            text, {key}, assemble(layout, marks)[0], (template, problems, layout))
+        if problem:
+            refuse(by_key[key], "verification", problem)
+            accepted.discard(key)
+    if not accepted:
+        return text, outcomes
+
+    marks, notes, slot_names = plan_lines(layout, accepted)
+    new_text, kept = assemble(layout, marks)
+    problem = jinja_refusal(layout, marks) or verify_removal(
+        text, accepted, new_text, (template, problems, layout))
+    if problem:
+        for key in accepted:
+            refuse(by_key[key], "verification", "taken together, " + problem)
+        return text, outcomes
+    # Positions in the new file, for the places a person is asked to look at.
+    position = {number: index + 1 for index, number in enumerate(kept)}
+    reviews = review_items(layout, accepted, notes, slot_names, position)
+    for key in accepted:
+        outcome = by_key[key]
+        outcome["status"] = "applied"
+        outcome.update({name: notes[key][name] for name in ("entries", "slots", "prose")})
+        outcome["review"] = reviews[key]
+    return new_text, outcomes
+
+
+# A catalogue that omits MORE than this share of the ids the file holds for its provider, and at
+# least this many of them, is not believed either: a key that sees another tier, a truncated page or
+# a provider in the middle of an incident all answer 200 with a short list, and a short list is
+# exactly what a mass retirement looks like. Such a week is a person's to read, in the issue.
+IMPLAUSIBLE_SHARE = 0.5
+IMPLAUSIBLE_FLOOR = 3
+
+
+def refused_outcome(report, finding, code, detail=""):
+    return {"provider": report["name"], "id": finding["id"], "kind": finding["kind"],
+            "status": "refused", "reason": (code, detail), "entries": [], "slots": [],
+            "prose": [], "review": []}
+
+
+def apply_to_result(text, result):
+    """Apply the RETIRED and GONE findings of "result" to "text". Each finding gets a "removal"
+    outcome, and the new text is returned. A provider whose catalogue lists nothing is not believed:
+    a fetch that answers 200 with an empty list is a failed read, not a provider with no model. Nor
+    is one whose catalogue omits most of what the file holds for it (IMPLAUSIBLE_SHARE)."""
+    wanted = []
+    for report in result["providers"]:
+        deletable = [finding for finding in report["findings"]
+                     if finding["kind"] in ("retired", "gone")]
+        omitted = len({finding["id"] for finding in deletable})
+        implausible = (omitted >= IMPLAUSIBLE_FLOOR
+                       and omitted > IMPLAUSIBLE_SHARE * report.get("known", 0))
+        for finding in deletable:
+            if report.get("members") == 0:
+                finding["removal"] = refused_outcome(report, finding, "empty")
+            elif implausible:
+                finding["removal"] = refused_outcome(report, finding, "implausible",
+                                                     (omitted, report["known"]))
+            else:
+                wanted.append((report["name"], finding["id"], finding["kind"]))
+    new_text, outcomes = apply_removals(text, wanted)
+    by_key = {(outcome["provider"], outcome["id"]): outcome for outcome in outcomes}
+    for report in result["providers"]:
+        for finding in report["findings"]:
+            if (report["name"], finding["id"]) in by_key and "removal" not in finding:
+                finding["removal"] = by_key[(report["name"], finding["id"])]
+    result["removals"] = {
+        "outcomes": [finding["removal"] for report in result["providers"]
+                     for finding in report["findings"] if "removal" in finding],
+        "changed": new_text != text,
+    }
+    return new_text
+
+
+# ------------------------------------------------------------------------------------------------
+# The renderings: the run's report in English, the issue, pull request and commit in the language
+# the people who read each of them write in
 # ------------------------------------------------------------------------------------------------
 
 KINDS = ("retired", "gone", "notice", "back", "new")
+
+PROVIDER_LABELS = {
+    "openrouter": "OpenRouter", "cerebras": "Cerebras", "sambanova": "SambaNova",
+    "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
+}
+# GitHub refuses an issue or pull request body past 65536 characters.
+BODY_LIMIT = 60000
 
 
 def notice_text(notice, french=False):
@@ -913,7 +1993,7 @@ def notice_text(notice, french=False):
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
                 "inactive": "marqué inactif"}.get(what, what)
         if date:
-            text += " (%s)" % date
+            text += " (`%s`)" % date
         if replacement:
             text += ", remplaçant désigné : `%s`" % replacement
         return text
@@ -933,6 +2013,12 @@ def litellm_id(provider, identifier):
     return "%s/%s" % (provider, identifier), ""
 
 
+def removals_of(result, status):
+    """[(report, finding)] of the RETIRED and GONE findings a run deleted, or left to a person."""
+    return [(report, finding) for report in result["providers"] for finding in report["findings"]
+            if finding.get("removal", {}).get("status") == status]
+
+
 def render_text(result, config_name):
     out = ["LiteLLM model drift: %s against each provider's catalogue, %s"
            % (config_name, result["date"]), ""]
@@ -948,6 +2034,8 @@ def render_text(result, config_name):
         else:
             state = "read, %d model(s), %d chat candidate(s)" % (report["members"],
                                                                   report["candidates"])
+            if report.get("unsafe"):
+                state += ", %d id(s) of an unusual spelling left out" % report["unsafe"]
         out.append("%-11s %s; %s" % (report["name"], state, known))
     if result["unattributed"]:
         count = len(result["unattributed"])
@@ -978,6 +2066,11 @@ def render_text(result, config_name):
                 if kind == "new":
                     line += (": free" if finding["free"]
                              else ": to examine, its free tier is not machine-readable")
+                removal = finding.get("removal")
+                if removal and removal["status"] == "applied":
+                    line += " -- DELETED from the file"
+                elif removal:
+                    line += " -- NOT DELETED, left to a person: " + refusal_text(removal)
                 lines.append(line)
         if lines:
             out += [labels[kind]] + lines + [""]
@@ -989,8 +2082,12 @@ def render_text(result, config_name):
 
     errors = sum(1 for report in result["providers"] if report["status"] == "error")
     uncovered = sum(1 for report in result["providers"] if report["status"] == "no key")
-    out.append("%d finding(s), %d provider(s) in error, %d not covered (no key)."
+    summary = ("%d finding(s), %d provider(s) in error, %d not covered (no key)."
                % (count, errors, uncovered))
+    if "removals" in result:
+        summary += (" %d deletion(s) made, %d left to a person."
+                    % (len(removals_of(result, "applied")), len(removals_of(result, "refused"))))
+    out.append(summary)
     return "\n".join(out) + "\n"
 
 
@@ -1003,6 +2100,18 @@ def run_link():
     return None
 
 
+def pulls_link():
+    """Where the deletion pull request is, found by its branch, which the workflow names in
+    REMOVALS_BRANCH: the number is not known when the issue body is written."""
+    server = os.environ.get("GITHUB_SERVER_URL")
+    repository = os.environ.get("GITHUB_REPOSITORY")
+    branch = os.environ.get("REMOVALS_BRANCH")
+    if server and repository and branch:
+        return "%s/%s/pulls?q=is%%3Apr+is%%3Aopen+head%%3A%s" % (
+            server, repository, urllib.parse.quote(branch, safe=""))
+    return None
+
+
 def capped(lines):
     if len(lines) <= MAX_LISTED:
         return lines
@@ -1010,7 +2119,70 @@ def capped(lines):
                                  (len(lines) - MAX_LISTED)]
 
 
+# What a NEW entry is modelled on. The model_name follows the file's own habit (the id, dots turned
+# to dashes, the provider's name as a suffix where the provider's names carry one -- not Mistral's
+# nor Gemini's, which only name the entries another provider's model is hosted by or a Gemma by it,
+# and a name already taken gets the provider's name anyway), the key and the api_base are those
+# most of the provider's existing entries use. Only a spelling the file itself
+# could hold is copied: a snippet is something a person pastes, and the file is trusted more than
+# a catalogue.
+NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
+                 "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct"}
+DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1"}
+SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
+SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
+
+
+def provider_basis(entries, provider):
+    keys = collections.Counter()
+    bases = collections.Counter()
+    for entry in entries:
+        attributed = attribute(entry["model"], entry["api_base"])
+        if attributed and attributed[0] == provider:
+            keys[entry["api_key"]] += 1
+            bases[entry["api_base"]] += 1
+    key = next((k for k, _ in keys.most_common() if isinstance(k, str) and SAFE_KEY.fullmatch(k)),
+               None)
+    base = bases.most_common(1)[0][0] if bases else DEFAULT_BASES.get(provider)
+    if not (isinstance(base, str) and SAFE_BASE.fullmatch(base)):
+        base = None
+    # The entries of a provider do not all agree on the "api_base" (Gemini's Gemma ones have none):
+    # the snippet gets the majority's, and the issue says the choice is open.
+    return {"api_key": key, "api_base": base, "mixed": len(bases) > 1}
+
+
+def propose_name(provider, identifier, taken):
+    stem = identifier.split("/")[-1].lower().replace(":free", "-free")
+    stem = re.sub(r"[^a-z0-9]+", "-", stem).strip("-") or "model"
+    name = stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
+    for suffix in ("", "-" + provider, "-new"):
+        if name + suffix not in taken:
+            name += suffix
+            break
+    taken.add(name)
+    return name
+
+
+def snippet(provider, identifier, basis, name):
+    lines = ["  - model_name: %s" % name,
+             "    litellm_params:",
+             "      model: %s" % litellm_id(provider, identifier)[0]]
+    if basis["api_base"]:
+        lines.append('      api_base: "%s"' % basis["api_base"])
+    lines.append('      api_key: "%s"' % (basis["api_key"]
+                                         or "os.environ/%s_API_KEY_<ACCOUNT>" % provider.upper()))
+    return lines
+
+
 def render_issue_body(result, config_name, link=None):
+    body = issue_body(result, config_name, link, snippets=True)
+    if len(body) > BODY_LIMIT:
+        body = issue_body(result, config_name, link, snippets=False)
+    return body
+
+
+def issue_body(result, config_name, link, snippets):
+    applying = "removals" in result
     out = [ISSUE_MARKER, ""]
     out.append(
         "Rapport hebdomadaire de `.github/workflows/LiteLLM_model_drift.yml` : il compare "
@@ -1020,11 +2192,22 @@ def render_issue_body(result, config_name, link=None):
         "suivante." % config_name
     )
     out.append("")
-    out.append(
-        "Rien n'est modifié automatiquement. La règle (`CLAUDE.md`, « The model list keeps only "
-        "what can be called ») demande qu'un humain vérifie chaque constat sur la page du "
-        "fournisseur, et en cite la date, avant de toucher à la liste."
-    )
+    if applying:
+        out.append(
+            "Une seule sorte de constat se traite sans jugement : un modèle que son fournisseur ne "
+            "liste plus. Le workflow le supprime lui-même, sans IA, dans une pull request, en "
+            "citant le catalogue lu et la date ; ce qu'il ne peut pas supprimer sans risque reste "
+            "ici avec sa raison. Tout le reste se décide ici, après vérification sur la page du "
+            "fournisseur (`CLAUDE.md`, « The model list keeps only what can be called » : chaque "
+            "affirmation de la liste cite la page du fournisseur et la date) : ajouter un modèle "
+            "est un choix, et un retrait annoncé n'est pas encore un retrait."
+        )
+    else:
+        out.append(
+            "Rien n'est modifié automatiquement. La règle (`CLAUDE.md`, « The model list keeps "
+            "only what can be called ») demande qu'un humain vérifie chaque constat sur la page du "
+            "fournisseur, et en cite la date, avant de toucher à la liste."
+        )
     out.append("")
     run = "Exécution du %s" % result["date"]
     out.append(run + (" : %s" % link if link else "") + ".")
@@ -1035,13 +2218,44 @@ def render_issue_body(result, config_name, link=None):
         out += ["- " + problem.replace("\n", " ") for problem in result["rules"]]
         return "\n".join(out) + "\n"
 
+    pulls = pulls_link()
+    branch = os.environ.get("REMOVALS_BRANCH")
+    help_text = ("Chaque identifiant vient avec une entrée à compléter : le nom de modèle est une "
+                 "proposition, la clé et l'`api_base` sont ceux de la plupart des entrées "
+                 "existantes du même fournisseur. La coller telle quelle l'active ; pour la "
+                 "laisser inactive, insérer `# ` après les deux espaces d'indentation de chaque "
+                 "ligne (`  # - model_name: ...`, comme les autres entrées commentées du "
+                 "fichier) et écrire au-dessus « Served, but not routed to: <raison> », avec la "
+                 "page du fournisseur et la date de la vérification.")
+    mixed = sorted(report["name"] for report in result["providers"]
+                   if report["basis"].get("mixed") and any(
+                       finding["kind"] == "new" for finding in report["findings"]))
+    if mixed:
+        help_text += (" Les entrées existantes de %s ne s'accordent pas toutes sur l'`api_base` : "
+                      "l'entrée proposée a celle de la majorité, à retirer si le modèle ressemble "
+                      "à celles qui n'en ont pas." % ", ".join("`%s`" % name for name in mixed))
     sections = {
-        "retired": ("Retirés : à supprimer",
+        "removed": ("Supprimés par la pull request",
+                    "Le fournisseur ne les liste plus : le workflow en propose la suppression sur "
+                    "%s, entrée, places dans les cascades et commentaire de raison qui ne servait "
+                    "qu'à elles. Il ouvre la pull request quand le réglage « Allow GitHub Actions "
+                    "to create and approve pull requests » le permet%s ; sinon la branche est là "
+                    "et la pull request est à ouvrir. Ils disparaissent de ce rapport une fois la "
+                    "suppression fusionnée." % (
+                        "la branche %s" % code_span(branch) if branch else "sa branche",
+                        " ([la pull request, si elle est ouverte](%s))" % pulls if pulls else ""),),
+        "retired": ("Retirés : à supprimer" if not applying
+                    else "Retirés : à supprimer à la main",
                     "Entrées actives dont l'identifiant n'est plus au catalogue du fournisseur. "
-                    "Supprimer l'entrée **et** ses places dans les cascades."),
-        "gone": ("Entrées commentées retirées : à supprimer",
+                    "Supprimer l'entrée **et** ses places dans les cascades."
+                    + (" Le workflow ne l'a pas fait, pour la raison donnée à chaque ligne."
+                       if applying else "")),
+        "gone": ("Entrées commentées retirées : à supprimer" if not applying
+                 else "Entrées commentées retirées : à supprimer à la main",
                  "Le fournisseur ne les sert plus : la règle ne garde pas de modèle retiré en "
-                 "commentaire, git en garde la trace."),
+                 "commentaire, git en garde la trace."
+                 + (" Le workflow ne l'a pas fait, pour la raison donnée à chaque ligne."
+                    if applying else "")),
         "notice": ("Retraits annoncés",
                    "Entrées actives que le fournisseur marque pour retrait : prévoir leur "
                    "remplacement dans les cascades."),
@@ -1051,19 +2265,23 @@ def render_issue_body(result, config_name, link=None):
         "new_free": ("Nouveaux modèles gratuits sur OpenRouter",
                      "`:free` et à 0 $, sortie texte uniquement. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
-                     "<raison>` dans le fichier."),
+                     "<raison>` dans le fichier." + (" " + help_text if snippets else "")),
         "new_examine": ("Nouveaux modèles à examiner",
                         "Leur gratuité ne se lit pas dans l'API du fournisseur : la vérifier sur "
                         "sa page de tarifs avant de les router, et sinon les écarter comme "
-                        "ci-dessus."),
+                        "ci-dessus." + (" " + help_text if snippets else "")),
     }
-    for kind in ("retired", "gone", "notice", "back", "new_free", "new_examine"):
+    taken = set(result.get("names", ()))
+    for kind in ("removed", "retired", "gone", "notice", "back", "new_free", "new_examine"):
         lines = []
         for report in result["providers"]:
             for finding in report["findings"]:
                 finding_kind = finding["kind"]
+                removal = finding.get("removal")
                 if finding_kind == "new":
                     finding_kind = "new_free" if finding["free"] else "new_examine"
+                elif removal and removal["status"] == "applied":
+                    finding_kind = "removed"
                 if finding_kind != kind:
                     continue
                 identifier, where = litellm_id(report["name"], finding["id"])
@@ -1073,10 +2291,17 @@ def render_issue_body(result, config_name, link=None):
                 if kind == "notice":
                     line += " : " + notice_text(finding["notice"], french=True)
                 if kind.startswith("new") and finding.get("label"):
-                    line += " : %s" % finding["label"]
+                    line += " : `%s`" % finding["label"]
+                if removal and removal["status"] == "refused":
+                    line += " : **non supprimé par le workflow** : " + refusal_text(removal, True)
+                if kind.startswith("new") and snippets:
+                    name = propose_name(report["name"], finding["id"], taken)
+                    block = snippet(report["name"], finding["id"], report["basis"], name)
+                    line += "\n" + "\n".join(
+                        ["  ```yaml"] + ["  " + code for code in block] + ["  ```"])
                 lines.append(line)
         if lines:
-            title, explanation = sections[kind]
+            title, explanation = sections[kind][0], sections[kind][1]
             out += ["## %s" % title, "", explanation, ""] + capped(lines) + [""]
 
     if result["rules"]:
@@ -1091,7 +2316,8 @@ def render_issue_body(result, config_name, link=None):
                 "Catalogues qui n'ont pas pu être lus : leurs modèles ne sont ni confirmés ni "
                 "déclarés retirés. Un `401` ou un `403` désigne en général une clé invalide, "
                 "expirée ou révoquée, et Gemini répond `400` à une clé invalide.", ""]
-        out += ["- %s : %s" % (report["name"], report["error"]) for report in errors] + [""]
+        out += ["- %s : %s" % (report["name"], code_span(report["error"]))
+                for report in errors] + [""]
 
     out += ["## Couverture", "",
             "| Fournisseur | État | Modèles au catalogue | Identifiants actifs ici "
@@ -1117,6 +2343,185 @@ def render_issue_body(result, config_name, link=None):
     if exit_status(result) == 0:
         out += ["Aucune dérive.", ""]
     return "\n".join(out) + "\n"
+
+
+def code_span(text, limit=100):
+    """"text" as a markdown code span, which shows it as it is and makes nothing of it: no link, no
+    mention, no markup. The one character that could end the span is replaced, and a text longer
+    than "limit" is cut between two words and says so."""
+    flat = " ".join(str(text).split()).replace("`", "'")
+    if len(flat) > limit:
+        head = flat[:limit]
+        flat = (head.rsplit(" ", 1)[0] if " " in head else head).rstrip(" ,;:") + "…"
+    return "`%s`" % flat
+
+
+def slots_text(slots):
+    """Where an entry's cascade slots were, for a person: the cascades, grouped by section."""
+    by_where = {}
+    for where, source in slots:
+        sources = by_where.setdefault(where, [])
+        if source and source not in sources:
+            sources.append(source)
+    parts = []
+    for where, sources in by_where.items():
+        if not sources:
+            parts.append("`%s`" % where)
+        else:
+            quoted = ["`%s`" % source for source in sources]
+            parts.append("%s %s de `%s`" % (
+                "la cascade" if len(quoted) == 1 else "les cascades",
+                ", ".join(quoted[:-1]) + (" et " if len(quoted) > 1 else "") + quoted[-1], where))
+    return "; ".join(parts)
+
+
+def count_phrase(count, singular, plural):
+    return "%d %s" % (count, singular if count == 1 else plural)
+
+
+def catalogue_url(provider):
+    return next(url for name, url, _, _, _, _ in PROVIDERS if name == provider)
+
+
+def render_pr_body(result, link=None):
+    """The body of the pull request that carries the deletions, in French: for every deletion the
+    provider, the id, the catalogue that was read and the day it was read."""
+    applied = removals_of(result, "applied")
+    refused = removals_of(result, "refused")
+    out = [
+        "Suppressions faites **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, à "
+        "l'exécution du %s%s. Chaque modèle ci-dessous est absent du catalogue que son fournisseur "
+        "publie ce jour-là, et la règle de `CLAUDE.md` (« The model list keeps only what can be "
+        "called ») veut qu'un modèle retiré soit **supprimé**, entrée et places de cascade "
+        "ensemble : git en garde la trace." % (result["date"], " (%s)" % link if link else ""),
+        "",
+        "Cette pull request est réécrite à chaque exécution à partir de `main`, titre et corps "
+        "compris (une modification à la main de l'un ou de l'autre est perdue à la suivante), tant "
+        "que sa branche ne porte que des commits du workflow ou des commits de fusion (celui du "
+        "bouton « Update branch » en est un). Un commit ajouté par quelqu'un d'autre la fige : le "
+        "workflow n'y touche plus, même s'il n'y a plus rien à supprimer, et son exécution "
+        "échoue chaque semaine pour le dire, jusqu'à ce que la branche soit supprimée. "
+        "Fermée sans être fusionnée, elle est remplacée par une nouvelle à l'exécution suivante si "
+        "les fournisseurs ne listent toujours pas ces modèles ; fusionnée, ces modèles "
+        "disparaissent de l'issue hebdomadaire à l'exécution d'après.",
+        "",
+        "## %s" % ("Suppression" if len(applied) == 1 else "Suppressions"),
+        "",
+    ]
+    lines = []
+    for report, finding in applied:
+        removal = finding["removal"]
+        identifier = safe_text(litellm_id(report["name"], finding["id"])[0], 120)
+        names = ", ".join("`%s`" % safe_text(entry["name"], 80) for entry in removal["entries"])
+        states = {entry["state"] for entry in removal["entries"]}
+        what = ("entrée active" if states == {"active"} else
+                "entrée commentée" if states == {"commented"} else "entrées")
+        line = "- `%s` chez %s : %s %s supprimée" % (
+            identifier, PROVIDER_LABELS[report["name"]], what, names)
+        if removal["slots"]:
+            line += ", avec ses places dans " + slots_text(removal["slots"])
+        line += ". Absent du catalogue <%s>, lu le %s." % (catalogue_url(report["name"]),
+                                                          result["date"])
+        lines.append(line)
+    out += capped(lines) + [""]
+
+    prose = [(report, finding) for report, finding in applied if finding["removal"]["prose"]]
+    if prose:
+        out += ["## Commentaires supprimés avec elles", "",
+                "La raison d'un groupe d'entrées commentées (le « not routed to: » que le contrôle "
+                "exige) ne motive que ce groupe : elle part avec lui quand toutes ses entrées "
+                "partent, et reste au-dessus de celles qui restent sinon.", ""]
+        for report, finding in prose:
+            for removed in finding["removal"]["prose"]:
+                out.append("- avec `%s` : %s, dont la première est %s." % (
+                    safe_text(litellm_id(report["name"], finding["id"])[0], 120),
+                    count_phrase(removed["lines"], "ligne de commentaire", "lignes de commentaire"),
+                    code_span(removed["first"])))
+        out.append("")
+
+    review = sorted(((report, finding, item) for report, finding in applied
+                     for item in finding["removal"]["review"]), key=lambda row: row[2]["line"])
+    if review:
+        out += ["## À relire", "",
+                "Le workflow ne réécrit aucune prose, et le contrôle ne lit pas les commentaires : "
+                "un commentaire peut dire ce qui n'est plus vrai une fois ces entrées parties, ou "
+                "décrire une entrée voisine, et seule une personne le voit. Ces lignes du nouveau "
+                "fichier sont celles à relire :", ""]
+        lines = []
+        for report, finding, item in review:
+            where = ("ligne %d" % item["line"] if item["line"] == item["last"]
+                     else "lignes %d à %d" % (item["line"], item["last"]))
+            deleted = safe_text(litellm_id(report["name"], finding["id"])[0], 120)
+            text = {
+                "left": "restées au-dessus de l'entrée supprimée `%s`" % deleted,
+                "kept": "la raison d'un groupe d'entrées commentées dont `%s` a été retirée, "
+                        "gardée au-dessus de celles qui restent : elle peut les compter, ou "
+                        "nommer une entrée qui n'est plus là" % deleted,
+                "banner": "l'en-tête d'une section qui n'a plus aucune entrée depuis la "
+                          "suppression de `%s`" % deleted,
+                "mention": "cite `%s`, supprimé" % safe_text(item["subject"] or "", 120),
+            }[item["why"]]
+            lines.append("- %s (%s) : %s." % (where, code_span(item["first"]), text))
+        out += capped(lines) + [""]
+
+    if refused:
+        out += ["## Non supprimé par le workflow", "",
+                "Ces modèles sont retirés eux aussi, mais les supprimer demande un choix : ils "
+                "restent dans l'issue hebdomadaire, avec la raison.", ""]
+        out += capped(["- `%s` : %s." % (safe_text(litellm_id(report["name"], finding["id"])[0],
+                                                    120),
+                                           refusal_text(finding["removal"], True))
+                       for report, finding in refused]) + [""]
+
+    unread = [report["name"] for report in result["providers"] if report["status"] != "read"]
+    if unread:
+        out += ["## Catalogues non lus", "",
+                "Ces catalogues n'ont pas été lus à cette exécution (pas de clé, ou erreur) : %s. "
+                "Cette pull request ne dit rien de leurs modèles, et une suppression qui les "
+                "concerne n'y viendra qu'à une exécution qui les lira." % ", ".join(
+                    "`%s`" % name for name in unread), ""]
+
+    out += ["## Vérification", "",
+            "Le résultat est relu avant d'être écrit : il doit se lire comme le fichier d'origine "
+            "moins ces entrées et leurs places de cascade, et ne casser aucune règle du mode hors "
+            "ligne que le fichier d'origine ne cassait pas déjà. Cette relecture porte sur la "
+            "structure du fichier, pas sur ses commentaires : ce qui peut avoir changé de sens "
+            "est listé plus haut. Une pull request ouverte avec le jeton du workflow ne lance "
+            "aucun contrôle : le workflow relance `ansible-ci.yml` et `gitleaks.yml` sur la "
+            "branche, leurs résultats s'affichent ici.",
+            ""]
+    return "\n".join(out)
+
+
+def wrapped(text):
+    return textwrap.fill(text, width=100)
+
+
+def render_commit_message(result):
+    """The commit that carries the deletions, in English like every commit here."""
+    applied = removals_of(result, "applied")
+    counts = collections.Counter(PROVIDER_LABELS[report["name"]] for report, _ in applied)
+    by_provider = ", ".join("%s (%d)" % (label, count) for label, count in sorted(counts.items()))
+    return (
+        "Delete the models their provider has retired from the LiteLLM model list (#243)\n\n"
+        + wrapped("The weekly drift check read each provider's own model catalogue on %s "
+                  "and found %s it no longer lists, from %s. The pull request that carries this "
+                  "commit names each of them and the catalogue it was missing from."
+                  % (result["date"], count_phrase(len(applied), "id", "ids"), by_provider))
+        + "\n\n"
+        + wrapped("Their entries, their slots in the fallback cascades and the comment that gave "
+                  "a commented-out group its reason, where every entry of the group is going, are "
+                  "deleted, which is what the rule of CLAUDE.md asks of a model its provider has "
+                  "retired.")
+        + "\n\n"
+        + wrapped("Nothing here was a judgment, which is why no person and no model made it: "
+                  "check_LiteLLM_model_drift.py --apply deletes a model only when the catalogue "
+                  "no longer lists it, only when the cascades and aliases it leaves behind still "
+                  "name an active entry, and only after reading the result back against the "
+                  "original. What it could not delete without choosing stays in the weekly "
+                  "issue, with the reason; so do additions and announced retirements, which are "
+                  "choices.")
+        + "\n")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1425,6 +2830,28 @@ def selftest_answers():
     }
 
 
+def answers_listing(text, without=()):
+    """Canned catalogues that list exactly the ids "text" holds, active or commented out, less the
+    (provider, id) pairs of "without": the answers to retire models from."""
+    template, _ = read_template(text)
+    ids = collections.defaultdict(set)
+    for entry in template["active"] + template["commented"]:
+        attributed = attribute(entry["model"], entry["api_base"])
+        if attributed and attributed not in without:
+            ids[attributed[0]].add(attributed[1])
+    return {
+        "openrouter": {"data": [openrouter_model(i) for i in sorted(ids["openrouter"])]},
+        "cerebras": {"data": [{"id": i} for i in sorted(ids["cerebras"])]},
+        "sambanova": {"data": [{"id": i} for i in sorted(ids["sambanova"])]},
+        "gemini": [{"models": [{"name": "models/" + i, "supportedGenerationMethods":
+                                ["generateContent"]} for i in sorted(ids["gemini"])]}],
+        "groq": {"data": [{"id": i, "active": True} for i in sorted(ids["groq"])]},
+        "mistral": {"data": [{"id": i, "capabilities": {"completion_chat": True}}
+                             for i in sorted(ids["mistral"])]},
+        "deepseek": {"data": [{"id": i} for i in sorted(ids["deepseek"])]},
+    }
+
+
 SELFTEST_KEYS = {
     "MODEL_DRIFT_GEMINI_API_KEY": "selftest-gemini-key-SECRET",
     "MODEL_DRIFT_GROQ_API_KEY": "selftest-groq-key-SECRET",
@@ -1445,9 +2872,9 @@ def canned_opener(answers, calls):
             answer = answers[name]
             if isinstance(answer, Exception):
                 raise answer
-            if name == "gemini":
+            if name == "gemini" and isinstance(answer, list):
                 answer = answer[1] if "&pageToken=second" in url else answer[0]
-            return json.dumps(answer).encode()
+            return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
         raise AssertionError("unexpected URL in selftest: %s" % url)
     return opener
 
@@ -1604,6 +3031,41 @@ def online_cases():
         ("a template that does not render is unreadable: exit 2, no catalogue read, and the French "
          "body says why",
          SELFTEST_TEMPLATE + "{% if %}\n", SELFTEST_KEYS, base, no_drift, 2, unreadable),
+        ("a reason phrase that carries a key and an address reaches neither the report nor the "
+         "issue: the status is all that is shown",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("deepseek", urllib.error.HTTPError(
+             "https://selftest.invalid/", 500,
+             "Invalid key selftest-deepseek-key-SECRET see https://evil.example/login", None,
+             io.BytesIO(b"{}"))),
+         no_drift, 2,
+         lambda result, calls, report, body: (
+             "the reason phrase was shown"
+             if any(needle in report + body for needle in ("SECRET", "evil", "Invalid"))
+             else None if "HTTP 500" in report and "`HTTP 500`" in body
+             else "the status is not shown")),
+        ("a key that a network error carries is replaced before the error is shown",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("groq", urllib.error.URLError("refused for selftest-groq-key-SECRET")),
+         no_drift, 2,
+         lambda result, calls, report, body: (
+             "a key reached the output" if "SECRET" in report + body
+             else None if "refused for ***" in report and "`network error: refused for ***`" in body
+             else "the key was not replaced")),
+        ("a model whose fields have a type nobody documented is skipped, not a crash",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         dict(changed("gemini", [{"models": base["gemini"][0]["models"] + [
+             {"name": "models/gemini-odd", "supportedGenerationMethods": 5}],
+              "nextPageToken": 5}]),
+              mistral={"data": base["mistral"]["data"] + [
+                  {"id": "mistral-odd", "aliases": 5, "capabilities": {"completion_chat": False}}]}),
+         no_drift, 0, None),
+        ("a catalogue nested too deeply to parse is that provider's error, not a crash",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("groq", b"[" * 100000 + b"]" * 100000), no_drift, 2,
+         lambda result, calls, report, body: (
+             None if "groq" in report and "nested too deeply" in report
+             else "the report does not say that the Groq answer could not be read")),
         ("a rule broken on main is reported online too",
          SELFTEST_TEMPLATE.replace("        - local\n", "        - gone\n"), SELFTEST_KEYS, base,
          no_drift, 1,
@@ -1611,6 +3073,1421 @@ def online_cases():
              None if "## Règles du fichier" in body and result["rules"]
              else "the broken rule is not in the issue body")),
     )
+
+
+# A file with every structure a deletion has to take apart: virtual routers that cascades start
+# from, an alias in each of its two spellings, prose above an active entry, a run of three
+# commented-out entries under one reason, a banner that is itself a reason, a banner that is only a
+# heading over entries which stay, a model id two entries share, a cascade with a single target.
+APPLY_TEMPLATE = """\
+model_list:
+  # ============================================================================
+  # Virtual routers
+  # ============================================================================
+  - model_name: router
+    litellm_params:
+      model: gemini/gemini-9-pro
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: router-two
+    litellm_params:
+      model: gemini/gemini-9-flash
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: router-solo
+    litellm_params:
+      model: gemini/gemini-9-lite
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  # ============================================================================
+  # Groq
+  # ============================================================================
+  # Prose about alpha, which may as well be about its neighbours.
+  - model_name: alpha-groq
+    litellm_params:
+      model: groq/vendor/alpha
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: beta-groq
+    litellm_params:
+      model: groq/vendor/beta
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: gamma-groq
+    litellm_params:
+      model: groq/vendor/gamma
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: solo-groq
+    litellm_params:
+      model: groq/vendor/solo
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: shared-one
+    litellm_params:
+      model: groq/vendor/shared
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: shared-two
+    litellm_params:
+      model: groq/vendor/shared
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: aliased-groq
+    litellm_params:
+      model: groq/vendor/aliased
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  # ============================================================================
+  # OpenRouter (":free" entries only)
+  # ============================================================================
+  - model_name: free-a
+    litellm_params:
+      model: openrouter/vendor/a:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: free-b
+    litellm_params:
+      model: openrouter/vendor/b:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  # Served, but not routed to: paid only.
+  # - model_name: paid-a
+  #   litellm_params:
+  #     model: openrouter/vendor/paid-a
+  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #
+  # - model_name: paid-b
+  #   litellm_params:
+  #     model: openrouter/vendor/paid-b
+  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #
+  # - model_name: paid-c
+  #   litellm_params:
+  #     model: openrouter/vendor/paid-c
+  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  # ============================================================================
+  # SambaNova -- not routed to: a payment method comes first.
+  # ============================================================================
+  # - model_name: sn-a
+  #   litellm_params:
+  #     model: openai/SN-A
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #
+  # - model_name: sn-b
+  #   litellm_params:
+  #     model: openai/SN-B
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+
+  # ============================================================================
+  # Cerebras and Groq, a heading over entries which stay
+  # ============================================================================
+  # Cerebras: both models below are not routed to, because a bank card is required.
+  # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and turned down
+  # - model_name: cb-a
+  #   litellm_params:
+  #     model: cerebras/cb-a
+  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"
+  #
+  # - model_name: cb-b
+  #   litellm_params:
+  #     model: cerebras/cb-b
+  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"
+
+  - model_name: later-groq
+    litellm_params:
+      model: groq/vendor/later
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+router_settings:
+  fallbacks:
+    - router:
+        - alpha-groq
+        - beta-groq
+        - free-a
+        - shared-one
+    - router-two:
+        - beta-groq
+        - gamma-groq
+    - router-solo:
+        - solo-groq
+        - shared-two
+  context_window_fallbacks:
+    - router:
+        - free-b
+        - alpha-groq
+  content_policy_fallbacks:
+    - router-two:
+        - gamma-groq
+  model_group_alias:
+    "auto": "router"
+    "hidden": {"model": "aliased-groq", "hidden": true}
+
+litellm_settings:
+  default_fallbacks:
+    - free-a
+    - alpha-groq
+  per_model_timeout:
+    "later-groq": 30
+"""
+
+
+def groq_entry(name, identifier):
+    return ('  - model_name: %s\n    litellm_params:\n      model: groq/vendor/%s\n'
+            '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n' % (name, identifier))
+
+
+def commented_entry(name, model, key, base=False):
+    return ("  # - model_name: %s\n  #   litellm_params:\n  #     model: %s\n%s"
+            '  #     api_key: "os.environ/%s_API_KEY_SELFTEST"\n'
+            % (name, model, '  #     api_base: "https://api.sambanova.ai/v1"\n' if base else "", key))
+
+
+PAID_REASON = "  # Served, but not routed to: paid only.\n"
+OPENROUTER_BANNER = (
+    "  # ============================================================================\n"
+    '  # OpenRouter (":free" entries only)\n'
+    "  # ============================================================================\n")
+SAMBANOVA_BANNER = (
+    "  # ============================================================================\n"
+    "  # SambaNova -- not routed to: a payment method comes first.\n"
+    "  # ============================================================================\n")
+CEREBRAS_PROSE = ("  # Cerebras: both models below are not routed to, because a bank card is "
+                  "required.\n")
+DRIFT_IGNORE_LINE = ("  # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and "
+                     "turned down\n")
+
+# (what the case proves, a change made to APPLY_TEMPLATE first as (old, new) pairs, the
+# (provider, id, kind) deletions asked for, the changes the result must show against the changed
+# template as (old, new) pairs, and the refusals expected as {(provider, id): code}). A refused
+# deletion changes nothing, so a case that only refuses expects no change at all.
+APPLY_CASES = (
+    ("an active entry goes with its slot in every cascade, the prose above it is left where it "
+     "is, and so is the blank line after it",
+     (), [("groq", "vendor/alpha", "retired")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n",
+       "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n")],
+     {}),
+    ("an active entry with no prose above it takes the blank line after it too",
+     (), [("groq", "vendor/beta", "retired")],
+     [(groq_entry("beta-groq", "beta") + "\n", ""),
+      ("        - alpha-groq\n        - beta-groq\n        - free-a\n",
+       "        - alpha-groq\n        - free-a\n"),
+      ("    - router-two:\n        - beta-groq\n        - gamma-groq\n",
+       "    - router-two:\n        - gamma-groq\n")],
+     {}),
+    ("the first entry under a banner goes with the blank line after it, and the banner stays "
+     "over the next",
+     (), [("openrouter", "vendor/a:free", "retired")],
+     [(OPENROUTER_BANNER + "  - model_name: free-a\n    litellm_params:\n"
+       "      model: openrouter/vendor/a:free\n"
+       '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n',
+       OPENROUTER_BANNER),
+      ("        - beta-groq\n        - free-a\n        - shared-one\n",
+       "        - beta-groq\n        - shared-one\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - alpha-groq\n")],
+     {}),
+    ("an id two entries share takes both entries, and a slot in each of their cascades",
+     (), [("groq", "vendor/shared", "retired")],
+     [(groq_entry("shared-one", "shared") + "\n", ""),
+      (groq_entry("shared-two", "shared") + "\n", ""),
+      ("        - free-a\n        - shared-one\n", "        - free-a\n"),
+      ("        - solo-groq\n        - shared-two\n", "        - solo-groq\n")],
+     {}),
+    ("the last target of a cascade is not deleted: the cascade would answer nothing",
+     (), [("groq", "vendor/gamma", "retired")], [],
+     {("groq", "vendor/gamma"): "emptied"}),
+    ("two models that are each deletable alone are not when they are the whole of a cascade",
+     (), [("groq", "vendor/solo", "retired"), ("groq", "vendor/shared", "retired")], [],
+     {("groq", "vendor/solo"): "emptied", ("groq", "vendor/shared"): "emptied"}),
+    ("one of those two goes alone, and the cascade keeps the other",
+     (), [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("a model an alias points at is not deleted, whichever way the alias is written",
+     (), [("groq", "vendor/aliased", "retired")], [],
+     {("groq", "vendor/aliased"): "alias"}),
+    ("a virtual router, the entry point of a cascade, is not deleted",
+     (), [("gemini", "gemini-9-pro", "retired")], [],
+     {("gemini", "gemini-9-pro"): "source"}),
+    ("a name used somewhere this tool does not know is not deleted",
+     (), [("groq", "vendor/later", "retired")], [],
+     {("groq", "vendor/later"): "stray"}),
+    ("a slot written inside a flow list is not edited, and its model is not deleted",
+     (("    - router-two:\n        - beta-groq\n        - gamma-groq\n",
+       "    - router-two: [beta-groq, gamma-groq]\n"),),
+     [("groq", "vendor/beta", "retired")], [],
+     {("groq", "vendor/beta"): "form"}),
+    ("a comment inside an entry, even at the indentation of its dash, goes with the entry",
+     (("      model: groq/vendor/solo\n      api_key:",
+       "      model: groq/vendor/solo\n  # a remark at the dash's indentation\n      api_key:"),),
+     [("groq", "vendor/solo", "retired")],
+     [("  - model_name: solo-groq\n    litellm_params:\n      model: groq/vendor/solo\n"
+       "  # a remark at the dash's indentation\n"
+       '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\n', ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("the first entry of a run goes, and the reason stays above the next one",
+     (), [("openrouter", "vendor/paid-a", "gone")],
+     [(commented_entry("paid-a", "openrouter/vendor/paid-a", "OPENROUTER") + "  #\n", "")],
+     {}),
+    ("a middle entry goes with the separator after it",
+     (), [("openrouter", "vendor/paid-b", "gone")],
+     [(commented_entry("paid-b", "openrouter/vendor/paid-b", "OPENROUTER") + "  #\n", "")],
+     {}),
+    ("the last entry goes with the separator before it, which would hang from the one above",
+     (), [("openrouter", "vendor/paid-c", "gone")],
+     [("  #\n" + commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER"), "")],
+     {}),
+    ("the two ends of a run go and the middle one keeps the reason",
+     (), [("openrouter", "vendor/paid-a", "gone"), ("openrouter", "vendor/paid-c", "gone")],
+     [(commented_entry("paid-a", "openrouter/vendor/paid-a", "OPENROUTER") + "  #\n", ""),
+      ("  #\n" + commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER"), "")],
+     {}),
+    ("a run deleted whole takes its reason with it, and leaves one blank line, not two",
+     (), [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON
+       + commented_entry("paid-a", "openrouter/vendor/paid-a", "OPENROUTER") + "  #\n"
+       + commented_entry("paid-b", "openrouter/vendor/paid-b", "OPENROUTER") + "  #\n"
+       + commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER") + "\n", "")],
+     {}),
+    ("a banner that is itself the reason goes with the run it heads",
+     (), [("sambanova", "SN-A", "gone"), ("sambanova", "SN-B", "gone")],
+     [(SAMBANOVA_BANNER
+       + commented_entry("sn-a", "openai/SN-A", "SAMBANOVA", base=True) + "  #\n"
+       + commented_entry("sn-b", "openai/SN-B", "SAMBANOVA", base=True) + "\n", "")],
+     {}),
+    ("a banner that is only a heading stays, and so does a drift-ignore line",
+     (), [("cerebras", "cb-a", "gone"), ("cerebras", "cb-b", "gone")],
+     [(CEREBRAS_PROSE, ""),
+      (commented_entry("cb-a", "cerebras/cb-a", "CEREBRAS") + "  #\n"
+       + commented_entry("cb-b", "cerebras/cb-b", "CEREBRAS"), "")],
+     {}),
+    ("a reason that a drift-ignore line lets the next entry lean on is not deleted from under it",
+     (("  #\n  # - model_name: paid-b", DRIFT_IGNORE_LINE + "  # - model_name: paid-b"),),
+     [("openrouter", "vendor/paid-a", "gone")], [],
+     {("openrouter", "vendor/paid-a"): "verification"}),
+    ("a deletion that fails verification does not hold back one that passes",
+     (("  #\n  # - model_name: paid-b", DRIFT_IGNORE_LINE + "  # - model_name: paid-b"),),
+     [("openrouter", "vendor/paid-a", "gone"), ("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {("openrouter", "vendor/paid-a"): "verification"}),
+    ("an id the file has no entry for is not invented",
+     (), [("groq", "vendor/nowhere", "retired")], [],
+     {("groq", "vendor/nowhere"): "unlocated"}),
+    ("deletions of several kinds at once come out as the sum of each alone",
+     (), [("groq", "vendor/alpha", "retired"), ("openrouter", "vendor/paid-b", "gone"),
+          ("sambanova", "SN-A", "gone"), ("groq", "vendor/solo", "retired")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n",
+       "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n"),
+      (commented_entry("paid-b", "openrouter/vendor/paid-b", "OPENROUTER") + "  #\n", ""),
+      (commented_entry("sn-a", "openai/SN-A", "SAMBANOVA", base=True) + "  #\n", ""),
+      (groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("the last entry of a file takes the blank line before it, which would end the file",
+     ((APPLY_TEMPLATE[APPLY_TEMPLATE.index("\nrouter_settings:\n"):], ""),),
+     [("groq", "vendor/later", "retired")],
+     [("\n" + groq_entry("later-groq", "later"), "")],
+     {}),
+    ("and a file that ended on no newline still ends on none",
+     ((APPLY_TEMPLATE[APPLY_TEMPLATE.index("\nrouter_settings:\n"):], ""),
+      (groq_entry("later-groq", "later"), groq_entry("later-groq", "later").rstrip("\n"))),
+     [("groq", "vendor/later", "retired")],
+     [('  #     model: cerebras/cb-b\n  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"\n\n'
+       + groq_entry("later-groq", "later").rstrip("\n"),
+       '  #     model: cerebras/cb-b\n  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"')],
+     {}),
+    ("a finding asked for twice is one deletion, not a refusal and a deletion",
+     (), [("groq", "vendor/alpha", "retired"), ("groq", "vendor/alpha", "gone")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n",
+       "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n")],
+     {}),
+    ("Jinja written out literally in a raw block is not a statement of the file",
+     (("model_list:\n", "model_list:\n{% raw %}\n# the template writes {% if x %} literally\n"
+       "{% endraw %}\n"),),
+     [("groq", "vendor/alpha", "retired")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n",
+       "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n")],
+     {}),
+    ("an entry wrapped in a Jinja block is deleted alone: the block it sits in is not its own, and "
+     "stays, empty",
+     ((groq_entry("solo-groq", "solo"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("solo-groq", "solo") + "{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo"), ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("nor is a loop it sits in taken",
+     ((groq_entry("solo-groq", "solo"),
+       "{% for account in ['main'] %}\n" + groq_entry("solo-groq", "solo") + "{% endfor %}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo"), ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("nor is the closing tag that follows a blank line",
+     ((groq_entry("solo-groq", "solo"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("solo-groq", "solo") + "\n{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("an entry whose branch is closed by an else is not deleted: the rendering shows one of the two "
+     "branches, so the file as written is not read",
+     ((groq_entry("beta-groq", "beta") + "\n" + groq_entry("gamma-groq", "gamma"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("beta-groq", "beta") + "{% else %}\n"
+       + groq_entry("gamma-groq", "gamma") + "{% endif %}\n"),),
+     [("groq", "vendor/beta", "retired")], [],
+     {("groq", "vendor/beta"): "unlocated"}),
+    ("nor one whose branch is closed by an elif",
+     ((groq_entry("beta-groq", "beta") + "\n" + groq_entry("gamma-groq", "gamma"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("beta-groq", "beta") + "{% elif Artificial_Intelligence_LiteLLM_Mistral_API_key %}\n"
+       + groq_entry("gamma-groq", "gamma") + "{% endif %}\n"),),
+     [("groq", "vendor/beta", "retired")], [],
+     {("groq", "vendor/beta"): "unlocated"}),
+    ("an entry that ends a block when the next entry opens another is deleted without either: the "
+     "next one keeps its own condition",
+     ((groq_entry("solo-groq", "solo") + "\n" + groq_entry("shared-one", "shared"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("solo-groq", "solo") + "{% endif %}\n\n"
+       "{% if Artificial_Intelligence_LiteLLM_Mistral_API_key %}\n" + groq_entry("shared-one", "shared") + "{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo"), ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("two entries of one id around an entry that stays are deleted, and the block around that one "
+     "is left as it was",
+     ((groq_entry("shared-one", "shared") + "\n" + groq_entry("shared-two", "shared") + "\n"
+       + groq_entry("aliased-groq", "aliased"),
+       groq_entry("shared-one", "shared") + "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"
+       + groq_entry("aliased-groq", "aliased") + "\n"
+       + groq_entry("shared-two", "shared") + "{% endif %}\n"),),
+     [("groq", "vendor/shared", "retired")],
+     [(groq_entry("shared-one", "shared"), ""),
+      (groq_entry("shared-two", "shared"), ""),
+      ("        - free-a\n        - shared-one\n", "        - free-a\n"),
+      ("        - solo-groq\n        - shared-two\n", "        - solo-groq\n")],
+     {}),
+    ("nor one followed by a Jinja statement that opens no block: nothing here knows what it set",
+     ((groq_entry("solo-groq", "solo"),
+       groq_entry("solo-groq", "solo") + "{% set account = 'main' %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "verification"}),
+    ("a block the deletion does not touch stays as it is, a loop with an else included",
+     ((groq_entry("shared-one", "shared"),
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n" + groq_entry("shared-one", "shared") + "{% endif %}\n"),
+      (groq_entry("shared-two", "shared"),
+       "{% for account in ['main'] %}\n" + groq_entry("shared-two", "shared")
+       + "{% else %}\n{% endfor %}\n")),
+     [("groq", "vendor/alpha", "retired")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n",
+       "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n")],
+     {}),
+    ("a file whose Jinja blocks do not pair up is not edited at all: an endif with no if",
+     (("model_list:\n", "model_list:\n{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("an if that is never closed",
+     (("model_list:\n", "model_list:\n{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("an else with no if or for to belong to",
+     (("model_list:\n", "model_list:\n{% else %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("an else in a block that has none",
+     (("model_list:\n", "model_list:\n{% with account = 1 %}\n{% else %}\n{% endwith %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("an elif in a loop",
+     (("model_list:\n", "model_list:\n{% for account in ['main'] %}\n{% elif Artificial_Intelligence_LiteLLM_Mistral_API_key %}\n"
+       "{% endfor %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("an if that is closed as a loop",
+     (("model_list:\n", "model_list:\n{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n{% endfor %}\n"),),
+     [("groq", "vendor/solo", "retired")], [],
+     {("groq", "vendor/solo"): "unlocated"}),
+    ("a Jinja block that opens and closes inside the entry goes with it",
+     (("      model: groq/vendor/solo\n      api_key: \"os.environ/GROQ_API_KEY_SELFTEST\"\n",
+       "      model: groq/vendor/solo\n{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"
+       "      api_key: \"os.environ/GROQ_API_KEY_SELFTEST\"\n{% endif %}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [("  - model_name: solo-groq\n    litellm_params:\n      model: groq/vendor/solo\n"
+       "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n      api_key: \"os.environ/GROQ_API_KEY_SELFTEST\"\n{% endif %}\n\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("a Jinja comment line after an entry is not the entry's, and stays",
+     ((groq_entry("solo-groq", "solo"),
+       groq_entry("solo-groq", "solo") + "{# the next entry is the shared one #}\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo"), ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("a comment indented deeper than the dash, after the last key, is the entry's own",
+     ((groq_entry("solo-groq", "solo"),
+       groq_entry("solo-groq", "solo") + "      # rotated monthly\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo") + "      # rotated monthly\n\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("one at the dash's indentation is the next entry's, and stays",
+     ((groq_entry("solo-groq", "solo"),
+       groq_entry("solo-groq", "solo") + "  # describes the shared pair\n"),),
+     [("groq", "vendor/solo", "retired")],
+     [(groq_entry("solo-groq", "solo"), ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     {}),
+    ("a commented-out entry that goes on past a bare line is not deleted: the rest would be taken "
+     "for prose",
+     ((commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER"),
+       commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER")
+       + "  #\n  #   model_info:\n  #     id: c\n"),),
+     [("openrouter", "vendor/paid-c", "gone")], [],
+     {("openrouter", "vendor/paid-c"): "unlocated"}),
+)
+
+
+def edited(text, changes, purpose):
+    """"text" with each (old, new) applied once, or None when an "old" is not there exactly once:
+    a case that cannot be built is a broken case, not a passing one."""
+    for old, new in changes:
+        if text.count(old) != 1:
+            print("selftest: BROKEN CASE (%s) -- %r is in the template %d times, expected 1"
+                  % (purpose, old[:70], text.count(old)))
+            return None
+        text = text.replace(old, new, 1)
+    return text
+
+
+def is_subsequence(shorter, longer):
+    remaining = iter(longer)
+    return all(any(line == other for other in remaining) for line in shorter)
+
+
+def run_apply_cases():
+    failures = 0
+    for purpose, setup, wanted, changes, refusals in APPLY_CASES:
+        text = edited(APPLY_TEMPLATE, setup, purpose)
+        expected = edited(text, changes, purpose) if text is not None else None
+        if expected is None:
+            failures += 1
+            continue
+        new_text, outcomes = apply_removals(text, wanted)
+        got = {(o["provider"], o["id"]): o["reason"][0] for o in outcomes if o["status"] == "refused"}
+        applied = sorted((o["provider"], o["id"]) for o in outcomes if o["status"] == "applied")
+        should_apply = sorted({(p, i) for p, i, _ in wanted if (p, i) not in refusals})
+        before_template, before = read_template(text)
+        after_template, after = read_template(new_text)
+        why = None
+        if new_text != expected:
+            why = "the result is not the expected text:\n%s" % "\n".join(difflib.unified_diff(
+                expected.splitlines(), new_text.splitlines(), "expected", "got", lineterm="", n=1))
+        elif got != refusals:
+            why = "refusals %r, expected %r" % (got, refusals)
+        elif applied != should_apply:
+            why = "applied %r, expected %r" % (applied, should_apply)
+        elif (after_template is None) != (before_template is None) or len(after) > len(before):
+            why = "the result breaks a rule the original did not: %r" % after
+        elif not is_subsequence(new_text.splitlines(), text.splitlines()):
+            why = "the result holds a line the original did not"
+        elif "\n\n\n" in new_text and "\n\n\n" not in text:
+            why = "the result holds a double blank line the original did not"
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
+
+
+def run_safety_net_case():
+    """The last check, on every deletion together, is reached only when a plan is wrong for several
+    deletions at once and not for each alone. None of the cases above does that, so make one: a
+    plan that, for two deletions or more, takes a line nobody asked for along."""
+    purpose = "deletions that pass alone but not together are all refused, and nothing is written"
+    real = plan_lines
+    wanted = [("openrouter", "vendor/paid-b", "gone"), ("sambanova", "SN-A", "gone")]
+
+    def careless(layout, keys):
+        marks, notes, slot_names = real(layout, keys)
+        if len(keys) > 1:
+            later = next(entry for entry in layout["entries"] if entry["name"] == "later-groq")
+            marks = set(marks) | set(range(later["start"], later["end"]))
+        return marks, notes, slot_names
+
+    why = None
+    try:
+        globals()["plan_lines"] = careless
+        new_text, outcomes = apply_removals(APPLY_TEMPLATE, wanted)
+    finally:
+        globals()["plan_lines"] = real
+    control_text, control = apply_removals(APPLY_TEMPLATE, wanted)
+    if [o["status"] for o in control] != ["applied", "applied"] or control_text == APPLY_TEMPLATE:
+        why = "the control run, with the real plan, did not delete both"
+    elif new_text != APPLY_TEMPLATE:
+        why = "the file was written although the whole did not verify"
+    elif [o["status"] for o in outcomes] != ["refused", "refused"] or any(
+            o["reason"][0] != "verification" or not o["reason"][1].startswith("taken together")
+            for o in outcomes):
+        why = "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+    if why is None:
+        print("selftest: ok -- %s" % purpose)
+        return 0
+    print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return 1
+
+
+# (what the case proves, how the original is changed to make the result, the text a verification
+# problem must contain, or None when the result is fine). Each result is written by hand, as the
+# mistake it names -- not by plan_lines -- because verify_removal exists for what plan_lines gets
+# wrong.
+VERIFY_CASES = (
+    ("an exact deletion passes",
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n")],
+     [("groq", "vendor/solo")], None),
+    ("an entry deleted and its cascade slot left behind fails the offline rules",
+     [(groq_entry("solo-groq", "solo") + "\n", "")],
+     [("groq", "vendor/solo")], "the offline rules fail"),
+    ("a reason deleted from under the entry still there fails the offline rules",
+     [(PAID_REASON, ""),
+      (commented_entry("paid-a", "openrouter/vendor/paid-a", "OPENROUTER") + "  #\n", "")],
+     [("openrouter", "vendor/paid-a")], "the offline rules fail"),
+    ("a deletion that takes an entry nobody asked for along is not the original minus the asked",
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n"),
+      (groq_entry("later-groq", "later") + "\n", "")],
+     [("groq", "vendor/solo")], "not the original without"),
+    ("a commented-out entry taken along is noticed, since YAML cannot see a comment",
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n"),
+      ("  #\n" + commented_entry("paid-c", "openrouter/vendor/paid-c", "OPENROUTER"), "")],
+     [("groq", "vendor/solo")], "commented-out entries of the result"),
+    ("a drift-ignore line taken along is noticed too",
+     [(groq_entry("solo-groq", "solo") + "\n", ""),
+      ("        - solo-groq\n        - shared-two\n", "        - shared-two\n"),
+      (DRIFT_IGNORE_LINE, "")],
+     [("groq", "vendor/solo")], '"drift-ignore:" lines'),
+    ("half an entry deleted leaves a file that does not read",
+     [("    litellm_params:\n      model: groq/vendor/solo\n", "      model: groq/vendor/solo\n")],
+     [("groq", "vendor/solo")], "not readable"),
+)
+
+
+def run_verify_cases():
+    failures = 0
+    for purpose, changes, keys, needle in VERIFY_CASES:
+        result = edited(APPLY_TEMPLATE, changes, purpose)
+        if result is None:
+            failures += 1
+            continue
+        problem = verify_removal(APPLY_TEMPLATE, set(keys), result)
+        passed = problem is None if needle is None else bool(problem and needle in problem)
+        if passed:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- expected %s, got %r"
+                  % (purpose, "no problem" if needle is None else repr(needle), problem))
+    return failures
+
+
+# (what the case proves, a change made to APPLY_TEMPLATE first, the (provider, id, kind) deletions
+# asked for, and the places a person is sent to as (why, a piece of the text, how many lines, the
+# name a "mention" is about), in the order of the new file). The line numbers are checked against
+# the new file itself: the span has to hold the piece, and has to be that long.
+REVIEW_CASES = (
+    ("the prose above a deleted active entry is left, and pointed at",
+     (), [("groq", "vendor/alpha", "retired")],
+     [("left", "Prose about alpha", 1, None)]),
+    ("the reason over a run some of which is gone stays over the rest, and is pointed at",
+     (), [("openrouter", "vendor/paid-a", "gone")],
+     [("kept", "Served, but not routed to: paid only.", 1, None)]),
+    ("a section heading left over no entry is pointed at, and the reason that went with its run "
+     "is not",
+     (), [("openrouter", "vendor/%s" % name, "retired" if name.endswith(":free") else "gone")
+          for name in ("a:free", "b:free", "paid-a", "paid-b", "paid-c")],
+     [("banner", 'OpenRouter (":free" entries only)', 3, None)]),
+    ("a comment naming a deleted model_name is pointed at, with the name, full stop or not",
+     (("  - model_name: gamma-groq", "  # gamma is tried after beta-groq, and beta-groq. is cheap\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")],
+     [("mention", "gamma is tried after beta-groq", 1, "beta-groq")]),
+    ("a longer name that merely starts the same is not a mention",
+     (("  - model_name: gamma-groq", "  # beta-groq-two is another model, and so is xbeta-groq\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")], []),
+    ("an id that an entry which stays carries too is not a stale mention",
+     (("\nrouter_settings:\n", "\n  - model_name: twin\n    litellm_params:\n"
+       "      model: mistral/vendor/alpha\n"
+       '      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"\n\nrouter_settings:\n'),
+      ("  - model_name: gamma-groq", "  # vendor/alpha is served by both\n"
+       "  - model_name: gamma-groq")),
+     [("groq", "vendor/alpha", "retired")],
+     [("left", "Prose about alpha", 1, None)]),
+    ("a mention inside a place already pointed at is not listed a second time",
+     (("  # Served, but not routed to: paid only.\n",
+       "  # Served, but not routed to: paid only (paid-a is the dearest).\n"),),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [("kept", "Served, but not routed to: paid only (paid-a", 1, None)]),
+    ("a name followed by a colon that ends a clause is a mention",
+     (("  - model_name: gamma-groq", "  # after beta-groq: gamma-groq.\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")],
+     [("mention", "after beta-groq: gamma-groq", 1, "beta-groq")]),
+    ("a name followed by a colon and a suffix is another name, and not a mention",
+     (("  - model_name: gamma-groq", "  # beta-groq:free is another model.\n"
+       "  - model_name: gamma-groq"),),
+     [("groq", "vendor/beta", "retired")], []),
+    ("a deletion no comment is about points nowhere",
+     (), [("groq", "vendor/solo", "retired")], []),
+)
+
+
+def run_review_cases():
+    failures = 0
+    for purpose, setup, wanted, expected in REVIEW_CASES:
+        text = edited(APPLY_TEMPLATE, setup, purpose)
+        if text is None:
+            failures += 1
+            continue
+        new_text, outcomes = apply_removals(text, wanted)
+        lines = new_text.splitlines()
+        got = sorted((item["line"], item["last"], item["why"], item["subject"], item["first"])
+                     for outcome in outcomes for item in outcome["review"])
+        why = None
+        if any(outcome["status"] != "applied" for outcome in outcomes):
+            why = "refused: %r" % [(o["reason"]) for o in outcomes if o["status"] != "applied"]
+        elif len(got) != len(expected):
+            why = "pointed at %r, expected %d place(s)" % (got, len(expected))
+        else:
+            for (line, last, kind, subject, first), (want, piece, count, name) in zip(got, expected):
+                if (kind != want or subject != name or last - line + 1 != count
+                        or piece not in "\n".join(lines[line - 1:last]) or piece not in first
+                        or not 1 <= line <= last <= len(lines)):
+                    why = "pointed at %r, expected (%s, %r, %d lines, %r)" % (
+                        (line, last, kind, subject, first), want, piece, count, name)
+                    break
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
+
+
+def redirect_case():
+    """(whether the redirect was refused, whether the stock opener follows it, the requests the
+    refusing one made) against a server of this machine's own that redirects "/start"."""
+    seen = []
+
+    class Redirecting(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append(self.path)
+            if self.path == "/start":
+                self.send_response(302)
+                self.send_header("Location", "/elsewhere")
+                self.end_headers()
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+        def log_message(self, *arguments):
+            pass
+
+    server = http.server.HTTPServer(("localhost", 0), Redirecting)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = "http://localhost:%d/start" % server.server_address[1]
+    try:
+        try:
+            fetch_json(urllib_opener, url, {"Authorization": "Bearer selftest"})
+            refused = None
+        except FetchError as error:
+            refused = str(error)
+        requests = list(seen)
+        del seen[:]
+        with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
+            followed = seen == ["/start", "/elsewhere"] and response.read() == b"{}"
+    finally:
+        server.shutdown()
+        server.server_close()
+    return refused, followed, requests
+
+
+def crash_through_main():
+    """(the exit status, what was written to stderr) of this very file run as a script, over a
+    config that reads, when the first request of the run raises an error whose message is a piece
+    of an answer: the status must be a crash's, and the message must not be written anywhere."""
+    with tempfile.TemporaryDirectory() as directory:
+        config = os.path.join(directory, "config.yaml.j2")
+        Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
+        real, saved = urllib.request.build_opener, sys.argv
+
+        def failing(*handlers):
+            raise RuntimeError("::error::a piece of an answer")
+
+        err, out = io.StringIO(), io.StringIO()
+        urllib.request.build_opener = failing
+        sys.argv = [saved[0], "--online", "--config", config]
+        try:
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+                try:
+                    runpy.run_path(__file__, run_name="__main__")
+                    status = None
+                except SystemExit as exit:
+                    status = exit.code
+        finally:
+            urllib.request.build_opener, sys.argv = real, saved
+    return status, err.getvalue() + out.getvalue()
+
+
+def run_hardening_cases():
+    """What guards the run against its own inputs, and against its own mistakes."""
+    failures = 0
+
+    refused, followed, requests = redirect_case()
+    cases = [
+        ("a redirect is refused, reported as the status it is, and never followed",
+         refused == "HTTP 302" and requests == ["/start"]),
+        ("the stock opener does follow one, which is what the refusal is for", followed),
+    ]
+
+    def broken_reader(pages):
+        return {}["no such key"]
+
+    try:
+        read_catalogue(lambda url, headers: b"{}", "https://selftest.invalid/", {}, broken_reader,
+                       None)
+        net = "no error"
+    except FetchError as error:
+        net = str(error)
+    cases.append(("a reader that meets a shape nobody thought of reports that provider's error",
+                  net == "the answer has a shape this check does not read"))
+
+    def boom(argv):
+        raise RuntimeError("::error::a piece of an answer")
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        status = guarded(boom)
+    cases.append(("a crash has a status of its own and says what kind and where, never its message",
+                  status == CRASH_STATUS == 70 and "RuntimeError in boom" in err.getvalue()
+                  and "a piece of an answer" not in err.getvalue()))
+    try:
+        guarded(lambda argv: sys.exit(2))
+        exited = None
+    except SystemExit as exit:
+        exited = exit.code
+    cases.append(("a status returned, or an exit asked for, goes through the guard untouched",
+                  guarded(lambda argv: 1) == 1 and exited == 2))
+
+    saved = {name: os.environ.get(name)
+             for name in ("REMOVALS_BRANCH", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY")}
+    os.environ.update(REMOVALS_BRANCH="claude/selftest-branch",
+                      GITHUB_SERVER_URL="https://selftest.invalid", GITHUB_REPOSITORY="owner/repo")
+    try:
+        answers = selftest_answers()
+        answers["groq"] = {"data": [{"id": "whisper-large-v9", "active": True}]}
+        issue = apply_run(SELFTEST_TEMPLATE, answers)[3]
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    cases.append(("the issue names the branch of the deletions, and links the pull request found by it",
+                  "sur la branche `claude/selftest-branch`" in issue
+                  and "(https://selftest.invalid/owner/repo/pulls?q=is%3Apr+is%3Aopen+head%3A"
+                      "claude%2Fselftest-branch)" in issue))
+
+    status, written = crash_through_main()
+    cases.append(("run as a script, a crash exits 70, not 1, and writes none of the message",
+                  status == CRASH_STATUS and "a piece of an answer" not in written
+                  and "crashed, RuntimeError" in written))
+
+    cases.append(("a price too big for a float is not zero, and not a crash",
+                  is_zero(10 ** 400) is False and is_zero("0") and not is_zero("free")))
+    cases.append(("a code span is cut between two words, and says so",
+                  code_span("word " * 40) == "`" + "word " * 19 + "word…`"
+                  and code_span("short") == "`short`"
+                  and code_span("x" * 150) == "`" + "x" * 100 + "…`"))
+
+    balance = jinja_balance("{% if a %}{% for x in y %}{% else %}{% endfor %}{# {% if b %} #}"
+                            "{% set z = 1 %}{% set w %}{% endset %}{% endif %}{% if c %}")
+    cases.append(("Jinja blocks are counted per statement, comments and one-line sets aside",
+                  balance == {"if": 1}))
+
+    result = {"date": "2026-01-01", "providers": [], "removals": {}}
+    for index in range(30):
+        result["providers"].append({"name": "groq", "findings": [{
+            "kind": "retired", "id": "vendor/a-very-long-identifier-number-%d" % index,
+            "removal": {"status": "applied"}}]})
+    message = render_commit_message(result)
+    cases.append(("the commit message is wrapped, counts the ids by provider and lists none",
+                  max(len(line) for line in message.splitlines()) <= 100
+                  and "found 30 ids it no longer lists, from Groq (30)." in " ".join(message.split())
+                  and "a-very-long-identifier" not in message
+                  and message.splitlines()[0].endswith("(#243)")
+                  and message.endswith("choices.\n")))
+
+    for purpose, passed in cases:
+        if passed:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s)" % purpose)
+    return failures
+
+
+def apply_run(text, answers, environment=None):
+    """One whole online run with --apply, on canned catalogues: (result, new text, report, issue
+    body, pull request body, commit message). The last two are None when nothing was deleted."""
+    calls = []
+    result = run_online(text, SELFTEST_KEYS if environment is None else environment,
+                        canned_opener(answers, calls), "2026-01-01")
+    new_text = apply_to_result(text, result)
+    report = render_text(result, "selftest")
+    issue = render_issue_body(result, "selftest", link=None)
+    changed = result["removals"]["changed"]
+    return (result, new_text, report, issue,
+            render_pr_body(result) if changed else None,
+            render_commit_message(result) if changed else None)
+
+
+def hostile_lines(*texts):
+    """The first line, if any, a workflow command could be read from at the head of: GitHub reads
+    "::command::" after trimming the left of a log line, and any markup that makes a mention, a
+    tag or a link from a catalogue's text is as unwelcome in an issue."""
+    for text in texts:
+        for line in (text or "").splitlines():
+            if line.lstrip().startswith("::"):
+                return "a line starts a workflow command: %r" % line
+        for needle in ("@someone", "@bob", "<img", "::error", "::warning"):
+            if needle in (text or ""):
+                return "%r reached the output" % needle
+        # A link is inert inside a code span, which is where a name from a catalogue is shown.
+        outside = re.sub(r"`[^`]*`", "", text or "")
+        for needle in ("](http", "www.evil", "http://evil"):
+            if needle in outside:
+                return "%r reached the output, outside a code span" % needle
+    return None
+
+
+def openrouter_with_notice(base):
+    """The OpenRouter answer with one active id about to expire, a commented-out id free again under
+    its ":free" twin, and an id the file does not know."""
+    data = [m for m in base["openrouter"]["data"] if m["id"] != "vendor/one:free"]
+    return {"data": data + [openrouter_model("vendor/one:free", expiration="2026-12-01"),
+                            openrouter_model("vendor/paid-one:free"),
+                            openrouter_model("vendor/fresh:free")]}
+
+
+def online_apply_cases():
+    """(what the case proves, template, answers, a check on (result, new_text, report, issue, pr,
+    commit) returning None when it holds and why not otherwise, the exit status expected)."""
+    base = selftest_answers()
+
+    def changed(**replaced):
+        answers = selftest_answers()
+        answers.update(replaced)
+        return answers
+
+    def lacking(provider, *identifiers):
+        key = "data"
+        data = [m for m in base[provider][key] if m.get("id") not in identifiers]
+        return dict(base[provider], data=data)
+
+    def deletes_fast(result, new_text, report, issue, pr, commit):
+        if "groq/vendor/fast" in new_text or "model_name: fast\n" in new_text:
+            return "the retired entry is still in the file"
+        if undeleted_count(result) != 0:
+            return "a model that was deleted is counted as left to a person"
+        for name, needle in (("issue", "## Supprimés par la pull request"),
+                             ("issue", "`groq/vendor/fast`"),
+                             ("pr", "`groq/vendor/fast` chez Groq"),
+                             ("pr", "<https://api.groq.com/openai/v1/models>, lu le 2026-01-01"),
+                             ("pr", "ansible-ci.yml"),
+                             ("commit", "found 1 id it no longer lists, from Groq (1)")):
+            if needle not in " ".join({"issue": issue, "pr": pr, "commit": commit}[name].split()):
+                return "the %s lacks %r" % (name, needle)
+        if "## Retirés" in issue:
+            return "a deletion the pull request makes is still listed as to do by hand"
+        if commit.splitlines()[0] != ("Delete the models their provider has retired from the "
+                                      "LiteLLM model list (#243)"):
+            return "the commit subject is %r" % commit.splitlines()[0]
+        return None
+
+    def keeps_free_one(result, new_text, report, issue, pr, commit):
+        if new_text != SELFTEST_TEMPLATE:
+            return "the file changed although the only retired model is behind an alias"
+        if undeleted_count(result) != 1:
+            return "the model that was refused is not counted as left to a person"
+        if pr is not None or commit is not None:
+            return "a pull request body was written although nothing was deleted"
+        for needle in ("## Retirés : à supprimer à la main", "non supprimé par le workflow",
+                       "l'alias \"auto-hidden\" pointe vers lui", "`openrouter/vendor/one:free`"):
+            if needle not in issue:
+                return "the issue lacks %r" % needle
+        if "NOT DELETED, left to a person: the alias" not in report:
+            return "the report does not say the model was left alone"
+        return None
+
+    def empty_not_believed(result, new_text, report, issue, pr, commit):
+        if new_text != SELFTEST_TEMPLATE:
+            return "an empty catalogue was taken for everything retired"
+        if "catalogue ne liste aucun modèle" not in issue:
+            return "the issue does not say why"
+        if undeleted_count(result) != 1:
+            return "a commented-out model that was refused is not counted as left to a person"
+        return None
+
+    def error_deletes_nothing_else(result, new_text, report, issue, pr, commit):
+        if "deepseek/deepseek-v9" not in new_text:
+            return "the entry of the provider that could not be read was deleted"
+        if "## Catalogues non lus" not in pr or "`deepseek`" not in pr.split("## Catalogues non lus")[1]:
+            return "the pull request does not say which catalogue was not read"
+        if "groq/vendor/fast" in new_text:
+            return "what could be read was not deleted"
+        return hostile_lines(report, issue, pr, commit) or (
+            "a key or an echoed key reached the output"
+            if any("SECRET" in (text or "") for text in (report, issue, pr, commit)) else None)
+
+    def idempotent(result, new_text, report, issue, pr, commit):
+        again, second, _, _, again_pr, _ = apply_run(new_text, changed(
+            groq={"data": [{"id": "whisper-large-v9", "active": True}]}))
+        if second != new_text or again_pr is not None:
+            return "a second run deleted something more"
+        if [f for r in again["providers"] for f in r["findings"] if f["kind"] == "retired"]:
+            return "the second run still finds the model retired"
+        return None
+
+    def decisions_untouched(result, new_text, report, issue, pr, commit):
+        kinds = sorted({f["kind"] for r in result["providers"] for f in r["findings"]})
+        if kinds != ["back", "new", "notice"]:
+            return "the findings are %r, expected an announced retirement, a BACK and a NEW" % kinds
+        if new_text != SELFTEST_TEMPLATE or pr is not None or commit is not None:
+            return "an announced retirement, a model free again or a new model changed the file"
+        if any("removal" in f for r in result["providers"] for f in r["findings"]):
+            return "a finding that is a decision was given an outcome"
+        return None
+
+    def snippets(result, new_text, report, issue, pr, commit):
+        blocks = re.findall(r"  ```yaml\n(.*?)\n  ```", issue, re.DOTALL)
+        news = [f for r in result["providers"] for f in r["findings"] if f["kind"] == "new"]
+        if len(blocks) != len(news) or len(news) != 6:
+            return "%d snippet(s) for %d NEW id(s), expected 6 and 6" % (len(blocks), len(news))
+        parsed = []
+        for block in blocks:
+            document = yaml.safe_load("\n".join(line[2:] for line in block.split("\n")))
+            if not (isinstance(document, list) and len(document) == 1):
+                return "a snippet does not parse as one entry: %r" % block
+            parsed.append(document[0])
+        names = [entry["model_name"] for entry in parsed]
+        if len(set(names)) != len(names) or set(names) & set(result["names"]):
+            return "a proposed model_name is not new: %r" % names
+        by_model = {entry["litellm_params"]["model"]: entry["litellm_params"] for entry in parsed}
+        want = {
+            "openrouter/vendor/fresh:free": ("os.environ/OPENROUTER_API_KEY_SELFTEST", None),
+            "groq/vendor/new-fast": ("os.environ/GROQ_API_KEY_SELFTEST", None),
+            "mistral/magistral-9": ("os.environ/MISTRAL_API_KEY_SELFTEST", None),
+            "gemini/gemini-10-pro": ("os.environ/GEMINI_API_KEY_SELFTEST", None),
+            "openai/SN-New": ("os.environ/SAMBANOVA_API_KEY_SELFTEST",
+                              "https://api.sambanova.ai/v1"),
+            "cerebras/cb-new": ("os.environ/CEREBRAS_API_KEY_<ACCOUNT>", None),
+        }
+        for model, (key, base_url) in want.items():
+            got = by_model.get(model)
+            if got is None:
+                return "no snippet for %s" % model
+            if got.get("api_key") != key or got.get("api_base") != base_url:
+                return "%s is modelled on %r, expected %r" % (model, got, (key, base_url))
+        expected_names = {"fresh-free", "new-fast-groq", "magistral-9", "gemini-10-pro",
+                          "sn-new-sambanova", "cb-new-cerebras"}
+        if set(names) != expected_names:
+            return "proposed names %r, expected %r" % (sorted(names), sorted(expected_names))
+        if "ne s'accordent pas" in issue:
+            return "the issue says a provider's entries disagree on the api_base, and none does"
+        if "insérer `# ` après les deux espaces d'indentation de chaque ligne" not in issue:
+            return "the issue does not say how to comment a snippet out"
+        return None
+
+    def mixed_api_base_said(result, new_text, report, issue, pr, commit):
+        if "Les entrées existantes de `gemini` ne s'accordent pas toutes sur l'`api_base`" \
+                not in issue:
+            return "the issue does not say that the Gemini entries disagree on the api_base"
+        if "Les entrées existantes de `groq`" in issue:
+            return "the issue says so of a provider whose entries agree"
+        return None
+
+    def snippets_dropped_when_too_long(result, new_text, report, issue, pr, commit):
+        if "```yaml" in issue:
+            return "the snippets were kept in a body past the limit"
+        if len(issue) > 65536:
+            return "the body is %d characters, past GitHub's limit" % len(issue)
+        if "- `openrouter/vendor/bulk-0:free`" not in issue:
+            return "the findings themselves were dropped with the snippets"
+        return None
+
+    def commented_form_is_read(result, new_text, report, issue, pr, commit):
+        block = next((b for b in re.findall(r"  ```yaml\n(.*?)\n  ```", issue, re.DOTALL)
+                      if "vendor/fresh:free" in b), None)
+        if block is None:
+            return "no snippet for the new OpenRouter id"
+        # What the issue says to do: a "# " after the two spaces of indentation of each line.
+        pasted = "".join("  # " + line[4:] + "\n" for line in block.split("\n"))
+        text = SELFTEST_TEMPLATE.replace(
+            "\nrouter_settings:\n",
+            "\n  # Served, but not routed to: paid only.\n" + pasted + "\nrouter_settings:\n")
+        before, _ = read_template(SELFTEST_TEMPLATE)
+        template, problems = read_template(text)
+        if template is None or problems:
+            return "the file with the commented-out snippet breaks a rule: %r" % problems
+        if len(template["commented"]) != len(before["commented"]) + 1 or not any(
+                entry["model"] == "openrouter/vendor/fresh:free" for entry in template["commented"]):
+            return "the commented-out snippet is not read as a commented-out entry"
+        again = run_online(text, SELFTEST_KEYS, canned_opener(snippet_answers, []), "2026-01-01")
+        if any(finding["id"] == "vendor/fresh:free" for report in again["providers"]
+               for finding in report["findings"]):
+            return "the id is still reported NEW once its commented-out form is in the file"
+        return None
+
+    def listed_groq(without):
+        return answers_listing(APPLY_TEMPLATE, {("groq", identifier) for identifier in without})
+
+    def groq_outcomes(result):
+        return [finding["removal"] for report in result["providers"] if report["name"] == "groq"
+                for finding in report["findings"] if "removal" in finding]
+
+    def too_short_not_believed(result, new_text, report, issue, pr, commit):
+        outcomes = groq_outcomes(result)
+        if new_text != APPLY_TEMPLATE or pr is not None or commit is not None:
+            return "a catalogue that omits most of what the file holds changed the file"
+        if len(outcomes) != 4 or any(o["status"] != "refused" or o["reason"][0] != "implausible"
+                                     for o in outcomes):
+            return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+        if "omits 4 of the 7 ids this file holds for that provider" not in report:
+            return "the report does not say why"
+        if "ne liste pas 4 des 7 identifiants" not in issue:
+            return "the issue does not say why"
+        return None
+
+    def three_of_seven_believed(result, new_text, report, issue, pr, commit):
+        outcomes = groq_outcomes(result)
+        if len(outcomes) != 3 or any(o["status"] != "applied" for o in outcomes):
+            return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+        gone = [name for name in ("alpha-groq", "beta-groq", "shared-one", "shared-two")
+                if "model_name: " + name + "\n" in new_text]
+        if gone or "model_name: later-groq" not in new_text or pr is None:
+            return "the three retired ids were not all deleted, or more than they were"
+        return None
+
+    commented_groq = APPLY_TEMPLATE.replace(
+        "\nrouter_settings:\n",
+        "\n  # Usable on Groq but not routed to: enterprise only.\n"
+        "  # - model_name: c1-groq\n  #   litellm_params:\n  #     model: groq/vendor/c1\n"
+        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n  #\n'
+        "  # - model_name: c2-groq\n  #   litellm_params:\n  #     model: groq/vendor/c2\n"
+        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+
+    def commented_ids_count_as_held(result, new_text, report, issue, pr, commit):
+        outcomes = {o["id"]: o for o in groq_outcomes(result)}
+        if len(outcomes) != 4 or any(o["reason"] and o["reason"][0] == "implausible"
+                                     for o in outcomes.values()):
+            return "outcomes %r" % [(i, o["status"], o["reason"]) for i, o in outcomes.items()]
+        if [i for i, o in sorted(outcomes.items()) if o["status"] == "applied"] != [
+                "vendor/alpha", "vendor/beta"]:
+            return "the two retired ids that can go were not both deleted"
+        return None
+
+    eight_groq = APPLY_TEMPLATE.replace(
+        "\nrouter_settings:\n",
+        "\n  - model_name: extra-groq\n    litellm_params:\n      model: groq/vendor/extra\n"
+        '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+
+    def half_believed(result, new_text, report, issue, pr, commit):
+        outcomes = groq_outcomes(result)
+        if len(outcomes) != 4 or any(o["status"] != "applied" for o in outcomes):
+            return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+        if pr is None or "extra-groq" in new_text:
+            return "the four retired ids were not deleted"
+        return None
+
+    quartet = (
+        "model_list:\n"
+        '  - model_name: router\n    litellm_params:\n      model: gemini/gemini-9-pro\n'
+        '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n\n'
+        + "".join('  - model_name: q%d-groq\n    litellm_params:\n      model: groq/vendor/q%d\n'
+                  '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\n' % (number, number)
+                  for number in range(1, 5))
+        + "router_settings:\n  fallbacks:\n    - router:\n"
+        + "".join("        - q%d-groq\n" % number for number in range(1, 5)))
+
+    def three_of_four_not_believed(result, new_text, report, issue, pr, commit):
+        outcomes = groq_outcomes(result)
+        if new_text != quartet or pr is not None:
+            return "a catalogue that omits three of the four ids the file holds changed the file"
+        if len(outcomes) != 3 or any(o["status"] != "refused" or o["reason"][0] != "implausible"
+                                     for o in outcomes):
+            return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+        return None
+
+    def small_provider_believed(result, new_text, report, issue, pr, commit):
+        outcomes = [finding["removal"] for r in result["providers"] if r["name"] == "cerebras"
+                    for finding in r["findings"] if "removal" in finding]
+        if len(outcomes) != 2 or any(o["status"] != "applied" for o in outcomes):
+            return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
+        if "cerebras/cb-" in new_text:
+            return "the two Cerebras entries were not deleted"
+        return None
+
+    def hostile(result, new_text, report, issue, pr, commit):
+        problem = hostile_lines(report, issue, pr, commit)
+        if problem:
+            return problem
+        if any(spelling in issue for spelling in (
+                "vendor/evil", "vendor/tick", "vendor//slashes", "vendor/colon")):
+            return "an id spelt out of the ordinary became a NEW candidate"
+        okay = [line for line in issue.splitlines()
+                if line.startswith("- `openrouter/vendor/okay:free`")]
+        if len(okay) != 1:
+            return "the well-spelt id with a hostile name is not listed once"
+        if okay[0].count("`") != 4:
+            return "the hostile name broke out of its code span: %r" % okay[0]
+        if "unusual spelling left out" not in report:
+            return "the report does not say that an id was left out"
+        return None
+
+    new_free = [openrouter_model("vendor/fresh:free")]
+    snippet_answers = changed(
+        openrouter={"data": base["openrouter"]["data"] + new_free},
+        groq={"data": base["groq"]["data"] + [{"id": "vendor/new-fast", "active": True}]},
+        mistral={"data": base["mistral"]["data"] + [
+            {"id": "magistral-9", "capabilities": {"completion_chat": True}}]},
+        gemini=[base["gemini"][0], {"models": [
+            {"name": "models/gemini-10-pro", "supportedGenerationMethods": ["generateContent"]}]}],
+        sambanova={"data": [{"id": "SN-One"}, {"id": "SN-New"}]},
+        cerebras={"data": [{"id": "cb-new"}]})
+    hostile_answers = changed(
+        openrouter={"data": base["openrouter"]["data"] + [
+            openrouter_model("vendor/evil\n::error::pwned:free"),
+            openrouter_model("vendor/tick`s:free"),
+            openrouter_model("vendor//slashes:free"),
+            openrouter_model("vendor/colon::pair:free"),
+            dict(openrouter_model("vendor/okay:free"),
+                 name="<img src=x> @someone [x](http://evil.example) www.evil.example"),
+        ]},
+        mistral={"data": [
+            {"id": "mistral-large-2609", "aliases": ["mistral-large-latest"],
+             "capabilities": {"completion_chat": True},
+             "deprecation": "2026-12-31\n::error::z @bob",
+             "deprecation_replacement_model": "`x`\n::warning::y @bob"}]},
+        deepseek=urllib.error.HTTPError("https://selftest.invalid/", 500,
+                                        "Boom\n::error::pwned @bob", None, io.BytesIO(b"")))
+    many = {"openrouter": {"data": base["openrouter"]["data"] + [
+                openrouter_model("vendor/bulk-%d:free" % number) for number in range(200)]},
+            "groq": {"data": base["groq"]["data"] + [
+                {"id": "vendor/bulk-%d" % number, "active": True} for number in range(200)]}}
+
+    return (
+        ("a retired model nobody routes to is deleted, and the issue, the pull request and the "
+         "commit all say so",
+         SELFTEST_TEMPLATE,
+         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         deletes_fast, 1),
+        ("a retired model an alias points at is left alone, and the issue says why in French",
+         SELFTEST_TEMPLATE, changed(openrouter=lacking("openrouter", "vendor/one:free")),
+         keeps_free_one, 1),
+        ("an announced retirement, a model free again and a new model are never touched",
+         SELFTEST_TEMPLATE,
+         changed(openrouter=openrouter_with_notice(base),
+                 mistral={"data": [{"id": "mistral-large-2609", "aliases": ["mistral-large-latest"],
+                                    "capabilities": {"completion_chat": True},
+                                    "deprecation": "2026-12-31"}]},
+                 groq={"data": [{"id": "vendor/fast", "active": False}]}),
+         decisions_untouched, 1),
+        ("a catalogue that lists nothing is not taken for everything retired",
+         SELFTEST_TEMPLATE, changed(sambanova={"data": []}), empty_not_believed, 1),
+        ("a provider that could not be read has nothing deleted, and the others are",
+         SELFTEST_TEMPLATE,
+         changed(deepseek=leaky_401("deepseek"),
+                 groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         error_deletes_nothing_else, 2),
+        ("a second run on the result finds nothing more to delete", SELFTEST_TEMPLATE,
+         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}), idempotent, 1),
+        ("every NEW id comes with an entry to complete, modelled on its provider's own",
+         SELFTEST_TEMPLATE, snippet_answers, snippets, 1),
+        ("the commented-out form the issue documents is one the check reads as an entry",
+         SELFTEST_TEMPLATE, snippet_answers, commented_form_is_read, 1),
+        ("a provider whose entries disagree on the api_base is said to, next to the snippet",
+         SELFTEST_TEMPLATE.replace("\nrouter_settings:\n", "\n  - model_name: flash-two\n"
+                                   "    litellm_params:\n      model: gemini/gemini-9-flash-two\n"
+                                   '      api_base: "https://selftest.invalid/openai/"\n'
+                                   '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n'
+                                   "\nrouter_settings:\n"),
+         changed(gemini=[{"models": base["gemini"][0]["models"] + [
+             {"name": "models/gemini-9-flash-two", "supportedGenerationMethods": ["generateContent"]},
+             {"name": "models/gemini-10-pro", "supportedGenerationMethods": ["generateContent"]}]}],
+                 groq={"data": base["groq"]["data"] + [{"id": "vendor/new-fast", "active": True}]}),
+         mixed_api_base_said, 1),
+        ("snippets are dropped, findings kept, when the issue body would pass GitHub's limit",
+         SELFTEST_TEMPLATE, changed(**many), snippets_dropped_when_too_long, 1),
+        ("text from a catalogue cannot start a workflow command, mention anyone or make markup",
+         SELFTEST_TEMPLATE, hostile_answers, hostile, 2),
+        ("a catalogue that omits most of the ids the file holds for its provider is not believed",
+         APPLY_TEMPLATE, listed_groq(("vendor/alpha", "vendor/beta", "vendor/shared", "vendor/solo")),
+         too_short_not_believed, 1),
+        ("three of seven, which is not more than half, are believed",
+         APPLY_TEMPLATE, listed_groq(("vendor/alpha", "vendor/beta", "vendor/shared")),
+         three_of_seven_believed, 1),
+        ("the commented-out ids of a provider count among those the file holds for it",
+         commented_groq, answers_listing(commented_groq, {
+             ("groq", identifier) for identifier in
+             ("vendor/alpha", "vendor/beta", "vendor/shared", "vendor/solo")}),
+         commented_ids_count_as_held, 1),
+        ("exactly half omitted, at least three of them, is believed: more than half is the line",
+         eight_groq, answers_listing(eight_groq, {
+             ("groq", identifier) for identifier in
+             ("vendor/alpha", "vendor/beta", "vendor/shared", "vendor/extra")}),
+         half_believed, 1),
+        ("three omitted of four known is not believed: three is where the line is crossed",
+         quartet, answers_listing(quartet, {
+             ("groq", "vendor/q%d" % number) for number in (1, 2, 3)}),
+         three_of_four_not_believed, 1),
+        ("a provider with fewer than three ids is believed whatever share goes",
+         APPLY_TEMPLATE, dict(answers_listing(APPLY_TEMPLATE), cerebras={"data": [{"id": "cb-c"}]}),
+         small_provider_believed, 1),
+    )
+
+
+def run_online_apply_cases():
+    failures = 0
+    for purpose, text, answers, check, status in online_apply_cases():
+        outputs = apply_run(text, answers)
+        result = outputs[0]
+        why = None
+        if exit_status(result) != status:
+            why = "exit status %d, expected %d" % (exit_status(result), status)
+        else:
+            why = check(*outputs)
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
+
+
+def run_command_line_cases():
+    """The command line, end to end on a file in a temporary directory: it is written in place,
+    writes the three texts, takes back the ones a run that deletes nothing would leave stale."""
+    failures = 0
+    answers = selftest_answers()
+    answers["groq"] = {"data": [{"id": "whisper-large-v9", "active": True}]}
+
+    def run(arguments, directory, environment=SELFTEST_KEYS):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            try:
+                status = main(arguments, opener=canned_opener(answers, []),
+                              environment=environment)
+            except SystemExit as error:
+                status = error.code
+        return status, out.getvalue()
+
+    with tempfile.TemporaryDirectory() as directory:
+        config = os.path.join(directory, "config.yaml.j2")
+        paths = {name: os.path.join(directory, name)
+                 for name in ("issue", "pr", "commit", "coverage", "undeleted")}
+        arguments = ["--online", "--config", config, "--issue-body", paths["issue"]]
+
+        def read(name):
+            return Path(paths[name]).read_text(encoding="utf-8") if os.path.exists(
+                paths[name]) else None
+
+        Path(config).write_bytes(SELFTEST_TEMPLATE.replace("\n", "\r\n").encode("utf-8"))
+        status, _ = run(arguments + ["--coverage", paths["coverage"],
+                                     "--undeleted", paths["undeleted"]], directory)
+        steps = [
+            ("without --apply, the file is not touched",
+             status == 1 and Path(config).read_bytes().decode("utf-8")
+             == SELFTEST_TEMPLATE.replace("\n", "\r\n") and read("pr") is None),
+            ("every provider read, the coverage is complete", read("coverage") == "complete\n"),
+            ("without --apply, the one retired model is counted as not deleted",
+             read("undeleted") == "1\n"),
+        ]
+        run(arguments + ["--coverage", paths["coverage"]], directory,
+            dict(SELFTEST_KEYS, MODEL_DRIFT_GROQ_API_KEY=""))
+        steps.append(("a provider with no key makes it partial, whatever the status",
+                      read("coverage") == "partial\n"))
+        os.unlink(paths["coverage"])
+        status, out = run(arguments + ["--apply", "--pr-body", paths["pr"],
+                                       "--commit-message", paths["commit"],
+                                       "--undeleted", paths["undeleted"]], directory)
+        rewritten = Path(config).read_bytes().decode("utf-8")
+        steps += [
+            ("with --apply, a model that was deleted is no longer counted",
+             read("undeleted") == "0\n"),
+            ("with --apply, the file is rewritten in place, and its line endings are kept",
+             status == 1 and "groq/vendor/fast" not in rewritten and "\r\n" in rewritten
+             and "\n" not in rewritten.replace("\r\n", "")),
+            ("with --apply, the issue, the pull request and the commit are written",
+             all(read(name) for name in ("issue", "pr", "commit"))
+             and "DELETED from the file" in out
+             and "1 deletion(s) made, 0 left to a person" in out),
+        ]
+        status, out = run(arguments + ["--apply", "--pr-body", paths["pr"],
+                                       "--commit-message", paths["commit"]], directory)
+        steps += [
+            ("a second run deletes nothing, finds no drift, and takes back the stale texts",
+             status == 0 and Path(config).read_bytes().decode("utf-8") == rewritten
+             and read("pr") is None and read("commit") is None
+             and "Aucune dérive." in (read("issue") or "")),
+        ]
+        Path(paths["undeleted"]).write_text("0\n", encoding="utf-8")
+        Path(config).write_text("model_list: [unclosed\n", encoding="utf-8")
+        status, _ = run(arguments + ["--undeleted", paths["undeleted"]], directory)
+        steps.append(("a file that cannot be read gets no count, and a stale one is taken back",
+                      status == 2 and read("undeleted") is None))
+        Path(config).write_bytes(rewritten.encode("utf-8"))
+        for flags, purpose in ((["--apply", "--config", config],
+                                "--apply without --online is refused"),
+                               (["--undeleted", paths["undeleted"], "--config", config],
+                                "--undeleted without --online is refused"),
+                               (["--coverage", paths["coverage"], "--config", config],
+                                "--coverage without --online is refused"),
+                               (["--online", "--config", config, "--pr-body", paths["pr"]],
+                                "--pr-body without --apply is refused")):
+            status, _ = run(flags, directory)
+            steps.append((purpose, status == 2))
+    for purpose, passed in steps:
+        if passed:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s)" % purpose)
+    return failures
 
 
 def run_selftest():
@@ -1661,27 +4538,62 @@ def run_selftest():
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
+    failures += run_apply_cases()
+    failures += run_verify_cases()
+    failures += run_safety_net_case()
+    failures += run_online_apply_cases()
+    failures += run_review_cases()
+    failures += run_hardening_cases()
+    failures += run_command_line_cases()
     return 1 if failures else 0
 
 
 # ------------------------------------------------------------------------------------------------
 
-def main():
+def main(argv=None, opener=urllib_opener, environment=None):
+    """The command line. "opener" and "environment" are what the selftest replaces: how a catalogue
+    is fetched, and where the keys are read from."""
+    environment = os.environ if environment is None else environment
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--selftest", action="store_true",
                         help="verify the check against its in-memory cases, with no network")
     parser.add_argument("--online", action="store_true",
                         help="read every provider's catalogue and report the drift")
+    parser.add_argument("--apply", action="store_true",
+                        help="with --online, delete from --config every RETIRED and GONE entry "
+                             "that can be deleted without anybody's judgment, and rewrite it "
+                             "IN PLACE: run it on a checkout you can throw away")
     parser.add_argument("--issue-body", metavar="PATH",
                         help="with --online, write the rolling issue's body (French) to PATH")
+    parser.add_argument("--pr-body", metavar="PATH",
+                        help="with --apply, write the deletion pull request's body (French) to "
+                             "PATH, when something was deleted")
+    parser.add_argument("--commit-message", metavar="PATH",
+                        help="with --apply, write the deletion commit's message to PATH, when "
+                             "something was deleted")
+    parser.add_argument("--coverage", metavar="PATH",
+                        help="with --online, write \"complete\" to PATH when every provider's "
+                             "catalogue was read, \"partial\" when one was not (no key, or an "
+                             "error): a run that read only some of them cannot say that nothing "
+                             "is left to delete")
+    parser.add_argument("--undeleted", metavar="PATH",
+                        help="with --online, write to PATH how many RETIRED and GONE findings the "
+                             "run did not delete (all of them without --apply): a deletion pull "
+                             "request is closed over \"nothing left to delete\" only at 0, "
+                             "since a model the run refused to delete is still retired")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
-    arguments = parser.parse_args()
+    arguments = parser.parse_args(argv)
 
     if arguments.selftest:
         return run_selftest()
-    if arguments.issue_body and not arguments.online:
-        parser.error("--issue-body needs --online")
+    if (arguments.issue_body or arguments.coverage or arguments.undeleted) \
+            and not arguments.online:
+        parser.error("--issue-body, --coverage and --undeleted need --online")
+    if arguments.apply and not arguments.online:
+        parser.error("--apply needs --online")
+    if (arguments.pr_body or arguments.commit_message) and not arguments.apply:
+        parser.error("--pr-body and --commit-message need --apply")
 
     path = Path(arguments.config)
     try:
@@ -1689,7 +4601,8 @@ def main():
     except ValueError:
         shown = str(path)
     try:
-        text = path.read_text(encoding="utf-8")
+        # Bytes, so that a file's line endings come back exactly as they were read.
+        text = path.read_bytes().decode("utf-8")
     except (OSError, UnicodeDecodeError) as error:
         print("%s: unreadable (%s)." % (shown, error.__class__.__name__))
         return 2
@@ -1711,13 +4624,58 @@ def main():
         return 0
 
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-    result = run_online(text, os.environ, urllib_opener, today)
+    result = run_online(text, environment, opener, today)
+    if arguments.apply and not result["unreadable"]:
+        new_text = apply_to_result(text, result)
+        if new_text != text:
+            path.write_bytes(new_text.encode("utf-8"))
     sys.stdout.write(render_text(result, shown))
+    if arguments.coverage:
+        Path(arguments.coverage).write_text(
+            "complete\n" if is_complete(result) else "partial\n", encoding="utf-8")
+    if arguments.undeleted:
+        # A file that could not be read has no findings, which is no reason to say that none is
+        # left: no file is written for it, and the workflow reads that as "unknown".
+        Path(arguments.undeleted).unlink(missing_ok=True)
+        if not result["unreadable"]:
+            Path(arguments.undeleted).write_text("%d\n" % undeleted_count(result),
+                                                 encoding="utf-8")
     if arguments.issue_body:
         Path(arguments.issue_body).write_text(render_issue_body(result, shown, link=run_link()),
                                               encoding="utf-8")
+    deleted = result.get("removals", {}).get("changed")
+    for target, render in ((arguments.pr_body, lambda: render_pr_body(result, run_link())),
+                           (arguments.commit_message, lambda: render_commit_message(result))):
+        if target:
+            # A file left over from an earlier run would be taken for this run's.
+            Path(target).unlink(missing_ok=True)
+            if deleted:
+                Path(target).write_text(render(), encoding="utf-8")
     return exit_status(result)
 
 
+def guarded(entry, argv=None):
+    """The exit status of "entry(argv)", a crash having the status of its own."""
+    try:
+        return entry(argv)
+    except Exception as error:
+        return crashed(error)
+
+
+def crashed(error):
+    """What a crash is allowed to say: the kind of error and where, never its message, which can
+    carry a piece of what a provider answered."""
+    frames = traceback.extract_tb(error.__traceback__)
+    where = " in %s (line %d)" % (frames[-1].name, frames[-1].lineno) if frames else ""
+    sys.stderr.write("check_LiteLLM_model_drift: crashed, %s%s. The status %d is neither 0, 1 nor "
+                     "2: nothing this run says can be trusted.\n"
+                     % (error.__class__.__name__, where, CRASH_STATUS))
+    return CRASH_STATUS
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    # An uncaught exception exits 1 -- "drift" -- and a workflow that read it so would act on a
+    # report nobody wrote: it would close a pull request over "nothing left to delete". A crash
+    # exits with a status of its own.
+    # The selftest has no provider's answer to keep out of the log, and wants its traceback.
+    sys.exit(main() if "--selftest" in sys.argv[1:] else guarded(main))
