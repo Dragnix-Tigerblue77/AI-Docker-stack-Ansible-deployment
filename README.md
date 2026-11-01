@@ -123,6 +123,9 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
+| `Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds` · `..._interval_in_seconds` · `..._retries` | `90` / `30` / `3` | Le healthcheck du service `litellm`, écrit tel quel dans le template (#295). `start_period` est le premier démarrage lent, les migrations de Prisma. Le rôle attend la passerelle pendant ce que ces trois nombres lui accordent (ligne suivante). |
+| `Artificial_Intelligence_LiteLLM_startup_budget_in_seconds` | *dérivé* : `start_period` + `interval` × `retries`, soit `180` | **Pas un réglage** en temps normal. Combien de temps le rôle attend `/health/readiness` avant d'appeler l'API d'administration : le temps que l'orchestrateur laisse au conteneur avant de le déclarer en échec. |
+| `Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds` | `5` | Tous les combien de secondes l'attente interroge la passerelle, et la durée maximale d'une requête. Une période d'interrogation, pas un budget. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
 autres comptes n'ont pas les leurs ici) :
@@ -341,8 +344,18 @@ et `Docker_stack_deployment_state`.
 deux paramètres par lesquels un rôle de déploiement Swarm attend que chaque service tourne, et soit sain
 quand il a un healthcheck, avant de rendre la main. Tout ce qui suit le déploiement parle à ce qu'il
 vient de déployer : l'API d'administration de LiteLLM, puis `docker exec` dans LibreChat et sa MongoDB.
-Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; les tentatives répétées des
-appels à l'API, deux minutes au total, restent alors la seule protection.
+Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; l'attente décrite juste
+après reste alors la seule protection.
+
+**Le rôle attend ensuite lui-même la passerelle (#295)**, une seule fois, avant d'appeler son API
+d'administration. Il interroge `/health/readiness`, qui ne teste que la connexion à la base et n'appelle
+aucun modèle, pendant ce que le healthcheck du service accorde avant que l'orchestrateur déclare le
+conteneur en échec : `start_period` + `interval` × `retries`, soit 90 + 3 × 30 = 180 secondes par défaut.
+Attendre plus longtemps n'a pas de sens, et attendre moins fait échouer un démarrage que l'orchestrateur
+juge encore normal. Les trois nombres sont des variables du rôle que le template écrit dans le
+healthcheck, donc changer l'un change l'autre. L'attente est sautée en `--check`, et quand ni les
+comptes internes ni l'agent Claude Code n'appellent la passerelle ; si elle ne répond pas, l'échec dit
+combien de secondes elle a été attendue.
 
 ## La passerelle et sa base (#1)
 

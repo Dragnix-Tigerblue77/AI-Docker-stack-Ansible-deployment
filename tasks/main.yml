@@ -444,10 +444,48 @@
     # calls below would race images still being pulled and a LiteLLM still running its migrations, and
     # the LibreChat lookup would find no container and skip both accounts without a word. These two are
     # the parameters such a deployer takes to wait; one that does not know them ignores them, and the
-    # retries below are then the only line of defence. Thirty minutes because a first deployment pulls
+    # wait below is then the only line of defence. Thirty minutes because a first deployment pulls
     # every image first.
     Docker_stack_deployment_detached: false
     Docker_stack_deployment_timeout_in_seconds: 1800
+
+# The one wait for the gateway, before the two tasks that call its admin API: the creation of the internal
+# users and the registration of the Claude Code agent's key (#295). "/health/readiness" tests the
+# connection to the database, calls no model and carries no secret. The budget is what the service's own
+# healthcheck allows (see defaults/main.yml): the orchestrator gives up on the container after that, so
+# waiting longer is pointless and waiting less fails a start it still judges normal. A deployer that
+# waits for convergence (above) has normally got the gateway healthy by now; this covers one that cannot,
+# and the gap between a container that is alive and an API that answers.
+#
+# Skipped in "--check", where the stack is only rendered, and when neither of the two tasks runs. The
+# failure says how long the gateway was waited for, since "until" alone only says it ran out of tries.
+- name: "Wait for the LiteLLM gateway to answer"
+  when:
+    - not ansible_check_mode
+    - (Artificial_Intelligence_LiteLLM_internal_users | length > 0) or Artificial_Intelligence_Claude_code_enabled
+  block:
+    - name: "Ask LiteLLM whether it is ready"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness"
+        status_code: [200]
+        timeout: "{{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }}"
+      register: Artificial_Intelligence_LiteLLM_readiness
+      until: Artificial_Intelligence_LiteLLM_readiness.status is defined and Artificial_Intelligence_LiteLLM_readiness.status == 200
+      retries: "{{ ((Artificial_Intelligence_LiteLLM_startup_budget_in_seconds | int) / (Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds | int)) | round(0, 'ceil') | int }}"
+      delay: "{{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }}"
+      changed_when: false
+  rescue:
+    - name: "Say how long LiteLLM was waited for"
+      ansible.builtin.fail:
+        msg: >-
+          LiteLLM did not answer "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness" with 200
+          within {{ Artificial_Intelligence_LiteLLM_startup_budget_in_seconds }} seconds, asking every
+          {{ Artificial_Intelligence_LiteLLM_readiness_poll_in_seconds }} seconds. That is what its healthcheck
+          allows before the orchestrator gives up on the container: start_period
+          {{ Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds }} s, then
+          {{ Artificial_Intelligence_LiteLLM_healthcheck_retries }} tries
+          {{ Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds }} s apart. Last answer:
+          {{ ansible_failed_result.msg | default('none') }}
 
 # Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
@@ -455,12 +493,9 @@
 # 409 on a user_id or email that already exists rather than upsert it, so a re-run is a no-op here,
 # the same shape as LibreChat's own "create-user" a few tasks down.
 #
-# LiteLLM needs a moment after the stack deployment task above to actually start answering on its
-# published port -- "until"/"retries" ride out that window rather than presuppose it has already
-# passed; a hard failure past the retry budget still fails the play, since a user this role could
-# not confirm exists is not a user it should silently skip. Two minutes, not the 25 seconds this
-# used to allow : the template gives LiteLLM a 90-second "start_period" for its first schema
-# migrations, and a deployer that cannot wait for convergence returns before any of that is done.
+# The gateway is waited for above, once, so this call carries no retry of its own: a failure here is a
+# real one and fails the play, since a user this role could not confirm exists is not a user it should
+# silently skip.
 - name: "Create each additional LiteLLM internal user"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
@@ -479,9 +514,6 @@
       auto_create_key: false
     status_code: [200, 201, 409]
   register: Artificial_Intelligence_LiteLLM_internal_user_creation
-  until: Artificial_Intelligence_LiteLLM_internal_user_creation.status is defined and Artificial_Intelligence_LiteLLM_internal_user_creation.status in [200, 201, 409]
-  retries: 12
-  delay: 10
   no_log: true
   loop: "{{ Artificial_Intelligence_LiteLLM_internal_users }}"
   loop_control:
@@ -563,23 +595,13 @@
 # Skipped in "--check": the stack is only rendered then, and there is no LiteLLM to ask.
 #
 # "no_log" everywhere the key or the master key could be printed, so a failure there is silent about
-# its cause: the readiness probe, which carries no secret, is the task that names an unreachable
-# gateway.
+# its cause: the wait for the gateway above, which carries no secret, is the task that names an
+# unreachable one.
 - name: "Register the Claude Code agent's LiteLLM virtual key"
   when:
     - Artificial_Intelligence_Claude_code_enabled
     - not ansible_check_mode
   block:
-    - name: "Wait for LiteLLM to answer"
-      ansible.builtin.uri:
-        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/health/readiness"
-        status_code: [200]
-      register: Artificial_Intelligence_LiteLLM_readiness
-      until: Artificial_Intelligence_LiteLLM_readiness.status is defined and Artificial_Intelligence_LiteLLM_readiness.status == 200
-      retries: 30
-      delay: 5
-      changed_when: false
-
     - name: "Look up the Claude Code agent's LiteLLM virtual key"
       ansible.builtin.uri:
         url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/info?key={{ Artificial_Intelligence_Claude_code_virtual_key | hash('sha256') }}"

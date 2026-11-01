@@ -67,6 +67,11 @@ the thirty-one renders is held to the rules in "check_litellm_config", among the
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong.
 
+The role waits for the gateway for as long as its healthcheck allows it (#295), and the healthcheck's three
+numbers are role variables the template writes: "check_litellm_healthcheck" renders the template with
+other numbers than the defaults and refuses a "litellm" healthcheck that does not follow them, or a
+startup budget that is not "start_period" plus "interval" times "retries".
+
 What it deliberately does NOT flag
 ----------------------------------
 * A published "ports:" mapping. Whether a service is web-facing is a deployment decision, not a
@@ -1524,6 +1529,63 @@ AGENT_MODEL_CASES = [
 ]
 
 
+# --- The gateway's healthcheck and the budget the role waits for it by (#295) ----------------------------
+
+LITELLM_HEALTHCHECK_VARIABLES = {
+    "start_period": "Artificial_Intelligence_LiteLLM_healthcheck_start_period_in_seconds",
+    "interval": "Artificial_Intelligence_LiteLLM_healthcheck_interval_in_seconds",
+    "retries": "Artificial_Intelligence_LiteLLM_healthcheck_retries",
+}
+LITELLM_BUDGET_VARIABLE = "Artificial_Intelligence_LiteLLM_startup_budget_in_seconds"
+# Numbers no default is, so that a template still writing the defaults shows.
+LITELLM_HEALTHCHECK_STATE = "LiteLLM healthcheck numbers changed"
+LITELLM_HEALTHCHECK_OVERRIDES = {
+    LITELLM_HEALTHCHECK_VARIABLES["start_period"]: 7,
+    LITELLM_HEALTHCHECK_VARIABLES["interval"]: 11,
+    LITELLM_HEALTHCHECK_VARIABLES["retries"]: 5,
+}
+
+
+def check_litellm_healthcheck(document, state, numbers, budget, failures):
+    """The "litellm" healthcheck follows the three numbers, and the budget is what they add up to."""
+    healthcheck = mapping(mapping(mapping(document, "services"), "litellm"), "healthcheck")
+    expected = {
+        "start_period": f"{numbers['start_period']}s",
+        "interval": f"{numbers['interval']}s",
+        "retries": numbers["retries"],
+    }
+    for key, want in expected.items():
+        if healthcheck.get(key) != want:
+            failures.append(
+                f"[{state}] the litellm healthcheck has {key} {healthcheck.get(key)!r} where the role variable says "
+                f"{want!r}: the template has to write the variable, or the wait and the healthcheck drift apart"
+            )
+    want_budget = numbers["start_period"] + numbers["interval"] * numbers["retries"]
+    if int(budget) != want_budget:
+        failures.append(
+            f"[{state}] the startup budget is {budget}, not start_period + interval x retries = {want_budget}: "
+            "the role would wait for the gateway longer or shorter than its orchestrator does"
+        )
+
+
+HEALTHCHECK_CASES = [
+    ("a healthcheck that follows the numbers",
+     {"services": {"litellm": {"healthcheck": {"start_period": "7s", "interval": "11s", "retries": 5}}}},
+     {"start_period": 7, "interval": 11, "retries": 5}, 62, None),
+    ("a start_period still written as 90s",
+     {"services": {"litellm": {"healthcheck": {"start_period": "90s", "interval": "11s", "retries": 5}}}},
+     {"start_period": 7, "interval": 11, "retries": 5}, 62, "start_period '90s'"),
+    ("retries written as a string",
+     {"services": {"litellm": {"healthcheck": {"start_period": "7s", "interval": "11s", "retries": "5"}}}},
+     {"start_period": 7, "interval": 11, "retries": 5}, 62, "retries '5'"),
+    ("a budget that is not what the numbers add up to",
+     {"services": {"litellm": {"healthcheck": {"start_period": "7s", "interval": "11s", "retries": 5}}}},
+     {"start_period": 7, "interval": 11, "retries": 5}, 180, "startup budget is 180"),
+    ("no litellm service at all", {"services": {}},
+     {"start_period": 7, "interval": 11, "retries": 5}, 62, "start_period None"),
+]
+
+
 # --- The LiteLLM routing configuration, rendered for every set of provider keys (#296) --------------
 
 LITELLM_CONFIG_TEMPLATE = "LiteLLM_config.yaml.j2"
@@ -1745,6 +1807,15 @@ def selftest():
             if resolved.get(key) != value:
                 problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
 
+    for name, document, numbers, budget, expected in HEALTHCHECK_CASES:
+        failures = []
+        try:
+            check_litellm_healthcheck(document, "selftest", numbers, budget, failures)
+        except Exception as error:  # noqa: BLE001 - a crash IS the finding here
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, keys, expected in LITELLM_CONFIG_CASES:
         failures = []
         try:
@@ -1902,7 +1973,8 @@ def selftest():
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
-        f"case(s) and {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) all judged as expected."
+        f"case(s), {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) and {len(HEALTHCHECK_CASES)} healthcheck "
+        "case(s) all judged as expected."
     )
     return 0
 
@@ -1946,6 +2018,7 @@ def main():
         ("Claude Code agent with a host workspace", CLAUDE_CODE_HOST_WORKSPACE),
         ("Claude Code agent disabled", CLAUDE_CODE_DISABLED),
         ("mounted configuration checksums set", MOUNTED_CONFIG_CHECKSUMS),
+        (LITELLM_HEALTHCHECK_STATE, LITELLM_HEALTHCHECK_OVERRIDES),
     ):
         # The agent is on by default and its virtual key has no default: every state is given it.
         extra = {**CLAUDE_CODE_ENABLED, **extra}
@@ -1961,6 +2034,11 @@ def main():
             failures.append(f"[{state}] the rendered file is not valid YAML: {error}")
             continue
         check_conventions(documents[state], state, failures)
+        check_litellm_healthcheck(
+            documents[state], state,
+            {key: int(context[variable]) for key, variable in LITELLM_HEALTHCHECK_VARIABLES.items()},
+            context[LITELLM_BUDGET_VARIABLE], failures,
+        )
 
     if "published network unset" in documents and "mounted configuration checksums set" in documents:
         check_mounted_configs(
