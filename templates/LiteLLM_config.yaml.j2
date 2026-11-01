@@ -712,23 +712,13 @@ litellm_settings:
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
   turn_off_message_logging: true
 
-  # Response caching stays OFF, deliberately -- #79's own Definition of Done, applied to a measurement.
+  # No response cache, on purpose (#79). The two lines that were here, "enable_caching" and a
+  # "cache_params" block, meant nothing to LiteLLM, which turns its cache on for "cache: true" and for
+  # no other key: it had never been on, and leaving the key out keeps it off.
   #
-  # It had in fact never been on. The two lines that were here, "enable_caching: true" and a
-  # "cache_params" block, meant nothing to LiteLLM: the proxy turns its cache on for "cache: true" and
-  # for no other key -- "enable_caching" appears nowhere in its source -- and the "cache_params" it
-  # would then have read listed "cache_read" and "cache_write" as call types, which LiteLLM does not
-  # have, next to "completion" alone, which the proxy never calls ("acompletion" is what it calls).
-  #
-  # And turned on properly, it crosses accounts. Measured 2026-09-26 on LiteLLM 1.100.0 with
-  # "cache: true", a Redis cache and two virtual keys: the same request sent with key B came back
-  # carrying the id key A's request had been answered with, from the cache. The EXACT cache's key is
-  # the model plus the request's own parameters, nothing about who asked; only the SEMANTIC caches
-  # add the calling key, team and organisation to it (LiteLLM's own "_SEMANTIC_CACHE_TENANT_SCOPE_
-  # FIELDS"). The "scoped by default" this comment used to quote from upstream does not hold for the
-  # exact cache. There being no way to scope it per key, #79's rule decides: off, and said so here.
-  #
-  # Redis stays: the router's shared cooldown state above is what it is for now. Turning the cache on
-  # again is one line ("cache: true", with "supported_call_types" naming "acompletion") -- and a
-  # decision to let one account be answered from another's history, on an identical request.
-  cache: false
+  # It should stay off. The exact cache's key holds the whole "messages" list and the request's
+  # parameters, and nothing about the caller: measured 2026-09-26 on LiteLLM 1.100.0 with two virtual
+  # keys, an identical request sent with key B came back from the cache filled by key A, and only the
+  # semantic caches add the key, team and organisation. A chat client resends a history that differs
+  # almost every turn, so it hardly ever hits; what is left to gain is a workflow repeating one
+  # stateless prompt within a short TTL.

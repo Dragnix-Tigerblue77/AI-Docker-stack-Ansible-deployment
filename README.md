@@ -625,15 +625,15 @@ n'était pas satisfait).
 #2 n'en avait le périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement
 que la clé d'API de Qdrant (#3) : défense en profondeur sur un service interne, sans port publié.
 
-**Le cache de réponses, l'autre raison de #71, reste désactivé -- et c'est mesuré (#79).** Il n'avait
-en fait jamais été actif : la configuration disait `enable_caching: true`, une clé que LiteLLM ne
-connaît pas (la sienne est `cache: true`). Activé correctement, il **franchit la frontière entre
-comptes** : sur LiteLLM 1.100.0, une requête identique envoyée avec la clé virtuelle B a reçu la
-réponse mise en cache pour la clé A. La clé du cache exact ne contient que le modèle et les paramètres
-de la requête ; seuls les caches *sémantiques* y ajoutent l'identité de l'appelant. Faute de pouvoir
-le cloisonner par clé, il reste éteint, et la raison est écrite dans `LiteLLM_config.yaml.j2`. Le
-rallumer tient en une ligne, mais c'est accepter qu'un compte soit servi depuis l'historique d'un
-autre sur une requête identique.
+**Le cache de réponses, l'autre raison de #71, n'existe pas -- et c'est mesuré (#79).** Il n'avait en
+fait jamais été actif : la configuration disait `enable_caching: true`, une clé que LiteLLM ne connaît
+pas (la sienne est `cache: true`, et sans elle il n'y a pas de cache). Activé correctement, il
+**franchit la frontière entre comptes** : sur LiteLLM 1.100.0, une requête identique envoyée avec la
+clé virtuelle B a reçu la réponse mise en cache pour la clé A. La clé du cache exact contient la
+liste `messages` entière (tout l'historique et le prompt système), le modèle et les paramètres, mais
+rien sur l'appelant ; seuls les caches *sémantiques* y ajoutent son identité. Il ne vaut de toute façon
+presque rien ici : un client de conversation renvoie un historique qui diffère à chaque tour, donc il
+ne tombe presque jamais sur une requête identique. La raison est écrite dans `LiteLLM_config.yaml.j2`.
 
 **Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
 derrière la ligne `gemini-3.x` déjà prioritaire partout où il apparaît, et #2 le signale comme tel --
