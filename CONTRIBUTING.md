@@ -65,6 +65,7 @@ Aucun de ces contrôles n'a besoin de la moindre machine du homelab.
 
 ```bash
 pip install -r requirements.txt          # ansible-core, ansible-lint, yamllint, reuse, PyYAML (épinglés)
+ansible-galaxy collection install -r requirements.yml   # community.docker, depuis #76
 
 yamllint .
 ansible-lint

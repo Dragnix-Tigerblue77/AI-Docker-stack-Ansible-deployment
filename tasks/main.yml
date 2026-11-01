@@ -604,9 +604,9 @@
     #
     # Idempotent by inspection of its output rather than by checking for the account first:
     # "create-user" itself refuses a duplicate email or username with "A user with that email or
-    # username already exists!" on stderr and exits 1, which is exactly the case "failed_when"
-    # excludes. Both streams are read, since which one carries that message is LibreChat's to
-    # change.
+    # username already exists!" and exits 1, which is exactly the case "failed_when" excludes.
+    # LibreChat prints it on stdout (measured on v0.8.7), but both streams are read, since which one
+    # carries that message is LibreChat's to change.
     #
     # "no_log": the password is an argument of the command, so the task's own result would print it.
     - name: "Create the LibreChat accounts"
