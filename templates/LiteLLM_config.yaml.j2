@@ -755,7 +755,7 @@ router_settings:
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
-    # its models support tool calls, but it is the only paid provider in this cascade.
+    # both its models support tool calls, but it is the only paid provider in this cascade.
     # "glm-5-3-mistral" is just ahead of it, and alone of its pair: an agentic session resends its
     # whole context on every turn, and at $1.4 per 1M input tokens a session at 128k context spends
     # the whole $10 credit in about fifty uncached turns -- one GLM slot is as much as it carries.
