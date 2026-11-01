@@ -288,15 +288,15 @@ services:
       # isolation work of #2 pointless.
       LITELLM_MASTER_KEY: {{ Artificial_Intelligence_LiteLLM_master_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       STORE_MODEL_IN_DB: "True"
-      # "/ui" is where each account's own provider keys get added, one at a time, by the person who
-      # holds them -- see the note on "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml" for why that is
-      # the deployment's model rather than a vaulted variable per provider. Basic auth in front of it
-      # is what "ports:" below gives up by existing: it does not replace TLS, but it is not nothing.
+      # The admin's own "/ui" login; each internal user has a restricted one of its own (#103). See
+      # the note on "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml". Basic auth
+      # in front of it is what "ports:" below gives up by existing: it does not replace TLS, but it
+      # is not nothing.
       UI_USERNAME: {{ Artificial_Intelligence_LiteLLM_UI_username | replace('$', '$$') | to_json(ensure_ascii=False) }}
       UI_PASSWORD: {{ Artificial_Intelligence_LiteLLM_UI_password | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # The gateway account's provider keys (#2, v1 scope) -- read by "LiteLLM_config.yaml.j2" as
-      # "os.environ/<PROVIDER>_API_KEY". Any other account's keys are deliberately absent: each
-      # adds its own from "/ui" (see "Artificial_Intelligence_LiteLLM_UI_password" in "defaults/main.yml").
+      # "os.environ/<PROVIDER>_API_KEY". Another account's are not here yet: they arrive the same
+      # way, as routing entries of its own with keys of its own (#107).
       GEMINI_API_KEY: {{ Artificial_Intelligence_LiteLLM_Gemini_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       GITHUB_API_KEY: {{ Artificial_Intelligence_LiteLLM_GitHub_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       MISTRAL_API_KEY: {{ Artificial_Intelligence_LiteLLM_Mistral_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
@@ -347,7 +347,7 @@ services:
       - "--enforce_prisma_migration_check"
 
     # Published, and this reverses #1's own original call -- see "Artificial_Intelligence_LiteLLM_UI_password" in
-    # "defaults/main.yml" for why. "/ui" is where each account adds its own provider keys by hand, so
+    # "defaults/main.yml" for why. "/ui" is where the admin and each internal user log in (#103), so
     # it has to be reachable with nothing more than a browser on the LAN, before the reverse proxy
     # this stack does not own exists to do it instead. The cost is real and is not waived by this
     # comment: no TLS, so the "/ui" login form (above) and the API's keys cross the LAN in clear text,

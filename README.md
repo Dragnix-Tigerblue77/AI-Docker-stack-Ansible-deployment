@@ -121,7 +121,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
-| `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, ajouté à `access_group:<username>`. Voir « Un compte par personne, pas une paire figée » plus bas. |
+| `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
@@ -360,12 +360,14 @@ les supprime (`docker config rm`) ; sous Compose, rien ne s'accumule.
 
 **Le port `4000` est publié, à rebours du choix initial de #1 -- décision de Dragnix, validée par
 tigerblue77 le 07/09/2026 : le compromis (HTTP sans TLS, authentification basique seule, port ouvert
-sur tout le LAN) est accepté tel quel, sur un LAN jugé de confiance.** Chaque compte ajoute ses propres
-clés fournisseur depuis `/ui`, à la main, plutôt que de les faire
-rendre depuis un vault : c'est le même modèle que les autres bases auto-hébergées de cette estate --
-déployées vides, peuplées en direct, sauvegardées de temps en temps dans leur dépôt -- et `/ui` doit donc
-être joignable depuis un simple navigateur du LAN, avant même qu'un reverse proxy existe pour le faire à
-sa place. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAME` / `UI_PASSWORD` (voir
+sur tout le LAN) est accepté tel quel, sur un LAN jugé de confiance.** `/ui` est l'endroit où se
+connectent l'administrateur et chaque compte de `Artificial_Intelligence_LiteLLM_internal_users` -- ces
+derniers pour gérer leurs propres clés virtuelles et voir leur consommation (#103) -- et doit donc être
+joignable depuis un simple navigateur du LAN, avant même qu'un reverse proxy existe pour le faire à sa
+place. La raison avancée à l'origine ne tient plus : chaque compte devait y ajouter ses propres clés
+fournisseur, comme les autres bases auto-hébergées de cette estate sont déployées vides puis peuplées
+en direct, mais #107 a établi qu'un compte `internal_user` ne peut pas ajouter de modèle. Les clés
+fournisseur restent donc des entrées du `model_list` gérées par l'administrateur. Le coût n'est pas nul : pas de TLS, et l'authentification `UI_USERNAME` / `UI_PASSWORD` (voir
 `Artificial_Intelligence_LiteLLM_UI_password` plus haut) comme seule chose entre le LAN et le conteneur qui porte la clé
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
@@ -560,13 +562,13 @@ par mois (« Free mode », sans carte), traité comme gratuit. Les entrées `:fr
 partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
 10 crédits achetés.
 
-**Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** Les autres comptes
-ajoutent les leurs eux-mêmes depuis `/ui` (voir `Artificial_Intelligence_LiteLLM_UI_password` plus haut) : même
-modèle que les autres bases auto-hébergées, déployées vides puis peuplées en direct. Aucune entrée ne porte de
-`model_info.access_groups` : un nom de compte figé dans une étiquette d'autorisation romprait la
-réutilisabilité de ce rôle pour qui l'installe, pour un gain nul tant qu'il n'y a
-qu'un seul compte à isoler de personne. Par défaut, toute clé voit tous les modèles -- voir « Un compte
-par personne, pas une paire figée » plus bas pour la seule clé, `internal_user`, qui restreint déjà.
+**Un seul compte dans ce `model_list`, et c'est un choix assumé, pas un oubli.** Les modèles d'un
+autre compte y arriveront comme des entrées à lui, portant ses propres clés sous une étiquette que
+l'appelant choisit (#107). Pas depuis sa propre connexion `/ui` : LiteLLM réserve l'ajout d'un modèle
+(`/model/new`) à l'administrateur du proxy -- ou à un admin d'équipe, sur sa seule édition payante.
+Aucune entrée ne porte de `model_info.access_groups` : un nom de compte figé dans une étiquette
+d'autorisation romprait la réutilisabilité de ce rôle pour qui l'installe. Par défaut, **toute clé voit
+tous les modèles**, y compris celles créées pour les comptes de la liste plus bas (#114).
 #2 demande encore davantage : `rpm_limit` / `tpm_limit` par clé, la segmentation `sci-*` / `gen-*`, le
 test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici, et quand il
 arrivera l'identité d'un compte viendra d'une variable du rôle, jamais d'un nom écrit dans ce fichier.
@@ -621,10 +623,14 @@ d'autre : jamais les clés d'un autre compte, jamais la configuration de la pass
 `Artificial_Intelligence_LiteLLM_UI_username`/`_password` (admin, plus haut) n'a pas sa place dans cette liste : il a déjà
 un accès complet par le mécanisme natif de LiteLLM, une entrée ici ne lui apporterait rien.
 
-La clé de chaque compte est scopée à `access_group:<username>` dès sa création -- LiteLLM sait déjà
-grouper des clés par cette étiquette, alors même que le `model_list` (plus haut) n'en
-porte plus aucune -- et `POST /key/generate`
-n'est appelé **qu'une fois par compte, pour toujours** : la tâche se déclenche seulement l'exécution où
+Chaque compte reçoit **une seule clé virtuelle, sans restriction de modèles** : tant que #2 n'a pas
+construit l'isolation par compte, elle atteint tous les modèles de la passerelle, ceux du compte de la
+passerelle compris -- le comportement que #114 a posé comme attendu pour l'intérim. `POST /user/new` est
+appelé avec `auto_create_key: false`, faute de quoi LiteLLM en mintait une seconde, sans restriction,
+que la tâche n'affichait jamais ; la clé vient de `POST /key/generate` et de nulle part ailleurs. Cette
+clé portait avant `models: ["access_group:<username>"]`, qui n'est pas une syntaxe de LiteLLM (un
+groupe d'accès se nomme nu) : elle ne donnait accès à aucun modèle, mesuré sur `v1.100.0`. `POST
+/key/generate` n'est appelé **qu'une fois par compte, pour toujours** : la tâche se déclenche seulement l'exécution où
 `POST /user/new` vient tout juste de créer ce compte (409 ensuite, pour toujours), jamais sur la base
 du comportement propre de `/key/generate` rejoué, qui reste à vérifier contre une instance réelle (voir
 « Non vérifié » plus bas). Cette clé n'est montrée qu'**une seule fois**, dans la sortie de ce rôle, le
