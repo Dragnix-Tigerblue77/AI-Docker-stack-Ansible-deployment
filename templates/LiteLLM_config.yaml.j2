@@ -41,6 +41,17 @@
   'code': 'code' if has.Gemini else head['code'],
   'claude-code': 'claude-code' if has.Gemini else head['claude-code']
 } %}
+# Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
+# looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
+# cascade of its own would not fall back at all. There is no alias for the names the Claude Code CLI sends
+# by default: a CLI that should use one of these routers is told its name through its own model variables.
+{% set aliases_of = {
+  'pro': ['auto-pro'],
+  'flash': ['auto', 'auto-flash', 'auto-fast'],
+  'flash-lite': ['auto-flash-lite'],
+  'code': ['auto-code'],
+  'claude-code': []
+} %}
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -260,36 +271,17 @@ model_list:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
 
-  # GLM, hosted by Mistral, added 2026-09-27. "docs.mistral.ai/models/zai-glm-5-3" and
-  # ".../zai-glm-5-2" describe each as "A third-party open weight text model [...], hosted by Mistral
-  # for long-context coding and agentic workflows": 1M context, "Function Calling" listed among the
-  # features, both in "Public Preview" -- which has "no guaranteed path to General Availability"
-  # ("docs.mistral.ai/inference/model-lifecycle"), so recheck both at the next audit. They are the
-  # dearest Mistral entries any cascade routes to: $1.4 in / $4.4 out per 1M tokens
-  # ("docs.mistral.ai/inference/pricing"), against $0.5 / $1.5 for mistral-large and $0.3 / $0.9 for
-  # codestral, all drawn from the same $10 credit. That, not their capability, is what places them
-  # in the cascades below.
-  - model_name: glm-5-3-mistral
-    litellm_params:
-      model: mistral/zai-glm-5-3
-      api_key: "os.environ/MISTRAL_API_KEY"
-
-  - model_name: glm-5-2-mistral
-    litellm_params:
-      model: mistral/zai-glm-5-2
-      api_key: "os.environ/MISTRAL_API_KEY"
-
 {% endif %}
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
   # ============================================================================
-  # Cerebras: both models below are still in its Shared Inference catalogue
+  # Cerebras: the models below are still in its Shared Inference catalogue
   # ("inference-docs.cerebras.ai/models/overview", checked 2026-09-27), but not routed to, because a
   # bank card is now required and nothing stays free. The FAQ of "inference-docs.cerebras.ai/support/
   # rate-limits", same date: "New accounts receive $5 in free credits after adding a verified payment
   # method. These credits expire 30 days after they're granted." -- and to "Is there a permanently
   # free tier?", "No." Routing to them again as a paid tail, the way DeepSeek is (#101), is
-  # uncommenting these two entries and putting their names back into the cascades. "qwen-3.8-27b" is
+  # uncommenting these entries and putting their names back into the cascades. "qwen-3.8-27b" is
   # Cerebras' own hyphenated spelling, distinct from Groq's "qwen3.8-27b" below.
   # - model_name: gpt-oss-120b-cerebras
   #   litellm_params:
@@ -317,7 +309,7 @@ model_list:
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
   # the name: on the free tier ("console.groq.com/docs/rate-limits", Free Plan Limits: 30 RPM, 8K TPM,
-  # the same as both gpt-oss entries above), and in instruct mode unless a request asks otherwise --
+  # the same as the gpt-oss entries above), and in instruct mode unless a request asks otherwise --
   # the API reference gives "none" as its default "reasoning_effort", no thinking phase, which is what
   # makes it a candidate for flash-lite's latency profile at all. Listed among Groq's "Preview Models",
   # which "may be discontinued at short notice": the first entry of this block to recheck at the next
@@ -327,27 +319,18 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
 
-  # Usable on Groq but deliberately not routed to: Enterprise only. "console.groq.com/docs/model/
-  # minimaxai/minimax-m2.7", checked 2026-09-27: "available to Enterprise customers. Contact sales for
-  # access." -- it has no row in the Free Plan Limits table, and no free or developer quota to route to.
-  # - model_name: minimax-m2-7-groq
-  #   litellm_params:
-  #     model: groq/minimaxai/minimax-m2.7
-  #     api_key: "os.environ/GROQ_API_KEY"
-
 {% endif %}
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
   #
-  # All seven ids below are still served, checked 2026-09-27 against "api.sambanova.ai/v1/models"
+  # The ids below are still served, checked 2026-09-27 against "api.sambanova.ai/v1/models"
   # (readable without a key). What stops them is the console a new account lands on,
   # "cloud.sambanova.ai/plans": its Free plan reads "Add a payment method and purchase credits to run
   # your first requests", and the page's own configuration carries "signupCredits":false -- no
   # credit is granted at sign-up. The documentation says otherwise, and the two sources conflict:
   # "docs.sambanova.ai/docs/en/models/rate-limits" still describes a Free Tier "Applied when there is
   # no payment method linked with your account", at 20 requests per day per model. The console is
-  # the one a new account actually meets, so it is the one followed here. Even by the documentation,
-  # "MiniMax-M2.7" and "MiniMax-M3" have no Free Tier row at all.
+  # the one a new account actually meets, so it is the one followed here.
   # ============================================================================
   # - model_name: deepseek-v3-2-sambanova
   #   litellm_params:
@@ -364,18 +347,6 @@ model_list:
   # - model_name: llama-3-3-70b-sambanova
   #   litellm_params:
   #     model: openai/Meta-Llama-3.3-70B-Instruct
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: minimax-m3-sambanova
-  #   litellm_params:
-  #     model: openai/MiniMax-M3
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: minimax-m2-7-sambanova
-  #   litellm_params:
-  #     model: openai/MiniMax-M2.7
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
@@ -433,11 +404,6 @@ model_list:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  - model_name: nemotron-super-free
-    litellm_params:
-      model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   - model_name: nemotron-reasoning-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
@@ -484,29 +450,6 @@ model_list:
       model: openrouter/cohere/north-mini-code:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  - model_name: poolside-laguna-s-free
-    litellm_params:
-      model: openrouter/poolside/laguna-s-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: poolside-laguna-xs-free
-    litellm_params:
-      model: openrouter/poolside/laguna-xs-2.1:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: ling-flash-free
-    litellm_params:
-      model: openrouter/inclusionai/ling-3.0-flash-fin:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  # Same Ling 3.0 Flash family as the financial-tuned sibling above, health-tuned. Kept in the same
-  # flash-lite cascade slot as its sibling, on the same reasoning already applied to it: a domain
-  # fine-tune is still a general-purpose fallback, not excluded from the generic cascades.
-  - model_name: ling-flash-sante-free
-    litellm_params:
-      model: openrouter/inclusionai/ling-3.0-flash-sante:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   - model_name: dots-note-free
     litellm_params:
       model: openrouter/dots-studio/dots-3-note-preview:free
@@ -529,17 +472,6 @@ model_list:
   # - model_name: nemotron-content-safety-free
   #   litellm_params:
   #     model: openrouter/nvidia/nemotron-3.5-content-safety:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY"
-
-  # Served at $0, but not routed to. The catalogue calls "stealth/space-bunny-alpha" "an anonymous
-  # large model", so nobody can say whose weights would answer. Its only provider, "Stealth", is one
-  # that may train on prompts and retains them, per the table of "openrouter.ai/docs/guides/privacy/
-  # provider-logging". And it has no ":free" suffix: the free limits in this section's header are
-  # documented for ":free" ids only, so what it allows, and for how long it stays at $0, is written
-  # nowhere.
-  # - model_name: space-bunny-alpha
-  #   litellm_params:
-  #     model: openrouter/stealth/space-bunny-alpha
   #     api_key: "os.environ/OPENROUTER_API_KEY"
 
 {% endif %}
@@ -604,16 +536,14 @@ router_settings:
     # group that no longer existed; "check_LiteLLM_account_isolation.py" now refuses a fallback to an
     # undeclared name (its rule 5).
     #
-    # Cost enters in two places only. DeepSeek direct (#101), the one paid provider, ranks after every
-    # free entry. And Mistral's GLM pair, the dearest draw on the $10 Free mode credit every Mistral
-    # entry shares, ranks after every other free entry of "code" and "claude-code" rather than where
-    # its capability would put it -- see its model_list comment.
+    # Cost enters the ranking through DeepSeek direct, the one paid provider, which ranks after every
+    # free entry.
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
     # resort before the fully free OmniRoute) -> OmniRoute.
 {% if to['pro'] %}
-    - pro:
+    - pro: &pro_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
@@ -631,18 +561,21 @@ router_settings:
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-reasoning
+{% for alias in aliases_of['pro'] %}
+    - {{ alias }}: *pro_cascade
+{% endfor %}
 {% endif %}
 
     # 2. FLASH -- balanced daily driver.
     # Priority: Google Flash (1M) -> LPU (Groq) -> Mistral -> OpenRouter -> DeepSeek direct (#101,
-    # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Two entries sit with their
+    # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
     # twin rather than with their provider: "qwen3-8-27b-free" (OpenRouter) right behind
     # "qwen3-8-27b-groq", and "gemma-4-31b-gemini" (Google) right ahead of "gemma-4-31b-free" -- the
     # same model through a second quota, ranked where the model ranks, and the OpenRouter one second
     # because its quota is the daily count all ":free" entries share. "compound-groq" dropped by #169:
     # decommissioned by Groq 2026-09-21, with no replacement.
 {% if to['flash'] %}
-    - flash:
+    - flash: &flash_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-3-6-flash
@@ -661,9 +594,6 @@ router_settings:
         - ministral-14b
         - ministral-8b
 {% endif %}
-{% if has.OpenRouter %}
-        - nemotron-super-free
-{% endif %}
 {% if has.Gemini %}
         - gemma-4-31b-gemini
 {% endif %}
@@ -675,6 +605,9 @@ router_settings:
         - deepseek-flash-direct
 {% endif %}
         - omniroute-free-auto
+{% for alias in aliases_of['flash'] %}
+    - {{ alias }}: *flash_cascade
+{% endfor %}
 {% endif %}
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
@@ -684,7 +617,7 @@ router_settings:
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
     # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
 {% if to['flash-lite'] %}
-    - flash-lite:
+    - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
@@ -702,13 +635,13 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
-        - ling-flash-free
-        - ling-flash-sante-free
         - inkling-small-free
         - dots-note-free
-        - poolside-laguna-xs-free
         - lfm-free
 {% endif %}
+{% for alias in aliases_of['flash-lite'] %}
+    - {{ alias }}: *flash_lite_cascade
+{% endfor %}
 {% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
@@ -718,10 +651,10 @@ router_settings:
     # top: no current coding-benchmark placement could be found for it (a weak predecessor proxy). Its
     # sibling "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
-    # Priority: syntax/code specialists -> Mistral's GLM pair (the dearest draw on its $10 credit) ->
-    # DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
+    # Priority: syntax/code specialists -> DeepSeek direct (paid -- last resort before the fully free
+    # OmniRoute) -> OmniRoute.
 {% if to['code'] %}
-    - code:
+    - code: &code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
 {% endif %}
@@ -740,27 +673,22 @@ router_settings:
         - codestral-2508
 {% endif %}
 {% if has.OpenRouter %}
-        - poolside-laguna-s-free
         - north-mini-code-free
-{% endif %}
-{% if has.Mistral %}
-        - glm-5-3-mistral
-        - glm-5-2-mistral
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-code
+{% for alias in aliases_of['code'] %}
+    - {{ alias }}: *code_cascade
+{% endfor %}
 {% endif %}
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
-    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct (#101) is last:
-    # both its models support tool calls, but it is the only paid provider in this cascade.
-    # "glm-5-3-mistral" is just ahead of it, and alone of its pair: an agentic session resends its
-    # whole context on every turn, and at $1.4 per 1M input tokens a session at 128k context spends
-    # the whole $10 credit in about fifty uncached turns -- one GLM slot is as much as it carries.
+    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
+    # models support tool calls, but it is the only paid provider in this cascade.
 {% if to['claude-code'] %}
-    - claude-code:
+    - claude-code: &claude_code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
@@ -770,11 +698,13 @@ router_settings:
 {% if has.Mistral %}
         - mistral-large
         - codestral
-        - glm-5-3-mistral
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
+{% for alias in aliases_of['claude-code'] %}
+    - {{ alias }}: *claude_code_cascade
+{% endfor %}
 {% endif %}
 
   # Transparent alias mappings.
@@ -785,37 +715,11 @@ router_settings:
     "{{ router }}": "{{ head[router] }}"
 {% endfor %}
 {% endif %}
-{% if to['flash'] %}
-    "auto": "{{ to['flash'] }}"
-    "auto-flash": "{{ to['flash'] }}"
-    "auto-fast": "{{ to['flash'] }}"
-{% endif %}
-{% if to['pro'] %}
-    "auto-pro": "{{ to['pro'] }}"
-{% endif %}
-{% if to['flash-lite'] %}
-    "auto-flash-lite": "{{ to['flash-lite'] }}"
-{% endif %}
-{% if to['code'] %}
-    "auto-code": "{{ to['code'] }}"
-{% endif %}
-
-    # Intercepts the Claude Code CLI's own model names, per issue #13's compliance note: none of
-    # these ever reach a real Anthropic model backed by a subscription.
-{% if to['claude-code'] %}
-    "claude-3-7-sonnet": "{{ to['claude-code'] }}"
-    "claude-3-7-sonnet-20250219": "{{ to['claude-code'] }}"
-    "claude-3-5-sonnet": "{{ to['claude-code'] }}"
-    "claude-3-5-sonnet-20241022": "{{ to['claude-code'] }}"
-{% endif %}
-{% if to['pro'] %}
-    "claude-3-opus": "{{ to['pro'] }}"
-    "claude-3-opus-20240229": "{{ to['pro'] }}"
-{% endif %}
-{% if to['flash-lite'] %}
-    "claude-3-5-haiku": "{{ to['flash-lite'] }}"
-    "claude-3-5-haiku-20241022": "{{ to['flash-lite'] }}"
-{% endif %}
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if to[router] %}
+{% for alias in aliases_of[router] %}
+    "{{ alias }}": "{{ to[router] }}"
+{% endfor %}
+{% endfor %}
 
 general_settings:
   # The master key and the database URL are read from the environment rather than written here: this

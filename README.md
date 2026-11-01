@@ -342,8 +342,14 @@ et `Docker_stack_deployment_state`.
 deux paramètres par lesquels un rôle de déploiement Swarm attend que chaque service tourne, et soit sain
 quand il a un healthcheck, avant de rendre la main. Tout ce qui suit le déploiement parle à ce qu'il
 vient de déployer : l'API d'administration de LiteLLM, puis `docker exec` dans LibreChat et sa MongoDB.
-Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; les tentatives répétées des
-appels à l'API, deux minutes au total, restent alors la seule protection.
+Un rôle de déploiement qui ne connaît pas ces deux paramètres les ignore ; l'attente décrite juste
+après reste alors la seule protection.
+
+**Le rôle attend ensuite lui-même la passerelle (#295)**, une seule fois, avant d'appeler son API
+d'administration : il interroge `/health/readiness`, qui ne teste que la connexion à la base et n'appelle
+aucun modèle, pendant trois minutes au plus (36 essais, 5 secondes d'écart). Un premier démarrage a été
+mesuré à environ 45 secondes, le temps des migrations de Prisma. L'attente est sautée en `--check`, et quand
+ni les comptes internes ni l'agent Claude Code n'appellent la passerelle.
 
 ## La passerelle et sa base (#1)
 
@@ -609,15 +615,17 @@ Les cinq routeurs virtuels (`pro`, `flash`, `flash-lite`, `code`, `claude-code`)
 Sans clé Gemini ils n'ont plus d'entrée propre, et un nom qui n'est ni une entrée du `model_list` ni un alias est
 refusé par le proxy même s'il a une cascade dans `fallbacks` (mesuré sur LiteLLM 1.100.0). Chacun devient donc
 l'**alias** du premier modèle de sa cascade dont la clé est donnée, et garde sa cascade ; quand aucun modèle de
-sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les noms `claude-3-5-haiku*` pour
-`flash-lite`, par exemple). À connaître :
+sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour `flash-lite`, par exemple). À connaître :
 
-- `claude-code` ne route que vers Gemini, Mistral et DeepSeek, les seuls dont les modèles appellent des outils de
-  façon structurée. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement, sauf si
-  l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
+- La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
+  moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
+  Gemini, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que les autres fournisseurs n'en ont
+  aucun qui convienne. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
+  sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
   (`Artificial_Intelligence_Claude_code_model`).
 - Sans clé Gemini, la tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête
   en échec coûte une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
+- Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
@@ -827,7 +835,7 @@ travaille : le contenu de l'un n'est pas recopié dans l'autre.
 **Le rôle enregistre lui-même la clé virtuelle de l'agent dans LiteLLM.** La **valeur** de
 `Artificial_Intelligence_Claude_code_virtual_key` reste un secret de l'appelant, vaulté et
 interpolé dans le fichier compose comme les autres (même `$` doublé, même chaîne JSON). Une fois LiteLLM
-prêt (`/health/readiness`, jusqu'à 150 s), le rôle demande à `GET /key/info` si cette clé existe -- par
+prêt (l'attente décrite plus haut, trois minutes au plus), le rôle demande à `GET /key/info` si cette clé existe -- par
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour liste blanche l'alias du modèle
@@ -888,10 +896,9 @@ alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonn
 
 **Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
 requêtes principales : ses requêtes d'arrière-plan (titres, résumés courts) partent vers le modèle de classe Haiku, ses
-sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que l'alias et les routeurs
-de `Artificial_Intelligence_Claude_code_additional_models` (voir plus haut), et la `model_group_alias` de LiteLLM résout les noms Claude d'origine vers d'autres groupes
-(`claude-3-5-haiku` vers `flash-lite`, `claude-3-opus` vers `pro`) : une requête sous l'un de ces noms est refusée par la
-passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que
+l'alias et les routeurs de `Artificial_Intelligence_Claude_code_additional_models` (voir plus haut) : une requête sous
+un autre nom est refusée par la passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL` et `CLAUDE_CODE_SUBAGENT_MODEL`, toutes sur
 `Artificial_Intelligence_Claude_code_model`, sans second alias : la liste blanche de la clé ne s'élargit que par les
 routeurs de `Artificial_Intelligence_Claude_code_additional_models`, et c'est elle qui tient le conteneur à l'écart du
