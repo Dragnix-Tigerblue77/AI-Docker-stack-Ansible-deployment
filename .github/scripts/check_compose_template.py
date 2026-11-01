@@ -1670,15 +1670,15 @@ def _litellm_document(entries, cascades, aliases):
 
 _MISTRAL_ONLY = _litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
-    [("claude-code", ["mistral-large"]), ("claude-3-5-sonnet", ["mistral-large"])],
-    {"claude-code": "mistral-large", "claude-3-5-sonnet": "mistral-large"},
+    [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
+    {"claude-code": "mistral-large", "auto-code": "mistral-large"},
 )
 
 LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
     ("an alias with no cascade of its own",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
-                       {"claude-code": "mistral-large", "claude-3-5-sonnet": "mistral-large"}),
+                       {"claude-code": "mistral-large", "auto-code": "mistral-large"}),
      {"Mistral"}, "has no cascade under its own name"),
     ("an entry reading a key nobody gave",
      _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("mistral-large", "os.environ/MISTRAL_API_KEY")],

@@ -608,8 +608,7 @@ Les cinq routeurs virtuels (`pro`, `flash`, `flash-lite`, `code`, `claude-code`)
 Sans clé Gemini ils n'ont plus d'entrée propre, et un nom qui n'est ni une entrée du `model_list` ni un alias est
 refusé par le proxy même s'il a une cascade dans `fallbacks` (mesuré sur LiteLLM 1.100.0). Chacun devient donc
 l'**alias** du premier modèle de sa cascade dont la clé est donnée, et garde sa cascade ; quand aucun modèle de
-sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les noms `claude-3-5-haiku*` pour
-`flash-lite`, par exemple). À connaître :
+sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour `flash-lite`, par exemple). À connaître :
 
 - La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
   moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
@@ -619,7 +618,7 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les n
   (`Artificial_Intelligence_Claude_code_model`).
 - Sans clé Gemini, la tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête
   en échec coûte une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
-- Chaque alias d'un routeur (`auto*`, et les noms du CLI Claude Code, `claude-3-*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
+- Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
@@ -889,9 +888,8 @@ alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonn
 **Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
 requêtes principales : ses requêtes d'arrière-plan (titres, résumés courts) partent vers le modèle de classe Haiku, ses
 sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que l'alias
-(voir plus haut), et la `model_group_alias` de LiteLLM résout les noms Claude d'origine vers d'autres groupes
-(`claude-3-5-haiku` vers `flash-lite`, `claude-3-opus` vers `pro`) : une requête sous l'un de ces noms est refusée par la
-passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+(voir plus haut) : une requête sous un autre nom, celui d'un autre routeur compris, est refusée par la passerelle. Le
+bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL` et `CLAUDE_CODE_SUBAGENT_MODEL`, toutes sur
 `Artificial_Intelligence_Claude_code_model`, sans second alias et sans élargir la liste blanche de la clé -- c'est elle
 qui tient le conteneur à l'écart du quota des autres comptes. Le coût : les requêtes d'arrière-plan et les sous-agents

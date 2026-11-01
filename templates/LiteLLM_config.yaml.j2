@@ -43,14 +43,14 @@
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
-# cascade of its own would not fall back at all. The CLI names are the Claude Code CLI's own, per issue
-# #13's compliance note: none of these ever reaches a real Anthropic model backed by a subscription.
+# cascade of its own would not fall back at all. There is no alias for the names the Claude Code CLI sends
+# by default: a CLI that should use one of these routers is told its name through its own model variables.
 {% set aliases_of = {
-  'pro': ['auto-pro', 'claude-3-opus', 'claude-3-opus-20240229'],
+  'pro': ['auto-pro'],
   'flash': ['auto', 'auto-flash', 'auto-fast'],
-  'flash-lite': ['auto-flash-lite', 'claude-3-5-haiku', 'claude-3-5-haiku-20241022'],
+  'flash-lite': ['auto-flash-lite'],
   'code': ['auto-code'],
-  'claude-code': ['claude-3-7-sonnet', 'claude-3-7-sonnet-20250219', 'claude-3-5-sonnet', 'claude-3-5-sonnet-20241022']
+  'claude-code': []
 } %}
 model_list:
 {% if has.Gemini %}
