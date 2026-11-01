@@ -78,8 +78,9 @@ name: Dependabot auto-merge
 #     One that did start is judged like the others.
 #
 # "check_auto_merge_gate.py" runs the step below against made-up pull requests -- those that must
-# merge and, one by one, the shapes that must not -- and breaks its script a guard at a time to prove
-# a scenario notices each. A guard that stops guarding is otherwise seen by nobody.
+# merge and, one by one, the shapes that must not -- and breaks its script and its environment a
+# guard at a time to prove a scenario notices each. A guard that stops guarding is otherwise seen by
+# nobody.
 #
 # The branch name is written here, in the "if:" of the job and in the step below, and in
 # "LiteLLM_model_drift.yml", where it is made: "check_required_checks.py" fails CI when they differ.

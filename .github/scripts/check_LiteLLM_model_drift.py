@@ -418,7 +418,7 @@ NON_CHAT_MARKERS = (
 
 # The title of the section of the pull request body that lists what a person has to read.
 # "dependabot-auto-merge.yml" lets the pull request merge itself only when the body has no section
-# of this title, and "check_required_checks.py" holds the two to the same text.
+# of this title, and "check_auto_merge_gate.py" holds the two to the same text.
 REVIEW_HEADING = "## À relire"
 
 # The exit status of a crash: 0, 1 and 2 mean something, and the status of an uncaught exception
@@ -2554,10 +2554,12 @@ def render_pr_body(result, link=None):
         "les fournisseurs ne listent toujours pas ces modèles ; fusionnée, ces modèles "
         "disparaissent de l'issue hebdomadaire à l'exécution d'après.",
         "",
-        "Elle se fusionne seule quand aucune section « À relire » n'y figure, qu'elle ne supprime "
-        "pas plus de modèles que le plafond fixé par `.github/workflows/dependabot-auto-merge.yml`, "
-        "qu'aucune ligne n'est ajoutée au fichier et que tous les contrôles sont verts. Sinon "
-        "elle attend une personne.",
+        "Elle se fusionne seule quand aucune section « À relire » n'y figure, que les lignes "
+        "supprimées sont uniquement des entrées entières, les places de cascade qui les nomment, "
+        "des commentaires ou des lignes vides, qu'elle reste sous les plafonds d'entrées et de "
+        "lignes fixés par `.github/workflows/dependabot-auto-merge.yml`, que sa branche contient "
+        "tout `main` et que les contrôles que ce workflow attend sont verts. Sinon elle attend "
+        "une personne.",
         "",
         "## %s" % ("Suppression" if len(applied) == 1 else "Suppressions"),
         "",
