@@ -41,6 +41,17 @@
   'code': 'code' if has.Gemini else head['code'],
   'claude-code': 'claude-code' if has.Gemini else head['claude-code']
 } %}
+# Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
+# looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
+# cascade of its own would not fall back at all. The CLI names are the Claude Code CLI's own, per issue
+# #13's compliance note: none of these ever reaches a real Anthropic model backed by a subscription.
+{% set aliases_of = {
+  'pro': ['auto-pro', 'claude-3-opus', 'claude-3-opus-20240229'],
+  'flash': ['auto', 'auto-flash', 'auto-fast'],
+  'flash-lite': ['auto-flash-lite', 'claude-3-5-haiku', 'claude-3-5-haiku-20241022'],
+  'code': ['auto-code'],
+  'claude-code': ['claude-3-7-sonnet', 'claude-3-7-sonnet-20250219', 'claude-3-5-sonnet', 'claude-3-5-sonnet-20241022']
+} %}
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -611,7 +622,7 @@ router_settings:
     # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
     # resort before the fully free OmniRoute) -> OmniRoute.
 {% if to['pro'] %}
-    - pro:
+    - pro: &pro_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
@@ -629,6 +640,9 @@ router_settings:
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-reasoning
+{% for alias in aliases_of['pro'] %}
+    - {{ alias }}: *pro_cascade
+{% endfor %}
 {% endif %}
 
     # 2. FLASH -- balanced daily driver.
@@ -640,7 +654,7 @@ router_settings:
     # because its quota is the daily count all ":free" entries share. "compound-groq" dropped by #169:
     # decommissioned by Groq 2026-09-21, with no replacement.
 {% if to['flash'] %}
-    - flash:
+    - flash: &flash_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-3-6-flash
@@ -673,6 +687,9 @@ router_settings:
         - deepseek-flash-direct
 {% endif %}
         - omniroute-free-auto
+{% for alias in aliases_of['flash'] %}
+    - {{ alias }}: *flash_cascade
+{% endfor %}
 {% endif %}
 
     # 3. FLASH-LITE -- atomic micro-tasks (<300ms). Accepts short-context (4k-32k) models for
@@ -682,7 +699,7 @@ router_settings:
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
     # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
 {% if to['flash-lite'] %}
-    - flash-lite:
+    - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
@@ -707,6 +724,9 @@ router_settings:
         - poolside-laguna-xs-free
         - lfm-free
 {% endif %}
+{% for alias in aliases_of['flash-lite'] %}
+    - {{ alias }}: *flash_lite_cascade
+{% endfor %}
 {% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
@@ -719,7 +739,7 @@ router_settings:
     # Priority: syntax/code specialists -> Mistral's GLM pair (the dearest draw on its $10 credit) ->
     # DeepSeek direct (#101, paid -- last resort before the fully free OmniRoute) -> OmniRoute.
 {% if to['code'] %}
-    - code:
+    - code: &code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
 {% endif %}
@@ -749,6 +769,9 @@ router_settings:
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-code
+{% for alias in aliases_of['code'] %}
+    - {{ alias }}: *code_cascade
+{% endfor %}
 {% endif %}
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
@@ -758,7 +781,7 @@ router_settings:
     # whole context on every turn, and at $1.4 per 1M input tokens a session at 128k context spends
     # the whole $10 credit in about fifty uncached turns -- one GLM slot is as much as it carries.
 {% if to['claude-code'] %}
-    - claude-code:
+    - claude-code: &claude_code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
         - gemini-2-5-pro
@@ -773,6 +796,9 @@ router_settings:
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
+{% for alias in aliases_of['claude-code'] %}
+    - {{ alias }}: *claude_code_cascade
+{% endfor %}
 {% endif %}
 
   # Transparent alias mappings.
@@ -783,37 +809,11 @@ router_settings:
     "{{ router }}": "{{ head[router] }}"
 {% endfor %}
 {% endif %}
-{% if to['flash'] %}
-    "auto": "{{ to['flash'] }}"
-    "auto-flash": "{{ to['flash'] }}"
-    "auto-fast": "{{ to['flash'] }}"
-{% endif %}
-{% if to['pro'] %}
-    "auto-pro": "{{ to['pro'] }}"
-{% endif %}
-{% if to['flash-lite'] %}
-    "auto-flash-lite": "{{ to['flash-lite'] }}"
-{% endif %}
-{% if to['code'] %}
-    "auto-code": "{{ to['code'] }}"
-{% endif %}
-
-    # Intercepts the Claude Code CLI's own model names, per issue #13's compliance note: none of
-    # these ever reach a real Anthropic model backed by a subscription.
-{% if to['claude-code'] %}
-    "claude-3-7-sonnet": "{{ to['claude-code'] }}"
-    "claude-3-7-sonnet-20250219": "{{ to['claude-code'] }}"
-    "claude-3-5-sonnet": "{{ to['claude-code'] }}"
-    "claude-3-5-sonnet-20241022": "{{ to['claude-code'] }}"
-{% endif %}
-{% if to['pro'] %}
-    "claude-3-opus": "{{ to['pro'] }}"
-    "claude-3-opus-20240229": "{{ to['pro'] }}"
-{% endif %}
-{% if to['flash-lite'] %}
-    "claude-3-5-haiku": "{{ to['flash-lite'] }}"
-    "claude-3-5-haiku-20241022": "{{ to['flash-lite'] }}"
-{% endif %}
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if to[router] %}
+{% for alias in aliases_of[router] %}
+    "{{ alias }}": "{{ to[router] }}"
+{% endfor %}
+{% endfor %}
 
 general_settings:
   # The master key and the database URL are read from the environment rather than written here: this

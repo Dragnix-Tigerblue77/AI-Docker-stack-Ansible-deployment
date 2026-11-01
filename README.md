@@ -617,6 +617,7 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` et les n
   (`Artificial_Intelligence_Claude_code_model`).
 - Sans clé Gemini, la tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête
   en échec coûte une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
+- Chaque alias d'un routeur (`auto*`, et les noms du CLI Claude Code, `claude-3-*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
