@@ -312,7 +312,7 @@ model_list:
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
   #
-  # All five ids below are still served, checked 2026-11-01 against "api.sambanova.ai/v1/models"
+  # The ids below are still served, checked 2026-09-27 against "api.sambanova.ai/v1/models"
   # (readable without a key). What stops them is the console a new account lands on,
   # "cloud.sambanova.ai/plans": its Free plan reads "Add a payment method and purchase credits to run
   # your first requests", and the page's own configuration carries "signupCredits":false -- no
@@ -525,8 +525,8 @@ router_settings:
     # group that no longer existed; "check_LiteLLM_account_isolation.py" now refuses a fallback to an
     # undeclared name (its rule 5).
     #
-    # Cost enters in one place only: DeepSeek direct, the one paid provider, ranks after every free
-    # entry.
+    # Cost enters the ranking through DeepSeek direct, the one paid provider, which ranks after every
+    # free entry.
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
@@ -662,8 +662,8 @@ router_settings:
 {% endif %}
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
-    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: both
-    # its models support tool calls, but it is the only paid provider in this cascade.
+    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
+    # models support tool calls, but it is the only paid provider in this cascade.
 {% if to['claude-code'] %}
     - claude-code:
 {% if has.Gemini %}
