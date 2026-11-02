@@ -22,24 +22,18 @@
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
   'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
 } %}
-# The five routers below are Gemini-backed entries. Without a Gemini key they are not entries at all but
-# aliases of the first model of their own cascade that has a key (the proxy accepts a name only if it is
-# a model_list entry or an alias, so a router that exists as a cascade alone would be refused), or are
-# left out when no model of the cascade has one. "check_compose_template.py" renders every non-empty set
-# of keys and holds each alias to the first member of its cascade.
+# The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
+# that has a key, so that the order of a cascade alone decides and no provider is placed first by the way
+# the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a router
+# that exists as a cascade alone would be refused). A router is left out when no model of its cascade has
+# a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
+# member of its cascade.
 {% set head = {
-  'pro': 'nemotron-ultra-free' if has.OpenRouter else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
-  'flash-lite': 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
-  'code': 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'north-mini-code-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
-} %}
-{% set to = {
-  'pro': 'pro' if has.Gemini else head['pro'],
-  'flash': 'flash' if has.Gemini else head['flash'],
-  'flash-lite': 'flash-lite' if has.Gemini else head['flash-lite'],
-  'code': 'code' if has.Gemini else head['code'],
-  'claude-code': 'claude-code' if has.Gemini else head['claude-code']
+  'pro': 'gemini-3-8-flash' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
+  'flash': 'gemini-3-8-flash' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
+  'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'north-mini-code-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'gemini-3-8-flash' if has.Gemini else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -55,44 +49,13 @@
 model_list:
 {% if has.Gemini %}
   # ============================================================================
-  # Virtual routers -- the names LibreChat and Claude Code actually ask for.
-  # ============================================================================
-  - model_name: pro
-    litellm_params:
-      model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  - model_name: flash
-    litellm_params:
-      model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  - model_name: flash-lite
-    litellm_params:
-      model: gemini/gemini-3.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  - model_name: code
-    litellm_params:
-      model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  # What issue #13's Claude Code agent actually asks for -- see its own compliance note: whatever
-  # this resolves to must never be an Anthropic model backed by a subscription.
-  - model_name: claude-code
-    litellm_params:
-      model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  # ============================================================================
   # Google AI Studio (1M+ context, developer quota)
   # ============================================================================
   # No "api_base" on any "gemini/" entry. LiteLLM's "gemini/" provider speaks Google's NATIVE API and
   # builds "<api_base>/models/<model>:generateContent" itself; pointed at Google's OpenAI-compatible
   # base ".../v1beta/openai/", that gives ".../v1beta/openai//models/...:generateContent", which Google
   # answers 404 with an empty body -- measured with litellm 1.103.0, where the default base gives
-  # ".../v1beta/models/...:generateContent" and a real answer. The virtual routers above never carried
-  # one, which is why they worked while every entry below them would have failed over.
+  # ".../v1beta/models/...:generateContent" and a real answer.
   #
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
@@ -536,7 +499,7 @@ router_settings:
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
     # resort before the fully free OmniRoute) -> OmniRoute.
-{% if to['pro'] %}
+{% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
@@ -567,7 +530,7 @@ router_settings:
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
     # the OpenRouter one second because its quota is the daily count all ":free" entries share.
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
-{% if to['flash'] %}
+{% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
@@ -606,7 +569,7 @@ router_settings:
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
     # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
-{% if to['flash-lite'] %}
+{% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
         - gemini-3-1-flash-lite
@@ -643,7 +606,7 @@ router_settings:
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists -> DeepSeek direct (paid -- last resort before the fully free
     # OmniRoute) -> OmniRoute.
-{% if to['code'] %}
+{% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
@@ -673,8 +636,10 @@ router_settings:
 
     # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
     # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
-    # models support tool calls, but it is the only paid provider in this cascade.
-{% if to['claude-code'] %}
+    # models support tool calls, but it is the only paid provider in this cascade. This is what #13's
+    # Claude Code agent asks for, and whatever it resolves to must never be an Anthropic model backed
+    # by a subscription (see its compliance note).
+{% if head['claude-code'] %}
     - claude-code: &claude_code_cascade
 {% if has.Gemini %}
         - gemini-3-8-flash
@@ -696,15 +661,26 @@ router_settings:
 
   # Transparent alias mappings.
   model_group_alias:
-{% if not has.Gemini %}
-    # The routers that have no entry of their own without a Gemini key (see the top of this file).
-{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if head[router] %}
-    "{{ router }}": "{{ head[router] }}"
-{% endfor %}
+    # The routers are written out one by one and not in a loop: "check_LiteLLM_account_isolation.py"
+    # reads this file without rendering it, and a name produced by a loop is invisible to it.
+{% if head['pro'] %}
+    "pro": "{{ head['pro'] }}"
 {% endif %}
-{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if to[router] %}
+{% if head['flash'] %}
+    "flash": "{{ head['flash'] }}"
+{% endif %}
+{% if head['flash-lite'] %}
+    "flash-lite": "{{ head['flash-lite'] }}"
+{% endif %}
+{% if head['code'] %}
+    "code": "{{ head['code'] }}"
+{% endif %}
+{% if head['claude-code'] %}
+    "claude-code": "{{ head['claude-code'] }}"
+{% endif %}
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if head[router] %}
 {% for alias in aliases_of[router] %}
-    "{{ alias }}": "{{ to[router] }}"
+    "{{ alias }}": "{{ head[router] }}"
 {% endfor %}
 {% endfor %}
 

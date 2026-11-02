@@ -611,11 +611,14 @@ DeepSeek, qui est payant, à qui n'en veut pas. Un fournisseur sans clé n'a **a
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
 requête qui le traverse, avant de passer le relais, et s'afficherait dans LibreChat sans jamais répondre.
 
-Les cinq routeurs virtuels (`pro`, `flash`, `flash-lite`, `code`, `claude-code`) sont des entrées adossées à Gemini.
-Sans clé Gemini ils n'ont plus d'entrée propre, et un nom qui n'est ni une entrée du `model_list` ni un alias est
-refusé par le proxy même s'il a une cascade dans `fallbacks` (mesuré sur LiteLLM 1.100.0). Chacun devient donc
-l'**alias** du premier modèle de sa cascade dont la clé est donnée, et garde sa cascade ; quand aucun modèle de
-sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour `flash-lite`, par exemple). À connaître :
+Les cinq routeurs (`pro`, `flash`, `flash-lite`, `code`, `claude-code`) ne sont des entrées du `model_list` pour
+aucun fournisseur : un nom qui n'est ni une entrée ni un alias est refusé par le proxy même s'il a une cascade dans
+`fallbacks` (mesuré sur LiteLLM 1.100.0), et le routeur est donc, quelles que soient les clés, l'**alias** du premier
+modèle de sa cascade dont la clé est donnée. Aucun fournisseur n'est premier par la façon dont les noms sont
+construits : l'ordre de la cascade, qui suit l'intelligence et la vitesse des modèles, décide seul. Le routeur garde sa
+cascade ; quand aucun modèle de sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour
+`flash-lite`, par exemple). LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
+donc LibreChat les propose toujours. À connaître :
 
 - La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
   moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
@@ -623,8 +626,8 @@ sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour `fl
   aucun qui convienne. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
   sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
   (`Artificial_Intelligence_Claude_code_model`).
-- Sans clé Gemini, la tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête
-  en échec coûte une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
+- La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
+  une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
