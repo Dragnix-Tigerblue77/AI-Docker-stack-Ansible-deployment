@@ -100,6 +100,7 @@ ALLOWED_HOSTS = {
     "api.groq.com": "Groq's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
     "api.mistral.ai": "Mistral's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
     "tbench.ai": "an independent coding-agent leaderboard, cited in a comment",
+    "artificialanalysis.ai": "Artificial Analysis's free ranking API, read by check_LiteLLM_model_drift.py when its key is set, and the source its terms ask the report to cite",
     "developercertificate.org": "official text of the Developer Certificate of Origin, cited in CONTRIBUTING.md",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",

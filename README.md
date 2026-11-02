@@ -724,6 +724,22 @@ entrées du même fournisseur), à coller telle quelle pour l'activer ou, pour u
 commenter avec sa raison. Un modèle examiné et écarté cesse d'être signalé par une ligne
 `# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
 
+**Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
+chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
+l'issue contient pour chaque nouveau modèle son indice d'intelligence, son indice de code, sa vitesse de
+sortie et son prix mixte, lus dans l'API gratuite d'Artificial Analysis (<https://artificialanalysis.ai/>, la
+source est citée dans l'issue avec le jour de la lecture, comme ses conditions d'utilisation le demandent), puis
+une **place suggérée** par routeur : avant le premier membre de la cascade que le classement note plus bas sur le
+chiffre qui compte (intelligence pour `pro`, `flash` et `claude-code`, code pour `code`, vitesse pour
+`flash-lite`), sinon après le dernier. Ce n'est qu'une suggestion, que rien n'applique : elle ne dit rien de
+l'éligibilité (appels d'outils et contexte pour `claude-code`, gratuité), ni du regroupement par fournisseur
+que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
+**supposition** -- l'identifiant, puis le nom du fournisseur, doivent s'écrire comme exactement une entrée du
+classement, à la casse et à la ponctuation près, au moins quatre caractères -- et chaque ligne est marquée
+« à vérifier ». Sans le secret, l'issue dit « non couvert » comme pour n'importe quelle clé ; une lecture qui
+échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
+suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
+
 **Une condition, une seule fois** : cocher *Allow GitHub Actions to create and approve pull requests*
 dans *Settings → Actions → General → Workflow permissions*
 (<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
@@ -736,7 +752,10 @@ créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_
 `MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
 chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
 contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
-dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ».
+dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Un
+cinquième secret, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est celui d'aucun fournisseur : c'est la
+clé gratuite d'Artificial Analysis (1 000 requêtes par jour, une par run), qui alimente le classement
+ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
 
 Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
 ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML ou de Jinja2, que Dependabot
