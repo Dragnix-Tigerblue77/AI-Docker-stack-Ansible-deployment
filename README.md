@@ -644,7 +644,9 @@ commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'aut
 la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM », assignée à
 tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter,
 nouveaux modèles -- gratuits sur OpenRouter, « à examiner »
-ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit. L'issue est réécrite à chaque
+ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit, la section « à examiner » donnant
+le lien de la page de tarifs de chaque fournisseur qui y figure (à lire pour vérifier la gratuité : le
+lien est un confort, la vérification reste une personne). L'issue est réécrite à chaque
 exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
 
 Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
