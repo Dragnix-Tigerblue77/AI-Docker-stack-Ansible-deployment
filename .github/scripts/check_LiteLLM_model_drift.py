@@ -412,8 +412,9 @@ JINJA_BLOCKS = ("if", "for", "macro", "call", "filter", "block", "with", "raw", 
 
 # Substrings of an id that name a use other than chat. They narrow NEW only, never RETIRED.
 NON_CHAT_MARKERS = (
-    "audio", "embed", "guard", "image", "imagen", "lyria", "moderation", "ocr", "orpheus",
-    "playai", "rerank", "speech", "transcribe", "tts", "veo", "whisper",
+    "antigravity", "audio", "banana", "computer-use", "deep-research", "embed", "guard", "image",
+    "imagen", "lyria", "moderation", "ocr", "orpheus", "playai", "rerank", "robotics", "speech",
+    "transcribe", "tts", "veo", "voxtral", "whisper",
 )
 
 # The title of the section of the pull request body that lists what a person has to read.
@@ -4246,6 +4247,14 @@ def run_hardening_cases():
                   status == CRASH_STATUS and "a piece of an answer" not in written
                   and "crashed, RuntimeError" in written))
 
+    cases.append(("an id naming a use other than chat is never a new candidate, and a chat model is",
+                  not any(chat_like(identifier) for identifier in (
+                      "voxtral-small-latest", "gemini-nano-banana-2.1", "gemini-robotics-er-2-preview",
+                      "deep-research-max-preview-04-2026", "gemini-2.5-computer-use-preview-10-2025",
+                      "antigravity-preview-latest", "WHISPER-large-v9"))
+                  and all(chat_like(identifier) for identifier in (
+                      "mistral-large-4", "gemini-4-argon", "MiniMax-M3.1-Flash", "gemini-pro-latest",
+                      "allam-2-7b", "labs-leanstral-1-5"))))
     cases.append(("a price too big for a float is not zero, and not a crash",
                   is_zero(10 ** 400) is False and is_zero("0") and not is_zero("free")))
     cases.append(("a code span is cut between two words, and says so",
