@@ -776,7 +776,9 @@ du comportement propre de `/key/generate` rejoué, qui reste à vérifier contre
 « Non vérifié » plus bas). Cette clé n'est montrée qu'**une seule fois**, dans la sortie de ce rôle, le
 jour où elle est réellement créée : LiteLLM ne la restitue pas une seconde fois, au même titre qu'un
 jeton GitHub ou un mot de passe de registre. C'est cette clé-là, et non un compte LiteLLM partagé, que
-la personne colle ensuite dans son propre compte LibreChat -- voir juste en dessous.
+la personne colle ensuite dans son propre compte LibreChat -- voir juste en dessous. Avec `--check`, la création des
+comptes et celle des clés sont sautées : il n'y a pas de passerelle à interroger, et la seconde lisait un statut que la
+première, sautée, ne rend pas (le rôle s'arrêtait alors sur `object of type 'dict' has no attribute 'status'`).
 
 **`librechat.yaml` route désormais chaque compte LibreChat vers sa propre identité côté passerelle.**
 `apiKey: "user_provided"` (au lieu d'une clé unique lue dans l'environnement du conteneur) fait que
