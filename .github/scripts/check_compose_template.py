@@ -1598,8 +1598,8 @@ LITELLM_PROVIDERS = {
     "OpenRouter": "OPENROUTER_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
 }
-# The five virtual routers: Gemini-backed entries when Gemini has a key, aliases of their cascade's
-# first member otherwise, and absent when no member of the cascade has a key.
+# The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
+# of the cascade has a key. None is an entry of the model list: no provider is first by construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
 LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Mistral", "DeepSeek"})
@@ -1684,8 +1684,11 @@ def check_litellm_config(document, keys, failures):
 
     for router in LITELLM_ROUTERS:
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
-        if is_entry and is_alias:
-            failures.append(f"[{state}] {router!r} is both a model_list entry and an alias")
+        if is_entry:
+            failures.append(
+                f"[{state}] {router!r} is a model_list entry: a router is an alias of its cascade's first model, so "
+                "that the order of the cascade alone decides and no provider is first by the way the names are built"
+            )
         if (is_entry or is_alias) != has_cascade:
             failures.append(
                 f"[{state}] {router!r} is {'served' if is_entry or is_alias else 'not served'} but "
@@ -1696,8 +1699,6 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {router!r} points at {aliases[router]!r} but its cascade starts at "
                 f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
             )
-        if "Gemini" in keys and not is_entry:
-            failures.append(f"[{state}] {router!r} should be a Gemini-backed entry, Gemini having a key")
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
     if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
         failures.append(
@@ -1782,10 +1783,16 @@ LITELLM_CONFIG_CASES = [
     ("claude-code served by a Groq key alone",
      _litellm_document([("gpt", "os.environ/GROQ_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
      {"Groq"}, "'claude-code' is served"),
-    ("a router as an alias although Gemini has a key",
+    ("a router served as an alias by its cascade's head, Gemini having a key",
      _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
-                       [("pro", ["gemini-3-8-flash"])], {"pro": "gemini-3-8-flash"}),
-     {"Gemini"}, "should be a Gemini-backed entry"),
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, None),
+    ("a router written as an entry of the model list",
+     _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                       {"claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, "'pro' is a model_list entry"),
 ]
 
 
