@@ -101,6 +101,15 @@ model_list:
   #     model: gemini/gemini-3.1-pro-preview-customtools
   #     api_key: "os.environ/GEMINI_API_KEY"
 
+  # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", read 2026-11-02:
+  # "Gemini 4 Argon is not available on the Free tier. Every token the model processes is counted
+  # and billed", "Not available" in the Free Tier column of its input and output prices, and on the
+  # paid tier $2.00 in / $10.00 out per million tokens through 2026-11-30, then $4.00 / $20.00.
+  # - model_name: gemini-4-argon
+  #   litellm_params:
+  #     model: gemini/gemini-4-argon
+  #     api_key: "os.environ/GEMINI_API_KEY"
+
   - model_name: gemini-3-1-flash-lite
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
@@ -174,6 +183,14 @@ model_list:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
+  # and each line says why.
+  # drift-ignore: gemini/gemini-3.1-flash-lite-preview -- shut down on 2026-05-25 per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), which says to use gemini-3.1-flash-lite, routed above; the catalogue still listed it that day
+  # drift-ignore: gemini/gemini-flash-latest -- a "latest" alias, which Google hot-swaps to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
+  # drift-ignore: gemini/gemini-flash-lite-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
+  # drift-ignore: gemini/gemini-pro-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
+  # drift-ignore: gemini/gemini-omni-flash-preview -- a video generation and editing model per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), no text cascade has any use for it; its endpoint was announced for deprecation on 2026-09-30
+
 {% endif %}
 {% if has.Mistral %}
   # ============================================================================
@@ -239,6 +256,9 @@ model_list:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
 
+  # Looked at on 2026-11-02 and turned down (#305).
+  # drift-ignore: mistral/labs-leanstral-1-5 -- an experimental Labs model for Lean 4 formal proofs, scheduled to retire on 2026-09-30 per "docs.mistral.ai/getting-started/changelog" (read 2026-11-02); the catalogue still listed it that day
+
 {% endif %}
   # ============================================================================
   # Cerebras & Groq (LPU / WSE inference)
@@ -287,6 +307,9 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
 
+  # Looked at on 2026-11-02 and turned down (#305).
+  # drift-ignore: groq/allam-2-7b -- a 7B Arabic and English model with a 4,096-token context window and its pricing still "Pending" on "console.groq.com/docs/model/allam-2-7b" (read 2026-11-02): no free tier is stated, and no cascade is for Arabic
+
 {% endif %}
   # ============================================================================
   # SambaNova -- not routed to: a new account has to add a payment method and buy credits first.
@@ -327,6 +350,16 @@ model_list:
   # - model_name: gpt-oss-120b-sambanova
   #   litellm_params:
   #     model: openai/gpt-oss-120b
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #
+  # Served, but not routed to, for the reason of the run above, read again on 2026-11-02:
+  # "api.sambanova.ai/v1/models" lists it, priced per token ($0.30 in / $1.20 out per million), and the
+  # Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to
+  # run your first requests", with "signupCredits":false in the page's configuration.
+  # - model_name: minimax-m3-1-flash-sambanova
+  #   litellm_params:
+  #     model: openai/MiniMax-M3.1-Flash
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
 
@@ -382,6 +415,18 @@ model_list:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
+  # Added 2026-11-02 (#305). "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0),
+  # with a 1,000,000-token context, text, image and video in and text out, and "tools" and
+  # "tool_choice" among its supported parameters. Artificial Analysis's intelligence index gives it 13.6
+  # (read 2026-11-02, matched by its id, to be checked), under every ranked member of "pro" and
+  # "flash": it sits at the end of the free entries of those two cascades and in no other. "code" ranks by
+  # coding benchmarks and the index has none for it (null); "claude-code" holds no OpenRouter entry; and
+  # nothing shows it meets the sub-300 ms profile of "flash-lite".
+  - model_name: nemotron-super-vl-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-super-vl:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
   - model_name: gemma-4-31b-free
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
@@ -430,6 +475,12 @@ model_list:
   #   litellm_params:
   #     model: openrouter/nvidia/nemotron-3.5-content-safety:free
   #     api_key: "os.environ/OPENROUTER_API_KEY"
+
+  # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
+  # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
+  # so there are no figures to place them by. Remove a line to have its id reported again.
+  # drift-ignore: openrouter/recursive/flint-v1.0:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
+  # drift-ignore: openrouter/xingchen-agi/xing4.0-29b-a4b:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
 
 {% endif %}
   # ============================================================================
@@ -513,6 +564,7 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-reasoning-free
+        - nemotron-super-vl-free
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
@@ -552,6 +604,7 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-31b-free
+        - nemotron-super-vl-free
         - openrouter-auto-free
 {% endif %}
 {% if has.DeepSeek %}
