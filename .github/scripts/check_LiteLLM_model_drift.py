@@ -74,8 +74,10 @@ in the same change.
   holds that reading to say the same as the rendering: the same entries in the same order, the
   same commented-out entries. If it does not (a branch written only for some of the keys, an
   "else", a loop that repeats an entry), nothing is edited. A model named inside a statement or an
-  expression is not deleted either: the template's "head" names the model each router stands for
-  when it has no entry of its own, and nothing here can edit what a statement computes. A statement
+  expression is not deleted either, since nothing here can edit what a statement computes -- except
+  the rows of the template's "head" table, which name the model each router is an alias of: they
+  copy the order of the cascades, are written again from them after a deletion, and only when
+  writing them that way gives the table as it stands (see "THE HEAD TABLE" below). A statement
   that opens or closes a block wider than the entry it sits next to is not part of that entry, and
   stays; the block is left empty, which Jinja renders as nothing.
 
@@ -249,8 +251,8 @@ for that model (all of its entries or none):
   companion in a cascade are neither of them deleted;
 * a cascade slot that is not a line of its own (a flow list, "- flash: free-one"), which this does
   not edit, and a name that is used anywhere else in the file, which it knows nothing about: in a
-  Jinja statement or expression, such as the "head" table that says which model a router stands for,
-  or in a place the YAML reading does not declare;
+  Jinja statement or expression (the rows of a "head" table it can write back apart), or in a place
+  the YAML reading does not declare;
 * a deletion that would take part of a Jinja block, or a line of a Jinja statement that runs over
   several lines. The statements that open or close a block wider than the entry they sit next to --
   the "{% endif %}" after the last entry of a provider's block, the "{% if %}" of the next block --
@@ -277,6 +279,25 @@ for that model (all of its entries or none):
   page, a provider in an incident) is what a mass retirement looks like too, and a deletion pull
   request of a hundred lines rewritten every week on its word is not worth the risk. The issue
   lists them, and a person decides.
+
+THE HEAD TABLE
+--------------
+A router is an alias of the first model of its cascade whose provider has a key, and the template
+says which in a "set head" table, one row per router: "'flash': 'a' if has.Groq else 'b' if
+has.Mistral else 'c'". That is a copy of the order of the cascades, and a deletion that takes a
+model a row names has to write the row again. It is written FROM THE CASCADES and never patched: the
+file is rendered for every set of providers, the first member of each router's cascade is read, and
+the row is made of the providers in the order their first member comes in the cascade, with the
+model that is there whatever the keys as its last term (or "false" when there is none). The row is
+checked against every set of providers before it is kept. Taking a provider's first model out can
+move the provider behind another, which is why a name is not simply replaced.
+
+A row is written again only when the same writing gives exactly the row as it stands in the
+untouched file: a row tuned by hand, or already out of step with its cascade, is not trusted, and
+its models are refused as before. The result must also leave every alias on the first member of the
+cascade kept under its name, for every set of providers. A pull request that rewrites a row ADDS
+lines, so `dependabot-auto-merge.yml` does not merge it by itself: a person reads the rows, which
+the pull request lists.
 
 UNTRUSTED TEXT
 --------------
@@ -1274,10 +1295,10 @@ REFUSALS = {
     ),
     "stray": (
         "its name is also used at line %s, in a Jinja statement or a place of the file this tool does "
-        "not edit (the \"head\" table, which says which model a router stands for, for instance)",
+        "not edit (a \"head\" table it cannot write back from the cascades, for instance)",
         "son nom est aussi utilisé à la ligne %s, dans une instruction Jinja ou un endroit du fichier "
-        "que cet outil ne modifie pas (la table `head`, qui dit quel modèle remplace un routeur, par "
-        "exemple)",
+        "que cet outil ne modifie pas (une table `head` qu'il ne sait pas réécrire à partir des "
+        "cascades, par exemple)",
     ),
     "verification": (
         "deleting it makes the result fail verification: %s",
@@ -1411,6 +1432,182 @@ def find_references(neutral, names):
     return references, strays, spans
 
 
+# ------------------------------------------------------------------------------------------------
+# The "head" table: which model a router stands for
+# ------------------------------------------------------------------------------------------------
+# The template says it twice: the order of a router's cascade, and, in a "set head" table, the first
+# model of that cascade whose provider has a key, which is what the router is an alias of. The second
+# is a copy of the first, so a deletion that takes a model a row names has to write the row again,
+# and it is written FROM THE CASCADES, never patched: removing the first model of a provider can move
+# that provider behind another one, which no edit of a name can express.
+
+HEAD_STATEMENT = re.compile(r"\{%-?\s*set\s+head\s*=\s*\{(?P<body>.*?)\}\s*-?%\}", re.DOTALL)
+HEAD_ROW = re.compile(r"(?P<lead>[ \t]*)'(?P<router>[^']+)'[ \t]*:[ \t]*(?P<chain>[^,\n]*?)"
+                      r"(?P<comma>,?)[ \t]*")
+HEAD_CHAIN = re.compile(r"(?:'[^']+'[ \t]+if[ \t]+has\.\w+[ \t]+else[ \t]+)*(?:'[^']+'|false)")
+HEAD_PLACEHOLDER = "'head-placeholder'"
+HEAD_PROVIDERS = tuple(variable.split("_")[-3] for variable in PROVIDER_KEY_VARIABLES)
+
+
+def read_head(text):
+    """{router: {"line", "lead", "chain", "comma"}} for the rows of the "head" table, "line" counting
+    from 0 in "text"; None when there is no such table or a row of it is not
+    "'router': 'name' if has.Provider else ... else 'name' (or false)", which is all this reads."""
+    match = HEAD_STATEMENT.search(text)
+    if not match:
+        return None
+    first = text.count("\n", 0, match.start("body"))
+    rows = {}
+    for offset, row in enumerate(match.group("body").split("\n")):
+        if not row.strip():
+            continue
+        parsed = HEAD_ROW.fullmatch(row)
+        if not parsed or not HEAD_CHAIN.fullmatch(parsed.group("chain")):
+            return None
+        rows[parsed.group("router")] = {"line": first + offset, "lead": parsed.group("lead"),
+                                        "chain": parsed.group("chain"), "comma": parsed.group("comma")}
+    return rows or None
+
+
+def head_row_text(router, row, chain):
+    return "%s'%s': %s%s" % (row["lead"], router, chain, row["comma"])
+
+
+def head_fallbacks(text, rows):
+    """{frozenset of providers: {router: [members]}} of the fallback cascades for EVERY set of
+    providers, empty set included, read from "text" with each row of the table replaced by a name that
+    is always set: a router whose row is empty would have no cascade to read, and the row is what is
+    being worked out. None when a set does not render."""
+    lines = text.split("\n")
+    for router, row in rows.items():
+        lines[row["line"]] = head_row_text(router, row, HEAD_PLACEHOLDER)
+    probe = "\n".join(lines)
+    found = {}
+    for size in range(len(HEAD_PROVIDERS) + 1):
+        for chosen in itertools.combinations(HEAD_PROVIDERS, size):
+            document = render_keyset(
+                probe, ["Artificial_Intelligence_LiteLLM_%s_API_key" % provider for provider in chosen])
+            if not isinstance(document, dict):
+                return None
+            found[frozenset(chosen)] = {
+                source: members for (where, source), members in fallback_lists(document).items()
+                if where == "router_settings.fallbacks" and source is not None}
+    return found
+
+
+def head_chains(text, rows):
+    """{router: the row's chain, written from the cascades} for each router of "rows" that has a
+    cascade; None when a row cannot be written so that it gives, for every set of providers, the
+    first member of the cascade -- the table is a decision list over providers, and a cascade that
+    is not one is not something to rewrite."""
+    fallbacks = head_fallbacks(text, rows)
+    if fallbacks is None:
+        return None
+    everything = frozenset(HEAD_PROVIDERS)
+    chains = {}
+    for router in rows:
+        if not any(router in cascades for cascades in fallbacks.values()):
+            continue
+
+        def first(chosen):
+            members = fallbacks[frozenset(chosen)].get(router)
+            return members[0] if members else None
+
+        full = fallbacks[everything].get(router) or []
+        default = first(())
+        if default is not None and default not in full:
+            return None
+        terms = []
+        for provider in HEAD_PROVIDERS:
+            name = first((provider,))
+            if name is None or name == default:
+                continue
+            if name not in full:
+                return None
+            terms.append((full.index(name), provider, name))
+        if default is not None:
+            terms = [term for term in terms if term[0] < full.index(default)]
+        terms.sort()
+        for chosen in fallbacks:
+            written = next((name for _, provider, name in terms if provider in chosen), default)
+            if written != first(chosen):
+                return None
+        chains[router] = "".join("'%s' if has.%s else " % (name, provider)
+                                 for _, provider, name in terms) + (
+                                     "'%s'" % default if default is not None else "false")
+    return chains
+
+
+def trusted_heads(text):
+    """{router: row} of the rows this tool may write again: those that are exactly what writing
+    them from the cascades gives. A row that is not -- tuned by hand, or out of step with its
+    cascade already -- is not touched and its models stay out of reach of a deletion, as before."""
+    rows = read_head(text)
+    chains = head_chains(text, rows) if rows else None
+    if not chains:
+        return {}
+    return {router: rows[router] for router, chain in chains.items()
+            if chain == rows[router]["chain"]}
+
+
+def rewrite_heads(text, trusted):
+    """"text" with each row of "trusted" written again from the cascades "text" holds, and what
+    changed as [(router, before, after)]. The text as it was when a row cannot be written."""
+    rows = read_head(text)
+    chains = head_chains(text, rows) if rows else None
+    if not chains:
+        return text, []
+    lines = text.split("\n")
+    changes = []
+    for router in trusted:
+        if router in chains and router in rows and chains[router] != rows[router]["chain"]:
+            lines[rows[router]["line"]] = head_row_text(router, rows[router], chains[router])
+            changes.append((router, rows[router]["chain"], chains[router]))
+    return "\n".join(lines), changes
+
+
+def changed_heads(before, after):
+    """[(router, before, after)] of the rows of the "head" table that differ between two texts."""
+    old, new = read_head(before) or {}, read_head(after) or {}
+    return [(router, old[router]["chain"], row["chain"]) for router, row in new.items()
+            if router in old and old[router]["chain"] != row["chain"]]
+
+
+def repoint_aliases(document, gone):
+    """"document" with each alias that pointed at a deleted model pointing at the first member left
+    in its own cascade, which is what the table is meant to say: the oracle of verify_removal for the
+    aliases, written from the cascades and not from the rows that were written."""
+    fixed = copy.deepcopy(document)
+    lists = fallback_lists(fixed)
+    for section_name in SETTINGS_SECTIONS:
+        section = fixed.get(section_name)
+        aliases = section.get("model_group_alias") if isinstance(section, dict) else None
+        if not isinstance(aliases, dict):
+            continue
+        for alias, target in list(aliases.items()):
+            members = lists.get(("%s.fallbacks" % section_name, alias))
+            if isinstance(target, str) and target in gone and members:
+                aliases[alias] = members[0]
+    return fixed
+
+
+def alias_drift(document):
+    """{alias: (target, first member of its cascade)} for the aliases of a rendering that do not
+    point at the first member of the cascade kept under their own name."""
+    drifted = {}
+    if not isinstance(document, dict):
+        return drifted
+    lists = fallback_lists(document)
+    for section_name in SETTINGS_SECTIONS:
+        section = document.get(section_name)
+        aliases = section.get("model_group_alias") if isinstance(section, dict) else None
+        for alias, target in (aliases.items() if isinstance(aliases, dict) else []):
+            members = lists.get(("%s.fallbacks" % section_name, alias))
+            if members and target != members[0]:
+                drifted[alias] = (target, members[0])
+    return drifted
+
+
 def read_layout(text, template):
     """Where everything a deletion has to touch sits in "text". Returns (layout, None), or
     (None, why) when the file cannot be located reliably, in which case nothing is edited.
@@ -1444,6 +1641,14 @@ def read_layout(text, template):
             for name in names:
                 if re.search(r"[\"']%s[\"']" % re.escape(name), row):
                     strays.setdefault(name, []).append(first + offset + 1)
+    # The rows of the "head" table are written again after a deletion (rewrite_heads), so a name that
+    # only they hold is not out of reach: every other place a Jinja statement names it still is.
+    heads = trusted_heads(text)
+    written = {row["line"] + 1 for row in heads.values()}
+    for name in list(strays):
+        strays[name] = [number for number in strays[name] if number not in written]
+        if not strays[name]:
+            del strays[name]
     entries = []
     for entry, (start, end, _) in zip(template["active"], spans):
         # A node ends where the next token begins: the blank lines and the comments between two
@@ -1522,7 +1727,7 @@ def read_layout(text, template):
             spanning.update(range(first, last + 1))
     return {"lines": lines, "raw": text.splitlines(keepends=True), "entries": entries,
             "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
-            "references": references, "groups": groups, "strays": strays,
+            "references": references, "groups": groups, "strays": strays, "heads": heads,
             "jinja": structure[0], "jinja_single": structure[1], "jinja_spanning": spanning,
             "keysets": keyset_documents(text)}, None
 
@@ -1800,10 +2005,11 @@ def verify_removal(text, keys, new_text, original=None):
     surviving = {entry["name"] for entry in layout["entries"] if entry["key"] not in keys}
     slot_names = {entry["name"] for entry in deleted} - surviving
     removed = {id(entry["item"]) for entry in deleted if entry["state"] == "active"}
+    deleted_active = {entry["name"] for entry in deleted if entry["state"] == "active"}
     expected = dict(template["document"])
     expected["model_list"] = [item for item in template["document"]["model_list"]
                               if id(item) not in removed]
-    if strip_names(expected, slot_names) != result["document"]:
+    if repoint_aliases(strip_names(expected, slot_names), slot_names | deleted_active) != result["document"]:
         return "the result is not the original without the deleted entries and their cascade slots"
 
     # And on every set of keys, which is where a cascade is emptied: the model list is the original's
@@ -1824,6 +2030,13 @@ def verify_removal(text, keys, new_text, original=None):
             return "the model list of the result is not the original's without the deleted entries " \
                    "when only %s given" % given_text(given)
         lists_before, lists_after = fallback_lists(before), fallback_lists(after)
+        # An alias of a router stands for the first member of the cascade kept under its name: a
+        # deletion that leaves one on a model that is gone, or on another than the first, is the
+        # "head" table written wrong. Only what the original did right is held against the result.
+        for alias, (target, first) in alias_drift(after).items():
+            if alias not in alias_drift(before):
+                return "the alias %s points at %s but its cascade starts at %s when only %s given" \
+                       % (alias, target, first, given_text(given))
         if set(lists_after) - set(lists_before):
             return "the result has a fallback list the original did not when only %s given" \
                    % given_text(given)
@@ -2007,6 +2220,16 @@ def review_items(layout, accepted, notes, slot_names, position):
     return items
 
 
+def finished(layout, marks):
+    """What "assemble" gives, with the rows of the "head" table written again from the cascades the
+    deletion leaves, so that a router never stands for a model that is gone. The file keeps its
+    line numbers: a row is replaced by a row."""
+    text, kept = assemble(layout, marks)
+    if layout["heads"]:
+        text = rewrite_heads(text, layout["heads"])[0]
+    return text, kept
+
+
 def apply_removals(text, wanted):
     """Delete from "text" every entry the providers have retired that can be deleted without
     anybody's judgment. "wanted" is a list of (provider, id, kind). Returns (new_text, outcomes),
@@ -2046,7 +2269,7 @@ def apply_removals(text, wanted):
     for key in sorted(accepted):
         marks, _, _ = plan_lines(layout, {key})
         problem = jinja_refusal(layout, marks) or verify_removal(
-            text, {key}, assemble(layout, marks)[0], (template, problems, layout))
+            text, {key}, finished(layout, marks)[0], (template, problems, layout))
         if problem:
             refuse(by_key[key], "verification", problem)
             accepted.discard(key)
@@ -2054,7 +2277,7 @@ def apply_removals(text, wanted):
         return text, outcomes
 
     marks, notes, slot_names = plan_lines(layout, accepted)
-    new_text, kept = assemble(layout, marks)
+    new_text, kept = finished(layout, marks)
     problem = jinja_refusal(layout, marks) or verify_removal(
         text, accepted, new_text, (template, problems, layout))
     if problem:
@@ -2116,6 +2339,7 @@ def apply_to_result(text, result):
         "outcomes": [finding["removal"] for report in result["providers"]
                      for finding in report["findings"] if "removal" in finding],
         "changed": new_text != text,
+        "heads": changed_heads(text, new_text),
     }
     return new_text
 
@@ -2582,6 +2806,19 @@ def render_pr_body(result, link=None):
         lines.append(line)
     out += capped(lines) + [""]
 
+    heads = (result.get("removals") or {}).get("heads") or []
+    if heads:
+        out += ["## Table `head` réécrite", "",
+                "La table `head` du template dit quel modèle répond à chaque routeur selon les clés "
+                "fournisseurs données : elle recopie l'ordre des listes de secours. Une suppression "
+                "qui retire le premier modèle d'un fournisseur la change, et le workflow a **réécrit "
+                "les lignes concernées à partir des listes qui restent**, puis relu le résultat pour "
+                "chaque ensemble de clés. Cette pull request ajoute donc des lignes : elle ne se "
+                "fusionne pas seule, une personne relit celles-ci.", "", "```diff"]
+        for router, before, after in heads:
+            out += ["-  '%s': %s" % (router, before), "+  '%s': %s" % (router, after)]
+        out += ["```", ""]
+
     prose = [(report, finding) for report, finding in applied if finding["removal"]["prose"]]
     if prose:
         out += ["## Commentaires supprimés avec elles", "",
@@ -2661,6 +2898,12 @@ def render_commit_message(result):
     applied = removals_of(result, "applied")
     counts = collections.Counter(PROVIDER_LABELS[report["name"]] for report, _ in applied)
     by_provider = ", ".join("%s (%d)" % (label, count) for label, count in sorted(counts.items()))
+    heads = (result.get("removals") or {}).get("heads") or []
+    written_again = ("\n\n" + wrapped(
+        "The head table of the template repeats the order of the cascades and names the model each "
+        "router is an alias of. A deletion took a model it names, so its rows were written again "
+        "from the cascades that are left, and the result was read back for every set of provider "
+        "keys.")) if heads else ""
     return (
         "Delete the models their provider has retired from the LiteLLM model list (#243)\n\n"
         + wrapped("The weekly drift check read each provider's own model catalogue on %s "
@@ -2680,6 +2923,7 @@ def render_commit_message(result):
                   "original. What it could not delete without choosing stays in the weekly "
                   "issue, with the reason; so do additions and announced retirements, which are "
                   "choices.")
+        + written_again
         + "\n")
 
 
@@ -3799,6 +4043,239 @@ def run_apply_cases():
     return failures
 
 
+# A template with a "head" table, as the real one has: two routers, four providers, a cascade that
+# starts on one provider and puts another's models twice, and two models that answer whatever the keys.
+HEAD_TEMPLATE = """\
+{% set has = {
+  'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
+  'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
+  'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
+  'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0
+} %}
+{% set head = {
+  'router': 'gem-one' if has.Gemini else 'free-one' if has.OpenRouter else 'large' if has.Mistral else 'local-a',
+  'lite': 'gem-lite' if has.Gemini else 'small' if has.Mistral else false
+} %}
+model_list:
+{% if has.Gemini %}
+  - model_name: gem-one
+    litellm_params:
+      model: gemini/gemini-9-one
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: gem-lite
+    litellm_params:
+      model: gemini/gemini-9-lite
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+{% endif %}
+{% if has.OpenRouter %}
+  - model_name: free-one
+    litellm_params:
+      model: openrouter/vendor/one:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: free-two
+    litellm_params:
+      model: openrouter/vendor/two:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+{% endif %}
+{% if has.Mistral %}
+  - model_name: large
+    litellm_params:
+      model: mistral/vendor/large
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+
+  - model_name: small
+    litellm_params:
+      model: mistral/vendor/small
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+
+{% endif %}
+  - model_name: local-a
+    litellm_params:
+      model: groq/vendor/local-a
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: local-b
+    litellm_params:
+      model: openai/auto/local-b
+      api_base: "http://stand-in.invalid/v1"
+      api_key: "stand-in"
+
+router_settings:
+  fallbacks:
+{% if head['router'] %}
+    - router:
+{% if has.Gemini %}
+        - gem-one
+{% endif %}
+{% if has.OpenRouter %}
+        - free-one
+{% endif %}
+{% if has.Mistral %}
+        - large
+{% endif %}
+{% if has.OpenRouter %}
+        - free-two
+{% endif %}
+        - local-a
+        - local-b
+{% endif %}
+{% if head['lite'] %}
+    - lite:
+{% if has.Gemini %}
+        - gem-lite
+{% endif %}
+{% if has.Mistral %}
+        - small
+{% endif %}
+{% endif %}
+  model_group_alias:
+{% if head['router'] %}
+    "router": "{{ head['router'] }}"
+{% endif %}
+{% if head['lite'] %}
+    "lite": "{{ head['lite'] }}"
+{% endif %}
+"""
+
+HEAD_ROW_ROUTER = ("  'router': 'gem-one' if has.Gemini else 'free-one' if has.OpenRouter else "
+                   "'large' if has.Mistral else 'local-a',\n")
+
+
+def head_entry(name, model, key):
+    return ('  - model_name: %s\n    litellm_params:\n      model: %s\n      api_key: "os.environ/%s_API_KEY_SELFTEST"\n\n'
+            % (name, model, key))
+
+
+def head_row(*terms, default="local-a"):
+    chain = "".join("'%s' if has.%s else " % term for term in terms)
+    return "  'router': %s%s,\n" % (chain, "'%s'" % default if default else "false")
+
+
+FREE_ONE = head_entry("free-one", "openrouter/vendor/one:free", "OPENROUTER")
+FREE_TWO = head_entry("free-two", "openrouter/vendor/two:free", "OPENROUTER")
+LARGE = head_entry("large", "mistral/vendor/large", "MISTRAL")
+LOCAL_A = ('  - model_name: local-a\n    litellm_params:\n      model: groq/vendor/local-a\n'
+           '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\n')
+
+# (what the case proves, a change made to HEAD_TEMPLATE first, the (provider, id, kind) deletions
+# asked for, the changes the result must show against the changed template, and the refusals
+# expected as {(provider, id): code}).
+HEAD_CASES = (
+    ("a model no row of the table names goes as it would anywhere, and the table is left as it is",
+     (), [("openrouter", "vendor/two:free", "retired")],
+     [(FREE_TWO, ""), ("{% if has.OpenRouter %}\n        - free-two\n{% endif %}\n",
+                       "{% if has.OpenRouter %}\n{% endif %}\n")], {}),
+    ("the first model of a provider goes, and the provider falls behind another in the row, the "
+     "cascade having its next model after theirs",
+     (), [("openrouter", "vendor/one:free", "retired")],
+     [(FREE_ONE, ""), ("        - free-one\n", ""),
+      (HEAD_ROW_ROUTER, head_row(("gem-one", "Gemini"), ("large", "Mistral"), ("free-two", "OpenRouter")))],
+     {}),
+    ("a provider with no other model in the cascade leaves the row",
+     (), [("mistral", "vendor/large", "retired")],
+     [(LARGE, ""), ("        - large\n", ""),
+      (HEAD_ROW_ROUTER, head_row(("gem-one", "Gemini"), ("free-one", "OpenRouter")))],
+     {}),
+    ("the model that answers whatever the keys goes, and the next one takes its place at the end of "
+     "the row",
+     (), [("groq", "vendor/local-a", "retired")],
+     [(LOCAL_A, ""), ("        - local-a\n", ""),
+      (HEAD_ROW_ROUTER, head_row(("gem-one", "Gemini"), ("free-one", "OpenRouter"), ("large", "Mistral"),
+                                 default="local-b"))],
+     {}),
+    ("two deletions together write the row once, from what both leave",
+     (), [("openrouter", "vendor/one:free", "retired"), ("mistral", "vendor/large", "retired")],
+     [(FREE_ONE, ""), ("        - free-one\n", ""), (LARGE, ""), ("        - large\n", ""),
+      (HEAD_ROW_ROUTER, head_row(("gem-one", "Gemini"), ("free-two", "OpenRouter")))],
+     {}),
+    ("a name the table shares with another Jinja statement is still out of reach",
+     (("model_list:\n", "{% set pinned = 'free-one' %}\nmodel_list:\n"),),
+     [("openrouter", "vendor/one:free", "retired")], [],
+     {("openrouter", "vendor/one:free"): "stray"}),
+    ("a row that is not what its cascade gives is not trusted, so its models stay out of reach",
+     ((HEAD_ROW_ROUTER, head_row(("gem-one", "Gemini"), ("large", "Mistral"), ("free-one", "OpenRouter"))),),
+     [("openrouter", "vendor/one:free", "retired")], [],
+     {("openrouter", "vendor/one:free"): "stray"}),
+    ("a table with a row this tool cannot read is not touched at all",
+     (("  'lite': 'gem-lite' if has.Gemini else 'small' if has.Mistral else false\n",
+       "  'lite': ('gem-lite' if has.Gemini else false)\n"),),
+     [("openrouter", "vendor/one:free", "retired")], [],
+     {("openrouter", "vendor/one:free"): "stray"}),
+)
+
+
+def run_head_cases():
+    failures = 0
+    for purpose, setup, wanted, changes, refusals in HEAD_CASES:
+        text = edited(HEAD_TEMPLATE, setup, purpose)
+        expected = edited(text, changes, purpose) if text is not None else None
+        if expected is None:
+            failures += 1
+            continue
+        new_text, outcomes = apply_removals(text, wanted)
+        got = {(o["provider"], o["id"]): o["reason"][0] for o in outcomes if o["status"] == "refused"}
+        why = None
+        if new_text != expected:
+            why = "the result is not the expected text:\n%s" % "\n".join(difflib.unified_diff(
+                expected.splitlines(), new_text.splitlines(), "expected", "got", lineterm="", n=1))
+        elif got != refusals:
+            why = "refusals %r, expected %r" % (got, refusals)
+        elif not refusals:
+            before, after = changed_heads(text, new_text), None
+            for given, document in keyset_documents(new_text):
+                if not isinstance(document, dict):
+                    why = "the result does not render when only %s given" % given_text(given)
+                elif alias_drift(document):
+                    why = "an alias is off its cascade's first member when only %s given" % given_text(given)
+                if why:
+                    break
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    # A row that is not written again leaves an alias on a model that is gone: the result is read back
+    # against the cascades, and the deletion is refused, not made.
+    purpose = "a deletion whose row is not written again is refused, for the alias it leaves behind"
+    real = rewrite_heads
+    try:
+        globals()["rewrite_heads"] = lambda text, trusted: (text, [])
+        new_text, outcomes = apply_removals(HEAD_TEMPLATE, [("openrouter", "vendor/one:free", "retired")])
+    finally:
+        globals()["rewrite_heads"] = real
+    reason = outcomes[0]["reason"] or ("", "")
+    if (new_text == HEAD_TEMPLATE and outcomes[0]["status"] == "refused" and reason[0] == "verification"
+            and "the alias router points at free-one" in reason[1]):
+        print("selftest: ok -- %s" % purpose)
+    else:
+        failures += 1
+        print("selftest: FAILED (%s) -- got %r" % (purpose, (outcomes[0]["status"], reason)))
+
+    # What the pull request and the commit say about the rows.
+    purpose = "the pull request lists the rows written again, and says it will not merge itself"
+    heads = changed_heads(HEAD_TEMPLATE, apply_removals(
+        HEAD_TEMPLATE, [("openrouter", "vendor/one:free", "retired")])[0])
+    result = {"date": "2026-01-01", "removals": {"heads": heads}, "providers": [{
+        "name": "openrouter", "status": "read", "findings": [{
+            "kind": "retired", "id": "vendor/one:free", "removal": {
+                "status": "applied", "entries": [{"name": "free-one", "state": "active"}],
+                "slots": [], "prose": [], "review": []}}]}]}
+    body, message = render_pr_body(result), " ".join(render_commit_message(result).split())
+    if (len(heads) == 1 and heads[0][0] == "router" and "## Table `head` réécrite" in body
+            and "ne se fusionne pas seule" in body and "-  'router': " in body and "+  'router': " in body
+            and "The head table of the template repeats the order of the cascades" in message):
+        print("selftest: ok -- %s" % purpose)
+    else:
+        failures += 1
+        print("selftest: FAILED (%s) -- heads %r" % (purpose, heads))
+    return failures
+
+
 def run_safety_net_case():
     """The last check, on every deletion together, is reached only when a plan is wrong for several
     deletions at once and not for each alone. None of the cases above does that, so make one: a
@@ -4907,6 +5384,7 @@ def run_selftest_cases():
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
     failures += run_apply_cases()
+    failures += run_head_cases()
     failures += run_verify_cases()
     failures += run_safety_net_case()
     failures += run_online_apply_cases()
