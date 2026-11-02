@@ -301,6 +301,36 @@ the pull request lists. And the job of "LiteLLM_model_drift.yml" that pushes it,
 token that writes, accepts a changed line only if it is such a row, naming entries of the file and
 providers the template declares ("check_drift_publish_guard.py" plays that rule).
 
+THE RANKINGS
+------------
+Where a NEW model would go in a cascade is a question of figures, which someone used to look up by
+hand: the report now carries them. With MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY set, the run reads
+Artificial Analysis's free API (GET https://artificialanalysis.ai/api/v2/data/llms/models, the key in
+the "x-api-key" header, 1,000 requests a day, one made per run) and the issue gains a table of each
+NEW model's intelligence index, coding index, output speed and blended price, then a suggested place
+per router: before the first member of that router's cascade the ranking scores lower on the figure
+that decides it (intelligence for "pro", "flash" and "claude-code", coding for "code", speed for
+"flash-lite"), or after the last one. The source is named in the issue with its day, as the terms of
+use of that API ask, and the figures are shown as published.
+
+* It is optional the way a provider's key is, and no more than that: without the key the report says
+  "not covered" and the run is the same; a failed read is reported, with the HTTP status and nothing
+  else, and changes neither the exit status, nor what the run covers, nor what it deletes. The
+  ranking is not a catalogue of a provider, so it is kept out of "result[providers]" for this.
+* The matching is a guess and is shown as one. A NEW model is matched to an entry of the ranking
+  only when the last segment of its id, or the provider's name for it, equals that entry's slug or
+  name once squashed to lower-case letters and digits, of four characters at least ("o3" says too
+  little), and only when exactly one entry does: two is no answer. Every matched row says by which
+  of the two it was matched, and is to be checked before a place is taken from it. The members of a
+  cascade are matched the same way, the ones the ranking does not know being left out of the count,
+  which the place states ("3 membre(s) classé(s) sur 5").
+* A place is a suggestion, never applied by anything: it compares one figure and says nothing of what
+  makes a model eligible (tool calls and context for "claude-code", the free tier) nor of how a
+  cascade also groups its models by provider.
+* The answer is untrusted text like a catalogue's: names are cut to plain words, a figure that is
+  not a finite number is none, and the key is replaced by "***" wherever an error could carry it. The
+  job that writes holds no such key, as with the others.
+
 UNTRUSTED TEXT
 --------------
 What a catalogue says -- an id, a name, a date -- ends up in the log, in an issue, in a pull request
@@ -343,6 +373,8 @@ WHAT IT DELIBERATELY DOES NOT DO
   behind the key, so a model reserved to another tier or region is invisible to it.
 * It does not read the rate limits, the prices outside OpenRouter, or whether a provider still
   offers a free tier at all -- those live in prose only.
+* It does not decide where a model goes. The rankings give a number and a suggested place; the order
+  of a cascade stays a choice made by a person, with the router's other constraints in mind.
 
 Its verification cases are Python literals rather than fixture files, for the reason CLAUDE.md
 gives: a fixture on disk is reachable by "ansible-lint --fix", which has rewritten one here before.
@@ -952,8 +984,8 @@ def fetch_json(opener, url, headers):
 def scrub(text, environment):
     """"text" with every key of the run replaced by "***". No message here is meant to carry one,
     and this is what stands between a surprise and the log, the issue and the pull request."""
-    for provider in PROVIDERS:
-        key = (environment.get(provider[2]) or "").strip() if provider[2] else ""
+    for variable in [provider[2] for provider in PROVIDERS if provider[2]] + [RANKING_KEY]:
+        key = (environment.get(variable) or "").strip()
         if key:
             text = text.replace(key, "***")
     return text
@@ -1204,6 +1236,152 @@ def diff(provider, catalogue, active, commented, ignored):
     return findings
 
 
+# ------------------------------------------------------------------------------------------------
+# The rankings: figures and a suggested place for each NEW model
+# ------------------------------------------------------------------------------------------------
+# The order of a cascade follows the intelligence and the speed of its models, which someone looked
+# up by hand for each. For a NEW model the report now carries the figures Artificial Analysis publishes
+# and where they would put it among the models already in each router's cascade -- a suggestion with
+# its source and its day, never applied. It is not a catalogue of a provider, so it is read apart
+# from them: without its key the run says "not covered" like for any key it lacks, and a failed
+# read is reported and changes neither the exit status nor what the run may delete.
+
+RANKING_KEY = "MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"
+RANKING_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
+RANKING_SITE = "https://artificialanalysis.ai/"
+# The router and the figure that decides its place. "claude-code" is held to strict tool calls and
+# a long context besides, which a score does not say: the report says so, and nothing here applies.
+RANKING_ROUTERS = (("pro", "intelligence"), ("flash", "intelligence"), ("flash-lite", "speed"),
+                   ("code", "coding"), ("claude-code", "intelligence"))
+RANKING_FIGURES = {
+    "intelligence": ("indice d'intelligence", "intelligence index"),
+    "coding": ("indice de code", "coding index"),
+    "speed": ("jetons par seconde", "output tokens per second"),
+}
+RANKING_MIN_KEY = 4  # a shorter spelling ("o3") says too little to be taken for a model
+RANKING_LISTED = 25  # models in the table and the places: each takes up to six lines of a body GitHub caps
+
+
+def squash(text):
+    """Letters and digits only, in lower case: "Gemini 3.1 Flash-Lite" and "gemini-3-1-flash-lite" are
+    the same model to anyone, and are the same string here."""
+    return re.sub(r"[^a-z0-9]", "", str(text).lower())
+
+
+def figure(value):
+    """A finite number, or None: a boolean, a string and "NaN" are not figures."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if value == value and abs(value) != float("inf") else None
+
+
+def read_ranking_models(payload):
+    """The models of the LLMs endpoint, as documented on its API reference: a "data" list of objects
+    with "name", "slug", "evaluations" (the intelligence and coding indexes), "pricing" and
+    "median_output_tokens_per_second". Anything else in an object is ignored and a missing figure is
+    None; what is shown of it is cut to plain words, since the answer is untrusted text."""
+    items = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise FetchError('the answer holds no "data" list')
+    models = []
+    for item in items:
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            continue
+        evaluations = item.get("evaluations") if isinstance(item.get("evaluations"), dict) else {}
+        pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
+        creator = item.get("model_creator") if isinstance(item.get("model_creator"), dict) else {}
+        slug = item.get("slug") if isinstance(item.get("slug"), str) else ""
+        models.append({
+            "name": safe_text(item["name"], 80),
+            "creator": safe_text(creator.get("name") or "", 40),
+            "keys": {key for key in (squash(slug), squash(item["name"])) if len(key) >= RANKING_MIN_KEY},
+            "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
+            "coding": figure(evaluations.get("artificial_analysis_coding_index")),
+            "speed": figure(item.get("median_output_tokens_per_second")),
+            "price": figure(pricing.get("price_1m_blended_3_to_1")),
+        })
+    return models
+
+
+def read_rankings(opener, environment, today):
+    """The state of the ranking source: {"status": "no key" | "read" | "error", "key", "date", ...}."""
+    ranking = {"status": "read", "key": RANKING_KEY, "date": today, "models": []}
+    key = (environment.get(RANKING_KEY) or "").strip()
+    if not key:
+        ranking["status"] = "no key"
+        return ranking
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json", "x-api-key": key}
+    try:
+        payload = fetch_json(opener, RANKING_URL, headers)
+        ranking["models"] = read_ranking_models(payload)
+    except FetchError as error:
+        ranking["status"] = "error"
+        ranking["error"] = scrub(str(error), environment)
+    return ranking
+
+
+def match_ranking(provider, identifier, label, models):
+    """(model, how) for the ranking entry that spells like this model, or (None, why not). The spelling
+    of the id's last segment, then the provider's own name for the model, must equal an entry's
+    slug or name once squashed; two entries that do are no answer. It is a guess, and shown as one."""
+    tails = [("identifiant", squash(re.sub(r":free$", "", identifier.rsplit("/", 1)[-1])))]
+    if label:
+        tails.append(("nom", squash(re.sub(r"\s*\(free\)\s*$", "", label.split(": ", 1)[-1]))))
+    ambiguous = False
+    for how, key in tails:
+        if len(key) < RANKING_MIN_KEY:
+            continue
+        found = [model for model in models if key in model["keys"]]
+        if len(found) == 1:
+            return found[0], how
+        ambiguous = ambiguous or len(found) > 1
+    return None, "ambigu" if ambiguous else "inconnu"
+
+
+def suggest_places(model, template, models):
+    """{router: {...}} where the figure that decides a router's place puts "model" among the members of
+    that router's cascade the ranking knows: before the first of them it beats, or after the last. A
+    router whose cascade has no ranked member, or a model with no such figure, is left out."""
+    lists = fallback_lists(template["document"])
+    entries = {entry["name"]: entry for entry in template["active"] if isinstance(entry["name"], str)}
+    places = {}
+    for router, metric in RANKING_ROUTERS:
+        members = lists.get(("router_settings.fallbacks", router))
+        value = model.get(metric)
+        if not members or value is None:
+            continue
+        scored = []
+        for name in members:
+            entry = entries.get(name)
+            attributed = attribute(entry["model"], entry["api_base"]) if entry else None
+            known = match_ranking(attributed[0], attributed[1], "", models)[0] if attributed else None
+            if known is not None and known.get(metric) is not None:
+                scored.append((name, known[metric]))
+        if not scored:
+            continue
+        places[router] = {"metric": metric, "value": value, "ranked": len(scored), "of": len(members),
+                          "before": next(((name, score) for name, score in scored if score < value), None),
+                          "last": scored[-1]}
+    return places
+
+
+def rank_new_models(result, template):
+    """One row per NEW finding: what the ranking source says of it and where it would go."""
+    ranking = result["rankings"]
+    rows = []
+    if ranking["status"] != "read":
+        return rows
+    for report in result["providers"]:
+        for finding in report["findings"]:
+            if finding["kind"] != "new":
+                continue
+            model, how = match_ranking(report["name"], finding["id"], finding.get("label", ""),
+                                       ranking["models"])
+            rows.append({"provider": report["name"], "id": finding["id"], "model": model, "how": how,
+                         "places": suggest_places(model, template, ranking["models"]) if model else {}})
+    return rows
+
+
 def run_online(text, environment, opener, today):
     """Read every catalogue and diff it against the file. Returns the result the renderers read."""
     template, problems = read_template(text)
@@ -1243,6 +1421,8 @@ def run_online(text, environment, opener, today):
         report["candidates"] = len(catalogue["candidates"])
         report["unsafe"] = catalogue["unsafe"]
         report["findings"] = diff(name, catalogue, active, commented, ignored)
+    result["rankings"] = read_rankings(opener, environment, today)
+    result["ranked"] = rank_new_models(result, template)
     return result
 
 
@@ -2418,6 +2598,18 @@ def render_text(result, config_name):
         out.append("%-11s %d active entr%s of no catalogue read here: %s"
                    % ("(none)", count, "y" if count == 1 else "ies",
                       ", ".join(result["unattributed"])))
+    ranking = result.get("rankings")
+    if ranking:
+        if ranking["status"] == "no key":
+            state = "not covered (no key): %s is unset" % ranking["key"]
+        elif ranking["status"] == "error":
+            state = "ERROR, not read: %s" % ranking["error"]
+        else:
+            rows = result.get("ranked") or []
+            state = ("read, %d model(s), %d of the %d NEW model(s) matched; source: Artificial "
+                     "Analysis, %s" % (len(ranking["models"]), sum(1 for row in rows if row["model"]),
+                                       len(rows), RANKING_SITE))
+        out.append("%-11s %s" % ("rankings", state))
     out.append("")
 
     labels = {
@@ -2550,6 +2742,74 @@ def snippet(provider, identifier, basis, name):
     return lines
 
 
+def figure_text(value):
+    return "—" if value is None else "%.1f" % value
+
+
+def place_text(router, place):
+    label = RANKING_FIGURES[place["metric"]][0]
+    if place["before"]:
+        where = "avant %s (%s : %s contre %s pour ce modèle)" % (
+            code_span(place["before"][0], 60), label, figure_text(place["before"][1]),
+            figure_text(place["value"]))
+    else:
+        where = "après %s, le dernier classé (%s : %s contre %s pour ce modèle)" % (
+            code_span(place["last"][0], 60), label, figure_text(place["last"][1]),
+            figure_text(place["value"]))
+    return "`%s` : %s, %d membre(s) classé(s) sur %d" % (router, where, place["ranked"], place["of"])
+
+
+def ranking_section(result):
+    """The table of figures of the NEW models and the place each would take, in French: a suggestion
+    with its source and its day, whose every row is to be checked, and which nothing applies."""
+    ranking, rows = result.get("rankings"), result.get("ranked") or []
+    if not ranking or ranking["status"] != "read" or not rows:
+        return []
+    out = ["## Classement des nouveaux modèles", "",
+           "Chiffres lus le %s dans l'API gratuite d'Artificial Analysis, <%s> (source à citer ; "
+           "ses « Terms of Use » et « Data Platform Terms » s'appliquent). Le rapprochement entre "
+           "l'identifiant du fournisseur et le nom du classement est **approximatif** : chaque ligne "
+           "est à vérifier avant d'en tirer une place. La place suggérée ne compare que le chiffre "
+           "qui compte pour le routeur (indice d'intelligence pour `pro`, `flash` et `claude-code`, "
+           "indice de code pour `code`, vitesse pour `flash-lite`) à celui des membres déjà classés "
+           "de sa liste. Elle ne dit rien de l'éligibilité (appels d'outils et contexte pour "
+           "`claude-code`, gratuité) ni de la façon dont la liste regroupe aussi les modèles par "
+           "fournisseur : ce n'est jamais une décision, et rien ne l'applique."
+           % (ranking["date"], RANKING_SITE), "",
+           "| Modèle | Rapprochement | Intelligence | Code | Vitesse (jetons/s) | Prix mixte ($/M jetons) |",
+           "| --- | --- | --- | --- | --- | --- |"]
+    # The matched ones first, since they are the ones with figures to read.
+    rows = sorted(rows, key=lambda row: row["model"] is None)
+    unlisted, rows = len(rows) - min(len(rows), RANKING_LISTED), rows[:RANKING_LISTED]
+    for row in rows:
+        identifier, where = litellm_id(row["provider"], row["id"])
+        name = "`%s`%s" % (safe_text(identifier, 120), where.replace(" on ", " chez "))
+        model = row["model"]
+        if model:
+            out.append("| %s | %s, par %s : à vérifier | %s | %s | %s | %s |" % (
+                name, safe_text(model["name"], 80), "l'identifiant" if row["how"] == "identifiant"
+                else "le nom", figure_text(model["intelligence"]), figure_text(model["coding"]),
+                figure_text(model["speed"]), figure_text(model["price"])))
+        else:
+            out.append("| %s | %s | — | — | — | — |" % (
+                name, "plusieurs entrées portent ce nom, aucune retenue" if row["how"] == "ambigu"
+                else "inconnu de la source"))
+    out.append("")
+    if unlisted:
+        out += ["… et %d autre(s) nouveau(x) modèle(s) sans chiffres ici, à voir dans « Nouveaux modèles à "
+                "examiner »." % unlisted, ""]
+    places = []
+    for row in rows:
+        if row["places"]:
+            identifier, where = litellm_id(row["provider"], row["id"])
+            places.append(["- `%s`%s :" % (safe_text(identifier, 120), where.replace(" on ", " chez "))]
+                          + ["  - " + place_text(router, row["places"][router])
+                             for router, _ in RANKING_ROUTERS if router in row["places"]])
+    if places:
+        out += ["Places suggérées, routeur par routeur :", ""] + [line for block in places for line in block] + [""]
+    return out
+
+
 def render_issue_body(result, config_name, link=None):
     body = issue_body(result, config_name, link, snippets=True)
     if len(body) > BODY_LIMIT:
@@ -2680,6 +2940,8 @@ def issue_body(result, config_name, link, snippets):
             title, explanation = sections[kind][0], sections[kind][1]
             out += ["## %s" % title, "", explanation, ""] + capped(lines) + [""]
 
+    out += ranking_section(result)
+
     if result["rules"]:
         out += ["## Règles du fichier", "",
                 "Ce que le mode hors ligne du contrôle refuse, et qui est pourtant sur `main` : "
@@ -2694,6 +2956,14 @@ def issue_body(result, config_name, link, snippets):
                 "expirée ou révoquée, et Gemini répond `400` à une clé invalide.", ""]
         out += ["- %s : %s" % (report["name"], code_span(report["error"]))
                 for report in errors] + [""]
+
+    ranking = result.get("rankings")
+    if ranking and ranking["status"] == "error":
+        out += ["## Classements non lus", "",
+                "La source des classements n'a pas pu être lue : aucune place n'est suggérée cette "
+                "semaine pour les nouveaux modèles. Rien d'autre n'en dépend, ni les suppressions ni "
+                "la fermeture de cette issue.", "", "- Artificial Analysis : %s"
+                % code_span(ranking["error"]), ""]
 
     out += ["## Couverture", "",
             "| Fournisseur | État | Modèles au catalogue | Identifiants actifs ici "
@@ -2711,6 +2981,14 @@ def issue_body(result, config_name, link, snippets):
             members = str(report["members"])
         out.append("| %s | %s | %s | %d | %d |" % (report["name"], state, members,
                                                     report["active"], report["commented"]))
+    if ranking:
+        if ranking["status"] == "no key":
+            state, members = "non couvert (pas de clé : secret `%s`)" % ranking["key"], "—"
+        elif ranking["status"] == "error":
+            state, members = "erreur", "—"
+        else:
+            state, members = "lu", str(len(ranking["models"]))
+        out.append("| Artificial Analysis (classements) | %s | %s | — | — |" % (state, members))
     out.append("")
     if result["unattributed"]:
         out.append("Entrées actives d'aucun catalogue lu ici : %s."
@@ -3273,6 +3551,11 @@ def canned_opener(answers, calls):
 
     def opener(url, headers):
         calls.append((url, dict(headers)))
+        if url == RANKING_URL:
+            answer = answers["rankings"]
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
         for name, base in urls.items():
             if not url.startswith(base):
                 continue
@@ -4275,6 +4558,215 @@ def run_head_cases():
     else:
         failures += 1
         print("selftest: FAILED (%s) -- heads %r" % (purpose, heads))
+    return failures
+
+
+# The ranking source, played on canned answers in the shape its API reference documents (no key of
+# Artificial Analysis was available: the shape is the documented one, not a recorded answer).
+RANKING_TEMPLATE = """\
+model_list:
+  - model_name: gem-top
+    litellm_params:
+      model: gemini/gem-top-model
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: groq-mid
+    litellm_params:
+      model: groq/vendor/groq-mid-model
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: free-low
+    litellm_params:
+      model: openrouter/vendor/free-low-model:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+router_settings:
+  fallbacks:
+    - flash:
+        - gem-top
+        - groq-mid
+        - free-low
+    - code:
+        - gem-top
+        - groq-mid
+    - flash-lite:
+        - free-low
+        - groq-mid
+    - pro:
+        - free-low
+  model_group_alias:
+    "flash": "gem-top"
+    "code": "gem-top"
+    "flash-lite": "free-low"
+    "pro": "free-low"
+"""
+
+
+def ranking_model(slug, name, intelligence=None, coding=None, speed=None, price=None, creator="Vendor"):
+    return {"id": "aa-" + slug, "name": name, "slug": slug,
+            "model_creator": {"id": "c-1", "name": creator, "slug": squash(creator)},
+            "evaluations": {"artificial_analysis_intelligence_index": intelligence,
+                            "artificial_analysis_coding_index": coding, "livecodebench": 0.5},
+            "pricing": {"price_1m_blended_3_to_1": price, "price_1m_input_tokens": 1.0,
+                        "price_1m_output_tokens": 2.0},
+            "median_output_tokens_per_second": speed, "median_time_to_first_token_seconds": 1.2}
+
+
+RANKING_KEYS = dict(SELFTEST_KEYS, MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY="selftest-artificial-analysis-key-SECRET")
+
+
+def ranking_answers(*aa_models, openrouter_extra=()):
+    """Catalogues that list exactly what RANKING_TEMPLATE holds, plus the NEW OpenRouter models given
+    as (id, label), and the ranking source's answer made of "aa_models"."""
+    answers = answers_listing(RANKING_TEMPLATE)
+    for identifier, label in openrouter_extra:
+        model = openrouter_model(identifier)
+        model["name"] = label
+        answers["openrouter"]["data"].append(model)
+    answers["rankings"] = {"status": 200, "prompt_options": {"parallel_queries": 1, "prompt_length": "medium"},
+                           "data": list(aa_models)}
+    return answers
+
+
+def ranking_run(environment, answers):
+    calls = []
+    result = run_online(RANKING_TEMPLATE, environment, canned_opener(answers, calls), "2026-01-01")
+    return result, calls, render_text(result, "selftest"), render_issue_body(result, "selftest")
+
+
+def run_ranking_cases():
+    failures = 0
+    top = ranking_model("gem-top-model", "Gem Top Model", 70, 60, 100, 2.0)
+    mid = ranking_model("groq-mid-model", "Groq Mid Model", 50, 45, 300, 0.5)
+    low = ranking_model("free-low-model", "Free Low Model", 30, 20, 200, 0.0)
+    fresh = ranking_model("fresh-model", "Fresh Model @bob <img src=x> | `x` ::error::", 55, 70, 250, 1.5)
+    shiny = ranking_model("another-slug", "Shiny Name", 20, 10, 50, None)
+    twins = [ranking_model("twin-model", "Twin One", 10), ranking_model("twin-model", "Twin Two", 20)]
+    extra = [("vendor/fresh-model:free", "Vendor: Fresh Model (free)"),
+             ("vendor/named-thing:free", "Vendor: Shiny Name (free)"),
+             ("vendor/mystery-thing:free", "Vendor: Mystery"),
+             ("vendor/twin-model:free", "Vendor: Twin")]
+    base = ranking_answers(top, mid, low, fresh, shiny, *twins, openrouter_extra=extra)
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    # No key: said, never called, and nothing else about the run changes.
+    result, calls, report, body = ranking_run(SELFTEST_KEYS, base)
+    judged("without its key the ranking source is not covered, never called, and the run is the same",
+           first_wrong(
+               (not any(url == RANKING_URL for url, _ in calls), "the ranking source was called without a key"),
+               ("rankings    not covered (no key): MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY is unset" in report,
+                "the report does not say the key is missing"),
+               ("| Artificial Analysis (classements) | non couvert (pas de clé : secret "
+                "`MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`) |" in body, "the coverage table does not say it"),
+               ("## Classement des nouveaux modèles" not in body, "a table was written without figures"),
+               (result["ranked"] == [], "rows were built from a source that was not read"),
+               (exit_status(result) == 1 and is_complete(result), "the exit status or the coverage moved")))
+
+    # A key: the figures, the matching said to be a guess, the places, the source named.
+    result, calls, report, body = ranking_run(RANKING_KEYS, base)
+    sent = [headers for url, headers in calls if url == RANKING_URL]
+    section = body.split("## Classement des nouveaux modèles")[1].split("\n## ")[0] if "## Classement des nouveaux modèles" in body else ""
+    judged("with its key the NEW models get their figures, a guessed matching, a place per router and the source",
+           first_wrong(
+               (len(sent) == 1 and sent[0].get("x-api-key") == RANKING_KEYS["MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"],
+                "the key was not sent once in x-api-key"),
+               (not any("SECRET" in url for url, _ in calls), "a key was put in a URL"),
+               ("<https://artificialanalysis.ai/>" in section and "Terms of Use" in section, "the source is not named"),
+               ("| `openrouter/vendor/fresh-model:free` | Fresh Model" in section and "par l'identifiant : à vérifier" in section
+                and "| 55.0 | 70.0 | 250.0 | 1.5 |" in section, "the matched row is wrong: %s" % section[:900]),
+               ("par le nom : à vérifier" in section and "Shiny Name" in section, "the match by name is missing"),
+               ("| `openrouter/vendor/mystery-thing:free` | inconnu de la source |" in section, "an unknown model is not said unknown"),
+               ("| `openrouter/vendor/twin-model:free` | plusieurs entrées portent ce nom, aucune retenue |" in section,
+                "an ambiguous model was matched"),
+               ("`flash` : avant `groq-mid`" in section, "flash is not placed before groq-mid"),
+               ("`code` : avant `gem-top`" in section, "code is not placed before gem-top"),
+               ("`flash-lite` : avant `free-low`" in section, "flash-lite is not placed before free-low"),
+               ("jamais une décision" in section, "the table does not say it is not a decision"),
+               (exit_status(result) == 1 and is_complete(result), "the exit status or the coverage moved"),
+               ("rankings    read, 7 model(s), 2 of the 4 NEW model(s) matched" in report, "the report does not count: %s" % report)))
+    judged("no key, no echoed key and no markup of the ranking source's text reaches the output",
+           first_wrong(
+               ("SECRET" not in report and "SECRET" not in body, "a key reached the output"),
+               (hostile_lines(report, body) is None, str(hostile_lines(report, body))),
+               ("@bob" not in body and "<img" not in body and "::error" not in body and "`x`" not in body,
+                "the source's text carried markup into the issue")))
+
+    # A model that ranks below every member goes last; a router with no ranked member gets no place.
+    low_answers = ranking_answers(top, mid, low, ranking_model("fresh-model", "Fresh Model", 5, 5, 5),
+                                  openrouter_extra=[extra[0]])
+    result, calls, report, body = ranking_run(RANKING_KEYS, low_answers)
+    section = body.split("## Classement des nouveaux modèles")[1] if "## Classement des nouveaux modèles" in body else ""
+    judged("a model below every ranked member goes after the last of them, and a router without a ranked member is left out",
+           first_wrong(("`flash` : après `free-low`, le dernier classé" in section, "flash is not placed last: %s" % section[-600:]),
+                       ("`claude-code` :" not in section, "claude-code has no cascade here and was placed")))
+
+    # A member the ranking does not know is left out of the count, and the count is said.
+    partial = ranking_answers(top, mid, fresh, openrouter_extra=[extra[0]])
+    result, calls, report, body = ranking_run(RANKING_KEYS, partial)
+    section = body.split("## Classement des nouveaux modèles")[1] if "## Classement des nouveaux modèles" in body else ""
+    judged("a cascade member the ranking does not know is not counted among the ranked ones",
+           first_wrong(("`flash` : avant `groq-mid` (indice d'intelligence : 50.0 contre 55.0 pour ce modèle), "
+                        "2 membre(s) classé(s) sur 3" in section, "the count is wrong: %s" % section[-700:]),
+                       ("`pro` :" not in section, "pro has no ranked member and was placed")))
+
+    # Errors: reported, scrubbed, and never an error of the run.
+    for purpose, answer, wanted in (
+            ("a 401 whose body echoes the key is reported as its status, the key is gone, and the run goes on",
+             leaky_401("artificial-analysis"), "HTTP 401"),
+            ("a network error whose reason carries the key is reported with the key scrubbed",
+             urllib.error.URLError("tunnel refused for selftest-artificial-analysis-key-SECRET"),
+             "network error: tunnel refused for ***"),
+            ("an answer that is not JSON is reported",
+             b"<html>maintenance</html>", "the answer is not JSON"),
+            ("an answer without its data list is reported",
+             {"status": 200, "data": "nope"}, 'the answer holds no "data" list')):
+        answers = dict(base, rankings=answer)
+        result, calls, report, body = ranking_run(RANKING_KEYS, answers)
+        judged(purpose, first_wrong(
+            (result["rankings"]["status"] == "error" and wanted in result["rankings"]["error"], "got %r" % (result["rankings"],)),
+            ("rankings    ERROR, not read: " + wanted in report, "the report does not carry it"),
+            ("## Classements non lus" in body and "Rien d'autre n'en dépend" in body, "the issue does not say it"),
+            ("## Classement des nouveaux modèles" not in body, "a table was written without figures"),
+            (result["ranked"] == [], "rows were built from a source that was not read"),
+            ("SECRET" not in report and "SECRET" not in body, "a key reached the output"),
+            (exit_status(result) == 1 and is_complete(result), "the error moved the exit status or the coverage")))
+
+    # Many NEW models: the table and the places stay bounded, matched rows first, and the rest is said.
+    crowd = [("vendor/crowd-%03d:free" % number, "Vendor: Crowd %03d (free)" % number) for number in range(80)]
+    crowd_models = [ranking_model("crowd-%03d" % number, "Crowd %03d" % number, 40 + number % 20,
+                                  30 + number % 20, 100 + number, 1.0)
+                    for number in range(0, 80, 2)]
+    result, calls, report, body = ranking_run(RANKING_KEYS, ranking_answers(
+        top, mid, low, *crowd_models, openrouter_extra=crowd))
+    section = body.split("## Classement des nouveaux modèles")[1].split("\n## ")[0] if "## Classement des nouveaux modèles" in body else ""
+    judged("eighty NEW models stay within the section's bounds, matched first, and the rest is counted",
+           first_wrong((section.count("\n| `openrouter/") == RANKING_LISTED, "the table holds %d rows" % section.count("\n| `openrouter/")),
+                       ("inconnu de la source" not in section, "an unmatched row came before a matched one"),
+                       ("… et 55 autre(s) nouveau(x) modèle(s) sans chiffres ici" in section, "the rest was not counted"),
+                       (len(body) < 40000, "the body is %d characters long" % len(body))))
+
+    # Figures that are not figures are none, and the matching takes the spelling it can trust.
+    junk = ranking_model("fresh-model", "Fresh Model", "NaN", True, float("inf"), "1.5")
+    result, calls, report, body = ranking_run(RANKING_KEYS, ranking_answers(
+        top, mid, low, junk, openrouter_extra=[extra[0]]))
+    judged("a string, a boolean or an infinite figure is none, shown as a dash and placed nowhere",
+           first_wrong(("| — | — | — | — |" in body, "a figure that is none was shown"),
+                       ("Places suggérées" not in body, "a model with no figure was placed")))
+    models = read_ranking_models({"data": [ranking_model("o3", "o3", 1), ranking_model("some-model", "Some Model", 2)]})
+    judged("a spelling shorter than four characters is no match, and a label's provider prefix and (free) are dropped",
+           first_wrong((match_ranking("openrouter", "vendor/o3:free", "", models)[0] is None, "o3 was matched"),
+                       (match_ranking("openrouter", "vendor/x:free", "Vendor: Some Model (free)", models)[1] == "nom",
+                        "the label was not tried")))
     return failures
 
 
@@ -5387,6 +5879,7 @@ def run_selftest_cases():
 
     failures += run_apply_cases()
     failures += run_head_cases()
+    failures += run_ranking_cases()
     failures += run_verify_cases()
     failures += run_safety_net_case()
     failures += run_online_apply_cases()

@@ -69,6 +69,14 @@ name: LiteLLM model drift
 #   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries
 #   MODEL_DRIFT_DEEPSEEK_API_KEY  DeepSeek, direct API -- "deepseek/" entries
 #
+# One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
+# Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).
+# With it the issue carries the intelligence, coding and speed figures of each NEW model and a place
+# suggested per router; without it the report says "not covered" like for any key, and a failed read
+# changes neither the status of the run nor what it deletes. Like the others it is held by the
+# "read" job alone: "publish" never has it. Their terms ask for the source to be cited, which the
+# issue does, with the day the figures were read.
+#
 # Cost: two jobs of under a minute each, once a week -- about eight to ten of the included minutes a
 # month on this private repository -- plus, when something is deleted, the two workflows dispatched
 # on the branch.
@@ -184,6 +192,7 @@ jobs:
           MODEL_DRIFT_GROQ_API_KEY: ${{ secrets.MODEL_DRIFT_GROQ_API_KEY }}
           MODEL_DRIFT_MISTRAL_API_KEY: ${{ secrets.MODEL_DRIFT_MISTRAL_API_KEY }}
           MODEL_DRIFT_DEEPSEEK_API_KEY: ${{ secrets.MODEL_DRIFT_DEEPSEEK_API_KEY }}
+          MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY: ${{ secrets.MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY }}
         run: |
           out="$RUNNER_TEMP/drift"
           mkdir -p "$out"
