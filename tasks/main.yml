@@ -497,6 +497,10 @@
 # The gateway is waited for above, once, so this call carries no retry of its own: a failure here is a
 # real one and fails the play, since a user this role could not confirm exists is not a user it should
 # silently skip.
+#
+# Skipped with "--check", like the wait: there is no gateway to ask, and "uri" answers "skipped" with no
+# status, which the "when" of the key task below would then fail to read (measured on this role with one
+# internal user: "object of type 'dict' has no attribute 'status'").
 - name: "Create each additional LiteLLM internal user"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
@@ -520,6 +524,7 @@
   loop_control:
     label: "{{ item.username }}"
   changed_when: Artificial_Intelligence_LiteLLM_internal_user_creation.status in [200, 201]
+  when: not ansible_check_mode
 
 # Deliberately a SEPARATE call from "/user/new" above, on the RECOMMENDED shape of LiteLLM's own
 # onboarding guide, rather than relying on whatever key "/user/new" itself might also return: minting
@@ -557,7 +562,9 @@
   loop: "{{ Artificial_Intelligence_LiteLLM_internal_user_creation.results }}"
   loop_control:
     label: "{{ item.item.username }}"
-  when: item.status in [200, 201]
+  when:
+    - not ansible_check_mode
+    - item.status in [200, 201]
   changed_when: true
 
 # The ONE place this key is ever shown: LiteLLM does not return it again on a later call, the same
