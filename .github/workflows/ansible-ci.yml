@@ -437,3 +437,14 @@ jobs:
       - name: "Dependabot merge step: play it against made-up pull requests"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_auto_merge_gate.py
+
+      # The step of "LiteLLM_model_drift.yml" that pushes the weekly pull request holds a write token
+      # and accepts a template only in one shape: main's with lines deleted and rows of its "head"
+      # table written again. That rule is JavaScript in a YAML string too, and runs with the same Node.
+      - name: "Drift pull request guard: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_drift_publish_guard.py --selftest
+
+      - name: "Drift pull request guard: play it against made-up templates"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_drift_publish_guard.py

@@ -529,6 +529,8 @@ python3 .github/scripts/check_sign_off.py --selftest
 python3 .github/scripts/check_sign_off.py origin/main HEAD  # a pull request's range: exits 1 until the branch holds a commit
 python3 .github/scripts/check_required_checks.py --selftest
 python3 .github/scripts/check_required_checks.py
+python3 .github/scripts/check_drift_publish_guard.py --selftest
+python3 .github/scripts/check_drift_publish_guard.py
 python3 .github/scripts/check_auto_merge_gate.py --selftest   # needs node on the PATH
 python3 .github/scripts/check_auto_merge_gate.py
 gitleaks dir . --no-banner --redact

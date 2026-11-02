@@ -32,14 +32,16 @@ name: LiteLLM model drift
 #   "publish"  holds the token that writes, and no key. It checks nothing out and runs nothing of
 #              this repository: it takes what it receives as data (a status among three, a
 #              coverage among two, a flag among three, a count, a commit of main, and a template it
-#              uploads only once it has checked that it is main's own with lines deleted) and calls
-#              the API.
+#              uploads only once it has checked that it is main's own with lines deleted, and rows
+#              of its "head" table written again in the one form that names only models and
+#              providers the file has) and calls the API.
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
 # libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
 # (one list request per provider per week, no model called), they are dedicated to this workflow and
 # revocable without touching LiteLLM's own. What a compromised "read" can make "publish" do is open
-# a pull request that deletes lines of the template, and write an issue -- not push to main, which
+# a pull request that deletes lines of the template and re-points a router among models and
+# providers the template already has, and write an issue -- not push to main, which
 # "contents: write" next to such code would allow on a repository whose main no ruleset can protect
 # (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
 # itself is for "dependabot-auto-merge.yml" to say.
@@ -380,6 +382,57 @@ jobs:
             const base = process.env.BASE_SHA;
             const same = (a, b) => (a ?? '').replace(/\r\n/g, '\n').trim() === (b ?? '').replace(/\r\n/g, '\n').trim();
 
+            // BEGIN template guard
+            // What the job that made the template may hand over: the template on the commit it worked
+            // on with lines taken out, and with rows of its "head" table written again. A row is the
+            // one form "'router': 'name' if has.Provider else ... else 'name'" (or "false"), for a
+            // router the table already has, naming only models that are entries of the file handed
+            // over and providers the template's "has" table declares: nothing a template could run.
+            // Anything else added or changed, or any line out of its order, is refused. Returns why,
+            // or null. "check_drift_publish_guard.py" plays this function; keep the markers.
+            const HEAD_BLOCK = /\{%-?\s*set\s+head\s*=\s*\{([\s\S]*?)\}\s*-?%\}/;
+            const HAS_BLOCK = /\{%-?\s*set\s+has\s*=\s*\{([\s\S]*?)\}\s*-?%\}/;
+            const HEAD_ROW = /^([ \t]*)'([^']+)'[ \t]*:[ \t]*((?:'[^']+'[ \t]+if[ \t]+has\.\w+[ \t]+else[ \t]+)*(?:'[^']+'|false))(,?)[ \t]*$/;
+            const headRows = (text) => {
+              const block = HEAD_BLOCK.exec(text);
+              const rows = new Map();
+              for (const line of block ? block[1].split('\n') : []) {
+                const row = HEAD_ROW.exec(line);
+                if (row) rows.set(row[2], line);
+              }
+              return rows;
+            };
+            const declaredProviders = (text) => {
+              const block = HAS_BLOCK.exec(text);
+              return new Set(block ? [...block[1].matchAll(/^[ \t]*'(\w+)'[ \t]*:/gm)].map((m) => m[1]) : []);
+            };
+            const entryNames = (text) =>
+              new Set([...text.matchAll(/^[ \t]*-[ \t]+model_name:[ \t]*(\S+)[ \t]*$/gm)].map((m) => m[1]));
+            const templateProblem = (baseText, newText) => {
+              const baseLines = baseText.split('\n');
+              const rows = headRows(baseText);
+              const providers = declaredProviders(baseText);
+              const names = entryNames(newText);
+              let at = 0;
+              for (const line of newText.split('\n')) {
+                let wanted = line;
+                const row = HEAD_ROW.exec(line);
+                const original = row ? rows.get(row[2]) : undefined;
+                if (original !== undefined && original !== line) {
+                  for (const term of row[3].matchAll(/'([^']+)'(?:[ \t]+if[ \t]+has\.(\w+))?/g)) {
+                    if (!names.has(term[1])) return `the row of "${row[2]}" names "${term[1]}", which is no entry of the file`;
+                    if (term[2] !== undefined && !providers.has(term[2])) return `the row of "${row[2]}" tests the provider "${term[2]}", which the template does not declare`;
+                  }
+                  wanted = original;
+                }
+                while (at < baseLines.length && baseLines[at] !== wanted) at += 1;
+                if (at === baseLines.length) return `it holds a line the base does not hold, or holds the lines in another order: ${line.slice(0, 120)}`;
+                at += 1;
+              }
+              return null;
+            };
+            // END template guard
+
             // What the other job reports is data, and is checked before anything is done with it.
             if (!['0', '1', '2'].includes(status) || !['complete', 'partial'].includes(covered) ||
                 !['true', 'false', 'invalid'].includes(changed) || !/^([0-9]+|unknown)$/.test(undeleted)) {
@@ -458,15 +511,16 @@ jobs:
             }
 
             // Signed as Dependabot signs its commits: the certificate asks for a Name <address>
-            // and the commit adds nothing a person could certify, only deletions.
+            // and the commit adds nothing a person could certify, only deletions and rows of the
+            // "head" table, which the pull request lists for a person to read.
             const message = fs.readFileSync(process.env.COMMIT_MESSAGE, 'utf8').trimEnd() +
               `\n\nSigned-off-by: ${bot.name} <${bot.email}>\n`;
             const body = fs.readFileSync(process.env.PR_BODY, 'utf8');
             const content = fs.readFileSync(process.env.TEMPLATE_FILE);
 
-            // The job that made the template is trusted with deleting lines and nothing else: the
-            // file it handed over must be the template on that commit with lines taken out, none
-            // added and none changed, or nothing is pushed.
+            // The job that made the template is trusted with deleting lines and with writing the rows
+            // of the "head" table again, and nothing else (see "templateProblem" above): the file it
+            // handed over must be the template on that commit so changed, or nothing is pushed.
             const { data: original } = await github.rest.repos.getContent({
               owner, repo, path: template, ref: base,
             });
@@ -474,16 +528,9 @@ jobs:
               core.setFailed(`${template} on ${base} is not a file this step can read.`);
               return;
             }
-            const kept = Buffer.from(original.content, 'base64').toString('utf8').split('\n');
-            let at = 0;
-            const added = content.toString('utf8').split('\n').some((line) => {
-              while (at < kept.length && kept[at] !== line) at += 1;
-              if (at === kept.length) return true;
-              at += 1;
-              return false;
-            });
-            if (added) {
-              core.setFailed(`The template the other job handed over holds a line that ${template} on ${base} does not hold, or holds them in another order: it is not that file with lines deleted, and nothing is pushed.`);
+            const problem = templateProblem(Buffer.from(original.content, 'base64').toString('utf8'), content.toString('utf8'));
+            if (problem) {
+              core.setFailed(`The template the other job handed over is not ${template} on ${base} with lines deleted and the rows of its "head" table written again, and nothing is pushed: ${problem}.`);
               return;
             }
 

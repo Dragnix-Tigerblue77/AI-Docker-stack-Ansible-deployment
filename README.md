@@ -688,12 +688,18 @@ qu'une tâche hebdomadaire ne doit pas faire. Un commit de fusion, comme celui d
 commit d'une personne qu'une fusion « squash » ou « rebase » de la pull request n'a pas fait entrer
 dans l'historique de `main` continue de compter, tant que la branche n'est pas supprimée.
 
+Quand une suppression retire le premier modèle d'un fournisseur dans la table `head`, la pull request **ajoute** des
+lignes (les lignes de la table, réécrites) : elle ne se fusionne pas seule, une personne relit ces lignes, que le corps
+de la pull request liste. Le job qui pousse, seul à détenir un jeton qui écrit, n'accepte une ligne changée que sous
+cette forme, et seulement avec des noms d'entrées du fichier et des fournisseurs que le modèle déclare
+(`check_drift_publish_guard.py` joue cette règle).
+
 Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
 dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
 routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade (pour chaque jeu de clés de fournisseur,
-pas sur leur union), un modèle que le modèle de configuration nomme dans une instruction Jinja (la table `head` dit
-quel modèle remplace un routeur sans entrée propre, et rien ici ne sait modifier ce qu'une
-instruction calcule), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
+pas sur leur union), un modèle que le modèle de configuration nomme dans une instruction Jinja (rien ici ne sait
+modifier ce qu'une instruction calcule, hors les lignes de la table `head`, qui dit quel modèle un routeur désigne et
+que l'outil réécrit à partir des cascades quand elles redonnent exactement la table telle qu'elle est), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
 rendu (un `else`, une boucle qui répète une entrée), un catalogue vide ou qui omet plus de la
 moitié des identifiants du fichier pour son fournisseur, à partir de trois (une réponse tronquée ressemble à un retrait
 massif), et tout ce dont le résultat, relu, n'est pas le fichier d'origine moins la suppression.
