@@ -192,7 +192,9 @@ NEW        an id the file does not know. Known ids are those of the active and t
 
 Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a price of "0". Every
 other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
-to examine, never claimed free.
+to examine, never claimed free, and the issue links the page of each provider listed there
+(PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
+convenience, the free tier is still checked by a person.
 
 In the issue, every NEW id comes with an entry to complete, ready to paste: the "model:" with its
 provider prefix, a model_name proposed the way the file's own names are made (the id with its dots
@@ -1176,6 +1178,35 @@ PROVIDERS = (
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 FREE_READABLE = {"openrouter"}
+
+# Where each other provider says what is free, which the report links under "to examine": its API
+# does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
+# linked on their rate-limits page, the one that states their free tier (Groq's "/pricing" leads to
+# its home page); every page was opened when the entry was written.
+PRICING_PAGES = {
+    "cerebras": "https://inference-docs.cerebras.ai/support/rate-limits",
+    "sambanova": "https://cloud.sambanova.ai/plans",
+    "gemini": "https://ai.google.dev/gemini-api/docs/pricing",
+    "groq": "https://console.groq.com/docs/rate-limits",
+    "mistral": "https://mistral.ai/pricing",
+    "deepseek": "https://api-docs.deepseek.com/quick_start/pricing",
+}
+
+
+def pricing_page_problems(providers, free_readable, pages):
+    """What is wrong with the table of pricing pages, as sentences: a provider whose NEW models are
+    listed to examine and has no page to examine them on, a page of a provider that is never listed
+    there, and an address that is not a plain https one."""
+    listed = [name for name in providers if name not in free_readable]
+    problems = ["%s has no pricing page, so its NEW models are listed to examine with nowhere to "
+                "examine them" % name for name in listed if name not in pages]
+    problems += ["%s has a pricing page but none of its NEW models is ever listed to examine"
+                 % name for name in sorted(pages) if name not in listed]
+    problems += ["the pricing page of %s is not a plain https address: %r" % (name, url)
+                 for name, url in sorted(pages.items())
+                 if name in listed and not (isinstance(url, str) and url.startswith("https://")
+                                            and url.isprintable() and " " not in url)]
+    return problems
 
 
 def read_catalogue(opener, url, headers, reader, next_page):
@@ -2960,6 +2991,7 @@ def issue_body(result, config_name, link, snippets):
     taken = set(result.get("names", ()))
     for kind in ("removed", "retired", "gone", "notice", "back", "new_free", "new_examine"):
         lines = []
+        listed = []
         for report in result["providers"]:
             for finding in report["findings"]:
                 finding_kind = finding["kind"]
@@ -2986,9 +3018,18 @@ def issue_body(result, config_name, link, snippets):
                     line += "\n" + "\n".join(
                         ["  ```yaml"] + ["  " + code for code in block] + ["  ```"])
                 lines.append(line)
+                if report["name"] not in listed:
+                    listed.append(report["name"])
         if lines:
             title, explanation = sections[kind][0], sections[kind][1]
-            out += ["## %s" % title, "", explanation, ""] + capped(lines) + [""]
+            out += ["## %s" % title, "", explanation, ""]
+            if kind == "new_examine":
+                pages = ["[%s](%s)" % (name, PRICING_PAGES[name])
+                         for name in listed if name in PRICING_PAGES]
+                if pages:
+                    out += ["Pages de tarifs des fournisseurs de cette liste : %s." % ", ".join(pages),
+                            ""]
+            out += capped(lines) + [""]
 
     out += ranking_section(result)
 
@@ -3641,6 +3682,40 @@ def online_cases():
         data = [model for model in base["openrouter"]["data"] if model["id"] not in without]
         return {"data": data + list(extra)}
 
+    def examine_section(body):
+        return body.split("## Nouveaux modèles à examiner")[1].split("\n## ")[0] \
+            if "## Nouveaux modèles à examiner" in body else None
+
+    def pricing_links(wanted):
+        """A check: the "to examine" section links exactly these providers' pricing pages, in this
+        order, and still tells the reader to verify the free tier."""
+        def check(result, calls, report, body):
+            section = examine_section(body)
+            if section is None:
+                return "no \"to examine\" section"
+            if "la vérifier sur sa page de tarifs avant de les router" not in section:
+                return "the instruction to verify the free tier is gone from the section"
+            links = [line for line in section.splitlines() if line.startswith("Pages de tarifs")]
+            expected = ("Pages de tarifs des fournisseurs de cette liste : "
+                        + ", ".join("[%s](%s)" % (name, PRICING_PAGES.get(name))
+                                    for name in wanted)
+                        + ".")
+            return None if links == [expected] else "links %r, expected %r" % (links, [expected])
+        return check
+
+    def no_pricing_links(result, calls, report, body):
+        return "a pricing page is linked" if "Pages de tarifs" in body else None
+
+    def new_models_of(gemini, groq):
+        answers = selftest_answers()
+        if gemini:
+            answers["gemini"] = [{"models": answers["gemini"][0]["models"] + [
+                {"name": "models/gemini-10-pro", "supportedGenerationMethods": ["generateContent"]}]}]
+        if groq:
+            answers["groq"] = {"data": answers["groq"]["data"] + [
+                {"id": "vendor/new-fast", "active": True}]}
+        return answers
+
     def no_secret(result, calls, report, body):
         leaked = [text for text in (report, body) if "SECRET" in text]
         return "a key or an echoed key reached the output" if leaked else None
@@ -3738,6 +3813,19 @@ def online_cases():
              None if "## Nouveaux modèles à examiner" in body and "gratuits" not in
              body.split("## Nouveaux modèles à examiner")[1].split("##")[0]
              else "a NEW Mistral model was not listed as one to examine")),
+        ("a new Mistral model gets the link to Mistral's pricing page and to no other",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("mistral", {"data": base["mistral"]["data"] + [
+             {"id": "magistral-9", "capabilities": {"completion_chat": True}}]}),
+         [("new", "magistral-9")], 1, pricing_links(["mistral"])),
+        ("new models of two providers get one link each, in the providers' order",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, new_models_of(True, True),
+         [("new", "gemini-10-pro"), ("new", "vendor/new-fast")], 1,
+         pricing_links(["gemini", "groq"])),
+        ("a new model that only OpenRouter lists, free there, gets no pricing link",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("openrouter", openrouter_with(openrouter_model("vendor/fresh:free"))),
+         [("new", "vendor/fresh:free")], 1, no_pricing_links),
         ("Gemini's second page is read, and a chat model found there is NEW",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("gemini", [base["gemini"][0], {"models": [
@@ -5976,6 +6064,73 @@ def run_selftest():
         os.environ.update(kept)
 
 
+def run_pricing_page_cases():
+    """The table of pricing pages against the providers it must serve: the real one first, then the
+    ways it can go wrong, so that a provider added to PROVIDERS cannot be left without a page."""
+    failures = 0
+    pages = dict(PRICING_PAGES)
+    without_groq = {name: url for name, url in pages.items() if name != "groq"}
+    # The domain each page must be on, written out a second time on purpose: an address copied from
+    # one provider's line onto another's, or one that points at a third party's article, is the
+    # mistake a table of addresses invites, and nothing else would see it.
+    own_domains = {"cerebras": "inference-docs.cerebras.ai", "sambanova": "cloud.sambanova.ai",
+                   "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "mistral.ai",
+                   "deepseek": "api-docs.deepseek.com"}
+
+    def foreign(table):
+        return ["%s -> %s" % (name, urllib.parse.urlparse(url).hostname)
+                for name, url in sorted(table.items())
+                if urllib.parse.urlparse(url).hostname != own_domains.get(name)]
+
+    for purpose, table, wrong in (
+            ("each pricing page is on its own provider's domain", pages, []),
+            ("an address copied onto another provider's line is refused",
+             dict(pages, groq=pages["mistral"]), ["groq -> mistral.ai"]),
+            ("a page of a third party is refused",
+             dict(pages, groq="https://blog.example.invalid/groq-pricing"),
+             ["groq -> blog.example.invalid"])):
+        if foreign(table) == wrong:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- foreign pages %r, expected %r"
+                  % (purpose, foreign(table), wrong))
+
+    cases = (
+        ("the pricing pages cover exactly the providers whose free tier is not machine-readable",
+         PROVIDER_NAMES, FREE_READABLE, pages, None),
+        ("a provider with no pricing page is refused",
+         PROVIDER_NAMES, FREE_READABLE, without_groq, "groq has no pricing page"),
+        ("a provider added to PROVIDERS and not to the table is refused",
+         PROVIDER_NAMES + ("newcomer",), FREE_READABLE, pages, "newcomer has no pricing page"),
+        ("a page for the provider whose free tier is machine-readable is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, openrouter="https://example.invalid/"),
+         "openrouter has a pricing page"),
+        ("a page for a provider that does not exist is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, ghost="https://example.invalid/"),
+         "ghost has a pricing page"),
+        ("an address that is not https is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, groq="http://console.groq.com/docs/rate-limits"),
+         "groq is not a plain https address"),
+        ("an address with a space in it is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, groq="https://console.groq.com/a b"),
+         "groq is not a plain https address"),
+    )
+    for purpose, providers, free_readable, table, needle in cases:
+        problems = pricing_page_problems(providers, free_readable, table)
+        if needle is None:
+            passed = not problems
+        else:
+            passed = any(needle in problem for problem in problems)
+        if passed:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- expected %s, got %r"
+                  % (purpose, "no problem" if needle is None else repr(needle), problems))
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -6025,6 +6180,7 @@ def run_selftest_cases():
 
     failures += run_apply_cases()
     failures += run_head_cases()
+    failures += run_pricing_page_cases()
     failures += run_ranking_cases()
     failures += run_verify_cases()
     failures += run_safety_net_case()
