@@ -324,9 +324,15 @@ use of that API ask, and the figures are shown as published.
   of the two it was matched, and is to be checked before a place is taken from it. The members of a
   cascade are matched the same way, the ones the ranking does not know being left out of the count,
   which the place states ("3 membre(s) classé(s) sur 5").
-* A place is a suggestion, never applied by anything: it compares one figure and says nothing of what
-  makes a model eligible (tool calls and context for "claude-code", the free tier) nor of how a
-  cascade also groups its models by provider.
+* A place is a suggestion, never applied by anything: it compares one figure. The one eligibility it
+  does judge is speed, for "flash" and "flash-lite", the routers whose cascade is chosen for it: a
+  model slower than the slowest member the ranking knows a speed of is given no place, and one whose
+  speed is unknown (or against which no member has a speed) is said not evaluated. A speed of zero or
+  less is read as unknown, since the real answer gave 0.0 to models that serve (an inference from what
+  was observed: the API's reference does not say what it sends for a speed it did not measure). It says
+  nothing of the rest of what makes a model eligible (tool calls and context for "claude-code", the
+  free tier, the reasoning-effort variant a match can land on) nor of how a cascade also groups its
+  models by provider.
 * The answer is untrusted text like a catalogue's: names are cut to plain words, a figure that is
   not a finite number is none, and the key is replaced by "***" wherever an error could carry it. The
   job that writes holds no such key, as with the others.
@@ -1253,6 +1259,10 @@ RANKING_SITE = "https://artificialanalysis.ai/"
 # a long context besides, which a score does not say: the report says so, and nothing here applies.
 RANKING_ROUTERS = (("pro", "intelligence"), ("flash", "intelligence"), ("flash-lite", "speed"),
                    ("code", "coding"), ("claude-code", "intelligence"))
+# The routers whose cascade is chosen for its speed: a model slower than the slowest of the members
+# the ranking knows is not placed there, however high it would rank on the figure above. The template's
+# ordering rule makes eligibility a question apart from rank, and a slow model has no place in these.
+RANKING_SPEED_ROUTERS = ("flash", "flash-lite")
 RANKING_FIGURES = {
     "intelligence": ("indice d'intelligence", "intelligence index"),
     "coding": ("indice de code", "coding index"),
@@ -1273,6 +1283,14 @@ def figure(value):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if value == value and abs(value) != float("inf") else None
+
+
+def speed_figure(value):
+    """A speed in tokens per second, or None. Zero or less is no speed of a model that answers: the
+    real answer gave 0.0 to models that serve, so it is read as "not measured". The API's reference
+    does not say what it sends for those, this is read off what it did send."""
+    speed = figure(value)
+    return speed if speed is not None and speed > 0 else None
 
 
 def read_ranking_models(payload):
@@ -1297,7 +1315,7 @@ def read_ranking_models(payload):
             "keys": {key for key in (squash(slug), squash(item["name"])) if len(key) >= RANKING_MIN_KEY},
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": figure(evaluations.get("artificial_analysis_coding_index")),
-            "speed": figure(item.get("median_output_tokens_per_second")),
+            "speed": speed_figure(item.get("median_output_tokens_per_second")),
             "price": figure(pricing.get("price_1m_blended_3_to_1")),
         })
     return models
@@ -1341,23 +1359,41 @@ def match_ranking(provider, identifier, label, models):
 def suggest_places(model, template, models):
     """{router: {...}} where the figure that decides a router's place puts "model" among the members of
     that router's cascade the ranking knows: before the first of them it beats, or after the last. A
-    router whose cascade has no ranked member, or a model with no such figure, is left out."""
+    router whose cascade has no ranked member, or a model with no such figure, is left out. In the
+    routers of RANKING_SPEED_ROUTERS the model must first be as fast as the slowest member whose speed
+    is known: a slower one gets {"ineligible": "slower", ...} and no place, one whose speed is unknown
+    (or against which no member has a speed) gets {"ineligible": "model" | "members"}. A model with no
+    figure at all is left out everywhere, not said unevaluated."""
     lists = fallback_lists(template["document"])
     entries = {entry["name"]: entry for entry in template["active"] if isinstance(entry["name"], str)}
+    has_figures = any(model.get(key) is not None for key in ("intelligence", "coding", "speed"))
     places = {}
     for router, metric in RANKING_ROUTERS:
         members = lists.get(("router_settings.fallbacks", router))
-        value = model.get(metric)
-        if not members or value is None:
+        if not members or not has_figures:
             continue
-        scored = []
+        known_members = []
         for name in members:
             entry = entries.get(name)
             attributed = attribute(entry["model"], entry["api_base"]) if entry else None
             known = match_ranking(attributed[0], attributed[1], "", models)[0] if attributed else None
-            if known is not None and known.get(metric) is not None:
-                scored.append((name, known[metric]))
-        if not scored:
+            if known is not None:
+                known_members.append((name, known))
+        if router in RANKING_SPEED_ROUTERS:
+            speeds = [(name, known["speed"]) for name, known in known_members if known.get("speed") is not None]
+            if model.get("speed") is None:
+                places[router] = {"ineligible": "model"}
+                continue
+            if not speeds:
+                places[router] = {"ineligible": "members"}
+                continue
+            slowest = min(speeds, key=lambda member: member[1])
+            if model["speed"] < slowest[1]:
+                places[router] = {"ineligible": "slower", "speed": model["speed"], "slowest": slowest}
+                continue
+        value = model.get(metric)
+        scored = [(name, known[metric]) for name, known in known_members if known.get(metric) is not None]
+        if value is None or not scored:
             continue
         places[router] = {"metric": metric, "value": value, "ranked": len(scored), "of": len(members),
                           "before": next(((name, score) for name, score in scored if score < value), None),
@@ -2747,6 +2783,16 @@ def figure_text(value):
 
 
 def place_text(router, place):
+    if place.get("ineligible") == "slower":
+        return ("`%s` : pas suggéré, plus lent que la liste (%s jetons par seconde contre %s pour %s, le plus "
+                "lent des membres dont la vitesse est connue)"
+                % (router, figure_text(place["speed"]), figure_text(place["slowest"][1]),
+                   code_span(place["slowest"][0], 60)))
+    if place.get("ineligible") == "model":
+        return "`%s` : pas évalué : vitesse inconnue pour ce modèle, et ce routeur n'accepte pas un modèle sans elle" % router
+    if place.get("ineligible") == "members":
+        return ("`%s` : pas évalué : vitesse inconnue pour tous les membres de la liste, il n'y a aucune "
+                "vitesse à laquelle comparer ce modèle" % router)
     label = RANKING_FIGURES[place["metric"]][0]
     if place["before"]:
         where = "avant %s (%s : %s contre %s pour ce modèle)" % (
@@ -2769,11 +2815,15 @@ def ranking_section(result):
            "Chiffres lus le %s dans l'API gratuite d'Artificial Analysis, <%s> (source à citer ; "
            "ses « Terms of Use » et « Data Platform Terms » s'appliquent). Le rapprochement entre "
            "l'identifiant du fournisseur et le nom du classement est **approximatif** : chaque ligne "
-           "est à vérifier avant d'en tirer une place. La place suggérée ne compare que le chiffre "
+           "est à vérifier avant d'en tirer une place. La place suggérée compare le chiffre "
            "qui compte pour le routeur (indice d'intelligence pour `pro`, `flash` et `claude-code`, "
            "indice de code pour `code`, vitesse pour `flash-lite`) à celui des membres déjà classés "
-           "de sa liste. Elle ne dit rien de l'éligibilité (appels d'outils et contexte pour "
-           "`claude-code`, gratuité) ni de la façon dont la liste regroupe aussi les modèles par "
+           "de sa liste. Pour `flash` et `flash-lite`, un modèle plus lent que le plus lent de ces "
+           "membres n'a pas de place suggérée, et un modèle dont la vitesse est inconnue n'est pas "
+           "évalué : une vitesse nulle est lue comme non mesurée. Elle ne juge pas le reste de "
+           "l'éligibilité (la gratuité, les appels d'outils et le contexte pour `claude-code`, la "
+           "variante d'effort de raisonnement sur laquelle un rapprochement peut tomber, comme "
+           "« Gemini 4 Argon (High) ») ni la façon dont la liste regroupe aussi les modèles par "
            "fournisseur : ce n'est jamais une décision, et rien ne l'applique."
            % (ranking["date"], RANKING_SITE), "",
            "| Modèle | Rapprochement | Intelligence | Code | Vitesse (jetons/s) | Prix mixte ($/M jetons) |",
@@ -4702,7 +4752,8 @@ def run_ranking_cases():
                 "the source's text carried markup into the issue")))
 
     # A model that ranks below every member goes last; a router with no ranked member gets no place.
-    low_answers = ranking_answers(top, mid, low, ranking_model("fresh-model", "Fresh Model", 5, 5, 5),
+    # It is as fast as the members (250 tokens/s against 100, 300 and 200), so speed leaves it eligible.
+    low_answers = ranking_answers(top, mid, low, ranking_model("fresh-model", "Fresh Model", 5, 5, 250),
                                   openrouter_extra=[extra[0]])
     result, calls, report, body = ranking_run(RANKING_KEYS, low_answers)
     section = body.split("## Classement des nouveaux modèles")[1] if "## Classement des nouveaux modèles" in body else ""
@@ -4718,6 +4769,101 @@ def run_ranking_cases():
            first_wrong(("`flash` : avant `groq-mid` (indice d'intelligence : 50.0 contre 55.0 pour ce modèle), "
                         "2 membre(s) classé(s) sur 3" in section, "the count is wrong: %s" % section[-700:]),
                        ("`pro` :" not in section, "pro has no ranked member and was placed")))
+
+    # Speed decides a model's eligibility for flash and flash-lite, on the speeds of the cascade's own
+    # members (flash: 100, 300, 200; flash-lite: 200, 300). Shaped on the real run's figures -- a model
+    # of high intelligence and 81.5 tokens/s proposed ahead of the fast ones, and 0.0 read as a speed --
+    # since no recorded answer of the API was available.
+    def place_block(body, identifier):
+        section = body.split("Places suggérées, routeur par routeur :")[1] if "Places suggérées" in body else ""
+        head = "- `%s`" % identifier
+        return section.split(head, 1)[1].split("\n- `")[0].split("\n\n")[0] if head in section else ""
+
+    def speed_run(members, *candidates):
+        extras = [("vendor/%s:free" % model["slug"], "Vendor: %s (free)" % model["name"]) for model in candidates]
+        result, calls, report, body = ranking_run(
+            RANKING_KEYS, ranking_answers(*members, *candidates, openrouter_extra=extras))
+        return {model["slug"]: place_block(body, "openrouter/vendor/%s:free" % model["slug"])
+                for model in candidates}, body
+
+    def row_of(body, slug):
+        return next((line for line in body.splitlines() if line.startswith("| `openrouter/vendor/%s:free`" % slug)), "")
+
+    slow = ranking_model("slow-model", "Slow Model", 90, 80, 50, 1.0)
+    blocks, body = speed_run((top, mid, low), slow)
+    block = blocks["slow-model"]
+    judged("a model slower than the slowest member of flash and flash-lite gets no place there, and keeps its place in pro and code",
+           first_wrong(
+               ("`flash` : pas suggéré, plus lent que la liste (50.0 jetons par seconde contre 100.0 pour `gem-top`" in block,
+                "flash does not refuse it: %s" % block),
+               ("`flash-lite` : pas suggéré, plus lent que la liste (50.0 jetons par seconde contre 200.0 pour `free-low`" in block,
+                "flash-lite does not refuse it: %s" % block),
+               ("`flash` : avant" not in block and "`flash` : après" not in block
+                and "`flash-lite` : avant" not in block and "`flash-lite` : après" not in block,
+                "a slow model was placed in flash or flash-lite: %s" % block),
+               ("`pro` : avant `free-low`" in block and "`code` : avant `gem-top`" in block,
+                "pro or code lost its place to the speed rule: %s" % block),
+               ("un modèle plus lent que le plus lent de ces membres n'a pas de place suggérée" in body
+                and "« Gemini 4 Argon (High) »" in body,
+                "the section does not say what is now filtered and what is still not judged")))
+
+    edge_flash = ranking_model("edge-flash", "Edge Flash", 90, 80, 100, 1.0)
+    edge_lite = ranking_model("edge-lite", "Edge Lite", 90, 80, 200, 1.0)
+    blocks, body = speed_run((top, mid, low), edge_flash, edge_lite)
+    judged("a model exactly as fast as the slowest member is eligible, one slower by a hair is not",
+           first_wrong(
+               ("`flash` : avant `gem-top`" in blocks["edge-flash"], "100 against 100 was refused in flash: %s" % blocks["edge-flash"]),
+               ("`flash-lite` : pas suggéré" in blocks["edge-flash"], "100 against 200 was placed in flash-lite: %s" % blocks["edge-flash"]),
+               ("`flash` : avant `gem-top`" in blocks["edge-lite"], "200 was refused in flash: %s" % blocks["edge-lite"]),
+               ("`flash-lite` : après `groq-mid`, le dernier classé" in blocks["edge-lite"],
+                "200 against 200 was refused in flash-lite: %s" % blocks["edge-lite"])))
+
+    unknown = ranking_model("unknown-speed", "Unknown Speed", 90, 80, None, 1.0)
+    zero = ranking_model("zero-speed", "Zero Speed", 91, 80, 0.0, 1.0)
+    blocks, body = speed_run((top, mid, low), unknown, zero)
+    judged("a model with no speed, or a speed of 0.0, is said not evaluated in flash and flash-lite, shown with a dash",
+           first_wrong(
+               *[(f"`{router}` : pas évalué : vitesse inconnue pour ce modèle" in blocks[slug],
+                  "%s is not said unevaluated in %s: %s" % (slug, router, blocks[slug]))
+                 for slug in ("unknown-speed", "zero-speed") for router in ("flash", "flash-lite")],
+               ("| 91.0 | 80.0 | — | 1.0 |" in row_of(body, "zero-speed"), "0.0 was shown as a speed: %s" % row_of(body, "zero-speed")),
+               ("`pro` : avant `free-low`" in blocks["zero-speed"], "pro lost its place: %s" % blocks["zero-speed"])))
+
+    blind = (ranking_model("gem-top-model", "Gem Top Model", 70, 60, None, 2.0),
+             ranking_model("groq-mid-model", "Groq Mid Model", 50, 45, 0.0, 0.5),
+             ranking_model("free-low-model", "Free Low Model", 30, 20, None, 0.0))
+    quick = ranking_model("quick-model", "Quick Model", 90, 80, 250, 1.0)
+    blocks, body = speed_run(blind, quick)
+    judged("a model is not evaluated when no member of the cascade has a usable speed, and pro and code are unaffected",
+           first_wrong(
+               *[(f"`{router}` : pas évalué : vitesse inconnue pour tous les membres de la liste" in blocks["quick-model"],
+                  "%s does not say that no member has a speed: %s" % (router, blocks["quick-model"]))
+                 for router in ("flash", "flash-lite")],
+               ("`pro` : avant `free-low`" in blocks["quick-model"] and "`code` : avant `gem-top`" in blocks["quick-model"],
+                "pro or code lost its place: %s" % blocks["quick-model"])))
+
+    zeroed = ranking_model("free-low-model", "Free Low Model", 30, 20, 0.0, 0.0)
+    blocks, body = speed_run((top, mid, zeroed), slow)
+    judged("a member whose speed is 0.0 is not counted as the slowest, flash and flash-lite compare with the next one",
+           first_wrong(
+               ("`flash` : pas suggéré, plus lent que la liste (50.0 jetons par seconde contre 100.0 pour `gem-top`" in blocks["slow-model"],
+                "flash compared with the wrong member: %s" % blocks["slow-model"]),
+               ("`flash-lite` : pas suggéré, plus lent que la liste (50.0 jetons par seconde contre 300.0 pour `groq-mid`" in blocks["slow-model"],
+                "flash-lite compared with the wrong member: %s" % blocks["slow-model"])))
+
+    unscored = ranking_model("gem-top-model", "Gem Top Model", None, 60, 100, 2.0)
+    medium = ranking_model("medium-model", "Medium Model", 90, 80, 150, 1.0)
+    blocks, body = speed_run((unscored, mid, low), medium)
+    judged("a member with a speed but no intelligence still sets the speed flash is held to",
+           first_wrong(("`flash` : avant `groq-mid`" in blocks["medium-model"],
+                        "the speed of a member the intelligence does not know was left out: %s" % blocks["medium-model"])))
+
+    models = read_ranking_models({"data": [ranking_model("zero-model", "Zero Model", 1, None, 0.0),
+                                           ranking_model("negative-model", "Negative Model", 1, None, -5),
+                                           ranking_model("real-model", "Real Model", 1, None, 12.5)]})
+    judged("a speed of zero or less is none, and a positive one is kept as published",
+           first_wrong(([model["speed"] for model in models] == [None, None, 12.5],
+                        "the speeds read are %r" % [model["speed"] for model in models])))
 
     # Errors: reported, scrubbed, and never an error of the run.
     for purpose, answer, wanted in (

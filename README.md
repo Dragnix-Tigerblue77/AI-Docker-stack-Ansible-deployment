@@ -731,9 +731,13 @@ sortie et son prix mixte, lus dans l'API gratuite d'Artificial Analysis (<https:
 source est citée dans l'issue avec le jour de la lecture, comme ses conditions d'utilisation le demandent), puis
 une **place suggérée** par routeur : avant le premier membre de la cascade que le classement note plus bas sur le
 chiffre qui compte (intelligence pour `pro`, `flash` et `claude-code`, code pour `code`, vitesse pour
-`flash-lite`), sinon après le dernier. Ce n'est qu'une suggestion, que rien n'applique : elle ne dit rien de
-l'éligibilité (appels d'outils et contexte pour `claude-code`, gratuité), ni du regroupement par fournisseur
-que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
+`flash-lite`), sinon après le dernier. Pour `flash` et `flash-lite`, dont la cascade est choisie pour sa
+rapidité, un modèle plus lent que le plus lent des membres dont la vitesse est connue n'a pas de place
+suggérée, et un modèle dont la vitesse est inconnue est dit « pas évalué » ; une vitesse de 0 est lue comme
+non mesurée (déduit des réponses observées : l'API ne documente pas ce qu'elle envoie dans ce cas). Ce n'est
+qu'une suggestion, que rien n'applique : elle ne juge pas le reste de l'éligibilité (appels d'outils et contexte
+pour `claude-code`, gratuité, variante d'effort de raisonnement sur laquelle un rapprochement peut tomber),
+ni le regroupement par fournisseur que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
 **supposition** -- l'identifiant, puis le nom du fournisseur, doivent s'écrire comme exactement une entrée du
 classement, à la casse et à la ponctuation près, au moins quatre caractères -- et chaque ligne est marquée
 « à vérifier ». Sans le secret, l'issue dit « non couvert » comme pour n'importe quelle clé ; une lecture qui
