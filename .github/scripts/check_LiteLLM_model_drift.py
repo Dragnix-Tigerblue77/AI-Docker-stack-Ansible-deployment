@@ -297,7 +297,9 @@ untouched file: a row tuned by hand, or already out of step with its cascade, is
 its models are refused as before. The result must also leave every alias on the first member of the
 cascade kept under its name, for every set of providers. A pull request that rewrites a row ADDS
 lines, so `dependabot-auto-merge.yml` does not merge it by itself: a person reads the rows, which
-the pull request lists.
+the pull request lists. And the job of "LiteLLM_model_drift.yml" that pushes it, which holds the
+token that writes, accepts a changed line only if it is such a row, naming entries of the file and
+providers the template declares ("check_drift_publish_guard.py" plays that rule).
 
 UNTRUSTED TEXT
 --------------
