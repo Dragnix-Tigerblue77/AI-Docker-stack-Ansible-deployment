@@ -366,7 +366,7 @@ jobs:
       # an action runs on belongs to the runner and is not on the PATH of a step, so one is
       # installed here rather than assumed, which is what keeps this job runnable on any runner.
       - name: Install Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "lts/*"
 
