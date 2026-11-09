@@ -469,6 +469,9 @@ JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
 JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
 JINJA_COMMENT_LINE = re.compile(r"^\s*\{#.*#\}\s*$")
+# What a Jinja expression becomes in the file made parsable: a cascade named by one ("{{ alias }}: *anchor")
+# is the list of its anchor under another name, and is not a cascade of its own to name in a message.
+JINJA_PLACEHOLDER = "JINJA"
 JINJA_TAG = re.compile(r"\{%-?\s*(end)?(\w+)(.*?)-?%\}", re.DOTALL)
 # The Jinja statements that open a block and the "end..." that closes it.
 JINJA_BLOCKS = ("if", "for", "macro", "call", "filter", "block", "with", "raw", "autoescape")
@@ -656,7 +659,7 @@ def neutralise_jinja(text):
 
     text = JINJA_COMMENT.sub(keep_lines(""), text)
     text = JINJA_STATEMENT.sub(keep_lines(""), text)
-    return JINJA_EXPRESSION.sub(keep_lines("JINJA"), text)
+    return JINJA_EXPRESSION.sub(keep_lines(JINJA_PLACEHOLDER), text)
 
 
 def comment_content(line):
@@ -3106,7 +3109,7 @@ def slots_text(slots):
     by_where = {}
     for where, source in slots:
         sources = by_where.setdefault(where, [])
-        if source and source not in sources:
+        if source and source != JINJA_PLACEHOLDER and source not in sources:
             sources.append(source)
     parts = []
     for where, sources in by_where.items():
@@ -5460,6 +5463,12 @@ def run_hardening_cases():
                   and all(chat_like(identifier) for identifier in (
                       "mistral-large-4", "gemini-4-argon", "MiniMax-M3.1-Flash", "gemini-pro-latest",
                       "allam-2-7b", "labs-leanstral-1-5"))))
+    cases.append(("a cascade named by a Jinja expression is not named in a message of its own",
+                  slots_text([("router_settings.fallbacks", "flash-lite"),
+                              ("router_settings.fallbacks", JINJA_PLACEHOLDER)])
+                  == "la cascade `flash-lite` de `router_settings.fallbacks`"
+                  and slots_text([("router_settings.fallbacks", JINJA_PLACEHOLDER)])
+                  == "`router_settings.fallbacks`"))
     cases.append(("a price too big for a float is not zero, and not a crash",
                   is_zero(10 ** 400) is False and is_zero("0") and not is_zero("free")))
     cases.append(("a code span is cut between two words, and says so",
