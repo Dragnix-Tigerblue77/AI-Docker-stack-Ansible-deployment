@@ -387,6 +387,25 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
+      # The gate recognises the App's pull request by the slug in MODEL_DRIFT_APP_SLUG, and nothing
+      # else reads it: a slug that is not the App's would leave every pull request it opens waiting
+      # for a person, and the token above, which does not use it, would have worked all the same.
+      # The action says which App the token is of, so the two are compared on every run.
+      - name: Check that MODEL_DRIFT_APP_SLUG is the App's slug
+        if: ${{ steps.app-token.outputs.token != '' }}
+        env:
+          ACTUAL: ${{ steps.app-token.outputs.app-slug }}
+          DECLARED: ${{ vars.MODEL_DRIFT_APP_SLUG }}
+        run: |
+          if [ -z "$ACTUAL" ]; then
+            echo "::warning::The action named no App slug, so MODEL_DRIFT_APP_SLUG (\"$DECLARED\") was not checked."
+          elif [ "$ACTUAL" != "$DECLARED" ]; then
+            echo "::error::The App is \"$ACTUAL\" but the variable MODEL_DRIFT_APP_SLUG says \"$DECLARED\": the gate would not recognise its pull requests. Set the variable to $ACTUAL."
+            exit 1
+          else
+            echo "The App is \"$ACTUAL\", as MODEL_DRIFT_APP_SLUG says."
+          fi
+
       # Runs even if the issue step failed, since the two have nothing to do with each other, but not
       # without what the other job made.
       - name: Open, update or close the deletion pull request
