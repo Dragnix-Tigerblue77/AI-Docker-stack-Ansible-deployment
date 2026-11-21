@@ -27,6 +27,12 @@ WHAT IT RUNS
   with a comment after it, or an address deleted, an entry cut short, a slot of an entry that stays,
   a line added, six entries, a body that asks for a reading, a head behind the default branch, caps
   that are not numbers, and so on);
+* the same deletions opened by the workflow's GitHub App, whose bot the step accepts as author beside
+  the Actions bot only while the repository variable holding its slug is a slug: with the variable
+  unset, empty, another App's or no slug, and with an author that is not exactly that App's bot, they
+  wait for a human, and every other condition holds for the App's pull request as for the Actions
+  bot's (a wrong branch, a second commit, a commit that is not the Actions bot's, a draft, a line
+  added, a check red or missing, a sign-off that started and is not green);
 * every check the ruleset names but "sign-off", each tried missing and red, so that widening the list
   of checks the step excuses is noticed; a check posted by another app; and the latest of several
   runs of one check, whichever order the API lists them in.
@@ -526,6 +532,82 @@ def scenarios():
         add("deletion: the line cap is %r" % text, "not merged",
             removals(patch, env={"REMOVALS_MAX_LINES": text}), failed=True,
             needle="must be positive whole numbers")
+    # --- the weekly deletions opened by the workflow's GitHub App -----------------------------------
+    # The pull request's author is then "<slug>[bot]", and the step knows the slug from a variable
+    # that is empty until the App is configured. The commit stays the Actions bot's.
+    app = "drift-app-2"
+
+    def by_app(slug=app, author=None, **overrides):
+        env = dict(overrides.pop("env", {}))
+        if slug is not None:
+            env["MODEL_DRIFT_APP_SLUG"] = slug
+        return removals(patch, author=app + "[bot]" if author is None else author, env=env, **overrides)
+
+    add("App: its bot opens the deletions, its slug is set", "merged", by_app())
+    add("App: the same with sign-off reported green too", "merged",
+        by_app(checks=checks_of(contexts())))
+    add("App: the Actions bot still opens them with the slug set", "merged",
+        by_app(author="github-actions[bot]"))
+    add("App: the Actions bot still opens them with no slug", "merged",
+        removals(patch, author="github-actions[bot]", env={"MODEL_DRIFT_APP_SLUG": ""}))
+    gone = "neither a Dependabot pull request nor"
+    add("App: its bot opens them and the slug variable is not set at all", "not merged",
+        by_app(slug=None), needle=gone)
+    add("App: its bot opens them and the slug variable is empty", "not merged", by_app(slug=""), needle=gone)
+    add("App: its bot opens them and the slug is another App's", "not merged",
+        by_app(slug="other-app"), needle=gone)
+    add("App: another App's bot opens them", "not merged", by_app(author="other-app[bot]"), needle=gone)
+    add("App: a person of the slug's name opens them", "not merged", by_app(author=app), needle=gone)
+    add("App: a person whose name only starts with the slug opens them", "not merged",
+        by_app(author=app + "x[bot]"), needle=gone)
+    add("App: nobody is named by an empty slug", "not merged", by_app(slug="", author="[bot]"), needle=gone)
+    add("App: nobody is named by a slug variable that is not set", "not merged",
+        by_app(slug=None, author="undefined[bot]"), needle=gone)
+    # A bot of exactly the name the variable gives is refused when the variable is no slug: "a b"
+    # and "app\n" each hold a valid slug at one end only, which a pattern missing one of its
+    # anchors would let through.
+    for slug in ("my app", "My-App", "my_app", "my.app", "app\n", "a b", "../x", "app*", "ab\nevil"):
+        add("App: the slug %r is no slug, and a bot of that name opens them" % slug, "not merged",
+            by_app(slug=slug, author=slug + "[bot]"), needle=gone)
+    add("App: its bot opens a pull request on another branch", "not merged",
+        by_app(branch="claude/other"), needle=gone)
+    app_draft = by_app()
+    app_draft["pr"]["draft"] = True
+    add("App: its bot opens a draft", "not merged", app_draft, needle=gone)
+    add("App: two commits", "not merged", by_app(commits=[
+        {"sha": "c1", "author": {"login": "github-actions[bot]"}, "commit": {"message": "x"}},
+        {"sha": "c2", "author": {"login": "github-actions[bot]"}, "commit": {"message": "merge"}}]),
+        needle="the one commit the workflow made")
+    add("App: the one commit is the App's own, not the Actions bot's", "not merged", by_app(commits=[
+        {"sha": "c1", "author": {"login": app + "[bot]"}, "commit": {"message": "x"}}]),
+        needle="the one commit the workflow made")
+    add("App: the one commit is a person's", "not merged", by_app(commits=[
+        {"sha": "c1", "author": {"login": "someone"}, "commit": {"message": "x"}}]),
+        needle="the one commit the workflow made")
+    add("App: a line is added", "not merged",
+        by_app(files=[file_of(additions=1, patch=with_added)]), needle="is not a deletion of lines from")
+    asked = by_app()
+    asked["pr"]["body"] = "Models their provider has retired.\n\n%s\n\n- a comment names m1" % heading
+    add("App: the body asks for a reading", "not merged", asked, needle="lists what a person has to read")
+    add("App: a head behind the default branch", "not merged", by_app(behind_by=1), needle="behind")
+    add("App: a check is red", "not merged", by_app(checks=checks_of(others, failing="yamllint")),
+        needle="concluded failure")
+    add("App: a check has not reported", "not merged",
+        by_app(checks=checks_of([name for name in others if name != "gitleaks"])), needle="has not reported")
+    add("App: sign-off started and is red", "not merged",
+        by_app(checks=checks_of(contexts(), failing="sign-off")), needle="concluded failure")
+    add("App: sign-off started and is still running", "not merged",
+        by_app(checks=checks_of(others) + [run_of("sign-off", status="in_progress", conclusion=None)]),
+        needle="is still in_progress")
+    two = deletion(base, whole | set(block_of(base, "m2")))[0]
+    add("App: two entries under a cap of 1", "not merged",
+        by_app(env={"REMOVALS_MAX_ENTRIES": "1"}, files=[file_of(patch=two, deletions=counts(two)[1])]),
+        needle="only 1 to")
+    add("App: Dependabot is judged as ever with the slug set", "merged",
+        dependabot(env={"MODEL_DRIFT_APP_SLUG": app}))
+    add("App: a Dependabot major is refused as ever with the slug set", "not merged",
+        dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
+
     add("deletion: the cap on entries is 1 and one entry goes", "merged",
         removals(patch, env={"REMOVALS_MAX_ENTRIES": "1"}))
     add("deletion: two entries go under a cap of 1", "not merged",
@@ -556,6 +638,8 @@ def load_step():
         (workflow["jobs"]["recheck-main"].get("needs"), "merge", "the job that checks main afterwards needing 'merge'"),
         (workflow["jobs"]["recheck-main"].get("if"), "needs.merge.outputs.merged == 'true'",
          "the condition on which the job that checks main runs"),
+        (step.get("env", {}).get("MODEL_DRIFT_APP_SLUG"), "${{ vars.MODEL_DRIFT_APP_SLUG }}",
+         "the step's MODEL_DRIFT_APP_SLUG, which the scenarios would otherwise supply themselves"),
     ]
     for got, want, what in wiring:
         if got != want:
@@ -654,7 +738,28 @@ MUTATIONS = [
         ("pr.head.ref === process.env.REMOVALS_BRANCH", "true")]),
     ("a draft passes", [("|| pr.draft", "")]),
     ("a person's pull request is taken for the deletions", [
-        ("pr.user.login === 'github-actions[bot]' &&", "")]),
+        ("removalsAuthors.includes(pr.user.login) &&", "")]),
+    ("any bot's pull request is taken for the deletions", [
+        ("removalsAuthors.includes(pr.user.login)", "pr.user.login.endsWith('[bot]')")]),
+    ("the Actions bot's pull request is taken for the deletions only with the App's slug set", [
+        ("const removalsAuthors = ['github-actions[bot]'];", "const removalsAuthors = [];")]),
+    ("a person whose name starts with the App's slug is taken for its bot", [
+        ("removalsAuthors.includes(pr.user.login)",
+         "removalsAuthors.some((name) => pr.user.login.startsWith(name.replace('[bot]', '')))")]),
+    ("the App's bot is taken for the deletions whatever the slug variable says", [
+        ("if (/^[a-z0-9-]+$/.test(appSlug)) removalsAuthors.push(`${appSlug}[bot]`);",
+         "removalsAuthors.push(`${appSlug}[bot]`);")]),
+    ("a person of the slug's name is taken for the App's bot", [
+        ("removalsAuthors.push(`${appSlug}[bot]`)", "removalsAuthors.push(appSlug)")]),
+    ("a slug variable that is not set names a bot of the name 'undefined'", [
+        ("process.env.MODEL_DRIFT_APP_SLUG ?? ''", "process.env.MODEL_DRIFT_APP_SLUG")]),
+    ("the slug pattern is not anchored at its start", [("/^[a-z0-9-]+$/", "/[a-z0-9-]+$/")]),
+    ("the slug pattern is not anchored at its end", [("/^[a-z0-9-]+$/", "/^[a-z0-9-]+/")]),
+    ("the slug pattern accepts an empty slug", [("/^[a-z0-9-]+$/", "/^[a-z0-9-]*$/")]),
+    ("the slug pattern accepts capitals", [("/^[a-z0-9-]+$/", "/^[a-zA-Z0-9-]+$/")]),
+    ("the slug pattern accepts any word character", [("/^[a-z0-9-]+$/", "/^[\\w-]+$/")]),
+    ("the slug pattern accepts a dot", [("/^[a-z0-9-]+$/", "/^[a-z0-9.-]+$/")]),
+    ("the slug pattern accepts a space", [("/^[a-z0-9-]+$/", "/^[a-z0-9 -]+$/")]),
     ("a fork's pull request is taken for this repository's", [
         ("pr.head.repo?.full_name === `${owner}/${repo}`);", "true);")]),
     ("a pull request against another branch is taken", [("pr.base.ref === defaultBranch &&", "")]),

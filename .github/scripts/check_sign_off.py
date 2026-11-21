@@ -220,6 +220,8 @@ CONTRIBUTOR = ("Random J Developer", "random@example.invalid")
 SOMEBODY_ELSE = ("Somebody Else", "somebody@example.invalid")
 LOOK_ALIKE = ("Claude Code", "claude@example.invalid")
 DEPENDABOT = ("dependabot[bot]", "support@github.com")
+# The author and the sign-off of the commit the weekly model-drift workflow makes through the API.
+ACTIONS_BOT = ("github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com")
 
 
 def identity(person):
@@ -334,6 +336,19 @@ def selftest_cases():
     @case("a bot whose name carries brackets is accepted, as Dependabot signs its commits", 0)
     def _(repo):
         repo.commit("Bump a tool", author=DEPENDABOT, sign_offs=[DEPENDABOT])
+
+    @case("the commit the model-drift workflow makes, the Actions bot's under its own sign-off, is "
+          "accepted", 0, holds=("All 1 commit(s)",))
+    def _(repo):
+        repo.commit("Delete the models their provider has retired", author=ACTIONS_BOT,
+                    paragraphs=["A first paragraph of prose.", "A second one, which ends the body."],
+                    sign_offs=[ACTIONS_BOT])
+        assert repo.sign_offs() == identity(ACTIONS_BOT), "the premise: git reads that trailer"
+
+    @case("the same commit without the bot's sign-off is refused: a bot is no exemption", 1,
+          holds=("carries no Signed-off-by",))
+    def _(repo):
+        repo.commit("Delete the models their provider has retired", author=ACTIONS_BOT)
 
     @case("a sign-off naming only the agent is refused on a commit somebody else authored", 1,
           holds=("agent identity only",))
