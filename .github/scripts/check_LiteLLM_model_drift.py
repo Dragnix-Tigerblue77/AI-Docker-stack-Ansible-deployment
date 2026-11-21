@@ -373,7 +373,9 @@ use of that API ask, and the figures are shown as published.
 THE ROUTER CONTRACTS
 --------------------
 ".github/LiteLLM_router_contracts.yaml" says what each router is held to: a floor on the Artificial
-Analysis intelligence index (on the version the file names), the exchange rate an extra reasoning level
+Analysis intelligence index (on the version the file names), written as an ANCHOR, "at least as good as
+that entry of the template", whose index is read from the ranking at every run and never copied into the
+file, the exchange rate an extra reasoning level
 must reach to be worth climbing to (points of index per extra second to the first answer token), how its
 members are ordered, the members exempt from the floor on
 purpose (the last resort), and, for each entry of the template, the Artificial Analysis record that
@@ -1844,7 +1846,7 @@ def entry_verdict(found, floor, last_resort, tools, needs_time):
         return "unrankable", "inclassable : pas d'indice" + note
     if needs_time and record["first_answer"] is None:
         return "unrankable", "inclassable : pas de délai" + note
-    if not last_resort and record["intelligence"] < floor:
+    if not last_resort and floor is not None and record["intelligence"] < floor:
         return "below_floor", ("sous le plancher (%.1f contre %g) : dernier recours"
                                % (record["intelligence"], floor)) + note
     return "conforming", ("conforme (dernier recours)" if last_resort else "conforme") + note
@@ -1893,6 +1895,48 @@ def effective_contract(routers, name):
                 requires=contract["requires"], reason=contract["reason"])
 
 
+def anchor_floor(anchor, mappings, by_slug, families):
+    """(value, text) of a floor anchor: the index of the record of the entry it names, or, with a
+    "level", the index of that level of the entry's family. (None, why) when the entry has no mapping,
+    its record or the level is not in the ranking, or the record has no index: a floor that cannot be
+    read judges nothing, and the report says so."""
+    entry = safe_text(anchor["entry"], 60)
+    mapping = mappings.get(anchor["entry"])
+    if not mapping or "slug" not in mapping:
+        return None, "%s : aucun enregistrement associé" % entry
+    record = by_slug.get(mapping["slug"])
+    if record is None:
+        return None, "%s : enregistrement introuvable" % entry
+    level = anchor.get("level")
+    if level:
+        record = next((item for item in families[record["family"].lower()] if item["level"] == level), None)
+        if record is None:
+            return None, "%s : pas de niveau %s" % (entry, safe_text(level, 20))
+    if record["intelligence"] is None:
+        return None, "%s : pas d'indice" % safe_text(record["name"], 80)
+    return record["intelligence"], safe_text(record["name"], 80)
+
+
+def resolved_contract(contract, mappings, by_slug, families):
+    """The contract with the anchors of its floor read: the floor gets a "value" and a "text" (the
+    record it is the index of), and its "candidates" become the numbers of the anchors that could be
+    read, "candidate_texts" naming them. A floor that cannot be read has no value (None)."""
+    block = contract["intelligence_floor"]
+    value, text = anchor_floor(block["anchor"], mappings, by_slug, families)
+    read = [anchor_floor(anchor, mappings, by_slug, families) for anchor in block.get("candidates") or []]
+    return dict(contract, intelligence_floor=dict(
+        block, value=value, text=text,
+        candidates=[item[0] for item in read if item[0] is not None],
+        candidate_texts=[item[1] for item in read if item[0] is not None]))
+
+
+def floor_text(block):
+    """The floor of a resolved contract, as the report says it."""
+    if block["value"] is None:
+        return "introuvable (%s), aucun membre n'est jugé sous le plancher" % block["text"]
+    return "%g (%s)" % (block["value"], block["text"])
+
+
 def router_rows(members, contract, mappings, by_slug, families, floor=None):
     """One row per member of a cascade against its router's contract, at the floor given or the
     contract's own."""
@@ -1918,11 +1962,13 @@ def floor_effects(members, contract, mappings, by_slug, families):
     """What each floor the contract proposes to compare does to a cascade: who stays in front and who
     goes to the last resort tier. Who is not placed at all does not depend on the floor."""
     effects = []
-    for floor in contract["intelligence_floor"].get("candidates") or [contract["intelligence_floor"]["value"]]:
+    block = contract["intelligence_floor"]
+    compared = list(zip(block.get("candidates") or [], block.get("candidate_texts") or []))
+    for floor, anchor_name in compared or ([(block["value"], block["text"])] if block["value"] is not None else []):
         rows = router_rows(members, contract, mappings, by_slug, families, floor)
         placed = contract_order(rows, contract["ranking"])
         tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
-        effects.append({"floor": floor, "main": [name for name in placed if name not in tail], "last": tail})
+        effects.append({"floor": floor, "text": anchor_name, "main": [name for name in placed if name not in tail], "last": tail})
     return effects
 
 
@@ -1955,7 +2001,7 @@ def contracts_report(template, ranking, contracts):
         members = lists.get((CONTRACT_FALLBACKS, router))
         if members is None or router not in contracts["routers"]:
             continue
-        contract = effective_contract(contracts["routers"], router)
+        contract = resolved_contract(effective_contract(contracts["routers"], router), mappings, by_slug, families)
         rows = router_rows(members, contract, mappings, by_slug, families)
         base = contract.get("derives_from")
         routers.append({
@@ -2039,6 +2085,10 @@ def contracts_problems(contracts, template):
         mappings = {}
     for name, mapping in mappings.items():
         mapping_problems(name, mapping, problems)
+    for where, anchor in contract_anchors(routers):
+        anchor_problems(anchor, where, problems)
+        if isinstance(anchor, dict) and isinstance(anchor.get("entry"), str) and anchor["entry"] not in mappings:
+            problems.append('%s names "%s", which "models" does not map' % (where, anchor["entry"]))
     inputs = contracts.get("inputs")
     if inputs is not None and not isinstance(inputs, dict):
         problems.append('"inputs" is not a mapping')
@@ -2066,18 +2116,39 @@ def fallback_problems(block, problems):
         problems.append('"fallback_index" has calibration "points" that do not go up with the source figure')
 
 
+def anchor_problems(anchor, where, problems):
+    """The shape of a floor anchor: the "entry" it is read from, and optionally the "level" of that
+    entry's family to take."""
+    if not isinstance(anchor, dict) or not isinstance(anchor.get("entry"), str) or not anchor["entry"].strip():
+        problems.append('%s must be a mapping that names an "entry"' % where)
+    elif "level" in anchor and anchor["level"] not in LEVEL_ORDER:
+        problems.append('%s has a "level" that is none of: %s' % (where, ", ".join(LEVEL_ORDER)))
+
+
+def contract_anchors(routers):
+    """Every anchor of the contracts of "routers" (a mapping), as (where, anchor)."""
+    found = []
+    for router, contract in routers.items():
+        block = contract.get("intelligence_floor") if isinstance(contract, dict) else None
+        if isinstance(block, dict):
+            found.append(('router "%s", "intelligence_floor", "anchor"' % router, block.get("anchor")))
+            candidates = block.get("candidates")
+            for number, anchor in enumerate(candidates if isinstance(candidates, list) else []):
+                found.append(('router "%s", "intelligence_floor", candidate %d' % (router, number + 1), anchor))
+    return found
+
+
 def full_contract_problems(contract, where, problems):
-    for key, field in (("intelligence_floor", "value"), ("level_gain", "min_points_per_second")):
-        block = contract_block_problems(contract.get(key), '%s, "%s",' % (where, key), problems)
-        if block is not None:
-            value = figure(block.get(field))
-            if value is None or value < 0:
-                problems.append('%s, "%s", has a "%s" that is not a number from 0 up' % (where, key, field))
-    block = contract.get("intelligence_floor")
-    candidates = block.get("candidates") if isinstance(block, dict) else None
-    if candidates is not None and (not isinstance(candidates, list)
-                                   or any(figure(item) is None or item < 0 for item in candidates)):
-        problems.append('%s, "intelligence_floor", must list its "candidates" as numbers' % where)
+    block = contract_block_problems(contract.get("level_gain"), '%s, "level_gain",' % where, problems)
+    if block is not None:
+        value = figure(block.get("min_points_per_second"))
+        if value is None or value < 0:
+            problems.append('%s, "level_gain", has a "min_points_per_second" that is not a number from 0 up' % where)
+    block = contract_block_problems(contract.get("intelligence_floor"), '%s, "intelligence_floor",' % where, problems)
+    if block is not None:
+        candidates = block.get("candidates")
+        if candidates is not None and not isinstance(candidates, list):
+            problems.append('%s, "intelligence_floor", must list its "candidates" as anchors' % where)
     block = contract_block_problems(contract.get("ranking"), '%s, "ranking",' % where, problems)
     if block is not None:
         if block.get("criterion") not in CONTRACT_CRITERIA:
@@ -2317,13 +2388,13 @@ def contracts_section(result):
         contract = router["contract"]
         out += ["### `%s`" % router["name"], ""]
         if router["base"]:
-            out += ["Dérivé de `%s` : mêmes plancher (%g), taux d'échange (%g points par seconde) et classement, et les "
+            out += ["Dérivé de `%s` : mêmes plancher (%s), taux d'échange (%g points par seconde) et classement, et les "
                     "modèles sans appels d'outils en sont exclus." % (
-                        router["base"], contract["intelligence_floor"]["value"],
+                        router["base"], floor_text(contract["intelligence_floor"]),
                         contract["level_gain"]["min_points_per_second"]), ""]
         else:
-            out += ["Plancher %g, un niveau de plus tant qu'il rapporte au moins %g points d'indice par seconde de plus, classé par %s." % (
-                contract["intelligence_floor"]["value"], contract["level_gain"]["min_points_per_second"],
+            out += ["Plancher %s, un niveau de plus tant qu'il rapporte au moins %g points d'indice par seconde de plus, classé par %s." % (
+                floor_text(contract["intelligence_floor"]), contract["level_gain"]["min_points_per_second"],
                 ranking_text(contract)), ""]
         out += ["| Membre | Enregistrement | Appelé à | Indice | Délai (s) | Jetons/s | Niveau retenu | Verdict |",
                 "| --- | --- | --- | --- | --- | --- | --- | --- |"]
@@ -2336,8 +2407,8 @@ def contracts_section(result):
         if len(router["floors"]) > 1:
             out += ["Effet de chaque plancher :", "", "| Plancher | En tête | Dernier recours |",
                     "| --- | --- | --- |"]
-            out += ["| %g%s | %s | %s |" % (
-                effect["floor"], " (proposé)" if effect["floor"] == contract["intelligence_floor"]["value"] else "",
+            out += ["| %g (%s)%s | %s | %s |" % (
+                effect["floor"], effect["text"], " (proposé)" if effect["floor"] == contract["intelligence_floor"]["value"] else "",
                 names_text(effect["main"]), names_text(effect["last"])) for effect in router["floors"]]
             out.append("")
     for title, entries in (
@@ -7768,13 +7839,13 @@ router_settings:
 """
 
 
-def contract_router(floor, rate, criterion="intelligence", last_resort=(), candidates=None):
+def contract_router(anchor, rate, criterion="intelligence", last_resort=(), candidates=None):
     ranking = {"criterion": criterion, "reason": "selftest"}
     if criterion != "first_answer":
         ranking["tie_margin_points"] = 2
     if criterion == "code_quality":
         ranking.update(source="Epoch AI selftest source", source_status="not read yet", stand_in="intelligence")
-    contract = {"intelligence_floor": {"value": floor, "reason": "selftest"},
+    contract = {"intelligence_floor": {"anchor": anchor, "reason": "selftest"},
                 "level_gain": {"min_points_per_second": rate, "reason": "selftest"},
                 "ranking": ranking, "last_resort": {"members": list(last_resort), "reason": "selftest"}}
     if candidates:
@@ -7794,10 +7865,13 @@ def contract_document():
         "fallback_index": {"source": "Epoch selftest", "status": "not read yet", "method": "selftest",
                            "uncertainty": "selftest", "points": [[140, 4], [150, 20], [160, 20], [170, 50]]},
         "routers": {
-            "pro": contract_router(20, 0.2, last_resort=("juliet", "foxtrot"), candidates=(5, 20, 31)),
-            "flash": contract_router(10, 0.5, candidates=(10, 15)),
-            "flash-lite": contract_router(6, 1.5, criterion="first_answer"),
-            "code": contract_router(20, 0.2, criterion="code_quality"),
+            "pro": contract_router({"entry": "alpha", "level": "low"}, 0.2, last_resort=("juliet", "foxtrot"),
+                                   candidates=({"entry": "sierra"}, {"entry": "alpha", "level": "low"},
+                                               {"entry": "alpha", "level": "high"})),
+            "flash": contract_router({"entry": "mike"}, 0.5,
+                                     candidates=({"entry": "mike"}, {"entry": "charlie", "level": "non-reasoning"})),
+            "flash-lite": contract_router({"entry": "india"}, 1.5, criterion="first_answer"),
+            "code": contract_router({"entry": "alpha", "level": "low"}, 0.2, criterion="code_quality"),
             "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
         },
         "models": {
@@ -8076,17 +8150,51 @@ def run_contract_cases():
                (claude_order["proposed"] == ["alpha", "quebec"], "claude-code: %r" % claude_order["proposed"]),
                (flash_order["current"] == ["bravo", "kilo", "lima", "hotel", "golf", "mike", "papa", "romeo"], "the current order moved"),
                (report["provisional"] and report["version"] == 5.0 and report["wanted_version"] == 5.0, "the header facts")))
-    judged("each floor a contract proposes is played side by side: who stays in front, who goes to the last resort tier",
+    def played(order):
+        return [{key: value for key, value in effect.items() if key != "text"} for effect in order["floors"]]
+
+    judged("each floor a contract proposes is played side by side, each named by the record it is the index of: who stays in front, who goes to the last resort tier",
            first_wrong(
-               (pro_order["floors"] == [{"floor": 5, "main": ["alpha", "india"], "last": ["juliet", "foxtrot"]},
-                                        {"floor": 20, "main": ["alpha"], "last": ["india", "juliet", "foxtrot"]},
-                                        {"floor": 31, "main": [], "last": ["alpha", "india", "juliet", "foxtrot"]}],
-                "pro: %r" % pro_order["floors"]),
-               (flash_order["floors"] == [{"floor": 10, "main": ["lima", "papa", "bravo", "kilo", "mike"], "last": ["romeo"]},
-                                          {"floor": 15, "main": ["lima"], "last": ["bravo", "kilo", "mike", "papa", "romeo"]}],
-                "flash: %r" % flash_order["floors"]),
-               (lite_order["floors"] == [{"floor": 6, "main": ["india", "bravo", "kilo", "lima"], "last": []}],
-                "a contract with no candidates is played at its own floor: %r" % lite_order["floors"])))
+               (played(pro_order) == [{"floor": 5, "main": ["alpha", "india"], "last": ["juliet", "foxtrot"]},
+                                      {"floor": 20, "main": ["alpha"], "last": ["india", "juliet", "foxtrot"]},
+                                      {"floor": 40, "main": [], "last": ["alpha", "india", "juliet", "foxtrot"]}],
+                "pro: %r" % played(pro_order)),
+               ([effect["text"] for effect in pro_order["floors"]] == ["Sierra", "Alpha (Low)", "Alpha (High)"],
+                "the anchors are not named: %r" % [effect["text"] for effect in pro_order["floors"]]),
+               (played(flash_order) == [{"floor": 10, "main": ["lima", "papa", "bravo", "kilo", "mike"], "last": ["romeo"]},
+                                        {"floor": 15, "main": ["lima"], "last": ["bravo", "kilo", "mike", "papa", "romeo"]}],
+                "flash: %r" % played(flash_order)),
+               (played(lite_order) == [{"floor": 8, "main": ["india", "bravo", "kilo", "lima"], "last": []}],
+                "a contract with no candidates is played at its own floor: %r" % played(lite_order))))
+    anchor_slugs, anchor_families = ranking_families(contract_ranking()["models"])
+
+    def anchored(entry, level=None):
+        return anchor_floor(dict({"entry": entry}, **({"level": level} if level else {})), document["models"], anchor_slugs, anchor_families)
+
+    judged("an anchor is read from the ranking: the record of the entry, or the level of its family that it names; one that cannot be read has no value and says why",
+           first_wrong(
+               (anchored("alpha") == (30.0, "Alpha (Medium)"), "the record of the entry: %r" % (anchored("alpha"),)),
+               (anchored("alpha", "high") == (40.0, "Alpha (High)"), "a level of the family: %r" % (anchored("alpha", "high"),)),
+               (anchored("alpha", "low") == (20.0, "Alpha (Low)"), "the lowest level: %r" % (anchored("alpha", "low"),)),
+               (anchored("echo") == (None, "Echo : pas d'indice"), "an entry whose record has no index: %r" % (anchored("echo"),)),
+               (anchored("alpha", "max")[0] is None and "pas de niveau max" in anchored("alpha", "max")[1], "a level the family lacks"),
+               (anchored("zulu")[0] is None and "aucun enregistrement associé" in anchored("zulu")[1], "an entry with no mapping"),
+               (anchored("golf")[0] is None and "enregistrement introuvable" in anchored("golf")[1], "an entry whose record left the ranking"),
+               (anchored("foxtrot")[0] is None, "an entry that is a router, with no record")))
+    unread = contract_document()
+    unread["routers"]["pro"]["intelligence_floor"]["anchor"] = {"entry": "echo"}
+    unread_report = contracts_report(template, contract_ranking(), unread)
+    unread_pro, unread_order = contract_rows(unread_report, "pro")
+    unread_section = "\n".join(contracts_section({"contracts": unread_report}))
+    judged("a floor whose anchor cannot be read judges nothing: no member is under it, the floor has no value, the candidates still readable are compared, and the issue says that the anchor is not found",
+           first_wrong(
+               (unread_order["contract"]["intelligence_floor"]["value"] is None, "a floor of an unreadable anchor has a value"),
+               (not any(row["kind"] == "below_floor" for row in unread_pro.values()), "a member was put under a floor that is not there"),
+               ([effect["text"] for effect in unread_order["floors"]] == ["Sierra", "Alpha (Low)", "Alpha (High)"],
+                "the candidates, which can still be read, were not compared: %r" % unread_order["floors"]),
+               ("Plancher introuvable (Echo : pas d'indice), aucun membre n'est jugé sous le plancher" in unread_section,
+                "the unreadable anchor is not said: %s" % unread_section[:600])))
+
     judged("a router that derives from another is held to its contract, requires tools of its members, and is checked against its cascade",
            first_wrong(
                (claude_order["base"] == "code" and claude_order["contract"]["level_gain"]["min_points_per_second"] == 0.2
@@ -8145,7 +8253,7 @@ def run_contract_cases():
         return change
 
     structural = (
-        ("a router that does not exist", set_in(("routers", "ghost"), contract_router(5, 5)), "the contract of \"ghost\" is that of no router"),
+        ("a router that does not exist", set_in(("routers", "ghost"), contract_router({"entry": "alpha"}, 5)), "the contract of \"ghost\" is that of no router"),
         ("a router with no contract", drop("routers", "flash-lite"), 'the router "flash-lite" has no contract'),
         ("a last resort naming something that is no name", set_in(("routers", "pro", "last_resort", "members"), [3]), 'must list its "members" by name'),
         ("a mapping of a name that is no entry, with fields that are wrong", set_in(("models", "zulu"), {"slug": "a b"}), 'the mapping of "zulu" has no "slug" spelt like one'),
@@ -8160,8 +8268,12 @@ def run_contract_cases():
         ("a tie margin that is a string", set_in(("routers", "pro", "ranking", "tie_margin_points"), "2"), 'must have a "tie_margin_points"'),
         ("a tie margin below zero", set_in(("routers", "pro", "ranking", "tie_margin_points"), -1), 'must have a "tie_margin_points"'),
         ("a tie margin on code quality that is missing", drop("routers", "code", "ranking", "tie_margin_points"), 'must have a "tie_margin_points"'),
-        ("a floor below zero", set_in(("routers", "pro", "intelligence_floor", "value"), -1), 'has a "value" that is not a number from 0 up'),
-        ("a floor that is none", set_in(("routers", "pro", "intelligence_floor", "value"), None), 'has a "value" that is not a number from 0 up'),
+        ("a floor with no anchor", drop("routers", "pro", "intelligence_floor", "anchor"), '"anchor" must be a mapping that names an "entry"'),
+        ("a floor that is a number, not an anchor", set_in(("routers", "pro", "intelligence_floor", "anchor"), 22.5), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor with no entry", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"level": "low"}), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor with an entry of blanks", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": " "}), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor naming an entry no mapping has", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "zulu"}), 'names "zulu", which "models" does not map'),
+        ("an anchor with a level that is none", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "alpha", "level": "loud"}), 'has a "level" that is none of'),
         ("a fallback that is no mapping", set_in(("fallback_index",), "eci"), '"fallback_index" is not a mapping'),
         ("a fallback with no source", drop("fallback_index", "source"), '"fallback_index" has no "source"'),
         ("a fallback with no status", drop("fallback_index", "status"), '"fallback_index" has no "status"'),
@@ -8179,9 +8291,9 @@ def run_contract_cases():
         ("a fallback whose source figure does not go up", set_in(("fallback_index", "points"), [[140, 4], [140, 5]]), "do not go up with the source figure"),
         ("a fallback whose source figure goes down", set_in(("fallback_index", "points"), [[150, 4], [140, 5]]), "do not go up with the source figure"),
         ("a fallback whose index goes down", set_in(("fallback_index", "points"), [[140, 6], [150, 5]]), "do not go up with the source figure"),
-        ("floor candidates that are no list", set_in(("routers", "pro", "intelligence_floor", "candidates"), "5"), 'must list its "candidates" as numbers'),
-        ("a floor candidate that is no number", set_in(("routers", "pro", "intelligence_floor", "candidates"), [5, "x"]), 'must list its "candidates" as numbers'),
-        ("a floor candidate below zero", set_in(("routers", "pro", "intelligence_floor", "candidates"), [-1]), 'must list its "candidates" as numbers'),
+        ("floor candidates that are no list", set_in(("routers", "pro", "intelligence_floor", "candidates"), "alpha"), 'must list its "candidates" as anchors'),
+        ("a floor candidate that is no anchor", set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "alpha"}, 5]), 'candidate 2 must be a mapping that names an "entry"'),
+        ("a floor candidate naming an entry no mapping has", set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "zulu"}]), 'candidate 1 names "zulu", which "models" does not map'),
         ("a reason of blanks", set_in(("routers", "pro", "intelligence_floor", "reason"), "  "), '"intelligence_floor", has no "reason"'),
         ("a reason that is no text", set_in(("routers", "pro", "ranking", "reason"), 5), '"ranking", has no "reason"'),
         ("a last resort with no reason", drop("routers", "pro", "last_resort", "reason"), '"last_resort", has no "reason"'),
@@ -8248,8 +8360,8 @@ def run_contract_cases():
            first_wrong((mutated(set_in(("models", "zulu"), contract_mapping("zulu", "n/a"))) == [], "a mapping of a deleted entry was refused"),
                        (mutated(set_in(("routers", "pro", "last_resort", "members"), ["juliet", "zulu"])) == [],
                         "a last resort naming a deleted entry was refused")))
-    judged("structure: a floor of zero, a note, an epoch said unknown and a derived router are no problem",
-           first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "value"), 0)) == [], "a floor of 0 was refused"),
+    judged("structure: an anchor on a level, a rate of zero, a note, an epoch said unknown and a derived router are no problem",
+           first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "alpha", "level": "high"})) == [], "an anchor on a level was refused"),
                        (mutated(set_in(("routers", "pro", "level_gain", "min_points_per_second"), 0)) == [], "a rate of 0 was refused"),
                        (mutated(set_in(("routers", "pro", "ranking", "tie_margin_points"), 0)) == [], "a tie margin of 0 was refused"),
                        (mutated(drop("fallback_index")) == [], "a file with no fallback was refused"),
@@ -8258,7 +8370,8 @@ def run_contract_cases():
                        (mutated(set_in(("models", "alpha", "epoch"), "unknown")) == [], "an epoch said unknown was refused"),
                        (mutated(drop("models", "alpha", "epoch")) == [], "an entry with no epoch was refused"),
                        (mutated(drop("routers", "pro", "intelligence_floor", "candidates")) == [], "a floor with no candidates was refused"),
-                       (mutated(set_in(("routers", "pro", "intelligence_floor", "candidates"), [0, 5])) == [], "a candidate of zero was refused")))
+                       (mutated(set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "alpha"}, {"entry": "sierra", "level": "low"}])) == [],
+                        "candidates that are anchors were refused")))
 
     # The file itself: unreadable, or not YAML, says so; a good one is read.
     with tempfile.TemporaryDirectory() as directory:
@@ -8304,15 +8417,15 @@ def run_contract_cases():
                first_wrong(
                    (status == 0 and "Aucune dérive." in body, "the section changed the status or the drift: %d" % status),
                    ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
-                   ("Plancher 20, un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence, "
+                   ("Plancher 20 (Alpha (Low)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence, "
                     "le délai départageant deux membres à moins de 2 points d'écart." in section, "pro's contract is not said"),
-                   ("Plancher 6, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in section,
+                   ("Plancher 8 (India), un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in section,
                     "flash-lite's criterion is not said"),
-                   ("Plancher 20, un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par la qualité de code "
+                   ("Plancher 20 (Alpha (Low)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par la qualité de code "
                     "(source : Epoch AI selftest source, not read yet) ; Artificial Analysis n'a pas d'indice de code, l'indice "
                     "d'intelligence en tient lieu à titre provisoire, le délai départageant deux membres à moins de 2 points d'écart." in section,
                     "code's ranking is not said as a stand-in"),
-                   ("Dérivé de `code` : mêmes plancher (20), taux d'échange (0.2 points par seconde) et classement, et les modèles sans appels d'outils "
+                   ("Dérivé de `code` : mêmes plancher (20 (Alpha (Low))), taux d'échange (0.2 points par seconde) et classement, et les modèles sans appels d'outils "
                     "en sont exclus." in section, "the derived router is not said"),
                    ("| `alpha` | Alpha (Medium) | medium | 30.0 | 12.0 | 100.0 | xhigh (indice 50.0, 60.0 s) | conforme |" in section,
                     "alpha's row is wrong: %s" % section[:1500]),
@@ -8330,9 +8443,9 @@ def run_contract_cases():
                    ("Ordre actuel : `bravo` > `kilo` > `lima` > `hotel` > `golf` > `mike` > `papa` > `romeo`." in section, "the current order is missing"),
                    ("Ordre des contrats : `lima` > `papa` > `bravo` > `kilo` > `mike` > `romeo`." in section, "the contracts' order is missing"),
                    ("Ordre des contrats : `alpha` > `india` > `juliet` > `foxtrot`." in section, "pro's order is missing"),
-                   ("| 5 | `alpha`, `india` | `juliet`, `foxtrot` |" in section
-                    and "| 20 (proposé) | `alpha` | `india`, `juliet`, `foxtrot` |" in section
-                    and "| 31 | — | `alpha`, `india`, `juliet`, `foxtrot` |" in section, "the floors are not played side by side"),
+                   ("| 5 (Sierra) | `alpha`, `india` | `juliet`, `foxtrot` |" in section
+                    and "| 20 (Alpha (Low)) (proposé) | `alpha` | `india`, `juliet`, `foxtrot` |" in section
+                    and "| 40 (Alpha (High)) | — | `alpha`, `india`, `juliet`, `foxtrot` |" in section, "the floors are not played side by side"),
                    (section.count("Effet de chaque plancher :") == 2, "a table of floors for a contract that proposes one floor"),
                    ("La cascade de `claude-code` n'est **pas** la cascade de `code` sans les membres sans outils, dans le même ordre." in section
                     and "- dans `claude-code` mais pas dans `code` : `echo`, `quebec`" in section

@@ -44,14 +44,21 @@
 # the terms of that API ask the issue to cite them.
 #
 # Floors. A member under its router's floor is not removed: it goes to the router's last resort
-# tier, after the members that conform. Each router lists the floors it would be worth comparing
-# ("candidates"), and the report shows the outcome of each side by side so that the choice is made on
-# what each one does to the cascade. A floor is the index of a named Gemini model the template serves,
-# written in its reason line so that the number is recomputed when the anchor changes: a Flash is at
-# least as good as the current Flash-Lite, a Flash-Lite at least as good as the previous one, and the
-# deeper routers at least as good as the lowest level of the one Gemini Flash that has an index at that
-# level (the Gemini 3.5, 3.6 and 3.7 Flash have none on version 5 of the scale, so none can anchor
-# anything). The values are redone when the index version moves.
+# tier, after the members that conform. A floor is an ANCHOR, never a number: "at least as good as
+# that entry of the template" (and, where the entry has several levels, at that level), whose index
+# the report reads from the ranking at every run. Nothing is copied here, so nothing goes stale when
+# Artificial Analysis revises a figure or moves to another version of its index, and an anchor that
+# can no longer be read (the entry or its record is gone, or the record has no index) is said in the
+# weekly issue instead of leaving a figure nobody checks: the router is then judged against nothing
+# until a person names another anchor. Each router lists, as "candidates", other anchors worth
+# comparing, and the report shows the outcome of each side by side so that the choice is made on what
+# each one does to the cascade. The anchors are Gemini models the template serves: a Flash is at
+# least as good as the current Flash-Lite, a Flash-Lite at least as good as the previous one, and
+# "pro" at least as good as the lowest level of the one Gemini Flash that has an index at that level
+# (the Gemini 3.5, 3.6 and 3.7 Flash have none on version 5 of the scale, so none can anchor
+# anything). "code" and "claude-code" are NOT held to the floor of "pro": coding is done well by
+# models that are not the most capable ones, and the general index is only a stand-in for code
+# quality, so they take the floor of "flash" until their floor is expressed on code quality.
 #
 # "claude-code" exists for one reason, tool calls, so it is "code" without the models that cannot take
 # them: it derives from "code", is ranked exactly as "code" is, and its cascade is the cascade of
@@ -116,9 +123,12 @@ inputs:
 routers:
   pro:
     intelligence_floor:
-      value: 22.5
-      candidates: [10, 20, 22.5, 30]
-      reason: "Floor = index of Gemini 3.8 Flash at its lowest level (Low, 22.5 on 2026-11-21), the one Gemini Flash with an index that a reasoning router can be anchored on; Nemotron 3 Ultra 11.8 and Nemotron 3.5 Super VL 13.6 go to the last resort tier, and 10, 20 and 30 are shown to compare."
+      anchor: {entry: gemini-3-8-flash, level: low}
+      candidates:
+        - {entry: gemini-3-5-flash-lite}
+        - {entry: gemini-3-8-flash, level: low}
+        - {entry: gemini-3-8-flash, level: medium}
+      reason: "At least as good as Gemini 3.8 Flash at its lowest level (22.5 on 2026-11-21), the one Gemini Flash with an index that a reasoning router can be anchored on. Gemini 3.5 Flash-Lite and Gemini 3.8 Flash at Medium are shown to compare."
     level_gain:
       min_points_per_second: 0.2
       reason: "pro asks little of an extra second, since nothing here is bounded by time: 0.2 points a second stops Gemini 4 Hydrogen at High (the step to Xhigh buys 3.1 points in 25.9 s, 0.12 a second) and keeps Gemini 3.8 Flash at Medium (High buys 0.7 in 13.6 s, 0.05), on the figures of 2026-11-21."
@@ -131,9 +141,12 @@ routers:
       reason: "The template places the paid DeepSeek and the keyless local entry after every free one on purpose, and the local entry has no record to be judged on."
   flash:
     intelligence_floor:
-      value: 11.7
-      candidates: [10, 11.7, 15, 20]
-      reason: "Floor = index of Gemini 3.5 Flash-Lite (11.7 on 2026-11-21), the current Flash-Lite we serve: a Flash is at least as good as it; the members at 3.8 to 4.4 (gpt-oss-120b, Mistral Small 4, Gemma 4 31B) and Qwen3.8 27B at 10.0 go to the last resort tier, the Ministral having no index at all; 10, 15 and 20 are shown to compare."
+      anchor: {entry: gemini-3-5-flash-lite}
+      candidates:
+        - {entry: gemini-3-1-flash-lite}
+        - {entry: gemini-3-5-flash-lite}
+        - {entry: gemini-3-8-flash, level: low}
+      reason: "At least as good as Gemini 3.5 Flash-Lite (11.7 on 2026-11-21), the current Flash-Lite we serve: a Flash is at least as good as it. gpt-oss-120b, Mistral Small 4, Gemma 4 31B and Qwen3.8 27B without reasoning fall under it. Gemini 3.1 Flash-Lite and Gemini 3.8 Flash at Low are shown to compare."
     level_gain:
       min_points_per_second: 1.5
       reason: "A daily driver that values time asks more of each extra second: 1.5 points a second stops Gemini 4 Hydrogen at Medium (High buys 9.6 points in 8.4 s, 1.1 a second) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
@@ -146,9 +159,12 @@ routers:
       reason: "The paid DeepSeek, the keyless local entry and OpenRouter's free router, which has no record, close the cascade by design."
   flash-lite:
     intelligence_floor:
-      value: 6.2
-      candidates: [5, 6.2, 10]
-      reason: "Floor = index of Gemini 3.1 Flash-Lite (6.2 on 2026-11-21), the previous Flash-Lite we still serve and the head of this cascade today: a Flash-Lite is at least as good as it; 5 and 10 are shown to compare (10 keeps Qwen3.8 27B, 10.0, and Gemini 3.5 Flash-Lite, 11.7, in front only)."
+      anchor: {entry: gemini-3-1-flash-lite}
+      candidates:
+        - {entry: nemotron-lightning-free}
+        - {entry: gemini-3-1-flash-lite}
+        - {entry: qwen3-8-27b-groq}
+      reason: "At least as good as Gemini 3.1 Flash-Lite (6.2 on 2026-11-21), the previous Flash-Lite we still serve and the head of this cascade today: a Flash-Lite is at least as good as it. Nemotron 3.5 Lightning and Qwen3.8 27B without reasoning are shown to compare."
     level_gain:
       min_points_per_second: 3
       reason: "The router that values time most asks the most of each extra second: 3 points a second keeps Gemini 4 Hydrogen at Low (Medium buys 14.3 points in 5.4 s, 2.6 a second) and Gemini 3.8 Flash at Low (Medium buys 0.81), on the figures of 2026-11-21."
@@ -160,9 +176,12 @@ routers:
       reason: "No keyless local entry is in this cascade, so nothing is exempt from the floor."
   code:
     intelligence_floor:
-      value: 22.5
-      candidates: [10, 22.5, 30]
-      reason: "Declared on the intelligence index that stands in for code quality, as for pro: floor = index of Gemini 3.8 Flash at its lowest level (22.5 on 2026-11-21); the floor proper is to be expressed on the code quality source once it is read; 10 and 30 are shown to compare."
+      anchor: {entry: gemini-3-5-flash-lite}
+      candidates:
+        - {entry: gemini-3-1-flash-lite}
+        - {entry: gemini-3-5-flash-lite}
+        - {entry: gemini-3-8-flash, level: low}
+      reason: "Declared on the intelligence index that stands in for code quality, at the floor of flash: coding is not reserved to the most capable models, which a floor at the level of pro would do. The floor proper is to be expressed on the code quality source once it is read. Gemini 3.1 Flash-Lite and Gemini 3.8 Flash at Low, the floor of pro, are shown to compare."
     level_gain:
       min_points_per_second: 0.2
       reason: "Like pro, since code is not bounded by time either: 0.2 points a second stops Gemini 4 Hydrogen at High and keeps Gemini 3.8 Flash at Medium, on the figures of 2026-11-21."
