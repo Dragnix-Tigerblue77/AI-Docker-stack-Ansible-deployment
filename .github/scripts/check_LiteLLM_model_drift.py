@@ -4778,6 +4778,20 @@ APPLY_CASES = (
      [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
      [(PAID_REASON + IF_GROQ + PAID_A, IF_GROQ), ("  #\n" + PAID_B + "  #\n" + PAID_C, "")],
      {}),
+    ("a file that ends on blank lines loses all of them with its last entry",
+     ((APPLY_TEMPLATE[APPLY_TEMPLATE.index("\nrouter_settings:\n"):], ""),
+      ("  - model_name: later-groq", "\n  - model_name: later-groq")),
+     [("groq", "vendor/later", "retired")],
+     [("\n\n" + groq_entry("later-groq", "later"), "")],
+     {}),
+    ("a block set is a block like any other, and the entry beside it goes",
+     (("model_list:\n", "{% set note %}\n# a note kept in a block set\n{% endset %}\nmodel_list:\n"),),
+     [("groq", "vendor/alpha", "retired")],
+     [(groq_entry("alpha-groq", "alpha"), ""),
+      ("    - router:\n        - alpha-groq\n        - beta-groq\n", "    - router:\n        - beta-groq\n"),
+      ("        - free-b\n        - alpha-groq\n", "        - free-b\n"),
+      ("    - free-a\n    - alpha-groq\n", "    - free-a\n")],
+     {}),
 )
 
 
@@ -4941,9 +4955,9 @@ def head_entry(name, model, key):
             % (name, model, key))
 
 
-def head_row(*terms, default="local-a"):
+def head_row(*terms, default="local-a", router="router"):
     chain = "".join("'%s' if has.%s else " % term for term in terms)
-    return "  'router': %s%s,\n" % (chain, "'%s'" % default if default else "false")
+    return "  '%s': %s%s,\n" % (router, chain, "'%s'" % default if default else "false")
 
 
 FREE_ONE = head_entry("free-one", "openrouter/vendor/one:free", "OPENROUTER")
@@ -5759,6 +5773,23 @@ def run_jinja_net_cases():
     return failures
 
 
+def review_mismatch(new_text, outcomes, expected):
+    """None, or why the places the outcomes send a person to are not "expected" (as REVIEW_CASES
+    writes them, in the order of the new file), checked against the new file itself."""
+    lines = new_text.splitlines()
+    got = sorted((item["line"], item["last"], item["why"], item["subject"], item["first"])
+                 for outcome in outcomes for item in outcome["review"])
+    if len(got) != len(expected):
+        return "pointed at %r, expected %d place(s)" % (got, len(expected))
+    for (line, last, kind, subject, first), (want, piece, count, name) in zip(got, expected):
+        if (kind != want or subject != name or last - line + 1 != count
+                or piece not in "\n".join(lines[line - 1:last]) or piece not in first
+                or not 1 <= line <= last <= len(lines)):
+            return "pointed at %r, expected (%s, %r, %d lines, %r)" % (
+                (line, last, kind, subject, first), want, piece, count, name)
+    return None
+
+
 def run_review_cases():
     failures = 0
     for purpose, setup, wanted, expected in REVIEW_CASES:
@@ -5767,27 +5798,898 @@ def run_review_cases():
             failures += 1
             continue
         new_text, outcomes = apply_removals(text, wanted)
-        lines = new_text.splitlines()
-        got = sorted((item["line"], item["last"], item["why"], item["subject"], item["first"])
-                     for outcome in outcomes for item in outcome["review"])
         why = None
         if any(outcome["status"] != "applied" for outcome in outcomes):
             why = "refused: %r" % [(o["reason"]) for o in outcomes if o["status"] != "applied"]
-        elif len(got) != len(expected):
-            why = "pointed at %r, expected %d place(s)" % (got, len(expected))
         else:
-            for (line, last, kind, subject, first), (want, piece, count, name) in zip(got, expected):
-                if (kind != want or subject != name or last - line + 1 != count
-                        or piece not in "\n".join(lines[line - 1:last]) or piece not in first
-                        or not 1 <= line <= last <= len(lines)):
-                    why = "pointed at %r, expected (%s, %r, %d lines, %r)" % (
-                        (line, last, kind, subject, first), want, piece, count, name)
-                    break
+            why = review_mismatch(new_text, outcomes, expected)
         if why is None:
             print("selftest: ok -- %s" % purpose)
         else:
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
+
+# A model list laid out like the real one, with the models renamed: provider blocks wrapped in
+# statements; a banner closed by a second rule, one with a bare line inside it, one that is never
+# closed, and one that is itself the reason of the run under it; runs of commented-out entries under
+# one reason, one of them followed by a second reason of its own; the groups of "drift-ignore:" lines
+# that end a block; a "head" table, cascades wrapped in statements with a loop for their aliases, and
+# keyless models last. The cases below delete from it the way the weekly run does, and assert the
+# whole resulting text.
+REAL_TEMPLATE = """\
+# Routing configuration, RENDERED by Ansible onto the managed node.
+#
+# No SPDX header: it is written onto the node rather than kept here.
+# Only the providers whose key the caller gives are rendered.
+{% set has = {
+  'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
+  'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
+  'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
+  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
+} %}
+# The routers below are aliases, whatever the keys: each stands for the first model of its own cascade
+# that has a key.
+{% set head = {
+  'pro': 'g-top' if has.Gemini else 'or-heavy' if has.OpenRouter else 'q-big' if has.Groq else 'ds-pro' if has.DeepSeek else 'omni-reasoning',
+  'flash': 'g-top' if has.Gemini else 'q-big' if has.Groq else 'or-twin' if has.OpenRouter else 'ds-flash' if has.DeepSeek else 'omni-auto',
+  'flash-lite': 'g-lite' if has.Gemini else 'q-small' if has.Groq else 'or-small' if has.OpenRouter else false,
+  'claude-code': 'g-top' if has.Gemini else 'ds-pro' if has.DeepSeek else false
+} %}
+{% set aliases_of = {
+  'pro': ['auto-pro'],
+  'flash': ['auto', 'auto-flash'],
+  'flash-lite': ['auto-flash-lite'],
+  'claude-code': []
+} %}
+model_list:
+{% if has.Gemini %}
+  # ============================================================================
+  # Google AI Studio (1M+ context, developer quota)
+  # ============================================================================
+  # No "api_base" on any "gemini/" entry: the native API builds its own path.
+  #
+  # Free of charge on the Standard tier, checked 2026-01-01.
+  - model_name: g-top
+    litellm_params:
+      model: gemini/gemini-9-top
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: g-mid
+    litellm_params:
+      model: gemini/gemini-9-mid
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  # Served, but not routed to: paid only, checked 2026-01-01.
+  # - model_name: g-paid-one
+  #   litellm_params:
+  #     model: gemini/gemini-9-paid-one
+  #     api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+  #
+  # - model_name: g-paid-two
+  #   litellm_params:
+  #     model: gemini/gemini-9-paid-two
+  #     api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: g-lite
+    litellm_params:
+      model: gemini/gemini-9-lite
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  # Served, but not routed to: it is an agent, not a chat model.
+  # - model_name: g-agent
+  #   litellm_params:
+  #     model: gemini/gemini-9-agent
+  #     api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  # The previous generation stays, checked 2026-01-01.
+  - model_name: g-old
+    litellm_params:
+      model: gemini/gemini-8-pro
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: g-old-lite
+    litellm_params:
+      model: gemini/gemini-8-lite
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  # Looked at on 2026-01-01 and turned down: the weekly drift report stops listing these ids.
+  # drift-ignore: gemini/gemini-9-alias -- a "latest" alias, hot-swapped to each new release
+  # drift-ignore: gemini/gemini-7-gone -- shut down earlier, the catalogue still listed it that day
+
+{% endif %}
+  # ============================================================================
+  # Cerebras & Groq (LPU / WSE inference)
+  # ============================================================================
+  # Cerebras: the models below are not routed to, because a bank card is now required.
+  # - model_name: c-big
+  #   litellm_params:
+  #     model: cerebras/c-big
+  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"
+  #
+  # - model_name: c-small
+  #   litellm_params:
+  #     model: cerebras/c-small
+  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"
+
+{% if has.Groq %}
+  # Groq's own designated replacement for a retired model, ranked right after g-mid in the flash cascade.
+  - model_name: q-big
+    litellm_params:
+      model: groq/vendor/q-big
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: q-small
+    litellm_params:
+      model: groq/vendor/q-small
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  # Looked at on 2026-01-01 and turned down.
+  # drift-ignore: groq/vendor/q-arabic -- a model for another language, no cascade is for it
+
+{% endif %}
+  # ============================================================================
+  # SambaNova -- not routed to: a new account has to add a payment method first.
+  #
+  # The ids below are still served, checked 2026-01-01.
+  # ============================================================================
+  # - model_name: s-one
+  #   litellm_params:
+  #     model: openai/S-One
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #
+  # - model_name: s-two
+  #   litellm_params:
+  #     model: openai/S-Two
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #
+  # - model_name: s-three
+  #   litellm_params:
+  #     model: openai/S-Three
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #
+  # Served, but not routed to, for the reason of the run above, read again on 2026-01-01.
+  # - model_name: s-late
+  #   litellm_params:
+  #     model: openai/S-Late
+  #     api_base: "https://api.sambanova.ai/v1"
+  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+
+{% if has.DeepSeek %}
+  # ============================================================================
+  # DeepSeek (direct API) -- the only PAID provider in this file.
+  # Placed last in every cascade it appears in, after every free option.
+  #
+  # ! Verified 2026-01-01: the identifiers below are the CURRENT ones.
+  - model_name: ds-pro
+    litellm_params:
+      model: deepseek/deepseek-pro
+      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+
+  - model_name: ds-flash
+    litellm_params:
+      model: deepseek/deepseek-flash
+      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+
+{% endif %}
+{% if has.OpenRouter %}
+  # ============================================================================
+  # OpenRouter (":free" entries only)
+  #
+  # Checked 2026-01-01 against the live catalogue.
+  # ============================================================================
+  - model_name: or-heavy
+    litellm_params:
+      model: openrouter/vendor/heavy:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: or-reasoning
+    litellm_params:
+      model: openrouter/vendor/reasoning:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  # Added 2026-01-01. It sits at the end of the free entries of two cascades and in no other.
+  - model_name: or-vl
+    litellm_params:
+      model: openrouter/vendor/vl:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: or-mid
+    litellm_params:
+      model: openrouter/vendor/mid:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: or-small
+    litellm_params:
+      model: openrouter/vendor/small:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: or-twin
+    litellm_params:
+      model: openrouter/vendor/twin:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: or-auto
+    litellm_params:
+      model: openrouter/vendor/auto
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  # Served, but not routed to: a guardrail, not a generator.
+  # - model_name: or-guard
+  #   litellm_params:
+  #     model: openrouter/vendor/guard:free
+  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  # Looked at on 2026-01-01 and turned down for now.
+  # drift-ignore: openrouter/vendor/flint:free -- no figures to place it by in any cascade
+  # drift-ignore: openrouter/vendor/xing:free -- no figures to place it by in any cascade
+
+{% endif %}
+  # ============================================================================
+  # OmniRoute -- local, last-resort, deliberately keyless.
+  # ============================================================================
+  - model_name: omni-auto
+    litellm_params:
+      model: openai/auto/best-free
+      api_base: "http://stand-in.invalid/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omni-code
+    litellm_params:
+      model: openai/auto/best-coding
+      api_base: "http://stand-in.invalid/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omni-reasoning
+    litellm_params:
+      model: openai/auto/best-reasoning
+      api_base: "http://stand-in.invalid/v1"
+      api_key: "omniroute-no-key-needed"
+
+router_settings:
+  num_retries: 2
+
+  # Every cascade below stays inside the one account's keys.
+  fallbacks:
+    # Ordering rule inside every cascade below: rank by capability first.
+
+    # 1. PRO -- pure reasoning.
+    # Priority: Google -> OpenRouter heavy -> Groq -> DeepSeek direct -> OmniRoute.
+{% if head['pro'] %}
+    - pro: &pro_cascade
+{% if has.Gemini %}
+        - g-top
+        - g-old
+{% endif %}
+{% if has.OpenRouter %}
+        - or-heavy
+{% endif %}
+{% if has.Groq %}
+        - q-big
+{% endif %}
+{% if has.OpenRouter %}
+        - or-reasoning
+        - or-vl
+{% endif %}
+{% if has.DeepSeek %}
+        - ds-pro
+{% endif %}
+        - omni-reasoning
+{% for alias in aliases_of['pro'] %}
+    - {{ alias }}: *pro_cascade
+{% endfor %}
+{% endif %}
+
+    # 2. FLASH -- balanced daily driver.
+{% if head['flash'] %}
+    - flash: &flash_cascade
+{% if has.Gemini %}
+        - g-top
+        - g-mid
+{% endif %}
+{% if has.Groq %}
+        - q-big
+{% endif %}
+{% if has.OpenRouter %}
+        - or-twin
+        - or-mid
+        - or-vl
+        - or-auto
+{% endif %}
+{% if has.DeepSeek %}
+        - ds-flash
+{% endif %}
+        - omni-auto
+{% for alias in aliases_of['flash'] %}
+    - {{ alias }}: *flash_cascade
+{% endfor %}
+{% endif %}
+
+    # 3. FLASH-LITE -- atomic micro-tasks.
+{% if head['flash-lite'] %}
+    - flash-lite: &flash_lite_cascade
+{% if has.Gemini %}
+        - g-lite
+        - g-old-lite
+{% endif %}
+{% if has.Groq %}
+        - q-small
+{% endif %}
+{% if has.OpenRouter %}
+        - or-small
+{% endif %}
+{% for alias in aliases_of['flash-lite'] %}
+    - {{ alias }}: *flash_lite_cascade
+{% endfor %}
+{% endif %}
+
+    # 5. CLAUDE-CODE -- agentic CLI.
+{% if head['claude-code'] %}
+    - claude-code: &claude_code_cascade
+{% if has.Gemini %}
+        - g-top
+        - g-old
+{% endif %}
+{% if has.DeepSeek %}
+        - ds-pro
+{% endif %}
+{% for alias in aliases_of['claude-code'] %}
+    - {{ alias }}: *claude_code_cascade
+{% endfor %}
+{% endif %}
+
+  # Transparent alias mappings.
+  model_group_alias:
+{% if head['pro'] %}
+    "pro": "{{ head['pro'] }}"
+{% endif %}
+{% if head['flash'] %}
+    "flash": "{{ head['flash'] }}"
+{% endif %}
+{% if head['flash-lite'] %}
+    "flash-lite": "{{ head['flash-lite'] }}"
+{% endif %}
+{% if head['claude-code'] %}
+    "claude-code": "{{ head['claude-code'] }}"
+{% endif %}
+{% for router in ['pro', 'flash', 'flash-lite', 'claude-code'] if head[router] %}
+{% for alias in aliases_of[router] %}
+    "{{ alias }}": "{{ head[router] }}"
+{% endfor %}
+{% endfor %}
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+"""
+
+REAL_ENTRIES = {row[0]: head_entry(*row) for row in (
+    ("g-top", "gemini/gemini-9-top", "GEMINI"), ("g-mid", "gemini/gemini-9-mid", "GEMINI"),
+    ("g-lite", "gemini/gemini-9-lite", "GEMINI"), ("g-old", "gemini/gemini-8-pro", "GEMINI"),
+    ("g-old-lite", "gemini/gemini-8-lite", "GEMINI"),
+    ("q-big", "groq/vendor/q-big", "GROQ"), ("q-small", "groq/vendor/q-small", "GROQ"),
+    ("ds-pro", "deepseek/deepseek-pro", "DEEPSEEK"), ("ds-flash", "deepseek/deepseek-flash", "DEEPSEEK"),
+    ("or-heavy", "openrouter/vendor/heavy:free", "OPENROUTER"),
+    ("or-reasoning", "openrouter/vendor/reasoning:free", "OPENROUTER"),
+    ("or-vl", "openrouter/vendor/vl:free", "OPENROUTER"), ("or-mid", "openrouter/vendor/mid:free", "OPENROUTER"),
+    ("or-small", "openrouter/vendor/small:free", "OPENROUTER"),
+    ("or-twin", "openrouter/vendor/twin:free", "OPENROUTER"), ("or-auto", "openrouter/vendor/auto", "OPENROUTER"),
+)}
+REAL_RULE = "  # " + "=" * 76 + "\n"
+REAL_PAID = "  # Served, but not routed to: paid only, checked 2026-01-01.\n"
+REAL_AGENT = "  # Served, but not routed to: it is an agent, not a chat model.\n"
+REAL_GUARD = "  # Served, but not routed to: a guardrail, not a generator.\n"
+REAL_CEREBRAS = "  # Cerebras: the models below are not routed to, because a bank card is now required.\n"
+REAL_SAMBANOVA_LATE = "  # Served, but not routed to, for the reason of the run above, read again on 2026-01-01.\n"
+REAL_PAID_ONE = commented_entry("g-paid-one", "gemini/gemini-9-paid-one", "GEMINI")
+REAL_PAID_TWO = commented_entry("g-paid-two", "gemini/gemini-9-paid-two", "GEMINI")
+REAL_AGENT_ENTRY = commented_entry("g-agent", "gemini/gemini-9-agent", "GEMINI")
+REAL_GUARD_ENTRY = commented_entry("or-guard", "openrouter/vendor/guard:free", "OPENROUTER")
+REAL_CEREBRAS_BIG = commented_entry("c-big", "cerebras/c-big", "CEREBRAS")
+REAL_CEREBRAS_SMALL = commented_entry("c-small", "cerebras/c-small", "CEREBRAS")
+REAL_SAMBA = {name: commented_entry(name.lower(), "openai/%s" % name, "SAMBANOVA", base=True)
+              for name in ("S-One", "S-Two", "S-Three", "S-Late")}
+REAL_SAMBA_BANNER = (
+    REAL_RULE + "  # SambaNova -- not routed to: a new account has to add a payment method first.\n"
+    "  #\n  # The ids below are still served, checked 2026-01-01.\n" + REAL_RULE)
+REAL_DRIFT = "  # drift-ignore: gemini/gemini-9-noise -- looked at and turned down\n"
+# What lies between OpenRouter's banner and its first entry.
+REAL_OR_BANNER_END = "  # Checked 2026-01-01 against the live catalogue.\n" + REAL_RULE
+
+# The head table, one row per router: the model its cascade gives each provider that has a key, in the
+# order of the cascade, and the model that answers whatever the keys; None where the router is left
+# out when no key is given.
+REAL_ROWS = {
+    "pro": ((("g-top", "Gemini"), ("or-heavy", "OpenRouter"), ("q-big", "Groq"), ("ds-pro", "DeepSeek")),
+            "omni-reasoning"),
+    "flash": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-twin", "OpenRouter"), ("ds-flash", "DeepSeek")),
+              "omni-auto"),
+    "flash-lite": ((("g-lite", "Gemini"), ("q-small", "Groq"), ("or-small", "OpenRouter")), None),
+    "claude-code": ((("g-top", "Gemini"), ("ds-pro", "DeepSeek")), None),
+}
+
+
+def real_row(router, terms, default):
+    row = head_row(*terms, default=default, router=router)
+    return row.replace(",\n", "\n") if router == "claude-code" else row  # the last row has no comma
+
+
+def real_rows(new, keyless=False):
+    """The (old, new) edits of the rows that change, "new" giving for each router the terms it keeps
+    and its default. With "keyless", the routers that ended on false end on a keyless model."""
+    edits = []
+    for router, (terms, default) in new.items():
+        old_terms, old_default = REAL_ROWS[router]
+        if keyless and old_default is None:
+            old_default = "omni-auto"
+        edits.append((real_row(router, old_terms, old_default), real_row(router, terms, default)))
+    return edits
+
+
+def real_slot(provider, name, after):
+    """The edit that takes the slot "name" of "provider" out of the cascade whose next slot is "after"."""
+    block = "{%% if has.%s %%}\n        - %s\n{%% endif %%}\n" % (provider, name)
+    return block + after, "{%% if has.%s %%}\n{%% endif %%}\n" % provider + after
+
+
+# The two routers that end on false answer to a keyless model once their cascades end on one.
+REAL_KEYLESS_TAIL = (
+    ("or-small' if has.OpenRouter else false,", "or-small' if has.OpenRouter else 'omni-auto',"),
+    ("        - or-small\n{% endif %}\n{% for alias in aliases_of['flash-lite'] %}",
+     "        - or-small\n{% endif %}\n        - omni-auto\n{% for alias in aliases_of['flash-lite'] %}"),
+    ("'ds-pro' if has.DeepSeek else false\n", "'ds-pro' if has.DeepSeek else 'omni-auto'\n"),
+    ("        - ds-pro\n{% endif %}\n{% for alias in aliases_of['claude-code'] %}",
+     "        - ds-pro\n{% endif %}\n        - omni-auto\n{% for alias in aliases_of['claude-code'] %}"),
+)
+# The keyless section moved ahead of the DeepSeek block, so that an entry of a provider is the last of
+# the model list, with only its comments, a closing statement and "router_settings:" after it.
+REAL_KEYLESS_SECTION = REAL_TEMPLATE[REAL_TEMPLATE.rindex(REAL_RULE, 0, REAL_TEMPLATE.index("  # OmniRoute")):
+                                     REAL_TEMPLATE.index("router_settings:")]
+REAL_KEYLESS_LAST = (
+    (REAL_KEYLESS_SECTION, "\n"),
+    ("{% if has.DeepSeek %}\n" + REAL_RULE, REAL_KEYLESS_SECTION + "{% if has.DeepSeek %}\n" + REAL_RULE),
+)
+# The slot of Groq in the first cascade is followed by OpenRouter's, in the second by the same: the
+# edits that take it out say which they mean by what comes after.
+REAL_PRO_AFTER = "{% if has.OpenRouter %}\n        - or-reasoning\n"
+REAL_FLASH_AFTER = "{% if has.OpenRouter %}\n        - or-twin\n"
+REAL_GROQ_SLOTS = [real_slot("Groq", "q-big", REAL_PRO_AFTER), real_slot("Groq", "q-big", REAL_FLASH_AFTER)]
+# The first slot of Gemini in each cascade that starts on it, taken out.
+REAL_FIRST_SLOTS = [(head + "{% if has.Gemini %}\n        - g-top\n", head + "{% if has.Gemini %}\n")
+                    for head in ("    - pro: &pro_cascade\n", "    - flash: &flash_cascade\n",
+                                 "    - claude-code: &claude_code_cascade\n")]
+
+# (what the case proves, a change made to REAL_TEMPLATE first, the (provider, id, kind) deletions
+# asked for, the changes the result must show against the changed template, the refusals expected as
+# {(provider, id): code}, and the places a person is sent to as (why, a piece of the text, how many
+# lines, the name a "mention" is about)). A refused deletion changes nothing.
+REAL_CASES = (
+    ("an entry in the middle of a block goes with its blank line and its slot, and the comment that "
+     "names it is what a person is sent to",
+     (), [("gemini", "gemini-9-mid", "retired")],
+     [(REAL_ENTRIES["g-mid"], ""), ("        - g-top\n        - g-mid\n", "        - g-top\n")], {},
+     [("mention", "ranked right after g-mid", 1, "g-mid")]),
+    ("the last entry of a block goes, and the group of drift-ignore lines behind it stays",
+     (), [("gemini", "gemini-8-lite", "retired")],
+     [(REAL_ENTRIES["g-old-lite"], ""), ("        - g-lite\n        - g-old-lite\n", "        - g-lite\n")],
+     {}, []),
+    ("the first entry of a block, with prose between its banner and itself, goes alone: the prose and "
+     "the blank line stay, and the three routers it opened move to the next model",
+     (), [("gemini", "gemini-9-top", "retired")],
+     [(REAL_ENTRIES["g-top"][:-1], "")] + REAL_FIRST_SLOTS
+     + real_rows({"pro": ((("g-old", "Gemini"), ("or-heavy", "OpenRouter"), ("q-big", "Groq"),
+                           ("ds-pro", "DeepSeek")), "omni-reasoning"),
+                  "flash": ((("g-mid", "Gemini"), ("q-big", "Groq"), ("or-twin", "OpenRouter"),
+                             ("ds-flash", "DeepSeek")), "omni-auto"),
+                  "claude-code": ((("g-old", "Gemini"), ("ds-pro", "DeepSeek")), None)}),
+     {}, [("left", 'No "api_base" on any', 3, None)]),
+    ("the first entry under a banner with a bare line in it goes with its blank line, the provider "
+     "falls behind another in the row, and nothing is left to read",
+     (), [("openrouter", "vendor/heavy:free", "retired")],
+     [(REAL_ENTRIES["or-heavy"], ""),
+      ("{% if has.OpenRouter %}\n        - or-heavy\n{% endif %}\n", "{% if has.OpenRouter %}\n{% endif %}\n")]
+     + real_rows({"pro": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-reasoning", "OpenRouter"),
+                           ("ds-pro", "DeepSeek")), "omni-reasoning")}),
+     {}, []),
+    ("a model that two cascades hold goes from both, the prose above it stays, and the two rows that "
+     "named it are written again",
+     (), [("groq", "vendor/q-big", "retired")],
+     [(REAL_ENTRIES["q-big"][:-1], "")] + REAL_GROQ_SLOTS
+     + real_rows({"pro": ((("g-top", "Gemini"), ("or-heavy", "OpenRouter"), ("ds-pro", "DeepSeek")),
+                          "omni-reasoning"),
+                  "flash": ((("g-top", "Gemini"), ("or-twin", "OpenRouter"), ("ds-flash", "DeepSeek")),
+                            "omni-auto")}),
+     {}, [("left", "Groq's own designated replacement", 1, None)]),
+    ("the last entry of a block, before the statement that closes it and the banner of the next, goes",
+     (), [("deepseek", "deepseek-flash", "retired")],
+     [(REAL_ENTRIES["ds-flash"], ""),
+      ("{% if has.DeepSeek %}\n        - ds-flash\n{% endif %}\n", "{% if has.DeepSeek %}\n{% endif %}\n")]
+     + real_rows({"flash": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-twin", "OpenRouter")),
+                            "omni-auto")}),
+     {}, []),
+    ("a lone commented-out entry goes with its reason, and the group of drift-ignore lines after it "
+     "stays",
+     (), [("openrouter", "vendor/guard:free", "gone")],
+     [(REAL_GUARD + REAL_GUARD_ENTRY + "\n", "")], {}, []),
+    ("a run of two goes whole with its reason, and the blank line after it is not doubled",
+     (), [("gemini", "gemini-9-paid-one", "gone"), ("gemini", "gemini-9-paid-two", "gone")],
+     [(REAL_PAID + REAL_PAID_ONE + "  #\n" + REAL_PAID_TWO + "\n", "")], {}, []),
+    ("the first entry of that run goes alone, and its reason is what a person is sent to",
+     (), [("gemini", "gemini-9-paid-one", "gone")],
+     [(REAL_PAID_ONE + "  #\n", "")], {}, [("kept", "Served, but not routed to: paid only", 1, None)]),
+    ("the last entry of it goes alone, with the bare line before it",
+     (), [("gemini", "gemini-9-paid-two", "gone")],
+     [("  #\n" + REAL_PAID_TWO, "")], {}, [("kept", "Served, but not routed to: paid only", 1, None)]),
+    ("a lone commented-out entry under a reason of its own goes with it",
+     (), [("gemini", "gemini-9-agent", "gone")],
+     [(REAL_AGENT + REAL_AGENT_ENTRY + "\n", "")], {}, []),
+    ("one entry of a run under a banner that is the reason goes alone, and the whole banner is what a "
+     "person is sent to",
+     (), [("sambanova", "S-Two", "gone")],
+     [(REAL_SAMBA["S-Two"] + "  #\n", "")], {},
+     [("kept", "SambaNova -- not routed to", 5, None)]),
+    ("an entry with a reason of its own, set apart from the run above by a bare line, goes with that "
+     "bare line and its reason",
+     (), [("sambanova", "S-Late", "gone")],
+     [("  #\n" + REAL_SAMBANOVA_LATE + REAL_SAMBA["S-Late"], "")], {}, []),
+    ("a run under a reason above a bare line goes whole and leaves the heading over the entries that "
+     "stay",
+     (), [("cerebras", "c-big", "gone"), ("cerebras", "c-small", "gone")],
+     [(REAL_CEREBRAS + REAL_CEREBRAS_BIG + "  #\n" + REAL_CEREBRAS_SMALL, "")], {}, []),
+    ("every model of one block goes at once, and the heading and the prose left over no entry are "
+     "what a person is sent to",
+     REAL_KEYLESS_TAIL,
+     [("cerebras", "c-big", "gone"), ("cerebras", "c-small", "gone"),
+      ("groq", "vendor/q-big", "retired"), ("groq", "vendor/q-small", "retired")],
+     [(REAL_CEREBRAS + REAL_CEREBRAS_BIG + "  #\n" + REAL_CEREBRAS_SMALL, ""),
+      (REAL_ENTRIES["q-big"] + REAL_ENTRIES["q-small"][:-1], ""),
+      ("{% if has.Groq %}\n        - q-small\n{% endif %}\n", "{% if has.Groq %}\n{% endif %}\n")]
+     + REAL_GROQ_SLOTS
+     + real_rows({"pro": ((("g-top", "Gemini"), ("or-heavy", "OpenRouter"), ("ds-pro", "DeepSeek")),
+                          "omni-reasoning"),
+                  "flash": ((("g-top", "Gemini"), ("or-twin", "OpenRouter"), ("ds-flash", "DeepSeek")),
+                            "omni-auto"),
+                  "flash-lite": ((("g-lite", "Gemini"), ("or-small", "OpenRouter")), "omni-auto")},
+                 keyless=True),
+     {}, [("banner", "Cerebras & Groq", 3, None), ("left", "Groq's own designated replacement", 1, None)]),
+    ("every model of a block under a banner that is never closed goes, and the prose under that "
+     "banner is what a person is sent to",
+     REAL_KEYLESS_TAIL, [("deepseek", "deepseek-pro", "retired"), ("deepseek", "deepseek-flash", "retired")],
+     [(REAL_ENTRIES["ds-pro"] + REAL_ENTRIES["ds-flash"][:-1], ""),
+      ("        - ds-pro\n{% endif %}\n        - omni-reasoning\n", "{% endif %}\n        - omni-reasoning\n"),
+      ("        - ds-flash\n{% endif %}\n", "{% endif %}\n"),
+      ("        - ds-pro\n{% endif %}\n        - omni-auto\n", "{% endif %}\n        - omni-auto\n")]
+     + real_rows({"pro": ((("g-top", "Gemini"), ("or-heavy", "OpenRouter"), ("q-big", "Groq")),
+                          "omni-reasoning"),
+                  "flash": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-twin", "OpenRouter")),
+                            "omni-auto"),
+                  "claude-code": ((("g-top", "Gemini"),), "omni-auto")},
+                 keyless=True),
+     {}, [("left", "DeepSeek (direct API)", 4, None)]),
+    ("every model of one provider goes at once, the commented-out one included, and what is left "
+     "over nothing is what a person is sent to",
+     REAL_KEYLESS_TAIL,
+     [("openrouter", "vendor/%s" % name, "retired")
+      for name in ("heavy:free", "reasoning:free", "vl:free", "mid:free", "small:free", "twin:free", "auto")]
+     + [("openrouter", "vendor/guard:free", "gone")],
+     [(REAL_TEMPLATE[REAL_TEMPLATE.index("  - model_name: or-heavy\n"):
+                     REAL_TEMPLATE.index("  # Looked at on 2026-01-01 and turned down for now.\n")],
+       "  # Added 2026-01-01. It sits at the end of the free entries of two cascades and in no other.\n\n"),
+      ("{% if has.OpenRouter %}\n        - or-heavy\n{% endif %}\n", "{% if has.OpenRouter %}\n{% endif %}\n"),
+      ("        - or-reasoning\n        - or-vl\n", ""),
+      ("        - or-twin\n        - or-mid\n        - or-vl\n        - or-auto\n", ""),
+      ("        - or-small\n{% endif %}\n        - omni-auto\n", "{% endif %}\n        - omni-auto\n")]
+     + real_rows({"pro": ((("g-top", "Gemini"), ("q-big", "Groq"), ("ds-pro", "DeepSeek")),
+                          "omni-reasoning"),
+                  "flash": ((("g-top", "Gemini"), ("q-big", "Groq"), ("ds-flash", "DeepSeek")),
+                            "omni-auto"),
+                  "flash-lite": ((("g-lite", "Gemini"), ("q-small", "Groq")), "omni-auto")},
+                 keyless=True),
+     {}, [("banner", 'OpenRouter (":free" entries only)', 5, None),
+          ("left", "Added 2026-01-01.", 1, None)]),
+    ("a cascade that would be left empty for one set of keys is not emptied, and the models that can "
+     "go still do",
+     (), [("groq", "vendor/q-big", "retired"), ("groq", "vendor/q-small", "retired")],
+     [(REAL_ENTRIES["q-big"][:-1], "")] + REAL_GROQ_SLOTS
+     + real_rows({"pro": ((("g-top", "Gemini"), ("or-heavy", "OpenRouter"), ("ds-pro", "DeepSeek")),
+                          "omni-reasoning"),
+                  "flash": ((("g-top", "Gemini"), ("or-twin", "OpenRouter"), ("ds-flash", "DeepSeek")),
+                            "omni-auto")}),
+     {("groq", "vendor/q-small"): "emptied"},
+     [("left", "Groq's own designated replacement", 1, None)]),
+    ("the only model of a router's cascade for one set of keys is not deleted",
+     (), [("deepseek", "deepseek-pro", "retired")], [], {("deepseek", "deepseek-pro"): "emptied"}, []),
+    ("two providers at once come out as the sum of the two, the rows of the head table written once",
+     (), [("gemini", "gemini-9-lite", "retired"), ("openrouter", "vendor/twin:free", "retired")],
+     [(REAL_ENTRIES["g-lite"], ""), (REAL_ENTRIES["or-twin"], ""),
+      ("        - g-lite\n        - g-old-lite\n", "        - g-old-lite\n"),
+      ("        - or-twin\n        - or-mid\n", "        - or-mid\n")]
+     + real_rows({"flash": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-mid", "OpenRouter"),
+                             ("ds-flash", "DeepSeek")), "omni-auto"),
+                  "flash-lite": ((("g-old-lite", "Gemini"), ("q-small", "Groq"), ("or-small", "OpenRouter")),
+                                 None)}),
+     {}, []),
+    ("the last entry of the model list goes with a commented-out one next to it, and the statement, "
+     "the comments and the settings behind them stay as they were",
+     REAL_KEYLESS_LAST,
+     [("openrouter", "vendor/auto", "retired"), ("openrouter", "vendor/guard:free", "gone")],
+     [(REAL_ENTRIES["or-auto"] + REAL_GUARD + REAL_GUARD_ENTRY + "\n", ""),
+      ("        - or-vl\n        - or-auto\n", "        - or-vl\n")], {}, []),
+    ("a blank line at the top, a double one far from the deletion and a banner over no entry stay as "
+     "they were",
+     (("# Routing configuration, RENDERED by Ansible onto the managed node.\n",
+       "\n# Routing configuration, RENDERED by Ansible onto the managed node.\n"),
+      ("\n  # Looked at on 2026-01-01 and turned down for now.\n",
+       "\n\n  # Looked at on 2026-01-01 and turned down for now.\n"),
+      ("\nrouter_settings:\n", "\n" + REAL_RULE + "  # A provider with no model yet\n" + REAL_RULE
+       + "\nrouter_settings:\n")),
+     [("gemini", "gemini-8-lite", "retired")],
+     [(REAL_ENTRIES["g-old-lite"], ""), ("        - g-lite\n        - g-old-lite\n", "        - g-lite\n")],
+     {}, []),
+    ("a deletion that would take a statement it cannot read is refused alone, and the one that can go "
+     "still does",
+     ((REAL_ENTRIES["g-old-lite"][:-1], REAL_ENTRIES["g-old-lite"][:-1] + "{% set account = 'main' %}\n"),),
+     [("gemini", "gemini-8-lite", "retired"), ("gemini", "gemini-9-mid", "retired")],
+     [(REAL_ENTRIES["g-mid"], ""), ("        - g-top\n        - g-mid\n", "        - g-top\n")],
+     {("gemini", "gemini-8-lite"): "verification"},
+     [("mention", "ranked right after g-mid", 1, "g-mid")]),
+    ("bare lines between a banner and the prose above a deleted entry are not what a person is sent "
+     "to",
+     ((REAL_OR_BANNER_END + "  - model_name: or-heavy\n",
+       REAL_OR_BANNER_END + "  #\n  #\n  # Prose between banner and entry.\n  - model_name: or-heavy\n"),),
+     [("openrouter", "vendor/heavy:free", "retired")],
+     [(REAL_ENTRIES["or-heavy"][:-1], ""),
+      ("{% if has.OpenRouter %}\n        - or-heavy\n{% endif %}\n", "{% if has.OpenRouter %}\n{% endif %}\n")]
+     + real_rows({"pro": ((("g-top", "Gemini"), ("q-big", "Groq"), ("or-reasoning", "OpenRouter"),
+                           ("ds-pro", "DeepSeek")), "omni-reasoning")}),
+     {}, [("left", "Prose between banner and entry.", 1, None)]),
+    ("the bare line between a reason that goes and a drift-ignore line that stays goes with the "
+     "reason",
+     ((REAL_PAID + REAL_PAID_ONE, REAL_PAID + "  #\n" + REAL_DRIFT + REAL_PAID_ONE),),
+     [("gemini", "gemini-9-paid-one", "gone"), ("gemini", "gemini-9-paid-two", "gone")],
+     [(REAL_PAID + "  #\n", ""), (REAL_PAID_ONE + "  #\n" + REAL_PAID_TWO, "")], {}, []),
+    ("a whole section goes, the banner that is its reason and the reason that follows the run with "
+     "it",
+     (), [("sambanova", name, "gone") for name in ("S-One", "S-Two", "S-Three", "S-Late")],
+     [(REAL_SAMBA_BANNER + REAL_SAMBA["S-One"] + "  #\n" + REAL_SAMBA["S-Two"] + "  #\n"
+       + REAL_SAMBA["S-Three"] + "  #\n" + REAL_SAMBANOVA_LATE + REAL_SAMBA["S-Late"], "")], {}, []),
+)
+# The cases the same file written with CRLF line endings is run through, as the first deletion each:
+# one entry that is active, and the commented-out entries of a run.
+REAL_CRLF = ("gemini-9-mid", "gemini-9-paid-one")
+
+
+def rendering_problem(new_text):
+    """Why "new_text" does not render and read as the file does for every set of provider keys, or
+    None: every set renders, no alias is off its cascade's first member, and every cascade names a
+    model the rendering lists."""
+    documents = keyset_documents(new_text)
+    if len(documents) != 2 ** 4 - 1:  # the four provider keys REAL_TEMPLATE reads
+        return "the result reads %d sets of provider keys, expected 15" % len(documents)
+    for given, document in documents:
+        if not isinstance(document, dict):
+            return "the result does not render when only %s given" % given_text(given)
+        if alias_drift(document):
+            return "an alias is off its cascade's first member when only %s given" % given_text(given)
+        names = {item.get("model_name") for item in document.get("model_list") or []}
+        for group, targets in fallback_lists(document).items():
+            missing = [target for target in targets if target not in names]
+            if missing:
+                return "%s names %s, which the rendering does not list, when only %s given" % (
+                    place(group), missing[0], given_text(given))
+    return None
+
+
+def review_bullets(outcomes):
+    """The lines under the review heading of the pull request body written for "outcomes": what a
+    person is asked to read, and what keeps the pull request from merging itself."""
+    findings = {}
+    for outcome in outcomes:
+        findings.setdefault(outcome["provider"], []).append(
+            {"kind": outcome["kind"], "id": outcome["id"], "removal": outcome})
+    body = render_pr_body({"date": "2026-01-01", "removals": {"heads": []}, "providers": [
+        {"name": name, "status": "read", "findings": listed} for name, listed in findings.items()]})
+    lines = body.split("\n")
+    if REVIEW_HEADING not in lines:
+        return []
+    section = lines[lines.index(REVIEW_HEADING) + 1:]
+    section = section[:next((number for number, line in enumerate(section) if line.startswith("## ")),
+                            len(section))]
+    return [line for line in section if line.startswith("- ")]
+
+
+# The names the template's loop gives the cascades it writes under the names of the routers.
+REAL_ALIASES = ("auto-pro", "auto", "auto-flash", "auto-flash-lite")
+
+
+def notes_problem(text, new_text, outcomes):
+    """Why what the outcomes say of their deletion -- the entries, the cascades they were slots of, the
+    reason that went with them -- is not what "text" lost, or None: the pull request body is
+    written from those notes."""
+    template, _ = read_template(text)
+    before = fallback_lists(template["document"])
+    entries = template["active"] + template["commented"]
+    for outcome in outcomes:
+        if outcome["status"] != "applied":
+            continue
+        key = (outcome["provider"], outcome["id"])
+        named = [entry for entry in entries if attribute(entry["model"], entry["api_base"]) == key]
+        reported = [entry["name"] for entry in outcome["entries"]]
+        if reported != [entry["name"] for entry in named]:
+            return "%s is reported to have taken the entries %r" % (key[1], reported)
+        active = {entry["name"] for entry in named if entry in template["active"]}
+        slots = {group for group, targets in before.items()
+                 if active & set(targets) and group[1] not in REAL_ALIASES}
+        listed = {tuple(group) for group in outcome["slots"] if group[1] != JINJA_PLACEHOLDER}
+        if listed != slots:
+            return "%s is reported to have been a slot of %r, expected %r" % (key[1], listed, slots)
+    lost = collections.Counter(text.splitlines()) - collections.Counter(new_text.splitlines())
+    prose = {line.strip()[1:].strip() for line in lost.elements()
+             if line.strip().startswith("#") and not re.fullmatch(r"#\s*", line.strip())
+             and not re.match(r"#(\s*- model_name:|   )", line.strip())}
+    firsts = [note["first"] for outcome in outcomes for note in outcome["prose"]]
+    if bool(prose) != bool(firsts) or any(first not in prose for first in firsts):
+        return "the reason deleted with the entries is %r, reported as %r" % (sorted(prose), firsts)
+    return None
+
+
+def real_problem(text, wanted, expected, refusals, review):
+    """Why deleting "wanted" from "text" does not give "expected", with "refusals" and sending a
+    person to "review" and to nothing else, or None."""
+    new_text, outcomes = apply_removals(text, wanted)
+    got = {(o["provider"], o["id"]): o["reason"][0] for o in outcomes if o["status"] == "refused"}
+    applied = sorted((o["provider"], o["id"]) for o in outcomes if o["status"] == "applied")
+    should_apply = sorted({(p, i) for p, i, _ in wanted if (p, i) not in refusals})
+    before_template, before = read_template(text)
+    after_template, after = read_template(new_text)
+    if new_text != expected:
+        return "the result is not the expected text:\n%s" % "\n".join(difflib.unified_diff(
+            expected.splitlines(), new_text.splitlines(), "expected", "got", lineterm="", n=1))
+    if got != refusals:
+        return "refusals %r, expected %r" % (got, refusals)
+    if applied != should_apply:
+        return "applied %r, expected %r" % (applied, should_apply)
+    if after_template is None or len(after) > len(before):
+        return "the result breaks a rule the original did not: %r" % after
+    if "\n\n\n" in new_text and "\n\n\n" not in text:
+        return "the result holds a double blank line the original did not"
+    problem = (rendering_problem(new_text) if new_text != text else None) \
+        or notes_problem(text, new_text, outcomes) or review_mismatch(new_text, outcomes, review)
+    if problem:
+        return problem
+    bullets = review_bullets(outcomes)
+    if len(bullets) != len(review) or any(piece not in " ".join(bullets) for _, piece, _, _ in review):
+        return "the pull request body lists %r under its review heading, expected %d place(s)" % (
+            bullets, len(review))
+    return None
+
+
+def remembering(render):
+    """"render" (render_with_keys) answering from memory for a file it has rendered with the same keys
+    before. The deletion code renders one file for every set of keys again and again, and each case
+    asks it for several deletions; a key the file does not read changes nothing, so the sets that
+    differ by one alone are one rendering."""
+    memory = {}
+    read = {}
+
+    def remembered(text, given):
+        if text not in read:
+            try:
+                import jinja2.meta
+                from jinja2.sandbox import SandboxedEnvironment
+                tree = SandboxedEnvironment().parse(text)
+                read[text] = jinja2.meta.find_undeclared_variables(tree) & set(PROVIDER_KEY_VARIABLES)
+            except Exception:  # not valid Jinja: the rendering says so itself
+                return render(text, given)
+        key = (text, frozenset(read[text] if given is None else read[text] & set(given)))
+        if key not in memory:
+            try:
+                memory[key] = (render(text, given), None)
+            except RenderError as error:
+                memory[key] = (None, error)
+        rendering, error = memory[key]
+        if error is not None:
+            raise error
+        return rendering
+
+    return remembered
+
+
+def run_real_cases():
+    real = render_with_keys
+    globals()["render_with_keys"] = remembering(real)
+    try:
+        return real_cases_failures()
+    finally:
+        globals()["render_with_keys"] = real
+
+
+def real_cases_failures():
+    failures = 0
+    for purpose, setup, wanted, changes, refusals, review in REAL_CASES:
+        text = edited(REAL_TEMPLATE, setup, purpose)
+        expected = edited(text, changes, purpose) if text is not None else None
+        if expected is None:
+            failures += 1
+            continue
+        why = real_problem(text, wanted, expected, refusals, review)
+        if why is None and wanted[0][1] in REAL_CRLF:
+            # The same file written with CRLF line endings is edited the same way.
+            def crlf(value):
+                return value.replace("\n", "\r\n")
+
+            why = real_problem(crlf(text), wanted, crlf(expected), refusals, review)
+            why = "with CRLF line endings: %s" % why if why else None
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    failures += real_net_failures()
+
+    purpose = "a file written with CRLF line endings that ends on none still ends on none"
+    setup = ((APPLY_TEMPLATE[APPLY_TEMPLATE.index("\nrouter_settings:\n"):], ""),
+             (groq_entry("later-groq", "later"), groq_entry("later-groq", "later").rstrip("\n")))
+    text = edited(APPLY_TEMPLATE, setup, purpose)
+    expected = edited(text, [('  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"\n\n'
+                              + groq_entry("later-groq", "later").rstrip("\n"),
+                              '  #     api_key: "os.environ/CEREBRAS_API_KEY_SELFTEST"')], purpose)
+    new_text, _ = apply_removals(text.replace("\n", "\r\n"), [("groq", "vendor/later", "retired")])
+    if new_text == expected.replace("\n", "\r\n"):
+        print("selftest: ok -- %s" % purpose)
+    else:
+        failures += 1
+        print("selftest: FAILED (%s) -- got %r" % (purpose, new_text[-80:]))
+
+    # The head table is read line by line: written with CRLF line endings it is not read, so the
+    # models it names stay out of reach, which is a refusal and not a wrong deletion.
+    purpose = "a head table written with CRLF line endings is not read, so a model it names is not deleted"
+    text = REAL_TEMPLATE.replace("\n", "\r\n")
+    new_text, outcomes = apply_removals(text, [("groq", "vendor/q-big", "retired")])
+    if new_text == text and [o["reason"][0] for o in outcomes] == ["stray"]:
+        print("selftest: ok -- %s" % purpose)
+    else:
+        failures += 1
+        print("selftest: FAILED (%s) -- %r" % (purpose, [(o["status"], o["reason"]) for o in outcomes]))
+    return failures
+
+
+def real_net_failures():
+    """The nets behind a deletion, called on their own with results written by hand: a result that
+    breaks only for some sets of provider keys, and a plan that leaves a cascade empty."""
+    failures = 0
+    text = REAL_TEMPLATE
+    key = ("gemini", "gemini-9-mid")
+    good, _ = apply_removals(text, [key + ("retired",)])
+    template, _ = read_template(text)
+    layout = read_layout(text, template)[0]
+    emptying = {("groq", "vendor/q-small")}
+    emptied = finished(layout, plan_lines(layout, emptying)[0])[0]
+    cases = (
+        ("a result that does not render for one set of provider keys is refused", {key},
+         good.replace("general_settings:\n", "{% if not has.Gemini %}\n  broken: [\n{% endif %}\ngeneral_settings:\n"),
+         "does not render when only Groq given"),
+        ("and so is one that holds a cascade for that set only",
+         {key}, good.replace("    # 2. FLASH -- balanced daily driver.\n",
+                             "{% if not has.Gemini %}\n    - extra:\n        - omni-auto\n{% endif %}\n"
+                             "    # 2. FLASH -- balanced daily driver.\n"),
+         "a fallback list the original did not when only Groq given"),
+        ("a plan that leaves a cascade with no member for one set of keys is refused", emptying,
+         emptied, "left with no member when only Groq given"),
+        ("a text that cannot be read is not compared with anything", set(), "model_list: []\n",
+         "the original could not be read back"),
+    )
+    for purpose, keys, result, needle in cases:
+        original = "model_list: [" if "cannot be read" in purpose else text
+        problem = verify_removal(original, keys, result)
+        if good == text or problem is None or needle not in problem:
+            failures += 1
+            print("selftest: FAILED (%s) -- expected %r, got %r" % (purpose, needle, problem))
+        else:
+            print("selftest: ok -- %s" % purpose)
     return failures
 
 
@@ -6880,6 +7782,7 @@ def run_selftest_cases():
     failures += run_confirmation_cases()
     failures += run_lookup_cases()
     failures += run_review_cases()
+    failures += run_real_cases()
     failures += run_keyset_cases()
     failures += run_jinja_net_cases()
     failures += run_hardening_cases()
