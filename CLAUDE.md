@@ -356,8 +356,11 @@ active entry, and a commented-out one says it is "not routed" and why -- and rea
 catalogues weekly, reporting what drifted in one rolling issue for a human to act on. A model its
 provider no longer lists is deleted by that script, not by a model, in a pull request the same
 workflow opens, wherever it can read the result back as the original minus the deletion; what it
-refuses to delete stays a person's, from the issue. An addition, an announced retirement and a model
-free again stay a person's too, since each claim in the list cites the provider's page and the date.
+refuses to delete stays a person's, from the issue. An addition stays a person's too, since each claim
+in the list cites the provider's page and the date: the workflow proposes the new models in two pull
+requests of their own, one for those OpenRouter's API says are free, one for the other providers',
+opened as a draft where the plan allows and to be verified before it is merged, and nothing merges
+either. An announced retirement and a model free again stay a person's, from the issue.
 What the workflow needs and what it refuses to delete are in its header and in the docstring of the
 script.
 
