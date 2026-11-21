@@ -59,11 +59,11 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
-It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the four
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the
 provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
 whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
-the fifteen renders is held to the rules in "check_litellm_config", among them that an alias of a
+these renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
 cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
@@ -1607,7 +1607,7 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "DeepSeek"})
 
 
 def litellm_key_sets():
-    """Every non-empty set of the four provider keys, in a stable order."""
+    """Every non-empty set of the provider keys, in a stable order."""
     names = list(LITELLM_PROVIDERS)
     return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
 
@@ -1616,7 +1616,7 @@ def render_litellm_config(keys):
     """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
     environment = template_environment(
         loader=FileSystemLoader(str(ROLE / "templates")),
-        undefined=jinja2.StrictUndefined,  # the file reads these four variables and nothing else
+        undefined=jinja2.StrictUndefined,  # the file reads these variables and nothing else
         trim_blocks=True,  # the "template" module's default, which the compose render does not need
         keep_trailing_newline=True,
     )

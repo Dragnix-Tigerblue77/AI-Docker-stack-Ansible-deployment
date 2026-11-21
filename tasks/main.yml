@@ -89,7 +89,7 @@
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
-      At least one of the four LiteLLM provider keys of the gateway's account (Gemini, Groq,
+      At least one of the LiteLLM provider keys of the gateway's account (Gemini, Groq,
       OpenRouter, DeepSeek) must be a non-empty string (#296): without one the gateway has no model to
       route to. They are all empty by default, and "LiteLLM_config.yaml.j2" (#2) renders only the
       providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Another account's own
