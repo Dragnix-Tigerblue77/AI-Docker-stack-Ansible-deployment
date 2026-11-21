@@ -1246,12 +1246,14 @@ def read_catalogue(opener, url, headers, reader, next_page):
 
 
 # Where a provider answers for ONE model by its id, on the three whose API reference documents it. A
-# list can omit a model that is still served -- Mistral's omitted one this file routes to, and the
-# check proposed to delete it -- so a model the list does not name is deleted only once the provider
-# has also said, when asked for it directly, that there is no such model. The references document
-# the route and not the status of an unknown id, which is why nothing is deleted on any answer but
-# a 404, and why that 404 is trusted only once the same route has answered 200 for a model the
-# list does name.
+# list can omit a model that is still served -- Gemini's omits a preview model that answers when asked
+# for it -- so a model the list does not name is deleted only once the provider has also said, when
+# asked for it directly, that there is no such model. Mistral answers for the subscription tier of the
+# key: a model of another tier is missing from its list and answers 404 here, while a chat call to it
+# is refused with 403, so for this key that is a retirement and the deletion stands. The references
+# document the route and not the status of an unknown id, which is why nothing is deleted on any
+# answer but a 404, and why that 404 is trusted only once the same route has answered 200 for a model
+# the list does name.
 LOOKUPS = {
     "gemini": "https://generativelanguage.googleapis.com/v1beta/models/",
     "groq": "https://api.groq.com/openai/v1/models/",
