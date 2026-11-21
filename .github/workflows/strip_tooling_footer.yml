@@ -62,14 +62,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The script imports nothing outside the standard library, but the python3 of a runner is
-      # pinned by nobody. "check-latest" is explained in the "yamllint" job of "ansible-ci.yml".
-      - name: Install Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-          check-latest: true
-
+      # The runner's own python3 is enough: the script imports nothing outside the standard library.
       # The event is read from the file GITHUB_EVENT_PATH names, not from an expression.
       - name: Strip the footer
         env:

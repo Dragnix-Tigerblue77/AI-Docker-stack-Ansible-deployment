@@ -30,9 +30,11 @@ The decision reads lines from the end with indices and matches each line against
 pattern, so its cost is linear in the size of the body whatever the body holds.
 
 "main()" reads the event from the file GitHub names in GITHUB_EVENT_PATH, and the body stays data: it
-is never put in a shell command nor in a workflow expression. For a pull request, an issue or a
-comment it edits the text through the REST API, only when its author is the owner, a member or a
-collaborator of the repository, since a stranger's text is none of this script's business. For a
+is never put in a shell command nor in a workflow expression. The event only says WHICH pull request,
+issue or comment to look at: a run can start long after the event, so the script reads the object's
+current state through the REST API and decides on that, never on the body the event carried. It
+edits only when the author of that current state is the owner, a member or a collaborator of the
+repository, since a stranger's text is none of this script's business. For a
 manual run it sweeps every open issue and pull request once, so the posts that already exist are
 cleaned too. It prints one line per edit, with the number and the kind and never the body.
 
@@ -50,6 +52,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -142,7 +145,7 @@ def run(event_name, event, repo, api):
     else:
         path = "/repos/%s/issues/%s" % (repo, obj["number"])
         number = obj["number"]
-    return clean(kind, number, obj, path, api)
+    return clean(kind, number, api("GET", path), path, api)
 
 
 def github_api(token):
@@ -262,47 +265,96 @@ def _selftest():
             failures.append("hostile body (%s) took %.1f s" % (label, elapsed))
     expect("many stacked footers are all removed", stripped(stacked), "T\n" + SIG + "\n")
 
-    # The event handling, against an API that records instead of calling.
+    # The event handling, against an API that records instead of calling. The event names the object;
+    # what is decided on is the object's current state, served from `current`.
     calls = []
 
-    def fake(pages=None):
+    def fake(pages=None, current=None):
         def api(method, path, payload=None):
             calls.append((method, path, payload))
-            if method == "GET":
+            if method == "GET" and "page=" in path:
                 return (pages or {}).get(int(path.rsplit("page=", 1)[1]), [])
+            if method == "GET":
+                found = (current or {})[path]
+                if isinstance(found, Exception):
+                    raise found
+                return found
             return {}
         return api
+
+    kinds = {
+        "pull_request_target": ("pull_request", "/repos/o/r/issues/7", "number"),
+        "issues": ("issue", "/repos/o/r/issues/7", "number"),
+        "issue_comment": ("comment", "/repos/o/r/issues/comments/99", "id"),
+    }
+
+    def handle(name, event_body, current_body, association, current_association=None):
+        """Run one event whose payload carries `event_body` while the object now holds `current_body`."""
+        key, path, ident = kinds[name]
+        event = {key: {ident: 7 if ident == "number" else 99, "body": event_body,
+                       "author_association": association}}
+        now = {"body": current_body, "author_association": current_association or association}
+        del calls[:]
+        return run(name, event, "o/r", fake(current={path: now})), path
 
     dirty = "T\n" + SIG + "\n---\n" + FOOT_NEW
     cleaned = "T\n" + SIG + "\n"
     for association in ("OWNER", "MEMBER", "COLLABORATOR"):
-        for name, key in (("pull_request_target", "pull_request"), ("issues", "issue")):
-            del calls[:]
-            n = run(name, {key: {"number": 7, "body": dirty, "author_association": association}}, "o/r", fake())
+        for name in kinds:
+            n, path = handle(name, dirty, dirty, association)
             expect("%s by %s" % (name, association), (n, calls),
-                   (1, [("PATCH", "/repos/o/r/issues/7", {"body": cleaned})]))
-        del calls[:]
-        n = run("issue_comment", {"comment": {"id": 99, "body": dirty, "author_association": association}},
-                "o/r", fake())
-        expect("comment by %s" % association, (n, calls),
-               (1, [("PATCH", "/repos/o/r/issues/comments/99", {"body": cleaned})]))
+                   (1, [("GET", path, None), ("PATCH", path, {"body": cleaned})]))
     for association in ("NONE", "CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "MANNEQUIN", None):
-        for name, key in (("pull_request_target", "pull_request"), ("issues", "issue")):
-            del calls[:]
-            n = run(name, {key: {"number": 7, "body": dirty, "author_association": association}}, "o/r", fake())
-            expect("stranger %s on %s is left alone" % (association, name), (n, calls), (0, []))
-        del calls[:]
-        n = run("issue_comment", {"comment": {"id": 99, "body": dirty, "author_association": association}},
-                "o/r", fake())
-        expect("stranger %s on a comment is left alone" % association, (n, calls), (0, []))
-    del calls[:]
-    expect("body without footer", run("issues", {"issue": {"number": 1, "body": cleaned,
-                                                          "author_association": "OWNER"}}, "o/r", fake()), 0)
-    expect("no write for a body without footer", calls, [])
-    expect("null body", run("issues", {"issue": {"number": 1, "body": None, "author_association": "OWNER"}},
-                            "o/r", fake()), 0)
+        for name in kinds:
+            n, path = handle(name, dirty, dirty, association)
+            expect("stranger %s on %s is left alone" % (association, name), (n, calls),
+                   (0, [("GET", path, None)]))
+    # The author's trust is judged on the current state, not on the event's.
+    n, path = handle("issues", dirty, dirty, "OWNER", current_association="NONE")
+    expect("current author is a stranger", (n, calls), (0, [("GET", path, None)]))
+    n, path = handle("issues", dirty, dirty, "NONE", current_association="OWNER")
+    expect("current author is trusted", n, 1)
+
+    edited = "Edited by hand.\n\n" + SIG + "\n\n---\n" + FOOT_EDIT + "\n"
+    for name in kinds:
+        n, path = handle(name, dirty, cleaned, "OWNER")
+        expect("%s: the event carries a footer, the current body has none" % name, (n, calls),
+               (0, [("GET", path, None)]))
+        n, path = handle(name, dirty, edited, "OWNER")
+        expect("%s: the PATCH carries the current text, not the event's" % name, (n, calls),
+               (1, [("GET", path, None), ("PATCH", path, {"body": "Edited by hand.\n\n" + SIG + "\n"})]))
+        n, path = handle(name, cleaned, dirty, "OWNER")
+        expect("%s: the event is clean but the current body is not" % name, n, 1)
+        n, path = handle(name, dirty, None, "OWNER")
+        expect("%s: null current body" % name, (n, calls), (0, [("GET", path, None)]))
+        key, path, ident = kinds[name]
+        try:
+            run(name, {key: {"number": 7, "id": 99}}, "o/r", fake(current={path: OSError("boom")}))
+            failures.append("%s: a failing GET must raise" % name)
+        except OSError:
+            pass
     expect("unknown event", run("push", {}, "o/r", fake()), 0)
     expect("missing object", run("issues", {}, "o/r", fake()), 0)
+
+    # A failing GET ends the whole run with exit 1, as a failing PATCH does.
+    real_api, real_env = globals()["github_api"], dict(os.environ)
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            event_file = Path(directory) / "event.json"
+            event_file.write_text(json.dumps({"issue": {"number": 7, "body": dirty,
+                                                        "author_association": "OWNER"}}))
+            os.environ.update({"GH_TOKEN": "x", "GITHUB_REPOSITORY": "o/r", "GITHUB_EVENT_NAME": "issues",
+                               "GITHUB_EVENT_PATH": str(event_file)})
+            globals()["github_api"] = lambda token: fake(current={"/repos/o/r/issues/7": OSError("boom")})
+            with contextlib.redirect_stderr(io.StringIO()):
+                expect("exit code when the GET fails", main(), 1)
+            globals()["github_api"] = lambda token: fake(
+                current={"/repos/o/r/issues/7": {"body": dirty, "author_association": "OWNER"}})
+            expect("exit code when it works", main(), 0)
+    finally:
+        globals()["github_api"] = real_api
+        os.environ.clear()
+        os.environ.update(real_env)
 
     del calls[:]
     pages = {1: [{"number": 1, "body": dirty, "author_association": "OWNER"},
