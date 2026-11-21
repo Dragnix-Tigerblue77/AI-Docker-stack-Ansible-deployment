@@ -307,8 +307,9 @@ THE RANKINGS
 ------------
 Where a NEW model would go in a cascade is a question of figures, which someone used to look up by
 hand: the report now carries them. With MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY set, the run reads
-Artificial Analysis's free API (GET https://artificialanalysis.ai/api/v2/data/llms/models, the key in
-the "x-api-key" header, 1,000 requests a day, one made per run) and the issue gains a table of each
+Artificial Analysis's free API (GET https://artificialanalysis.ai/api/v2/language/models/free, the key
+in the "x-api-key" header, 100 requests per 24 hours, one made per page of the answer and at most
+MAX_PAGES per run) and the issue gains a table of each
 NEW model's intelligence index, coding index, output speed and blended price, then a suggested place
 per router: before the first member of that router's cascade the ranking scores lower on the figure
 that decides it (intelligence for "pro", "flash" and "claude-code", coding for "code", speed for
@@ -318,7 +319,17 @@ use of that API ask, and the figures are shown as published.
 * It is optional the way a provider's key is, and no more than that: without the key the report says
   "not covered" and the run is the same; a failed read is reported, with the HTTP status and nothing
   else, and changes neither the exit status, nor what the run covers, nor what it deletes. The
-  ranking is not a catalogue of a provider, so it is kept out of "result[providers]" for this.
+  ranking is not a catalogue of a provider, so it is kept out of "result[providers]" for this. An
+  answer is read page by page ("page" parameter) for as long as its "pagination.has_more" says so;
+  one still saying so after MAX_PAGES is a failed read, not a partial one, since a table made of a
+  part of the models would place a new one against the wrong neighbours. The endpoint this replaces
+  (/api/v2/data/llms/models) was retired by Artificial Analysis and answers 410 Gone, which is
+  reported like any other status.
+* The figures are read from the shape the free tier documents: the indexes under "evaluations", the
+  speed under "performance" and the two prices under "pricing". That tier publishes no blended
+  price, so the one shown is the 3 to 1 blend of input and output Artificial Analysis defines for it,
+  computed here, and none when either price is missing. Its reference marks the coding index and
+  "performance" deprecated: when they go, the figure is none and the table shows a dash.
 * The matching is a guess and is shown as one. A NEW model is matched to an entry of the ranking
   only when the last segment of its id, or the provider's name for it, equals that entry's slug or
   name once squashed to lower-case letters and digits, of four characters at least ("o3" says too
@@ -1284,7 +1295,7 @@ def diff(provider, catalogue, active, commented, ignored):
 # read is reported and changes neither the exit status nor what the run may delete.
 
 RANKING_KEY = "MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"
-RANKING_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
+RANKING_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
 RANKING_SITE = "https://artificialanalysis.ai/"
 # The router and the figure that decides its place. "claude-code" is held to strict tool calls and
 # a long context besides, which a score does not say: the report says so, and nothing here applies.
@@ -1324,11 +1335,26 @@ def speed_figure(value):
     return speed if speed is not None and speed > 0 else None
 
 
+def blended_price(price_in, price_out):
+    """The price per million tokens at three input tokens to one output, as Artificial Analysis blends
+    it, or None when either price is not a figure: the free tier publishes the two and not the blend."""
+    price_in, price_out = figure(price_in), figure(price_out)
+    return None if price_in is None or price_out is None else (3 * price_in + price_out) / 4
+
+
+def has_more_pages(payload):
+    """Whether the page says another follows: only an explicit true does, so a page without
+    "pagination" is the last one."""
+    pagination = payload.get("pagination") if isinstance(payload, dict) else None
+    return isinstance(pagination, dict) and pagination.get("has_more") is True
+
+
 def read_ranking_models(payload):
-    """The models of the LLMs endpoint, as documented on its API reference: a "data" list of objects
-    with "name", "slug", "evaluations" (the intelligence and coding indexes), "pricing" and
-    "median_output_tokens_per_second". Anything else in an object is ignored and a missing figure is
-    None; what is shown of it is cut to plain words, since the answer is untrusted text."""
+    """The models of one page of the free language models endpoint, as documented on its API reference:
+    a "data" list of objects with "name", "slug", "evaluations" (the intelligence and coding indexes),
+    "pricing" and "performance" (the median output speed). Anything else in an object is ignored and a
+    missing figure is None; what is shown of it is cut to plain words, since the answer is untrusted
+    text."""
     items = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(items, list):
         raise FetchError('the answer holds no "data" list')
@@ -1338,6 +1364,7 @@ def read_ranking_models(payload):
             continue
         evaluations = item.get("evaluations") if isinstance(item.get("evaluations"), dict) else {}
         pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
+        performance = item.get("performance") if isinstance(item.get("performance"), dict) else {}
         creator = item.get("model_creator") if isinstance(item.get("model_creator"), dict) else {}
         slug = item.get("slug") if isinstance(item.get("slug"), str) else ""
         models.append({
@@ -1346,8 +1373,8 @@ def read_ranking_models(payload):
             "keys": {key for key in (squash(slug), squash(item["name"])) if len(key) >= RANKING_MIN_KEY},
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": figure(evaluations.get("artificial_analysis_coding_index")),
-            "speed": speed_figure(item.get("median_output_tokens_per_second")),
-            "price": figure(pricing.get("price_1m_blended_3_to_1")),
+            "speed": speed_figure(performance.get("median_output_tokens_per_second")),
+            "price": blended_price(pricing.get("price_1m_input_tokens"), pricing.get("price_1m_output_tokens")),
         })
     return models
 
@@ -1361,10 +1388,16 @@ def read_rankings(opener, environment, today):
         return ranking
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json", "x-api-key": key}
     try:
-        payload = fetch_json(opener, RANKING_URL, headers)
-        ranking["models"] = read_ranking_models(payload)
+        for number in range(1, MAX_PAGES + 1):
+            payload = fetch_json(opener, "%s?page=%d" % (RANKING_URL, number), headers)
+            ranking["models"] += read_ranking_models(payload)
+            if not has_more_pages(payload):
+                break
+        else:
+            raise FetchError("the ranking source still has pages after %d" % MAX_PAGES)
     except FetchError as error:
         ranking["status"] = "error"
+        ranking["models"] = []
         ranking["error"] = scrub(str(error), environment)
     return ranking
 
@@ -3637,13 +3670,20 @@ SELFTEST_KEYS = {
 
 
 def canned_opener(answers, calls):
-    """An opener serving "answers" by provider. An answer that is an exception is raised."""
+    """An opener serving "answers" by provider. An answer that is an exception is raised. The ranking
+    source's answer is a list of pages, or a single page served for every page asked for."""
     urls = {name: url for name, url, _, _, _, _ in PROVIDERS}
 
     def opener(url, headers):
         calls.append((url, dict(headers)))
-        if url == RANKING_URL:
+        if url.startswith(RANKING_URL):
             answer = answers["rankings"]
+            if isinstance(answer, list):
+                # One answer per page, asked for as "?page=N": a page nobody wrote is a read too far.
+                number = int(url.rsplit("page=", 1)[1])
+                if number > len(answer):
+                    raise AssertionError("the ranking source was asked for page %d of %d" % (number, len(answer)))
+                answer = answer[number - 1]
             if isinstance(answer, Exception):
                 raise answer
             return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
@@ -4744,13 +4784,22 @@ def ranking_model(slug, name, intelligence=None, coding=None, speed=None, price=
     return {"id": "aa-" + slug, "name": name, "slug": slug,
             "model_creator": {"id": "c-1", "name": creator, "slug": squash(creator)},
             "evaluations": {"artificial_analysis_intelligence_index": intelligence,
-                            "artificial_analysis_coding_index": coding, "livecodebench": 0.5},
-            "pricing": {"price_1m_blended_3_to_1": price, "price_1m_input_tokens": 1.0,
-                        "price_1m_output_tokens": 2.0},
-            "median_output_tokens_per_second": speed, "median_time_to_first_token_seconds": 1.2}
+                            "artificial_analysis_coding_index": coding,
+                            "artificial_analysis_agentic_index": 1.0},
+            "pricing": {"price_1m_input_tokens": price, "price_1m_output_tokens": price,
+                        "price_1m_cache_hit_tokens": None, "price_1m_cache_write_tokens": None},
+            "performance": {"median_output_tokens_per_second": speed,
+                            "median_time_to_first_token_seconds": 1.2}}
 
 
 RANKING_KEYS = dict(SELFTEST_KEYS, MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY="selftest-artificial-analysis-key-SECRET")
+
+
+def ranking_page(*aa_models, number=1, more=False):
+    """One page of the free endpoint's answer, with its documented pagination block."""
+    return {"tier": "free", "intelligence_index_version": 4.0,
+            "pagination": {"page": number, "page_size": 200, "total_pages": number + more, "has_more": more},
+            "data": list(aa_models)}
 
 
 def ranking_answers(*aa_models, openrouter_extra=()):
@@ -4761,8 +4810,7 @@ def ranking_answers(*aa_models, openrouter_extra=()):
         model = openrouter_model(identifier)
         model["name"] = label
         answers["openrouter"]["data"].append(model)
-    answers["rankings"] = {"status": 200, "prompt_options": {"parallel_queries": 1, "prompt_length": "medium"},
-                           "data": list(aa_models)}
+    answers["rankings"] = ranking_page(*aa_models)
     return answers
 
 
@@ -4801,7 +4849,7 @@ def run_ranking_cases():
     result, calls, report, body = ranking_run(SELFTEST_KEYS, base)
     judged("without its key the ranking source is not covered, never called, and the run is the same",
            first_wrong(
-               (not any(url == RANKING_URL for url, _ in calls), "the ranking source was called without a key"),
+               (not any(url.startswith(RANKING_URL) for url, _ in calls), "the ranking source was called without a key"),
                ("rankings    not covered (no key): MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY is unset" in report,
                 "the report does not say the key is missing"),
                ("| Artificial Analysis (classements) | non couvert (pas de clé : secret "
@@ -4812,13 +4860,16 @@ def run_ranking_cases():
 
     # A key: the figures, the matching said to be a guess, the places, the source named.
     result, calls, report, body = ranking_run(RANKING_KEYS, base)
-    sent = [headers for url, headers in calls if url == RANKING_URL]
+    sent = [headers for url, headers in calls if url.startswith(RANKING_URL)]
     section = body.split("## Classement des nouveaux modèles")[1].split("\n## ")[0] if "## Classement des nouveaux modèles" in body else ""
     judged("with its key the NEW models get their figures, a guessed matching, a place per router and the source",
            first_wrong(
                (len(sent) == 1 and sent[0].get("x-api-key") == RANKING_KEYS["MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"],
                 "the key was not sent once in x-api-key"),
                (not any("SECRET" in url for url, _ in calls), "a key was put in a URL"),
+               ([url for url, _ in calls if url.startswith("https://artificialanalysis.ai/")]
+                == ["https://artificialanalysis.ai/api/v2/language/models/free?page=1"],
+                "the free endpoint was not asked for its first page, once"),
                ("<https://artificialanalysis.ai/>" in section and "Terms of Use" in section, "the source is not named"),
                ("| `openrouter/vendor/fresh-model:free` | Fresh Model" in section and "par l'identifiant : à vérifier" in section
                 and "| 55.0 | 70.0 | 250.0 | 1.5 |" in section, "the matched row is wrong: %s" % section[:900]),
@@ -4953,6 +5004,77 @@ def run_ranking_cases():
            first_wrong(([model["speed"] for model in models] == [None, None, 12.5],
                         "the speeds read are %r" % [model["speed"] for model in models])))
 
+    # Pages: every page is asked for and read, in order, with the key, up to the one that says it is the last.
+    whole = ranking_run(RANKING_KEYS, base)
+    paged = dict(base, rankings=[ranking_page(top, mid, low, more=True),
+                                 ranking_page(fresh, shiny, *twins, number=2)])
+    result, calls, report, body = ranking_run(RANKING_KEYS, paged)
+    asked = [(url, headers) for url, headers in calls if url.startswith(RANKING_URL)]
+    judged("two pages of the ranking source are both read, in order, and give what one page holding them all gives",
+           first_wrong(
+               ([url for url, _ in asked] == [RANKING_URL + "?page=1", RANKING_URL + "?page=2"],
+                "the pages asked for are %r" % [url for url, _ in asked]),
+               (all(headers.get("x-api-key") == RANKING_KEYS["MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"]
+                    for _, headers in asked), "a page was asked for without the key"),
+               (result["rankings"]["status"] == "read" and len(result["rankings"]["models"]) == 7,
+                "the models read are %r" % (result["rankings"],)),
+               (body == whole[3] and report == whole[2], "the output differs from a single page's")))
+
+    # The shape of the free tier: the speed under "performance" (a top-level one is the retired shape's),
+    # the blended price made of the two published ones.
+    legacy = ranking_model("legacy-model", "Legacy Model", 1, None, None, 1.0)
+    legacy["median_output_tokens_per_second"] = 99.0
+    half_priced = ranking_model("half-model", "Half Model", 1, None, 10.0, 1.0)
+    half_priced["pricing"]["price_1m_output_tokens"] = None
+    blend = ranking_model("blend-model", "Blend Model", 1, None, 10.0, 1.0)
+    blend["pricing"].update(price_1m_input_tokens=1.0, price_1m_output_tokens=5.0)
+    shaped = ranking_model("shaped-model", "Shaped Model", 1, 2, 10.0, 1.0)
+    shaped["performance"], shaped["pricing"], shaped["evaluations"] = "fast", [], None
+    models = {model["name"]: model for model in read_ranking_models(
+        {"data": [legacy, half_priced, blend, shaped, ranking_model("fast-model", "Fast Model", 1, None, 42.5, 1.0)]})}
+    judged("the speed is read from performance, the blended price from the input and output prices, and a field of the wrong shape is none",
+           first_wrong(
+               (models["Fast Model"]["speed"] == 42.5, "the speed under performance was not read: %r" % models["Fast Model"]),
+               (models["Legacy Model"]["speed"] is None, "a top-level speed was read"),
+               (models["Blend Model"]["price"] == 2.0, "the blend is %r, not 2.0" % models["Blend Model"]["price"]),
+               (models["Half Model"]["price"] is None, "a price missing its output side was blended"),
+               (all(models["Shaped Model"][key] is None for key in ("speed", "price", "intelligence", "coding")),
+                "a field of the wrong shape gave a figure: %r" % models["Shaped Model"])))
+
+    # Only an explicit true asks for another page: any other pagination block is the last page.
+    for pagination in ({"has_more": "false"}, {"has_more": 1}, {"page": 1}, "more", ["has_more"], None):
+        odd = dict(ranking_page(top), pagination=pagination)
+        result, calls, report, body = ranking_run(RANKING_KEYS, dict(base, rankings=odd))
+        judged("a pagination block of %r is the last page" % (pagination,), first_wrong(
+            (len([url for url, _ in calls if url.startswith(RANKING_URL)]) == 1, "another page was asked for"),
+            (result["rankings"]["status"] == "read" and len(result["rankings"]["models"]) == 1,
+             "got %r" % (result["rankings"],))))
+
+    # A source that never says it is done: stopped at MAX_PAGES and reported, not read in part.
+    result, calls, report, body = ranking_run(RANKING_KEYS, dict(base, rankings=ranking_page(top, more=True)))
+    judged("a page loop that never ends stops at MAX_PAGES and is reported, with nothing of what it read",
+           first_wrong(
+               (len([url for url, _ in calls if url.startswith(RANKING_URL)]) == MAX_PAGES,
+                "the source was asked %d times" % len([url for url, _ in calls if url.startswith(RANKING_URL)])),
+               (result["rankings"]["status"] == "error" and "still has pages after %d" % MAX_PAGES in result["rankings"]["error"],
+                "got %r" % (result["rankings"],)),
+               (result["rankings"]["models"] == [] and result["ranked"] == [], "a partial read was used"),
+               ("rankings    ERROR, not read: " in report and "## Classements non lus" in body, "the failure is not reported"),
+               (exit_status(result) == 1 and is_complete(result), "the failure moved the exit status or the coverage")))
+
+    # A page that fails or is shaped wrongly after a good one fails the whole read.
+    for purpose, pages, wanted in (
+            ("a second page that answers 410 is reported as its status, and the first page's models are not kept",
+             [ranking_page(top, more=True), urllib.error.HTTPError("https://selftest.invalid/", 410, "Gone", None, io.BytesIO(b""))],
+             "HTTP 410"),
+            ("a second page that holds no data list is reported, and the first page's models are not kept",
+             [ranking_page(top, more=True), [top]], 'the answer holds no "data" list')):
+        result, calls, report, body = ranking_run(RANKING_KEYS, dict(base, rankings=pages))
+        judged(purpose, first_wrong(
+            (result["rankings"]["status"] == "error" and wanted in result["rankings"]["error"], "got %r" % (result["rankings"],)),
+            (result["rankings"]["models"] == [] and result["ranked"] == [], "models of the first page were kept"),
+            (exit_status(result) == 1 and is_complete(result), "the failure moved the exit status or the coverage")))
+
     # Errors: reported, scrubbed, and never an error of the run.
     for purpose, answer, wanted in (
             ("a 401 whose body echoes the key is reported as its status, the key is gone, and the run goes on",
@@ -4960,6 +5082,10 @@ def run_ranking_cases():
             ("a network error whose reason carries the key is reported with the key scrubbed",
              urllib.error.URLError("tunnel refused for selftest-artificial-analysis-key-SECRET"),
              "network error: tunnel refused for ***"),
+            ("a 410, the status of the retired endpoint, is reported as its status",
+             urllib.error.HTTPError("https://selftest.invalid/", 410, "Gone", None, io.BytesIO(b"")), "HTTP 410"),
+            ("an answer that is a list and not an object is reported",
+             [[]], 'the answer holds no "data" list'),
             ("an answer that is not JSON is reported",
              b"<html>maintenance</html>", "the answer is not JSON"),
             ("an answer without its data list is reported",
