@@ -23,29 +23,57 @@ added or changed, a row naming something that is no entry of the file, one testi
 template does not declare, one with a condition the form does not have, one with Jinja in it, rows
 exchanged, a row moved, a row repeated, a table the base did not have.
 
+The same step keeps the two pull requests of additions, and builds the template each carries from a
+provider, an id and a name per model, between the "BEGIN/END additions builder" markers. That builder
+is played on the real template and on a miniature one: what it must build -- every provider, active
+and commented-out anchors, a run shared by two providers -- has to be, character for character, what
+the drift script's own build_additions() builds, and has to read back as the file plus those entries;
+what it must refuse -- an id or a name of another spelling (a newline, a quote, Jinja, a trailing
+colon), a name that is a word of the file, a provider that is no key of its table ("__proto__"
+included), an item of another shape, an id already an entry or set aside, an entry with a literal key
+or an "http" base to model one on, a date, a kind or a number of items out of bounds -- the script
+must refuse too. Then the whole step is played against a made-up GitHub: both opened, the one to
+verify as a draft and ready for review where drafts are refused; a week with the same proposals that
+writes nothing; a week with others that rewrites both, keeping a ticked box and the draft; closing
+when nothing is left, and not when a catalogue was not read, a provider failed or the report was not
+trusted; a week that changes nothing but the days of the comments, which pushes nothing; a person's
+commit with the pull request open (left alone) and without (the step fails); the script's template
+differing from the one built; proposals of another shape or a status the step does not know; a failing
+deletion that leaves the additions done; a commit of the other job that is not on main. The deletions,
+which share the step's code with them, are played the same way: pushed and opened ready for review, a
+line added refused, a person's commit failing the step, closed when nothing is left.
+
 "--selftest" proves the scenarios can fail: it breaks the function one guard at a time and requires
-some scenario to notice each. A guard no scenario notices is one this check cannot vouch for.
+some scenario to notice each, then does the same to the builder and the step. A guard no scenario
+notices is one this check cannot vouch for.
 
 WHAT IT DOES NOT PROVE
 ----------------------
 That the step calls the function on what it reads from GitHub: the wiring is checked as text. Nor
 that "the rows of the table written again" are right -- "check_compose_template.py" holds each alias
-to the first member of its cascade for every set of keys. Node is needed on the PATH.
+to the first member of its cascade for every set of keys. Nor that GitHub answers as the made-up one
+does: its answers are octokit's as the documentation gives them, not recorded, and the refusal of a
+draft is matched on its status and the word "draft" alone. Node is needed on the PATH, and PyYAML
+and Jinja2, since the drift script is imported to compare its build with the step's.
 """
 
+import base64
+import hashlib
+import importlib.util
 import json
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "LiteLLM_model_drift.yml"
 TEMPLATE = ROOT / "templates" / "LiteLLM_config.yaml.j2"
-STEP = "Open, update or close the deletion pull request"
+STEP = "Open, update or close the drift pull requests"
 BEGIN, END = "// BEGIN template guard", "// END template guard"
 
 HARNESS = r"""
@@ -258,9 +286,709 @@ def run_selftest():
     return 0
 
 
+# ---------------------------------------------------------------------------------------------------
+# The additions: the builder of the template, and the step's handling of the two pull requests
+# ---------------------------------------------------------------------------------------------------
+
+DRIFT_SCRIPT = ROOT / ".github" / "scripts" / "check_LiteLLM_model_drift.py"
+BUILDER_BEGIN, BUILDER_END = "// BEGIN additions builder", "// END additions builder"
+BASE_SHA = "0123456789abcdef0123456789abcdef01234567"
+
+BUILDER_HARNESS = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const { additionsTemplate } = new Function(input.builder + '\nreturn { additionsTemplate };')();
+process.stdout.write(JSON.stringify(input.cases.map((c) => {
+  const built = additionsTemplate(c.base, c.date, c.kind, c.items);
+  return built.problem !== undefined ? { problem: String(built.problem) } : { text: built.text };
+})));
+"""
+
+# Plays the whole step against a made-up GitHub, which keeps the branches and the pull requests a
+# scenario starts from and records every call: the same objects github-script hands a script.
+STEP_HARNESS = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const crypto = require('crypto');
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const fail = (message, status) => Object.assign(new Error(message), { status });
+
+async function play(scenario) {
+  const run = new AsyncFunction('github', 'context', 'core', 'process', 'require', input.script);
+  const calls = [];
+  const notices = [];
+  const warnings = [];
+  const failures = [];
+  const outputs = {};
+  const refs = JSON.parse(JSON.stringify(scenario.refs));
+  const pulls = JSON.parse(JSON.stringify(scenario.pulls));
+  let next = 101;
+  let commits = 1;
+  const record = (name, args) => calls.push({ name, args });
+  const tree = (base64) => 'tree-' + crypto.createHash('sha1').update(base64).digest('hex');
+  const github = { rest: {
+    pulls: {
+      list: async (args) => {
+        record('pulls.list', args);
+        const branch = args.head.split(':')[1];
+        if (scenario.broken === branch) throw fail('made-up failure', 500);
+        return { data: pulls.filter((pull) => pull.state === 'open' && pull.head.ref === branch) };
+      },
+      create: async (args) => {
+        record('pulls.create', args);
+        if (args.draft && scenario.noDrafts) throw fail('Validation Failed: Draft pull requests are not supported in this repository.', 422);
+        const pull = { number: next++, title: args.title, body: args.body, draft: args.draft, state: 'open', head: { ref: args.head } };
+        pulls.push(pull);
+        return { data: pull };
+      },
+      update: async (args) => {
+        record('pulls.update', args);
+        const pull = pulls.find((each) => each.number === args.pull_number);
+        for (const key of ['title', 'body', 'state']) if (args[key] !== undefined) pull[key] = args[key];
+        return { data: pull };
+      },
+    },
+    issues: { createComment: async (args) => { record('issues.createComment', args); return { data: {} }; } },
+    git: {
+      getRef: async (args) => {
+        record('git.getRef', args);
+        const ref = refs[args.ref.replace(/^heads\//, '')];
+        if (!ref) throw fail('Not Found', 404);
+        return { data: { object: { sha: ref.sha } } };
+      },
+      getCommit: async (args) => {
+        record('git.getCommit', args);
+        if (args.commit_sha === input.base) return { data: { tree: { sha: 'base-tree' } } };
+        const ref = Object.values(refs).find((each) => each.sha === args.commit_sha);
+        if (!ref) throw fail('unexpected commit ' + args.commit_sha, 500);
+        return { data: { tree: { sha: ref.tree } } };
+      },
+      createBlob: async (args) => { record('git.createBlob', args); return { data: { sha: tree(args.content) } }; },
+      createTree: async (args) => { record('git.createTree', args); return { data: { sha: args.tree[0].sha } }; },
+      createCommit: async (args) => { record('git.createCommit', args); return { data: { sha: 'commit-' + commits++ } }; },
+      updateRef: async (args) => { record('git.updateRef', args); refs[args.ref.replace(/^heads\//, '')].sha = args.sha; return { data: {} }; },
+      createRef: async (args) => { record('git.createRef', args); refs[args.ref.replace(/^refs\/heads\//, '')] = { sha: args.sha, tree: null, commits: [] }; return { data: {} }; },
+    },
+    repos: {
+      compareCommitsWithBasehead: async (args) => {
+        record('repos.compare', args);
+        const [left, right] = args.basehead.split('...');
+        if (left === 'main') {
+          const ref = Object.values(refs).find((each) => each.sha === right);
+          const commits = (ref?.commits ?? []).map((each) => ({ sha: each.sha, commit: { author: { name: each.author } }, parents: each.parents }));
+          return { data: { commits, total_commits: commits.length } };
+        }
+        return { data: { status: scenario.ancestry } };
+      },
+      getContent: async (args) => {
+        record('repos.getContent', args);
+        const ref = Object.values(refs).find((each) => each.sha === args.ref);
+        if (!ref && args.ref !== input.base) throw fail('unexpected ref ' + args.ref, 500);
+        return { data: { type: 'file', encoding: 'base64', content: Buffer.from(ref ? ref.text : scenario.baseText ?? input.baseText).toString('base64') } };
+      },
+    },
+    actions: {
+      listWorkflowRuns: async (args) => { record('actions.listWorkflowRuns', args); return { data: { total_count: 0 } }; },
+      createWorkflowDispatch: async (args) => { record('actions.createWorkflowDispatch', args); return {}; },
+    },
+  } };
+  const core = {
+    notice: (message) => notices.push(String(message)),
+    warning: (message) => warnings.push(String(message)),
+    error: (message) => failures.push(String(message)),
+    setFailed: (message) => failures.push(String(message)),
+    setOutput: (name, value) => { outputs[name] = value; },
+  };
+  const context = { repo: { owner: 'o', repo: 'r' } };
+  let crashed = null;
+  try {
+    await run(github, context, core, { env: scenario.env }, require);
+  } catch (error) {
+    crashed = String(error && error.stack || error);
+  }
+  return { calls, notices, warnings, failures, outputs, refs, pulls, crashed };
+}
+
+(async () => {
+  const out = [];
+  for (const scenario of input.scenarios) out.push(await play(scenario));
+  process.stdout.write(JSON.stringify(out));
+})();
+"""
+
+
+def drift_module():
+    """The drift script, imported: its build_additions is what the builder of the step must agree with."""
+    spec = importlib.util.spec_from_file_location("check_LiteLLM_model_drift", DRIFT_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def step_document():
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = document["jobs"]["publish"]["steps"]
+    step = next((step for step in steps if step.get("name") == STEP), None)
+    if step is None:
+        raise SystemExit("the step %r is not in %s" % (STEP, WORKFLOW.name))
+    return document, step
+
+
+def load_builder():
+    _, step = step_document()
+    script = step["with"]["script"]
+    if script.count(BUILDER_BEGIN) != 1 or script.count(BUILDER_END) != 1:
+        raise SystemExit("the step's script must hold the markers %r and %r once each"
+                         % (BUILDER_BEGIN, BUILDER_END))
+    # The wiring: the step builds the template from the items, and pushes only that text, and only
+    # when the script's own build is the same.
+    for pattern, what in (
+            (r"const built = additionsTemplate\(baseText, proposals\.date, kind, part\.items\);",
+             "build the template from the validated items"),
+            (r"if \(handed !== built\.text\) \{\s*core\.setFailed\([^;]*\);\s*return;\s*\}",
+             "stop when the script's build is another text"),
+            (r"const content = kept !== null && onlyDaysDiffer\(kept, built\.text, baseText\) \? kept : built\.text;",
+             "push the text it built, or the branch's own where only the days differ"),
+            (r"publish\(spec\.branch, head, content, message,", "push that text")):
+        if not re.search(pattern, script):
+            raise SystemExit("the step does not %s" % what)
+    return script.split(BUILDER_BEGIN, 1)[1].split(BUILDER_END, 1)[0]
+
+
+def node(harness, payload):
+    if shutil.which("node") is None:
+        raise SystemExit("node is not on the PATH: this check runs the step's script with it.")
+    done = subprocess.run(["node", "-e", harness], input=json.dumps(payload), capture_output=True,
+                          text=True, check=False, timeout=300)
+    if done.returncode != 0:
+        raise SystemExit("node failed:\n%s" % (done.stderr or done.stdout)[-1500:])
+    return json.loads(done.stdout)
+
+
+def item(provider, identifier, name):
+    return {"provider": provider, "id": identifier, "name": name}
+
+
+VERIFIED = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
+            item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free")]
+TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
+             item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
+             item("cerebras", "zai-glm-9", "zai-glm-9-cerebras"),
+             item("sambanova", "DeepSeek-V9", "deepseek-v9-sambanova")]
+
+
+
+def builder_scenarios(real, drift):
+    """[(name, base, date, kind, items, expected)], "expected" None for a file both builders must write
+    alike, or a text the step's reason for refusing contains (the script must refuse it too)."""
+    out = []
+    date = "2026-11-23"
+    miniature = drift.ADDITIONS_TEMPLATE
+
+    def add(name, items, expected=None, base=real, kind="verified", day=date):
+        out.append((name, base, day, kind, items, expected))
+
+    add("real template: OpenRouter's free models", VERIFIED)
+    add("real template: one model of every other provider", TO_VERIFY, kind="to_verify")
+    add("miniature: a provider with commented-out entries only is followed commented out, after its run",
+        [item("cerebras", "cb-three", "cb-three-cerebras")], base=miniature, kind="to_verify")
+    add("miniature: a commented-out entry with a base is followed with that base",
+        [item("sambanova", "sn-two", "sn-two-sambanova")], base=miniature, kind="to_verify")
+    add("miniature: a provider with both follows its last active entry",
+        [item("gemini", "gem-two", "gem-two")], base=miniature, kind="to_verify")
+    add("miniature: two models of one provider follow each other",
+        [item("openrouter", "vendor/a:free", "a-free"), item("openrouter", "vendor/b:free", "b-free")],
+        base=miniature)
+    hostile_ids = ("vendor/a b:free", "vendor/x:free\n  - model_name: evil", "{{ 7 * 7 }}:free",
+                   "vendor/a::b:free", "vendor//a:free", "vendor/a:free:", "vendor/\"a:free",
+                   "vendor/#a:free", "-vendor/a:free", "vendor/a:free'", "x" * 200 + ":free",
+                   "vendor/a:free\r", "vendor/a:free`")
+    for identifier in hostile_ids:
+        add("an id spelt otherwise is refused: %r" % identifier[:40],
+            [item("openrouter", identifier, "a-free")], "an id is not spelt like one")
+    for name in ("Evil", "a_b", "-a", "a-", "a--b", "a b", "a\nb", "a" * 81, "", "a.b"):
+        add("a name spelt otherwise is refused: %r" % name[:20], [item("openrouter", "vendor/a:free", name)],
+            "a name is not spelt like the file's")
+    add("a name that is a word of the template is refused (a router)", [item("openrouter", "vendor/a:free", "flash")],
+        "already a word of the template")
+    add("a name that is a word of the template is refused (an entry)",
+        [item("openrouter", "vendor/a:free", "gemma-4-31b-free")], "already a word of the template")
+    add("two items of one name are refused", [item("openrouter", "vendor/a:free", "same-free"),
+                                              item("openrouter", "vendor/b:free", "same-free")],
+        "already a word of the template or another item's")
+    for provider in ("__proto__", "constructor", "toString", "hasOwnProperty", "openai", "OpenRouter", ""):
+        add("a provider this does not read is refused: %r" % provider,
+            [item(provider, "vendor/a:free", "a-free")], "names no provider")
+    add("a provider that is no text is refused", [{"provider": ["openrouter"], "id": "vendor/a:free", "name": "a-free"}],
+        "names no provider")
+    add("an item with a key more is refused", [dict(item("openrouter", "vendor/a:free", "a-free"), api_base="https://x")],
+        "an item is not")
+    add("an item with a key less is refused", [{"provider": "openrouter", "id": "vendor/a:free"}], "an item is not")
+    add("an item that is a list is refused", [["openrouter", "vendor/a:free", "a-free"]], "an item is not")
+    add("an item that is nothing is refused", [None], "an item is not")
+    add("an id that is no text is refused", [{"provider": "openrouter", "id": 7, "name": "a-free"}], "an id is not")
+    add("a verified model of another provider is refused", [item("gemini", "gemini-9", "gemini-9")],
+        "OpenRouter's, and only they")
+    add("an OpenRouter model to verify is refused", [item("openrouter", "vendor/a:free", "a-free")],
+        "OpenRouter's, and only they", kind="to_verify")
+    add('a verified id without ":free" is refused', [item("openrouter", "vendor/a", "a-free")],
+        'does not end in ":free"')
+    add("an id already an entry is refused", [item("openrouter", "google/gemma-4-31b-it:free", "fresh-free")],
+        "is already an entry")
+    add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
+        "is already an entry", base=miniature, kind="to_verify")
+    add("an id set aside by drift-ignore is refused", [item("openrouter", "vendor/set-aside:free", "fresh-free")],
+        "set aside by a drift-ignore line", base=miniature)
+    add("a provider without an entry to model one on is refused", [item("mistral", "magistral-9", "magistral-9")],
+        "no entry of mistral", base=miniature, kind="to_verify")
+    add("an entry whose key is not read from the environment is not modelled on",
+        [item("groq", "vendor/fresh", "fresh-groq")], "is not read from the environment",
+        base=miniature, kind="to_verify")
+    add("an entry whose base is not https is not modelled on",
+        [item("deepseek", "fresh", "fresh-direct")], "is not a plain https address",
+        base=miniature, kind="to_verify")
+    add("a date that is no date is refused", VERIFIED, "the date is no date", day="2026-11-23\n")
+    add("an unknown kind is refused", VERIFIED, "neither verified nor to_verify", kind="both")
+    add("no item at all is refused", [], "there are no items")
+    add("more items than a pull request carries are refused",
+        [item("openrouter", "vendor/m%d:free" % number, "m%d-free" % number) for number in range(26)],
+        "more than 25")
+    add("a base with carriage returns is refused", VERIFIED, "plain line feeds", base=real.replace("\n", "\r\n"))
+    add("a base without a model list is refused", VERIFIED, 'no "model_list:" line',
+        base=real.replace("model_list:", "models:"))
+    return out
+
+
+def judge_builder(cases, results, drift):
+    """[(name, why)] of the builder scenarios that went wrong, the script's build_additions judged on
+    each beside the step's."""
+    wrong = []
+    for (name, base, date, kind, items, expected), got in zip(cases, results):
+        text, problem = drift.build_additions(base, date, kind, items)
+        if expected is None:
+            if "problem" in got:
+                wrong.append((name, "the step refused it: %s" % got["problem"]))
+            elif problem is not None:
+                wrong.append((name, "the script refused it: %s" % problem))
+            elif got["text"] != text:
+                wrong.append((name, "the step and the script do not build the same text"))
+            elif drift.addition_problem(base, text, items) is not None:
+                wrong.append((name, "the file built does not read back: %s"
+                              % drift.addition_problem(base, text, items)))
+        elif "problem" not in got:
+            wrong.append((name, "the step accepted it, and should have refused it (%r)" % expected))
+        elif expected not in got["problem"]:
+            wrong.append((name, "the step refused it for another reason: %s" % got["problem"]))
+        elif problem is None:
+            wrong.append((name, "the script accepted what the step refuses"))
+    return wrong
+
+
+def tree_of(text):
+    return "tree-" + hashlib.sha1(base64.b64encode(text.encode("utf-8"))).hexdigest()
+
+
+def step_scenarios(real, drift, folder):
+    """[(name, scenario, check)]: what the step is given, and a function of what it did that says what
+    went wrong, or None. Each scenario's files are written under "folder"."""
+    document, step = step_document()
+    job_env = document["jobs"]["publish"]["env"]
+    branches = {"verified": job_env["ADDITIONS_BRANCH"], "to_verify": job_env["ADDITIONS_TO_VERIFY_BRANCH"]}
+    date = "2026-11-23"
+    built = {"verified": drift.build_additions(real, date, "verified", VERIFIED)[0],
+             "to_verify": drift.build_additions(real, date, "to_verify", TO_VERIFY)[0]}
+    body = {"verified": "Ajouts vérifiés.\n\n- [ ] une case\n",
+            "to_verify": "À vérifier.\n\n- [ ] **Gratuité.** une case\n- [ ] **Catalogue.** une autre\n"}
+    out = []
+    count = [0]
+    empty_parts = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
+
+    def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None, **extra):
+        count[0] += 1
+        where = pathlib.Path(folder) / ("s%d" % count[0])
+        where.mkdir()
+        parts = {"verified": {"complete": True, "items": VERIFIED},
+                 "to_verify": {"complete": True, "items": TO_VERIFY}} if parts is None else parts
+        (where / "proposals.json").write_text(json.dumps(dict({"date": date}, **parts)), encoding="utf-8")
+        for kind in ("verified", "to_verify"):
+            if parts.get(kind, {}).get("items"):
+                (where / ("%s_template.j2" % kind)).write_text(built[kind], encoding="utf-8")
+                (where / ("%s_body.md" % kind)).write_text(body[kind], encoding="utf-8")
+                (where / ("%s_commit.txt" % kind)).write_text("Propose them\n", encoding="utf-8")
+        for name_of, text in (files or {}).items():
+            (where / name_of).write_text(text, encoding="utf-8")
+        environment = {key: str(value) for key, value in step["env"].items() if "${{" not in str(value)}
+        environment.update({key: str(value) for key, value in job_env.items()})
+        environment.update(NATIVE_CHECKS="false", DRIFT_STATUS="1", COVERED="complete", ISSUE_OUTCOME="success",
+                           CHANGED="false", UNDELETED="0", BASE_SHA=BASE_SHA, PROPOSALS=str(where),
+                           PR_BODY=str(where / "none"), COMMIT_MESSAGE=str(where / "none"),
+                           TEMPLATE_FILE=str(where / "none"))
+        environment.update(env or {})
+        environment.update(env_files(str(where)) if env_files else {})
+        play = {"env": environment, "refs": refs or {}, "pulls": pulls or [], "ancestry": "ahead"}
+        play.update(extra)
+        out.append((name, play, check))
+
+    def calls(result, name):
+        return [call["args"] for call in result["calls"] if call["name"] == name]
+
+    def created(result, branch):
+        return [args for args in calls(result, "pulls.create") if args["head"] == branch]
+
+    def first(*checks):
+        return next((why for ok, why in checks if not ok), None)
+
+    def pushed(result, branch):
+        return [args for args in calls(result, "git.createRef") + calls(result, "git.updateRef")
+                if args["ref"].endswith("heads/" + branch)]
+
+    def blob_texts(result):
+        return [base64.b64decode(args["content"]).decode("utf-8") for args in calls(result, "git.createBlob")]
+
+    def ours(branch, text):
+        """A branch the workflow made, holding "text"."""
+        return {branch: {"sha": "head-" + branch, "tree": tree_of(text), "text": text,
+                         "commits": [{"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]}]}}
+
+    def pull(number, branch, text, draft=False):
+        kind = {branches["verified"]: "verified", branches["to_verify"]: "to_verify"}.get(branch)
+        return {"number": number, "title": titles.get(kind, "x"), "body": text, "draft": draft, "state": "open",
+                "head": {"ref": branch}}
+
+    script = step["with"]["script"]
+    titles = {"verified": re.search(r'verified: "([^"]+)"', script).group(1),
+              "to_verify": re.search(r"to_verify: '([^']+)'", script).group(1)}
+
+    scenario("nothing open yet: both are opened, the one to verify as a draft, and their checks dispatched",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (len(created(r, branches["verified"])) == 1 and created(r, branches["verified"])[0]["draft"] is False,
+                  "the verified pull request was not opened ready for review"),
+                 (len(created(r, branches["to_verify"])) == 1 and created(r, branches["to_verify"])[0]["draft"] is True,
+                  "the pull request to verify was not opened as a draft"),
+                 (sorted(blob_texts(r)) == sorted(built.values()), "it pushed another text than the one built"),
+                 (all(args["parents"] == [BASE_SHA] for args in calls(r, "git.createCommit")),
+                  "a commit is not on the commit the other job worked on"),
+                 (all("Signed-off-by: github-actions[bot]" in args["message"] for args in calls(r, "git.createCommit")),
+                  "a commit is not signed off"),
+                 (r["outputs"].get("numbers") == "101 102", "the numbers to assign are %r" % r["outputs"].get("numbers")),
+                 (len(calls(r, "actions.createWorkflowDispatch")) == 4, "the checks of both were not dispatched")))
+    scenario("with the App's token, no check is dispatched",
+             lambda r: first((not calls(r, "actions.createWorkflowDispatch"), "a check was dispatched"),
+                             (len(calls(r, "pulls.create")) == 2, "the two were not opened")),
+             env={"NATIVE_CHECKS": "true"})
+    scenario("a repository that refuses drafts gets the one to verify ready for review, and a warning",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 ([args["draft"] for args in created(r, branches["to_verify"])] == [True, False],
+                  "it did not try a draft, then a pull request ready for review"),
+                 (any("refused a draft" in warning for warning in r["warnings"]), "it did not say so")),
+             noDrafts=True)
+    refs = dict(ours(branches["verified"], built["verified"]), **ours(branches["to_verify"], built["to_verify"]))
+    scenario("a week with the same proposals rewrites nothing, and keeps the draft and the ticked boxes",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (not calls(r, "git.createCommit") and not pushed(r, branches["verified"]), "a commit was pushed"),
+                 (not calls(r, "pulls.update"), "a pull request was updated"),
+                 (not calls(r, "pulls.create"), "a pull request was opened")),
+             refs=refs, pulls=[pull(7, branches["verified"], body["verified"]),
+                               pull(8, branches["to_verify"], body["to_verify"].replace("- [ ] **Gratuité.**", "- [x] **Gratuité.**"), draft=True)])
+    stale = dict(ours(branches["verified"], "an older file"), **ours(branches["to_verify"], "an older file"))
+    scenario("a week with other proposals moves both branches and rewrites both bodies, keeping a ticked box",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (len(calls(r, "git.updateRef")) == 2 and all(args["force"] for args in calls(r, "git.updateRef")),
+                  "the branches were not moved"),
+                 (not calls(r, "pulls.create"), "a pull request was opened beside the open one"),
+                 (any(args["pull_number"] == 8 and "- [x] **Gratuité.** une case" in args.get("body", "")
+                      and "- [ ] **Catalogue.** une autre" in args.get("body", "") for args in calls(r, "pulls.update")),
+                  "the ticked box was lost, or a box nobody ticked was ticked"),
+                 (all("draft" not in args for args in calls(r, "pulls.update")), "an update touched the draft")),
+             refs=stale, pulls=[pull(7, branches["verified"], "an older body"),
+                                pull(8, branches["to_verify"], "Avant.\n\n- [x] **Gratuité.** une case\n", draft=True)])
+    earlier = {kind: drift.build_additions(real, "2026-11-16", kind, items)[0]
+               for kind, items in (("verified", VERIFIED), ("to_verify", TO_VERIFY))}
+    scenario("a week later with the same proposals: the days the entries were proposed are kept, nothing is pushed",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (not calls(r, "git.createCommit"), "a commit was made over the days alone"),
+                 (not calls(r, "actions.createWorkflowDispatch") or all(
+                     args["ref"] in branches.values() for args in calls(r, "actions.createWorkflowDispatch")),
+                  "a check was dispatched elsewhere")),
+             refs=dict(ours(branches["verified"], earlier["verified"]), **ours(branches["to_verify"], earlier["to_verify"])),
+             pulls=[pull(7, branches["verified"], body["verified"]), pull(8, branches["to_verify"], body["to_verify"], True)])
+    moved = earlier["verified"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
+    scenario("a branch whose other lines differ is built again, with this week's days",
+             lambda r: first(
+                 (blob_texts(r) == [built["verified"]], "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
+                 (len(pushed(r, branches["verified"])) == 1, "the branch was not moved")),
+             parts={"verified": {"complete": True, "items": VERIFIED}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["verified"], moved), pulls=[pull(7, branches["verified"], body["verified"])])
+    dated = real.replace("model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-23: x\n", 1)
+    scenario("a day on a line the base holds is no day of a proposal: the branch is built again",
+             lambda r: first((len(pushed(r, branches["verified"])) == 1, "a base line was taken for a proposal's")),
+             parts={"verified": {"complete": True, "items": VERIFIED}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["verified"], built["verified"].replace(
+                 "model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-16: x\n", 1)),
+             pulls=[pull(7, branches["verified"], body["verified"])], baseText=dated,
+             files={"verified_template.j2": drift.build_additions(dated, date, "verified", VERIFIED)[0]})
+    empty = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
+    scenario("nothing left to propose, every catalogue read: both are closed, with a comment",
+             lambda r: first(
+                 (sorted(args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed") == [7, 8],
+                  "they were not both closed"),
+                 (len(calls(r, "issues.createComment")) == 2, "no comment says why"),
+                 (not calls(r, "git.createCommit"), "something was pushed")),
+             parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)])
+    partial = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": False, "items": []}}
+    scenario("nothing left to propose but a catalogue not read: the one that draws on it stays open",
+             lambda r: first(
+                 ([args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed"] == [7],
+                  "the wrong pull requests were closed: %r" % calls(r, "pulls.update"))),
+             parts=partial, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)])
+    for env, why in (({"DRIFT_STATUS": "2"}, "a provider could not be read"),
+                     ({"ISSUE_OUTCOME": "failure"}, "the report was not trusted")):
+        scenario("nothing left to propose, but %s: both stay open" % why,
+                 lambda r: first((not calls(r, "pulls.update") and not calls(r, "issues.createComment"),
+                                  "a pull request was closed")),
+                 parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)],
+                 env=env)
+    scenario("a status the step does not know: nothing is closed",
+             lambda r: first((not calls(r, "pulls.update") and not calls(r, "issues.createComment"), "it closed one"),
+                             (any("does not know" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)],
+             env={"DRIFT_STATUS": "9"})
+    scenario("nothing to propose and nothing open: nothing is done",
+             lambda r: first((not [c for c in r["calls"] if c["name"] != "pulls.list"], "something was done"),
+                             (not r["failures"], "it failed")),
+             parts=empty)
+    person = {branches["verified"]: {"sha": "head-v", "tree": "t", "commits": [
+        {"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]},
+        {"sha": "c2", "author": "Somebody", "parents": ["c1"]}]}}
+    scenario("a person's commit on a branch whose pull request is open: left as it is, and no failure",
+             lambda r: first(
+                 (not pushed(r, branches["verified"]), "the person's branch was overwritten"),
+                 (not [a for a in calls(r, "pulls.update") if a["pull_number"] == 7], "their pull request was touched"),
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             refs=person, pulls=[pull(7, branches["verified"], "b")])
+    scenario("a person's commit on a branch with no pull request open: the step fails and pushes nothing there",
+             lambda r: first(
+                 (not pushed(r, branches["verified"]), "the person's branch was overwritten"),
+                 (any("delete the branch" in failure for failure in r["failures"]), "it did not fail to say so"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             refs=person)
+    scenario("a person's commit, nothing left to propose: the open pull request is not closed",
+             lambda r: first((not calls(r, "issues.createComment"), "it was closed")),
+             parts=empty, refs=person, pulls=[pull(7, branches["verified"], "b")])
+    scenario("the script's template differs from the one built here: nothing is pushed",
+             lambda r: first(
+                 (not pushed(r, branches["verified"]) and not created(r, branches["verified"]), "it was pushed"),
+                 (any("is not the one the drift check built" in failure for failure in r["failures"]), "it did not fail")),
+             files={"verified_template.j2": built["verified"] + "\n  # one line more\n"})
+    hostile = {"verified": {"complete": True, "items": [item("openrouter", "vendor/x:free\n- evil", "x-free")]},
+               "to_verify": {"complete": True, "items": TO_VERIFY}}
+    scenario("an item spelt otherwise: nothing is pushed for its pull request, the other one is opened",
+             lambda r: first(
+                 (not pushed(r, branches["verified"]), "it was pushed"),
+                 (any("are refused" in failure for failure in r["failures"]), "it did not fail"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             parts=hostile)
+    for shape, parts in (("no part to verify", {"verified": {"complete": True, "items": VERIFIED}}),
+                         ("a coverage that is no boolean",
+                          {"verified": {"complete": "yes", "items": VERIFIED},
+                           "to_verify": {"complete": True, "items": TO_VERIFY}})):
+        scenario("proposals of another shape (%s) are refused" % shape,
+                 lambda r: first((any("The proposals are refused" in failure for failure in r["failures"]),
+                                  "it did not fail")),
+                 parts=parts)
+    scenario("the deletions fail, and the additions are still done",
+             lambda r: first(
+                 (any("the deletion pull request" in failure for failure in r["failures"]), "the failure is not said"),
+                 (len(calls(r, "pulls.create")) == 2, "the additions were not opened")),
+             broken=job_env["REMOVALS_BRANCH"])
+    # The deletions share the step's code since the additions came: they are played too.
+    removals_branch = job_env["REMOVALS_BRANCH"]
+    deleted = real.replace("\n".join(real.split("\n")[real.split("\n").index("  - model_name: gemma-4-26b-gemini"):][:5])
+                           + "\n", "", 1)
+    removal_files = {"removed.j2": deleted, "removal_body.md": "Suppressions.\n", "removal_commit.txt": "Delete\n"}
+
+    def removal_env(where_files):
+        return {"CHANGED": "true", "TEMPLATE_FILE": where_files + "/removed.j2",
+                "PR_BODY": where_files + "/removal_body.md", "COMMIT_MESSAGE": where_files + "/removal_commit.txt"}
+
+    scenario("the deletions: a template with lines deleted is pushed, and its pull request opened ready for review",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (blob_texts(r) == [deleted], "it pushed another text"),
+                 ([args["draft"] for args in created(r, removals_branch)] == [False], "it was not opened ready"),
+                 (r["outputs"].get("numbers") == "101", "the number to assign is %r" % r["outputs"].get("numbers"))),
+             parts=empty_parts, files=removal_files, env_files=removal_env)
+    scenario("the deletions: a template with a line added is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("nothing is pushed" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=dict(removal_files, **{"removed.j2": deleted + "  # added\n"}),
+             env_files=removal_env)
+    scenario("the deletions: a person's commit fails the step, and nothing is touched",
+             lambda r: first((not calls(r, "git.createCommit") and not calls(r, "pulls.update"), "it was touched"),
+                             (any("Delete the branch" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=removal_files, env_files=removal_env,
+             refs={removals_branch: {"sha": "head-r", "tree": "t", "text": real, "commits": [
+                 {"sha": "c9", "author": "Somebody", "parents": ["p"]}]}},
+             pulls=[pull(9, removals_branch, "b")])
+    scenario("the deletions: nothing left to delete, every catalogue read: closed with a comment",
+             lambda r: first(([args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed"]
+                              == [9], "it was not closed")),
+             parts=empty_parts, pulls=[pull(9, removals_branch, "b")],
+             refs={removals_branch: {"sha": "head-r", "tree": "t", "text": real, "commits": [
+                 {"sha": "c9", "author": "github-actions[bot]", "parents": ["p"]}]}})
+    scenario("a commit of the other job that is not on main: nothing is pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "a commit was made"),
+                             (any("is not on main" in failure for failure in r["failures"]), "it did not fail")),
+             ancestry="diverged")
+    return out
+
+
+def judge_step(cases, results):
+    wrong = []
+    for (name, _scenario, check), got in zip(cases, results):
+        if got["crashed"]:
+            wrong.append((name, "the script threw: %s" % got["crashed"].splitlines()[0]))
+            continue
+        why = check(got)
+        if why:
+            wrong.append((name, why))
+    return wrong
+
+
+def additions_cases():
+    real = TEMPLATE.read_text(encoding="utf-8")
+    drift = drift_module()
+    return real, drift, builder_scenarios(real, drift)
+
+
+def play_builder(builder, cases):
+    payload = {"builder": builder, "cases": [{"base": base, "date": date, "kind": kind, "items": items}
+                                             for _, base, date, kind, items, _ in cases]}
+    results = node(BUILDER_HARNESS, payload)
+    if len(results) != len(cases):
+        raise SystemExit("node answered %d builder scenario(s) out of %d." % (len(results), len(cases)))
+    return results
+
+
+def play_step(script, real, cases):
+    payload = {"script": script, "base": BASE_SHA, "baseText": real,
+               "scenarios": [scenario for _, scenario, _ in cases]}
+    results = node(STEP_HARNESS, payload)
+    if len(results) != len(cases):
+        raise SystemExit("node answered %d step scenario(s) out of %d." % (len(results), len(cases)))
+    return results
+
+
+def additions_wrong(script=None, builder=None):
+    """[(name, why)] of every addition scenario that went wrong, for the step's script and builder as they
+    are, or as given."""
+    real, drift, cases = additions_cases()
+    if builder is None:
+        builder = load_builder()
+    if script is None:
+        script = step_document()[1]["with"]["script"]
+    wrong = judge_builder(cases, play_builder(builder, cases), drift)
+    with tempfile.TemporaryDirectory() as folder:
+        steps = step_scenarios(real, drift, folder)
+        wrong += judge_step(steps, play_step(script, real, steps))
+    return wrong, len(cases)
+
+
+# Breaks of the builder and of the step, one at a time: (what stops being done, text, replacement).
+ADDITION_MUTATIONS = [
+    ("refuse an id spelt otherwise", "!ADDITION_ID.test(id)", "false"),
+    ("anchor the id at its end", "[A-Za-z0-9]$/;\n", "[A-Za-z0-9]/;\n"),
+    ("refuse two colons in an id", "(?!.*(?:::|\\/\\/))", "(?!.*(?:\\/\\/))"),
+    ("refuse a name spelt otherwise", "!ADDITION_NAME.test(name)", "false"),
+    ("cap the length of a name", "name.length > 80 ||", ""),
+    ("refuse a name that is a word of the template", "words.has(name) ||", ""),
+    ("refuse two items of one name", "|| names.has(name)", ""),
+    ("refuse a provider this does not read", "!Object.hasOwn(ADDITION_PROVIDERS, provider)",
+     "!(provider in ADDITION_PROVIDERS)"),
+    ("keep the verified additions OpenRouter's", "if ((kind === 'verified') !== (provider === 'openrouter'))", "if (false)"),
+    ("ask a verified id for its \":free\"", "kind === 'verified' && !id.endsWith(':free')", "false"),
+    ("refuse an item of another shape", "Object.keys(item).sort().join(',') !== 'id,name,provider'", "false"),
+    ("refuse an id already an entry", "if (known.has(spec.prefix + id))", "if (false)"),
+    ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),
+    ("model an entry on a key read from the environment", "!ADDITION_KEY.test(key)", "false"),
+    ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
+    ("follow the last active entry first", "find((entry) => !entry.commented)", "find(() => false)"),
+    ("follow a commented-out entry after its run", "while (commented && at < end", "while (false && at < end"),
+    ("refuse a date that is no date", "!ADDITION_DATE.test(date)", "false"),
+    ("cap the number of items", "|| items.length > ADDITION_LIMIT", ""),
+    ("refuse carriage returns", "|| baseText.includes('\\r')", ""),
+    ("push only the text the script built too", "if (handed !== built.text) {", "if (false) {"),
+    ("open the one to verify as a draft", "branch: process.env.ADDITIONS_TO_VERIFY_BRANCH, draft: true",
+     "branch: process.env.ADDITIONS_TO_VERIFY_BRANCH, draft: false"),
+    ("keep the title", "title: ADDITION_TITLES[kind],", "title: 'x',"),
+    ("fall back on a pull request ready for review when drafts are refused",
+     "if (!draft || error.status !== 422 || !/draft/i.test(error.message)) throw error;", "throw error;"),
+    ("rewrite a body only when it changed", "if (existing.title !== title || !same(existing.body, body)) {", "if (true) {"),
+    ("keep a ticked box", "body: keepTicks(body, existing?.body),", "body,"),
+    ("leave a pull request a person is working on", "if (foreign && existing)", "if (false)"),
+    ("close only when every catalogue the kind draws on was read", "|| !part.complete ||", "||"),
+    ("close only on a trusted report", "!part.complete || process.env.ISSUE_OUTCOME !== 'success'", "!part.complete"),
+    ("keep open when a provider could not be read", "if (status === '2' || !part.complete", "if (!part.complete"),
+    ("hand the numbers to the step that assigns", "numbers.push(pr.number);", ""),
+    ("do the additions when the deletions fail", "core.setFailed(`${what}: ${error.message}`);", "throw error;"),
+    ("refuse proposals of another shape", "typeof part.complete !== 'boolean' ||", ""),
+    ("open the deletions ready for review", "{ title, body, existing, draft: false }", "{ title, body, existing, draft: true }"),
+    ("push the deletions only when the template is the base with lines deleted",
+     "const problem = templateProblem(Buffer.from(original.content, 'base64').toString('utf8'), content.toString('utf8'));",
+     "const problem = null;"),
+    ("leave the deletions of a person's branch alone", "core.setFailed(`${branch} holds ${foreign}, so neither",
+     "if (false) core.setFailed(`${branch} holds ${foreign}, so neither"),
+    ("refuse a status it does not know", "if (!['0', '1', '2'].includes(status)) {\n", "if (false) {\n"),
+    ("build on main only", "if (!['ahead', 'identical'].includes(ancestry.status))", "if (false)"),
+    ("keep a branch whose days alone differ", "kept !== null && onlyDaysDiffer(kept, built.text, baseText) ? kept : built.text",
+     "built.text"),
+    ("keep only where the days alone differ", "keptLines.length === builtLines.length && keptLines.every(", "true || ("),
+    ("tell a proposal's day from a line of the base", "(!baseLines.has(builtLines[index]) &&", "(true &&"),
+]
+
+
+def run_additions_selftest():
+    wrong, _ = additions_wrong()
+    if wrong:
+        print("the additions fail their own scenarios before anything is broken:")
+        for name, why in wrong:
+            print("  %s: %s" % (name, why))
+        return 1
+    script = step_document()[1]["with"]["script"]
+    failures = 0
+    for label, old, new in ADDITION_MUTATIONS:
+        if script.count(old) != 1:
+            failures += 1
+            print("selftest: the text of the step that should %s has moved: %r" % (label, old))
+            continue
+        broken = script.replace(old, new, 1)
+        builder = broken.split(BUILDER_BEGIN, 1)[1].split(BUILDER_END, 1)[0]
+        try:
+            noticed = bool(additions_wrong(broken, builder)[0])
+        except SystemExit as error:
+            failures += 1
+            print("selftest: breaking the step that should %s left a script that does not run: %s"
+                  % (label, str(error)[:200]))
+            continue
+        if noticed:
+            print("selftest: ok -- some scenario notices a step that stops: %s" % label)
+        else:
+            failures += 1
+            print("selftest: FAILED -- no scenario notices a step that stops: %s" % label)
+    if failures:
+        return 1
+    print("check_drift_publish_guard selftest: the additions as expected, %d broken guard(s) of the "
+          "builder and the step noticed." % len(ADDITION_MUTATIONS))
+    return 0
+
+
 def main(argv):
     if argv[1:] == ["--selftest"]:
-        return run_selftest()
+        return run_selftest() or run_additions_selftest()
     if argv[1:]:
         print("usage: check_drift_publish_guard.py [--selftest]", file=sys.stderr)
         return 2
@@ -272,6 +1000,14 @@ def main(argv):
             print("  %s: %s" % (name, why))
         return 1
     print("Drift pull request guard: %d scenario(s) judged as expected." % len(cases))
+    wrong, built = additions_wrong()
+    if wrong:
+        print("%d scenario(s) of the additions went the wrong way:\n" % len(wrong))
+        for name, why in wrong:
+            print("  %s: %s" % (name, why))
+        return 1
+    print("Additions: %d template(s) built alike by the step and the script, or refused by both, and the "
+          "step's handling of the three pull requests as expected." % built)
     return 0
 
 
