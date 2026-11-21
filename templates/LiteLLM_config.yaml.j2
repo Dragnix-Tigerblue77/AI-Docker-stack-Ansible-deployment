@@ -444,10 +444,21 @@ model_list:
       api_key: "omniroute-no-key-needed"
 
 router_settings:
-  num_retries: 2
+  # A member that fails is not retried: the cascade below is the retry. Each retry was paid in full by
+  # every member, and the head of a cascade is both what its alias points at and the first slot of its
+  # list, so a head that answered 429 or stayed silent used up several attempts, and a dead head cost
+  # that again on every request, since a cooldown is not kept for a member reached through an alias.
+  num_retries: 0
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # How long a member may stay silent before the cascade moves on to the next one. They belong here and
+  # not in "litellm_settings", where "stream_timeout" has no effect on the router. 90 s for a stream
+  # because a model that reasons before it answers is silent until its first answer token, which the
+  # slowest of our members reaches after about a minute on average; a stream whose first chunk has not
+  # come by then is given up.
+  timeout: 120
+  stream_timeout: 90
 
   # Shares cooldown state between the "--num_workers" processes below: without it, each worker tracks
   # its own 429s independently, and a deployment can be considered healthy by one worker while another
@@ -680,8 +691,7 @@ litellm_settings:
   telemetry: false               # no outbound telemetry
   drop_params: true              # silently drops hyperparameters a given model does not support
   modify_params: true            # translates tool-call schemas between Anthropic and OpenAI/Gemini
-  stream_timeout: 120            # extended timeout for models' reasoning phase
-  force_ipv4: true               # avoids slow IPv6 resolution on the target VM
+  force_ipv4: true              # avoids slow IPv6 resolution on the target VM
   stream_response_threshold: 0   # flushes SSE chunks to the client immediately
   # Keep the gateway's own logging free of prompt and response bodies. The corpus this estate routes
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.
