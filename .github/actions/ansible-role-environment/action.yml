@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+name: Set up the Ansible role environment
+description: Python, the pinned tooling, the Ansible collections, and this checkout resolvable as the role.
+
+# One copy of the steps the jobs that read or run the role share, so that none of them drifts from
+# the others. Each job checks the repository out first: a local action is read from the checkout.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Python
+      uses: actions/setup-python@v7
+      with:
+        python-version-file: ".python-version"
+        # Why check-latest: see the "yamllint" job of ".github/workflows/ansible-ci.yml".
+        check-latest: true
+        cache: "pip"
+
+    # "requirements.txt" carries "docker" too: the Python SDK the role's "community.docker" modules
+    # need ON THE MANAGED NODE, which in the role run is this very interpreter.
+    - name: Install the tooling
+      shell: bash
+      run: pip install -r requirements.txt
+
+    # Without it, ansible-lint and "--syntax-check" cannot resolve the argument spec of
+    # "community.docker.docker_host_info" and "community.docker.docker_container_exec".
+    - name: Install the collections
+      shell: bash
+      run: ansible-galaxy collection install -r requirements.yml
+
+    # This repository IS the role, and Ansible's own role search never looks at the current
+    # directory: the example playbook's bare "- role: deploy_Artificial_Intelligence_Docker_stack"
+    # resolves only through "~/.ansible/roles", the CI mirror of what CONTRIBUTING.md asks of a clone.
+    - name: Make this checkout resolvable as the "deploy_Artificial_Intelligence_Docker_stack" role
+      shell: bash
+      run: |
+        mkdir -p ~/.ansible/roles
+        ln -sfn "$GITHUB_WORKSPACE" ~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack

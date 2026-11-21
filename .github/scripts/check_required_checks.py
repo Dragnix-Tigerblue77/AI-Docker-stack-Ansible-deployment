@@ -101,8 +101,8 @@ DRIFT = "LiteLLM_model_drift.yml"
 
 # Jobs of a workflow the gate listens to that are deliberately NOT required, each with its reason --
 # the same shape as the allowlist of "check_no_inventory_data.py", and for the same reason: an entry
-# without one turns the list into a catch-all. Empty today, because every job of "Ansible CI",
-# "gitleaks" and "sign-off" reaches a verdict on every pull request.
+# without one turns the list into a catch-all. Empty today, because every job of "Quality checks",
+# "Secret scan" and "Commit sign-off" reaches a verdict on every pull request.
 NOT_REQUIRED = {}
 
 # Workflows the gate listens to that it deliberately does NOT dispatch on the default branch after a

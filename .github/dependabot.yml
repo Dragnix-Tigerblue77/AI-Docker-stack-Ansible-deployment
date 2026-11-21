@@ -41,8 +41,13 @@ updates:
   # the tag it finds: it proposes the next major, never a minor. So in practice every pull request
   # of this entry is a major that waits for a human, and the group below stays empty until an action
   # is pinned more precisely.
+  #
+  # "directories" and not "directory": Dependabot reads a local action only where it is told to, and
+  # the one under ".github/actions/" pins "actions/setup-python" like the workflows do.
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 99

@@ -13,7 +13,7 @@
 #     git config core.hooksPath .githooks
 #
 # ! "git commit --no-verify" bypasses this hook without saying a word. That is a property of git,
-#   not a defect to fix here: the bypass is a deliberate gesture, and the "gitleaks" workflow
+#   not a defect to fix here: the bypass is a deliberate gesture, and the "Secret scan" workflow
 #   catches it at the next pull request.
 #
 # ! The command is "gitleaks git --staged", and not "gitleaks protect --staged":
