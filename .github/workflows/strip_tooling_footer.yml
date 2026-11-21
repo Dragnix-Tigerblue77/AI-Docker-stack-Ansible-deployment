@@ -17,7 +17,8 @@ name: Strip the tooling footer
 #    below names no "ref", so no code of a pull request ever runs while the token is held. The text of
 #    the pull request is read by the script as data, from the event file, and is never expanded into
 #    a shell command or into this file's expressions.
-#  * The script edits only what its owner, a member or a collaborator wrote, and only when the
+#  * The script edits only what the maintainer (by login: the token of a run sees his posts as
+#    CONTRIBUTOR) or an owner, a member or a collaborator wrote, and only when the
 #    maintainer's signature stands right before the footer.
 #  * An edit made with the job's own token starts no workflow, so nothing loops; and the script finds
 #    nothing to do on text it has already cleaned, so it would be harmless if one did.
