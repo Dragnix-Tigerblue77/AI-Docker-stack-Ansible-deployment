@@ -399,11 +399,14 @@ the exit status, never blocks the deletion pull request, and says only the kind 
 computation fails.
 
 The plain offline run reads the file too, and fails on its structure alone: a router that does not exist
-or has no contract, a name that is no active entry of the template, a number that is not a number, a value
-with no reason, a mapping with no tools declaration. It reads it only against the repository's template (or
-the file given by "--contracts"), since a contract written for one template means nothing against another.
-A deletion that takes a mapped entry out of the template therefore leaves its row in the file for a person
-to remove in the same pull request.
+or has no contract, a number that is not a number, a value with no reason, a mapping with fields that are
+wrong (no tools declaration, say), a file that cannot be read, a key written twice. It reads it only
+against the repository's template (or the file given by "--contracts"), since a contract written for one
+template means nothing against another. A name the file keeps that is no entry of the template any more,
+in a mapping or in a last resort, is NOT a failure: the weekly deletion pull request is merged by a gate
+that wants CI green, and a deletion leaves exactly that behind. The plain run prints one notice line for
+each such stale row and exits 0, and the issue lists them under "Correspondances sans entrée", for a
+person to remove from the file.
 
 UNTRUSTED TEXT
 --------------
@@ -1930,6 +1933,7 @@ def contracts_report(template, ranking, contracts):
         "unmapped": [name for name in names if name not in mappings],
         "no_record": [name for name in names if described.get(name, {}).get("state") == "no_record"],
         "stale": [(name, found["slug"]) for name, found in described.items() if found["state"] == "stale"],
+        "absent": absent_names(contracts, template),
         "uncovered": [(name, found) for name, found in described.items()
                       if found["state"] == "resolved" and found["unverified"] == "uncovered"],
         "provisional": contracts.get("status") != "validated",
@@ -1950,13 +1954,14 @@ def contract_block_problems(block, where, problems):
 
 def contracts_problems(contracts, template):
     """The structural problems of a contracts document against the template it is read with: a router
-    that does not exist or has no contract, a name that is no active entry, a number that is not a
-    number, a value with no reason. Only the shape is judged, never a figure."""
+    that does not exist or has no contract, a number that is not a number, a value with no reason, a
+    mapping with fields that are wrong. Only the shape is judged, never a figure. A name that is no
+    entry of the template any more is no problem, since a deletion leaves it behind: see
+    absent_names."""
     problems = []
     if not isinstance(contracts, dict):
         return ["the router contracts file is not a mapping"]
     lists = fallback_lists(template["document"])
-    active = {entry["name"] for entry in template["active"] if isinstance(entry["name"], str)}
     if contracts.get("status") not in CONTRACT_STATUSES:
         problems.append('"status" must be one of %s' % ", ".join(CONTRACT_STATUSES))
     if figure(contracts.get("index_version")) is None:
@@ -1986,20 +1991,20 @@ def contracts_problems(contracts, template):
                 problems.append('%s must list what it "requires" among: %s' % (where, ", ".join(CONTRACT_REQUIRES)))
             contract_block_problems(contract, where, problems)
         else:
-            full_contract_problems(contract, where, active, problems)
+            full_contract_problems(contract, where, problems)
     mappings = contracts.get("models")
     if not isinstance(mappings, dict):
         problems.append('"models" is missing or is not a mapping')
         mappings = {}
     for name, mapping in mappings.items():
-        mapping_problems(name, mapping, active, problems)
+        mapping_problems(name, mapping, problems)
     inputs = contracts.get("inputs")
     if inputs is not None and not isinstance(inputs, dict):
         problems.append('"inputs" is not a mapping')
     return problems
 
 
-def full_contract_problems(contract, where, active, problems):
+def full_contract_problems(contract, where, problems):
     for key, allowed in (("time_budget_seconds", lambda value: value > 0),
                          ("intelligence_floor", lambda value: value >= 0)):
         block = contract_block_problems(contract.get(key), '%s, "%s",' % (where, key), problems)
@@ -2029,16 +2034,12 @@ def full_contract_problems(contract, where, active, problems):
         if not isinstance(members, list):
             problems.append('%s, "last_resort", must list its "members"' % where)
         else:
-            for name in members:
-                if name not in active:
-                    problems.append('%s, "last_resort", names "%s", which is no active entry of the '
-                                    "template" % (where, name))
+            if any(not isinstance(name, str) for name in members):
+                problems.append('%s, "last_resort", must list its "members" by name' % where)
 
 
-def mapping_problems(name, mapping, active, problems):
+def mapping_problems(name, mapping, problems):
     where = 'the mapping of "%s"' % name
-    if name not in active:
-        problems.append('%s maps a name that is no active entry of the template' % where)
     if not isinstance(mapping, dict):
         problems.append("%s is not a mapping" % where)
         return
@@ -2067,10 +2068,22 @@ def mapping_problems(name, mapping, active, problems):
         problems.append('%s has no "level_source": the page that gives the level, or "unknown"' % where)
 
 
+class UniqueKeyLoader(yaml.SafeLoader):
+    """A loader that refuses a key written twice in a mapping, which PyYAML would otherwise let the
+    second one silently replace."""
+
+    def construct_mapping(self, node, deep=False):
+        keys = [self.construct_object(key, deep=deep) for key, _ in node.value]
+        for key in keys:
+            if keys.count(key) > 1:
+                raise yaml.constructor.ConstructorError(None, None, "a key is written twice", node.start_mark)
+        return super().construct_mapping(node, deep=deep)
+
+
 def load_contracts(path):
     """(document, problems): the contracts file parsed, or why it could not be."""
     try:
-        return yaml.safe_load(Path(path).read_text(encoding="utf-8")), []
+        return yaml.load(Path(path).read_text(encoding="utf-8"), Loader=UniqueKeyLoader), []
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as error:
         return None, ["the router contracts file cannot be read (%s)" % error.__class__.__name__]
 
@@ -2082,6 +2095,33 @@ def contracts_file_for(arguments):
     if arguments.contracts:
         return Path(arguments.contracts)
     return CONTRACTS if Path(arguments.config).resolve() == CONFIG.resolve() else None
+
+
+def absent_names(contracts, template):
+    """The names the contracts keep that are no active entry of the template any more, as (where,
+    name): "models" for a mapping, a router's name for a member of its last resort. A deletion
+    leaves them behind, and the plain run must stay green for it, so they are reported as stale and
+    never refused."""
+    active = {entry["name"] for entry in template["active"] if isinstance(entry["name"], str)}
+    found = [("models", name) for name in contracts["models"] if name not in active]
+    for router, contract in contracts["routers"].items():
+        found += [(router, name) for name in contract.get("last_resort", {}).get("members", [])
+                  if name not in active]
+    return found
+
+
+def offline_contract_notices(text, path):
+    """One line per stale name of the contracts file at "path" against the template in "text", for
+    the plain run to print: an information, never a failure. None while the file has a problem."""
+    template, _ = read_template(text)
+    if template is None:
+        return []
+    document, problems = load_contracts(path)
+    if problems or contracts_problems(document, template):
+        return []
+    return ['Router contracts: "%s" (%s) is no entry of the template any more: a stale mapping, its '
+            "row is to be removed from %s." % (name, "mapping" if where == "models" else "last resort of %s" % where,
+                                              Path(path).name) for where, name in absent_names(document, template)]
 
 
 def offline_contract_problems(text, path):
@@ -2229,6 +2269,9 @@ def contracts_section(result):
              ["`%s`" % safe_text(name, 60) for name in report["unmapped"]]),
             ("Entrées sans enregistrement chez Artificial Analysis",
              ["`%s`" % safe_text(name, 60) for name in report["no_record"]]),
+            ("Correspondances sans entrée (l'entrée n'est plus au modèle, la ligne est à retirer du fichier des contrats)",
+             ["`%s` (%s)" % (safe_text(name, 60), "correspondance" if where == "models"
+                             else "dernier recours de `%s`" % safe_text(where, 20)) for where, name in report["absent"]]),
             ("Correspondances périmées (l'enregistrement n'est plus au classement)",
              ["`%s` : `%s`" % (safe_text(name, 60), safe_text(slug, 80)) for name, slug in report["stale"]]),
             ("Appelées à un niveau que le classement ne couvre pas",
@@ -7796,8 +7839,8 @@ def run_contract_cases():
     structural = (
         ("a router that does not exist", set_in(("routers", "ghost"), contract_router(5, 5)), "the contract of \"ghost\" is that of no router"),
         ("a router with no contract", drop("routers", "flash-lite"), 'the router "flash-lite" has no contract'),
-        ("a mapped name that is no entry of the template", set_in(("models", "zulu"), {"no_record": "x"}), '"zulu" maps a name that is no active entry'),
-        ("a last resort naming no entry", set_in(("routers", "pro", "last_resort", "members"), ["zulu"]), 'names "zulu"'),
+        ("a last resort naming something that is no name", set_in(("routers", "pro", "last_resort", "members"), [3]), 'must list its "members" by name'),
+        ("a mapping of a name that is no entry, with fields that are wrong", set_in(("models", "zulu"), {"slug": "a b"}), 'the mapping of "zulu" has no "slug" spelt like one'),
         ("a last resort that is no list", set_in(("routers", "pro", "last_resort", "members"), "alpha"), 'must list its "members"'),
         ("a budget that is a string", set_in(("routers", "pro", "time_budget_seconds", "value"), "30"), "not a positive number"),
         ("a budget that is a boolean", set_in(("routers", "pro", "time_budget_seconds", "value"), True), "not a positive number"),
@@ -7870,6 +7913,10 @@ def run_contract_cases():
             found = mutated(change)
         judged("structure: %s is refused" % purpose,
                None if any(needle in problem for problem in found) else "expected %r, got %r" % (needle, found))
+    judged("structure: a name the template does not have any more is no problem, in a mapping or in a last resort",
+           first_wrong((mutated(set_in(("models", "zulu"), contract_mapping("zulu", "n/a"))) == [], "a mapping of a deleted entry was refused"),
+                       (mutated(set_in(("routers", "pro", "last_resort", "members"), ["juliet", "zulu"])) == [],
+                        "a last resort naming a deleted entry was refused")))
     judged("structure: a floor of zero, a note, an epoch said unknown and a derived router are no problem",
            first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "value"), 0)) == [], "a floor of 0 was refused"),
                        (mutated(set_in(("models", "alpha", "note"), "a note")) == [], "a note was refused"),
@@ -8008,8 +8055,42 @@ def run_contract_cases():
                            ("SECRET" not in body_boom, "the message of the error reached the issue"),
                            (status_boom == status and "Aucune dérive." in body_boom, "the status moved")))
 
+        # A deleted entry leaves its row: reported as stale in the issue and as a notice in the plain run,
+        # and neither fails.
+        stale_document = contract_document()
+        stale_document["models"]["zulu"] = contract_mapping("zulu", "n/a")
+        stale_document["routers"]["code"]["last_resort"]["members"] = ["zulu"]
+        Path(path).write_text(yaml.safe_dump(stale_document), encoding="utf-8")
+        status_stale, _, body_stale = run(online)
+        status_notice, out_notice, _ = run(["--config", config, "--contracts", path])
+        absent = [("models", "zulu"), ("code", "zulu")]
+        judged("an entry deleted from the template leaves a stale row: the report lists it, the plain run says so and stays green, the weekly status does not move",
+               first_wrong(
+                   (absent_names(stale_document, template) == absent, "absent: %r" % absent_names(stale_document, template)),
+                   (contracts_report(template, contract_ranking(), stale_document)["absent"] == absent, "the report does not hold them"),
+                   ("Correspondances sans entrée (l'entrée n'est plus au modèle, la ligne est à retirer du fichier des contrats) :\n\n"
+                    "- `zulu` (correspondance)\n- `zulu` (dernier recours de `code`)\n" in body_stale, "the issue does not list them"),
+                   (status_stale == status and "Aucune dérive." in body_stale, "the status moved"),
+                   (status_notice == 0 and 'Router contracts: "zulu" (mapping) is no entry of the template any more: a stale mapping, '
+                    "its row is to be removed from contracts.yaml." in out_notice
+                    and 'Router contracts: "zulu" (last resort of code) is no entry' in out_notice, "the notice is missing: %s" % out_notice),
+                   (offline_contract_problems(CONTRACT_TEMPLATE, path) == [], "a stale row is a problem"),
+                   ("Correspondances sans entrée" not in body, "a stale section where there is none")))
+        Path(path).write_text(yaml.safe_dump(dict(broken_document, models=dict(
+            broken_document["models"], zulu=contract_mapping("zulu", "n/a")))), encoding="utf-8")
+        judged("a file with a problem prints no notice of stale rows",
+               first_wrong((offline_contract_notices(CONTRACT_TEMPLATE, path) == [], "a notice for a file that is wrong"),
+                           (offline_contract_notices("model_list: [unclosed\n", path) == [], "a notice for a template that cannot be read")))
+        Path(path).write_text("status: provisional\nstatus: validated\n", encoding="utf-8")
+        twice = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        status_twice, out_twice, _ = run(["--config", config, "--contracts", path])
+        judged("a key written twice is a problem of the file, not a value silently replaced",
+               first_wrong((len(twice) == 1 and "cannot be read (ConstructorError)" in twice[0], "twice: %r" % twice),
+                           (status_twice == 1, "the plain run passed a file with a key written twice")))
+
         # The plain run: the contracts file is read against the template it is given.
         plain = ["--config", config, "--contracts", path]
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
         status_plain, out_plain, _ = run(plain)
         Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
         status_wrong, out_wrong, _ = run(plain)
@@ -8175,7 +8256,9 @@ def main(argv=None, opener=urllib_opener, environment=None):
                 for problem in problems:
                     print(problem + "\n")
                 return 1
-            print("Router contracts: %s holds a contract for each router and maps only active entries."
+            for notice in offline_contract_notices(text, contracts_file):
+                print(notice)
+            print("Router contracts: %s holds a contract for each router, and its mappings are well formed."
                   % contracts_file.name)
         return 0
 

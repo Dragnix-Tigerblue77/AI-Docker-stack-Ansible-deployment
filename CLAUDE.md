@@ -367,8 +367,10 @@ explicit mapping from each entry to the Artificial Analysis record, and the reas
 describes it. They are **provisional** until the maintainer validates them, and they are **reported, not
 enforced**: the weekly issue says how the cascades stand against them, a member under a floor goes to the
 router's last resort tier rather than out of it, and nothing in them changes a cascade, an entry or a
-`head` row. Only the shape of the file fails the plain run, so an entry added, renamed or deleted in the
-template gets its row in the file in the same change.
+`head` row. Only the shape of the file fails the plain run. A row for an entry the template no longer has
+does not fail it, since the weekly deletion pull request must stay green to merge itself: the plain run
+prints a notice, the issue lists it as a stale row, and an entry added or renamed gets its row in the
+same change.
 
 A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
 and "two places only" are made false by a deletion that nobody is shown, where a comment that names a

@@ -6,8 +6,10 @@
 # cascades stand against it in the weekly issue ("Contrats par routeur"). It is a REPORT: nothing
 # here changes a cascade, an entry or a row of the "head" table, and a model that breaks a contract
 # is information, never a failure. The one thing that fails the plain run is the file's own shape
-# (a router that does not exist, a name that is no entry of the template, a number that is not a
-# number, a value with no reason).
+# (a router that does not exist, a number that is not a number, a value with no reason, a malformed
+# row or file, a key written twice). A name kept here that is no entry of the template any more is
+# not a failure, since a deletion leaves it: the plain run prints a notice and the weekly issue lists
+# it as a stale row, to be removed by a person.
 #
 # PROVISIONAL. Every number and every choice below is a proposal, derived from the figures cited in
 # its own reason line, until the maintainer validates it and sets "status" to "validated". The

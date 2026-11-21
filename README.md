@@ -767,9 +767,11 @@ passe au dernier recours, il n'est pas retiré), puis les entrées sans correspo
 correspondances dont l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas.
 C'est un rapport : il ne change aucune cascade, aucune entrée, aucune ligne `head`, ne change pas le statut du run
 et ne bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement sur
-la forme du fichier (un routeur qui n'existe pas, un nom qui n'est pas une entrée du modèle, un nombre qui n'en est
-pas un, une valeur sans raison) : la suppression d'une entrée mise en correspondance laisse donc sa ligne dans ce
-fichier, qu'une personne retire dans la même pull request.
+la forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison, une ligne ou
+un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée du modèle
+n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une entrée
+met presque toujours une ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0, et
+l'issue liste ces « correspondances sans entrée », qu'une personne retire du fichier.
 
 **Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
 configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve pull requests*
