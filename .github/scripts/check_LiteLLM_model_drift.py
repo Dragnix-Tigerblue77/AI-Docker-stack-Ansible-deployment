@@ -370,6 +370,41 @@ use of that API ask, and the figures are shown as published.
   not a finite number is none, and the key is replaced by "***" wherever an error could carry it. The
   job that writes holds no such key, as with the others.
 
+THE ROUTER CONTRACTS
+--------------------
+".github/LiteLLM_router_contracts.yaml" says what each router is held to: a budget for the mean time
+to the first answer token, a floor on the Artificial Analysis intelligence index (on the version the
+file names), the figure that ranks the members, the members exempt from the floor on purpose (the last
+resort), and, for each entry of the template, the Artificial Analysis record that describes it at the
+reasoning level the entry is called at, with the page that gives that level, or "unknown". The unit of
+routing is model plus level: Artificial Analysis has one record per level, told apart by the suffix of
+its name, and there is no maximum level, the level kept for a model being the highest whose time fits the
+budget. "claude-code" derives from "code": it is ranked as "code" is, and its cascade is the cascade of
+"code" without the members that cannot take tools. "code" is ranked on code quality, whose source is
+declared and not read yet; the intelligence index stands in for it, and the report says so. The whole file
+is PROVISIONAL until the maintainer validates it, and its header says what is left to define.
+
+It is a report and nothing else. The weekly issue gains a section "Contrats par routeur" (and no other
+text carries it) with, per router, a table of its members (record, level called, intelligence, time,
+speed, the best level that fits the budget, the verdict), the order the contract would give against the
+current one, the outcome of each floor the contract proposes to compare, and for a derived router how its
+cascade differs from the one it must be; then the entries without a mapping, those with no record, the
+mappings whose slug the ranking no longer has ("stale") and those called at a level the ranking does not
+cover. A verdict is "conforme", "au-dessus du budget", "sous le plancher" (the member goes to the last
+resort tier, it is not removed), "inclassable" (no index, or no time), or "variante non vérifiée" (the
+level is unknown and the family has several, or the ranking has the family at other levels only). It is
+computed from the ranking the run already read, by the job that holds the key, from the template as it
+stood before any deletion; it changes no cascade, no entry and no row of the "head" table, never changes
+the exit status, never blocks the deletion pull request, and says only the kind of error when its
+computation fails.
+
+The plain offline run reads the file too, and fails on its structure alone: a router that does not exist
+or has no contract, a name that is no active entry of the template, a number that is not a number, a value
+with no reason, a mapping with no tools declaration. It reads it only against the repository's template (or
+the file given by "--contracts"), since a contract written for one template means nothing against another.
+A deletion that takes a mapped entry out of the template therefore leaves its row in the file for a person
+to remove in the same pull request.
+
 UNTRUSTED TEXT
 --------------
 What a catalogue says -- an id, a name, a date -- ends up in the log, in an issue, in a pull request
@@ -1478,6 +1513,8 @@ def read_ranking_models(payload):
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": figure(evaluations.get("artificial_analysis_coding_index")),
             "speed": speed_figure(performance.get("mean_output_tokens_per_second")),
+            "slug": slug if SAFE_ID.fullmatch(slug) else "",
+            "first_answer": seconds_figure(performance.get("mean_time_to_first_answer_token_seconds")),
             "price": blended_price(pricing.get("price_1m_input_tokens"), pricing.get("price_1m_output_tokens")),
         })
     return models
@@ -1495,6 +1532,7 @@ def read_rankings(opener, environment, today):
         for number in range(1, MAX_PAGES + 1):
             payload = fetch_json(opener, "%s?page=%d" % (RANKING_URL, number), headers)
             ranking["models"] += read_ranking_models(payload)
+            ranking["index_version"] = figure(payload.get("intelligence_index_version"))
             if not has_more_pages(payload):
                 break
         else:
@@ -1653,6 +1691,554 @@ def undeleted_count(result):
     return sum(1 for report in result["providers"] for finding in report["findings"]
                if finding["kind"] in ("retired", "gone")
                and finding.get("removal", {}).get("status") != "applied")
+
+
+# ------------------------------------------------------------------------------------------------
+# Router contracts: what each router is held to, reported and never enforced
+# ------------------------------------------------------------------------------------------------
+
+CONTRACTS = ROOT / ".github" / "LiteLLM_router_contracts.yaml"
+CONTRACT_STATUSES = ("provisional", "validated")
+CONTRACT_CRITERIA = ("intelligence", "first_answer", "code_quality")
+CONTRACT_STAND_INS = ("intelligence",)
+CONTRACT_REQUIRES = ("tools",)
+TOOLS_SUPPORT = ("yes", "no", "unknown")
+CONTRACT_FALLBACKS = "router_settings.fallbacks"
+# The levels Artificial Analysis names in the suffix of a record, from the one that thinks least to
+# the one that thinks most: the level a router keeps for a model is the highest of these that fits.
+# "reasoning" stands alone in a family that has no named level, so where it sits does not matter.
+LEVEL_ORDER = ("non-reasoning", "minimal", "low", "medium", "reasoning", "high", "xhigh", "max")
+LEVEL_UNKNOWN = "unknown"
+LEVEL_NOT_APPLICABLE = "n/a"
+LEVEL_SUFFIX = re.compile(r"^(?P<base>.*)\((?P<level>[^()]*)\)\s*$")
+
+
+def seconds_figure(value):
+    """A time in seconds, or None: zero or less is no time of a model that answers, and is read as
+    not measured, as a speed of zero is."""
+    seconds = figure(value)
+    return seconds if seconds is not None and seconds > 0 else None
+
+
+def split_level(name):
+    """(family, level) of a record's name: "Gemini 4 Hydrogen (Low)" is ("Gemini 4 Hydrogen", "low").
+    A last parenthesis that is no level ("(Sep '25)", "(Low, Default Fallback)") is part of the
+    name, and the level is None."""
+    match = LEVEL_SUFFIX.match(name)
+    if match and match.group("level").strip().lower() in LEVEL_ORDER:
+        return match.group("base").strip(), match.group("level").strip().lower()
+    return name.strip(), None
+
+
+def level_rank(level):
+    return LEVEL_ORDER.index(level) if level in LEVEL_ORDER else -1
+
+
+def ranking_families(models):
+    """({slug: record}, {family: [records]}) of the ranking's models, a record being the model with
+    its "family" and "level". Two records under one slug make it no address, so it is left out."""
+    by_slug, twins, families = {}, set(), {}
+    for model in models:
+        if not model.get("slug"):
+            continue
+        family, level = split_level(model["name"])
+        record = dict(model, family=family, level=level)
+        if model["slug"] in by_slug:
+            twins.add(model["slug"])
+        by_slug[model["slug"]] = record
+        families.setdefault(family.lower(), []).append(record)
+    return {slug: record for slug, record in by_slug.items() if slug not in twins}, families
+
+
+def best_level(family, budget):
+    """The record of the highest level of "family" whose time to the first answer token fits the
+    budget, or None when none does. A record with no time fits nothing: it is not known to."""
+    fitting = [record for record in family
+               if record["first_answer"] is not None and record["first_answer"] <= budget]
+    return max(fitting, key=lambda record: level_rank(record["level"]), default=None)
+
+
+def describe_entry(mapping, by_slug, families):
+    """What the ranking says of one mapped entry: "state" is "no_record" (the file says no record
+    describes it), "stale" (its slug is no longer in the ranking) or "resolved", and then "record" is
+    the one whose figures are the entry's, "family" its levels, and "unverified" says why those
+    figures cannot be taken for the called level: "unknown" (the level is not known and the family
+    has several) or "uncovered" (the ranking has the family at other levels only)."""
+    if "no_record" in mapping:
+        return {"state": "no_record", "why": mapping["no_record"]}
+    record = by_slug.get(mapping["slug"])
+    if record is None:
+        return {"state": "stale", "slug": mapping["slug"]}
+    family = families[record["family"].lower()]
+    level = mapping["level"]
+    found = {"state": "resolved", "record": record, "family": family, "called": level,
+             "unverified": None, "unstated": False}
+    if level == LEVEL_UNKNOWN:
+        if len(family) > 1:
+            found["unverified"] = "unknown"
+    elif level in LEVEL_ORDER:
+        at_level = next((other for other in family if other["level"] == level), None)
+        if at_level is not None:
+            found["record"] = at_level
+        elif len(family) == 1 and family[0]["level"] is None:
+            found["unstated"] = True
+        else:
+            found["unverified"] = "uncovered"
+    return found
+
+
+def entry_verdict(found, budget, floor, last_resort, tools=None):
+    """(kind, text) of one entry against its router's budget and floor. A member of the last resort
+    is exempt from the floor and from nothing else; one under the floor that fits the budget is not
+    removed but goes to the last resort tier ("below_floor"). "tools" is what the entry's provider
+    declares of tool calls, given only to a router that requires them: "no" excludes the entry, and
+    "unknown" is said and excludes nothing."""
+    if found["state"] == "unmapped":
+        return "unmapped", "sans correspondance"
+    if tools == "no":
+        return "no_tools", "sans appels d'outils"
+    note = " ; appels d'outils inconnus" if tools == "unknown" else ""
+    if found["state"] == "no_record":
+        return "no_record", "sans enregistrement" + note
+    if found["state"] == "stale":
+        return "stale", "correspondance périmée" + note
+    if found["unverified"]:
+        return "unverified", "variante non vérifiée" + note
+    record = found["record"]
+    if record["intelligence"] is None and not last_resort:
+        return "unrankable", "inclassable : pas d'indice" + note
+    if record["first_answer"] is None:
+        return "unrankable", "inclassable : pas de délai" + note
+    over = record["first_answer"] > budget
+    under = not last_resort and record["intelligence"] < floor
+    floor_text = "sous le plancher (%.1f contre %g)" % (record["intelligence"], floor) if under else None
+    if over:
+        text = "au-dessus du budget (%.1f s contre %g s)" % (record["first_answer"], budget)
+        return "violation", text + (" ; " + floor_text if under else "") + note
+    if under:
+        return "below_floor", floor_text + " : dernier recours" + note
+    return "conforming", ("conforme (dernier recours)" if last_resort else "conforme") + note
+
+
+def ranking_field(ranking):
+    """The figure a router's "ranking" block orders its members by: the time to the first answer
+    token, or the intelligence index, which is also what stands in for a criterion with no source
+    (the only stand-in there is)."""
+    return "first_answer" if ranking["criterion"] == "first_answer" else "intelligence"
+
+
+def contract_order(rows, ranking):
+    """The order a router's contract would give: the members that conform, by the router's criterion
+    (the highest figure first, or the shortest time to the first answer token first, the current order
+    settling a tie), then the last resort tier in the order it has now: the members the contract
+    declares exempt and those under the floor. A member that is over the budget, or cannot be judged,
+    is not placed."""
+    field = ranking_field(ranking)
+    sign = 1 if field == "first_answer" else -1
+    main = sorted((row for row in rows if row["kind"] == "conforming" and not row["last_resort"]),
+                  key=lambda row: (sign * row["record"][field], row["position"]))
+    return ([row["name"] for row in main]
+            + [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"])
+
+
+def effective_contract(routers, name):
+    """The contract a router is held to: its own, or for a router that derives from another, that
+    one's, with what the derived router requires."""
+    contract = routers[name]
+    if "derives_from" not in contract:
+        return contract
+    return dict(routers[contract["derives_from"]], derives_from=contract["derives_from"],
+                requires=contract["requires"], reason=contract["reason"])
+
+
+def router_rows(members, contract, mappings, by_slug, families, floor=None):
+    """One row per member of a cascade against its router's contract, at the floor given or the
+    contract's own."""
+    budget = contract["time_budget_seconds"]["value"]
+    floor = contract["intelligence_floor"]["value"] if floor is None else floor
+    rows = []
+    for position, name in enumerate(members):
+        mapping = mappings.get(name)
+        found = describe_entry(mapping, by_slug, families) if mapping else {"state": "unmapped"}
+        last_resort = name in contract["last_resort"]["members"]
+        tools = mapping["tools"]["support"] if mapping else "unknown"
+        kind, text = entry_verdict(found, budget, floor, last_resort,
+                                   tools if "tools" in contract.get("requires", ()) else None)
+        rows.append({"name": name, "position": position, "found": found, "kind": kind,
+                     "verdict": text, "last_resort": last_resort, "tools": tools,
+                     "record": found.get("record"),
+                     "best": best_level(found["family"], budget) if found["state"] == "resolved" else None})
+    return rows
+
+
+def floor_effects(members, contract, mappings, by_slug, families):
+    """What each floor the contract proposes to compare does to a cascade: who stays in front and who
+    goes to the last resort tier. Who is not placed at all does not depend on the floor."""
+    effects = []
+    for floor in contract["intelligence_floor"].get("candidates") or [contract["intelligence_floor"]["value"]]:
+        rows = router_rows(members, contract, mappings, by_slug, families, floor)
+        placed = contract_order(rows, contract["ranking"])
+        tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
+        effects.append({"floor": floor, "main": [name for name in placed if name not in tail], "last": tail})
+    return effects
+
+
+def derivation_differences(base, derived, tools):
+    """How a derived cascade differs from the one it must be: the cascade it derives from without the
+    members whose tool support is refused, in the same order. "tools" is {name: "yes" | "no" |
+    "unknown"}. A member whose support is unknown is neither required nor refused, and is listed."""
+    kept = [name for name in base if tools.get(name, "unknown") != "no"]
+    common = [name for name in derived if name in base]
+    return {
+        "extra": [name for name in derived if name not in base],
+        "refused": [name for name in derived if tools.get(name, "unknown") == "no"],
+        "missing": [name for name in base if tools.get(name, "unknown") == "yes" and name not in derived],
+        "unordered": common != [name for name in kept if name in derived],
+        "unknown": [name for name in base if tools.get(name, "unknown") == "unknown"],
+    }
+
+
+def contracts_report(template, ranking, contracts):
+    """What the contracts say of the cascades as they stand, from the ranking as it was read:
+    {"status": "computed", "routers": [...], "unmapped": [...], ...}. A pure reading, it changes
+    nothing and judges nothing: every violation in it is information."""
+    lists = fallback_lists(template["document"])
+    names = [entry["name"] for entry in template["active"] if isinstance(entry["name"], str)]
+    mappings = contracts["models"]
+    by_slug, families = ranking_families(ranking["models"])
+    tools = {name: mapping["tools"]["support"] for name, mapping in mappings.items()}
+    routers = []
+    for router, _ in RANKING_ROUTERS:
+        members = lists.get((CONTRACT_FALLBACKS, router))
+        if members is None or router not in contracts["routers"]:
+            continue
+        contract = effective_contract(contracts["routers"], router)
+        rows = router_rows(members, contract, mappings, by_slug, families)
+        base = contract.get("derives_from")
+        routers.append({
+            "name": router, "contract": contract, "rows": rows, "current": list(members),
+            "proposed": contract_order(rows, contract["ranking"]),
+            "floors": floor_effects(members, contract, mappings, by_slug, families),
+            "base": base,
+            "differences": derivation_differences(lists.get((CONTRACT_FALLBACKS, base), []), members, tools)
+            if base else None})
+    described = {name: describe_entry(mappings[name], by_slug, families) for name in names
+                 if name in mappings}
+    version, wanted = ranking.get("index_version"), figure(contracts.get("index_version"))
+    return {
+        "status": "computed", "routers": routers, "date": ranking["date"],
+        "unmapped": [name for name in names if name not in mappings],
+        "no_record": [name for name in names if described.get(name, {}).get("state") == "no_record"],
+        "stale": [(name, found["slug"]) for name, found in described.items() if found["state"] == "stale"],
+        "uncovered": [(name, found) for name, found in described.items()
+                      if found["state"] == "resolved" and found["unverified"] == "uncovered"],
+        "provisional": contracts.get("status") != "validated",
+        "version": version, "wanted_version": wanted,
+    }
+
+
+def contract_block_problems(block, where, problems):
+    """The block of a value and its reason, or None, adding what is wrong with it to "problems"."""
+    if not isinstance(block, dict):
+        problems.append('%s is missing or is not a mapping of a value and its "reason"' % where)
+        return None
+    reason = block.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        problems.append('%s has no "reason": every value says why it is what it is' % where)
+    return block
+
+
+def contracts_problems(contracts, template):
+    """The structural problems of a contracts document against the template it is read with: a router
+    that does not exist or has no contract, a name that is no active entry, a number that is not a
+    number, a value with no reason. Only the shape is judged, never a figure."""
+    problems = []
+    if not isinstance(contracts, dict):
+        return ["the router contracts file is not a mapping"]
+    lists = fallback_lists(template["document"])
+    active = {entry["name"] for entry in template["active"] if isinstance(entry["name"], str)}
+    if contracts.get("status") not in CONTRACT_STATUSES:
+        problems.append('"status" must be one of %s' % ", ".join(CONTRACT_STATUSES))
+    if figure(contracts.get("index_version")) is None:
+        problems.append('"index_version" must be a number: the floors are on one version of the index')
+    routers = contracts.get("routers")
+    if not isinstance(routers, dict):
+        problems.append('"routers" is missing or is not a mapping')
+        routers = {}
+    for router in routers:
+        if (CONTRACT_FALLBACKS, router) not in lists:
+            problems.append('the contract of "%s" is that of no router: the template has no cascade of '
+                            "that name" % router)
+    for router, _ in RANKING_ROUTERS:
+        if router not in routers:
+            problems.append('the router "%s" has no contract' % router)
+    for router, contract in routers.items():
+        where = 'router "%s"' % router
+        if not isinstance(contract, dict):
+            problems.append("%s is not a mapping" % where)
+        elif "derives_from" in contract:
+            base = routers.get(contract["derives_from"])
+            if not isinstance(base, dict) or "derives_from" in base or contract["derives_from"] == router:
+                problems.append('%s derives from "%s", which is no router with a contract of its own'
+                                % (where, contract["derives_from"]))
+            requires = contract.get("requires")
+            if not isinstance(requires, list) or any(item not in CONTRACT_REQUIRES for item in requires):
+                problems.append('%s must list what it "requires" among: %s' % (where, ", ".join(CONTRACT_REQUIRES)))
+            contract_block_problems(contract, where, problems)
+        else:
+            full_contract_problems(contract, where, active, problems)
+    mappings = contracts.get("models")
+    if not isinstance(mappings, dict):
+        problems.append('"models" is missing or is not a mapping')
+        mappings = {}
+    for name, mapping in mappings.items():
+        mapping_problems(name, mapping, active, problems)
+    inputs = contracts.get("inputs")
+    if inputs is not None and not isinstance(inputs, dict):
+        problems.append('"inputs" is not a mapping')
+    return problems
+
+
+def full_contract_problems(contract, where, active, problems):
+    for key, allowed in (("time_budget_seconds", lambda value: value > 0),
+                         ("intelligence_floor", lambda value: value >= 0)):
+        block = contract_block_problems(contract.get(key), '%s, "%s",' % (where, key), problems)
+        if block is not None:
+            value = figure(block.get("value"))
+            if value is None or not allowed(value):
+                problems.append('%s, "%s", has a "value" that is not a positive number' % (where, key))
+    block = contract.get("intelligence_floor")
+    candidates = block.get("candidates") if isinstance(block, dict) else None
+    if candidates is not None and (not isinstance(candidates, list)
+                                   or any(figure(item) is None or item < 0 for item in candidates)):
+        problems.append('%s, "intelligence_floor", must list its "candidates" as numbers' % where)
+    block = contract_block_problems(contract.get("ranking"), '%s, "ranking",' % where, problems)
+    if block is not None:
+        if block.get("criterion") not in CONTRACT_CRITERIA:
+            problems.append('%s, "ranking", must have a "criterion" among: %s'
+                            % (where, ", ".join(CONTRACT_CRITERIA)))
+        elif block["criterion"] == "code_quality" and (
+                block.get("stand_in") not in CONTRACT_STAND_INS
+                or any(not isinstance(block.get(key), str) or not block[key].strip()
+                       for key in ("source", "source_status"))):
+            problems.append('%s, "ranking", on "code_quality" must say its "source", its "source_status" and '
+                            'a "stand_in" among: %s' % (where, ", ".join(CONTRACT_STAND_INS)))
+    block = contract_block_problems(contract.get("last_resort"), '%s, "last_resort",' % where, problems)
+    if block is not None:
+        members = block.get("members")
+        if not isinstance(members, list):
+            problems.append('%s, "last_resort", must list its "members"' % where)
+        else:
+            for name in members:
+                if name not in active:
+                    problems.append('%s, "last_resort", names "%s", which is no active entry of the '
+                                    "template" % (where, name))
+
+
+def mapping_problems(name, mapping, active, problems):
+    where = 'the mapping of "%s"' % name
+    if name not in active:
+        problems.append('%s maps a name that is no active entry of the template' % where)
+    if not isinstance(mapping, dict):
+        problems.append("%s is not a mapping" % where)
+        return
+    tools = mapping.get("tools")
+    if (not isinstance(tools, dict) or tools.get("support") not in TOOLS_SUPPORT
+            or not isinstance(tools.get("source"), str) or not tools["source"].strip()):
+        problems.append('%s has no "tools" saying "yes", "no" or "unknown" and its source' % where)
+    epoch = mapping.get("epoch", "unknown")
+    if epoch != "unknown" and (not isinstance(epoch, dict) or not epoch or any(
+            not isinstance(ids, list) or not ids or any(not isinstance(item, str) or not item.strip()
+                                                        for item in ids) for ids in epoch.values())):
+        problems.append('%s has an "epoch" that is neither "unknown" nor benchmark files and their model ids'
+                        % where)
+    if "no_record" in mapping:
+        if "slug" in mapping or not isinstance(mapping["no_record"], str) or not mapping["no_record"].strip():
+            problems.append('%s has "no_record" and so says why in it, in words, and names no "slug"' % where)
+        return
+    slug = mapping.get("slug")
+    if not isinstance(slug, str) or not SAFE_ID.fullmatch(slug):
+        problems.append('%s has no "slug" spelt like one' % where)
+    if mapping.get("level") not in LEVEL_ORDER + (LEVEL_UNKNOWN, LEVEL_NOT_APPLICABLE):
+        problems.append('%s has a "level" that is none of: %s' % (
+            where, ", ".join(LEVEL_ORDER + (LEVEL_UNKNOWN, LEVEL_NOT_APPLICABLE))))
+    source = mapping.get("level_source")
+    if not isinstance(source, str) or not source.strip():
+        problems.append('%s has no "level_source": the page that gives the level, or "unknown"' % where)
+
+
+def load_contracts(path):
+    """(document, problems): the contracts file parsed, or why it could not be."""
+    try:
+        return yaml.safe_load(Path(path).read_text(encoding="utf-8")), []
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as error:
+        return None, ["the router contracts file cannot be read (%s)" % error.__class__.__name__]
+
+
+def contracts_file_for(arguments):
+    """The contracts file this run reads: the one of the repository when the template read is the
+    repository's own, none for another template unless one is given, since a contract written for
+    one template means nothing against another."""
+    if arguments.contracts:
+        return Path(arguments.contracts)
+    return CONTRACTS if Path(arguments.config).resolve() == CONFIG.resolve() else None
+
+
+def offline_contract_problems(text, path):
+    """The structural problems of the contracts file at "path", read against the template in
+    "text": what the offline run fails on, and all that it does."""
+    template, _ = read_template(text)
+    if template is None:
+        return []
+    document, problems = load_contracts(path)
+    return problems or contracts_problems(document, template)
+
+
+def router_contracts(text, result, path):
+    """The contracts' reading of the cascades for the issue, or None where there is nothing to say
+    (no path, or the ranking was not read). It never raises and never changes the run: a file that
+    is wrong says so in the issue, and so does a computation that failed, by the kind of error."""
+    ranking = result.get("rankings")
+    if path is None or not ranking or ranking["status"] != "read":
+        return None
+    try:
+        template, _ = read_template(text)
+        document, problems = load_contracts(path)
+        problems = problems or contracts_problems(document, template)
+        if problems:
+            return {"status": "invalid", "problems": problems}
+        return contracts_report(template, ranking, document)
+    except Exception as error:
+        return {"status": "error", "kind": error.__class__.__name__}
+
+
+def level_text(record):
+    return record["level"] if record["level"] else "niveau unique"
+
+
+def contract_cells(row):
+    """The cells of a member's row in the issue: the record, the level called, its figures, the best
+    level that fits the budget, and the verdict."""
+    found, record = row["found"], row["record"]
+    name = "`%s`%s" % (safe_text(row["name"], 60), " (dernier recours)" if row["last_resort"] else "")
+    if record is None:
+        return [name, "—", "—", "—", "—", "—", "—", row["verdict"]]
+    best = row["best"]
+    if best is None:
+        best_text = "aucun niveau ne tient"
+    else:
+        best_text = "%s (%s s, indice %s)" % (level_text(best), figure_text(best["first_answer"]),
+                                              figure_text(best["intelligence"]))
+    called = found["called"] if found["called"] != LEVEL_NOT_APPLICABLE else "sans niveau"
+    return [name, safe_text(record["name"], 80), "inconnu" if called == LEVEL_UNKNOWN else called,
+            figure_text(record["intelligence"]), figure_text(record["first_answer"]),
+            figure_text(record["speed"]), best_text, row["verdict"]]
+
+
+def names_text(names):
+    return ", ".join("`%s`" % safe_text(name, 60) for name in names) or "—"
+
+
+def ranking_text(contract):
+    ranking = contract["ranking"]
+    if ranking["criterion"] == "code_quality":
+        return ("la qualité de code (source : %s, %s) ; Artificial Analysis n'a pas d'indice de code, "
+                "l'indice d'intelligence en tient lieu à titre provisoire"
+                % (safe_text(ranking["source"], 120), safe_text(ranking["source_status"], 40)))
+    return "l'indice d'intelligence" if ranking["criterion"] == "intelligence" else "le délai le plus court"
+
+
+def derivation_lines(router):
+    """What the derived router's cascade is, against the one it must be."""
+    base, differences = router["base"], router["differences"]
+    unknown = differences["unknown"]
+    out = []
+    for key, text in (("extra", "dans `%s` mais pas dans `%s`" % (router["name"], base)),
+                      ("refused", "sans appels d'outils déclarés, pourtant dans `%s`" % router["name"]),
+                      ("missing", "avec appels d'outils, dans `%s` mais pas dans `%s`" % (base, router["name"]))):
+        if differences[key]:
+            out.append("- %s : %s" % (text, names_text(differences[key])))
+    if differences["unordered"]:
+        out.append("- l'ordre des membres communs n'est pas celui de `%s`" % base)
+    if unknown:
+        out.append("- appels d'outils inconnus (ni exigés ni refusés, à vérifier) : %s" % names_text(unknown))
+    same = not (differences["extra"] or differences["refused"] or differences["missing"] or differences["unordered"])
+    return ["La cascade de `%s` %s la cascade de `%s` sans les membres sans outils, dans le même ordre."
+            % (router["name"], "est" if same else "n'est **pas**", base), ""] + out + ([""] if out else [])
+
+
+def contracts_section(result):
+    """The section "Contrats par routeur" of the weekly issue, in French: one table per router, the
+    order the contract would give against the current one, the floors side by side, and what the
+    mapping does not cover. A report, whose every violation is information."""
+    report = result.get("contracts")
+    if not report:
+        return []
+    out = ["## Contrats par routeur", ""]
+    if report["status"] == "invalid":
+        out += ["Le fichier `.github/LiteLLM_router_contracts.yaml` n'a pas la forme attendue, rien n'est "
+                "calculé cette semaine :", ""]
+        return out + capped(["- " + " ".join(problem.split()) for problem in report["problems"]]) + [""]
+    if report["status"] == "error":
+        return out + ["Le calcul a échoué (%s) : rien n'est calculé cette semaine, et rien d'autre n'en "
+                      "dépend." % code_span(report["kind"]), ""]
+    out += ["Les cascades lues contre `.github/LiteLLM_router_contracts.yaml`, d'après les chiffres "
+            "d'Artificial Analysis lus le %s (<%s>)%s. **C'est un rapport** : rien ne change une cascade, une "
+            "entrée ni une ligne `head`, et un écart n'est qu'une information. Le temps est la moyenne du "
+            "délai avant le premier jeton de la réponse ; le niveau retenu pour un modèle est le plus élevé "
+            "dont le délai tient dans le budget ; un membre sous le plancher passe au dernier recours, il "
+            "n'est pas retiré. L'échelle d'intelligence est comprimée dans le bas, où deux points séparent "
+            "des modèles qu'on ne mettrait pas dans la même classe, et la plupart des enregistrements n'ont "
+            "aucun indice." % (report["date"], RANKING_SITE,
+                               "" if not report["provisional"] else " ; les contrats sont **provisoires** "
+                               "jusqu'à validation du mainteneur"), ""]
+    if (report["version"] is not None and report["wanted_version"] is not None
+            and report["version"] != report["wanted_version"]):
+        out += ["**L'indice d'intelligence est maintenant en version %g, les planchers sont écrits pour la "
+                "version %g : à revoir avant de se fier à une ligne.**" % (report["version"],
+                                                                         report["wanted_version"]), ""]
+    for router in report["routers"]:
+        contract = router["contract"]
+        out += ["### `%s`" % router["name"], ""]
+        if router["base"]:
+            out += ["Dérivé de `%s` : mêmes budget (%g s), plancher (%g) et classement, et les modèles sans "
+                    "appels d'outils en sont exclus." % (router["base"], contract["time_budget_seconds"]["value"],
+                                                         contract["intelligence_floor"]["value"]), ""]
+        else:
+            out += ["Budget %g s, plancher %g, classé par %s." % (
+                contract["time_budget_seconds"]["value"], contract["intelligence_floor"]["value"],
+                ranking_text(contract)), ""]
+        out += ["| Membre | Enregistrement | Appelé à | Indice | Délai (s) | Jetons/s | Meilleur niveau dans "
+                "le budget | Verdict |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+        out += ["| %s |" % " | ".join(contract_cells(row)) for row in router["rows"]]
+        out += ["", "Ordre actuel : %s." % " > ".join("`%s`" % safe_text(name, 60) for name in router["current"]),
+                "", "Ordre des contrats : %s." % (" > ".join("`%s`" % safe_text(name, 60)
+                                                           for name in router["proposed"]) or "aucun membre"), ""]
+        if router["base"]:
+            out += derivation_lines(router)
+        if len(router["floors"]) > 1:
+            out += ["Effet de chaque plancher :", "", "| Plancher | En tête | Dernier recours |",
+                    "| --- | --- | --- |"]
+            out += ["| %g%s | %s | %s |" % (
+                effect["floor"], " (proposé)" if effect["floor"] == contract["intelligence_floor"]["value"] else "",
+                names_text(effect["main"]), names_text(effect["last"])) for effect in router["floors"]]
+            out.append("")
+    for title, entries in (
+            ("Entrées sans correspondance (à ajouter au fichier des contrats)",
+             ["`%s`" % safe_text(name, 60) for name in report["unmapped"]]),
+            ("Entrées sans enregistrement chez Artificial Analysis",
+             ["`%s`" % safe_text(name, 60) for name in report["no_record"]]),
+            ("Correspondances périmées (l'enregistrement n'est plus au classement)",
+             ["`%s` : `%s`" % (safe_text(name, 60), safe_text(slug, 80)) for name, slug in report["stale"]]),
+            ("Appelées à un niveau que le classement ne couvre pas",
+             ["`%s` appelé à `%s`, classé à : %s" % (
+                 safe_text(name, 60), safe_text(found["called"], 20),
+                 ", ".join(sorted({level_text(other) for other in found["family"]}, key=level_rank)))
+              for name, found in report["uncovered"]])):
+        if entries:
+            out += ["%s :" % title, ""] + capped(["- " + entry for entry in entries]) + [""]
+    return out
 
 
 # ------------------------------------------------------------------------------------------------
@@ -3250,6 +3836,7 @@ def issue_body(result, config_name, link, snippets):
                        for report, finding in served]) + [""]
 
     out += ranking_section(result)
+    out += contracts_section(result)
 
     if result["rules"]:
         out += ["## Règles du fichier", "",
@@ -6838,6 +7425,607 @@ def run_pricing_page_cases():
     return failures
 
 
+# The router contracts, played on made-up records only: no figure of Artificial Analysis is held here.
+# A template of five cascades over entries named after the alphabet, a contract for each router, and
+# ranking records shaped to hit each verdict, each boundary and each way a mapping can go wrong.
+CONTRACT_TEMPLATE = """\
+model_list:
+""" + "".join("""  - model_name: %s
+    litellm_params:
+      model: groq/vendor/%s-model
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+""" % (name, name) for name in (
+    "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo",
+    "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra")) + """\
+router_settings:
+  fallbacks:
+    - pro: [alpha, charlie, delta, echo, india, juliet, foxtrot]
+    - flash: [bravo, kilo, lima, hotel, golf, mike, papa, romeo]
+    - flash-lite: [kilo, india, bravo, lima]
+    - code: [alpha, delta, november, oscar, sierra]
+    - claude-code: [alpha, echo, november, delta, quebec]
+  model_group_alias:
+    "pro": "alpha"
+    "flash": "bravo"
+    "flash-lite": "kilo"
+    "code": "alpha"
+    "claude-code": "alpha"
+"""
+
+
+def contract_router(budget, floor, criterion="intelligence", last_resort=(), candidates=None):
+    ranking = {"criterion": criterion, "reason": "selftest"}
+    if criterion == "code_quality":
+        ranking.update(source="Epoch AI selftest source", source_status="not read yet", stand_in="intelligence")
+    contract = {"time_budget_seconds": {"value": budget, "reason": "selftest"},
+                "intelligence_floor": {"value": floor, "reason": "selftest"},
+                "ranking": ranking, "last_resort": {"members": list(last_resort), "reason": "selftest"}}
+    if candidates:
+        contract["intelligence_floor"]["candidates"] = list(candidates)
+    return contract
+
+
+def contract_mapping(slug, level, tools="yes"):
+    return {"slug": slug, "level": level, "level_source": "selftest",
+            "tools": {"support": tools, "source": "selftest"}}
+
+
+def contract_document():
+    """The contracts the cases read: a fresh one at every call, since a case edits it."""
+    return {
+        "status": "provisional", "index_version": 5,
+        "routers": {
+            "pro": contract_router(30, 20, last_resort=("juliet", "foxtrot"), candidates=(5, 20, 31)),
+            "flash": contract_router(20, 10, candidates=(10, 15)),
+            "flash-lite": contract_router(10, 6, criterion="first_answer"),
+            "code": contract_router(30, 20, criterion="code_quality"),
+            "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
+        },
+        "models": {
+            "alpha": dict(contract_mapping("alpha-medium", "medium"), epoch={"deepswe_external": ["alpha_medium"]}),
+            "bravo": contract_mapping("bravo", "n/a"),
+            "charlie": contract_mapping("charlie", "unknown"),
+            "delta": contract_mapping("delta-high", "medium"),
+            "echo": contract_mapping("echo", "n/a"),
+            "foxtrot": {"no_record": "a router: no record describes it",
+                        "tools": {"support": "unknown", "source": "selftest"}},
+            "golf": contract_mapping("golf-gone", "high"),
+            "india": contract_mapping("india", "n/a"),
+            "juliet": contract_mapping("juliet", "unknown"),
+            "kilo": contract_mapping("kilo", "n/a"),
+            "lima": contract_mapping("lima-high", "high"),
+            "mike": contract_mapping("mike", "medium"),
+            "november": contract_mapping("twin", "high", tools="no"),
+            "oscar": contract_mapping("oscar", "high", tools="unknown"),
+            "papa": contract_mapping("papa", "n/a"),
+            "quebec": contract_mapping("quebec", "n/a", tools="unknown"),
+            "romeo": contract_mapping("romeo", "n/a"),
+            "sierra": contract_mapping("sierra", "n/a"),
+        },
+    }
+
+
+def timed_model(slug, name, intelligence=None, first_answer=None, speed=100.0):
+    model = ranking_model(slug, name, intelligence, None, speed)
+    model["performance_v3"]["mean_time_to_first_answer_token_seconds"] = first_answer
+    return model
+
+
+def contract_records():
+    """Ranking records for the contracts above: figures are (intelligence, seconds to the first answer
+    token), and a family is told by the suffix of its names, as the real ones are."""
+    return [
+        timed_model("alpha-low", "Alpha (Low)", 20, 5), timed_model("alpha-medium", "Alpha (Medium)", 30, 12),
+        timed_model("alpha-high", "Alpha (High)", 40, 25), timed_model("alpha", "Alpha (Xhigh)", 50, 60),
+        timed_model("bravo", "Bravo @bob <img src=x> | `x` ::error::", 12, 4),
+        timed_model("charlie", "Charlie (Reasoning)", 40, 20), timed_model("charlie-non", "Charlie (Non-reasoning)", 15, 2),
+        timed_model("delta-low", "Delta (Low)", 12, 3), timed_model("delta-high", "Delta (High)", 45, 40),
+        timed_model("echo", "Echo", None, 3), timed_model("india", "India", 8, 2),
+        timed_model("juliet", "Juliet", None, 50), timed_model("kilo", "Kilo", 14, 6),
+        timed_model("lima-high", "Lima (High)", 60, 90), timed_model("lima-low", "Lima (Low)", 15, 8),
+        timed_model("mike", "Mike", 10, 20),
+        timed_model("twin", "November One", 30, 5), timed_model("twin", "November Two", 31, 6),
+        timed_model("oscar", "Oscar (High)", 50, 99), timed_model("papa", "Papa", 12, 5), timed_model("romeo", "Romeo", 9, 20),
+        timed_model("quebec", "Quebec", 30, None), timed_model("sierra", "Sierra", 5, 50),
+    ]
+
+
+def contract_ranking(models=None, version=5.0):
+    page = ranking_page(*(contract_records() if models is None else models))
+    page["intelligence_index_version"] = version
+    return {"status": "read", "date": "2026-01-01", "index_version": version,
+            "models": read_ranking_models(page)}
+
+
+def contract_rows(report, router):
+    found = next(entry for entry in report["routers"] if entry["name"] == router)
+    return {row["name"]: row for row in found["rows"]}, found
+
+
+def run_contract_cases():
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    template, problems = read_template(CONTRACT_TEMPLATE)
+    if template is None or problems:
+        print("selftest: BROKEN CASE (the contracts' template) -- %r" % problems)
+        return failures + 1
+    document = contract_document()
+    judged("the baseline contracts have no structural problem",
+           first_wrong((contracts_problems(document, template) == [], "got %r" % contracts_problems(document, template))))
+
+    # Reading a record's level from its name.
+    judged("the level is the last parenthesis when it names one, and a name otherwise",
+           first_wrong(
+               (split_level("Gemini 4 Hydrogen (Low)") == ("Gemini 4 Hydrogen", "low"), "a plain level"),
+               (split_level("Qwen (Non-reasoning)") == ("Qwen", "non-reasoning"), "non-reasoning"),
+               (split_level("Model (Sep '25) (Reasoning)") == ("Model (Sep '25)", "reasoning"), "two parentheses"),
+               (split_level("Model (Low, Default Fallback)") == ("Model (Low, Default Fallback)", None), "a fallback"),
+               (split_level("Model (Xhigh)") == ("Model", "xhigh"), "xhigh"),
+               (split_level("Model (Max)") == ("Model", "max"), "max"),
+               (split_level("Model (Minimal)") == ("Model", "minimal"), "minimal"),
+               (split_level("Plain Model") == ("Plain Model", None), "no parenthesis"),
+               (split_level("Model  ( Low )") == ("Model", "low"), "blanks around a level"),
+               (split_level("  Plain Model  ") == ("Plain Model", None), "blanks around a name")))
+    judged("a time is a positive finite number of seconds, and anything else is none",
+           first_wrong(
+               (seconds_figure(1.5) == 1.5 and seconds_figure(3) == 3.0, "a time was refused"),
+               (seconds_figure(0) is None and seconds_figure(-2) is None, "zero or less was taken for a time"),
+               (seconds_figure("3") is None and seconds_figure(True) is None and seconds_figure(None) is None
+                and seconds_figure(float("nan")) is None, "a non-number was taken for a time")))
+
+    # The ranking keeps what the contracts need, and the rest as before.
+    models = read_ranking_models(ranking_page(
+        timed_model("some-slug", "Some Name", 33, 4.5, 80), timed_model("bad slug//", "Odd", 1, 0, 50),
+        timed_model("no-time", "Slow", 1, "fast", 50)))
+    judged("the ranking keeps the slug and the time to the first answer token beside its other figures",
+           first_wrong(
+               (models[0]["slug"] == "some-slug" and models[0]["first_answer"] == 4.5, "slug or time lost: %r" % models[0]),
+               (models[0]["intelligence"] == 33.0 and models[0]["speed"] == 80.0 and models[0]["name"] == "Some Name",
+                "a figure the other code reads was dropped"),
+               (models[1]["slug"] == "" and models[1]["first_answer"] is None, "an unsafe slug or a zero time was kept"),
+               (models[2]["first_answer"] is None, "a time that is no number was kept")))
+    answers = ranking_answers(ranking_model("m", "M", 1, 1, 1))
+    answers["rankings"]["intelligence_index_version"] = 5.0
+    result, _, _, _ = ranking_run(RANKING_KEYS, answers)
+    judged("the version of the index the ranking was read at is kept",
+           first_wrong((result["rankings"]["index_version"] == 5.0, "got %r" % result["rankings"].get("index_version"))))
+
+    # The best level that fits: the highest whose time is within the budget, the budget itself fitting.
+    family = [record for record in ranking_families(read_ranking_models(ranking_page(*contract_records())))[1]["alpha"]]
+    judged("the best level is the highest whose time fits the budget, and none when none does",
+           first_wrong(
+               (best_level(family, 60)["level"] == "xhigh", "60 s is the whole family"),
+               (best_level(family, 59.9)["level"] == "high", "xhigh at 60 s fits 59.9"),
+               (best_level(family, 12)["level"] == "medium", "a time equal to the budget does not fit"),
+               (best_level(family, 11.9)["level"] == "low", "medium at 12 s fits 11.9"),
+               (best_level(family, 4.9) is None, "a level that does not fit was kept"),
+               (best_level([dict(family[0], first_answer=None)], 100) is None, "a record with no time fits")))
+
+    report = contracts_report(template, contract_ranking(), document)
+    pro, pro_order = contract_rows(report, "pro")
+    flash, flash_order = contract_rows(report, "flash")
+    lite, lite_order = contract_rows(report, "flash-lite")
+    code, code_order = contract_rows(report, "code")
+    claude, claude_order = contract_rows(report, "claude-code")
+
+    judged("a member that fits the budget and the floor conforms, with its figures, the level it is called at and the best level that fits",
+           first_wrong(
+               (pro["alpha"]["kind"] == "conforming" and pro["alpha"]["verdict"] == "conforme", "alpha: %r" % pro["alpha"]["verdict"]),
+               (pro["alpha"]["record"]["slug"] == "alpha-medium" and pro["alpha"]["record"]["intelligence"] == 30.0
+                and pro["alpha"]["record"]["first_answer"] == 12.0, "alpha's record is not the medium one"),
+               (pro["alpha"]["best"]["slug"] == "alpha-high", "the best level is not high, the 25 s one"),
+               (code["alpha"]["best"]["slug"] == "alpha-high", "the same budget gives another best level")))
+    judged("a member exactly at the budget and at the floor conforms; one over the budget is a violation, one under the floor goes to the last resort tier",
+           first_wrong(
+               (flash["mike"]["kind"] == "conforming", "mike, at 20 s and 10, is refused: %r" % flash["mike"]["verdict"]),
+               (flash["lima"]["kind"] == "violation" and flash["lima"]["verdict"] == "au-dessus du budget (90.0 s contre 20 s)", "lima: %r" % flash["lima"]["verdict"]),
+               (pro["india"]["kind"] == "below_floor" and pro["india"]["verdict"] == "sous le plancher (8.0 contre 20) : dernier recours",
+                "india: %r" % pro["india"]["verdict"]),
+               (flash["romeo"]["kind"] == "below_floor" and flash["romeo"]["verdict"] == "sous le plancher (9.0 contre 10) : dernier recours",
+                "romeo: %r" % flash["romeo"]["verdict"]),
+               (code["sierra"]["kind"] == "violation" and code["sierra"]["verdict"]
+                == "au-dessus du budget (50.0 s contre 30 s) ; sous le plancher (5.0 contre 20)",
+                "a member over both bounds says both: %r" % code["sierra"]["verdict"]),
+               (code["oscar"]["verdict"] == "au-dessus du budget (99.0 s contre 30 s)", "oscar: %r" % code["oscar"]["verdict"])))
+    judged("a model with no index cannot be ranked, and one with no time cannot be judged on its budget",
+           first_wrong(
+               (pro["echo"]["kind"] == "unrankable" and pro["echo"]["verdict"] == "inclassable : pas d'indice",
+                "echo: %r" % pro["echo"]["verdict"]),
+               (claude["quebec"]["kind"] == "unrankable"
+                and claude["quebec"]["verdict"] == "inclassable : pas de délai ; appels d'outils inconnus",
+                "quebec: %r" % claude["quebec"]["verdict"]),
+               (claude["quebec"]["best"] is None, "a best level was found for a record with no time")))
+    judged("the last resort is exempt from the floor and from nothing else",
+           first_wrong(
+               (pro["juliet"]["last_resort"] and pro["juliet"]["kind"] == "violation"
+                and pro["juliet"]["verdict"] == "au-dessus du budget (50.0 s contre 30 s)",
+                "juliet, with no index, over budget: %r" % pro["juliet"]["verdict"]),
+               (not pro["alpha"]["last_resort"], "a member was taken for the last resort")))
+    judged("an unknown level is unverified where the family has several levels, and no more where it has one; a called level the ranking lacks is unverified",
+           first_wrong(
+               (pro["charlie"]["verdict"] == "variante non vérifiée" and pro["charlie"]["found"]["unverified"] == "unknown",
+                "charlie: %r" % pro["charlie"]["verdict"]),
+               (pro["delta"]["verdict"] == "variante non vérifiée" and pro["delta"]["found"]["unverified"] == "uncovered",
+                "delta: %r" % pro["delta"]["verdict"]),
+               (lite["bravo"]["found"]["unverified"] is None and lite["bravo"]["kind"] == "conforming", "a level that does not apply is unverified"),
+               (flash["mike"]["found"]["unstated"] and flash["mike"]["found"]["unverified"] is None,
+                "a single record whose level is not stated was refused for the level called"),
+               (not pro["alpha"]["found"]["unstated"], "a record that states its level is said not to")))
+    judged("a record is the one at the level called, even when the mapping names another",
+           first_wrong(
+               (flash["lima"]["record"]["slug"] == "lima-high" and flash["lima"]["best"]["slug"] == "lima-low",
+                "lima: %r, best %r" % (flash["lima"]["record"]["slug"], flash["lima"]["best"] and flash["lima"]["best"]["slug"])),
+               (code["oscar"]["best"] is None, "a level that does not fit was proposed"),
+               (code["delta"]["record"]["slug"] == "delta-high", "an unverified entry lost its mapped record")))
+    by_slug, families = ranking_families(read_ranking_models(ranking_page(
+        *contract_records(), timed_model("foo", "Foo", 5, 1), timed_model("foo-low", "Foo (Low)", 6, 2))))
+    wrong_slug = describe_entry(contract_mapping("lima-low", "high"), by_slug, families)
+    alone = describe_entry(contract_mapping("oscar", "medium"), by_slug, families)
+    mixed = describe_entry(contract_mapping("foo", "medium"), by_slug, families)
+    judged("an entry is described by the record of the level it is called at whichever record its slug names; a family with one record that states its level, or with an unlabeled record among others, does not cover another level",
+           first_wrong(
+               (wrong_slug["record"]["slug"] == "lima-high" and wrong_slug["unverified"] is None, "the record of the slug was kept: %r" % wrong_slug["record"]["slug"]),
+               (alone["unverified"] == "uncovered" and not alone["unstated"], "a single record that states High covers medium"),
+               (mixed["unverified"] == "uncovered" and not mixed["unstated"], "an unlabeled record among others covers medium")))
+    fewer = contracts_report(read_template(CONTRACT_TEMPLATE.replace("    - claude-code: [alpha, echo, november, delta, quebec]\n", ""))[0],
+                             contract_ranking(), document)
+    without_lite = contract_document()
+    del without_lite["routers"]["flash-lite"]
+    judged("a router with no cascade in the template, or with no contract, is left out of the report",
+           first_wrong(
+               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
+               ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
+                == ["pro", "flash", "code", "claude-code"], "no contract")))
+
+    def derivation_text(**changes):
+        differences = {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}
+        differences.update(changes)
+        return derivation_lines({"name": "c", "base": "b", "differences": differences})
+
+    judged("a derived cascade is said to be the one it derives from only when no difference is left, a member of unknown tools being no difference",
+           first_wrong(
+               (derivation_text()[0].startswith("La cascade de `c` est la cascade de `b`"), "no difference, and not said so"),
+               (derivation_text(unknown=["u"])[0].startswith("La cascade de `c` est la cascade de `b`"), "a member of unknown tools is a difference"),
+               *[(derivation_text(**{key: value})[0].startswith("La cascade de `c` n'est **pas** la cascade de `b`"), "%s is no difference" % key)
+                 for key, value in (("extra", ["x"]), ("refused", ["x"]), ("missing", ["x"]), ("unordered", True))]))
+    judged("a name the file does not map, a slug the ranking lost, an ambiguous slug and a model with no record are each said",
+           first_wrong(
+               (flash["hotel"]["kind"] == "unmapped" and flash["hotel"]["verdict"] == "sans correspondance", "hotel: %r" % flash["hotel"]["verdict"]),
+               (flash["golf"]["kind"] == "stale" and flash["golf"]["verdict"] == "correspondance périmée", "golf: %r" % flash["golf"]["verdict"]),
+               (code["november"]["kind"] == "stale", "a slug two records share was believed"),
+               (pro["foxtrot"]["kind"] == "no_record" and pro["foxtrot"]["verdict"] == "sans enregistrement", "foxtrot: %r" % pro["foxtrot"]["verdict"]),
+               (report["unmapped"] == ["hotel"], "unmapped: %r" % report["unmapped"]),
+               (report["no_record"] == ["foxtrot"], "no record: %r" % report["no_record"]),
+               (report["stale"] == [("golf", "golf-gone"), ("november", "twin")], "stale: %r" % report["stale"]),
+               ([name for name, _ in report["uncovered"]] == ["delta"], "uncovered: %r" % report["uncovered"])))
+    judged("the order the contract gives puts the conforming first by the router's criterion, ties in the current order, then the last resort tier, and leaves the rest out",
+           first_wrong(
+               (pro_order["proposed"] == ["alpha", "india", "juliet", "foxtrot"], "pro: %r" % pro_order["proposed"]),
+               (flash_order["proposed"] == ["kilo", "bravo", "papa", "mike", "romeo"], "flash: %r" % flash_order["proposed"]),
+               (lite_order["proposed"] == ["india", "bravo", "kilo"], "flash-lite goes by time: %r" % lite_order["proposed"]),
+               (code_order["proposed"] == ["alpha"], "code: %r" % code_order["proposed"]),
+               (claude_order["proposed"] == ["alpha"], "claude-code: %r" % claude_order["proposed"]),
+               (flash_order["current"] == ["bravo", "kilo", "lima", "hotel", "golf", "mike", "papa", "romeo"], "the current order moved"),
+               (report["provisional"] and report["version"] == 5.0 and report["wanted_version"] == 5.0, "the header facts")))
+    judged("each floor a contract proposes is played side by side: who stays in front, who goes to the last resort tier",
+           first_wrong(
+               (pro_order["floors"] == [{"floor": 5, "main": ["alpha", "india"], "last": ["juliet", "foxtrot"]},
+                                        {"floor": 20, "main": ["alpha"], "last": ["india", "juliet", "foxtrot"]},
+                                        {"floor": 31, "main": [], "last": ["alpha", "india", "juliet", "foxtrot"]}],
+                "pro: %r" % pro_order["floors"]),
+               (flash_order["floors"] == [{"floor": 10, "main": ["kilo", "bravo", "papa", "mike"], "last": ["romeo"]},
+                                          {"floor": 15, "main": [], "last": ["bravo", "kilo", "mike", "papa", "romeo"]}],
+                "flash: %r" % flash_order["floors"]),
+               (lite_order["floors"] == [{"floor": 6, "main": ["india", "bravo", "kilo"], "last": []}],
+                "a contract with no candidates is played at its own floor: %r" % lite_order["floors"])))
+    judged("a router that derives from another is held to its contract, requires tools of its members, and is checked against its cascade",
+           first_wrong(
+               (claude_order["base"] == "code" and claude_order["contract"]["time_budget_seconds"]["value"] == 30
+                and claude_order["contract"]["ranking"]["criterion"] == "code_quality", "the contract was not inherited"),
+               (code_order["base"] is None and code_order["differences"] is None, "a router with a contract of its own was derived"),
+               (claude["november"]["kind"] == "no_tools" and claude["november"]["verdict"] == "sans appels d'outils",
+                "a member with no tool calls was kept: %r" % claude["november"]["verdict"]),
+               (code["alpha"]["verdict"] == "conforme" and claude["alpha"]["verdict"] == "conforme",
+                "a member whose tools are declared was refused, or a router that needs none said so"),
+               (claude_order["differences"] == {"extra": ["echo", "quebec"], "refused": ["november"], "missing": ["sierra"],
+                                                "unordered": True, "unknown": ["oscar"]},
+                "differences: %r" % claude_order["differences"])))
+    judged("a derived cascade is the cascade it derives from, without the members that have no tools, in the same order",
+           first_wrong(
+               (derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "no", "c": "yes"})
+                == {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}, "the same cascade differs"),
+               (derivation_differences(["a", "b", "c"], ["c", "a"], {"a": "yes", "b": "no", "c": "yes"})["unordered"], "another order is the same"),
+               (derivation_differences(["a", "b", "c"], ["a", "b", "c"], {"a": "yes", "b": "no", "c": "yes"})["refused"] == ["b"],
+                "a member without tools was allowed"),
+               (derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "yes", "c": "yes"})["missing"] == ["b"],
+                "a member with tools was allowed to be missing"),
+               (derivation_differences(["a", "b", "c"], ["a"], {})
+                == {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": ["a", "b", "c"]},
+                "a member whose tools are not known was required or refused"),
+               (derivation_differences(["a", "b"], ["a", "x"], {"a": "yes", "b": "unknown"})["extra"] == ["x"], "an extra member went unsaid"),
+               (not derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "unknown", "c": "yes"})["unordered"],
+                "a member of unknown tools, left out, was taken for a change of order")))
+    judged("the figure a router is ordered by is the time for first_answer and the intelligence index otherwise, code quality's stand-in included",
+           first_wrong(
+               (ranking_field({"criterion": "first_answer"}) == "first_answer", "first_answer"),
+               (ranking_field({"criterion": "intelligence"}) == "intelligence", "intelligence"),
+               (ranking_field({"criterion": "code_quality", "stand_in": "intelligence"}) == "intelligence", "code_quality")))
+
+    # The ranking that does not hold a family at all, and a contract that is validated.
+    bare = contracts_report(template, contract_ranking([timed_model("bravo", "Bravo", 12, 4)]), dict(document, status="validated"))
+    judged("a ranking without the mapped models makes every mapping stale and no row resolved, and a validated file is not provisional",
+           first_wrong(
+               (not bare["provisional"], "a validated file is provisional"),
+               (len(bare["stale"]) == 16 and bare["no_record"] == ["foxtrot"], "stale: %r" % bare["stale"]),
+               (contract_rows(bare, "flash")[0]["bravo"]["kind"] == "conforming", "the one record there is was lost")))
+
+    # Structural problems: what the plain run fails on, each said once and by what it is about.
+    def mutated(change):
+        mutant = contract_document()
+        change(mutant)
+        return contracts_problems(mutant, template)
+
+    def set_in(path, value):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+        return change
+
+    def drop(*path):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            del target[path[-1]]
+        return change
+
+    structural = (
+        ("a router that does not exist", set_in(("routers", "ghost"), contract_router(5, 5)), "the contract of \"ghost\" is that of no router"),
+        ("a router with no contract", drop("routers", "flash-lite"), 'the router "flash-lite" has no contract'),
+        ("a mapped name that is no entry of the template", set_in(("models", "zulu"), {"no_record": "x"}), '"zulu" maps a name that is no active entry'),
+        ("a last resort naming no entry", set_in(("routers", "pro", "last_resort", "members"), ["zulu"]), 'names "zulu"'),
+        ("a last resort that is no list", set_in(("routers", "pro", "last_resort", "members"), "alpha"), 'must list its "members"'),
+        ("a budget that is a string", set_in(("routers", "pro", "time_budget_seconds", "value"), "30"), "not a positive number"),
+        ("a budget that is a boolean", set_in(("routers", "pro", "time_budget_seconds", "value"), True), "not a positive number"),
+        ("a budget of zero", set_in(("routers", "pro", "time_budget_seconds", "value"), 0), "not a positive number"),
+        ("a floor below zero", set_in(("routers", "pro", "intelligence_floor", "value"), -1), "not a positive number"),
+        ("a floor that is none", set_in(("routers", "pro", "intelligence_floor", "value"), None), "not a positive number"),
+        ("floor candidates that are no list", set_in(("routers", "pro", "intelligence_floor", "candidates"), "5"), 'must list its "candidates" as numbers'),
+        ("a floor candidate that is no number", set_in(("routers", "pro", "intelligence_floor", "candidates"), [5, "x"]), 'must list its "candidates" as numbers'),
+        ("a floor candidate below zero", set_in(("routers", "pro", "intelligence_floor", "candidates"), [-1]), 'must list its "candidates" as numbers'),
+        ("a budget with no reason", drop("routers", "pro", "time_budget_seconds", "reason"), '"time_budget_seconds", has no "reason"'),
+        ("a reason of blanks", set_in(("routers", "pro", "intelligence_floor", "reason"), "  "), '"intelligence_floor", has no "reason"'),
+        ("a reason that is no text", set_in(("routers", "pro", "ranking", "reason"), 5), '"ranking", has no "reason"'),
+        ("a last resort with no reason", drop("routers", "pro", "last_resort", "reason"), '"last_resort", has no "reason"'),
+        ("a block that is missing", drop("routers", "pro", "intelligence_floor"), "is missing or is not a mapping"),
+        ("a criterion that is none of the three", set_in(("routers", "pro", "ranking", "criterion"), "speed"),
+         '"criterion" among: intelligence, first_answer, code_quality'),
+        ("code quality with no source", drop("routers", "code", "ranking", "source"), 'must say its "source", its "source_status"'),
+        ("code quality with a source of blanks", set_in(("routers", "code", "ranking", "source"), " "), 'must say its "source", its "source_status"'),
+        ("code quality with no source status", drop("routers", "code", "ranking", "source_status"), 'must say its "source", its "source_status"'),
+        ("code quality with no stand-in", drop("routers", "code", "ranking", "stand_in"), 'a "stand_in" among: intelligence'),
+        ("code quality with a stand-in nobody knows", set_in(("routers", "code", "ranking", "stand_in"), "vibes"), 'a "stand_in" among: intelligence'),
+        ("a router derived from one that does not exist", set_in(("routers", "claude-code", "derives_from"), "ghost"),
+         'derives from "ghost", which is no router with a contract of its own'),
+        ("a router derived from itself", set_in(("routers", "claude-code", "derives_from"), "claude-code"),
+         'derives from "claude-code", which is no router with a contract of its own'),
+        ("a router derived from a derived one", set_in(("routers", "code"), {"derives_from": "pro", "requires": [], "reason": "x"}),
+         'derives from "code", which is no router with a contract of its own'),
+        ("a derived router requiring what nobody knows", set_in(("routers", "claude-code", "requires"), ["telepathy"]),
+         'must list what it "requires" among: tools'),
+        ("a derived router whose requirements are no list", set_in(("routers", "claude-code", "requires"), "tools"),
+         'must list what it "requires" among: tools'),
+        ("a derived router requiring one thing known and one not", set_in(("routers", "claude-code", "requires"), ["tools", "telepathy"]),
+         'must list what it "requires" among: tools'),
+        ("a derived router with no reason", drop("routers", "claude-code", "reason"), 'router "claude-code" has no "reason"'),
+        ("a status that is neither", set_in(("status",), "draft"), '"status" must be one of provisional, validated'),
+        ("an index version that is no number", set_in(("index_version",), "5"), '"index_version" must be a number'),
+        ("a file that is not a mapping", None, "the router contracts file is not a mapping"),
+        ("routers that are no mapping", set_in(("routers",), ["pro"]), '"routers" is missing'),
+        ("a router that is no mapping", set_in(("routers", "pro"), "x"), 'router "pro" is not a mapping'),
+        ("models that are no mapping", set_in(("models",), []), '"models" is missing'),
+        ("inputs that are no mapping", set_in(("inputs",), []), '"inputs" is not a mapping'),
+        ("a mapping that is no mapping", set_in(("models", "alpha"), "x"), 'the mapping of "alpha" is not a mapping'),
+        ("a model with a record and none", set_in(("models", "alpha", "no_record"), "x"), '"no_record" and so says why'),
+        ("a no_record that says nothing", set_in(("models", "foxtrot", "no_record"), " "), '"no_record" and so says why'),
+        ("a slug that is missing", drop("models", "alpha", "slug"), 'has no "slug" spelt like one'),
+        ("a slug that is not spelt like one", set_in(("models", "alpha", "slug"), "a b"), 'has no "slug" spelt like one'),
+        ("a level nobody knows", set_in(("models", "alpha", "level"), "extreme"), 'has a "level" that is none of'),
+        ("a level source that is missing", drop("models", "alpha", "level_source"), 'has no "level_source"'),
+        ("a level source of blanks", set_in(("models", "alpha", "level_source"), " "), 'has no "level_source"'),
+        ("tools that are missing", drop("models", "alpha", "tools"), 'has no "tools" saying "yes", "no" or "unknown"'),
+        ("tools that are no mapping", set_in(("models", "alpha", "tools"), "yes"), 'has no "tools" saying'),
+        ("tools of a support nobody knows", set_in(("models", "alpha", "tools", "support"), "maybe"), 'has no "tools" saying'),
+        ("tools with no source", drop("models", "alpha", "tools", "source"), 'has no "tools" saying'),
+        ("tools with a source of blanks", set_in(("models", "alpha", "tools", "source"), " "), 'has no "tools" saying'),
+        ("a no_record entry with no tools", drop("models", "foxtrot", "tools"), 'has no "tools" saying'),
+        ("an epoch that is a word", set_in(("models", "alpha", "epoch"), "known"), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch that is empty", set_in(("models", "alpha", "epoch"), {}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with ids that are no list", set_in(("models", "alpha", "epoch"), {"f": "x"}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an empty list", set_in(("models", "alpha", "epoch"), {"f": []}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an id of blanks", set_in(("models", "alpha", "epoch"), {"f": [" "]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an id that is no text", set_in(("models", "alpha", "epoch"), {"f": [3]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good file and one bad", set_in(("models", "alpha", "epoch"), {"f": ["a"], "g": []}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good id and one bad", set_in(("models", "alpha", "epoch"), {"f": ["a", 3]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good id and a blank one", set_in(("models", "alpha", "epoch"), {"f": ["a", " "]}), 'has an "epoch" that is neither "unknown"'),
+    )
+    for purpose, change, needle in structural:
+        if change is None:
+            found = contracts_problems(["not", "a", "mapping"], template)
+        else:
+            found = mutated(change)
+        judged("structure: %s is refused" % purpose,
+               None if any(needle in problem for problem in found) else "expected %r, got %r" % (needle, found))
+    judged("structure: a floor of zero, a note, an epoch said unknown and a derived router are no problem",
+           first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "value"), 0)) == [], "a floor of 0 was refused"),
+                       (mutated(set_in(("models", "alpha", "note"), "a note")) == [], "a note was refused"),
+                       (mutated(set_in(("models", "alpha", "epoch"), "unknown")) == [], "an epoch said unknown was refused"),
+                       (mutated(drop("models", "alpha", "epoch")) == [], "an entry with no epoch was refused"),
+                       (mutated(drop("routers", "pro", "intelligence_floor", "candidates")) == [], "a floor with no candidates was refused"),
+                       (mutated(set_in(("routers", "pro", "intelligence_floor", "candidates"), [0, 5])) == [], "a candidate of zero was refused")))
+
+    # The file itself: unreadable, or not YAML, says so; a good one is read.
+    with tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, "contracts.yaml")
+        missing = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_text("routers: [unclosed\n", encoding="utf-8")
+        broken = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_bytes(b"\xff\xfe")
+        binary = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
+        good = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        unreadable_template = offline_contract_problems("model_list: [unclosed\n", path)
+        judged("a contracts file that cannot be read, or is not YAML, is a problem of its own, and a good one passes",
+               first_wrong((len(missing) == 1 and "cannot be read (FileNotFoundError)" in missing[0], "missing: %r" % missing),
+                           (len(broken) == 1 and "cannot be read" in broken[0], "broken: %r" % broken),
+                           (len(binary) == 1 and "cannot be read" in binary[0], "binary: %r" % binary),
+                           (good == [], "good: %r" % good),
+                           (unreadable_template == [], "a template that cannot be read is another rule's to say")))
+
+        # The issue: the section from the command line, end to end, on a template and a contracts file.
+        config = os.path.join(directory, "config.yaml.j2")
+        Path(config).write_text(CONTRACT_TEMPLATE, encoding="utf-8")
+        issue = os.path.join(directory, "issue.md")
+        listing = answers_listing(CONTRACT_TEMPLATE)
+
+        def run(arguments, environment=RANKING_KEYS, version=5.0):
+            page = ranking_page(*contract_records())
+            page["intelligence_index_version"] = version
+            out = io.StringIO()
+            Path(issue).unlink(missing_ok=True)
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+                try:
+                    status = main(arguments, opener=canned_opener(dict(listing, rankings=page), []),
+                                  environment=environment)
+                except SystemExit as error:
+                    status = error.code
+            return status, out.getvalue(), Path(issue).read_text(encoding="utf-8") if os.path.exists(issue) else ""
+
+        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        status, out, body = run(online)
+        section = body.split("## Contrats par routeur")[1].split("\n## ")[0] if "## Contrats par routeur" in body else ""
+        judged("with the ranking read, the issue carries a section of contracts: a table per router, the two orders, the floors side by side and what the mapping does not cover, and nothing else changes",
+               first_wrong(
+                   (status == 0 and "Aucune dérive." in body, "the section changed the status or the drift: %d" % status),
+                   ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
+                   ("Budget 30 s, plancher 20, classé par l'indice d'intelligence." in section, "pro's contract is not said"),
+                   ("Budget 10 s, plancher 6, classé par le délai le plus court." in section, "flash-lite's criterion is not said"),
+                   ("Budget 30 s, plancher 20, classé par la qualité de code (source : Epoch AI selftest source, not read yet) ; "
+                    "Artificial Analysis n'a pas d'indice de code, l'indice d'intelligence en tient lieu à titre provisoire." in section,
+                    "code's ranking is not said as a stand-in"),
+                   ("Dérivé de `code` : mêmes budget (30 s), plancher (20) et classement, et les modèles sans appels d'outils en sont exclus."
+                    in section, "the derived router is not said"),
+                   ("| `alpha` | Alpha (Medium) | medium | 30.0 | 12.0 | 100.0 | high (25.0 s, indice 40.0) | conforme |" in section,
+                    "alpha's row is wrong: %s" % section[:1500]),
+                   ("| `india` | India | sans niveau | 8.0 | 2.0 | 100.0 | niveau unique (2.0 s, indice 8.0) | "
+                    "sous le plancher (8.0 contre 20) : dernier recours |" in section, "india's row is wrong"),
+                   ("| `juliet` (dernier recours) | Juliet | inconnu | — | 50.0 | 100.0 | aucun niveau ne tient | "
+                    "au-dessus du budget (50.0 s contre 30 s) |" in section, "juliet's row is wrong"),
+                   ("| `foxtrot` (dernier recours) | — | — | — | — | — | — | sans enregistrement |" in section, "an entry with no record has no row"),
+                   ("| `november` | — | — | — | — | — | — | sans appels d'outils |" in section, "a member without tools has no row"),
+                   ("| `quebec` | Quebec | sans niveau | 30.0 | — | 100.0 | aucun niveau ne tient | "
+                    "inclassable : pas de délai ; appels d'outils inconnus |" in section, "quebec's row is wrong"),
+                   ("| `bravo` | Bravo" in section and "sans niveau" in section, "a level that does not apply is not said"),
+                   ("Ordre actuel : `bravo` > `kilo` > `lima` > `hotel` > `golf` > `mike` > `papa` > `romeo`." in section, "the current order is missing"),
+                   ("Ordre des contrats : `kilo` > `bravo` > `papa` > `mike` > `romeo`." in section, "the contracts' order is missing"),
+                   ("Ordre des contrats : `alpha` > `india` > `juliet` > `foxtrot`." in section, "pro's order is missing"),
+                   ("| 5 | `alpha`, `india` | `juliet`, `foxtrot` |" in section
+                    and "| 20 (proposé) | `alpha` | `india`, `juliet`, `foxtrot` |" in section
+                    and "| 31 | — | `alpha`, `india`, `juliet`, `foxtrot` |" in section, "the floors are not played side by side"),
+                   (section.count("Effet de chaque plancher :") == 2, "a table of floors for a contract that proposes one floor"),
+                   ("La cascade de `claude-code` n'est **pas** la cascade de `code` sans les membres sans outils, dans le même ordre." in section
+                    and "- dans `claude-code` mais pas dans `code` : `echo`, `quebec`" in section
+                    and "- sans appels d'outils déclarés, pourtant dans `claude-code` : `november`" in section
+                    and "- avec appels d'outils, dans `code` mais pas dans `claude-code` : `sierra`" in section
+                    and "- l'ordre des membres communs n'est pas celui de `code`" in section
+                    and "- appels d'outils inconnus (ni exigés ni refusés, à vérifier) : `oscar`" in section,
+                    "the derivation is not reported: %s" % section[-1800:]),
+                   ("Entrées sans correspondance (à ajouter au fichier des contrats) :\n\n- `hotel`\n" in section, "hotel is not listed unmapped"),
+                   ("- `golf` : `golf-gone`" in section, "the stale mapping is not listed"),
+                   ("- `delta` appelé à `medium`, classé à : low, high" in section, "the uncovered level is not listed"),
+                   ("**C'est un rapport**" in section and "**provisoires**" in section, "the report is not said to be one, or provisional, in bold"),
+                   ("provisoires" in section and "comprimée" in section and "n'est pas retiré" in section,
+                    "the provisional status, the compressed scale or the last resort tier is not said"),
+                   ("<https://artificialanalysis.ai/>" in section, "the source is not named"),
+                   ("version" not in section.split("### `pro`")[0], "a version warning without a version change")))
+        judged("what a record's name carries into the issue is cut to plain words",
+               first_wrong((hostile_lines(body) is None, str(hostile_lines(body))),
+                           ("@bob" not in body and "<img" not in body, "markup reached the issue")))
+        judged("the contracts are read from the file's text, once, and the same run's exit status is the one the drift gives",
+               first_wrong((run(["--online", "--config", config, "--contracts", path])[0] == status, "the status moved")))
+
+        # The ranking at another version of the index warns that the floors are on the other one.
+        warned = run(online, version=6.0)[2]
+        judged("an index that is not the version the floors were written for is said before any row",
+               first_wrong(("L'indice d'intelligence est maintenant en version 6, les planchers sont écrits pour la version 5"
+                            in warned.split("### `pro`")[0], "the version change is not said"),
+                           ("**L'indice d'intelligence est maintenant en version 6" in warned and "à revoir avant de se fier à une ligne.**" in warned,
+                            "the version change is not in bold"),
+                           ("version 6" not in body, "a version change was said where there is none")))
+
+        # No key, another template, a file that is wrong and a computation that fails: the run is the same.
+        status_none, _, body_none = run(online, environment=SELFTEST_KEYS)
+        status_other, _, body_other = run(["--online", "--config", config, "--issue-body", issue])
+        judged("without the ranking, or with another template and no contracts of its own, no section is written and the status is the same",
+               first_wrong(("## Contrats par routeur" not in body_none, "a section without the ranking"),
+                           ("## Contrats par routeur" not in body_other, "the repository's contracts were read against another template"),
+                           (status_none == status and status_other == status, "the status moved")))
+        broken_document = contract_document()
+        del broken_document["routers"]["pro"]["time_budget_seconds"]["reason"]
+        Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
+        status_bad, _, body_bad = run(online)
+        judged("a contracts file with a structural problem says so in the issue, computes nothing, and changes neither the status nor the rest",
+               first_wrong(("n'a pas la forme attendue" in body_bad and '"time_budget_seconds", has no "reason"' in body_bad, "the problem is not said"),
+                           ("### `pro`" not in body_bad, "a table was written from a file that is wrong"),
+                           (status_bad == status and "Aucune dérive." in body_bad, "the status or the drift moved")))
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
+        real = globals()["contracts_report"]
+
+        def exploding(*arguments):
+            raise RuntimeError("selftest: the computation failed with SECRET")
+
+        globals()["contracts_report"] = exploding
+        try:
+            status_boom, _, body_boom = run(online)
+        finally:
+            globals()["contracts_report"] = real
+        judged("a computation that fails says the kind of the error and nothing of its message, and never fails the run",
+               first_wrong(("Le calcul a échoué (`RuntimeError`)" in body_boom, "the failure is not said"),
+                           ("SECRET" not in body_boom, "the message of the error reached the issue"),
+                           (status_boom == status and "Aucune dérive." in body_boom, "the status moved")))
+
+        # The plain run: the contracts file is read against the template it is given.
+        plain = ["--config", config, "--contracts", path]
+        status_plain, out_plain, _ = run(plain)
+        Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
+        status_wrong, out_wrong, _ = run(plain)
+        status_alone, out_alone, _ = run(["--config", config])
+        judged("the plain run fails only on the structure of the contracts, and reads none for a template that is not the repository's",
+               first_wrong((status_plain == 0 and "Router contracts: contracts.yaml holds a contract for each router" in out_plain,
+                            "a good file was refused: %s" % out_plain),
+                           (status_wrong == 1 and "Router contracts: 1 problem(s) in contracts.yaml." in out_wrong
+                            and '"time_budget_seconds", has no "reason"' in out_wrong, "a wrong file passed: %s" % out_wrong),
+                           (status_alone == 0 and "Router contracts" not in out_alone, "contracts were read for another template: %s" % out_alone)))
+    judged("the repository's own contracts file passes against the repository's template",
+           first_wrong((offline_contract_problems(CONFIG.read_text(encoding="utf-8"), CONTRACTS) == [],
+                        "%r" % offline_contract_problems(CONFIG.read_text(encoding="utf-8"), CONTRACTS))))
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -6889,6 +8077,7 @@ def run_selftest_cases():
     failures += run_head_cases()
     failures += run_pricing_page_cases()
     failures += run_ranking_cases()
+    failures += run_contract_cases()
     failures += run_verify_cases()
     failures += run_safety_net_case()
     failures += run_online_apply_cases()
@@ -6937,6 +8126,9 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "since a model the run refused to delete is still retired")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
+    parser.add_argument("--contracts", metavar="PATH",
+                        help="the router contracts to read, by default the repository's own when "
+                             "--config is the repository's template, and none for another one")
     arguments = parser.parse_args(argv)
 
     if arguments.selftest:
@@ -6975,10 +8167,21 @@ def main(argv=None, opener=urllib_opener, environment=None):
               "%d commented-out entries, every cascade and alias names an active one, no name "
               "twice, every commented-out entry gives its reason."
               % (shown, len(template["active"]), len(template["commented"])))
+        contracts_file = contracts_file_for(arguments)
+        if contracts_file:
+            problems = offline_contract_problems(text, contracts_file)
+            if problems:
+                print("\nRouter contracts: %d problem(s) in %s.\n" % (len(problems), contracts_file.name))
+                for problem in problems:
+                    print(problem + "\n")
+                return 1
+            print("Router contracts: %s holds a contract for each router and maps only active entries."
+                  % contracts_file.name)
         return 0
 
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     result = run_online(text, environment, opener, today)
+    result["contracts"] = router_contracts(text, result, contracts_file_for(arguments))
     if arguments.apply and not result["unreadable"]:
         new_text = apply_to_result(text, result)
         if new_text != text:

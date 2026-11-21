@@ -361,6 +361,15 @@ free again stay a person's too, since each claim in the list cites the provider'
 What the workflow needs and what it refuses to delete are in its header and in the docstring of the
 script.
 
+The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a time budget, an
+intelligence floor, the ranking criterion and the members exempt from the floor on purpose, plus the
+explicit mapping from each entry to the Artificial Analysis record, and the reasoning level, that
+describes it. They are **provisional** until the maintainer validates them, and they are **reported, not
+enforced**: the weekly issue says how the cascades stand against them, a member under a floor goes to the
+router's last resort tier rather than out of it, and nothing in them changes a cascade, an entry or a
+`head` row. Only the shape of the file fails the plain run, so an entry added, renamed or deleted in the
+template gets its row in the file in the same change.
+
 A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
 and "two places only" are made false by a deletion that nobody is shown, where a comment that names a
 deleted model is listed in that pull request for a person to read. A claim about the list as it stands

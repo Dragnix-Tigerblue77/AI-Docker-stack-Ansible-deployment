@@ -751,6 +751,26 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
+**Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un budget sur
+le délai moyen avant le premier jeton de la réponse, un plancher sur l'indice d'intelligence d'Artificial Analysis,
+la grandeur qui classe ses membres, les membres exemptés du plancher à dessein (le « dernier recours »), et, pour
+chaque entrée du modèle de configuration, l'enregistrement d'Artificial Analysis qui la décrit au niveau de
+raisonnement où elle est appelée, avec la page du fournisseur qui donne ce niveau, ou « unknown ». L'unité de
+routage est « modèle + niveau » : il n'y a pas de niveau maximum, le niveau retenu est le plus élevé dont le délai tient
+dans le budget. `claude-code` dérive de `code` (même classement, sa cascade est celle de `code` sans les membres
+qui ne prennent pas d'outils), et `code` se classe sur la qualité de code, dont la source (les données d'Epoch AI) est
+choisie mais pas encore lue : l'indice d'intelligence en tient lieu, et le rapport le dit. Tout le fichier est
+**provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne une section « Contrats par routeur » : par
+routeur, un tableau des membres (chiffres, niveau appelé, meilleur niveau qui tient dans le budget, verdict), l'ordre
+que le contrat donnerait comparé à l'ordre actuel, l'effet de chaque plancher proposé (un membre sous le plancher
+passe au dernier recours, il n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les
+correspondances dont l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas.
+C'est un rapport : il ne change aucune cascade, aucune entrée, aucune ligne `head`, ne change pas le statut du run
+et ne bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement sur
+la forme du fichier (un routeur qui n'existe pas, un nom qui n'est pas une entrée du modèle, un nombre qui n'en est
+pas un, une valeur sans raison) : la suppression d'une entrée mise en correspondance laisse donc sa ligne dans ce
+fichier, qu'une personne retire dans la même pull request.
+
 **Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
 configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve pull requests*
 dans *Settings → Actions → General → Workflow permissions*

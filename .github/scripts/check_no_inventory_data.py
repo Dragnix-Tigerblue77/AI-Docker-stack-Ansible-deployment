@@ -101,6 +101,7 @@ ALLOWED_HOSTS = {
     "api.mistral.ai": "Mistral's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
     "tbench.ai": "an independent coding-agent leaderboard, cited in a comment",
     "artificialanalysis.ai": "Artificial Analysis's free ranking API, read by check_LiteLLM_model_drift.py when its key is set, and the source its terms ask the report to cite",
+    "epoch.ai": "Epoch AI's benchmark data, the declared source of code quality in the router contracts (CC BY 4.0, to be cited)",
     "developercertificate.org": "official text of the Developer Certificate of Origin, cited in CONTRIBUTING.md",
     "fsf.org": "licence text",
     "www.gnu.org": "licence text",
