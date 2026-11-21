@@ -816,15 +816,15 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, seul fournisseur payant, clé facultative |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
-Pages officielles lues, désignées par leur titre et non par leur adresse, parce que `check_no_inventory_data.py` refuse tout nom d'hôte dans le README :
+Pages officielles lues :
 
-- Google Gemini API : page « Pricing » de la documentation de l'API
-- Groq : page « Rate limits » de la console
-- Mistral : page « Pricing »
-- OpenRouter : page « Limits » de sa référence d'API
-- Cerebras : FAQ « Rate limits » de sa documentation d'inférence
-- SambaNova : page « Plans » de sa console
-- DeepSeek : « FAQ » de sa documentation d'API
+- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
+- Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
+- Mistral : [Pricing](https://mistral.ai/pricing)
+- OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
+- Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
+- SambaNova : [Plans](https://cloud.sambanova.ai/plans)
+- DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
 
 **Groupe 2 -- à ajouter, par ordre de préférence.**
 
@@ -833,10 +833,10 @@ Pages officielles lues, désignées par leur titre et non par leur adresse, parc
 | Cloudflare Workers AI | 10 000 « neurons » par jour sans frais ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. Listés payants : Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling ; les autres (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b, nemotron-3-120b, llama-3.3-70b, gemma-4-26b, glm-4.7-flash) seraient donc gratuits : **déduction, à confirmer sur le compte** | À ajouter en premier. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas |
 | Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits ; fournisseur `zai/` de LiteLLM | Non publiées hors de la console (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**) | Fin des cascades `code` et `claude-code` seulement, après ouverture d'un compte pour lire la vraie limite. Contenu non stocké, traitement à Singapour, la France n'est pas exclue ; les conditions interdisent de partager les clés et de revendre. Carte ou téléphone exigés : inconnu |
 
-Pages officielles lues, désignées par leur titre :
+Pages officielles lues :
 
-- Cloudflare Workers AI : « Pricing », « Limits » et « Data usage » de la section Workers AI > Platform de sa documentation, et ses conditions générales
-- Z AI (Zhipu) : « Pricing » de sa documentation, ses conditions d'utilisation et sa politique de confidentialité
+- Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
+- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
 
 **Groupe 3 -- écartés, avec la raison.**
 
@@ -857,21 +857,21 @@ Pages officielles lues, désignées par leur titre :
 | Hyperbolic, Novita, AI21, Nebius Token Factory | Aucun palier ni crédit trouvé sur les pages lues | Absence de preuve, pas un refus formel : à relire avant de conclure |
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
 
-Pages officielles lues, désignées par leur titre :
+Pages officielles lues :
 
-- Kilo Gateway : « Models and providers » de sa documentation, et ses conditions
-- NVIDIA build : « API Trial Terms of Service » (PDF)
-- Cohere : page « Rate limits » de sa documentation
-- Cohere : page « Terms of use »
-- OVHcloud AI Endpoints : « Getting started » de sa documentation
-- GitHub Models : page « Prototyping with AI models »
-- Hugging Face Inference Providers : « Pricing »
-- Chutes : « Pricing »
-- Ollama Cloud : « Pricing »
-- Moonshot / Kimi : « Limits » de sa documentation de tarifs
-- Alibaba Model Studio : page « New free quota »
-- SiliconFlow : « Pricing »
-- Vercel AI Gateway : « Pricing » de sa documentation
+- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Terms](https://kilo.ai/terms)
+- NVIDIA build : [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
+- Cohere : [Rate limits](https://docs.cohere.com/docs/rate-limits)
+- Cohere : [Terms of use](https://www.cohere.com/terms-of-use)
+- OVHcloud AI Endpoints : [Getting started](https://docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-getting-started)
+- GitHub Models : [Prototyping with AI models](https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models)
+- Hugging Face Inference Providers : [Pricing](https://huggingface.co/docs/inference-providers/pricing)
+- Chutes : [Pricing](https://chutes.ai/pricing)
+- Ollama Cloud : [Pricing](https://ollama.com/pricing)
+- Moonshot / Kimi : [Limits](https://platform.kimi.ai/docs/pricing/limits)
+- Alibaba Model Studio : [New free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)
+- SiliconFlow : [Pricing](https://www.siliconflow.com/pricing)
+- Vercel AI Gateway : [Pricing](https://vercel.com/docs/ai-gateway/pricing)
 
 **Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
 
@@ -881,10 +881,10 @@ Pages officielles lues, désignées par leur titre :
 | Fireworks | 10 requêtes par minute sans moyen de paiement ni crédit | Accès serverless sans paiement non confirmé |
 | LLM7, Pollinations, ModelScope, Aion Labs, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
 
-Pages officielles lues, désignées par leur titre :
+Pages officielles lues :
 
-- Together AI : « Pricing »
-- Fireworks : « Rate limits » de sa documentation
+- Together AI : [Pricing](https://www.together.ai/pricing)
+- Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
 
 ### Un compte par personne, pas une paire figée (#103)
 
