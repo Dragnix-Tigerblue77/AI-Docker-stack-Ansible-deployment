@@ -650,8 +650,9 @@ lien est un confort, la vérification reste une personne). L'issue est réécrit
 exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
 
 Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
-un modèle que son fournisseur ne liste plus. `check_LiteLLM_model_drift.py --online --apply` le
-supprime du `model_list` avec ses places dans les quatre listes de repli, et avec la raison écrite
+un modèle que son fournisseur ne liste plus (et, chez ceux dont l'API sait répondre pour un modèle
+donné, qui répond à son tour qu'il n'existe pas : une liste peut omettre un modèle encore servi).
+`check_LiteLLM_model_drift.py --online --apply` le supprime du `model_list` avec ses places dans les quatre listes de repli, et avec la raison écrite
 au-dessus quand elle ne motivait que lui (une raison partagée avec une entrée qui reste est
 conservée). Le workflow en fait **une seule pull request**, sur la branche
 `claude/LiteLLM-model-drift-removals`, assignée à tigerblue77 : son corps cite, pour chaque

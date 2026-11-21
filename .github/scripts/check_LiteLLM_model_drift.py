@@ -212,7 +212,19 @@ DELETING WHAT A PROVIDER HAS RETIRED
 ------------------------------------
 RETIRED and GONE are the one kind of finding that needs no judgment: the provider's own catalogue
 no longer lists the id, so the model cannot be called, and CLAUDE.md says what becomes of such a
-model. "--apply" deletes, for each such id, in a single pass over the file:
+model.
+
+A list can omit a model that is still served, so on the providers whose API answers for one model
+by its id (LOOKUPS: Gemini, Groq, Mistral) a finding is acted on only once the provider has been
+asked for the model itself. One it still serves leaves the findings and is listed apart (SERVED in
+the report, a section of the issue). One it answers 404 for is deleted. Any other answer leaves the
+finding to a person, with that answer in the report, and so does a route that cannot be believed:
+it has to answer 200 first for a model the list does name, of the same shape (with a slash in its
+id or without, since a slash may not be routed like a plain id). The references document the route
+and not the status of an unknown id, which is why nothing is deleted on any answer but a 404. The
+other providers, whose API has no such route, are deleted from on their list alone, as before.
+
+"--apply" deletes, for each such id, in a single pass over the file:
 
 * every entry attributed to it, active or commented out, and the model_name's slot in each of the
   four fallback keys of both sections. The blank line that separated an active entry from the next
@@ -480,6 +492,9 @@ JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
 JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
 JINJA_COMMENT_LINE = re.compile(r"^\s*\{#.*#\}\s*$")
+# What a Jinja expression becomes in the file made parsable: a cascade named by one ("{{ alias }}: *anchor")
+# is the list of its anchor under another name, and is not a cascade of its own to name in a message.
+JINJA_PLACEHOLDER = "JINJA"
 JINJA_TAG = re.compile(r"\{%-?\s*(end)?(\w+)(.*?)-?%\}", re.DOTALL)
 # The Jinja statements that open a block and the "end..." that closes it.
 JINJA_BLOCKS = ("if", "for", "macro", "call", "filter", "block", "with", "raw", "autoescape")
@@ -667,7 +682,7 @@ def neutralise_jinja(text):
 
     text = JINJA_COMMENT.sub(keep_lines(""), text)
     text = JINJA_STATEMENT.sub(keep_lines(""), text)
-    return JINJA_EXPRESSION.sub(keep_lines("JINJA"), text)
+    return JINJA_EXPRESSION.sub(keep_lines(JINJA_PLACEHOLDER), text)
 
 
 def comment_content(line):
@@ -963,7 +978,12 @@ def read_template(text):
 # ------------------------------------------------------------------------------------------------
 
 class FetchError(Exception):
-    """A catalogue that could not be read. Its message never carries a key nor a response body."""
+    """A catalogue that could not be read. Its message never carries a key nor a response body.
+    "status" is the HTTP status when the provider answered with one, and None otherwise."""
+
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -987,7 +1007,7 @@ def fetch_json(opener, url, headers):
     except urllib.error.HTTPError as error:
         # Neither the body nor the reason phrase is read: a provider may echo the key back in
         # either, and the status says all a person needs to know (HTTP/2 has no phrase at all).
-        raise FetchError("HTTP %d" % error.code) from None
+        raise FetchError("HTTP %d" % error.code, error.code) from None
     except urllib.error.URLError as error:
         raise FetchError("network error: %s" % safe_text(error.reason)) from None
     except (OSError, ValueError, http.client.HTTPException) as error:
@@ -1234,6 +1254,80 @@ def read_catalogue(opener, url, headers, reader, next_page):
         # report, status 2, and not a crash of the whole run, which would leave every other
         # provider unread as well.
         raise FetchError("the answer has a shape this check does not read") from None
+
+
+# Where a provider answers for ONE model by its id, on the three whose API reference documents it. A
+# list can omit a model that is still served -- Mistral's omitted one this file routes to, and the
+# check proposed to delete it -- so a model the list does not name is deleted only once the provider
+# has also said, when asked for it directly, that there is no such model. The references document
+# the route and not the status of an unknown id, which is why nothing is deleted on any answer but
+# a 404, and why that 404 is trusted only once the same route has answered 200 for a model the
+# list does name.
+LOOKUPS = {
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/models/",
+    "groq": "https://api.groq.com/openai/v1/models/",
+    "mistral": "https://api.mistral.ai/v1/models/",
+}
+LOOKUP_LIMIT = 30  # per provider and run: a list that omits more than this is not a retirement
+
+
+def ask_for(opener, provider, identifier, headers):
+    """What "provider" says when asked for the model "identifier": "served", "absent" (a 404), or
+    why it did not say (a sentence, which never carries a key nor a response body)."""
+    url = LOOKUPS[provider] + urllib.parse.quote(identifier, safe="/")
+    try:
+        answer = fetch_json(opener, url, headers)
+    except FetchError as error:
+        return "absent" if error.status == 404 else str(error)
+    return "served" if isinstance(answer, dict) else "the answer is not an object"
+
+
+def confirm_absences(provider, report, catalogue, opener, headers):
+    """Ask "provider" for each model its list omits, on the providers that can be asked. A model it
+    still serves is not retired: it leaves the findings, and is kept in report["served"]. One it
+    says it does not know is marked "confirmed". Any other answer marks the finding "unconfirmed"
+    with the reason, and the finding stays, to be left to a person."""
+    if provider not in LOOKUPS:
+        return
+    trusted = {}
+
+    def untrusted(slashed):
+        # Why the route cannot be believed for ids of this shape (a slash may not be routed the
+        # way a plain id is), or None once it has answered 200 for a listed model of that shape.
+        if slashed not in trusted:
+            sample = next((member for member in sorted(catalogue["members"])
+                           if ("/" in member) == slashed), None)
+            if sample is None:
+                trusted[slashed] = "no listed model of this shape to check the lookup against"
+            else:
+                verdict = ask_for(opener, provider, sample, headers)
+                trusted[slashed] = None if verdict == "served" else (
+                    "the lookup of the listed model %s answered %s"
+                    % (safe_text(sample), "404" if verdict == "absent" else verdict))
+        return trusted[slashed]
+
+    kept, asked = [], 0
+    for finding in report["findings"]:
+        if finding["kind"] not in ("retired", "gone"):
+            kept.append(finding)
+            continue
+        kept.append(finding)
+        reason = untrusted("/" in finding["id"])
+        if reason is None and asked >= LOOKUP_LIMIT:
+            reason = "more than %d models are missing from the list, too many to look up" % LOOKUP_LIMIT
+        if reason is not None:
+            finding["unconfirmed"] = reason
+            continue
+        asked += 1
+        verdict = ask_for(opener, provider, finding["id"], headers)
+        if verdict == "served":
+            kept.pop()
+            report.setdefault("served", []).append(finding)
+        elif verdict == "absent":
+            finding["confirmed"] = True
+        else:
+            finding["unconfirmed"] = verdict
+    report["findings"] = kept
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1521,6 +1615,7 @@ def run_online(text, environment, opener, today):
         report["candidates"] = len(catalogue["candidates"])
         report["unsafe"] = catalogue["unsafe"]
         report["findings"] = diff(name, catalogue, active, commented, ignored)
+        confirm_absences(name, report, catalogue, opener, headers)
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
@@ -1589,6 +1684,12 @@ REFUSALS = {
     "unlocated": (
         "it could not be located in the file reliably: %s",
         "il n'a pas pu être localisé de façon fiable dans le fichier : %s",
+    ),
+    "unconfirmed": (
+        "its provider's list omits it, and asking the provider for the model itself did not "
+        "confirm that it is gone: %s",
+        "la liste de son fournisseur l'omet, et lui demander directement le modèle n'a pas "
+        "confirmé qu'il a disparu : %s",
     ),
     "empty": (
         "its catalogue lists no model at all, which reads as a failed fetch and not as everything "
@@ -2609,6 +2710,9 @@ def apply_to_result(text, result):
             elif implausible:
                 finding["removal"] = refused_outcome(report, finding, "implausible",
                                                      (omitted, report["known"]))
+            elif finding.get("unconfirmed"):
+                finding["removal"] = refused_outcome(report, finding, "unconfirmed",
+                                                     finding["unconfirmed"])
             else:
                 wanted.append((report["name"], finding["id"], finding["kind"]))
     new_text, outcomes = apply_removals(text, wanted)
@@ -2739,10 +2843,24 @@ def render_text(result, config_name):
                     line += " -- DELETED from the file"
                 elif removal:
                     line += " -- NOT DELETED, left to a person: " + refusal_text(removal)
+                elif finding.get("unconfirmed"):
+                    line += (" -- not confirmed by asking the provider for the model itself: "
+                             + finding["unconfirmed"])
                 lines.append(line)
         if lines:
             out += [labels[kind]] + lines + [""]
             count += len(lines)
+    served = [(report, finding) for report in result["providers"]
+              for finding in report.get("served", ())]
+    if served:
+        out += ["SERVED   missing from the provider's list, yet it answers when asked for the model "
+                "itself -- kept, nothing to delete"]
+        for report, finding in served:
+            line = "  %s%s" % litellm_id(report["name"], finding["id"])
+            if finding.get("names"):
+                line += " (%s)" % ", ".join(str(name) for name in finding["names"])
+            out.append(line)
+        out.append("")
     if result["rules"]:
         out.append("RULES    the file breaks the rules the offline mode holds it to")
         out += ["  " + problem for problem in result["rules"]] + [""]
@@ -3064,6 +3182,20 @@ def issue_body(result, config_name, link, snippets):
                             ""]
             out += capped(lines) + [""]
 
+    served = [(report, finding) for report in result["providers"]
+              for finding in report.get("served", ())]
+    if served:
+        out += ["## Absents de la liste, mais toujours servis", "",
+                "La liste de leur fournisseur ne les nomme pas, mais il répond quand on lui demande "
+                "le modèle lui-même : ils ne sont pas retirés, rien n'est supprimé, et cette section "
+                "n'est qu'une information.", ""]
+        out += capped(["- `%s`%s%s" % (litellm_id(report["name"], finding["id"])[0],
+                                      litellm_id(report["name"], finding["id"])[1].replace(
+                                          " on ", " chez "),
+                                      " (%s)" % ", ".join("`%s`" % name for name in finding["names"])
+                                      if finding.get("names") else "")
+                       for report, finding in served]) + [""]
+
     out += ranking_section(result)
 
     if result["rules"]:
@@ -3139,7 +3271,7 @@ def slots_text(slots):
     by_where = {}
     for where, source in slots:
         sources = by_where.setdefault(where, [])
-        if source and source not in sources:
+        if source and source != JINJA_PLACEHOLDER and source not in sources:
             sources.append(source)
     parts = []
     for where, sources in by_where.items():
@@ -3207,6 +3339,8 @@ def render_pr_body(result, link=None):
             line += ", avec ses places dans " + slots_text(removal["slots"])
         line += ". Absent du catalogue <%s>, lu le %s." % (catalogue_url(report["name"]),
                                                           result["date"])
+        if finding.get("confirmed"):
+            line += " Interrogé sur ce modèle, le fournisseur répond qu'il n'existe pas."
         lines.append(line)
     out += capped(lines) + [""]
 
@@ -3322,7 +3456,9 @@ def render_commit_message(result):
         + "\n\n"
         + wrapped("Nothing here was a judgment, which is why no person and no model made it: "
                   "check_LiteLLM_model_drift.py --apply deletes a model only when the catalogue "
-                  "no longer lists it, only when the cascades and aliases it leaves behind still "
+                  "no longer lists it (and, where the provider's API can be asked about one "
+                  "model, when asking for it directly says it does not exist), only when the "
+                  "cascades and aliases it leaves behind still "
                   "name an active entry, and only after reading the result back against the "
                   "original. What it could not delete without choosing stays in the weekly "
                   "issue, with the reason; so do additions and announced retirements, which are "
@@ -3639,6 +3775,13 @@ def selftest_answers():
     }
 
 
+# Groq without "vendor/fast". It still lists one id with a slash, as the real one lists many, because
+# the lookup of a model is trusted only once it has answered for a listed model of the same shape;
+# "vendor/whisper-v9" is not a chat model, so it is not offered as a NEW one.
+GROQ_WITHOUT_FAST = {"data": [{"id": "whisper-large-v9", "active": True},
+                              {"id": "vendor/whisper-v9", "active": True}]}
+
+
 def answers_listing(text, without=()):
     """Canned catalogues that list exactly the ids "text" holds, active or commented out, less the
     (provider, id) pairs of "without": the answers to retire models from."""
@@ -3669,13 +3812,41 @@ SELFTEST_KEYS = {
 }
 
 
+def http_error(status):
+    return urllib.error.HTTPError("https://selftest.invalid/", status, "selftest", None,
+                                  io.BytesIO(b"{}"))
+
+
 def canned_opener(answers, calls):
     """An opener serving "answers" by provider. An answer that is an exception is raised. The ranking
-    source's answer is a list of pages, or a single page served for every page asked for."""
+    source's answer is a list of pages, or a single page served for every page asked for.
+
+    A lookup of one model (see LOOKUPS) is answered the way a provider is expected to: 200 for a
+    model the canned catalogue names, 404 for any other. "answers" may hold a "lookups" mapping of
+    (provider, id) to what to serve instead: an exception is raised, an integer is the status of
+    an HTTP error, anything else is the body."""
     urls = {name: url for name, url, _, _, _, _ in PROVIDERS}
+    readers = {name: reader for name, _, _, _, reader, _ in PROVIDERS}
+
+    def lookup(name, identifier):
+        served = answers.get("lookups", {})
+        if (name, identifier) in served:
+            answer = served[(name, identifier)]
+            if isinstance(answer, Exception):
+                raise answer
+            if isinstance(answer, int):
+                raise http_error(answer)
+            return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
+        pages = answers[name] if isinstance(answers[name], list) else [answers[name]]
+        if identifier in readers[name](pages)["members"]:
+            return json.dumps({"id": identifier}).encode()
+        raise http_error(404)
 
     def opener(url, headers):
         calls.append((url, dict(headers)))
+        for name, base in LOOKUPS.items():
+            if url.startswith(base):
+                return lookup(name, urllib.parse.unquote(url[len(base):]))
         if url.startswith(RANKING_URL):
             answer = answers["rankings"]
             if isinstance(answer, list):
@@ -5560,7 +5731,7 @@ def run_hardening_cases():
                       GITHUB_SERVER_URL="https://selftest.invalid", GITHUB_REPOSITORY="owner/repo")
     try:
         answers = selftest_answers()
-        answers["groq"] = {"data": [{"id": "whisper-large-v9", "active": True}]}
+        answers["groq"] = GROQ_WITHOUT_FAST
         issue = apply_run(SELFTEST_TEMPLATE, answers)[3]
     finally:
         for name, value in saved.items():
@@ -5586,6 +5757,12 @@ def run_hardening_cases():
                   and all(chat_like(identifier) for identifier in (
                       "mistral-large-4", "gemini-4-argon", "MiniMax-M3.1-Flash", "gemini-pro-latest",
                       "allam-2-7b", "labs-leanstral-1-5"))))
+    cases.append(("a cascade named by a Jinja expression is not named in a message of its own",
+                  slots_text([("router_settings.fallbacks", "flash-lite"),
+                              ("router_settings.fallbacks", JINJA_PLACEHOLDER)])
+                  == "la cascade `flash-lite` de `router_settings.fallbacks`"
+                  and slots_text([("router_settings.fallbacks", JINJA_PLACEHOLDER)])
+                  == "`router_settings.fallbacks`"))
     cases.append(("a price too big for a float is not zero, and not a crash",
                   is_zero(10 ** 400) is False and is_zero("0") and not is_zero("free")))
     cases.append(("a code span is cut between two words, and says so",
@@ -5678,6 +5855,8 @@ def online_apply_cases():
         data = [m for m in base[provider][key] if m.get("id") not in identifiers]
         return dict(base[provider], data=data)
 
+    groq_without_fast = GROQ_WITHOUT_FAST
+
     def deletes_fast(result, new_text, report, issue, pr, commit):
         if "groq/vendor/fast" in new_text or "model_name: fast\n" in new_text:
             return "the retired entry is still in the file"
@@ -5751,8 +5930,7 @@ def online_apply_cases():
             if any("SECRET" in (text or "") for text in (report, issue, pr, commit)) else None)
 
     def idempotent(result, new_text, report, issue, pr, commit):
-        again, second, _, _, again_pr, _ = apply_run(new_text, changed(
-            groq={"data": [{"id": "whisper-large-v9", "active": True}]}))
+        again, second, _, _, again_pr, _ = apply_run(new_text, changed(groq=groq_without_fast))
         if second != new_text or again_pr is not None:
             return "a second run deleted something more"
         if [f for r in again["providers"] for f in r["findings"] if f["kind"] == "retired"]:
@@ -5990,18 +6168,18 @@ def online_apply_cases():
         ("a retired model nobody routes to is deleted, and the issue, the pull request and the "
          "commit all say so",
          SELFTEST_TEMPLATE,
-         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         changed(groq=groq_without_fast),
          deletes_fast, 1),
         ("a deletion that leaves nothing for a person to read has no section asking for it",
          SELFTEST_TEMPLATE,
-         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         changed(groq=groq_without_fast),
          nothing_to_read, 1),
         ("one that leaves prose above the deleted entry lists it under \"À relire\"",
          SELFTEST_TEMPLATE.replace(
              "  - model_name: fast\n",
              "  # Prose about fast, which may as well be about its neighbours.\n"
              "  - model_name: fast\n", 1),
-         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         changed(groq=groq_without_fast),
          something_to_read, 1),
         ("a retired model an alias points at is left alone, and the issue says why in French",
          SELFTEST_TEMPLATE, changed(openrouter=lacking("openrouter", "vendor/one:free")),
@@ -6018,11 +6196,10 @@ def online_apply_cases():
          SELFTEST_TEMPLATE, changed(sambanova={"data": []}), empty_not_believed, 1),
         ("a provider that could not be read has nothing deleted, and the others are",
          SELFTEST_TEMPLATE,
-         changed(deepseek=leaky_401("deepseek"),
-                 groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         changed(deepseek=leaky_401("deepseek"), groq=groq_without_fast),
          error_deletes_nothing_else, 2),
         ("a second run on the result finds nothing more to delete", SELFTEST_TEMPLATE,
-         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}), idempotent, 1),
+         changed(groq=groq_without_fast), idempotent, 1),
         ("every NEW id comes with an entry to complete, modelled on its provider's own",
          SELFTEST_TEMPLATE, snippet_answers, snippets, 1),
         ("the commented-out form the issue documents is one the check reads as an entry",
@@ -6086,12 +6263,228 @@ def run_online_apply_cases():
     return failures
 
 
+def confirmation_cases():
+    """(what the case proves, template, answers, a check on (result, new_text, report, issue, pr,
+    commit) returning None when it holds and why not otherwise, the exit status expected): what a
+    model that its provider's list omits is, once the provider has been asked for it."""
+    def changed(**replaced):
+        answers = selftest_answers()
+        answers.update(replaced)
+        return answers
+
+    # Mistral's list without the model the template routes to, and the Gemini one likewise: each
+    # still lists one other id, which is what the lookup is checked against.
+    mistral_omitting = {"data": [{"id": "mistral-embed",
+                                  "capabilities": {"completion_chat": False}}]}
+    gemini_omitting = [{"models": [{"name": "models/text-embedding-9",
+                                    "supportedGenerationMethods": ["embedContent"]}]}]
+
+    def kept_and_said(label, config_name):
+        def check(result, new_text, report, issue, pr, commit):
+            if new_text != SELFTEST_TEMPLATE or pr is not None:
+                return "a model its provider still serves was deleted"
+            if any(finding["kind"] in ("retired", "gone")
+                   for each in result["providers"] for finding in each["findings"]):
+                return "a model its provider still serves is still a finding"
+            if undeleted_count(result) != 0:
+                return "a model that is not retired is counted as left to a person"
+            block = report.split("SERVED")[1] if "SERVED" in report else ""
+            if label not in block.split("\n\n")[0]:
+                return "the report does not name the model as still served"
+            section = issue.split("## Absents de la liste, mais toujours servis")
+            if len(section) != 2 or "`%s` (`%s`)" % (label, config_name) not in section[1]:
+                return "the issue does not name the model under the section for the served ones"
+            return None
+        return check
+
+    def deleted_and_confirmed(result, new_text, report, issue, pr, commit):
+        if "mistral/mistral-large-latest" in new_text or "model_name: large" in new_text:
+            return "a model its provider says it does not know was not deleted"
+        retired = [finding for each in result["providers"] for finding in each["findings"]
+                   if finding["kind"] == "retired"]
+        if len(retired) != 1 or retired[0].get("confirmed") is not True:
+            return "the finding does not say that the provider confirmed the retirement"
+        if "SERVED" in report:
+            return "a deleted model is reported as still served"
+        if pr is None or ("Interrogé sur ce modèle, le fournisseur répond qu'il n'existe pas."
+                          not in " ".join(pr.split())):
+            return "the pull request does not say that the provider was asked"
+        return None
+
+    def left_to_a_person(reason, french_reason=None):
+        def check(result, new_text, report, issue, pr, commit):
+            if new_text != SELFTEST_TEMPLATE or pr is not None:
+                return "a deletion nobody confirmed was made"
+            if undeleted_count(result) != 1:
+                return "the model that was not deleted is not counted as left to a person"
+            wanted = ("NOT DELETED, left to a person: its provider's list omits it, and asking the "
+                      "provider for the model itself did not confirm that it is gone: " + reason)
+            if wanted not in report:
+                return "the report lacks %r" % wanted
+            if "**non supprimé par le workflow** : la liste de son fournisseur l'omet" not in issue:
+                return "the issue does not say, in French, that the workflow left it alone"
+            if reason not in issue:
+                return "the issue does not give the answer the provider made"
+            return hostile_lines(report, issue) or (
+                "a key reached the output"
+                if any("SECRET" in (text or "") for text in (report, issue)) else None)
+        return check
+
+    def not_a_lookup_provider(result, new_text, report, issue, pr, commit):
+        if "deepseek/deepseek-v9" in new_text:
+            return "a retired model of a provider that cannot be asked was not deleted"
+        retired = [finding for each in result["providers"] for finding in each["findings"]
+                   if finding["kind"] == "retired"]
+        if len(retired) != 1 or "confirmed" in retired[0] or "unconfirmed" in retired[0]:
+            return "a provider that cannot be asked was given a confirmation"
+        if pr is None or "Interrogé sur ce modèle" in pr:
+            return "the pull request says a provider that cannot be asked was asked"
+        return None
+
+    return (
+        ("a model the list omits but the provider serves is kept, and said to be served",
+         SELFTEST_TEMPLATE,
+         changed(mistral=mistral_omitting,
+                 lookups={("mistral", "mistral-large-latest"): {"id": "mistral-large-latest"}}),
+         kept_and_said("mistral/mistral-large-latest", "large"), 0),
+        ("the same on Gemini, whose lookup is asked with the key in its own header",
+         SELFTEST_TEMPLATE,
+         changed(gemini=gemini_omitting,
+                 lookups={("gemini", "gemini-9-flash"): {"name": "models/gemini-9-flash"}}),
+         kept_and_said("gemini/gemini-9-flash", "flash"), 0),
+        ("a model the provider says it does not know is deleted, and the pull request says it was asked",
+         SELFTEST_TEMPLATE, changed(mistral=mistral_omitting), deleted_and_confirmed, 1),
+        ("an answer that is not a 404 leaves the deletion to a person: HTTP 400",
+         SELFTEST_TEMPLATE,
+         changed(groq=GROQ_WITHOUT_FAST, lookups={("groq", "vendor/fast"): 400}),
+         left_to_a_person("HTTP 400"), 1),
+        ("an answer that is not a 404 leaves the deletion to a person: HTTP 503",
+         SELFTEST_TEMPLATE,
+         changed(groq=GROQ_WITHOUT_FAST, lookups={("groq", "vendor/fast"): 503}),
+         left_to_a_person("HTTP 503"), 1),
+        ("a lookup that fails on the network leaves the deletion to a person",
+         SELFTEST_TEMPLATE,
+         changed(groq=GROQ_WITHOUT_FAST,
+                 lookups={("groq", "vendor/fast"): urllib.error.URLError("selftest-unreachable")}),
+         left_to_a_person("network error: selftest-unreachable"), 1),
+        ("a 200 that is not a model leaves the deletion to a person",
+         SELFTEST_TEMPLATE,
+         changed(groq=GROQ_WITHOUT_FAST, lookups={("groq", "vendor/fast"): ["not", "a", "model"]}),
+         left_to_a_person("the answer is not an object"), 1),
+        ("a 404 is not believed when the same route cannot find a model the list names",
+         SELFTEST_TEMPLATE,
+         changed(groq=GROQ_WITHOUT_FAST, lookups={("groq", "vendor/whisper-v9"): 404}),
+         left_to_a_person("the lookup of the listed model vendor/whisper-v9 answered 404"), 1),
+        ("nor when the list names no model of the same shape to try the route on",
+         SELFTEST_TEMPLATE,
+         changed(groq={"data": [{"id": "whisper-large-v9", "active": True}]}),
+         left_to_a_person("no listed model of this shape to check the lookup against"), 1),
+        ("a provider that cannot be asked about one model is deleted from as before",
+         SELFTEST_TEMPLATE, changed(deepseek={"data": [{"id": "deepseek-other"}]}),
+         not_a_lookup_provider, 1),
+    )
+
+
+def run_lookup_cases():
+    """The lookup itself, apart from any template: the address it asks, the key it sends, how often
+    it asks, and where it stops."""
+    failures = 0
+
+    def report_case(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    calls = []
+
+    def listed_opener(url, headers):
+        calls.append((url, dict(headers)))
+        if url.rsplit("/", 1)[-1].startswith("listed"):
+            return b'{"id": "x"}'
+        raise http_error(404)
+
+    headers = {"Authorization": "Bearer selftest-key-SECRET"}
+    answer = ask_for(listed_opener, "groq", "vendor/a b?c#d", headers)
+    expected = "https://api.groq.com/openai/v1/models/vendor/a%20b%3Fc%23d"
+    report_case("an id is asked for with its slash kept and every character that would end the "
+                "path encoded, and the key goes along",
+                None if calls == [(expected, headers)] and answer == "absent"
+                else "asked %r, answered %r" % (calls, answer))
+
+    def finding(identifier, kind="retired"):
+        return {"kind": kind, "id": identifier, "names": [identifier]}
+
+    calls.clear()
+    members = {"listed-plain", "vendor/listed-slashed", "other"}
+    report = {"findings": [finding("gone-a"), finding("vendor/gone-b"), finding("gone-c"),
+                           finding("new-one", kind="new"), finding("listed-plain")]}
+    confirm_absences("mistral", report, {"members": members}, listed_opener, headers)
+    asked = [url.split("/models/")[1] for url, _ in calls]
+    report_case("the route is tried once per shape of id on a model the list names, and only the "
+                "models the list omits are asked about",
+                None if asked == ["listed-plain", "gone-a", "vendor/listed-slashed",
+                                  "vendor/gone-b", "gone-c", "listed-plain"]
+                else "asked %r" % asked)
+    # "listed-plain" is a finding here too, because a list that names it and a finding that omits
+    # it cannot both be true: the case is only about the order and the number of calls.
+
+    calls.clear()
+    report = {"findings": [finding("gone-%02d" % number) for number in range(LOOKUP_LIMIT + 4)]}
+    confirm_absences("mistral", report, {"members": {"listed"}}, listed_opener, headers)
+    confirmed = [each for each in report["findings"] if each.get("confirmed")]
+    stopped = [each for each in report["findings"] if "too many to look up" in
+               each.get("unconfirmed", "")]
+    report_case("past the limit a provider is no longer asked, and what was not asked is left to a "
+                "person",
+                None if len(calls) == LOOKUP_LIMIT + 1 and len(confirmed) == LOOKUP_LIMIT
+                and len(stopped) == 4 else "%d calls, %d confirmed, %d stopped"
+                % (len(calls), len(confirmed), len(stopped)))
+
+    # Without "--apply" nothing is refused, so the report itself says what the provider answered.
+    answers = selftest_answers()
+    answers.update(groq=GROQ_WITHOUT_FAST, lookups={("groq", "vendor/fast"): 400})
+    result = run_online(SELFTEST_TEMPLATE, SELFTEST_KEYS, canned_opener(answers, []), "2026-01-01")
+    text = render_text(result, "selftest")
+    report_case("without --apply the report says that the provider's answer did not confirm it",
+                None if ("not confirmed by asking the provider for the model itself: HTTP 400" in text
+                         and "NOT DELETED" not in text)
+                else "the report is %r" % text)
+
+    calls.clear()
+    report = {"findings": [finding("gone-a")]}
+    confirm_absences("openrouter", report, {"members": {"listed"}}, listed_opener, headers)
+    report_case("a provider whose API has no such lookup is not asked anything",
+                None if not calls and "confirmed" not in report["findings"][0]
+                and "unconfirmed" not in report["findings"][0] else "asked %r" % calls)
+    return failures
+
+
+def run_confirmation_cases():
+    failures = 0
+    for purpose, text, answers, check, status in confirmation_cases():
+        outputs = apply_run(text, answers)
+        result = outputs[0]
+        if exit_status(result) != status:
+            why = "exit status %d, expected %d" % (exit_status(result), status)
+        else:
+            why = check(*outputs)
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
+
+
 def run_command_line_cases():
     """The command line, end to end on a file in a temporary directory: it is written in place,
     writes the three texts, takes back the ones a run that deletes nothing would leave stale."""
     failures = 0
     answers = selftest_answers()
-    answers["groq"] = {"data": [{"id": "whisper-large-v9", "active": True}]}
+    answers["groq"] = GROQ_WITHOUT_FAST
 
     def run(arguments, directory, environment=SELFTEST_KEYS):
         out = io.StringIO()
@@ -6311,6 +6704,8 @@ def run_selftest_cases():
     failures += run_verify_cases()
     failures += run_safety_net_case()
     failures += run_online_apply_cases()
+    failures += run_confirmation_cases()
+    failures += run_lookup_cases()
     failures += run_review_cases()
     failures += run_keyset_cases()
     failures += run_jinja_net_cases()
