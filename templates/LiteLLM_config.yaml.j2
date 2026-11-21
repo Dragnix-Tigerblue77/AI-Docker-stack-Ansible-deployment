@@ -29,11 +29,11 @@
 # a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
 # member of its cascade.
 {% set head = {
-  'pro': 'gemini-3-8-flash' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
+  'pro': 'gemini-3-8-flash' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
   'flash': 'gemini-3-8-flash' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
-  'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'north-mini-code-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-3-8-flash' if has.Gemini else 'mistral-large' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'gemini-3-8-flash' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -221,10 +221,6 @@ model_list:
   # million tokens, drawn from the same Free mode credit as every entry here. It replaces
   # "mistral-large-latest", which that page no longer names and the catalogue the drift workflow read that
   # day (#305) no longer lists.
-  - model_name: mistral-large
-    litellm_params:
-      model: mistral/mistral-large-4
-      api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-medium
     litellm_params:
@@ -323,24 +319,6 @@ model_list:
   # no payment method linked with your account", at 20 requests per day per model. The console is
   # the one a new account actually meets, so it is the one followed here.
   # ============================================================================
-  # - model_name: deepseek-v3-2-sambanova
-  #   litellm_params:
-  #     model: openai/DeepSeek-V3.2
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: deepseek-v3-1-sambanova
-  #   litellm_params:
-  #     model: openai/DeepSeek-V3.1
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
-  # - model_name: llama-3-3-70b-sambanova
-  #   litellm_params:
-  #     model: openai/Meta-Llama-3.3-70B-Instruct
-  #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
-  #
   # - model_name: gemma-4-31b-sambanova
   #   litellm_params:
   #     model: openai/gemma-4-31B-it
@@ -437,44 +415,10 @@ model_list:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
-  - model_name: inkling-free
-    litellm_params:
-      model: openrouter/thinkingmachines/inkling:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: inkling-small-free
-    litellm_params:
-      model: openrouter/thinkingmachines/inkling-small:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: north-mini-code-free
-    litellm_params:
-      model: openrouter/cohere/north-mini-code:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: dots-note-free
-    litellm_params:
-      model: openrouter/dots-studio/dots-3-note-preview:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
-  - model_name: lfm-free
-    litellm_params:
-      model: openrouter/liquid/lfm-2.5-2.6b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
-
   - model_name: openrouter-auto-free
     litellm_params:
       model: openrouter/openrouter/free
       api_key: "os.environ/OPENROUTER_API_KEY"
-
-  # Served, but not routed to: a guardrail, not a generator. The catalogue describes
-  # "nvidia/nemotron-3.5-content-safety:free" as "a compact 4B-parameter multimodal guardrail model"
-  # that "moderates both inputs to and responses from LLMs", and "tools" is not among its supported
-  # parameters. It classifies what another model wrote; no cascade below asks for that.
-  # - model_name: nemotron-content-safety-free
-  #   litellm_params:
-  #     model: openrouter/nvidia/nemotron-3.5-content-safety:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
   # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
@@ -560,7 +504,6 @@ router_settings:
         - nemotron-ultra-free
 {% endif %}
 {% if has.Mistral %}
-        - mistral-large
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-reasoning-free
@@ -641,9 +584,6 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
-        - inkling-small-free
-        - dots-note-free
-        - lfm-free
 {% endif %}
 {% for alias in aliases_of['flash-lite'] %}
     - {{ alias }}: *flash_lite_cascade
@@ -676,7 +616,6 @@ router_settings:
         - codestral-2508
 {% endif %}
 {% if has.OpenRouter %}
-        - north-mini-code-free
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
@@ -701,7 +640,6 @@ router_settings:
         - gemini-3-5-flash
 {% endif %}
 {% if has.Mistral %}
-        - mistral-large
         - codestral
 {% endif %}
 {% if has.DeepSeek %}
