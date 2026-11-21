@@ -414,11 +414,38 @@ model_list:
       model: openrouter/openrouter/free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
+  # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
+  # 1,048,576-token context, text and image in and text out, "tools" and "tool_choice" among its supported
+  # parameters and no "expiration_date". Artificial Analysis does not list it, so its place rests on an
+  # ESTIMATE, not on a measurement. It is DeepSeek V4.1 Flash with a LoRA adapter over about 1.25% of the
+  # weights (Hugging Face's "What Is Particle-1?" blog post and CellCog's "Particle-1: DeepSeek Flash With
+  # 45% Fewer Tokens", read that day), and Particle's own launch figures put GPQA Diamond, MMLU, Tau
+  # Airlines and BabyVision within two points of that base. One independent run, Plotly's data analytics
+  # exam (MyClaw's "Particle 1 Reviews", read that day), gave 40 of 43 against 36 for the base. The base
+  # is 33 on Artificial Analysis's index ("artificialanalysis.ai/models/deepseek-v4-1-flash", read that
+  # day, for the newer snapshot it recommends; the launch post does not say which one Particle started
+  # from). The estimate is that 33, less whatever its shorter reasoning costs on the index's harder tests,
+  # which nothing measures. It only has to beat the 13.6 of "nemotron-super-vl-free" for the placement
+  # below to hold, so it sits ahead of it in "flash" and nowhere else: not in "pro", because its adapter
+  # exists to shorten reasoning, the one thing the estimate does not cover; not in "code" or
+  # "claude-code", which rank by coding leaderboards and have only Particle's own Terminal-Bench and
+  # DeepSWE figures to go on. Neither its page nor OpenRouter's says how long the free access lasts or
+  # whether prompts are retained.
+  - model_name: particle-1-free
+    litellm_params:
+      model: openrouter/particle-ai/particle-1:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
   # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
   # so there are no figures to place them by. Remove a line to have its id reported again.
   # drift-ignore: openrouter/recursive/flint-v1.0:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
   # drift-ignore: openrouter/xingchen-agi/xing4.0-29b-a4b:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
+
+  # Looked at by hand on 2026-11-21 and set aside. Remove a line to have its id reported again.
+  # drift-ignore: openrouter/liquid/lfm-3-1.7b:free -- measured at 6.0 on Artificial Analysis's index, with 230 tokens/s and 14.6 s to the first answer token for a model that always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read 2026-11-21): under the 23.1 of the last ranked "pro" member, 8,192 completion tokens at most, and Liquid's own card (Hugging Face's LiquidAI/LFM3-1.7B model card, same day) says it is not for agentic coding or complex multi-step reasoning, so no slot in "pro", "flash" or "claude-code"; "flash-lite" wants sub-300 ms and this one thinks for seconds before answering; its listing also says prompts and outputs may be retained and used to train Liquid models ("openrouter.ai/liquid/lfm-3-1.7b:free", same day)
+  # drift-ignore: openrouter/baidu/ernie-5.5-flash-preview:free -- nothing measured outside Baidu on 2026-11-21: Artificial Analysis does not list it, every figure of the launch table is Baidu-run (GPTunneL's "ERNIE 5.5 Flash Preview vs DeepSeek and GLM", OrcaRouter's "ERNIE 5.5 Flash Preview: launch post and 20 benchmarks"), and the one independent figure in circulation, about 13.6% on Terminal-Bench 4.0 against Baidu's 46.5 (AlphaSignal's "Baidu's ERNIE 5.5 Flash Packs 280B Parameters Into a 14B Compute Path"), is a secondary report with no date or link that could not be checked, so no estimate through DeepSeek V4.1 Flash, the model Baidu compares it to, is safe; it is also an intermediate post-training checkpoint (Baidu's own "Introducing ERNIE 5.5 Flash Preview"), free only "for as long as the preview lasts" with no end date (Pasquale Pillitteri's "Baidu releases ERNIE 5.5 Flash Preview, free on OpenRouter"), served by Baidu's own platform; look again once a third party measures it or the final release ships
+  # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- no text figure from anyone on 2026-11-21: Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and the only text test found, 8 prompts on 2026-11-13 (LLMTest's "Ling 3.2 Flash review: free with 1M context, but very slow"), had it level with Ling 3.1 Flash (1 win, 2 losses, 5 ties) but answering in 121 to 151 seconds, over the 120 seconds of "request_timeout" and "stream_timeout" below; Ling 3.1 Flash is 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash") but 3.2 is a different, natively multimodal model, so that is no estimate; inclusionAI's own free period ran two weeks from 2026-11-05 (same OrcaRouter page) and OpenRouter shows no end date for its free copy
 
 {% endif %}
   # ============================================================================
@@ -541,6 +568,7 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-31b-free
+        - particle-1-free
         - nemotron-super-vl-free
         - openrouter-auto-free
 {% endif %}
