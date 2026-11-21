@@ -762,12 +762,13 @@ nommant ce réglage et en donnant son lien.
 **Facultatif : une App GitHub qui ouvre la pull request.** Un push et une pull request faits avec le jeton
 du workflow ne lancent aucun workflow : GitHub garde les runs de la pull request jusqu'à ce qu'une
 personne les approuve, ne lance jamais `sign-off`, et n'avertit pas `dependabot-auto-merge.yml` d'un run
-que ce jeton a lancé à la main, qui ne voit alors jamais la pull request. Avec une App, la branche, la
-pull request et son assignation sont écrites avec son jeton, restreint à *Contents*, *Pull requests* et
-*Issues* en lecture et écriture : GitHub lance lui-même les contrôles, la fusion automatique les voit, et
-le workflow n'en relance plus aucun à la main. Pour l'activer : une App GitHub installée sur ce dépôt avec
-ces trois permissions de dépôt, la variable `MODEL_DRIFT_APP_CLIENT_ID` (l'identifiant client affiché sur la
-page de l'App, pas son identifiant d'App), la variable `MODEL_DRIFT_APP_SLUG` (son nom court, que seule la
+que ce jeton a lancé à la main, qui ne voit alors jamais la pull request. Avec une App, la branche et la
+pull request sont écrites avec son jeton, restreint à *Contents* et *Pull requests* en lecture et
+écriture (l'assignation, qui est celle d'une issue, se fait avec le jeton du workflow) : GitHub lance
+lui-même les contrôles, la fusion automatique les voit, et le workflow n'en relance plus aucun à la main.
+Pour l'activer : une App GitHub installée sur ce dépôt avec ces deux permissions de dépôt, la variable
+`MODEL_DRIFT_APP_CLIENT_ID` (l'identifiant client affiché sur la page de l'App, pas son identifiant
+d'App), la variable `MODEL_DRIFT_APP_SLUG` (son nom court, que seule la
 fusion automatique lit) et le secret `MODEL_DRIFT_APP_PRIVATE_KEY`. Sans la première variable, le workflow
 fait ce qu'il faisait avant. La clé privée n'atteint que `publish`, qui n'extrait rien du dépôt et n'y
 exécute aucun script ; l'issue hebdomadaire garde le jeton du workflow.

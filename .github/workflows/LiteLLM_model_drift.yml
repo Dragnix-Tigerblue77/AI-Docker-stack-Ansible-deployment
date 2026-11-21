@@ -112,12 +112,13 @@ name: LiteLLM model drift
 # like the keys above: the variable MODEL_DRIFT_APP_CLIENT_ID (the client ID shown on the App's
 # settings page, not its App ID), the secret MODEL_DRIFT_APP_PRIVATE_KEY, and the variable
 # MODEL_DRIFT_APP_SLUG, which only the gate reads. The App needs the repository permissions
-# Contents, Pull requests and Issues, each read and write, and has to be installed on this
-# repository. With it the branch, the pull request and its assignee are written with a token of
-# the App, narrowed to those three: GitHub then starts the pull request's checks itself,
-# "sign-off" included, and tells the gate, which accepts the App's bot as the pull request's
-# author beside the Actions bot. The private key reaches this job alone, which checks nothing out
-# and runs no script of this repository. The rolling issue keeps GITHUB_TOKEN.
+# Contents and Pull requests, each read and write, and has to be installed on this repository.
+# With it the branch and the pull request are written with a token of the App, narrowed to those
+# two, and the assignee, which is an issue's, with GITHUB_TOKEN: GitHub then starts the pull
+# request's checks itself, "sign-off" included, and tells the gate, which accepts the App's bot as
+# the pull request's author beside the Actions bot. The private key reaches this job alone, which
+# checks nothing out and runs no script of this repository. The rolling issue keeps GITHUB_TOKEN
+# too.
 #
 # Without the variable nothing changes and nothing breaks: the run writes with GITHUB_TOKEN and
 # dispatches "ansible-ci.yml" and "gitleaks.yml" on the branch itself -- the one event that token
@@ -372,9 +373,10 @@ jobs:
 
       # Only when the App is configured: without the variable there is nothing to mint from, the
       # step is skipped, and the next one writes with GITHUB_TOKEN. Narrowed to what that step
-      # calls -- the branch and its commit, the pull request, and its assignee, which is an
-      # issue's -- whatever more the App was granted; scoped by the action's default to this
-      # repository alone, and revoked when the job ends.
+      # calls -- the branch and its commit, and the pull request -- whatever more the App was
+      # granted; scoped by the action's default to this repository alone, and revoked when the job
+      # ends. The pull request's assignee is an issue's and is set by the step after, with
+      # GITHUB_TOKEN, so the App is not asked for the Issues permission.
       - name: Mint an installation token, if a GitHub App is configured
         id: app-token
         if: ${{ vars.MODEL_DRIFT_APP_CLIENT_ID != '' }}
@@ -384,11 +386,11 @@ jobs:
           private-key: ${{ secrets.MODEL_DRIFT_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
 
       # Runs even if the issue step failed, since the two have nothing to do with each other, but not
       # without what the other job made.
       - name: Open, update or close the deletion pull request
+        id: pull-request
         if: ${{ !cancelled() && steps.receive.outcome == 'success' }}
         uses: actions/github-script@v9
         env:
@@ -423,7 +425,6 @@ jobs:
             const baseBranch = 'main';
             const template = 'templates/LiteLLM_config.yaml.j2';
             const title = 'Supprimer de la liste LiteLLM les modèles que leur fournisseur a retirés';
-            const assignee = 'tigerblue77';
             const workflows = process.env.WORKFLOW_FILES.split(/\s+/).filter(Boolean);
             const bot = { name: 'github-actions[bot]', email: '41898282+github-actions[bot]@users.noreply.github.com' };
             const status = process.env.DRIFT_STATUS;
@@ -639,6 +640,7 @@ jobs:
               throw error;
             }
             core.notice(created ? `Opened pull request #${pr.number}.` : `Pull request #${pr.number} is up to date.`);
+            core.setOutput('number', String(pr.number));
 
             // The checks of this commit, where GitHub starts none: asked for whichever of them has
             // no run on it yet, whatever this run did or did not do before, so that a run that
@@ -661,14 +663,20 @@ jobs:
               }
             }
 
-            try {
-              await github.rest.issues.addAssignees({
-                owner, repo, issue_number: pr.number, assignees: [assignee],
-              });
-            } catch (error) {
-              core.error(`#${pr.number} could not be assigned to ${assignee}: ${error.message}`);
-              problems.push('the assignee');
-            }
             if (problems.length > 0) {
-              core.setFailed(`The pull request #${pr.number} is open, but ${problems.join(' and ')} could not be set: see the errors above. The next run tries again.`);
+              core.setFailed(`The pull request #${pr.number} is open, but ${problems.join(' and ')} could not be dispatched: see the errors above. The next run tries again.`);
             }
+
+      # The assignee is an issue's: set with GITHUB_TOKEN, which this job holds with "issues: write",
+      # whoever wrote the pull request, so that a GitHub App is not asked for the Issues permission.
+      - name: Assign the deletion pull request
+        if: ${{ !cancelled() && steps.pull-request.outputs.number != '' }}
+        uses: actions/github-script@v9
+        env:
+          PULL_NUMBER: ${{ steps.pull-request.outputs.number }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.addAssignees({
+              owner, repo, issue_number: Number(process.env.PULL_NUMBER), assignees: ['tigerblue77'],
+            });
