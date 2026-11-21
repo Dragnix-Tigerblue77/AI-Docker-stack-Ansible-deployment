@@ -234,14 +234,20 @@ other providers, whose API has no such route, are deleted from on their list alo
   the first that stays, and goes when the last one does. A section banner goes with a run only when
   the banner is itself the reason ("SambaNova -- not routed to: ..."); one that is a heading over
   entries that may stay ("Cerebras & Groq") is kept, and so is a "# drift-ignore:" line, which is a
-  statement about an id and not about the run.
+  statement about an id and not about the run. A Jinja statement written between the reason and
+  its run ("{% if has.Groq %}" over the entries) is read through, as the rendering does, when it
+  closes right after the run: the statement stays and the reason goes with the run, provided it
+  says "not routed", names no model that stays, and no entry that stays follows the run once the
+  statements are read away (the reason would then be that one's as well). Otherwise it stays, and
+  is listed under "À relire".
 
 What it leaves where it is, because only a person can tell, is every comment: none is rewritten, and
 a comment can say what is no longer so. Verification reads the structure of the file, not its
 prose, so the pull request body lists under "À relire", by their line numbers in the new file,
 the places a deletion may have made false:
 
-* the comment above a deleted ACTIVE entry, which may describe that entry or the group it opens;
+* the comment above a deleted ACTIVE entry, which may describe that entry or the group it opens,
+  and the reason above a statement over a deleted run that it was not safe to delete with it;
 * the reason over a run of commented-out entries some of which are gone, kept over the ones that
   stay, which may count them ("All seven ids below") or name one that is gone;
 * a section banner left over no entry at all;
@@ -1696,6 +1702,11 @@ def is_bare(line):
     return content is not None and not content.strip()
 
 
+def is_statement(line):
+    """A line that holds Jinja statements and nothing else: the template writes nothing for it."""
+    return bool(JINJA_STATEMENT.search(line)) and not JINJA_STATEMENT.sub("", line).strip()
+
+
 def place(group):
     """How a cascade or an alias is named in a message: the section and key, then its source."""
     where, source = group
@@ -2086,9 +2097,10 @@ def read_layout(text, template):
 
 def comments_above(layout, start, entry=None):
     """The comment lines directly above line "start", top to bottom, up to the first blank line, the
-    first line that is not a comment, or the first line of a commented-out entry. With the active
-    "entry" that starts there, the one statement line that opens a block closing right after it is
-    stepped over: prose written above "{% if x %}" and the entry it wraps is about that entry."""
+    first line that is not a comment, or the first line of a commented-out entry. With the "entry"
+    that starts there, or the last one of the run that does, the one statement line that opens a
+    block closing right after it is stepped over: prose written above "{% if x %}" and the entry it
+    wraps is about that entry, as the rendering, which has no such line, reads it."""
     found = []
     number = start - 1
     while number >= 0 and number not in layout["owner"]:
@@ -2152,6 +2164,34 @@ def reason_lines(layout, prose):
     return [number for number in prose if number not in keep]
 
 
+def goes_with_the_run(layout, keys, members, prose):
+    """Whether "prose", the reason written above a Jinja statement that wraps the run "members" (all
+    of which go), goes with the run. The rendering has no such statement, so by the offline rules
+    the prose is the run's reason; but it was written above a statement, where a person may as well
+    have been writing about the block, and only what is plainly the run's own goes: it says "not
+    routed", it names no model that stays, and no entry that stays follows the run once the
+    statements are read away, since the prose would then be that one's reason too."""
+    lines = layout["lines"]
+    text = " ".join(comment_content(lines[number]).strip() for number in prose)
+    if not REASON.search(text):
+        return False
+    for entry in layout["entries"]:
+        if entry["key"] not in keys and any(
+                isinstance(token, str) and mention_pattern(token).search(text)
+                for token in (entry["name"], entry["key"] and entry["key"][1])):
+            return False
+    number = members[-1]["end"]
+    while True:
+        while number < len(lines) and (is_bare(lines[number]) or is_statement(lines[number])):
+            number += 1
+        follower = layout["owner"].get(number)
+        if follower is None:
+            return True
+        if layout["commented"][follower]["key"] not in keys:
+            return False
+        number = layout["commented"][follower]["end"]
+
+
 def plan_lines(layout, keys):
     """The line numbers to delete so that every entry attributed to a key of "keys" is gone with
     its cascade slots, and what was done for each key. Nothing is edited here."""
@@ -2183,7 +2223,16 @@ def plan_lines(layout, keys):
             continue
         if len(gone) == len(members):
             marks.update(range(members[0]["start"], members[-1]["end"]))
-            prose = reason_lines(layout, comments_above(layout, members[0]["start"]))
+            found = comments_above(layout, members[0]["start"], members[-1])
+            prose = reason_lines(layout, found)
+            if found and found[-1] != members[0]["start"] - 1:
+                # A statement stands between the prose and the run. Bare "#" lines alone are not
+                # a reason, and nothing there is worth a person's reading.
+                if all(is_bare(lines[number]) for number in prose):
+                    prose = []
+                elif not goes_with_the_run(layout, keys, members, prose):
+                    notes[members[0]["key"]]["left"].append(prose)
+                    prose = []
             marks.update(prose)
             if prose:
                 text = [comment_content(lines[number]).strip() for number in prose]
@@ -2537,7 +2586,7 @@ def review_items(layout, accepted, notes, slot_names, position):
         members = [layout["commented"][index] for index in run]
         gone = [member for member in members if member["key"] in accepted]
         if gone and len(gone) < len(members):
-            point(gone[0]["key"], comments_above(layout, members[0]["start"]), "kept")
+            point(gone[0]["key"], comments_above(layout, members[0]["start"], members[-1]), "kept")
 
     blocks = banner_blocks(layout)
     for index, (first, last) in enumerate(blocks):
@@ -4260,6 +4309,28 @@ CEREBRAS_PROSE = ("  # Cerebras: both models below are not routed to, because a 
                   "required.\n")
 DRIFT_IGNORE_LINE = ("  # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and "
                      "turned down\n")
+IF_GROQ = "{% if Artificial_Intelligence_LiteLLM_Groq_API_key %}\n"
+ENDIF = "{% endif %}\n"
+PAID_A, PAID_B, PAID_C = (commented_entry("paid-%s" % letter, "openrouter/vendor/paid-%s" % letter,
+                                          "OPENROUTER") for letter in "abc")
+PAID_A_ONLY = "  # paid-a is not routed to: paid only.\n"
+
+
+def statement_over_run(close_after=ENDIF):
+    """The paid run, wrapped in a statement written between its reason and its first entry."""
+    return ((PAID_REASON, PAID_REASON + IF_GROQ), (PAID_C, PAID_C + close_after))
+
+
+def statement_over_first(prose):
+    """The first paid entry alone under a statement, with "prose" above the statement, and the other
+    two entries a run of their own under the reason that was there."""
+    return ((PAID_REASON + PAID_A + "  #\n", prose + IF_GROQ + PAID_A + ENDIF + "\n" + PAID_REASON),)
+
+
+def statement_over_first_then_run():
+    """The first paid entry under a statement that closes right before the entries that follow it,
+    which the rendering reads as one run under the reason above the statement."""
+    return ((PAID_REASON + PAID_A + "  #\n", PAID_REASON + IF_GROQ + PAID_A + ENDIF + "  #\n"),)
 
 # (what the case proves, a change made to APPLY_TEMPLATE first as (old, new) pairs, the
 # (provider, id, kind) deletions asked for, the changes the result must show against the changed
@@ -4583,6 +4654,90 @@ APPLY_CASES = (
        + "  #\n  #   model_info:\n  #     id: c\n"),),
      [("openrouter", "vendor/paid-c", "gone")], [],
      {("openrouter", "vendor/paid-c"): "unlocated"}),
+    ("the reason above a statement that wraps a run deleted whole goes with it, and the statement "
+     "stays, empty",
+     statement_over_run(), [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON + IF_GROQ + PAID_A + "  #\n" + PAID_B + "  #\n" + PAID_C, IF_GROQ)],
+     {}),
+    ("so does the prose about the one model that the statement wraps",
+     statement_over_first(PAID_A_ONLY), [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A_ONLY + IF_GROQ + PAID_A, IF_GROQ)],
+     {}),
+    ("a statement that closes two blank lines after the run still wraps it",
+     statement_over_run("\n\n" + ENDIF),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON + IF_GROQ + PAID_A + "  #\n" + PAID_B + "  #\n" + PAID_C, IF_GROQ)],
+     {}),
+    ("one that closes three lines after it wraps more than the run, and the reason stays",
+     statement_over_run("\n\n\n" + ENDIF),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(IF_GROQ + PAID_A + "  #\n" + PAID_B + "  #\n" + PAID_C, IF_GROQ)],
+     {}),
+    ("only one statement is stepped over: the reason above two stacked ones stays",
+     ((PAID_REASON, PAID_REASON + IF_GROQ + IF_GROQ), (PAID_C, PAID_C + ENDIF + ENDIF)),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(IF_GROQ + IF_GROQ + PAID_A + "  #\n" + PAID_B + "  #\n" + PAID_C, IF_GROQ + IF_GROQ)],
+     {}),
+    ("prose that names a model which stays is left where it is, whichever way it names it",
+     statement_over_first(PAID_A_ONLY.replace("paid only", "paid only; alpha-groq is free")),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A, "")],
+     {}),
+    ("by its id",
+     statement_over_first(PAID_A_ONLY.replace("paid only", "paid only; vendor/alpha is free")),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A, "")],
+     {}),
+    ("prose that does not say the entry is not routed to is not taken for its reason",
+     statement_over_first("  # Paid, and a card is needed.\n"), [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A, "")],
+     {}),
+    ("the reason stays when an entry that stays follows the statement: the rendering makes it the "
+     "reason of that one too",
+     statement_over_first_then_run(), [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A, "")],
+     {}),
+    ("and so when it is the next but one, the entry after it going too",
+     statement_over_first_then_run(),
+     [("openrouter", "vendor/paid-a", "gone"), ("openrouter", "vendor/paid-b", "gone")],
+     [(PAID_A, ""), (PAID_B + "  #\n", "")],
+     {}),
+    ("a reason of several paragraphs goes whole, the bare line between them included",
+     statement_over_run() + ((PAID_REASON + IF_GROQ,
+                              PAID_REASON + "  #\n  # A second paragraph.\n" + IF_GROQ),),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON + "  #\n  # A second paragraph.\n" + IF_GROQ + PAID_A + "  #\n" + PAID_B
+       + "  #\n" + PAID_C, IF_GROQ)],
+     {}),
+    ("a name that merely starts like one that stays is not that model",
+     statement_over_first(PAID_A_ONLY.replace("paid only", "paid only; alpha-groq-two is free")),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_A_ONLY.replace("paid only", "paid only; alpha-groq-two is free") + IF_GROQ + PAID_A,
+       IF_GROQ)],
+     {}),
+    ("a closing statement above the run is not stepped over: only the one that opens a block is",
+     ((PAID_REASON, IF_GROQ + PAID_REASON + ENDIF),),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_A + "  #\n" + PAID_B + "  #\n" + PAID_C, "")],
+     {}),
+    ("the reason goes when a blank line separates the statement from the entry that stays: that "
+     "one is a run of its own",
+     ((PAID_REASON + PAID_A + "  #\n", PAID_REASON + IF_GROQ + PAID_A + ENDIF + "\n"),),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_REASON + IF_GROQ + PAID_A, IF_GROQ)],
+     {}),
+    ("and when a comment of its own stands on the line of the closing statement, which the "
+     "rendering writes as a line of prose between them",
+     ((PAID_REASON + PAID_A + "  #\n",
+       PAID_REASON + IF_GROQ + PAID_A + "{% endif %}  # paid-b is not routed to: too dear\n"),),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [(PAID_REASON + IF_GROQ + PAID_A, IF_GROQ)],
+     {}),
+    ("the reason goes when every entry that follows the statement goes with it",
+     statement_over_first_then_run(),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON + IF_GROQ + PAID_A, IF_GROQ), ("  #\n" + PAID_B + "  #\n" + PAID_C, "")],
+     {}),
 )
 
 
@@ -5334,6 +5489,22 @@ REVIEW_CASES = (
      [("left", "Prose about beta, written above its condition", 1, None)]),
     ("a deletion no comment is about points nowhere",
      (), [("groq", "vendor/solo", "retired")], []),
+    ("the prose about the one model, above the statement that wraps its commented-out entry, goes "
+     "with it and is no longer pointed at as a mention",
+     statement_over_first(PAID_A_ONLY), [("openrouter", "vendor/paid-a", "gone")], []),
+    ("the reason above a statement stays over the entries of the run that stay, and is pointed at",
+     statement_over_run(), [("openrouter", "vendor/paid-a", "gone")],
+     [("kept", "Served, but not routed to: paid only.", 1, None)]),
+    ("prose above the statement that names a model which stays is pointed at, and left",
+     statement_over_first(PAID_A_ONLY.replace("paid only", "paid only; alpha-groq is free")),
+     [("openrouter", "vendor/paid-a", "gone")],
+     [("left", "paid-a is not routed to: paid only; alpha-groq", 1, None)]),
+    ("a reason that an entry which stays follows is pointed at too, and left",
+     statement_over_first_then_run(), [("openrouter", "vendor/paid-a", "gone")],
+     [("left", "Served, but not routed to: paid only.", 1, None)]),
+    ("bare # lines above the statement are nobody's reason, and are not pointed at",
+     ((PAID_REASON, "  #\n" + IF_GROQ), (PAID_C, PAID_C + ENDIF)),
+     [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"], []),
 )
 
 
