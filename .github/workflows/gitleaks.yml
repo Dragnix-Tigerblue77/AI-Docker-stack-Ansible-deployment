@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-name: gitleaks
+name: Secret scan
 
 # Secret detection on every pull request. Nothing in this repository is a known secret waiting for
 # rotation, so there is no ".gitleaksignore": every finding is a finding.
@@ -75,7 +75,7 @@ jobs:
         run: ./gitleaks dir . --no-banner --redact
 
   hook:
-    name: does the pre-commit hook refuse a secret?
+    name: Pre-commit hook blocks a secret
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     env:

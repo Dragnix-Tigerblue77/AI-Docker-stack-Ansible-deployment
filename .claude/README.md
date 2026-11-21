@@ -109,7 +109,7 @@ running a script, not the model deciding to behave.
 - **`hooks/gate-lint.sh`** on `TaskCompleted`. Runs `yamllint`, `reuse lint`,
   `ansible-lint`, `ansible-playbook --syntax-check`, every home-made check in
   `.github/scripts/` (`--selftest` then plain, same as CI's own
-  `home-made-checks` job; for `check_sign_off.py` the `--selftest` alone, since
+  `repository-rules` job; for `check_sign_off.py` the `--selftest` alone, since
   its plain form needs the range of a pull request), and `gitleaks` -- what
   the workflows under `.github/workflows/` gate a pull request on, except
   the two `role run` jobs, which need a Docker daemon -- and refuses the

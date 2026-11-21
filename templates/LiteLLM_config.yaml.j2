@@ -29,11 +29,11 @@
 # a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
 # member of its cascade.
 {% set head = {
-  'pro': 'gemini-3-8-flash' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-3-8-flash' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
   'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-3-8-flash' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -57,6 +57,24 @@ model_list:
   # answers 404 with an empty body -- measured with litellm 1.103.0, where the default base gives
   # ".../v1beta/models/...:generateContent" and a real answer.
   #
+  # Added 2026-11-21. Free of charge: the "Gemini 4 Hydrogen" table of
+  # "ai.google.dev/gemini-api/docs/pricing", read that day in full, gives "Free of charge" in its Free Tier
+  # column for input, output and context caching ($1.50 in / $7.50 out per million on the paid tier),
+  # and its model page, "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen", lists text as its only
+  # output, function calling and structured outputs as supported, a 1,048,576-token context window and
+  # a stable version. Its "what's new" page, ".../docs/whats-new-gemini-4-hydrogen", says it is
+  # available "on both the free and paid tiers" "across both GenerateContent and the Interactions
+  # API": the call LiteLLM's "gemini/" provider makes. Artificial Analysis's ranking, read 2026-11-21 and matched by its id ("Gemini 4 Hydrogen
+  # (Xhigh)", to be checked), gives it an intelligence index of 53.9 and 164.0 tokens per second:
+  # ahead of "gemini-3-8-flash" (30.8) in "pro", "flash" and "claude-code", and ahead of
+  # "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". "code" ranks by coding benchmarks and
+  # the index has none for it, so it is in no "code" slot. The free tier's own rate limits are shown
+  # in AI Studio only ("ai.google.dev/gemini-api/docs/rate-limits"): none is stated here.
+  - model_name: gemini-4-hydrogen
+    litellm_params:
+      model: gemini/gemini-4-hydrogen
+      api_key: "os.environ/GEMINI_API_KEY"
+
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
   # model, engineered for long-horizon software engineering, autonomous agents, and complex
@@ -190,6 +208,10 @@ model_list:
   # drift-ignore: gemini/gemini-flash-lite-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-pro-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-omni-flash-preview -- a video generation and editing model per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), no text cascade has any use for it; its endpoint was announced for deprecation on 2026-09-30
+  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing these ids.
+  # drift-ignore: gemini/gemini-4-carbon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Carbon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $2.00 in / $10.00 out per million tokens through 2026-11-30, then $4.00 / $20.00
+  # drift-ignore: gemini/gemini-4-neon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Neon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $3.00 in / $15.00 out per million tokens
+  # drift-ignore: gemini/gemini-omni-1.2-flash -- a video generation and editing model, not a chat model: "ai.google.dev/gemini-api/docs/models/gemini-omni-flash" (read 2026-11-21) calls it a model "for fast, conversational video generation and editing", with "Video with native Audio, Text" as its output and edits made through the Interactions API, and it is paid only, "Not available" in the Free Tier column of "ai.google.dev/gemini-api/docs/pricing" and "Not supported" for the Free tier on "ai.google.dev/gemini-api/docs/rate-limits"
 
 {% endif %}
 {% if has.Mistral %}
@@ -325,7 +347,7 @@ model_list:
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
   #
-  # Served, but not routed to, for the reason of the run above, read again on 2026-11-02:
+  # Served, but not routed to, read again on 2026-11-02:
   # "api.sambanova.ai/v1/models" lists it, priced per token ($0.30 in / $1.20 out per million), and the
   # Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to
   # run your first requests", with "signupCredits":false in the page's configuration.
@@ -334,6 +356,9 @@ model_list:
   #     model: openai/MiniMax-M3.1-Flash
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
+
+  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing this id.
+  # drift-ignore: sambanova/GLM-5.3 -- no free tier: "api.sambanova.ai/v1/models" prices it per token ($2.80 in / $8.80 out per million), the Free Tier rows of "docs.sambanova.ai/docs/en/models/rate-limits" name only gpt-oss-120b and gemma-4-31B-it, and the Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to run your first requests" with "signupCredits":false (all read 2026-11-21)
 
 {% if has.DeepSeek %}
   # ============================================================================
@@ -471,10 +496,21 @@ model_list:
       api_key: "omniroute-no-key-needed"
 
 router_settings:
-  num_retries: 2
+  # A member that fails is not retried: the cascade below is the retry. Each retry was paid in full by
+  # every member, and the head of a cascade is both what its alias points at and the first slot of its
+  # list, so a head that answered 429 or stayed silent used up several attempts, and a dead head cost
+  # that again on every request, since a cooldown is not kept for a member reached through an alias.
+  num_retries: 0
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # How long a member may stay silent before the cascade moves on to the next one. They belong here and
+  # not in "litellm_settings", where "stream_timeout" has no effect on the router. 90 s for a stream
+  # because a model that reasons before it answers is silent until its first answer token, which the
+  # slowest of our members reaches after about a minute on average; a stream whose first chunk has not
+  # come by then is given up.
+  timeout: 120
+  stream_timeout: 90
 
   # Shares cooldown state between the "--num_workers" processes below: without it, each worker tracks
   # its own 429s independently, and a deployment can be considered healthy by one worker while another
@@ -501,7 +537,7 @@ router_settings:
     #
     # "gemini-3-8-flash" is the clearest case of the rule in practice: per Artificial Analysis'
     # Intelligence Index (measured 2026-09-13) it sat marginally ahead of Gemini 3.1 Pro despite the
-    # "flash" name, so it leads the pro cascade below, not just the flash one -- and Gemini 3.1 Pro
+    # "flash" name, so it ranks in the pro cascade below, not just the flash one -- and Gemini 3.1 Pro
     # has since left that cascade altogether, having no free tier (see its model_list comment). Inside
     # "code", the ranking criterion switches to coding benchmarks specifically, which is what put
     # OpenRouter's free GLM 5.2 (SWE-bench Pro 62.1%) at the head of that cascade until its ":free"
@@ -518,6 +554,7 @@ router_settings:
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
+        - gemini-4-hydrogen
         - gemini-3-8-flash
         - gemini-2-5-pro
 {% endif %}
@@ -549,6 +586,7 @@ router_settings:
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
+        - gemini-4-hydrogen
         - gemini-3-8-flash
         - gemini-3-6-flash
         - gemini-3-5-flash
@@ -595,6 +633,9 @@ router_settings:
 {% endif %}
 {% if has.Mistral %}
         - ministral-3b
+{% endif %}
+{% if has.Gemini %}
+        - gemini-4-hydrogen
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-20b-groq
@@ -656,6 +697,7 @@ router_settings:
 {% if head['claude-code'] %}
     - claude-code: &claude_code_cascade
 {% if has.Gemini %}
+        - gemini-4-hydrogen
         - gemini-3-8-flash
         - gemini-2-5-pro
         - gemini-3-6-flash
@@ -708,8 +750,7 @@ litellm_settings:
   telemetry: false               # no outbound telemetry
   drop_params: true              # silently drops hyperparameters a given model does not support
   modify_params: true            # translates tool-call schemas between Anthropic and OpenAI/Gemini
-  stream_timeout: 120            # extended timeout for models' reasoning phase
-  force_ipv4: true               # avoids slow IPv6 resolution on the target VM
+  force_ipv4: true              # avoids slow IPv6 resolution on the target VM
   stream_response_threshold: 0   # flushes SSE chunks to the client immediately
   # Keep the gateway's own logging free of prompt and response bodies. The corpus this estate routes
   # includes third-party legal documents, and a debug log is a copy of them nobody decided to keep.

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
-name: sign-off
+name: Commit sign-off
 
 # CONTRIBUTING.md requires a Signed-off-by on every commit, and this is the job that looks for one.
 # ".github/scripts/check_sign_off.py" holds the decision and says why it is shaped the way it is.

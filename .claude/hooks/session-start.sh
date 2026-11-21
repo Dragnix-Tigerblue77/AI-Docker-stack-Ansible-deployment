@@ -14,7 +14,7 @@
 # it. The virtual environment of step 1 is what steps around it -- see the comment on "VENV_PATH".
 #
 #   1. requirements.txt   ansible-core, ansible-lint, yamllint, reuse, PyYAML, Jinja2, docker -- the
-#                         yamllint, REUSE compliance, ansible-lint, syntax-check, home-made-checks and
+#                         yamllint, REUSE compliance, ansible-lint, syntax-check, repository-rules and
 #                         role-run jobs of ansible-ci.yml
 #   2. requirements.yml   community.docker -- the ansible-lint and syntax-check jobs, since #76 needs
 #                         "docker_host_info" and "docker_container_exec" to resolve

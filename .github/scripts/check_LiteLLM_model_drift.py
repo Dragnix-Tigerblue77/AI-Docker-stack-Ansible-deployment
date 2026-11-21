@@ -166,6 +166,12 @@ all. The filter narrows NEW only. Whether a model is RETIRED is decided against 
 provider lists, so that no filter can ever make a served model look retired -- which is also why
 OpenRouter is read with "output_modalities=all", its default being "text" only.
 
+A video generation model served through "generateContent" (Gemini's "omni" one is) is therefore
+still offered as NEW, and is turned down with a "drift-ignore:" line. Gemini's model listing has no
+field that would tell it apart (name, version, displayName, description, token limits,
+supportedGenerationMethods, temperature, thinking), and "omni" is not a marker to add: other
+vendors' "omni" models are chat models, one of them routed in the file this check reads.
+
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY and MODEL_DRIFT_DEEPSEEK_API_KEY. An unset or empty one leaves its
 provider "not covered (no key)", which the report says every time rather than skipping it. Gemini's
@@ -6758,6 +6764,201 @@ def run_command_line_cases():
     return failures
 
 
+# ------------------------------------------------------------------------------------------------
+# The real model list. The cases above delete from small templates written for them; this one deletes
+# from "templates/LiteLLM_config.yaml.j2" itself what a week's retirements could ask for, so that a
+# shape of the file the deletion cannot take fails here and not in the weekly run, whose pull request
+# merges itself. Nothing of the file is copied: what is held to is read off the file and its result.
+
+REAL_PAIR_STEP = 4  # bound: one pair of neighbours in four, since a deletion costs what an entry does
+REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
+
+
+@contextlib.contextmanager
+def quick_rendering():
+    """A deletion renders the file for every set of keys, several times over, and parsing the results is
+    most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
+    first rendering of a text is the plain one, which the quick one is held to."""
+    import jinja2
+    from jinja2.sandbox import SandboxedEnvironment
+    environment = SandboxedEnvironment(undefined=jinja2.StrictUndefined, trim_blocks=True,
+                                       keep_trailing_newline=True)
+    plain, loaded = render_with_keys, yaml.safe_load
+    rendered, compiled, parsed = {}, {}, {}
+
+    def quick(text, given):
+        return compiled[text].render({name: "" if given is not None and name not in given
+                                      else "placeholder" for name in PROVIDER_KEY_VARIABLES})
+
+    def render(text, given):
+        key = (text, None if given is None else frozenset(given))
+        if key not in rendered:
+            if text in compiled:
+                rendered[key] = quick(text, key[1])
+            else:
+                rendered[key] = plain(text, given)
+                compiled[text] = environment.from_string(text)
+                if quick(text, key[1]) != rendered[key]:
+                    raise RuntimeError("the quick rendering is not the plain one")
+        return rendered[key]
+
+    def load(text):
+        if text not in parsed:
+            parsed[text] = yaml.load(text, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+        return parsed[text]
+
+    globals()["render_with_keys"], yaml.safe_load = render, load
+    try:
+        yield
+    finally:
+        globals()["render_with_keys"], yaml.safe_load = plain, loaded
+
+
+def real_scenarios(layout):
+    """The sets of (provider, id) to delete: each entry alone, active or commented out; each run of
+    commented-out entries whole and minus each of its members; each provider whole; the two ends of
+    the list together; and the pairs of neighbours, one in REAL_PAIR_STEP."""
+    keys = [entry["key"] for entry in sorted(layout["entries"], key=lambda entry: entry["start"])
+            if entry["key"]]
+    runs = [[layout["commented"][index]["key"] for index in run] for run in layout["runs"]]
+    found = [{key} for key in keys] + [set(run) for run in runs]
+    found += [set(run) - {key} for run in runs for key in run]
+    found += [{key for key in keys if key[0] == provider} for provider in sorted({k[0] for k in keys})]
+    found += [{keys[0], keys[-1]}] + [set(keys[n:n + 2]) for n in range(0, len(keys) - 1, REAL_PAIR_STEP)]
+    return [chosen for number, chosen in enumerate(found) if chosen and chosen not in found[:number]]
+
+
+def dangling(text):
+    """What is wrong with the rendering of "text" for each set of keys: a set that does not render, a
+    cascade slot or an alias that names no model."""
+    found = set()
+    for given, document in keyset_documents(text):
+        where = "when only %s given" % given_text(given)
+        if not isinstance(document, dict):
+            found.add("the file does not render " + where)
+            continue
+        names = {item.get("model_name") for item in document.get("model_list") or []
+                 if isinstance(item, dict)}
+        found.update("%s names %s, which is no model, %s" % (place(group), name, where)
+                     for group, targets in fallback_lists(document).items() for name in targets
+                     if name not in names | {group[1]})
+        found.update("the alias %s names %s, which is no model, %s" % (alias, target, where)
+                     for section in SETTINGS_SECTIONS
+                     for alias, target in ((document.get(section) or {}).get("model_group_alias")
+                                           or {}).items() if target not in names)
+    return found
+
+
+def real_failure(text, keys, new_text, outcomes, layout, known):
+    """Why the deletion of "keys" from "text" is wrong, or None. The entries asked for and their cascade
+    slots go, of the rest only comments and blank lines may, and the comments are the reason of what
+    went and the separators it leaves alone."""
+    if [(o["provider"], o["id"]) for o in outcomes] != sorted(keys):
+        return "the outcomes are not the keys asked for, one each"
+    for o in outcomes:
+        code = o["reason"] and o["reason"][0]
+        if (o["status"] == "applied") != (o["reason"] is None) or (o["status"] == "refused") != bool(
+                code in REFUSALS and refusal_text(o)) or (o["reason"] and (
+                o["entries"] or o["slots"] or o["prose"] or o["review"])):
+            return "the outcome of %s says %r with the reason %r" % (o["id"], o["status"], o["reason"])
+        if code in ("verification", "unlocated"):
+            return "%s is refused, and no shape of this file should be: %s" % (o["id"], o["reason"][1])
+    applied = {(o["provider"], o["id"]) for o in outcomes if o["status"] == "applied"}
+    if not applied:
+        return None if new_text == text else "every deletion was refused and the file is not as it was"
+    old, new = text.splitlines(), new_text.splitlines()
+    gone = [entry for entry in layout["entries"] if entry["key"] in applied]
+    names = {entry["name"] for entry in gone} - {entry["name"] for entry in layout["entries"]
+                                                  if entry["key"] not in applied}
+    slots = [ref["line"] for ref in layout["references"]
+             if ref["role"] in ("target", "default") and ref["name"] in names]
+    taken = {number for entry in gone for number in range(entry["start"], entry["end"])} | set(slots)
+    rows = lambda source: {row["line"] for row in (read_head(source) or {}).values()}
+    code = lambda lines, skipped: [line for number, line in enumerate(lines) if number not in skipped
+                                   and line.strip() and not is_comment(line)]
+    if code(old, taken | rows(text)) != code(new, rows(new_text)):
+        return "the lines that are not comments are not the file's without the entries asked for"
+    before = [line for number, line in enumerate(old) if is_comment(line) and number not in taken]
+    after = [line for line in new if is_comment(line)]
+    lost = collections.Counter(before) - collections.Counter(after)
+    # Between two entries of a run, the bare lines go with a deleted one and stay between two that
+    # stay; the rest of the comments that go are the prose the outcomes report.
+    separators = 0
+    for run in layout["runs"]:
+        members = [layout["commented"][index] for index in run]
+        away = [member["key"] in applied for member in members]
+        for number in range(len(members) - 1):
+            if away[number] or (away[number + 1] and all(away[number + 2:])):
+                separators += sum(is_bare(line) for line in old[members[number]["end"]:
+                                                               members[number + 1]["start"]])
+    reported = sum(entry["lines"] for o in outcomes for entry in o["prose"])
+    if not is_subsequence(after, before) or sum(lost.values()) != reported + separators:
+        return "%d comment lines went, and %d were prose or separators of what was deleted" % (
+            sum(lost.values()), reported + separators)
+    # An active entry takes the blank line after it unless prose above it stays; no more than one
+    # blank line goes for each entry.
+    trailing = sum(entry["state"] == "active" and entry["end"] < len(old) and not old[entry["end"]].strip()
+                   and not left_behind(layout, entry) for entry in gone)
+    blanks = sum(not line.strip() for line in old) - sum(not line.strip() for line in new)
+    if not trailing <= blanks <= len(gone) or (
+            "\n\n\n" in new_text.replace("\r", "") and "\n\n\n" not in text.replace("\r", "")):
+        return "%d blank lines went, and %d to %d were the deletion's" % (blanks, trailing, len(gone))
+    if ("\r\n" in text and new_text.count("\n") != new_text.count("\r\n")) or (
+            new_text.endswith("\n") != text.endswith("\n")):
+        return "the result does not keep the line endings of the file"
+    # A heading stays unless it is itself a reason; the prose directly above a run that goes whole goes.
+    rules = [number for number, line in enumerate(old) if BANNER_RULE.match(line)]
+    while len(rules) > 1:
+        heading = old[rules[0] + 1:rules[1]]
+        if all(is_comment(line) for line in heading):
+            if not REASON.search(" ".join(map(comment_content, heading))) and any(
+                    line in lost for line in heading if not is_bare(line)):
+                return "the section heading at line %d went, and it is no reason" % (rules[0] + 2)
+            rules.pop(0)
+        rules.pop(0)
+    for run in layout["runs"]:
+        members = [layout["commented"][index] for index in run]
+        above = old[members[0]["start"] - 1] if members[0]["start"] else ""
+        if (all(member["key"] in applied for member in members) and is_comment(above)
+                and not is_bare(above) and not BANNER_RULE.match(above)
+                and not DRIFT_IGNORE_START.match(comment_content(above)) and above not in lost):
+            return "the reason above the run at line %d stayed: %r" % (members[0]["start"] + 1, above)
+    found = sorted((entry["name"], entry["state"], entry["start"] + 1) for entry in gone)
+    said = sorted((item["name"], item["state"], item["line"]) for o in outcomes for item in o["entries"])
+    if found != said or sum(len(o["slots"]) for o in outcomes) != len(slots):
+        return "the entries and slots the outcomes name are not the ones that went"
+    return next(iter(sorted(dangling(new_text) - known)), None)
+
+
+def run_real_list_cases():
+    """Each scenario of real_scenarios deleted from the real file (each key asked for twice, which is
+    one deletion) and read back by real_failure; then the first of them with CRLF line endings."""
+    failures = 0
+    with quick_rendering():
+        for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
+            text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
+            template, problems = read_template(text)
+            layout = read_layout(text, template)[0] if template else None
+            if layout is None:
+                print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
+                return 1
+            known = dangling(text)
+            scenarios = real_scenarios(layout)
+            for keys in scenarios[:bound]:
+                wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
+                new_text, outcomes = apply_removals(text, wanted)
+                why = real_failure(text, keys, new_text, outcomes, layout, known)
+                if why:
+                    failures += 1
+                    print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
+                        ", ".join(sorted("%s/%s" % key for key in keys)),
+                        " with CRLF line endings" if ending != "\n" else "", why))
+    if not failures:
+        print("selftest: ok -- %d deletions from the real model list leave what they should"
+              % len(scenarios))
+    return failures
+
+
 def run_selftest():
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
     # What the weekly workflow sets in the job that runs this check makes the issue carry a link to
@@ -6899,6 +7100,7 @@ def run_selftest_cases():
     failures += run_jinja_net_cases()
     failures += run_hardening_cases()
     failures += run_command_line_cases()
+    failures += run_real_list_cases()
     return 1 if failures else 0
 
 
