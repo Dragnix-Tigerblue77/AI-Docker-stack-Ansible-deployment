@@ -37,13 +37,13 @@
             "context": "role run (Claude Code agent on)"
           },
           {
-            "context": "home-made checks"
+            "context": "Repository rules"
           },
           {
             "context": "gitleaks"
           },
           {
-            "context": "does the pre-commit hook refuse a secret?"
+            "context": "Pre-commit hook blocks a secret"
           },
           {
             "context": "sign-off"

@@ -46,7 +46,7 @@ attendre un contrôle qu'elle n'a jamais lancé, et rien ne la réveille : `@dep
 chacune relance tous les workflows.
 
 Cette fusion-là ne lance d'elle-même aucun workflow sur `main` : GitHub n'en démarre aucun pour un
-push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Ansible CI` et `gitleaks` sur
+push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Quality checks` et `Secret scan` sur
 `main` juste après avoir fusionné (#180) : ce sont les runs d'événement `workflow_dispatch` qu'on
 voit alors sur `main` dans l'onglet Actions. Ces deux workflows gardent pour cela leur déclencheur
 `workflow_dispatch:`, qui permet aussi de les lancer à la main, sur n'importe quelle branche.
@@ -56,7 +56,7 @@ lancée à la main n'a pas de pull request, donc pas d'intervalle à lire.
 Deux propriétés à connaître plutôt qu'à découvrir :
 
 * `git commit --no-verify` le contourne sans rien dire. C'est une propriété de git, et le
-  contournement reste un geste délibéré — le workflow `gitleaks` le rattrape à la pull request.
+  contournement reste un geste délibéré — le workflow `Secret scan` le rattrape à la pull request.
 * si `gitleaks` est absent, le hook **refuse le commit** au lieu de se taire. Un hook de sécurité
   qui se désactive tout seul chez qui ne l'a pas installé ment à la personne qui en a le plus
   besoin.
@@ -91,7 +91,7 @@ python3 .github/scripts/check_drift_publish_guard.py --selftest   # demande « n
 python3 .github/scripts/check_drift_publish_guard.py
 
 reuse lint
-gitleaks dir . --no-banner --redact       # ce que le workflow "gitleaks" lance
+gitleaks dir . --no-banner --redact       # ce que le workflow "Secret scan" lance
 
 # Les deux jobs « role run » : le playbook d'exemple EXÉCUTÉ, pas seulement lu -- il faut Docker,
 # le SDK « docker » que requirements.txt épingle et, pour l'agent Claude Code allumé,

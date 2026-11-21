@@ -601,10 +601,12 @@ reviewer, they do not guard the door.
 only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
 job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (invariant 9). Renaming
 a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
-CI until the file follows. So is the pull request the weekly model-drift run opens to delete the
-models their provider has retired: the same workflow merges it, but only a diff that adds no line to
-`templates/LiteLLM_config.yaml.j2`, deletes at most five entries and leaves nothing for a person to
-read (the workflow's header lists the conditions). That pull request is opened with a GitHub App's
+CI until the file follows; renaming a workflow does the same to the `workflows:` list of
+`dependabot-auto-merge.yml`, which matches on the workflow's `name:` and not on its file. So is the
+pull request the weekly model-drift run opens to delete the models their provider has retired: the
+same workflow merges it, but only a diff that adds no line to `templates/LiteLLM_config.yaml.j2`,
+deletes at most five entries and leaves nothing for a person to read (the workflow's header lists
+the conditions). That pull request is opened with a GitHub App's
 token where the repository configures one, so that GitHub starts its checks itself and the gate
 hears of them; without one the workflow dispatches the checks itself and the gate never hears of the
 pull request, which a person then merges (the header of the drift workflow names the variables).
@@ -667,7 +669,8 @@ the role.
    sit in" as a candidate -- only `<playbook_dir>/roles/` and a short list of well-known locations,
    `~/.ansible/roles` among them -- so the example playbook's bare `- role: deploy_Artificial_Intelligence_Docker_stack`
    would not resolve against this checkout on its own. The `ansible-lint`, `syntax-check` and two
-   `role run` jobs of `.github/workflows/ansible-ci.yml`, step 5 of `.claude/hooks/session-start.sh`,
+   `role run` jobs of `.github/workflows/ansible-ci.yml`, which take it from the one local action
+   they share (`.github/actions/ansible-role-environment`), step 5 of `.claude/hooks/session-start.sh`,
    and `CONTRIBUTING.md`'s one-time-per-clone setup all symlink the checkout into
    `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
    example playbook. Nothing else in this repository needs it: every other job lints or reads the

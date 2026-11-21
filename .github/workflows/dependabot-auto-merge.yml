@@ -22,20 +22,20 @@ name: Dependabot auto-merge
 # swapped for wader/postfix-relay's "--auto" one without anyone re-deriving which checks gate a
 # merge.
 #
-# The file names every job of "Ansible CI", "gitleaks" and "sign-off" one by one rather than a single
-# aggregate job. The step below already refuses a check that is missing, still running, cancelled or
-# skipped, so an aggregate job would add nothing to this gate but one more job billed to the minute
-# on every run, and one name hiding which check is red. What an aggregate job would have bought -- a
-# new job covered without touching this list -- is what .github/scripts/check_required_checks.py
-# enforces instead: it fails CI when a job of any of those workflows is missing from the file, as
-# well as when a context in it names no job.
+# The file names every job of "Quality checks", "Secret scan" and "Commit sign-off" one by one rather
+# than a single aggregate job. The step below already refuses a check that is missing, still running,
+# cancelled or skipped, so an aggregate job would add nothing to this gate but one more job billed to
+# the minute on every run, and one name hiding which check is red. What an aggregate job would have
+# bought -- a new job covered without touching this list -- is what
+# .github/scripts/check_required_checks.py enforces instead: it fails CI when a job of any of those
+# workflows is missing from the file, as well as when a context in it names no job.
 #
 # Why "workflow_run" and not "pull_request":
 #
 #   * A job triggered by the pull request would have to sit and poll until the checks finish, on a
-#     runner the checks themselves are waiting for. Triggered when "Ansible CI", "gitleaks" or
-#     "sign-off" completes, it starts only once there is something to read, and whichever of them
-#     finishes last is the run that finds every check green.
+#     runner the checks themselves are waiting for. Triggered when "Quality checks", "Secret scan"
+#     or "Commit sign-off" completes, it starts only once there is something to read, and whichever
+#     of them finishes last is the run that finds every check green.
 #   * The definition that runs is the one on main, and nothing from the pull request is checked out
 #     or executed. This workflow's two jobs hold a write token, as does the "publish" job of
 #     "LiteLLM_model_drift.yml", and that is what makes holding one acceptable: no job may both
@@ -109,21 +109,21 @@ name: Dependabot auto-merge
 #
 # Merging with GITHUB_TOKEN has one consequence the second job is there for. A push made with that
 # token starts no workflow, so the merge commit would be the one head of main no "push" run of
-# "Ansible CI" or "gitleaks" ever checks -- dc5bb6a, the merge of #142, has no run at all (#180). The
-# pull request was checked on its own head, but what lands on main is that head merged with
-# whatever reached main since its run: another Dependabot update merged a minute earlier, or the
-# main of the day its run started, when a job of it is re-run by hand days later -- a re-run keeps
-# the original event's commit. The ruleset does not ask for the branch to be up to date
+# "Quality checks" or "Secret scan" ever checks -- dc5bb6a, the merge of #142, has no run at all
+# (#180). The pull request was checked on its own head, but what lands on main is that head merged
+# with whatever reached main since its run: another Dependabot update merged a minute earlier, or
+# the main of the day its run started, when a job of it is re-run by hand days later -- a re-run
+# keeps the original event's commit. The ruleset does not ask for the branch to be up to date
 # ("strict_required_status_checks_policy": false), so only a run on main sees that tree, and until
 # one does, main's head carries no status at all. GitHub documents an exception to its own rule
 # that fits: a "workflow_dispatch" GITHUB_TOKEN causes still creates a run. So once "merge" has
-# merged, "recheck-main" dispatches the workflows on main that run there -- what a human's merge gets
-# from their "push" trigger. "sign-off" is not among them: it reads the commits of a pull request,
-# and the merge commit this leaves on main is a merge, which it would skip.
+# merged, "recheck-main" dispatches the workflows on main that run there -- what a human's merge
+# gets from their "push" trigger. "Commit sign-off" is not among them: it reads the commits of a
+# pull request, and the merge commit this leaves on main is a merge, which it would skip.
 
 on:
   workflow_run:
-    workflows: ["Ansible CI", "gitleaks", "sign-off"]
+    workflows: ["Quality checks", "Secret scan", "Commit sign-off"]
     types: [completed]
 
 permissions: {}
