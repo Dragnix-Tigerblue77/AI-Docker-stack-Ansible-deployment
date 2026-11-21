@@ -87,7 +87,7 @@
         Artificial_Intelligence_LiteLLM_Mistral_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key }}"
         Artificial_Intelligence_LiteLLM_Groq_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key }}"
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
-        # The one PAID provider of the list (#101).
+        # DeepSeek is PAID, like Mistral above: leave a paid provider's key out not to use it.
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
