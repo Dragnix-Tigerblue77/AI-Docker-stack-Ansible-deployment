@@ -412,6 +412,12 @@ pull requests themselves. Lines already in a file are left as they are; an edit 
 number takes it out. The maintainer asked for it on 2026-11-01, about a docstring heading in one pull
 request, and for every pull request.
 
+**No version in a comment.** A comment names no version of a tool, a language, an image or a
+dependency: the number goes stale without anything failing, and the file that pins it already says
+it. Lines already in a file are left as they are, and an edit to one that cites a version takes it
+out. The maintainer asked for it on 2026-11-21, about the comments of the pull request that moved
+the CI's interpreter.
+
 **Sign-off.** Every commit of a pull request carries a `Signed-off-by` trailer, the Developer
 Certificate of Origin that `CONTRIBUTING.md` spells out, and the `sign-off` job
 (`.github/workflows/sign-off.yml`, deciding in `.github/scripts/check_sign_off.py`, whose docstring

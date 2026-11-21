@@ -87,13 +87,12 @@ note() {
 }
 
 # 1. Python tooling ---------------------------------------------------------------------------------
-# ! WHICH INTERPRETER, and it is not the default one. "python3" here is 3.11, while the CI gives
-# itself 3.13 through actions/setup-python -- and "ansible-core" declares a "Requires-Python" floor
-# above that default (3.12 from 2.20, 3.13 from 2.22). Installed against 3.11 it is simply refused,
-# so a session used to start with no ansible-core at all and no way to run
-# "ansible-playbook --syntax-check", one of the six checks that decide its push. CI never saw it: on
-# its own interpreter the install succeeds, so every job stayed green over a gap that only existed
-# where the repository is actually developed. That is #57.
+# ! WHICH INTERPRETER, and it is not the default one. "python3" here is older than the one the CI
+# gives itself through actions/setup-python, and "ansible-core" declares a "Requires-Python" floor
+# above that default. Installed against it, it is simply refused, so a session used to start with
+# no ansible-core at all and no way to run "ansible-playbook --syntax-check", one of the six checks
+# that decide its push. CI never saw it: on its own interpreter the install succeeds, so every job
+# stayed green over a gap that only existed where the repository is actually developed. That is #57.
 #
 # The image already carries 3.10, 3.11, 3.12 and 3.13 -- nothing has to be provisioned, the default
 # is just the wrong one. The version is read from the CI workflow rather than written here, for the
@@ -113,7 +112,7 @@ else
 fi
 
 # ! A virtual environment rather than "pip install" into the interpreter, because a distribution's
-# interpreter (3.12 was one here) is marked externally managed by PEP 668: a plain install is
+# interpreter is marked externally managed by PEP 668: a plain install is
 # refused, and "--break-system-packages" would write into an interpreter apt also uses. The venv
 # touches nothing outside itself, and it costs about three seconds to create.
 #
