@@ -29,11 +29,11 @@
 # a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
 # member of its cascade.
 {% set head = {
-  'pro': 'gemini-3-8-flash' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-3-8-flash' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
   'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-3-8-flash' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -65,10 +65,10 @@ model_list:
   # a stable version. Its "what's new" page, ".../docs/whats-new-gemini-4-hydrogen", says it is
   # available "on both the free and paid tiers" "across both GenerateContent and the Interactions
   # API": the call LiteLLM's "gemini/" provider makes. Artificial Analysis's ranking, read 2026-11-21 and matched by its id ("Gemini 4 Hydrogen
-  # (Xhigh)", to be checked), gives it an intelligence index of 53.9 and 164.0 tokens per second. It
-  # sits right behind "gemini-3-8-flash" (30.8), which keeps the head, in "pro", "flash" and
-  # "claude-code", and ahead of "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". "code"
-  # ranks by coding benchmarks and the index has none for it, so it is in no "code" slot. The free tier's own rate limits are shown
+  # (Xhigh)", to be checked), gives it an intelligence index of 53.9 and 164.0 tokens per second:
+  # ahead of "gemini-3-8-flash" (30.8) in "pro", "flash" and "claude-code", and ahead of
+  # "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". "code" ranks by coding benchmarks and
+  # the index has none for it, so it is in no "code" slot. The free tier's own rate limits are shown
   # in AI Studio only ("ai.google.dev/gemini-api/docs/rate-limits"): none is stated here.
   - model_name: gemini-4-hydrogen
     litellm_params:
@@ -499,7 +499,7 @@ router_settings:
     #
     # "gemini-3-8-flash" is the clearest case of the rule in practice: per Artificial Analysis'
     # Intelligence Index (measured 2026-09-13) it sat marginally ahead of Gemini 3.1 Pro despite the
-    # "flash" name, so it leads the pro cascade below, not just the flash one -- and Gemini 3.1 Pro
+    # "flash" name, so it ranks in the pro cascade below, not just the flash one -- and Gemini 3.1 Pro
     # has since left that cascade altogether, having no free tier (see its model_list comment). Inside
     # "code", the ranking criterion switches to coding benchmarks specifically, which is what put
     # OpenRouter's free GLM 5.2 (SWE-bench Pro 62.1%) at the head of that cascade until its ":free"
@@ -516,8 +516,8 @@ router_settings:
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
-        - gemini-3-8-flash
         - gemini-4-hydrogen
+        - gemini-3-8-flash
         - gemini-2-5-pro
 {% endif %}
 {% if has.OpenRouter %}
@@ -548,8 +548,8 @@ router_settings:
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
-        - gemini-3-8-flash
         - gemini-4-hydrogen
+        - gemini-3-8-flash
         - gemini-3-6-flash
         - gemini-3-5-flash
         - gemini-3-flash-preview
@@ -658,8 +658,8 @@ router_settings:
 {% if head['claude-code'] %}
     - claude-code: &claude_code_cascade
 {% if has.Gemini %}
-        - gemini-3-8-flash
         - gemini-4-hydrogen
+        - gemini-3-8-flash
         - gemini-2-5-pro
         - gemini-3-6-flash
         - gemini-3-5-flash
