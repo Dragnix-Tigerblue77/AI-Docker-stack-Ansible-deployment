@@ -797,6 +797,95 @@ s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lanc
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas
 plus protégée qu'une autre branche.
 
+### Les fournisseurs gratuits examinés, ceux retenus et ceux écartés
+
+Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examiné de zéro : chaque ligne dit ce que l'offre gratuite est, ses limites, le verdict et la page officielle lue, relue le 2026-11-21 sauf mention contraire. Les commentaires du `model_list` de `LiteLLM_config.yaml.j2` restent la source de ce qui est **déjà routé** et de la raison de chaque modèle commenté ; ce registre les résume, il ne les remplace pas, et ne porte aucun chiffre que le template ne donne pas.
+
+**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
+
+**Groupe 1 -- utilisés aujourd'hui** (état du template, vérifications datées dans ses commentaires).
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
+| Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
+| Mistral La Plateforme | Mode « Free », 10 $ de crédit d'API par mois, sans carte | Un seul crédit partagé par tous les modèles ; limites par modèle visibles seulement dans la console du compte | Routé |
+| OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
+| Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
+| SambaNova | Le plan gratuit de la console demande d'ajouter un moyen de paiement et d'acheter des crédits ; la documentation décrit un palier de 20 requêtes par jour et par modèle, en conflit avec la console | Deux sources en conflit, la console fait foi | Examiné, non routé (la console fait foi) |
+| DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, seul fournisseur payant, clé facultative |
+| OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
+
+Pages officielles lues :
+
+- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
+- Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
+- Mistral : [Pricing](https://mistral.ai/pricing)
+- OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
+- Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
+- SambaNova : [Plans](https://cloud.sambanova.ai/plans)
+- DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
+
+**Groupe 2 -- à ajouter, par ordre de préférence.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. Listés payants : Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling ; les autres (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b, nemotron-3-120b, llama-3.3-70b, gemma-4-26b, glm-4.7-flash) seraient donc gratuits : **déduction, à confirmer sur le compte** | À ajouter en premier. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas |
+| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits ; fournisseur `zai/` de LiteLLM | Non publiées hors de la console (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**) | Fin des cascades `code` et `claude-code` seulement, après ouverture d'un compte pour lire la vraie limite. Contenu non stocké, traitement à Singapour, la France n'est pas exclue ; les conditions interdisent de partager les clés et de revendre. Carte ou téléphone exigés : inconnu |
+
+Pages officielles lues :
+
+- Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
+- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
+
+**Groupe 3 -- écartés, avec la raison.**
+
+| Fournisseur | Ce qui est offert | Raison de l'écart |
+| --- | --- | --- |
+| Kilo Gateway | Gratuit sans compte, 200 requêtes par heure et par IP | Conditions mises à jour le 2026-11-02 : un compte par entité et licence perpétuelle sur les données client pour améliorer le service ; les modèles gratuits journalisent les prompts |
+| NVIDIA build | Clé d'API d'essai | Conditions d'essai : « limited trial purposes only and without use ... in production » ; contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris ; clé après vérification par SMS, d'après les forums seulement |
+| Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
+| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle | Trop étroit ; avec une clé, une carte est exigée |
+| GitHub Models | Fermé le 2026-07-30 | Plus de service |
+| Hugging Face Inference Providers | Aucun crédit mensuel pour les comptes gratuits | Pas d'offre gratuite |
+| Chutes | Aucune : « We do not offer a free tier at this time » | Pas d'offre gratuite |
+| Ollama Cloud | Aucune | Pas de plan gratuit sur la page des tarifs |
+| Moonshot / Kimi | Aucune | Recharge minimale de 1 dollar « to prevent abuse » |
+| Alibaba Model Studio / DashScope | Quota unique d'environ 1 million de jetons par modèle, valable 90 jours | Crédit unique, et pas pour les comptes neufs |
+| SiliconFlow | Crédit unique de 1 dollar | Crédit unique, aucun modèle gratuit listé |
+| Scaleway Generative APIs | 1 million de jetons gratuits, une fois | Crédit unique, limites liées à un moyen de paiement valide ; lu dans un résumé de recherche, les pages directes ont répondu 403 |
+| Hyperbolic, Novita, AI21, Nebius Token Factory | Aucun palier ni crédit trouvé sur les pages lues | Absence de preuve, pas un refus formel : à relire avant de conclure |
+| Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
+
+Pages officielles lues :
+
+- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Terms](https://kilo.ai/terms)
+- NVIDIA build : [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
+- Cohere : [Rate limits](https://docs.cohere.com/docs/rate-limits)
+- Cohere : [Terms of use](https://www.cohere.com/terms-of-use)
+- OVHcloud AI Endpoints : [Getting started](https://docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-getting-started)
+- GitHub Models : [Prototyping with AI models](https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models)
+- Hugging Face Inference Providers : [Pricing](https://huggingface.co/docs/inference-providers/pricing)
+- Chutes : [Pricing](https://chutes.ai/pricing)
+- Ollama Cloud : [Pricing](https://ollama.com/pricing)
+- Moonshot / Kimi : [Limits](https://platform.kimi.ai/docs/pricing/limits)
+- Alibaba Model Studio : [New free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)
+- SiliconFlow : [Pricing](https://www.siliconflow.com/pricing)
+- Vercel AI Gateway : [Pricing](https://vercel.com/docs/ai-gateway/pricing)
+
+**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
+
+| Fournisseur | Ce qui a été vu | Ce qui manque |
+| --- | --- | --- |
+| Together AI | Un « Ternary Bonsai 27B » gratuit affiché sur la page des tarifs | Rien ne confirme qu'il s'appelle sans paiement |
+| Fireworks | 10 requêtes par minute sans moyen de paiement ni crédit | Accès serverless sans paiement non confirmé |
+| LLM7, Pollinations, ModelScope, Aion Labs, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+
+Pages officielles lues :
+
+- Together AI : [Pricing](https://www.together.ai/pricing)
+- Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
+
 ### Un compte par personne, pas une paire figée (#103)
 
 `Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais une variable nommée par
