@@ -83,14 +83,13 @@
       - >-
         [
         Artificial_Intelligence_LiteLLM_Gemini_API_key,
-        Artificial_Intelligence_LiteLLM_Mistral_API_key,
         Artificial_Intelligence_LiteLLM_Groq_API_key,
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key,
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
-      At least one of the five LiteLLM provider keys of the gateway's account (Gemini, Mistral, Groq,
+      At least one of the four LiteLLM provider keys of the gateway's account (Gemini, Groq,
       OpenRouter, DeepSeek) must be a non-empty string (#296): without one the gateway has no model to
       route to. They are all empty by default, and "LiteLLM_config.yaml.j2" (#2) renders only the
       providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Another account's own
@@ -98,11 +97,13 @@
       from that account's own "/ui" login -- LiteLLM keeps "/model/new" to the proxy admin. The GitHub
       key counts for nothing: #109 retired every
       "github/*" entry of the model_list it fed. Nor does the Cerebras key: Cerebras has no free tier
-      any more and its entries are commented out (#200).
+      any more and its entries are commented out (#200). Nor does the Mistral key: its Free mode has no
+      API access and its entries are commented out (#358), so a caller who gives that key alone is
+      refused here.
 
 # The agent asks for "claude-code" by default, a router whose cascade is held to strict tool calls and a
-# 128k context (see its comment in "LiteLLM_config.yaml.j2") and holds, today, models of Gemini, Mistral
-# and DeepSeek only. Without one of those keys the router does not exist and the agent's every request
+# 128k context (see its comment in "LiteLLM_config.yaml.j2") and holds, today, models of Gemini and
+# DeepSeek only. Without one of those keys the router does not exist and the agent's every request
 # would be refused.
 - name: "Check the Claude Code agent has a provider that can serve its model"
   ansible.builtin.assert:
@@ -110,15 +111,13 @@
       - >-
         [
         Artificial_Intelligence_LiteLLM_Gemini_API_key,
-        Artificial_Intelligence_LiteLLM_Mistral_API_key,
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
-      The Claude Code agent asks for the model "claude-code", whose cascade routes to Gemini, Mistral and
-      DeepSeek only: it needs at least one of "Artificial_Intelligence_LiteLLM_Gemini_API_key",
-      "Artificial_Intelligence_LiteLLM_Mistral_API_key" and "Artificial_Intelligence_LiteLLM_DeepSeek_API_key"
-      (#296). Give one, point "Artificial_Intelligence_Claude_code_model" at a router the keys you
+      The Claude Code agent asks for the model "claude-code", whose cascade routes to Gemini and
+      DeepSeek only: it needs at least one of "Artificial_Intelligence_LiteLLM_Gemini_API_key" and
+      "Artificial_Intelligence_LiteLLM_DeepSeek_API_key" (#296). Give one, point "Artificial_Intelligence_Claude_code_model" at a router the keys you
       have do serve, or set "Artificial_Intelligence_Claude_code_enabled" to false.
   when:
     - Artificial_Intelligence_Claude_code_enabled

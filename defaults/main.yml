@@ -291,7 +291,6 @@ Artificial_Intelligence_Redis_memory_limit: false
 # not from that account's "/ui" login, which cannot add a model (see
 # "Artificial_Intelligence_LiteLLM_internal_users" above).
 Artificial_Intelligence_LiteLLM_Gemini_API_key: ""
-Artificial_Intelligence_LiteLLM_Mistral_API_key: ""
 Artificial_Intelligence_LiteLLM_Groq_API_key: ""
 Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
 # The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
@@ -313,6 +312,14 @@ Artificial_Intelligence_LiteLLM_GitHub_API_key: ""
 # asserted, the same treatment as the GitHub key just above. Give it a value again only together with
 # uncommenting those entries, if Cerebras is ever kept as a paid last resort the way DeepSeek is.
 Artificial_Intelligence_LiteLLM_Cerebras_API_key: ""
+
+# Mistral's Free mode has no API access ("docs.mistral.ai/admin/billing-usage/usage-limits", read
+# 2026-11-21): using the API needs pay-as-you-go and prepaid credits (#358). All the "mistral/*"
+# entries of "LiteLLM_config.yaml.j2" are commented out with that reason, so nothing consumes this key
+# any more: optional, defaulted to empty, and no longer asserted, the same treatment as the Cerebras
+# key just above. Give it a value again only together with uncommenting those entries, if Mistral is
+# ever kept as a paid last resort the way DeepSeek is.
+Artificial_Intelligence_LiteLLM_Mistral_API_key: ""
 
 # --------------------------------------------------------------------------------------------------
 # OmniRoute -- the gateway's keyless, free, last-resort fallback (#73)

@@ -21,7 +21,6 @@ vault_Artificial_Intelligence_LibreChat_creds_key: "role-run-placeholder-LibreCh
 vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "role-run-placeholder-LiteLLM_DeepSeek_API_key"
 vault_Artificial_Intelligence_LiteLLM_Gemini_API_key: "role-run-placeholder-LiteLLM_Gemini_API_key"
 vault_Artificial_Intelligence_LiteLLM_Groq_API_key: "role-run-placeholder-LiteLLM_Groq_API_key"
-vault_Artificial_Intelligence_LiteLLM_Mistral_API_key: "role-run-placeholder-LiteLLM_Mistral_API_key"
 vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "role-run-placeholder-LiteLLM_OpenRouter_API_key"
 vault_Artificial_Intelligence_LiteLLM_UI_password: "role-run-placeholder-LiteLLM_UI_password"
 vault_Artificial_Intelligence_LiteLLM_alice_email: "role-run-placeholder-LiteLLM_alice_email"

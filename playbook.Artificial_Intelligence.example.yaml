@@ -83,8 +83,8 @@
         # which LiteLLM does not let add a model.
         # No GitHub key here: GitHub Models is retired (#109), and the role no longer asks for one. No
         # Cerebras key either: Cerebras has no free tier any more, its entries are commented out (#200).
+        # No Mistral key: its Free mode has no API access, its entries are commented out (#358).
         Artificial_Intelligence_LiteLLM_Gemini_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Gemini_API_key }}"
-        Artificial_Intelligence_LiteLLM_Mistral_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Mistral_API_key }}"
         Artificial_Intelligence_LiteLLM_Groq_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Groq_API_key }}"
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
         # The one PAID provider of the list (#101).

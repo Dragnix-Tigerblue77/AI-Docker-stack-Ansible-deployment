@@ -129,13 +129,13 @@ autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des cinq clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des quatre clés fournisseurs** (Gemini, Groq, OpenRouter, DeepSeek), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Mistral. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Optionnelle depuis que le mode gratuit de Mistral n'inclut plus l'API (#358) : ses sept entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des cinq clés fournisseurs. Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des quatre clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des quatre clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des quatre clés fournisseurs. Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -561,8 +561,8 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
-`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- 52 entrées actives, avec les cinq clés, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
+`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- avec les quatre clés, à
+travers Gemini, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
 propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, seul
 fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
@@ -572,8 +572,9 @@ modèle est ajouté. #169 l'a appliquée à Groq, #200 à tous les autres (recen
 GitHub Models, fermé par GitHub le 2026-07-30 (#109), est supprimé et non plus archivé ; Cerebras n'a
 plus de palier gratuit permanent (5 $ de crédit après ajout d'un moyen de paiement, expirés au bout
 de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée
-obligatoire, n'est plus lue par aucune entrée active ; Mistral ne donne plus qu'un crédit de 10 $
-par mois (« Free mode », sans carte), traité comme gratuit. Les entrées `:free` d'OpenRouter
+obligatoire, n'est plus lue par aucune entrée active ; Mistral, relu le 2026-11-21 (#358), n'inclut plus
+l'API dans son mode gratuit (sa documentation : « It doesn't include API access »), ses sept modèles sont donc
+commentés comme ceux de Cerebras et de SambaNova, et sa clé n'est plus lue par aucune entrée active. Les entrées `:free` d'OpenRouter
 partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
 10 crédits achetés.
 
@@ -605,8 +606,9 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des cinq clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek), et échoue en les
-nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose pas
+Le rôle exige **au moins une** des quatre clés (Gemini, Groq, OpenRouter, DeepSeek), et échoue en les
+nommant toutes quand aucune n'est renseignée. Les clés de Mistral et de Cerebras n'en font pas partie : le rôle les
+accepte et ne les lit plus (#200, #358), si bien qu'une personne qui ne donnerait que l'une d'elles est refusée. Chaque personne choisit son fournisseur : le rôle n'impose pas
 DeepSeek, qui est payant, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
 requête qui le traverse, avant de passer le relais, et s'afficherait dans LibreChat sans jamais répondre.
@@ -622,14 +624,14 @@ donc LibreChat les propose toujours. À connaître :
 
 - La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
   moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
-  Gemini, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que les autres fournisseurs n'en ont
-  aucun qui convienne. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
+  Gemini et DeepSeek : c'est ce qui y a été retenu, pas un constat que les autres fournisseurs n'en ont
+  aucun qui convienne. Sans l'une de ces deux clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
   sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
   (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
-- `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
+- `check_compose_template.py` rend la configuration pour chacun des 15 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
 ### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime
@@ -1101,7 +1103,7 @@ chaque bloc de service aux conventions que le modèle commenté du template docu
 limite mémoire quand l'appelant en pose une (aucune par défaut), `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
 récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
-Il rend aussi `LiteLLM_config.yaml.j2` pour chacun des 31 ensembles non vides de clés fournisseurs (#296), et tient
+Il rend aussi `LiteLLM_config.yaml.j2` pour chacun des 15 ensembles non vides de clés fournisseurs (#296), et tient
 chaque rendu aux règles de « Les clés fournisseurs » plus haut.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les

@@ -127,8 +127,8 @@ def scenarios():
             extra_condition = "  'router': 'alpha' if has.Gemini and 1 else 'omega',\n"
             jinja = "  'router': '{{ 1 }}',\n"
         else:
-            rewritten = "  'flash': 'gemini-3-8-flash' if has.Gemini else 'mistral-small' if has.Mistral else 'omniroute-free-auto',\n"
-            drifted_names = "  'flash': 'gemini-3-8-flash' if has.Gemini else 'nowhere' if has.Mistral else 'omniroute-free-auto',\n"
+            rewritten = "  'flash': 'gemini-3-8-flash' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'omniroute-free-auto',\n"
+            drifted_names = "  'flash': 'gemini-3-8-flash' if has.Gemini else 'nowhere' if has.Groq else 'omniroute-free-auto',\n"
             other_provider = "  'flash': 'gemini-3-8-flash' if has.Cerebras else 'omniroute-free-auto',\n"
             extra_condition = "  'flash': 'gemini-3-8-flash' if has.Gemini and 1 else 'omniroute-free-auto',\n"
             jinja = "  'flash': '{{ 1 }}',\n"

@@ -59,11 +59,11 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
-It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the five
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the four
 provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
 whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
-the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
+the fifteen renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
 cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
@@ -1591,9 +1591,10 @@ AGENT_MODEL_CASES = [
 
 LITELLM_CONFIG_TEMPLATE = "LiteLLM_config.yaml.j2"
 # The provider, and the environment variable its key reaches the gateway under.
+# No Mistral, as no Cerebras: no entry of the file reads their key any more, their entries being commented
+# out because neither has a free API (#200, #358). The role still accepts both keys and ignores them.
 LITELLM_PROVIDERS = {
     "Gemini": "GEMINI_API_KEY",
-    "Mistral": "MISTRAL_API_KEY",
     "Groq": "GROQ_API_KEY",
     "OpenRouter": "OPENROUTER_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
@@ -1602,11 +1603,11 @@ LITELLM_PROVIDERS = {
 # of the cascade has a key. None is an entry of the model list: no provider is first by construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Mistral", "DeepSeek"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "DeepSeek"})
 
 
 def litellm_key_sets():
-    """Every non-empty set of the five provider keys, in a stable order."""
+    """Every non-empty set of the four provider keys, in a stable order."""
     names = list(LITELLM_PROVIDERS)
     return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
 
@@ -1615,7 +1616,7 @@ def render_litellm_config(keys):
     """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
     environment = template_environment(
         loader=FileSystemLoader(str(ROLE / "templates")),
-        undefined=jinja2.StrictUndefined,  # the file reads these five variables and nothing else
+        undefined=jinja2.StrictUndefined,  # the file reads these four variables and nothing else
         trim_blocks=True,  # the "template" module's default, which the compose render does not need
         keep_trailing_newline=True,
     )
@@ -1731,55 +1732,55 @@ def _litellm_document(entries, cascades, aliases):
     }
 
 
-_MISTRAL_ONLY = _litellm_document(
-    [("mistral-large", "os.environ/MISTRAL_API_KEY")],
-    [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
-    {"claude-code": "mistral-large", "auto-code": "mistral-large"},
+_DEEPSEEK_ONLY = _litellm_document(
+    [("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+    [("claude-code", ["deepseek-v4-pro-direct"]), ("auto-code", ["deepseek-v4-pro-direct"])],
+    {"claude-code": "deepseek-v4-pro-direct", "auto-code": "deepseek-v4-pro-direct"},
 )
 
 LITELLM_CONFIG_CASES = [
-    ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
+    ("a router served by its cascade's head", _DEEPSEEK_ONLY, {"DeepSeek"}, None),
     ("an alias with no cascade of its own",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
-                       {"claude-code": "mistral-large", "auto-code": "mistral-large"}),
-     {"Mistral"}, "has no cascade under its own name"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")], [("claude-code", ["deepseek-v4-pro-direct"])],
+                       {"claude-code": "deepseek-v4-pro-direct", "auto-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "has no cascade under its own name"),
     ("an entry reading a key nobody gave",
-     _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("mistral-large", "os.environ/MISTRAL_API_KEY")],
-                       [("claude-code", ["mistral-large"])], {"claude-code": "mistral-large"}),
-     {"Mistral"}, "whose key was not given"),
+     _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+                       [("claude-code", ["deepseek-v4-pro-direct"])], {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "whose key was not given"),
     ("a key given and read by no entry",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
-                       {"claude-code": "mistral-large"}),
-     {"Mistral", "Groq"}, "no entry reads GROQ_API_KEY"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")], [("claude-code", ["deepseek-v4-pro-direct"])],
+                       {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek", "Groq"}, "no entry reads GROQ_API_KEY"),
     ("a cascade naming a model that is not listed",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
-                       [("claude-code", ["mistral-large", "codestral"])], {"claude-code": "mistral-large"}),
-     {"Mistral"}, "names 'codestral'"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+                       [("claude-code", ["deepseek-v4-pro-direct", "deepseek-flash-direct"])], {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "names 'deepseek-flash-direct'"),
     ("a cascade keyed on a name the proxy does not know",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
-                       [("claude-code", ["mistral-large"]), ("flash", ["mistral-large"])],
-                       {"claude-code": "mistral-large"}),
-     {"Mistral"}, "neither a model_list entry nor an alias"),
-    ("an alias of an alias", _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
-                                               [("claude-code", ["mistral-large"])],
-                                               {"claude-code": "mistral-large", "auto": "claude-code"}),
-     {"Mistral"}, "resolves an alias once"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+                       [("claude-code", ["deepseek-v4-pro-direct"]), ("flash", ["deepseek-v4-pro-direct"])],
+                       {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "neither a model_list entry nor an alias"),
+    ("an alias of an alias", _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+                                               [("claude-code", ["deepseek-v4-pro-direct"])],
+                                               {"claude-code": "deepseek-v4-pro-direct", "auto": "claude-code"}),
+     {"DeepSeek"}, "resolves an alias once"),
     ("an alias that is not its cascade's head",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY"), ("codestral", "os.environ/MISTRAL_API_KEY")],
-                       [("claude-code", ["mistral-large", "codestral"])], {"claude-code": "codestral"}),
-     {"Mistral"}, "have drifted apart"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY"), ("deepseek-flash-direct", "os.environ/DEEPSEEK_API_KEY")],
+                       [("claude-code", ["deepseek-v4-pro-direct", "deepseek-flash-direct"])], {"claude-code": "deepseek-flash-direct"}),
+     {"DeepSeek"}, "have drifted apart"),
     ("a cascade listed twice",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
-                       [("claude-code", ["mistral-large"]), ("claude-code", ["mistral-large"])],
-                       {"claude-code": "mistral-large"}),
-     {"Mistral"}, "twice"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")],
+                       [("claude-code", ["deepseek-v4-pro-direct"]), ("claude-code", ["deepseek-v4-pro-direct"])],
+                       {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "twice"),
     ("an empty cascade",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", [])],
-                       {"claude-code": "mistral-large"}),
-     {"Mistral"}, "is empty"),
-    ("claude-code missing although Mistral has a key",
-     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [], {}),
-     {"Mistral"}, "'claude-code' is absent"),
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")], [("claude-code", [])],
+                       {"claude-code": "deepseek-v4-pro-direct"}),
+     {"DeepSeek"}, "is empty"),
+    ("claude-code missing although DeepSeek has a key",
+     _litellm_document([("deepseek-v4-pro-direct", "os.environ/DEEPSEEK_API_KEY")], [], {}),
+     {"DeepSeek"}, "'claude-code' is absent"),
     ("claude-code served by a Groq key alone",
      _litellm_document([("gpt", "os.environ/GROQ_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
      {"Groq"}, "'claude-code' is served"),

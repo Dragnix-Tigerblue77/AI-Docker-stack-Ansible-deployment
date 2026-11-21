@@ -90,7 +90,7 @@ ALLOWED_HOSTS = {
     "api.deepseek.com": "DeepSeek's own API endpoint, named in a comment -- LiteLLM already knows it and needs no \"api_base\" -- and the model catalogue check_LiteLLM_model_drift.py reads",
     "api-docs.deepseek.com": "DeepSeek's own API documentation, cited in a comment (#101)",
     "docs.mistral.ai": "Mistral AI's own model documentation, cited in comments (#112)",
-    "mistral.ai": "Mistral AI's own pricing page, the one place its Free mode credit is stated, cited in a comment (#200)",
+    "mistral.ai": "Mistral AI's own pricing page, cited in a comment as the page that no longer states an API credit for its Free mode (#358)",
     "cloud.sambanova.ai": "SambaNova's own console plans page, cited in a comment for what a new account meets (#200)",
     "docs.sambanova.ai": "SambaNova's own rate-limits documentation, cited in a comment (#200)",
     "inference-docs.cerebras.ai": "Cerebras' own model documentation and deprecation notice, cited in comments (#110)",

@@ -1221,13 +1221,14 @@ FREE_READABLE = {"openrouter"}
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
 # linked on their rate-limits page, the one that states their free tier (Groq's "/pricing" leads to
-# its home page); every page was opened when the entry was written.
+# its home page), and Mistral on its usage-limits page, the one that says what its Free mode
+# includes; every page was opened when the entry was written.
 PRICING_PAGES = {
     "cerebras": "https://inference-docs.cerebras.ai/support/rate-limits",
     "sambanova": "https://cloud.sambanova.ai/plans",
     "gemini": "https://ai.google.dev/gemini-api/docs/pricing",
     "groq": "https://console.groq.com/docs/rate-limits",
-    "mistral": "https://mistral.ai/pricing",
+    "mistral": "https://docs.mistral.ai/admin/billing-usage/usage-limits",
     "deepseek": "https://api-docs.deepseek.com/quick_start/pricing",
 }
 
@@ -6976,7 +6977,7 @@ def run_pricing_page_cases():
     # one provider's line onto another's, or one that points at a third party's article, is the
     # mistake a table of addresses invites, and nothing else would see it.
     own_domains = {"cerebras": "inference-docs.cerebras.ai", "sambanova": "cloud.sambanova.ai",
-                   "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "mistral.ai",
+                   "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "docs.mistral.ai",
                    "deepseek": "api-docs.deepseek.com"}
 
     def foreign(table):
@@ -6987,7 +6988,7 @@ def run_pricing_page_cases():
     for purpose, table, wrong in (
             ("each pricing page is on its own provider's domain", pages, []),
             ("an address copied onto another provider's line is refused",
-             dict(pages, groq=pages["mistral"]), ["groq -> mistral.ai"]),
+             dict(pages, groq=pages["mistral"]), ["groq -> docs.mistral.ai"]),
             ("a page of a third party is refused",
              dict(pages, groq="https://blog.example.invalid/groq-pricing"),
              ["groq -> blog.example.invalid"])):

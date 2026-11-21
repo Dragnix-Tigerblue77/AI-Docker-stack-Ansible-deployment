@@ -23,7 +23,8 @@ endpoints:
         # would have answered with a 404 from the gateway the moment either was selected. Replaced
         # the first with "gpt-oss-120b-groq", an actual deployed Groq entry serving the same role;
         # dropped the second outright, since no working SambaNova substitute exists to offer instead.
-        default: ["auto", "auto-code", "auto-pro", "auto-fast", "gemini-3-7-flash", "gpt-oss-120b-groq", "codestral"]
+        # "codestral" left with the other Mistral entries (#358), which are no longer in the model_list.
+        default: ["auto", "auto-code", "auto-pro", "auto-fast", "gemini-3-7-flash", "gpt-oss-120b-groq"]
         fetch: true
       titleModel: "auto-fast"
       dropParams: ["stop"]
