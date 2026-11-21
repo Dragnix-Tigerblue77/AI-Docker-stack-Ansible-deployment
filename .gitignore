@@ -3,7 +3,7 @@
 
 # Secrets, and nothing else. This file is the first of #32's three guards: it stops a "git add ."
 # from staging a secret, the ".githooks/pre-commit" hook refuses the commit when one is staged
-# anyway, and the "gitleaks" workflow reports it after the fact on the pull request.
+# anyway, and the "Secret scan" workflow reports it after the fact on the pull request.
 #
 # ! None of the three blocks anything on GitHub's side: the account is on a plan that allows neither
 # a ruleset nor a branch protection on a private repository ("GET /repos/.../rulesets" answers 403
