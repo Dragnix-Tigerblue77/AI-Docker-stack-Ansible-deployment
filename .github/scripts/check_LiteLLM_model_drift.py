@@ -373,8 +373,9 @@ use of that API ask, and the figures are shown as published.
 THE ROUTER CONTRACTS
 --------------------
 ".github/LiteLLM_router_contracts.yaml" says what each router is held to: a floor on the Artificial
-Analysis intelligence index (on the version the file names), the gain in index points an extra reasoning
-level must buy to be worth climbing to, how its members are ordered, the members exempt from the floor on
+Analysis intelligence index (on the version the file names), the exchange rate an extra reasoning level
+must reach to be worth climbing to (points of index per extra second to the first answer token), how its
+members are ordered, the members exempt from the floor on
 purpose (the last resort), and, for each entry of the template, the Artificial Analysis record that
 describes it at the reasoning level the entry is called at, with the page that gives that level, or
 "unknown". There is NO time budget: the goal is to use as many free models as possible, so a slow model is
@@ -385,8 +386,10 @@ is less than the router's "tie_margin_points" apart.
 
 The unit of routing is model plus level: Artificial Analysis has one record per level, told apart by the
 suffix of its name. The level a router keeps for a model is found by walking up the levels that have an
-index from the lowest, and climbing to the next only while it buys at least "min_gain_points" of index (a
-router that values time asks more points per level). "claude-code" derives from "code": it is ranked as
+index from the lowest, and climbing to the next only while each extra second of the time to the first
+answer token buys at least "min_points_per_second" points of index (a router that values time asks more
+points per second; a step that is no slower is taken when it buys points, a step that buys none or whose
+time is unknown is not taken). "claude-code" derives from "code": it is ranked as
 "code" is, and its cascade is the cascade of "code" without the members that cannot take tools, which the
 report checks and whose differences it lists. "code" is ranked on code quality, whose source (Epoch AI's
 benchmark data, without WebDev Arena) is declared and not read yet; the intelligence index stands in for
@@ -1765,18 +1768,25 @@ def ranking_families(models):
     return {slug: record for slug, record in by_slug.items() if slug not in twins}, families
 
 
-def chosen_level(family, min_gain):
+def chosen_level(family, min_rate):
     """The record of the level a router keeps for a model: walk up the levels that have an index from
-    the lowest, and climb to the next only while it buys at least "min_gain" points of index over the
-    current one, the first step that buys less being the last. None when no level has an index. A
-    router that values time asks more points of each extra level, since each costs time."""
+    the lowest, and climb to the next only while each extra second of the time to the first answer
+    token buys at least "min_rate" points of index, the first step that buys less being the last. A
+    step that buys no points is not taken, a step that is no slower and buys points always is, and a
+    step whose time is unknown on either level cannot be judged and is not taken. None when no level
+    has an index. A router that values time asks a higher rate, since each level costs time."""
     ranked = sorted((record for record in family if record["intelligence"] is not None),
                     key=lambda record: level_rank(record["level"]))
     if not ranked:
         return None
     kept = ranked[0]
     for record in ranked[1:]:
-        if record["intelligence"] - kept["intelligence"] < min_gain:
+        points = record["intelligence"] - kept["intelligence"]
+        before, after = kept["first_answer"], record["first_answer"]
+        if points <= 0 or before is None or after is None:
+            break
+        seconds = after - before
+        if seconds > 0 and points / seconds < min_rate:
             break
         kept = record
     return kept
@@ -1886,7 +1896,7 @@ def effective_contract(routers, name):
 def router_rows(members, contract, mappings, by_slug, families, floor=None):
     """One row per member of a cascade against its router's contract, at the floor given or the
     contract's own."""
-    gain = contract["level_gain"]["min_gain_points"]
+    rate = contract["level_gain"]["min_points_per_second"]
     floor = contract["intelligence_floor"]["value"] if floor is None else floor
     rows = []
     for position, name in enumerate(members):
@@ -1900,7 +1910,7 @@ def router_rows(members, contract, mappings, by_slug, families, floor=None):
         rows.append({"name": name, "position": position, "found": found, "kind": kind,
                      "verdict": text, "last_resort": last_resort, "tools": tools,
                      "record": found.get("record"),
-                     "kept": chosen_level(found["family"], gain) if found["state"] == "resolved" else None})
+                     "kept": chosen_level(found["family"], rate) if found["state"] == "resolved" else None})
     return rows
 
 
@@ -2057,7 +2067,7 @@ def fallback_problems(block, problems):
 
 
 def full_contract_problems(contract, where, problems):
-    for key, field in (("intelligence_floor", "value"), ("level_gain", "min_gain_points")):
+    for key, field in (("intelligence_floor", "value"), ("level_gain", "min_points_per_second")):
         block = contract_block_problems(contract.get(key), '%s, "%s",' % (where, key), problems)
         if block is not None:
             value = figure(block.get(field))
@@ -2287,8 +2297,9 @@ def contracts_section(result):
             "sous le plancher n'est retiré d'aucune cascade. Aucun délai ne rend un membre inéligible : la "
             "seule borne est le plancher d'intelligence (et les appels d'outils pour `claude-code`), le délai "
             "moyen avant le premier jeton de la réponse ne sert qu'à ordonner. Le niveau retenu pour un "
-            "modèle s'obtient en montant de niveau tant que le suivant apporte au moins le gain d'indice que "
-            "le routeur demande. Un membre sous le plancher passe au dernier recours. L'échelle "
+            "modèle s'obtient en montant de niveau tant que chaque seconde de plus avant la première réponse "
+            "rapporte au moins le nombre de points d'indice que le routeur demande. Un membre sous le plancher "
+            "passe au dernier recours. L'échelle "
             "d'intelligence est comprimée dans le bas, où deux points séparent des modèles qu'on ne mettrait "
             "pas dans la même classe, et la plupart des enregistrements n'ont aucun indice : ces membres "
             "restent où ils sont, signalés inclassables%s."
@@ -2306,13 +2317,13 @@ def contracts_section(result):
         contract = router["contract"]
         out += ["### `%s`" % router["name"], ""]
         if router["base"]:
-            out += ["Dérivé de `%s` : mêmes plancher (%g), gain par niveau (%g points) et classement, et les "
+            out += ["Dérivé de `%s` : mêmes plancher (%g), taux d'échange (%g points par seconde) et classement, et les "
                     "modèles sans appels d'outils en sont exclus." % (
                         router["base"], contract["intelligence_floor"]["value"],
-                        contract["level_gain"]["min_gain_points"]), ""]
+                        contract["level_gain"]["min_points_per_second"]), ""]
         else:
-            out += ["Plancher %g, un niveau de plus à partir de %g points d'indice gagnés, classé par %s." % (
-                contract["intelligence_floor"]["value"], contract["level_gain"]["min_gain_points"],
+            out += ["Plancher %g, un niveau de plus tant qu'il rapporte au moins %g points d'indice par seconde de plus, classé par %s." % (
+                contract["intelligence_floor"]["value"], contract["level_gain"]["min_points_per_second"],
                 ranking_text(contract)), ""]
         out += ["| Membre | Enregistrement | Appelé à | Indice | Délai (s) | Jetons/s | Niveau retenu | Verdict |",
                 "| --- | --- | --- | --- | --- | --- | --- | --- |"]
@@ -7757,14 +7768,14 @@ router_settings:
 """
 
 
-def contract_router(floor, gain, criterion="intelligence", last_resort=(), candidates=None):
+def contract_router(floor, rate, criterion="intelligence", last_resort=(), candidates=None):
     ranking = {"criterion": criterion, "reason": "selftest"}
     if criterion != "first_answer":
         ranking["tie_margin_points"] = 2
     if criterion == "code_quality":
         ranking.update(source="Epoch AI selftest source", source_status="not read yet", stand_in="intelligence")
     contract = {"intelligence_floor": {"value": floor, "reason": "selftest"},
-                "level_gain": {"min_gain_points": gain, "reason": "selftest"},
+                "level_gain": {"min_points_per_second": rate, "reason": "selftest"},
                 "ranking": ranking, "last_resort": {"members": list(last_resort), "reason": "selftest"}}
     if candidates:
         contract["intelligence_floor"]["candidates"] = list(candidates)
@@ -7783,10 +7794,10 @@ def contract_document():
         "fallback_index": {"source": "Epoch selftest", "status": "not read yet", "method": "selftest",
                            "uncertainty": "selftest", "points": [[140, 4], [150, 20], [160, 20], [170, 50]]},
         "routers": {
-            "pro": contract_router(20, 4, last_resort=("juliet", "foxtrot"), candidates=(5, 20, 31)),
-            "flash": contract_router(10, 10, candidates=(10, 15)),
-            "flash-lite": contract_router(6, 15, criterion="first_answer"),
-            "code": contract_router(20, 4, criterion="code_quality"),
+            "pro": contract_router(20, 0.2, last_resort=("juliet", "foxtrot"), candidates=(5, 20, 31)),
+            "flash": contract_router(10, 0.5, candidates=(10, 15)),
+            "flash-lite": contract_router(6, 1.5, criterion="first_answer"),
+            "code": contract_router(20, 0.2, criterion="code_quality"),
             "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
         },
         "models": {
@@ -7917,23 +7928,33 @@ def run_contract_cases():
         timed_model("sun-low", "Sun (Low)", 22.5, 5), timed_model("sun-medium", "Sun (Medium)", 30, 9),
         timed_model("sun-high", "Sun (High)", 30.8, 15),
         timed_model("zed-low", "Zed (Low)", None, 1), timed_model("zed-medium", "Zed (Medium)", 10, 2),
-        timed_model("zed-high", "Zed (High)", 30, 3), timed_model("nil-low", "Nil (Low)", None, 1))))[1]
+        timed_model("zed-high", "Zed (High)", 30, 3), timed_model("nil-low", "Nil (Low)", None, 1),
+        timed_model("wil-low", "Wil (Low)", 10, None), timed_model("wil-medium", "Wil (Medium)", 30, 5),
+        timed_model("fast-low", "Fast (Low)", 10, 5), timed_model("fast-medium", "Fast (Medium)", 20, 5),
+        timed_model("fast-high", "Fast (High)", 25, 4),
+        timed_model("flat-low", "Flat (Low)", 20, 5), timed_model("flat-medium", "Flat (Medium)", 20, 9))))[1]
 
-    def kept(name, gain):
-        record = chosen_level(hydra[name], gain)
+    def kept(name, rate):
+        record = chosen_level(hydra[name], rate)
         return record and record["level"]
 
-    judged("the level kept climbs while the next one buys at least the gain asked, the first step that buys less being the last, whatever the order the records come in",
+    judged("the level kept climbs while each extra second buys at least the rate asked, the first step that buys less being the last, whatever the order the records come in",
            first_wrong(
-               (kept("hy", 4) == "high", "a gain of 4 does not stop Hy at High: %r" % kept("hy", 4)),
-               (kept("hy", 10) == "medium", "a gain of 10 does not stop Hy at Medium: %r" % kept("hy", 10)),
-               (kept("hy", 16) == "low", "a gain of 16 does not keep Hy at Low: %r" % kept("hy", 16)),
-               (kept("hy", 15) == "medium", "a step that buys exactly the gain asked is not taken"),
-               (kept("hy", 0) == "xhigh", "a gain of 0 does not climb to the top"),
-               (kept("sun", 4) == "medium" and kept("sun", 10) == "low", "Sun: %r, %r" % (kept("sun", 4), kept("sun", 10))),
+               # Hy: Low to Medium 3.75 points a second, Medium to High 1.125, High to Xhigh 0.15.
+               (kept("hy", 0.1) == "xhigh", "a rate of 0.1 does not climb Hy to the top: %r" % kept("hy", 0.1)),
+               (kept("hy", 0.2) == "high", "a rate of 0.2 does not stop Hy at High: %r" % kept("hy", 0.2)),
+               (kept("hy", 2) == "medium", "a rate of 2 does not stop Hy at Medium: %r" % kept("hy", 2)),
+               (kept("hy", 4) == "low", "a rate of 4 does not keep Hy at Low: %r" % kept("hy", 4)),
+               (kept("hy", 3.75) == "medium", "a step that buys exactly the rate asked is not taken"),
+               (kept("hy", 0) == "xhigh", "a rate of 0 does not climb to the top"),
+               (kept("sun", 0.2) == "medium" and kept("sun", 2) == "low", "Sun: %r, %r" % (kept("sun", 0.2), kept("sun", 2))),
                (kept("zed", 5) == "high" and kept("zed", 25) == "medium", "a level with no index was climbed from or through: %r" % kept("zed", 5)),
                (kept("nil", 0) is None, "a family with no index keeps a level"),
-               (chosen_level(family, 10)["level"] == "xhigh" and chosen_level(family, 10.1)["level"] == "low", "alpha"),
+               (kept("wil", 0) == "low", "a step whose time is unknown was taken: %r" % kept("wil", 0)),
+               (kept("fast", 1000) == "high", "a step that is no slower, or faster, and buys points was refused: %r" % kept("fast", 1000)),
+               (kept("flat", 0) == "low", "a step that buys no points was taken: %r" % kept("flat", 0)),
+               (chosen_level(family, 0.28)["level"] == "xhigh" and chosen_level(family, 0.3)["level"] == "high"
+                and chosen_level(family, 0.8)["level"] == "medium" and chosen_level(family, 1.5)["level"] == "low", "alpha"),
                (chosen_level([], 1) is None, "an empty family keeps a level")))
 
     def tie_rows(*figures):
@@ -7962,10 +7983,10 @@ def run_contract_cases():
                (pro["alpha"]["kind"] == "conforming" and pro["alpha"]["verdict"] == "conforme", "alpha: %r" % pro["alpha"]["verdict"]),
                (pro["alpha"]["record"]["slug"] == "alpha-medium" and pro["alpha"]["record"]["intelligence"] == 30.0
                 and pro["alpha"]["record"]["first_answer"] == 12.0, "alpha's record is not the medium one"),
-               (pro["alpha"]["kept"]["slug"] == "alpha" and code["alpha"]["kept"]["slug"] == "alpha", "alpha is not kept at xhigh, 4 points a level"),
+               (pro["alpha"]["kept"]["slug"] == "alpha" and code["alpha"]["kept"]["slug"] == "alpha", "alpha is not kept at xhigh, 0.2 points a second"),
                (flash["lima"]["kind"] == "conforming" and flash["lima"]["verdict"] == "conforme", "a slow member was refused: %r" % flash["lima"]["verdict"]),
                (code["oscar"]["kind"] == "conforming" and code["oscar"]["verdict"] == "conforme", "oscar, at 99 s: %r" % code["oscar"]["verdict"]),
-               (flash["lima"]["kept"]["slug"] == "lima-high", "lima's level was not kept at high, 45 points up"),
+               (flash["lima"]["kept"]["slug"] == "lima-high", "lima's level was not kept at high, 45 points for 82 s"),
                (flash["bravo"]["kept"]["slug"] == "bravo", "a family of one has no level to keep")))
     judged("a member exactly at the floor conforms, one under it goes to the last resort tier and is not refused",
            first_wrong(
@@ -8068,7 +8089,7 @@ def run_contract_cases():
                 "a contract with no candidates is played at its own floor: %r" % lite_order["floors"])))
     judged("a router that derives from another is held to its contract, requires tools of its members, and is checked against its cascade",
            first_wrong(
-               (claude_order["base"] == "code" and claude_order["contract"]["level_gain"]["min_gain_points"] == 4
+               (claude_order["base"] == "code" and claude_order["contract"]["level_gain"]["min_points_per_second"] == 0.2
                 and claude_order["contract"]["ranking"]["criterion"] == "code_quality", "the contract was not inherited"),
                (code_order["base"] is None and code_order["differences"] is None, "a router with a contract of its own was derived"),
                (claude["november"]["kind"] == "no_tools" and claude["november"]["verdict"] == "sans appels d'outils",
@@ -8129,10 +8150,10 @@ def run_contract_cases():
         ("a last resort naming something that is no name", set_in(("routers", "pro", "last_resort", "members"), [3]), 'must list its "members" by name'),
         ("a mapping of a name that is no entry, with fields that are wrong", set_in(("models", "zulu"), {"slug": "a b"}), 'the mapping of "zulu" has no "slug" spelt like one'),
         ("a last resort that is no list", set_in(("routers", "pro", "last_resort", "members"), "alpha"), 'must list its "members"'),
-        ("a gain that is a string", set_in(("routers", "pro", "level_gain", "min_gain_points"), "4"), 'has a "min_gain_points" that is not a number from 0 up'),
-        ("a gain that is a boolean", set_in(("routers", "pro", "level_gain", "min_gain_points"), True), 'has a "min_gain_points" that is not a number from 0 up'),
-        ("a gain below zero", set_in(("routers", "pro", "level_gain", "min_gain_points"), -1), 'has a "min_gain_points" that is not a number from 0 up'),
-        ("a gain that is none", set_in(("routers", "pro", "level_gain", "min_gain_points"), None), 'has a "min_gain_points" that is not a number from 0 up'),
+        ("a gain that is a string", set_in(("routers", "pro", "level_gain", "min_points_per_second"), "4"), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain that is a boolean", set_in(("routers", "pro", "level_gain", "min_points_per_second"), True), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain below zero", set_in(("routers", "pro", "level_gain", "min_points_per_second"), -1), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain that is none", set_in(("routers", "pro", "level_gain", "min_points_per_second"), None), 'has a "min_points_per_second" that is not a number from 0 up'),
         ("a level gain that is missing", drop("routers", "pro", "level_gain"), 'router "pro", "level_gain", is missing or is not a mapping'),
         ("a level gain with no reason", drop("routers", "pro", "level_gain", "reason"), '"level_gain", has no "reason"'),
         ("a tie margin that is missing", drop("routers", "pro", "ranking", "tie_margin_points"), 'must have a "tie_margin_points" that is a number from 0 up'),
@@ -8229,7 +8250,7 @@ def run_contract_cases():
                         "a last resort naming a deleted entry was refused")))
     judged("structure: a floor of zero, a note, an epoch said unknown and a derived router are no problem",
            first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "value"), 0)) == [], "a floor of 0 was refused"),
-                       (mutated(set_in(("routers", "pro", "level_gain", "min_gain_points"), 0)) == [], "a gain of 0 was refused"),
+                       (mutated(set_in(("routers", "pro", "level_gain", "min_points_per_second"), 0)) == [], "a rate of 0 was refused"),
                        (mutated(set_in(("routers", "pro", "ranking", "tie_margin_points"), 0)) == [], "a tie margin of 0 was refused"),
                        (mutated(drop("fallback_index")) == [], "a file with no fallback was refused"),
                        (mutated(set_in(("fallback_index", "points"), [[140, 4], [150, 4]])) == [], "calibration points that stay level were refused"),
@@ -8283,15 +8304,15 @@ def run_contract_cases():
                first_wrong(
                    (status == 0 and "Aucune dérive." in body, "the section changed the status or the drift: %d" % status),
                    ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
-                   ("Plancher 20, un niveau de plus à partir de 4 points d'indice gagnés, classé par l'indice d'intelligence, "
+                   ("Plancher 20, un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence, "
                     "le délai départageant deux membres à moins de 2 points d'écart." in section, "pro's contract is not said"),
-                   ("Plancher 6, un niveau de plus à partir de 15 points d'indice gagnés, classé par le délai le plus court." in section,
+                   ("Plancher 6, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in section,
                     "flash-lite's criterion is not said"),
-                   ("Plancher 20, un niveau de plus à partir de 4 points d'indice gagnés, classé par la qualité de code "
+                   ("Plancher 20, un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par la qualité de code "
                     "(source : Epoch AI selftest source, not read yet) ; Artificial Analysis n'a pas d'indice de code, l'indice "
                     "d'intelligence en tient lieu à titre provisoire, le délai départageant deux membres à moins de 2 points d'écart." in section,
                     "code's ranking is not said as a stand-in"),
-                   ("Dérivé de `code` : mêmes plancher (20), gain par niveau (4 points) et classement, et les modèles sans appels d'outils "
+                   ("Dérivé de `code` : mêmes plancher (20), taux d'échange (0.2 points par seconde) et classement, et les modèles sans appels d'outils "
                     "en sont exclus." in section, "the derived router is not said"),
                    ("| `alpha` | Alpha (Medium) | medium | 30.0 | 12.0 | 100.0 | xhigh (indice 50.0, 60.0 s) | conforme |" in section,
                     "alpha's row is wrong: %s" % section[:1500]),

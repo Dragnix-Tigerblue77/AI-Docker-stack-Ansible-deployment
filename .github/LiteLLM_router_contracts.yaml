@@ -27,11 +27,16 @@
 # level, told apart by the suffix of the name ("(Low)", "(High)", "(Non-reasoning)"...), and speed in
 # tokens per second is almost flat across levels while the time to the first answer token grows with
 # them. The level a router keeps for a model is found by walking up its levels from the lowest and
-# climbing to the next only while it buys at least the router's "min_gain_points" of index over the
-# current one. A router that values time asks more points of each extra level: on Gemini 4
-# Hydrogen (Low 26.9, Medium 41.2, High 50.8, Xhigh 53.9) 4 points stops at High, 10 at Medium and 15
-# at Low; on Gemini 3.8 Flash (Low 22.5, Medium 30.1, High 30.8) 4 stops at Medium, 10 and 15 at Low
-# (Artificial Analysis free API, read 2026-11-21).
+# climbing to the next only while each extra second of the time to the first answer token buys at
+# least the router's "min_points_per_second" points of index. A router that values time asks more
+# points per second. The time of one request depends on the request, but what is compared is a model
+# against itself, level against level, on the same requests: the rate measures the levels against
+# each other and is no prediction for a given request. A step that is no slower and buys points is
+# taken, a step that buys no points is not, and neither is one whose time is unknown. On Gemini 4
+# Hydrogen (Low 26.9 in 7.6 s, Medium 41.2 in 13.0 s, High 50.8 in 21.5 s, Xhigh 53.9 in 47.4 s) the
+# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 stops at High, 1.5 at Medium, 3 at Low. On Gemini
+# 3.8 Flash (Low 22.5 in 5.1 s, Medium 30.1 in 14.5 s, High 30.8 in 28.1 s) they buy 0.81 and 0.05:
+# 0.2 stops at Medium, 1.5 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
 #
 # How the figures are read. The time is the mean time to the first ANSWER token ("performance_v3"
 # of the free API: the time the model spends thinking is part of it), the intelligence is the
@@ -115,8 +120,8 @@ routers:
       candidates: [10, 20, 22.5, 30]
       reason: "Floor = index of Gemini 3.8 Flash at its lowest level (Low, 22.5 on 2026-11-21), the one Gemini Flash with an index that a reasoning router can be anchored on; Nemotron 3 Ultra 11.8 and Nemotron 3.5 Super VL 13.6 go to the last resort tier, and 10, 20 and 30 are shown to compare."
     level_gain:
-      min_gain_points: 4
-      reason: "pro asks little of an extra level, since nothing here is bounded by time: 4 points stops Gemini 4 Hydrogen at High (the step to Xhigh buys 3.1) and Gemini 3.8 Flash at Medium (High buys 0.7), on the figures of 2026-11-21."
+      min_points_per_second: 0.2
+      reason: "pro asks little of an extra second, since nothing here is bounded by time: 0.2 points a second stops Gemini 4 Hydrogen at High (the step to Xhigh buys 3.1 points in 25.9 s, 0.12 a second) and keeps Gemini 3.8 Flash at Medium (High buys 0.7 in 13.6 s, 0.05), on the figures of 2026-11-21."
     ranking:
       criterion: intelligence
       tie_margin_points: 2
@@ -130,8 +135,8 @@ routers:
       candidates: [10, 11.7, 15, 20]
       reason: "Floor = index of Gemini 3.5 Flash-Lite (11.7 on 2026-11-21), the current Flash-Lite we serve: a Flash is at least as good as it; the members at 3.8 to 4.4 (gpt-oss-120b, Mistral Small 4, Gemma 4 31B) and Qwen3.8 27B at 10.0 go to the last resort tier, the Ministral having no index at all; 10, 15 and 20 are shown to compare."
     level_gain:
-      min_gain_points: 10
-      reason: "A daily driver that values time asks more points of an extra level: 10 stops Gemini 4 Hydrogen at Medium (High buys 9.6) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6), on the figures of 2026-11-21."
+      min_points_per_second: 1.5
+      reason: "A daily driver that values time asks more of each extra second: 1.5 points a second stops Gemini 4 Hydrogen at Medium (High buys 9.6 points in 8.4 s, 1.1 a second) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
     ranking:
       criterion: intelligence
       tie_margin_points: 2
@@ -145,8 +150,8 @@ routers:
       candidates: [5, 6.2, 10]
       reason: "Floor = index of Gemini 3.1 Flash-Lite (6.2 on 2026-11-21), the previous Flash-Lite we still serve and the head of this cascade today: a Flash-Lite is at least as good as it; 5 and 10 are shown to compare (10 keeps Qwen3.8 27B, 10.0, and Gemini 3.5 Flash-Lite, 11.7, in front only)."
     level_gain:
-      min_gain_points: 15
-      reason: "The router that values time most asks the most of an extra level: 15 keeps Gemini 4 Hydrogen at Low (Medium buys 14.3) and Gemini 3.8 Flash at Low (Medium buys 7.6), on the figures of 2026-11-21."
+      min_points_per_second: 3
+      reason: "The router that values time most asks the most of each extra second: 3 points a second keeps Gemini 4 Hydrogen at Low (Medium buys 14.3 points in 5.4 s, 2.6 a second) and Gemini 3.8 Flash at Low (Medium buys 0.81), on the figures of 2026-11-21."
     ranking:
       criterion: first_answer
       reason: "The template makes speed the point of this router, so the time to the first answer token orders it, shortest first."
@@ -159,8 +164,8 @@ routers:
       candidates: [10, 22.5, 30]
       reason: "Declared on the intelligence index that stands in for code quality, as for pro: floor = index of Gemini 3.8 Flash at its lowest level (22.5 on 2026-11-21); the floor proper is to be expressed on the code quality source once it is read; 10 and 30 are shown to compare."
     level_gain:
-      min_gain_points: 4
-      reason: "Like pro, since code is not bounded by time either: 4 points stops Gemini 4 Hydrogen at High and Gemini 3.8 Flash at Medium, on the figures of 2026-11-21."
+      min_points_per_second: 0.2
+      reason: "Like pro, since code is not bounded by time either: 0.2 points a second stops Gemini 4 Hydrogen at High and keeps Gemini 3.8 Flash at Medium, on the figures of 2026-11-21."
     ranking:
       criterion: code_quality
       source: "Epoch AI benchmark data (CC BY 4.0), median rank over DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench and ALE-Bench, at least two benchmarks, WebDev Arena excluded"
