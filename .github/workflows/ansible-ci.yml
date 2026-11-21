@@ -416,6 +416,12 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_sign_off.py --selftest
 
+      # "strip_tooling_footer.yml" edits what a session posted while it holds a write token, so its
+      # decision is proved here, on every event, and not on the day it should have refused.
+      - name: "Tooling footer: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/strip_tooling_footer.py --selftest
+
       # The list of checks a Dependabot update must pass before "dependabot-auto-merge.yml"
       # merges it names jobs by their display name. A job renamed without that list is one every
       # update then waits on for ever; a job added without it is one an update can fail and still

@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+name: Strip the tooling footer
+
+# What a session posts here ends with the maintainer's signature, and the platform appends a footer
+# of its own after it. A session cannot take that footer off: the platform writes it again on every
+# edit made from a session. This workflow removes it from GitHub's side, when it directly follows
+# the maintainer's signature at the end of a pull request description, an issue body or a comment,
+# and leaves everything else alone. ".github/scripts/strip_tooling_footer.py" holds the decision and
+# says what it refuses to touch. A manual run sweeps the open issues and pull requests once, so the
+# posts that already exist are cleaned too.
+#
+# Why it is safe to hold a write token here:
+#
+#  * "pull_request_target" runs the definition and the code of the default branch, and the checkout
+#    below names no "ref", so no code of a pull request ever runs while the token is held. The text of
+#    the pull request is read by the script as data, from the event file, and is never expanded into
+#    a shell command or into this file's expressions.
+#  * The script edits only what its owner, a member or a collaborator wrote, and only when the
+#    maintainer's signature stands right before the footer.
+#  * An edit made with the job's own token starts no workflow, so nothing loops; and the script finds
+#    nothing to do on text it has already cleaned, so it would be harmless if one did.
+#
+# It is not one of the checks "dependabot-auto-merge.yml" waits for: it gates no merge, and a
+# "pull_request_target" run is not a check of the head commit. The header of "ansible-ci.yml" says what
+# CI_RUNNER may name, and when.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  workflow_dispatch:
+
+permissions: {}
+
+# One run at a time per target, so that two edits of one description do not race. None is cancelled:
+# a cancelled run would leave the footer on.
+concurrency:
+  group: >-
+    strip-tooling-footer-${{ github.event.pull_request.number || github.event.issue.number
+    || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  strip:
+    name: strip the tooling footer
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # 15 and not 5: see the "REUSE compliance" job of "ansible-ci.yml".
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      # The default branch, never a pull request's: no "ref" here is what keeps it so.
+      - name: Check the repository out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The script imports nothing outside the standard library, but the python3 of a runner is
+      # pinned by nobody. "check-latest" is explained in the "yamllint" job of "ansible-ci.yml".
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          check-latest: true
+
+      # The event is read from the file GITHUB_EVENT_PATH names, not from an expression.
+      - name: Strip the footer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/strip_tooling_footer.py
