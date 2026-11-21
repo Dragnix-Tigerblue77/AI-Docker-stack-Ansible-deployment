@@ -344,10 +344,12 @@ use of that API ask, and the figures are shown as published.
   (/api/v2/data/llms/models) was retired by Artificial Analysis and answers 410 Gone, which is
   reported like any other status.
 * The figures are read from the shape the free tier documents: the indexes under "evaluations", the
-  speed under "performance" and the two prices under "pricing". That tier publishes no blended
-  price, so the one shown is the 3 to 1 blend of input and output Artificial Analysis defines for it,
-  computed here, and none when either price is missing. Its reference marks the coding index and
-  "performance" deprecated: when they go, the figure is none and the table shows a dash.
+  speed under "performance_v3" (its headline mean of the end-to-end output speed) and the two prices
+  under "pricing". The "performance" block is not read: its fields were retired, and answer null.
+  That tier publishes no blended price, so the one shown is the 3 to 1 blend of input and output
+  Artificial Analysis defines for it, computed here, and none when either price is missing. Its
+  reference marks the coding index deprecated: when it goes, the figure is none and the table shows a
+  dash.
 * The matching is a guess and is shown as one. A NEW model is matched to an entry of the ranking
   only when the last segment of its id, or the provider's name for it, equals that entry's slug or
   name once squashed to lower-case letters and digits, of four characters at least ("o3" says too
@@ -1454,7 +1456,7 @@ def has_more_pages(payload):
 def read_ranking_models(payload):
     """The models of one page of the free language models endpoint, as documented on its API reference:
     a "data" list of objects with "name", "slug", "evaluations" (the intelligence and coding indexes),
-    "pricing" and "performance" (the median output speed). Anything else in an object is ignored and a
+    "pricing" and "performance_v3" (the mean output speed). Anything else in an object is ignored and a
     missing figure is None; what is shown of it is cut to plain words, since the answer is untrusted
     text."""
     items = payload.get("data") if isinstance(payload, dict) else None
@@ -1466,7 +1468,7 @@ def read_ranking_models(payload):
             continue
         evaluations = item.get("evaluations") if isinstance(item.get("evaluations"), dict) else {}
         pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
-        performance = item.get("performance") if isinstance(item.get("performance"), dict) else {}
+        performance = item.get("performance_v3") if isinstance(item.get("performance_v3"), dict) else {}
         creator = item.get("model_creator") if isinstance(item.get("model_creator"), dict) else {}
         slug = item.get("slug") if isinstance(item.get("slug"), str) else ""
         models.append({
@@ -1475,7 +1477,7 @@ def read_ranking_models(payload):
             "keys": {key for key in (squash(slug), squash(item["name"])) if len(key) >= RANKING_MIN_KEY},
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": figure(evaluations.get("artificial_analysis_coding_index")),
-            "speed": speed_figure(performance.get("median_output_tokens_per_second")),
+            "speed": speed_figure(performance.get("mean_output_tokens_per_second")),
             "price": blended_price(pricing.get("price_1m_input_tokens"), pricing.get("price_1m_output_tokens")),
         })
     return models
@@ -5116,8 +5118,11 @@ def ranking_model(slug, name, intelligence=None, coding=None, speed=None, price=
                             "artificial_analysis_agentic_index": 1.0},
             "pricing": {"price_1m_input_tokens": price, "price_1m_output_tokens": price,
                         "price_1m_cache_hit_tokens": None, "price_1m_cache_write_tokens": None},
-            "performance": {"median_output_tokens_per_second": speed,
-                            "median_time_to_first_token_seconds": 1.2}}
+            "performance": {"median_output_tokens_per_second": None,
+                            "median_time_to_first_token_seconds": None},
+            "performance_v3": {"mean_output_tokens_per_second": speed,
+                               "mean_time_to_first_token_seconds": 1.2,
+                               "mean_time_to_first_answer_token_seconds": 1.2}}
 
 
 RANKING_KEYS = dict(SELFTEST_KEYS, MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY="selftest-artificial-analysis-key-SECRET")
@@ -5348,22 +5353,32 @@ def run_ranking_cases():
                 "the models read are %r" % (result["rankings"],)),
                (body == whole[3] and report == whole[2], "the output differs from a single page's")))
 
-    # The shape of the free tier: the speed under "performance" (a top-level one is the retired shape's),
-    # the blended price made of the two published ones.
+    # The shape of the free tier: the speed under "performance_v3" (a top-level one is the retired
+    # shape's, and the retired "performance" block is not read either), the blended price made of the
+    # two published ones.
     legacy = ranking_model("legacy-model", "Legacy Model", 1, None, None, 1.0)
     legacy["median_output_tokens_per_second"] = 99.0
+    retired = ranking_model("retired-model", "Retired Model", 1, None, None, 1.0)
+    retired["performance"]["median_output_tokens_per_second"] = 77.0
+    unmeasured = ranking_model("unmeasured-model", "Unmeasured Model", 1, None, None, 1.0)
+    unmeasured["performance"]["median_output_tokens_per_second"] = 66.0
+    unmeasured["performance_v3"] = None
     half_priced = ranking_model("half-model", "Half Model", 1, None, 10.0, 1.0)
     half_priced["pricing"]["price_1m_output_tokens"] = None
     blend = ranking_model("blend-model", "Blend Model", 1, None, 10.0, 1.0)
     blend["pricing"].update(price_1m_input_tokens=1.0, price_1m_output_tokens=5.0)
     shaped = ranking_model("shaped-model", "Shaped Model", 1, 2, 10.0, 1.0)
-    shaped["performance"], shaped["pricing"], shaped["evaluations"] = "fast", [], None
+    shaped["performance_v3"], shaped["pricing"], shaped["evaluations"] = "fast", [], None
     models = {model["name"]: model for model in read_ranking_models(
-        {"data": [legacy, half_priced, blend, shaped, ranking_model("fast-model", "Fast Model", 1, None, 42.5, 1.0)]})}
-    judged("the speed is read from performance, the blended price from the input and output prices, and a field of the wrong shape is none",
+        {"data": [legacy, retired, unmeasured, half_priced, blend, shaped,
+                  ranking_model("fast-model", "Fast Model", 1, None, 42.5, 1.0)]})}
+    judged("the speed is read from performance_v3, the blended price from the input and output prices, and a field of the wrong shape is none",
            first_wrong(
-               (models["Fast Model"]["speed"] == 42.5, "the speed under performance was not read: %r" % models["Fast Model"]),
+               (models["Fast Model"]["speed"] == 42.5, "the speed under performance_v3 was not read: %r" % models["Fast Model"]),
                (models["Legacy Model"]["speed"] is None, "a top-level speed was read"),
+               (models["Retired Model"]["speed"] is None, "the retired performance block was read"),
+               (models["Unmeasured Model"]["speed"] is None,
+                "a model with no performance_v3 fell back on the retired block"),
                (models["Blend Model"]["price"] == 2.0, "the blend is %r, not 2.0" % models["Blend Model"]["price"]),
                (models["Half Model"]["price"] is None, "a price missing its output side was blended"),
                (all(models["Shaped Model"][key] is None for key in ("speed", "price", "intelligence", "coding")),
