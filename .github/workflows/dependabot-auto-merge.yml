@@ -50,12 +50,15 @@ name: Dependabot auto-merge
 # what the variable may name, and when.
 #
 # The same step also merges the pull request that "LiteLLM_model_drift.yml" opens every week to
-# delete the models their provider has retired, and nothing else the workflow's own token opens. It
+# delete the models their provider has retired, and nothing else that workflow's tokens open. It
 # is not Dependabot's, so it is held to what makes it safe in its own terms, all read from GitHub's
 # own account of the pull request, bar the one heading of its body that says a person has to read:
 #
-#   * it is on that workflow's one fixed branch, from this repository, and carries one commit,
-#     which the workflow's own author made;
+#   * it is on that workflow's one fixed branch, from this repository, opened by the Actions bot or
+#     by that workflow's GitHub App (MODEL_DRIFT_APP_SLUG, a repository variable, empty until the
+#     App is configured), and carries one commit, which the Actions bot is the author of in both
+#     cases: the pull request's author widens with the App, the commit's does not. An App only the
+#     repository's administrator can install is what opens it, and nobody else can name it here;
 #   * it changes one file, the model list's template, and adds no line to it: a pull request that
 #     can only take lines away cannot bring in a model, an address or a key, whatever made it;
 #   * what it takes away is read line by line in the diff, not counted: whole model entries, the
@@ -74,8 +77,8 @@ name: Dependabot auto-merge
 #     same tree, and a head that is behind is rebuilt by the next weekly run;
 #   * every check the ruleset names is green on its head, "sign-off" excepted when it never started.
 #     That check reads the commits of a pull request, which GitHub never starts for one opened with
-#     GITHUB_TOKEN, and certifies the right to submit what a commit adds: this one adds nothing.
-#     One that did start is judged like the others.
+#     GITHUB_TOKEN (it does for one opened with the App), and certifies the right to submit what a
+#     commit adds: this one adds nothing. One that did start is judged like the others.
 #
 # "check_auto_merge_gate.py" runs the step below against made-up pull requests -- those that must
 # merge and, one by one, the shapes that must not -- and breaks its script and its environment a
@@ -161,6 +164,12 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           # The weekly model-drift deletions: see the header.
           REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
+          # The slug of the GitHub App that workflow opens the pull request with, when it has one:
+          # the pull request is then authored by "<slug>[bot]" and not by the Actions bot, which
+          # stays accepted. A repository variable only an administrator can set, empty until the
+          # App is configured. Used only if it is a slug, which is lowercase letters, digits and
+          # hyphens; anything else leaves the Actions bot alone.
+          MODEL_DRIFT_APP_SLUG: ${{ vars.MODEL_DRIFT_APP_SLUG }}
           REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
@@ -310,9 +319,13 @@ jobs:
             const label = `#${pr.number} (${pr.title})`;
 
             const dependabot = pr.user.login === 'dependabot[bot]';
-            // The weekly model-drift deletions: opened with the workflow's own token, on its one
-            // fixed branch. What else that token opens is none of this step's business.
-            const removals = pr.user.login === 'github-actions[bot]' &&
+            // The weekly model-drift deletions: opened with the workflow's own token or with its GitHub
+            // App's, on its one fixed branch. What else either opens is none of this step's business.
+            // Only the author widens with the App: the one commit below is still the Actions bot's.
+            const appSlug = process.env.MODEL_DRIFT_APP_SLUG ?? '';
+            const removalsAuthors = ['github-actions[bot]'];
+            if (/^[a-z0-9-]+$/.test(appSlug)) removalsAuthors.push(`${appSlug}[bot]`);
+            const removals = removalsAuthors.includes(pr.user.login) &&
               pr.head.ref === process.env.REMOVALS_BRANCH;
             if ((!dependabot && !removals) || pr.draft) {
               core.notice(`${label} is neither a Dependabot pull request nor the weekly model deletions, or is a draft. Left alone.`);

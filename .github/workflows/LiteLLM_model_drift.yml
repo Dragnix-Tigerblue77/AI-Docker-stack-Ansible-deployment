@@ -13,8 +13,8 @@ name: LiteLLM model drift
 # reason, and so does everything that is a decision: an addition, an announced retirement, a model
 # free again. What each finding means is in the docstring of that script, which this workflow only
 # runs. The README says what the repository needs for it, the setting "Allow GitHub Actions to
-# create and approve pull requests" included: while it is off, the step that opens the pull request
-# fails and names it.
+# create and approve pull requests" included: while it is off, and no GitHub App writes the pull
+# request (below), the step that opens it fails and names it.
 #
 # Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
 # announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
@@ -29,12 +29,12 @@ name: LiteLLM model drift
 #   "read"     holds the providers' keys and a READ-ONLY token. It checks main out, installs
 #              PyYAML and Jinja2, runs the script, and hands the texts and the edited template to
 #              the next job as an artifact, and five values as job outputs.
-#   "publish"  holds the token that writes, and no key. It checks nothing out and runs nothing of
-#              this repository: it takes what it receives as data (a status among three, a
-#              coverage among two, a flag among three, a count, a commit of main, and a template it
-#              uploads only once it has checked that it is main's own with lines deleted, and rows
-#              of its "head" table written again in the one form that names only models and
-#              providers the file has) and calls the API.
+#   "publish"  holds the token that writes, and none of the providers' keys. It checks nothing out
+#              and runs nothing of this repository: it takes what it receives as data (a status
+#              among three, a coverage among two, a flag among three, a count, a commit of main,
+#              and a template it uploads only once it has checked that it is main's own with lines
+#              deleted, and rows of its "head" table written again in the one form that names only
+#              models and providers the file has) and calls the API.
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
 # libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
@@ -78,8 +78,7 @@ name: LiteLLM model drift
 # issue does, with the day the figures were read.
 #
 # Cost: two jobs of under a minute each, once a week -- about eight to ten of the included minutes a
-# month on this private repository -- plus, when something is deleted, the two workflows dispatched
-# on the branch.
+# month on this private repository -- plus, when something is deleted, the checks of the pull request.
 #
 # The issue is found by its exact title and a hidden marker in its body (ISSUE_MARKER), among the
 # issues this workflow's own token opened: no label to create, and an issue somebody else writes
@@ -88,15 +87,15 @@ name: LiteLLM model drift
 # the pull request proposes counts as drift until it is merged, and is listed under its own heading.
 #
 # The pull request: one branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
-# and never a draft. The branch is main plus ONE commit, made through the API with GITHUB_TOKEN and
-# rewritten at every run that finds something to delete, so that it follows main and what the
-# providers list; the title and the body are rewritten with it, and an edit made to either by hand
-# is lost at the next run. A run that finds nothing leaves the branch alone and closes an open pull
-# request with a comment -- unless a provider could not be read or has no key, or a retired model
-# was refused (UNDELETED), since "nothing to delete" would then only mean "nothing seen". A pull
-# request closed by a person is replaced the following week while the providers still do not list
-# the models. Whether it merges by itself is "dependabot-auto-merge.yml"'s to say; if it does not,
-# tigerblue77 merges it or closes it.
+# and never a draft. The branch is main plus ONE commit, made through the API with the token the
+# paragraphs below describe and rewritten at every run that finds something to delete, so that it
+# follows main and what the providers list; the title and the body are rewritten with it, and an
+# edit made to either by hand is lost at the next run. A run that finds nothing leaves the branch
+# alone and closes an open pull request with a comment -- unless a provider could not be read or has
+# no key, or a retired model was refused (UNDELETED), since "nothing to delete" would then only mean
+# "nothing seen". A pull request closed by a person is replaced the following week while the
+# providers still do not list the models. Whether it merges by itself is
+# "dependabot-auto-merge.yml"'s to say; if it does not, tigerblue77 merges it or closes it.
 #
 # A person's commit on the branch freezes it, and the run FAILS to say so, every week, until the
 # branch is deleted (the deletions are then made again from main): force-pushing over somebody's
@@ -106,12 +105,32 @@ name: LiteLLM model drift
 # one, and the next run rebuilds the branch without it). A person's commit that a squash or rebase
 # merge left out of main's history keeps counting until the branch is deleted.
 #
-# A push and a pull request made with GITHUB_TOKEN start no workflow, so the run dispatches
-# "ansible-ci.yml" and "gitleaks.yml" on the branch itself -- the one event that token can cause and
-# still get a run for -- for every workflow with no run yet on the branch's head, so that a run
-# that failed half way is repaired by the next. The list is the gate's own "WORKFLOW_FILES", which
-# "check_required_checks.py" holds equal. The commit carries the Actions bot's Signed-off-by, as
-# Dependabot's do: the pull request starts no "sign-off" run, but one a person approves is green.
+# Who writes the branch and the pull request. A push and a pull request made with GITHUB_TOKEN
+# start no workflow of their own: GitHub holds the runs of such a pull request until a person
+# approves them, never starts "sign-off", and does not tell "dependabot-auto-merge.yml" about a run
+# this token dispatched, so the gate never hears of the pull request. Hence an optional GitHub App,
+# like the keys above: the variable MODEL_DRIFT_APP_CLIENT_ID (the client ID shown on the App's
+# settings page, not its App ID), the secret MODEL_DRIFT_APP_PRIVATE_KEY, and the variable
+# MODEL_DRIFT_APP_SLUG, which only the gate reads. The App needs the repository permissions
+# Contents, Pull requests and Issues, each read and write, and has to be installed on this
+# repository. With it the branch, the pull request and its assignee are written with a token of
+# the App, narrowed to those three: GitHub then starts the pull request's checks itself,
+# "sign-off" included, and tells the gate, which accepts the App's bot as the pull request's
+# author beside the Actions bot. The private key reaches this job alone, which checks nothing out
+# and runs no script of this repository. The rolling issue keeps GITHUB_TOKEN.
+#
+# Without the variable nothing changes and nothing breaks: the run writes with GITHUB_TOKEN and
+# dispatches "ansible-ci.yml" and "gitleaks.yml" on the branch itself -- the one event that token
+# can cause and still get a run for -- for every workflow with no run yet on the branch's head, so
+# that a run that failed half way is repaired by the next. The list is the gate's own
+# "WORKFLOW_FILES", which "check_required_checks.py" holds equal. The pull request then waits for a
+# person's approval of its runs, and for a person's merge. With the App those dispatches are not
+# made, since they would only double the native runs. A token that could not be minted leaves that
+# step red and the run in the fallback.
+#
+# The commit's author is the Actions bot in both modes, and the commit carries that bot's
+# Signed-off-by, as Dependabot's do: the gate reads the author, and "sign-off" accepts a bot's own
+# sign-off.
 #
 # Both jobs take their runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
 # says what it may name). The keys and the write token may reach a self-hosted runner that way,
@@ -255,8 +274,9 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
-    # The token that writes, and none of the providers' keys. This job checks nothing out, installs
-    # nothing and runs no script of this repository.
+    # The token that writes, and none of the providers' keys; the App's private key, when there is
+    # one, reaches this job alone. This job checks nothing out, installs nothing and runs no script
+    # of this repository.
     permissions:
       # The branch and its commit, written through the API.
       contents: write
@@ -264,8 +284,8 @@ jobs:
       pull-requests: write
       # The rolling issue, and the pull request's assignee, which is an issue's.
       issues: write
-      # Dispatching "ansible-ci.yml" and "gitleaks.yml" on the branch, the checks of a pull request
-      # this token opened and starts none of itself; and downloading the artifact.
+      # Dispatching "ansible-ci.yml" and "gitleaks.yml" on the branch where no App writes the pull
+      # request, whose checks this token then starts none of; and downloading the artifact.
       actions: write
     env:
       REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
@@ -350,12 +370,31 @@ jobs:
               core.notice(`Drift reported in the new issue #${created.number}.`);
             }
 
+      # Only when the App is configured: without the variable there is nothing to mint from, the
+      # step is skipped, and the next one writes with GITHUB_TOKEN. Narrowed to what that step
+      # calls -- the branch and its commit, the pull request, and its assignee, which is an
+      # issue's -- whatever more the App was granted; scoped by the action's default to this
+      # repository alone, and revoked when the job ends.
+      - name: Mint an installation token, if a GitHub App is configured
+        id: app-token
+        if: ${{ vars.MODEL_DRIFT_APP_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.MODEL_DRIFT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MODEL_DRIFT_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       # Runs even if the issue step failed, since the two have nothing to do with each other, but not
       # without what the other job made.
       - name: Open, update or close the deletion pull request
         if: ${{ !cancelled() && steps.receive.outcome == 'success' }}
         uses: actions/github-script@v9
         env:
+          # "true" when the App's token writes: GitHub then starts the pull request's checks itself
+          # and this step dispatches none. Anything else is the GITHUB_TOKEN fallback.
+          NATIVE_CHECKS: ${{ steps.app-token.outputs.token != '' && 'true' || 'false' }}
           DRIFT_STATUS: ${{ needs.read.outputs.status }}
           COVERED: ${{ needs.read.outputs.covered }}
           # Whether the report of this run was trusted enough to be written: a pull request is
@@ -374,6 +413,9 @@ jobs:
           # "workflow_dispatch" trigger. "check_required_checks.py" fails CI when the two differ.
           WORKFLOW_FILES: ansible-ci.yml gitleaks.yml
         with:
+          # The App's token when there is one, GITHUB_TOKEN otherwise: the pull request is then the
+          # App bot's or the Actions bot's, and the gate accepts both.
+          github-token: ${{ steps.app-token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
             const { owner, repo } = context.repo;
@@ -598,10 +640,11 @@ jobs:
             }
             core.notice(created ? `Opened pull request #${pr.number}.` : `Pull request #${pr.number} is up to date.`);
 
-            // The checks of this commit: asked for whichever of them has no run on it yet, whatever
-            // this run did or did not do before, so that a run that failed half way is repaired by
-            // the next one.
-            for (const workflow of workflows) {
+            // The checks of this commit, where GitHub starts none: asked for whichever of them has
+            // no run on it yet, whatever this run did or did not do before, so that a run that
+            // failed half way is repaired by the next one. With the App's token GitHub starts them
+            // itself, and a dispatch would only double them.
+            for (const workflow of process.env.NATIVE_CHECKS === 'true' ? [] : workflows) {
               try {
                 const { data: runs } = await github.rest.actions.listWorkflowRuns({
                   owner, repo, workflow_id: workflow, head_sha: tip, per_page: 1,

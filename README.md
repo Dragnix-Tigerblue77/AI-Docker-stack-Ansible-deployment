@@ -656,9 +656,11 @@ donné, qui répond à son tour qu'il n'existe pas : une liste peut omettre un m
 au-dessus quand elle ne motivait que lui (une raison partagée avec une entrée qui reste est
 conservée). Le workflow en fait **une seule pull request**, sur la branche
 `claude/LiteLLM-model-drift-removals`, assignée à tigerblue77 : son corps cite, pour chaque
-suppression, le fournisseur, l'identifiant, le catalogue lu et la date, et le workflow relance
-lui-même `ansible-ci.yml` et `gitleaks.yml` sur la branche, puisqu'une pull request ouverte avec son
-jeton n'en déclenche aucun. Elle est réécrite à chaque exécution qui trouve quelque chose à
+suppression, le fournisseur, l'identifiant, le catalogue lu et la date. Elle est ouverte avec le jeton
+d'une App GitHub quand le dépôt en configure une (voir plus bas), et GitHub en lance alors lui-même les
+contrôles, `sign-off` compris ; sans App, le workflow écrit avec son propre jeton, qui ne déclenche rien,
+et relance lui-même `ansible-ci.yml` et `gitleaks.yml` sur la branche, mais les runs de la pull request
+attendent l'approbation d'une personne et la fusion aussi. Elle est réécrite à chaque exécution qui trouve quelque chose à
 supprimer (titre et corps compris : une modification à la main est perdue), et fermée avec un commentaire quand plus rien ne se supprime --
 sauf si un fournisseur n'a pas pu être lu ou n'a pas de clé, ou si un modèle retiré n'a pas pu être
 supprimé, car « rien à supprimer » voudrait alors dire « rien vu » ou « rien que je puisse
@@ -666,8 +668,9 @@ supprimer ».
 
 **Elle se fusionne seule, à des conditions qui tiennent toutes à ce que GitHub dit d'elle** et à rien
 de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
-fusionne les mises à jour de Dependabot, la fusionne quand elle porte un seul commit, celui du
-workflow ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; que les
+fusionne les mises à jour de Dependabot, la fusionne quand elle est ouverte par le bot Actions ou par
+l'App du workflow (dont la variable `MODEL_DRIFT_APP_SLUG` donne le nom) et porte un seul commit, celui
+du bot Actions dans les deux cas ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; que les
 lignes qu'elle retire sont, une à une, des entrées de modèle entières, les places de cascade qui
 nomment une entrée retirée dans la même pull request, des commentaires ou des lignes vides, et rien
 d'autre (un réglage, une adresse ou le modèle d'une entrée qui reste n'en sont pas) ; qu'elle
@@ -676,8 +679,9 @@ au plus ; que son corps n'a pas de section « À relire » (voir plus bas) ; que
 tout `main`, faute de quoi les contrôles n'ont pas tourné sur l'arbre qui serait fusionné ; et que
 chaque contrôle que le jeu de règles nomme est vert sur son dernier commit. Le contrôle `sign-off`
 n'est pas attendu s'il n'a pas démarré : il lit les commits d'une pull request que GitHub ne lance
-jamais pour une pull request ouverte avec le jeton du workflow, et il certifie le droit de soumettre
-ce qu'un commit ajoute, ce que celui-ci ne fait pas. Une pull request qui sort de ces conditions
+jamais pour une pull request ouverte avec le jeton du workflow (il le lance pour celle de l'App, et il
+doit alors être vert), et il certifie le droit de soumettre ce qu'un commit ajoute, ce que celui-ci ne
+fait pas. Une pull request qui sort de ces conditions
 reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont `REMOVALS_MAX_ENTRIES` et
 `REMOVALS_MAX_LINES` dans le workflow de fusion, et `check_auto_merge_gate.py` joue ces conditions
 contre des pull requests inventées : celles qui doivent fusionner et, une à une, celles qui ne le
@@ -747,12 +751,26 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
-**Une condition, une seule fois** : cocher *Allow GitHub Actions to create and approve pull requests*
+**Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
+configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve pull requests*
 dans *Settings → Actions → General → Workflow permissions*
 (<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
 si la case est grisée, le même réglage au niveau de l'organisation. Tant qu'elle ne l'est pas, le
 workflow pousse la branche, tient l'issue à jour et échoue à l'étape qui ouvre la pull request, en
 nommant ce réglage et en donnant son lien.
+
+**Facultatif : une App GitHub qui ouvre la pull request.** Un push et une pull request faits avec le jeton
+du workflow ne lancent aucun workflow : GitHub garde les runs de la pull request jusqu'à ce qu'une
+personne les approuve, ne lance jamais `sign-off`, et n'avertit pas `dependabot-auto-merge.yml` d'un run
+que ce jeton a lancé à la main, qui ne voit alors jamais la pull request. Avec une App, la branche, la
+pull request et son assignation sont écrites avec son jeton, restreint à *Contents*, *Pull requests* et
+*Issues* en lecture et écriture : GitHub lance lui-même les contrôles, la fusion automatique les voit, et
+le workflow n'en relance plus aucun à la main. Pour l'activer : une App GitHub installée sur ce dépôt avec
+ces trois permissions de dépôt, la variable `MODEL_DRIFT_APP_CLIENT_ID` (l'identifiant client affiché sur la
+page de l'App, pas son identifiant d'App), la variable `MODEL_DRIFT_APP_SLUG` (son nom court, que seule la
+fusion automatique lit) et le secret `MODEL_DRIFT_APP_PRIVATE_KEY`. Sans la première variable, le workflow
+fait ce qu'il faisait avant. La clé privée n'atteint que `publish`, qui n'extrait rien du dépôt et n'y
+exécute aucun script ; l'issue hebdomadaire garde le jeton du workflow.
 
 OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
 créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
@@ -767,8 +785,8 @@ ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
 Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
 ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML ou de Jinja2, que Dependabot
 fusionne seule, en est). Il se fait donc en **deux travaux** reliés par un artefact : `read` (les clés, un
-jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé, aucun script du
-dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
+jeton en lecture seule, le script) et `publish` (le jeton qui écrit, aucune clé de fournisseur, aucun
+script du dépôt). Le découpage borne le jeton qui écrit : un `read` compromis peut au pire lui faire ouvrir une
 pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
 plus haut), à des conditions qui bornent les lignes retirées (cinq entrées et deux cents lignes au plus,
 et rien d'autre que des entrées de modèle, leurs places de cascade, des commentaires et des lignes vides),

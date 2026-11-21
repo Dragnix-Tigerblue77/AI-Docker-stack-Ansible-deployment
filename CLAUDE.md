@@ -604,7 +604,10 @@ a job or adding one therefore changes what gates those merges, and `check_requir
 CI until the file follows. So is the pull request the weekly model-drift run opens to delete the
 models their provider has retired: the same workflow merges it, but only a diff that adds no line to
 `templates/LiteLLM_config.yaml.j2`, deletes at most five entries and leaves nothing for a person to
-read (the workflow's header lists the conditions).
+read (the workflow's header lists the conditions). That pull request is opened with a GitHub App's
+token where the repository configures one, so that GitHub starts its checks itself and the gate
+hears of them; without one the workflow dispatches the checks itself and the gate never hears of the
+pull request, which a person then merges (the header of the drift workflow names the variables).
 
 The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
 where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
