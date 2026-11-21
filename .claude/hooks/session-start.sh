@@ -87,22 +87,23 @@ note() {
 }
 
 # 1. Python tooling ---------------------------------------------------------------------------------
-# ! WHICH INTERPRETER, and it is not the default one. "python3" here is 3.11, while the CI gives
-# itself 3.12 through actions/setup-python -- and "ansible-core" has declared "Requires-Python >=
-# 3.12" since 2.20. Installed against 3.11 it is simply refused, so a session used to start with no
-# ansible-core at all and no way to run "ansible-playbook --syntax-check", one of the six checks
-# that decide its push. CI never saw it: on 3.12 the install succeeds, so every job stayed green
-# over a gap that only existed where the repository is actually developed. That is #57.
+# ! WHICH INTERPRETER, and it is not the default one. "python3" here is older than the one the CI
+# gives itself through actions/setup-python, and "ansible-core" declares a "Requires-Python" floor
+# above that default. Installed against it, it is simply refused, so a session used to start with
+# no ansible-core at all and no way to run "ansible-playbook --syntax-check", one of the six checks
+# that decide its push. CI never saw it: on its own interpreter the install succeeds, so every job
+# stayed green over a gap that only existed where the repository is actually developed. That is #57.
 #
 # The image already carries 3.10, 3.11, 3.12 and 3.13 -- nothing has to be provisioned, the default
-# is just the wrong one. The version is read from the CI workflow rather than written here, for the
-# reason GITLEAKS_VERSION is: a second copy of a version number is a version number that drifts, and
-# the entire point is that the session runs the interpreter the pull request will meet.
-PYTHON_VERSION="$(sed -n 's/^ *python-version: *"\([^"]*\)".*/\1/p' .github/workflows/ansible-ci.yml | head -1)"
+# is just the wrong one. The version is read from the file the CI reads it from rather than written
+# here, for the reason GITLEAKS_VERSION is: a second copy of a version number is a version number
+# that drifts, and the entire point is that the session runs the interpreter the pull request will
+# meet.
+PYTHON_VERSION="$(head -n 1 .python-version 2> /dev/null | tr -d '[:space:]')"
 PYTHON_BINARY="python3"
 
 if [ -z "$PYTHON_VERSION" ]; then
-    note "no python-version found in .github/workflows/ansible-ci.yml, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
+    note "no version found in .python-version, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
         "the interpreter the CI uses"
 elif command -v "python${PYTHON_VERSION}" > /dev/null 2>&1; then
     PYTHON_BINARY="python${PYTHON_VERSION}"
@@ -111,10 +112,10 @@ else
         "the interpreter the CI uses"
 fi
 
-# ! A virtual environment rather than "pip install" into the interpreter, because 3.12 here is a
-# distribution package and PEP 668 marks it externally managed: a plain install is refused, and
-# "--break-system-packages" would write into an interpreter apt also uses. The venv touches nothing
-# outside itself, and it costs about three seconds to create.
+# ! A virtual environment rather than "pip install" into the interpreter, because a distribution's
+# interpreter is marked externally managed by PEP 668: a plain install is
+# refused, and "--break-system-packages" would write into an interpreter apt also uses. The venv
+# touches nothing outside itself, and it costs about three seconds to create.
 #
 # It also settles the PyYAML problem the old code needed "--ignore-installed" for. The image carries
 # Debian's PyYAML 6.0.1 in /usr/lib/python3/dist-packages, installed by dpkg and therefore without
@@ -163,7 +164,8 @@ link_venv_binaries() {
 # do not need. Per pin, the same session keeps everything except ansible-core.
 #
 # CI is unaffected either way, which is exactly why this is worth doing here: "actions/setup-python"
-# gives it 3.12, so the transaction succeeds there and the failure is invisible to every job.
+# gives it the interpreter it wants, so the transaction succeeds there and the failure is invisible
+# to every job.
 #
 # The cost is honest and small: installing one by one drops pip's cross-package resolution. A pin
 # whose own dependencies pull a DIFFERENT version of another pin would go unnoticed, so the versions

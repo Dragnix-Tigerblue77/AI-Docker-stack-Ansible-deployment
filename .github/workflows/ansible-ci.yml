@@ -74,11 +74,11 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
           # can name: a self-hosted runner can keep its tool cache between jobs, and left at its
           # "false" default setup-python looks in that cache FIRST and only asks the versions
-          # manifest when it misses -- so the first 3.12 patch the cache ever holds
+          # manifest when it misses -- so the first patch the cache ever holds
           # would be the one every later job gets, for ever. "true" resolves the newest patch from
           # the manifest before looking in the cache: one small HTTPS GET per job, and one download
           # on the day the patch changes.
@@ -110,7 +110,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -138,7 +138,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -181,7 +181,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -276,7 +276,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -354,7 +354,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"

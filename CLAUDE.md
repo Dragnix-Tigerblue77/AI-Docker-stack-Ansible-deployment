@@ -412,6 +412,12 @@ pull requests themselves. Lines already in a file are left as they are; an edit 
 number takes it out. The maintainer asked for it on 2026-11-01, about a docstring heading in one pull
 request, and for every pull request.
 
+**No version in a comment.** A comment names no version of a tool, a language, an image or a
+dependency: the number goes stale without anything failing, and the file that pins it already says
+it. Lines already in a file are left as they are, and an edit to one that cites a version takes it
+out. The maintainer asked for it on 2026-11-21, about the comments of the pull request that moved
+the CI's interpreter.
+
 **Sign-off.** Every commit of a pull request carries a `Signed-off-by` trailer, the Developer
 Certificate of Origin that `CONTRIBUTING.md` spells out, and the `sign-off` job
 (`.github/workflows/sign-off.yml`, deciding in `.github/scripts/check_sign_off.py`, whose docstring
@@ -710,8 +716,8 @@ and does nothing outside a remote session. See its own header for the detail, an
 which checks the session can actually be trusted to run.
 
 **A session runs the same toolchain CI does, and the work to get there is #57.** The hook installs
-the pins of `requirements.txt` into a virtual environment built on the interpreter the CI workflow
-names, so `ansible-lint` here reports the `ansible-core` that file pins. Trust a green lint in a
+the pins of `requirements.txt` into a virtual environment built on the interpreter `.python-version`
+names, the one file every CI job reads it from, so `ansible-lint` here reports the `ansible-core` that file pins. Trust a green lint in a
 session; it is the same run.
 
 What follows had to be got right for that, and none of it is visible to CI, which gets a clean
