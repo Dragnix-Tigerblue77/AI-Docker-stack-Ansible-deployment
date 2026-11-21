@@ -250,6 +250,9 @@ the places a deletion may have made false:
   and the reason above a statement over a deleted run that it was not safe to delete with it;
 * the reason over a run of commented-out entries some of which are gone, kept over the ones that
   stay, which may count them ("All seven ids below") or name one that is gone;
+* the comment lines directly after a run of commented-out entries that goes whole, which may carry
+  on from the reason that went with it ("for the reason of the run above"). Their wording is not
+  read: any comment there is listed. The bare "#" lines between the run and them go with it;
 * a section banner left over no entry at all;
 * any other comment line naming a deleted model_name, or a deleted id that no entry that stays
   carries (a word match, so "gemini-3-8-flash" is found and "gemini-3-8-flash-lite" is not).
@@ -2236,7 +2239,9 @@ def plan_lines(layout, keys):
     owners = {entry["name"]: entry["key"] for entry in entries if isinstance(entry["name"], str)}
     slot_names = {name for name in owners if name not in surviving}
     marks = set()
-    notes = {key: {"entries": [], "slots": [], "prose": [], "left": []} for key in keys}
+    notes = {key: {"entries": [], "slots": [], "prose": [], "left": [], "trailing": []}
+             for key in keys}
+    whole = []
 
     for entry in entries:
         note = notes[entry["key"]]
@@ -2257,6 +2262,7 @@ def plan_lines(layout, keys):
         if not gone:
             continue
         if len(gone) == len(members):
+            whole.append(members)
             marks.update(range(members[0]["start"], members[-1]["end"]))
             found = comments_above(layout, members[0]["start"], members[-1])
             prose = reason_lines(layout, found)
@@ -2282,6 +2288,25 @@ def plan_lines(layout, keys):
                 any(later["key"] not in keys for later in members[position + 1:])
             if not stays:
                 marks.update(range(members[position]["end"], members[position + 1]["start"]))
+
+    # Once every deletion has taken its own lines: what a run deleted whole leaves directly after it.
+    # Its reason went with it, and prose that carries on from that reason ("for the reason of the run
+    # above") now points at nothing. Whether it does is not read from its words: any comment that
+    # stays there is a person's to read. The bare "#" lines between the run and it are not.
+    for members in whole:
+        number = members[-1]["end"]
+        separators = []
+        while number < len(lines) and is_bare(lines[number]) and number not in marks:
+            separators.append(number)
+            number += 1
+        trailing = []
+        while number < len(lines) and is_comment(lines[number]) and number not in marks \
+                and number not in layout["owner"]:
+            trailing.append(number)
+            number += 1
+        marks.update(separators)
+        if trailing:
+            notes[members[0]["key"]]["trailing"].append(trailing)
 
     for reference in layout["references"]:
         if reference["role"] in ("target", "default") and reference["name"] in slot_names:
@@ -2584,6 +2609,8 @@ def review_items(layout, accepted, notes, slot_names, position):
     item is {"line", "last", "first", "why", "subject"}, "why" being one of:
 
     left     prose above a deleted active entry, left where it was
+    trailing prose left directly after a run of commented-out entries deleted whole, whose reason
+             went with it: it may carry on from that reason
     kept     the reason over a run of commented-out entries some of which are gone, kept over the
              ones that stay: it may count them, or name one that is gone
     banner   a section heading, now over no entry at all
@@ -2616,6 +2643,8 @@ def review_items(layout, accepted, notes, slot_names, position):
     for key in sorted(accepted):
         for group in notes[key]["left"]:
             point(key, group, "left")
+        for group in notes[key]["trailing"]:
+            point(key, group, "trailing")
 
     for run in layout["runs"]:
         members = [layout["commented"][index] for index in run]
@@ -3441,6 +3470,9 @@ def render_pr_body(result, link=None):
             deleted = safe_text(litellm_id(report["name"], finding["id"])[0], 120)
             text = {
                 "left": "restées au-dessus de l'entrée supprimée `%s`" % deleted,
+                "trailing": "restées juste après un groupe d'entrées commentées entièrement "
+                            "supprimé (`%s` en faisait partie), dont la raison est partie avec "
+                            "lui : elles peuvent la prolonger" % deleted,
                 "kept": "la raison d'un groupe d'entrées commentées dont `%s` a été retirée, "
                         "gardée au-dessus de celles qui restent : elle peut les compter, ou "
                         "nommer une entrée qui n'est plus là" % deleted,
@@ -4358,6 +4390,41 @@ PAID_A, PAID_B, PAID_C = (commented_entry("paid-%s" % letter, "openrouter/vendor
 PAID_A_ONLY = "  # paid-a is not routed to: paid only.\n"
 
 
+SAMBANOVA_RULE = "  # ============================================================================\n"
+SAMBANOVA_RULED_BANNER = (
+    SAMBANOVA_RULE + "  # SambaNova -- not routed to: a payment method comes first.\n  #\n"
+    "  # The ids below are still served, checked 2026-09-27.\n" + SAMBANOVA_RULE)
+CARRIES_ON = ("  # Served, but not routed to, for the reason of the run above, read again on "
+              "2026-11-02:\n  # the endpoint lists it, priced per token.\n")
+
+
+def sambanova_entry(letter):
+    return commented_entry("sn-%s" % letter, "openai/SN-%s" % letter.upper(), "SAMBANOVA", base=True)
+
+
+# The cerebras run at the end of the file, "after" being whatever its last entry is followed by.
+def cerebras_run_at_the_end(after):
+    return ((APPLY_TEMPLATE[APPLY_TEMPLATE.index("\n  - model_name: later-groq"):], ""),
+            (commented_entry("cb-b", "cerebras/cb-b", "CEREBRAS"),
+             commented_entry("cb-b", "cerebras/cb-b", "CEREBRAS") + after))
+
+
+def sambanova_four(between="  #\n"):
+    """APPLY_TEMPLATE's SambaNova run as the real list has it: a banner that is the reason, three
+    entries, "between", prose that carries on from the reason, and a fourth entry."""
+    return ((SAMBANOVA_BANNER, SAMBANOVA_RULED_BANNER),
+            (sambanova_entry("b"),
+             sambanova_entry("b") + "  #\n" + sambanova_entry("c") + between + CARRIES_ON
+             + sambanova_entry("d")))
+
+
+# A bare # and a drift-ignore line between the paid run and the one after it, which has a reason of
+# its own: that run's deletion takes the bare line and the reason and keeps the declaration, which
+# is nothing of the first one's.
+DRIFT_BETWEEN_RUNS = (("  #\n  # - model_name: paid-b", "  #\n" + DRIFT_IGNORE_LINE + PAID_REASON
+                       + "  # - model_name: paid-b"),)
+
+
 def statement_over_run(close_after=ENDIF):
     """The paid run, wrapped in a statement written between its reason and its first entry."""
     return ((PAID_REASON, PAID_REASON + IF_GROQ), (PAID_C, PAID_C + close_after))
@@ -4477,6 +4544,44 @@ APPLY_CASES = (
      [(SAMBANOVA_BANNER
        + commented_entry("sn-a", "openai/SN-A", "SAMBANOVA", base=True) + "  #\n"
        + commented_entry("sn-b", "openai/SN-B", "SAMBANOVA", base=True) + "\n", "")],
+     {}),
+    ("prose that carries on from the reason of a run deleted whole stays, and the bare # between "
+     "them goes",
+     sambanova_four(), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"],
+     [(SAMBANOVA_RULED_BANNER + sambanova_entry("a") + "  #\n" + sambanova_entry("b") + "  #\n"
+       + sambanova_entry("c") + "  #\n", "")],
+     {}),
+    ("the same run and the prose after it deleted together leave nothing of either",
+     sambanova_four(), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"] + [("sambanova", "SN-D", "gone")],
+     [(SAMBANOVA_RULED_BANNER + sambanova_entry("a") + "  #\n" + sambanova_entry("b") + "  #\n"
+       + sambanova_entry("c") + "  #\n" + CARRIES_ON + sambanova_entry("d") + "\n", "")],
+     {}),
+    ("a reason of its own that a blank line separates from the run is not touched",
+     sambanova_four("\n"), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"],
+     [(SAMBANOVA_RULED_BANNER + sambanova_entry("a") + "  #\n" + sambanova_entry("b") + "  #\n"
+       + sambanova_entry("c") + "\n", "")],
+     {}),
+    ("prose directly after a run deleted whole stays when no entry follows it either",
+     ((sambanova_entry("b"), sambanova_entry("b") + "  #\n  # Prose after the run.\n"),),
+     [("sambanova", "SN-A", "gone"), ("sambanova", "SN-B", "gone")],
+     [(SAMBANOVA_BANNER + sambanova_entry("a") + "  #\n" + sambanova_entry("b") + "  #\n", "")],
+     {}),
+    ("a run deleted whole that ends the file leaves nothing after it to read",
+     cerebras_run_at_the_end(""),
+     [("cerebras", "cb-a", "gone"), ("cerebras", "cb-b", "gone")],
+     [(CEREBRAS_PROSE, ""),
+      (commented_entry("cb-a", "cerebras/cb-a", "CEREBRAS") + "  #\n"
+       + commented_entry("cb-b", "cerebras/cb-b", "CEREBRAS"), "")],
+     {}),
+    ("a drift-ignore line that the next run's own deletion leaves behind is not touched",
+     DRIFT_BETWEEN_RUNS, [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     [(PAID_REASON + PAID_A + "  #\n", ""), (PAID_REASON + PAID_B + "  #\n" + PAID_C, "")],
+     {}),
+    ("a bare # left alone after a run deleted whole goes with it",
+     ((sambanova_entry("b"), sambanova_entry("b") + "  #\n"),),
+     [("sambanova", "SN-A", "gone"), ("sambanova", "SN-B", "gone")],
+     [(SAMBANOVA_BANNER + sambanova_entry("a") + "  #\n" + sambanova_entry("b") + "  #\n"
+       + "\n", "")],
      {}),
     ("a banner that is only a heading stays, and so does a drift-ignore line",
      (), [("cerebras", "cb-a", "gone"), ("cerebras", "cb-b", "gone")],
@@ -5628,6 +5733,28 @@ REVIEW_CASES = (
        + groq_entry("beta-groq", "beta") + "{% endif %}\n"),),
      [("groq", "vendor/beta", "retired")],
      [("left", "Prose about beta, written above its condition", 1, None)]),
+    ("prose that carries on from the reason of a run deleted whole is pointed at, by its words or "
+     "not",
+     sambanova_four(), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"],
+     [("trailing", "Served, but not routed to, for the reason of the run above", 2, None)]),
+    ("the same run and the prose after it deleted together point nowhere",
+     sambanova_four(), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"] + [("sambanova", "SN-D", "gone")], []),
+    ("a reason of its own that a blank line separates from the run points nowhere",
+     sambanova_four("\n"), [("sambanova", "SN-%s" % letter.upper(), "gone") for letter in "abc"], []),
+    ("prose directly after a run deleted whole is pointed at when no entry follows it either",
+     ((sambanova_entry("b"), sambanova_entry("b") + "  #\n  # Prose after the run.\n"),),
+     [("sambanova", "SN-A", "gone"), ("sambanova", "SN-B", "gone")],
+     [("trailing", "Prose after the run.", 1, None)]),
+    ("a bare # left alone after a run deleted whole points nowhere",
+     ((sambanova_entry("b"), sambanova_entry("b") + "  #\n"),),
+     [("sambanova", "SN-A", "gone"), ("sambanova", "SN-B", "gone")], []),
+    ("a drift-ignore line that the next run's own deletion leaves behind points nowhere",
+     DRIFT_BETWEEN_RUNS, [("openrouter", "vendor/paid-%s" % letter, "gone") for letter in "abc"],
+     []),
+    ("prose that is the last line of the file is pointed at too",
+     cerebras_run_at_the_end("  #\n  # Prose after the run.\n"),
+     [("cerebras", "cb-a", "gone"), ("cerebras", "cb-b", "gone")],
+     [("banner", "Cerebras and Groq", 4, None), ("trailing", "Prose after the run.", 1, None)]),
     ("a deletion no comment is about points nowhere",
      (), [("groq", "vendor/solo", "retired")], []),
     ("the prose about the one model, above the statement that wraps its commented-out entry, goes "
@@ -6082,6 +6209,19 @@ def online_apply_cases():
             return "the prose left above a deleted entry is not listed under \"À relire\""
         return None
 
+    def orphan_listed(result, new_text, report, issue, pr, commit):
+        # The prose that carried on from the reason of the deleted run names no model, and says
+        # "not routed" itself, so the verification has nothing to say: only the section does.
+        if "model_name: sn-one" in new_text or "SambaNova -- not routed" in new_text:
+            return "the retired entry, or the reason that was its own, is still in the file"
+        if "for the reason of the run above" not in new_text:
+            return "the prose a person has to decide on was deleted"
+        if pr is None or not re.search(r"^## À relire\s*$", pr, re.MULTILINE):
+            return "the prose left after the deleted run is not listed under \"À relire\""
+        if "for the reason of the run above" not in pr.split(REVIEW_HEADING)[1]:
+            return "the section does not name the prose"
+        return None
+
     def keeps_free_one(result, new_text, report, issue, pr, commit):
         if new_text != SELFTEST_TEMPLATE:
             return "the file changed although the only retired model is behind an alias"
@@ -6369,6 +6509,13 @@ def online_apply_cases():
              "  - model_name: fast\n", 1),
          changed(groq=groq_without_fast),
          something_to_read, 1),
+        ("a run deleted whole that prose carries on from lists that prose under \"À relire\"",
+         SELFTEST_TEMPLATE.replace(
+             '  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n',
+             '  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n  #\n' + CARRIES_ON
+             + sambanova_entry("two"), 1),
+         changed(sambanova={"data": [{"id": "SN-TWO"}]}),
+         orphan_listed, 1),
         ("a retired model an alias points at is left alone, and the issue says why in French",
          SELFTEST_TEMPLATE, changed(openrouter=lacking("openrouter", "vendor/one:free")),
          keeps_free_one, 1),
