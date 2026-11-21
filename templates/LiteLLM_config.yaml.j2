@@ -455,10 +455,38 @@ model_list:
   # exists to shorten reasoning, the one thing the estimate does not cover; not in "code" or
   # "claude-code", which rank by coding leaderboards and have only Particle's own Terminal-Bench and
   # DeepSWE figures to go on. Neither its page nor OpenRouter's says how long the free access lasts or
-  # whether prompts are retained.
+  # whether prompts are retained. Tried by hand on 2026-11-21, nine requests: all but one answered (the
+  # other was refused with a 429 by the shared upstream), the first answer token came in about 0.5 s, and
+  # the tool call was well formed. The probes were easy and rank nothing.
   - model_name: particle-1-free
     litellm_params:
       model: openrouter/particle-ai/particle-1:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
+  # 1,024,000-token context, "tools" and "tool_choice" among its supported parameters and no
+  # "expiration_date". Neither Artificial Analysis nor Epoch AI lists it, so it has no figure to be
+  # placed by: it sits right behind "particle-1-free" in "flash" and nowhere else. It is a preview
+  # checkpoint, free "for as long as the preview lasts" with no end date (Baidu's own "Introducing
+  # ERNIE 5.5 Flash Preview"), served by Baidu's platform. Tried by hand the same day, nine requests:
+  # all but one answered (the other was refused with a 429 by the shared upstream), the first answer
+  # token came in about 1.5 s, and the tool call was well formed. The probes were easy and rank nothing.
+  - model_name: ernie-5-5-flash-free
+    litellm_params:
+      model: openrouter/baidu/ernie-5.5-flash-preview:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
+  # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
+  # 262,144-token context and "tools" among its supported parameters; its listing says prompts and
+  # outputs may be retained and used to train Liquid models. Artificial Analysis measures it at 6.0 on
+  # its intelligence index, with 230 tokens/s but 13.8 s to the first answer token for a model that
+  # always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read that day), and Liquid's own model card
+  # says it is not for agentic coding or complex multi-step reasoning. It is therefore in "flash-lite"
+  # only, as its last member: a hair under the Gemini 3.1 Flash-Lite that heads that cascade (6.2), and
+  # the slowest to answer in it.
+  - model_name: lfm-3-1-7b-free
+    litellm_params:
+      model: openrouter/liquid/lfm-3-1.7b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
@@ -467,10 +495,8 @@ model_list:
   # drift-ignore: openrouter/recursive/flint-v1.0:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
   # drift-ignore: openrouter/xingchen-agi/xing4.0-29b-a4b:free -- no entry of the Artificial Analysis ranking matched it on 2026-11-02 (drift report, #305), so there are no figures to place it by in any cascade
 
-  # Looked at by hand on 2026-11-21 and set aside. Remove a line to have its id reported again.
-  # drift-ignore: openrouter/liquid/lfm-3-1.7b:free -- measured at 6.0 on Artificial Analysis's index, with 230 tokens/s and 14.6 s to the first answer token for a model that always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read 2026-11-21): under the 23.1 of the last ranked "pro" member, 8,192 completion tokens at most, and Liquid's own card (Hugging Face's LiquidAI/LFM3-1.7B model card, same day) says it is not for agentic coding or complex multi-step reasoning, so no slot in "pro", "flash" or "claude-code"; "flash-lite" wants sub-300 ms and this one thinks for seconds before answering; its listing also says prompts and outputs may be retained and used to train Liquid models ("openrouter.ai/liquid/lfm-3-1.7b:free", same day)
-  # drift-ignore: openrouter/baidu/ernie-5.5-flash-preview:free -- nothing measured outside Baidu on 2026-11-21: Artificial Analysis does not list it, every figure of the launch table is Baidu-run (GPTunneL's "ERNIE 5.5 Flash Preview vs DeepSeek and GLM", OrcaRouter's "ERNIE 5.5 Flash Preview: launch post and 20 benchmarks"), and the one independent figure in circulation, about 13.6% on Terminal-Bench 4.0 against Baidu's 46.5 (AlphaSignal's "Baidu's ERNIE 5.5 Flash Packs 280B Parameters Into a 14B Compute Path"), is a secondary report with no date or link that could not be checked, so no estimate through DeepSeek V4.1 Flash, the model Baidu compares it to, is safe; it is also an intermediate post-training checkpoint (Baidu's own "Introducing ERNIE 5.5 Flash Preview"), free only "for as long as the preview lasts" with no end date (Pasquale Pillitteri's "Baidu releases ERNIE 5.5 Flash Preview, free on OpenRouter"), served by Baidu's own platform; look again once a third party measures it or the final release ships
-  # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- no text figure from anyone on 2026-11-21: Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and the only text test found, 8 prompts on 2026-11-13 (LLMTest's "Ling 3.2 Flash review: free with 1M context, but very slow"), had it level with Ling 3.1 Flash (1 win, 2 losses, 5 ties) but answering in 121 to 151 seconds, over the 120 seconds of "request_timeout" and "stream_timeout" below; Ling 3.1 Flash is 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash") but 3.2 is a different, natively multimodal model, so that is no estimate; inclusionAI's own free period ran two weeks from 2026-11-05 (same OrcaRouter page) and OpenRouter shows no end date for its free copy
+  # Tried by hand on 2026-11-21 and set aside. Remove the line to have its id reported again.
+  # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- unreliable in practice and unmeasured: of 31 requests made on 2026-11-21, 4 were answered and 27 were refused with a 429 by the shared upstream pool, so it would cost a refusal before most replies; the 4 answers took 22 s on a five-instruction prompt and 14 s on a long-context search; Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and Ling 3.1 Flash, 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash"), is a different model; look again when its free pool is less loaded
 
 {% endif %}
   # ============================================================================
@@ -607,6 +633,7 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-31b-free
         - particle-1-free
+        - ernie-5-5-flash-free
         - nemotron-super-vl-free
         - openrouter-auto-free
 {% endif %}
@@ -647,6 +674,7 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
+        - lfm-3-1-7b-free
 {% endif %}
 {% for alias in aliases_of['flash-lite'] %}
     - {{ alias }}: *flash_lite_cascade
