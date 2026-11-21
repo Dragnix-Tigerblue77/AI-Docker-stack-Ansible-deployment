@@ -13,7 +13,7 @@ name: LiteLLM model drift
 # original minus the deletion. What it cannot delete without choosing stays in the issue with its
 # reason, and so does an announced retirement or a model free again. An addition is a choice, so its
 # pull requests only make it cheap: the entry is written, its place in each router suggested, and,
-# where the provider's API does not say what is free, what to check is listed (below). What each
+# where the run lacks a fact a person needs to decide, which one and how to get it is listed (below). What each
 # finding means is in the docstring of that script, which this workflow only runs. The README says
 # what the repository needs for it, the setting "Allow GitHub Actions to create and approve pull
 # requests" included: while it is off, and no GitHub App writes the pull requests (below), the step
@@ -81,8 +81,9 @@ name: LiteLLM model drift
 # One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
 # Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).
 # With it the pull requests of additions carry the intelligence, coding and speed figures of each NEW
-# model and a place suggested per router; without it the report says "not covered" like for any key,
-# no model is placed, and a failed read changes neither the status of the run nor what it deletes. Like the others it is held by the
+# model and a place suggested per router, and a model it matches by its exact id can be ready;
+# without it the report says "not covered" like for any key, no model is ready, and a failed read
+# changes neither the status of the run nor what it deletes. Like the others it is held by the
 # "read" job alone: "publish" never has it. Their terms ask for the source to be cited, which the
 # issue does, with the day the figures were read.
 #
@@ -148,19 +149,22 @@ name: LiteLLM model drift
 # The pull requests of additions, each on a fixed branch of its own (ADDITIONS_BRANCH and
 # ADDITIONS_TO_VERIFY_BRANCH, below), are kept the same way: main plus one commit of the Actions bot,
 # rebuilt at every run, written with the App's token when there is one, assigned to tigerblue77,
-# their checks dispatched where no App writes them. The first holds OpenRouter's ":free" models at a
-# price of 0, whose free tier the API states, and is ready for review; the second holds every other
-# provider's, whose free tier only a pricing page states, and is opened as a draft, with what to check
-# for each model -- on a private repository of GitHub's free plan, which has no drafts, it is opened
-# ready for review and its body alone says to wait. The gate merges neither: it knows the branch of
+# their checks dispatched where no App writes them. They are split by how much the run knows of a
+# model, never by its provider. The first, ready for review, holds the models of which it knows every
+# fact an addition needs: a free tier its provider's API states (today OpenRouter's ":free" at a price
+# of 0) and a figure of the ranking matched by the exact id. The second, opened as a draft, holds any
+# model one of those facts is missing for, whatever its provider, with which one and how to get it --
+# on a private repository of GitHub's free plan, which has no drafts, it is opened ready for review
+# and its body alone says to wait. Neither puts a model in a cascade: the places are suggestions in
+# the body, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
 # the deletions alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
 # commit on either means somebody is deciding, so the open pull request is left as it is, with no
 # failure; a person's commit on a branch whose pull request is no longer open fails the run until the
 # branch is deleted. A box ticked in a body stays ticked while its line does not change, and a
 # branch that differs from the new build only by the days its comments were proposed on is kept, so
 # that a week with nothing new pushes nothing and starts no check. Each closes,
-# with a comment, when nothing is left to propose -- unless a catalogue it draws on was not read, or
-# the report was not trusted.
+# with a comment, when nothing is left to propose -- unless a source it draws on (a catalogue, and the
+# ranking for the ready one) could not be read, or the report was not trusted.
 #
 # Both jobs take their runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
 # says what it may name). The keys and the write token may reach a self-hosted runner that way,
@@ -561,10 +565,11 @@ jobs:
             // the key and the base of its provider's last entry (its last active one, else its last
             // commented-out one, which it then follows commented out), so that no key name and no
             // address can come from elsewhere, and is written after that entry, under a comment of a
-            // fixed text. Returns { text } or { problem }. "check_drift_publish_guard.py" plays these
-            // functions, and holds them to the script's own build_additions; keep the markers.
+            // fixed text, in no cascade. A provider with "free" states its free tier in that catalogue,
+            // and only its models can be ready. Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
+            // them to the script's own build_additions; keep the markers.
             const ADDITION_PROVIDERS = {
-              openrouter: { prefix: 'openrouter/', label: 'OpenRouter' },
+              openrouter: { prefix: 'openrouter/', label: 'OpenRouter', free: 'openrouter.ai/api/v1/models' },
               cerebras: { prefix: 'cerebras/', label: 'Cerebras' },
               sambanova: { prefix: 'openai/', label: 'SambaNova' },
               gemini: { prefix: 'gemini/', label: 'Gemini' },
@@ -572,7 +577,7 @@ jobs:
               mistral: { prefix: 'mistral/', label: 'Mistral' },
               deepseek: { prefix: 'deepseek/', label: 'DeepSeek' },
             };
-            const ADDITION_KINDS = ['verified', 'to_verify'];
+            const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
             const ADDITION_ID = /^(?!.*(?:::|\/\/))[A-Za-z0-9][A-Za-z0-9._:\/+~-]{0,198}[A-Za-z0-9]$/;
             const ADDITION_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -618,7 +623,7 @@ jobs:
             const additionsTemplate = (baseText, date, kind, items) => {
               if (typeof baseText !== 'string' || baseText.includes('\r')) return { problem: 'the base template is not a text with plain line feeds' };
               if (typeof date !== 'string' || !ADDITION_DATE.test(date)) return { problem: 'the date is no date' };
-              if (!ADDITION_KINDS.includes(kind)) return { problem: 'the kind is neither verified nor to_verify' };
+              if (!ADDITION_KINDS.includes(kind)) return { problem: 'the kind is neither ready nor to_verify' };
               if (!Array.isArray(items) || items.length === 0 || items.length > ADDITION_LIMIT) return { problem: `there are no items, or more than ${ADDITION_LIMIT}` };
               const lines = baseText.split('\n');
               const entries = additionEntries(lines);
@@ -632,13 +637,13 @@ jobs:
                 if (item === null || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).sort().join(',') !== 'id,name,provider') return { problem: 'an item is not {provider, id, name}' };
                 const { provider, id, name } = item;
                 if (typeof provider !== 'string' || !Object.hasOwn(ADDITION_PROVIDERS, provider)) return { problem: 'an item names no provider this reads' };
-                if ((kind === 'verified') !== (provider === 'openrouter')) return { problem: 'the verified additions are OpenRouter\'s, and only they' };
+                const spec = ADDITION_PROVIDERS[provider];
+                if (kind === 'ready' && spec.free === undefined) return { problem: 'a ready addition is of a provider whose API states its free tier, and only' };
                 if (typeof id !== 'string' || !ADDITION_ID.test(id)) return { problem: 'an id is not spelt like one' };
-                if (kind === 'verified' && !id.endsWith(':free')) return { problem: 'a verified id does not end in ":free"' };
+                if (spec.free !== undefined && !id.endsWith(':free')) return { problem: 'an id of a provider whose API states its free tier does not end in ":free"' };
                 if (typeof name !== 'string' || name.length > 80 || !ADDITION_NAME.test(name)) return { problem: 'a name is not spelt like the file\'s' };
                 if (words.has(name) || names.has(name)) return { problem: `the name ${name} is already a word of the template or another item's` };
                 names.add(name);
-                const spec = ADDITION_PROVIDERS[provider];
                 if (known.has(spec.prefix + id)) return { problem: `${provider}/${id} is already an entry` };
                 if (ignored.has(`${provider}/${id}`)) return { problem: `${provider}/${id} is set aside by a drift-ignore line` };
                 const own = entries.filter((entry) => providerOf(entry.fields.model, entry.fields.api_base) === provider);
@@ -648,12 +653,12 @@ jobs:
                 const apiBase = anchor.fields.api_base;
                 if (typeof key !== 'string' || !ADDITION_KEY.test(key)) return { problem: `the key of the entry ${anchor.name} is not read from the environment` };
                 if (apiBase !== undefined && !ADDITION_BASE.test(apiBase)) return { problem: `the api_base of the entry ${anchor.name} is not a plain https address` };
+                if (kind === 'ready' && anchor.commented) return { problem: 'a ready addition follows an active entry' };
                 const lead = anchor.commented ? '  # ' : '  ';
-                const note = kind === 'verified'
-                  ? `Proposed by the weekly drift run on ${date}: listed free by "openrouter.ai/api/v1/models" that day.`
-                  : anchor.commented
-                    ? `Not routed to: proposed by the weekly drift run on ${date}, its free tier on ${spec.label} not verified yet.`
-                    : `Proposed by the weekly drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
+                let note;
+                if (anchor.commented) note = `Not routed to: proposed by the weekly drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
+                else if (spec.free !== undefined) note = `Proposed by the weekly drift run on ${date}: listed free by "${spec.free}" that day.`;
+                else note = `Proposed by the weekly drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
                 const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
@@ -941,11 +946,11 @@ jobs:
             // The two pull requests that propose additions, which nothing but a person merges: the
             // gate knows the branch of the deletions alone, and the one to verify is a draft.
             const ADDITION_TITLES = {
-              verified: "Ajouter à la liste LiteLLM les nouveaux modèles gratuits d'OpenRouter",
-              to_verify: 'Vérifier, puis ajouter à la liste LiteLLM, les nouveaux modèles des autres fournisseurs',
+              ready: 'Ajouter à la liste LiteLLM les nouveaux modèles prêts, dont le run connaît tout',
+              to_verify: "Vérifier, puis ajouter à la liste LiteLLM, les nouveaux modèles auxquels il manque une information",
             };
             const additions = async (kind) => {
-              const spec = kind === 'verified'
+              const spec = kind === 'ready'
                 ? { branch: process.env.ADDITIONS_BRANCH, draft: false }
                 : { branch: process.env.ADDITIONS_TO_VERIFY_BRANCH, draft: true };
               const folder = process.env.PROPOSALS;
@@ -1048,7 +1053,7 @@ jobs:
 
             for (const [what, handle] of [
               ['the deletion pull request', removals],
-              ['the pull request of verified additions', () => additions('verified')],
+              ['the pull request of ready additions', () => additions('ready')],
               ['the pull request of additions to verify', () => additions('to_verify')],
             ]) {
               try {

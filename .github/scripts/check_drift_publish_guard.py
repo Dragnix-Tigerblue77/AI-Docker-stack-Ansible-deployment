@@ -467,7 +467,7 @@ def item(provider, identifier, name):
     return {"provider": provider, "id": identifier, "name": name}
 
 
-VERIFIED = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
+READY_ITEMS = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
             item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free")]
 TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
              item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
@@ -483,10 +483,10 @@ def builder_scenarios(real, drift):
     date = "2026-11-23"
     miniature = drift.ADDITIONS_TEMPLATE
 
-    def add(name, items, expected=None, base=real, kind="verified", day=date):
+    def add(name, items, expected=None, base=real, kind="ready", day=date):
         out.append((name, base, day, kind, items, expected))
 
-    add("real template: OpenRouter's free models", VERIFIED)
+    add("real template: models of which everything is known", READY_ITEMS)
     add("real template: one model of every other provider", TO_VERIFY, kind="to_verify")
     add("miniature: a provider with commented-out entries only is followed commented out, after its run",
         [item("cerebras", "cb-three", "cb-three-cerebras")], base=miniature, kind="to_verify")
@@ -525,12 +525,14 @@ def builder_scenarios(real, drift):
     add("an item that is a list is refused", [["openrouter", "vendor/a:free", "a-free"]], "an item is not")
     add("an item that is nothing is refused", [None], "an item is not")
     add("an id that is no text is refused", [{"provider": "openrouter", "id": 7, "name": "a-free"}], "an id is not")
-    add("a verified model of another provider is refused", [item("gemini", "gemini-9", "gemini-9")],
-        "OpenRouter's, and only they")
-    add("an OpenRouter model to verify is refused", [item("openrouter", "vendor/a:free", "a-free")],
-        "OpenRouter's, and only they", kind="to_verify")
-    add('a verified id without ":free" is refused', [item("openrouter", "vendor/a", "a-free")],
+    add("a ready model of a provider whose API does not state its free tier is refused",
+        [item("gemini", "gemini-9", "gemini-9")], "free tier, and only")
+    add("an OpenRouter model to verify, a fact of it missing, is built alike",
+        [item("openrouter", "vendor/a:free", "a-free"), item("gemini", "gemini-9", "gemini-9")], kind="to_verify")
+    add('an OpenRouter id without ":free" is refused when ready', [item("openrouter", "vendor/a", "a-free")],
         'does not end in ":free"')
+    add('an OpenRouter id without ":free" is refused when to verify too', [item("openrouter", "vendor/a", "a-free")],
+        'does not end in ":free"', kind="to_verify")
     add("an id already an entry is refused", [item("openrouter", "google/gemma-4-31b-it:free", "fresh-free")],
         "is already an entry")
     add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
@@ -545,14 +547,22 @@ def builder_scenarios(real, drift):
     add("an entry whose base is not https is not modelled on",
         [item("deepseek", "fresh", "fresh-direct")], "is not a plain https address",
         base=miniature, kind="to_verify")
-    add("a date that is no date is refused", VERIFIED, "the date is no date", day="2026-11-23\n")
-    add("an unknown kind is refused", VERIFIED, "neither verified nor to_verify", kind="both")
+    commented_only = miniature.replace(
+        "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
+        "  # Not routed to: a guardrail.\n  # - model_name: free-one\n  #   litellm_params:\n"
+        '  #     model: openrouter/vendor/one:free\n  #     api_key: "os.environ/OPENROUTER_API_KEY"\n')
+    assert commented_only != miniature
+    add("a ready model of a provider with commented-out entries only is refused",
+        [item("openrouter", "vendor/b:free", "b-free")], "follows an active entry", base=commented_only)
+    add("a date that is no date is refused", READY_ITEMS, "the date is no date", day="2026-11-23\n")
+    add("an unknown kind is refused", READY_ITEMS, "neither ready nor to_verify", kind="both")
     add("no item at all is refused", [], "there are no items")
     add("more items than a pull request carries are refused",
         [item("openrouter", "vendor/m%d:free" % number, "m%d-free" % number) for number in range(26)],
         "more than 25")
-    add("a base with carriage returns is refused", VERIFIED, "plain line feeds", base=real.replace("\n", "\r\n"))
-    add("a base without a model list is refused", VERIFIED, 'no "model_list:" line',
+    add("a base with carriage returns is refused", READY_ITEMS, "plain line feeds", base=real.replace("\n", "\r\n"))
+    add("a base without a model list is refused", READY_ITEMS, 'no "model_list:" line',
         base=real.replace("model_list:", "models:"))
     return out
 
@@ -591,24 +601,24 @@ def step_scenarios(real, drift, folder):
     went wrong, or None. Each scenario's files are written under "folder"."""
     document, step = step_document()
     job_env = document["jobs"]["publish"]["env"]
-    branches = {"verified": job_env["ADDITIONS_BRANCH"], "to_verify": job_env["ADDITIONS_TO_VERIFY_BRANCH"]}
+    branches = {"ready": job_env["ADDITIONS_BRANCH"], "to_verify": job_env["ADDITIONS_TO_VERIFY_BRANCH"]}
     date = "2026-11-23"
-    built = {"verified": drift.build_additions(real, date, "verified", VERIFIED)[0],
+    built = {"ready": drift.build_additions(real, date, "ready", READY_ITEMS)[0],
              "to_verify": drift.build_additions(real, date, "to_verify", TO_VERIFY)[0]}
-    body = {"verified": "Ajouts vérifiés.\n\n- [ ] une case\n",
+    body = {"ready": "Ajouts prêts.\n\n- [ ] une case\n",
             "to_verify": "À vérifier.\n\n- [ ] **Gratuité.** une case\n- [ ] **Catalogue.** une autre\n"}
     out = []
     count = [0]
-    empty_parts = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
+    empty_parts = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
 
     def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None, **extra):
         count[0] += 1
         where = pathlib.Path(folder) / ("s%d" % count[0])
         where.mkdir()
-        parts = {"verified": {"complete": True, "items": VERIFIED},
+        parts = {"ready": {"complete": True, "items": READY_ITEMS},
                  "to_verify": {"complete": True, "items": TO_VERIFY}} if parts is None else parts
         (where / "proposals.json").write_text(json.dumps(dict({"date": date}, **parts)), encoding="utf-8")
-        for kind in ("verified", "to_verify"):
+        for kind in ("ready", "to_verify"):
             if parts.get(kind, {}).get("items"):
                 (where / ("%s_template.j2" % kind)).write_text(built[kind], encoding="utf-8")
                 (where / ("%s_body.md" % kind)).write_text(body[kind], encoding="utf-8")
@@ -649,19 +659,19 @@ def step_scenarios(real, drift, folder):
                          "commits": [{"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]}]}}
 
     def pull(number, branch, text, draft=False):
-        kind = {branches["verified"]: "verified", branches["to_verify"]: "to_verify"}.get(branch)
+        kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify"}.get(branch)
         return {"number": number, "title": titles.get(kind, "x"), "body": text, "draft": draft, "state": "open",
                 "head": {"ref": branch}}
 
     script = step["with"]["script"]
-    titles = {"verified": re.search(r'verified: "([^"]+)"', script).group(1),
-              "to_verify": re.search(r"to_verify: '([^']+)'", script).group(1)}
+    titles = {"ready": re.search(r"ready: '([^']+)'", script).group(1),
+              "to_verify": re.search(r'to_verify: "([^"]+)"', script).group(1)}
 
     scenario("nothing open yet: both are opened, the one to verify as a draft, and their checks dispatched",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
-                 (len(created(r, branches["verified"])) == 1 and created(r, branches["verified"])[0]["draft"] is False,
-                  "the verified pull request was not opened ready for review"),
+                 (len(created(r, branches["ready"])) == 1 and created(r, branches["ready"])[0]["draft"] is False,
+                  "the ready pull request was not opened ready for review"),
                  (len(created(r, branches["to_verify"])) == 1 and created(r, branches["to_verify"])[0]["draft"] is True,
                   "the pull request to verify was not opened as a draft"),
                  (sorted(blob_texts(r)) == sorted(built.values()), "it pushed another text than the one built"),
@@ -682,16 +692,16 @@ def step_scenarios(real, drift, folder):
                   "it did not try a draft, then a pull request ready for review"),
                  (any("refused a draft" in warning for warning in r["warnings"]), "it did not say so")),
              noDrafts=True)
-    refs = dict(ours(branches["verified"], built["verified"]), **ours(branches["to_verify"], built["to_verify"]))
+    refs = dict(ours(branches["ready"], built["ready"]), **ours(branches["to_verify"], built["to_verify"]))
     scenario("a week with the same proposals rewrites nothing, and keeps the draft and the ticked boxes",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
-                 (not calls(r, "git.createCommit") and not pushed(r, branches["verified"]), "a commit was pushed"),
+                 (not calls(r, "git.createCommit") and not pushed(r, branches["ready"]), "a commit was pushed"),
                  (not calls(r, "pulls.update"), "a pull request was updated"),
                  (not calls(r, "pulls.create"), "a pull request was opened")),
-             refs=refs, pulls=[pull(7, branches["verified"], body["verified"]),
+             refs=refs, pulls=[pull(7, branches["ready"], body["ready"]),
                                pull(8, branches["to_verify"], body["to_verify"].replace("- [ ] **Gratuité.**", "- [x] **Gratuité.**"), draft=True)])
-    stale = dict(ours(branches["verified"], "an older file"), **ours(branches["to_verify"], "an older file"))
+    stale = dict(ours(branches["ready"], "an older file"), **ours(branches["to_verify"], "an older file"))
     scenario("a week with other proposals moves both branches and rewrites both bodies, keeping a ticked box",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
@@ -702,10 +712,10 @@ def step_scenarios(real, drift, folder):
                       and "- [ ] **Catalogue.** une autre" in args.get("body", "") for args in calls(r, "pulls.update")),
                   "the ticked box was lost, or a box nobody ticked was ticked"),
                  (all("draft" not in args for args in calls(r, "pulls.update")), "an update touched the draft")),
-             refs=stale, pulls=[pull(7, branches["verified"], "an older body"),
+             refs=stale, pulls=[pull(7, branches["ready"], "an older body"),
                                 pull(8, branches["to_verify"], "Avant.\n\n- [x] **Gratuité.** une case\n", draft=True)])
     earlier = {kind: drift.build_additions(real, "2026-11-16", kind, items)[0]
-               for kind, items in (("verified", VERIFIED), ("to_verify", TO_VERIFY))}
+               for kind, items in (("ready", READY_ITEMS), ("to_verify", TO_VERIFY))}
     scenario("a week later with the same proposals: the days the entries were proposed are kept, nothing is pushed",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
@@ -713,88 +723,88 @@ def step_scenarios(real, drift, folder):
                  (not calls(r, "actions.createWorkflowDispatch") or all(
                      args["ref"] in branches.values() for args in calls(r, "actions.createWorkflowDispatch")),
                   "a check was dispatched elsewhere")),
-             refs=dict(ours(branches["verified"], earlier["verified"]), **ours(branches["to_verify"], earlier["to_verify"])),
-             pulls=[pull(7, branches["verified"], body["verified"]), pull(8, branches["to_verify"], body["to_verify"], True)])
-    moved = earlier["verified"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
+             refs=dict(ours(branches["ready"], earlier["ready"]), **ours(branches["to_verify"], earlier["to_verify"])),
+             pulls=[pull(7, branches["ready"], body["ready"]), pull(8, branches["to_verify"], body["to_verify"], True)])
+    moved = earlier["ready"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
     scenario("a branch whose other lines differ is built again, with this week's days",
              lambda r: first(
-                 (blob_texts(r) == [built["verified"]], "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
-                 (len(pushed(r, branches["verified"])) == 1, "the branch was not moved")),
-             parts={"verified": {"complete": True, "items": VERIFIED}, "to_verify": {"complete": True, "items": []}},
-             refs=ours(branches["verified"], moved), pulls=[pull(7, branches["verified"], body["verified"])])
+                 (blob_texts(r) == [built["ready"]], "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
+                 (len(pushed(r, branches["ready"])) == 1, "the branch was not moved")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], moved), pulls=[pull(7, branches["ready"], body["ready"])])
     dated = real.replace("model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-23: x\n", 1)
     scenario("a day on a line the base holds is no day of a proposal: the branch is built again",
-             lambda r: first((len(pushed(r, branches["verified"])) == 1, "a base line was taken for a proposal's")),
-             parts={"verified": {"complete": True, "items": VERIFIED}, "to_verify": {"complete": True, "items": []}},
-             refs=ours(branches["verified"], built["verified"].replace(
+             lambda r: first((len(pushed(r, branches["ready"])) == 1, "a base line was taken for a proposal's")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], built["ready"].replace(
                  "model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-16: x\n", 1)),
-             pulls=[pull(7, branches["verified"], body["verified"])], baseText=dated,
-             files={"verified_template.j2": drift.build_additions(dated, date, "verified", VERIFIED)[0]})
-    empty = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
+             pulls=[pull(7, branches["ready"], body["ready"])], baseText=dated,
+             files={"ready_template.j2": drift.build_additions(dated, date, "ready", READY_ITEMS)[0]})
+    empty = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
     scenario("nothing left to propose, every catalogue read: both are closed, with a comment",
              lambda r: first(
                  (sorted(args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed") == [7, 8],
                   "they were not both closed"),
                  (len(calls(r, "issues.createComment")) == 2, "no comment says why"),
                  (not calls(r, "git.createCommit"), "something was pushed")),
-             parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)])
-    partial = {"verified": {"complete": True, "items": []}, "to_verify": {"complete": False, "items": []}}
+             parts=empty, refs=refs, pulls=[pull(7, branches["ready"], "b"), pull(8, branches["to_verify"], "b", True)])
+    partial = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": False, "items": []}}
     scenario("nothing left to propose but a catalogue not read: the one that draws on it stays open",
              lambda r: first(
                  ([args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed"] == [7],
                   "the wrong pull requests were closed: %r" % calls(r, "pulls.update"))),
-             parts=partial, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)])
+             parts=partial, refs=refs, pulls=[pull(7, branches["ready"], "b"), pull(8, branches["to_verify"], "b", True)])
     for env, why in (({"DRIFT_STATUS": "2"}, "a provider could not be read"),
                      ({"ISSUE_OUTCOME": "failure"}, "the report was not trusted")):
         scenario("nothing left to propose, but %s: both stay open" % why,
                  lambda r: first((not calls(r, "pulls.update") and not calls(r, "issues.createComment"),
                                   "a pull request was closed")),
-                 parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)],
+                 parts=empty, refs=refs, pulls=[pull(7, branches["ready"], "b"), pull(8, branches["to_verify"], "b", True)],
                  env=env)
     scenario("a status the step does not know: nothing is closed",
              lambda r: first((not calls(r, "pulls.update") and not calls(r, "issues.createComment"), "it closed one"),
                              (any("does not know" in failure for failure in r["failures"]), "it did not fail")),
-             parts=empty, refs=refs, pulls=[pull(7, branches["verified"], "b"), pull(8, branches["to_verify"], "b", True)],
+             parts=empty, refs=refs, pulls=[pull(7, branches["ready"], "b"), pull(8, branches["to_verify"], "b", True)],
              env={"DRIFT_STATUS": "9"})
     scenario("nothing to propose and nothing open: nothing is done",
              lambda r: first((not [c for c in r["calls"] if c["name"] != "pulls.list"], "something was done"),
                              (not r["failures"], "it failed")),
              parts=empty)
-    person = {branches["verified"]: {"sha": "head-v", "tree": "t", "commits": [
+    person = {branches["ready"]: {"sha": "head-v", "tree": "t", "commits": [
         {"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]},
         {"sha": "c2", "author": "Somebody", "parents": ["c1"]}]}}
     scenario("a person's commit on a branch whose pull request is open: left as it is, and no failure",
              lambda r: first(
-                 (not pushed(r, branches["verified"]), "the person's branch was overwritten"),
+                 (not pushed(r, branches["ready"]), "the person's branch was overwritten"),
                  (not [a for a in calls(r, "pulls.update") if a["pull_number"] == 7], "their pull request was touched"),
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
                  (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
-             refs=person, pulls=[pull(7, branches["verified"], "b")])
+             refs=person, pulls=[pull(7, branches["ready"], "b")])
     scenario("a person's commit on a branch with no pull request open: the step fails and pushes nothing there",
              lambda r: first(
-                 (not pushed(r, branches["verified"]), "the person's branch was overwritten"),
+                 (not pushed(r, branches["ready"]), "the person's branch was overwritten"),
                  (any("delete the branch" in failure for failure in r["failures"]), "it did not fail to say so"),
                  (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
              refs=person)
     scenario("a person's commit, nothing left to propose: the open pull request is not closed",
              lambda r: first((not calls(r, "issues.createComment"), "it was closed")),
-             parts=empty, refs=person, pulls=[pull(7, branches["verified"], "b")])
+             parts=empty, refs=person, pulls=[pull(7, branches["ready"], "b")])
     scenario("the script's template differs from the one built here: nothing is pushed",
              lambda r: first(
-                 (not pushed(r, branches["verified"]) and not created(r, branches["verified"]), "it was pushed"),
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
                  (any("is not the one the drift check built" in failure for failure in r["failures"]), "it did not fail")),
-             files={"verified_template.j2": built["verified"] + "\n  # one line more\n"})
-    hostile = {"verified": {"complete": True, "items": [item("openrouter", "vendor/x:free\n- evil", "x-free")]},
+             files={"ready_template.j2": built["ready"] + "\n  # one line more\n"})
+    hostile = {"ready": {"complete": True, "items": [item("openrouter", "vendor/x:free\n- evil", "x-free")]},
                "to_verify": {"complete": True, "items": TO_VERIFY}}
     scenario("an item spelt otherwise: nothing is pushed for its pull request, the other one is opened",
              lambda r: first(
-                 (not pushed(r, branches["verified"]), "it was pushed"),
+                 (not pushed(r, branches["ready"]), "it was pushed"),
                  (any("are refused" in failure for failure in r["failures"]), "it did not fail"),
                  (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
              parts=hostile)
-    for shape, parts in (("no part to verify", {"verified": {"complete": True, "items": VERIFIED}}),
+    for shape, parts in (("no part to verify", {"ready": {"complete": True, "items": READY_ITEMS}}),
                          ("a coverage that is no boolean",
-                          {"verified": {"complete": "yes", "items": VERIFIED},
+                          {"ready": {"complete": "yes", "items": READY_ITEMS},
                            "to_verify": {"complete": True, "items": TO_VERIFY}})):
         scenario("proposals of another shape (%s) are refused" % shape,
                  lambda r: first((any("The proposals are refused" in failure for failure in r["failures"]),
@@ -909,8 +919,10 @@ ADDITION_MUTATIONS = [
     ("refuse two items of one name", "|| names.has(name)", ""),
     ("refuse a provider this does not read", "!Object.hasOwn(ADDITION_PROVIDERS, provider)",
      "!(provider in ADDITION_PROVIDERS)"),
-    ("keep the verified additions OpenRouter's", "if ((kind === 'verified') !== (provider === 'openrouter'))", "if (false)"),
-    ("ask a verified id for its \":free\"", "kind === 'verified' && !id.endsWith(':free')", "false"),
+    ("keep a ready addition to a provider whose API states its free tier", "if (kind === 'ready' && spec.free === undefined)",
+     "if (false)"),
+    ("keep a ready addition active", "if (kind === 'ready' && anchor.commented)", "if (false)"),
+    ("ask an id of such a provider for its \":free\"", "spec.free !== undefined && !id.endsWith(':free')", "false"),
     ("refuse an item of another shape", "Object.keys(item).sort().join(',') !== 'id,name,provider'", "false"),
     ("refuse an id already an entry", "if (known.has(spec.prefix + id))", "if (false)"),
     ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),

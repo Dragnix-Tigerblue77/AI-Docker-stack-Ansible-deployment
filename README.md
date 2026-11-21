@@ -731,26 +731,32 @@ cesse d'être signalé par une ligne `# drift-ignore: <fournisseur>/<id> -- <rai
 tient à jour comme celle des suppressions (`main` plus un commit du bot Actions, refaite à chaque
 exécution, écrite avec le jeton de l'App quand il y en a une, assignée à tigerblue77), chacune sur sa
 branche, et `dependabot-auto-merge.yml`, qui ne reconnaît que la branche des suppressions, ne fusionne
-ni l'une ni l'autre (`check_auto_merge_gate.py` joue les deux branches contre lui) :
+ni l'une ni l'autre (`check_auto_merge_gate.py` joue les deux branches contre lui). Elles se partagent
+les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur :
 
-- **`claude/LiteLLM-model-additions`, prête à relire** : les modèles `:free` d'OpenRouter à 0 $, en
-  sortie texte seulement, dont l'API dit qu'ils sont gratuits ;
-- **`claude/LiteLLM-model-additions-to-verify`, en brouillon** : les nouveaux modèles des autres
-  fournisseurs (Gemini, Groq, Mistral, DeepSeek, Cerebras, SambaNova), dont seule la page de tarifs dit
-  s'ils sont gratuits. Son corps donne, pour chaque modèle, une liste à cocher : la page à ouvrir et ce
-  qu'il faut y chercher, une commande qui lit le modèle dans le catalogue du fournisseur sans rien
-  afficher de secret (celles qui demandent une clé se lancent en root sur la machine qui fait tourner
-  la pile, et lisent la clé dans le conteneur LiteLLM), le commentaire daté à écrire au-dessus de
-  l'entrée, et la ligne `drift-ignore` toute prête si la réponse est non. Un dépôt privé du plan
-  gratuit de GitHub n'a pas de brouillons : elle y est ouverte prête à relire, et son corps seul dit
-  d'attendre.
+- **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
+  informations qu'un ajout demande -- une gratuité que l'API du fournisseur dit elle-même (aujourd'hui
+  les modèles `:free` d'OpenRouter à 0 $, en sortie texte seulement) et un chiffre du classement
+  d'Artificial Analysis rapproché par l'identifiant exact. Un fournisseur dont la gratuité deviendrait
+  lisible dans son API y arriverait sans que la règle change ;
+- **`claude/LiteLLM-model-additions-to-verify`, les modèles à vérifier, en brouillon** : tous ceux à qui
+  il manque au moins une de ces informations, quel que soit leur fournisseur -- une gratuité que l'API
+  ne dit pas (tous les fournisseurs autres qu'OpenRouter aujourd'hui), aucun chiffre du classement, un
+  rapprochement approximatif ou ambigu. Son corps dit, pour chaque modèle, ce qui manque et comment
+  l'obtenir : la page de tarifs à ouvrir et ce qu'il faut y chercher, l'endroit du classement où le
+  chercher, une commande qui lit le modèle dans le catalogue du fournisseur sans rien afficher de
+  secret (celles qui demandent une clé se lancent en root sur la machine qui fait tourner la pile, et
+  lisent la clé dans le conteneur LiteLLM), le commentaire daté à écrire au-dessus de l'entrée, et la
+  ligne `drift-ignore` toute prête si la réponse est non. Un dépôt privé du plan gratuit de GitHub n'a
+  pas de brouillons : elle y est ouverte prête à relire, et son corps seul dit d'attendre.
 
 Le commit ajoute chaque entrée après la dernière entrée de son fournisseur (la dernière active, sinon la
 dernière commentée), dont elle reprend la clé et l'`api_base`, sous un commentaire qui dit d'où elle
 vient et quand ; elle est commentée, avec une raison provisoire, chez un fournisseur qui n'a aucune
-entrée active. Il ne la met dans aucune cascade : le corps donne ses chiffres et sa place suggérée dans
-chaque routeur (voir le classement ci-dessous), et un modèle que le classement ne mesure pas n'est pas
-placé, mais nommé avec la ligne `drift-ignore` qui l'écarte. Pour **garder** un modèle, on fusionne,
+entrée active. Ni l'une ni l'autre ne la met dans une cascade : le corps donne ses chiffres et sa place
+suggérée dans chaque routeur (voir le classement ci-dessous), une suggestion calculée sur un classement
+lui-même en révision, et un modèle que le classement ne mesure pas n'est pas placé, mais nommé avec la
+ligne `drift-ignore` qui l'écarte. Pour **garder** un modèle, on fusionne,
 après avoir ajouté, dans un commit sur la branche, son nom aux cascades voulues ; pour l'**écarter**, on
 remplace son entrée par sa ligne `drift-ignore` avant de fusionner. Un modèle fusionné ou écarté ne
 revient plus ; fermer sans fusionner ne décide rien, la pull request revient la semaine suivante. Un
@@ -759,8 +765,8 @@ plus, sans échouer ; une fois qu'elle est fermée sans être fusionnée, l'exé
 la branche soit supprimée. Une case cochée dans le corps reste cochée tant que sa ligne ne change pas, et
 une semaine qui ne change que les dates des commentaires ne pousse rien (aucun contrôle ne repart) : chaque
 entrée garde le jour où elle a été proposée.
-Chacune se ferme, avec un commentaire, quand plus rien n'est à proposer, sauf si un catalogue dont elle
-dépend n'a pas été lu. Le job qui écrit ne reçoit, par modèle, qu'un fournisseur, un identifiant et un
+Chacune se ferme, avec un commentaire, quand plus rien n'est à proposer, sauf si une source dont elle
+dépend (un catalogue, ou le classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écrit ne reçoit, par modèle, qu'un fournisseur, un identifiant et un
 nom, qu'il valide, et construit lui-même le fichier ; il ne pousse que si c'est le texte que le script
 a construit et relu (`check_drift_publish_guard.py` tient les deux au même résultat).
 

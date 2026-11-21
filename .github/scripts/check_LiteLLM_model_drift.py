@@ -376,37 +376,47 @@ use of that API ask, and the figures are shown as published.
 PROPOSING WHAT IS NEW
 --------------------
 "--proposals DIR" proposes the NEW models in two pull requests of their own, which the workflow keeps
-and which only a person merges, rather than listing them in the issue:
+and which only a person merges, rather than listing them in the issue. They are split by how much the
+run knows of each model, never by its provider:
 
-* "verified", ready for review: OpenRouter's, whose free tier its API states (":free", both prices
-  "0", text the only output);
-* "to_verify", opened as a draft: every other provider's, whose free tier only a pricing page states.
-  Its body gives, for each model, the page to open and what to look for on it (FREE_TIER_CHECKS, held
-  to PRICING_PAGES by the selftest), a command that reads the model in the provider's catalogue and
-  prints nothing secret (a keyed one runs in the LiteLLM container, whose environment holds the key
-  under the name the entry reads it from), the comment with its date to write above the entry, and
-  the "drift-ignore" line that sets the model aside if the answer is no.
+* "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
+  tier, stated by its provider's own API (FREE_CATALOGUES: today OpenRouter's ":free", both prices
+  "0", text the only output), and a figure of the ranking matched by the exact id (exact_match: the
+  slug of the ranking's entry is the last segment of the id, less ":free"). A provider whose free tier
+  becomes machine-readable is added to FREE_CATALOGUES, and nothing else changes;
+* "to_verify", opened as a draft: a model of which at least one of those facts is missing
+  (missing_facts: a free tier the API does not state, a ranking not read, no entry or several, a match
+  by the squashed spelling or by name, an entry with no figure). Its body says, for each model, which
+  fact is missing and how to get it: for a free tier, the page to open and what to look for on it
+  (FREE_TIER_CHECKS, held to PRICING_PAGES by the selftest), the comment with its date to write above
+  the entry, and the "drift-ignore" line that sets the model aside if the answer is no; for the
+  ranking, where to look the model up; and for every model a command that reads it in the provider's
+  catalogue and prints nothing secret (a keyed one runs in the LiteLLM container, whose environment
+  holds the key under the name the entry reads it from).
 
 Each entry is modelled on its provider's last entry in "model_list" -- its last active one, else its
 last commented-out one -- whose key and base it copies, and written right after it (after the comment
 block, for a commented-out one, so that a run and its reason stay together), under a comment of a
 fixed text that says where it comes from and when; it is commented out, with a "not routed" reason
-to replace, when the provider has no active entry. It is put in no cascade. Under it, the body gives
-its figures and its suggested place in each router (THE RANKINGS), or, for a model the ranking does
-not measure, says it is not placed and gives the "drift-ignore" line that sets it aside. A model
-merged, or set aside by "drift-ignore", is known and never proposed again.
+to replace, when the provider has no active entry. Neither pull request puts a model in a cascade:
+the body gives its figures and its suggested place in each router (THE RANKINGS), which are
+suggestions computed on a ranking under revision, or, for a model the ranking does not measure, says
+it is not placed and gives the "drift-ignore" line that sets it aside. A model merged, or set aside by
+"drift-ignore", is known and never proposed again.
 
 What is proposed is a provider, an id and a name, written to "proposals.json" with whether every
-catalogue the kind draws on was read; the job of the workflow that writes builds the file from those
+source the kind draws on was read; the job of the workflow that writes builds the file from those
 alone, by the rules build_additions() follows, and pushes it only when it is the text this script
-built and read back (addition_problem: it renders, breaks no offline rule the file did not, and holds
-the file's entries and the proposed ones). It refuses what this refuses: an id or a name of another
-spelling than ADDITION_ID and ADDITION_NAME, a name that is a word of the file, an id already an entry
-or set aside, an entry to model one on whose key is not read from the environment or whose base is
-not https, more than PROPOSAL_LIMIT entries. A NEW model this cannot propose -- of a spelling the file
-is not written with, of a provider with no entry, past the cap, or one whose body would be too long
--- stays in the issue, with the reason; "--issue-status PATH" writes the status the issue is kept by,
-the exit status less the NEW models a pull request carries.
+built and read back (addition_problem: it renders, breaks no offline rule the file did not, holds the
+file's entries and the proposed ones and every cascade as it was). It refuses what this refuses: an
+id or a name of another spelling than ADDITION_ID and ADDITION_NAME, a name that is a word of the
+file, a ready model of a provider whose API does not state its free tier, an id of such a provider
+that does not end in ":free", an id already an entry or set aside, an entry to model one on whose key
+is not read from the environment or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
+model this cannot propose -- of a spelling the file is not written with, of a provider with no entry,
+past the cap, or one whose body would be too long -- stays in the issue, with the reason;
+"--issue-status PATH" writes the status the issue is kept by, the exit status less the NEW models a
+pull request carries.
 
 UNTRUSTED TEXT
 --------------
@@ -1512,6 +1522,8 @@ def read_ranking_models(payload):
         slug = item.get("slug") if isinstance(item.get("slug"), str) else ""
         models.append({
             "name": safe_text(item["name"], 80),
+            # Compared with an id, never shown.
+            "slug": slug.lower(),
             "creator": safe_text(creator.get("name") or "", 40),
             "keys": {key for key in (squash(slug), squash(item["name"])) if len(key) >= RANKING_MIN_KEY},
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
@@ -3579,17 +3591,19 @@ def render_commit_message(result):
 # ------------------------------------------------------------------------------------------------
 # Proposing the NEW models: two pull requests, which only a person merges
 # ------------------------------------------------------------------------------------------------
-# "--proposals DIR" writes what the weekly workflow needs to keep two pull requests of additions:
-# "verified" for the models whose free tier the provider's own API states (OpenRouter's ":free" at a
-# price of 0, text out), "to_verify", opened as a draft, for every other provider's, with what a
-# person has to check before merging it. The job that writes builds each entry itself, from nothing
-# but a provider, an id and a name it validates, and pushes it only if its text is the one built
-# here: its "additions builder" mirrors addition_entries() and build_additions() line for line, and
-# "check_drift_publish_guard.py" holds the two to the same output.
+# "--proposals DIR" writes what the weekly workflow needs to keep two pull requests of additions,
+# split by how much the run knows of each model, never by provider: "ready" for a model of which it
+# holds every fact a person would need (a free tier the provider's own API states, and a figure of the
+# ranking matched by the exact id), "to_verify", opened as a draft, for any model one fact of which is
+# missing, with which one and how to get it. Neither puts a model in a cascade: the places are
+# suggestions in the body, computed on a ranking that is itself under revision. The job that writes
+# builds the file itself, from nothing but a provider, an id and a name per model, and pushes it only
+# if its text is the one built here: its "additions builder" mirrors addition_entries() and
+# build_additions() line for line, and "check_drift_publish_guard.py" holds the two to the same output.
 
-PROPOSAL_KINDS = ("verified", "to_verify")
+PROPOSAL_KINDS = ("ready", "to_verify")
 PROPOSAL_LIMIT = 25  # entries per pull request, which the builder of the workflow holds too
-PROPOSAL_BRANCHES = {"verified": "ADDITIONS_BRANCH", "to_verify": "ADDITIONS_TO_VERIFY_BRANCH"}
+PROPOSAL_BRANCHES = {"ready": "ADDITIONS_BRANCH", "to_verify": "ADDITIONS_TO_VERIFY_BRANCH"}
 # What the job that writes accepts, and so all this proposes: an id that ends in a letter or a digit
 # (a trailing ":" would make a YAML key of it), a name in the file's own spelling, a key read from
 # the environment, an "https" base.
@@ -3608,7 +3622,6 @@ ADDITION_COMMENT_RUN = re.compile(r"  #( |$)")
 TOP_LEVEL_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*:")
 WORD = re.compile(r"[A-Za-z0-9_.-]+")
 IGNORED_TARGET = re.compile(r"^\s*#\s*drift-ignore\s*:\s*(\S+)\s+--", re.M)
-
 # What to look for on each provider's pricing page, in French, from what the file's own comments
 # cite of those pages. The selftest holds it to PRICING_PAGES.
 FREE_TIER_CHECKS = {
@@ -3698,16 +3711,21 @@ def addition_anchor(entries, provider):
     return (active or own or [None])[-1]
 
 
+# The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
+# which the selftest holds it to): the comment above the entry of such a model cites it.
+FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models"}
+
+
 def addition_note(kind, date, provider, commented):
     """The comment written above a proposed entry. A commented-out one says "not routed", which is
     what the offline rule asks of its reason."""
     label = PROVIDER_LABELS[provider]
-    if kind == "verified":
-        return ('Proposed by the weekly drift run on %s: listed free by "openrouter.ai/api/v1/models" '
-                "that day." % date)
     if commented:
         return ("Not routed to: proposed by the weekly drift run on %s, its free tier on %s not "
                 "verified yet." % (date, label))
+    if provider in FREE_CATALOGUES:
+        return 'Proposed by the weekly drift run on %s: listed free by "%s" that day.' % (
+            date, FREE_CATALOGUES[provider])
     return "Proposed by the weekly drift run on %s: its free tier on %s is not verified yet." % (
         date, label)
 
@@ -3733,7 +3751,7 @@ def build_additions(text, date, kind, items):
     if not isinstance(date, str) or not ADDITION_DATE.fullmatch(date):
         return None, "the date is no date"
     if kind not in PROPOSAL_KINDS:
-        return None, "the kind is neither verified nor to_verify"
+        return None, "the kind is neither ready nor to_verify"
     if not isinstance(items, list) or not 0 < len(items) <= PROPOSAL_LIMIT:
         return None, "there are no items, or more than %d" % PROPOSAL_LIMIT
     lines = text.split("\n")
@@ -3751,12 +3769,12 @@ def build_additions(text, date, kind, items):
         provider, identifier, name = item["provider"], item["id"], item["name"]
         if not isinstance(provider, str) or provider not in PROVIDER_LABELS:
             return None, "an item names no provider this reads"
-        if (kind == "verified") != (provider == "openrouter"):
-            return None, "the verified additions are OpenRouter's, and only they"
+        if kind == "ready" and provider not in FREE_CATALOGUES:
+            return None, "a ready addition is of a provider whose API states its free tier, and only"
         if not isinstance(identifier, str) or not ADDITION_ID.fullmatch(identifier):
             return None, "an id is not spelt like one"
-        if kind == "verified" and not identifier.endswith(":free"):
-            return None, 'a verified id does not end in ":free"'
+        if provider in FREE_CATALOGUES and not identifier.endswith(":free"):
+            return None, 'an id of a provider whose API states its free tier does not end in ":free"'
         if (not isinstance(name, str) or len(name) > ADDITION_NAME_LIMIT
                 or not ADDITION_NAME.fullmatch(name)):
             return None, "a name is not spelt like the file's"
@@ -3775,6 +3793,8 @@ def build_additions(text, date, kind, items):
             return None, "the key of the entry %s is not read from the environment" % anchor["name"]
         if base is not None and not ADDITION_BASE.fullmatch(base):
             return None, "the api_base of the entry %s is not a plain https address" % anchor["name"]
+        if kind == "ready" and anchor["commented"]:
+            return None, "a ready addition follows an active entry"
         after.setdefault(anchor["last"], []).extend(addition_block(kind, date, item, anchor))
     out = []
     for index, line in enumerate(lines):
@@ -3785,8 +3805,8 @@ def build_additions(text, date, kind, items):
 
 def addition_problem(text, new_text, items):
     """Why the file with the entries added does not read back as the file plus those entries, or
-    None. It must render, break no offline rule the file did not already break, and hold exactly the
-    entries of the file and the proposed ones."""
+    None. It must render, break no offline rule the file did not already break, hold exactly the
+    entries of the file and the proposed ones, and hold every cascade as it was."""
     before, old_problems = read_template(text)
     after, problems = read_template(new_text)
     if after is None:
@@ -3803,7 +3823,44 @@ def addition_problem(text, new_text, items):
     if pairs(after) != wanted or len(after["active"]) + len(after["commented"]) != (
             len(before["active"]) + len(before["commented"]) + len(items)):
         return "the entries it reads are not the file's and the proposed ones"
+    if fallback_lists(after["document"]) != fallback_lists(before["document"]):
+        return "a cascade is not what it was"
     return None
+
+
+def exact_match(row, identifier):
+    """Whether the ranking's entry was matched by the id itself, character for character: the slug
+    of the entry is the last segment of the id, less ":free", in lower case. A match by the squashed
+    spelling or by the provider's name for the model is a guess, and a ready model is not one."""
+    model = row.get("model") if row else None
+    tail = re.sub(r":free$", "", identifier.rsplit("/", 1)[-1]).lower()
+    return bool(model) and row["how"] == "identifiant" and model.get("slug") == tail
+
+
+def missing_facts(result, provider, finding):
+    """[(what, sentence)] of what the run does not know of a NEW model, in French: a model of which it
+    knows both its free tier, from its provider's API, and a figure of the ranking matched by the exact
+    id, is ready; any other is to verify."""
+    missing = []
+    if not finding.get("free"):
+        missing.append(("free", "sa gratuité ne se lit pas dans l'API de %s" % PROVIDER_LABELS[provider]))
+    ranking = result.get("rankings") or {"status": "no key"}
+    row = next((row for row in result.get("ranked") or []
+                if (row["provider"], row["id"]) == (provider, finding["id"])), None)
+    model = row["model"] if row else None
+    if ranking["status"] != "read":
+        missing.append(("ranking", "le classement d'Artificial Analysis n'a pas été lu à cette exécution"))
+    elif model is None:
+        missing.append(("ranking", "plusieurs entrées du classement portent ce nom, aucune n'est retenue"
+                        if row and row["how"] == "ambigu" else "aucune entrée du classement ne s'écrit comme lui"))
+    elif not exact_match(row, finding["id"]):
+        missing.append(("match", "le classement le rapproche de « %s » par %s, pas par l'identifiant exact : "
+                        "un rapprochement à vérifier" % (safe_text(model["name"], 80),
+                                                         "l'identifiant" if row["how"] == "identifiant"
+                                                         else "le nom")))
+    elif all(model.get(key) is None for key in ("intelligence", "coding", "speed")):
+        missing.append(("figures", "le classement le connaît, sans aucun chiffre"))
+    return missing
 
 
 def addition_name(provider, identifier, taken):
@@ -3819,17 +3876,18 @@ def addition_name(provider, identifier, taken):
 
 
 def propose_additions(text, result, link=None):
-    """{kind: {"complete", "items", "text", "body", "commit"}} for the two addition pull requests,
-    every NEW finding being marked "proposed" (the kind that carries it) or "unproposed" (why not, in
-    French, which the issue shows). "complete" says whether every catalogue the kind draws on was read:
-    a pull request is closed over "nothing left to propose" only then."""
+    """{kind: {"complete", "items", "text", "body", "commit"}} for the two
+    addition pull requests, every NEW finding being marked "proposed" (the kind that carries it) or
+    "unproposed" (why not, in French, which the issue shows), and "missing" (what the run does not
+    know of it, empty for a ready one). "complete" says whether every source the kind draws on was
+    read: a pull request is closed over "nothing left to propose" only then."""
     proposals = {kind: {"complete": False, "items": []} for kind in PROPOSAL_KINDS}
     if result["unreadable"]:
         return proposals
-    for kind in PROPOSAL_KINDS:
-        proposals[kind]["complete"] = all(
-            report["status"] == "read" for report in result["providers"]
-            if (report["name"] in FREE_READABLE) == (kind == "verified"))
+    read = {report["name"]: report["status"] == "read" for report in result["providers"]}
+    ranking = (result.get("rankings") or {"status": "no key"})["status"]
+    proposals["ready"]["complete"] = all(read.get(name) for name in FREE_CATALOGUES) and ranking != "error"
+    proposals["to_verify"]["complete"] = all(read.values())
     entries = addition_entries(text.split("\n")) or []
     taken = set(WORD.findall(text))
     candidates = {kind: [] for kind in PROPOSAL_KINDS}
@@ -3848,8 +3906,9 @@ def propose_additions(text, result, link=None):
                 if name is None:
                     finding["unproposed"] = "aucun nom libre pour son entrée"
             if name is not None:
-                kind = "verified" if finding["free"] else "to_verify"
-                candidates[kind].append((report, finding, name))
+                finding["missing"] = missing_facts(result, report["name"], finding)
+                candidates["to_verify" if finding["missing"] else "ready"].append((report, finding, name))
+
     for kind in PROPOSAL_KINDS:
         chosen = candidates[kind]
         for _, finding, _ in chosen[PROPOSAL_LIMIT:]:
@@ -3858,8 +3917,8 @@ def propose_additions(text, result, link=None):
         while chosen:
             items = [{"provider": report["name"], "id": finding["id"], "name": name}
                      for report, finding, name in chosen]
-            new_text, problem = build_additions(text, result["date"], kind, items)
-            problem = problem or addition_problem(text, new_text, items)
+            built, problem = build_additions(text, result["date"], kind, items)
+            problem = problem or addition_problem(text, built, items)
             if problem:
                 for _, finding, _ in chosen:
                     finding["unproposed"] = ("le fichier que la pull request porterait ne se relit pas : %s"
@@ -3868,7 +3927,7 @@ def propose_additions(text, result, link=None):
                 break
             body = render_additions_body(result, kind, chosen, entries, link)
             if len(body) <= BODY_LIMIT:
-                proposals[kind].update(items=items, text=new_text, body=body,
+                proposals[kind].update(items=items, text=built, body=body,
                                        commit=render_additions_commit(result, kind, chosen))
                 break
             chosen.pop()[1]["unproposed"] = "le corps de la pull request dépasserait la taille que GitHub accepte"
@@ -3908,25 +3967,6 @@ def branch_link(variable):
     return None
 
 
-def proposals_section(result):
-    """The pointer of the issue to the two addition pull requests, in French."""
-    counts = result.get("proposals")
-    if not counts or not any(counts.values()):
-        return []
-    out = ["## Ajouts proposés par pull request", "",
-           "Les nouveaux modèles ne sont plus listés ici : chacun est proposé, avec son entrée et ses "
-           "places suggérées, par l'une de deux pull requests que le workflow tient à jour et que "
-           "rien ne fusionne seul.", ""]
-    for kind, text in (("verified", "gratuits d'après l'API d'OpenRouter, prête à relire"),
-                       ("to_verify", "des autres fournisseurs, en brouillon, avec ce qu'il faut "
-                                     "vérifier avant de fusionner")):
-        if counts.get(kind):
-            link = branch_link(PROPOSAL_BRANCHES[kind])
-            out.append("- %s : %s%s." % (count_phrase(counts[kind], "modèle", "modèles"), text,
-                                        " ([la pull request](%s))" % link if link else ""))
-    return out + [""]
-
-
 def keyed(provider):
     """Whether the catalogue of "provider" is read with a key."""
     return next(variable for name, _, variable, _, _, _ in PROVIDERS if name == provider) is not None
@@ -3958,12 +3998,35 @@ def catalogue_command(provider, identifier, key):
     return "python3 -c '%s'" % program
 
 
-def figures_text(model, how):
-    return ("intelligence %s, code %s, vitesse %s jetons/s, prix mixte %s $/M jetons, d'après « %s », "
-            "rapproché par %s : à vérifier" % (
-                figure_text(model["intelligence"]), figure_text(model["coding"]),
-                figure_text(model["speed"]), figure_text(model["price"]), safe_text(model["name"], 80),
-                "l'identifiant" if how == "identifiant" else "le nom"))
+def proposals_section(result):
+    """The pointer of the issue to the two addition pull requests, in French."""
+    counts = result.get("proposals")
+    if not counts or not any(counts.values()):
+        return []
+    out = ["## Ajouts proposés par pull request", "",
+           "Les nouveaux modèles ne sont plus listés ici : chacun est proposé, avec son entrée, par l'une de "
+           "deux pull requests que le workflow tient à jour et que rien ne fusionne seul.", ""]
+    for kind, text in (("ready", "prêts, dont l'exécution sait tout ce qu'un ajout demande"),
+                       ("to_verify", "à vérifier, en brouillon, avec pour chacun l'information qui manque "
+                                     "et comment l'obtenir")):
+        if counts.get(kind):
+            link = branch_link(PROPOSAL_BRANCHES[kind])
+            out.append("- %s : %s%s." % (text, count_phrase(counts[kind], "modèle", "modèles"),
+                                        " ([la pull request](%s))" % link if link else ""))
+    return out + [""]
+
+
+def figures_text(model, how, exact=False):
+    return ("intelligence %s, code %s, vitesse %s jetons/s, prix mixte %s $/M jetons, d'après « %s », %s" % (
+        figure_text(model["intelligence"]), figure_text(model["coding"]), figure_text(model["speed"]),
+        figure_text(model["price"]), safe_text(model["name"], 80),
+        "rapproché par l'identifiant exact" if exact else "rapproché par %s : à vérifier" % (
+            "l'identifiant" if how == "identifiant" else "le nom")))
+
+
+def ranked_row(result, provider, identifier):
+    return next((row for row in result.get("ranked") or []
+                 if (row["provider"], row["id"]) == (provider, identifier)), None)
 
 
 def placing_lines(result, provider, identifier):
@@ -3971,8 +4034,7 @@ def placing_lines(result, provider, identifier):
     take in each router, or that it is not placed, and why. The second value is the reason, in
     English, of the drift-ignore line that sets an unmeasured model aside, or None for a measured one."""
     ranking = result.get("rankings") or {"status": "no key"}
-    row = next((row for row in result.get("ranked") or []
-                if (row["provider"], row["id"]) == (provider, identifier)), None)
+    row = ranked_row(result, provider, identifier)
     model = row["model"] if row else None
     if ranking["status"] != "read":
         return (["**Non placé** : le classement d'Artificial Analysis n'a pas été lu à cette exécution, "
@@ -3987,7 +4049,7 @@ def placing_lines(result, provider, identifier):
         return (["**Non placé**, faute de mesure : %s." % why],
                 "no entry of the Artificial Analysis ranking measured it on %s, so there are no figures "
                 "to place it by in any cascade" % result["date"])
-    lines = ["Classement : %s." % figures_text(model, row["how"])]
+    lines = ["Classement : %s." % figures_text(model, row["how"], exact_match(row, identifier))]
     if row["places"]:
         lines += ["Places suggérées :"] + ["  - " + place_text(router, row["places"][router])
                                            for router, _ in RANKING_ROUTERS if router in row["places"]]
@@ -4001,53 +4063,73 @@ def yaml_fence(lines, indent=""):
     return ["%s```yaml" % indent] + ["%s%s" % (indent, line) for line in lines] + ["%s```" % indent]
 
 
+# How to get each fact a model to verify lacks, in French.
+MISSING_HOWTO = {
+    "ranking": "le chercher sur <%s> ; s'il y est, relever son indice d'intelligence, son indice de "
+               "code et sa vitesse, et le placer à la main en les comparant à ceux des membres de "
+               "chaque cascade ; s'il n'y est pas, le placer sans chiffre ou l'écarter" % RANKING_SITE,
+    "match": "ouvrir sa fiche sur <%s> et vérifier que c'est bien ce modèle (même éditeur, même taille, "
+             "même variante d'effort de raisonnement) ; si oui, les places suggérées plus bas tiennent" % RANKING_SITE,
+    "figures": "attendre que le classement le mesure, ou le placer à la main",
+}
+
+
 def render_additions_body(result, kind, chosen, entries, link=None):
     """The body of one addition pull request, in French: what it is, how to decide, and each model with
-    its entry, its figures and places, and, for the draft, what to check before merging."""
+    its entry, its figures and places, and, for the one to verify, which fact is missing and how to
+    get it."""
     date = result["date"]
-    verified = kind == "verified"
-    other = os.environ.get(PROPOSAL_BRANCHES["to_verify" if verified else "verified"])
+    ready = kind == "ready"
+    other = os.environ.get(PROPOSAL_BRANCHES["to_verify" if ready else "ready"])
     branch = os.environ.get(PROPOSAL_BRANCHES[kind])
     run = "à l'exécution du %s%s" % (date, " (%s)" % link if link else "")
-    if verified:
-        out = ["Ajouts proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, %s. Chaque "
-               "modèle ci-dessous est ce jour-là au catalogue d'OpenRouter, <%s>, sous un identifiant "
-               "`:free`, à un prix de 0 en entrée comme en sortie, avec le texte pour seule sortie : sa "
-               "gratuité se lit dans l'API, c'est pourquoi cette pull request est prête à relire. Les "
-               "nouveaux modèles des autres fournisseurs, dont l'API ne dit pas s'ils sont gratuits, sont "
-               "dans une pull request à part, ouverte en brouillon%s." % (
-                   run, catalogue_url("openrouter"), " (branche %s)" % code_span(other) if other else "")]
+    if ready:
+        out = ["Ajouts **prêts**, proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, %s. "
+               "Pour chaque modèle ci-dessous, l'exécution tient tout ce qu'il faut pour l'ajouter sans y "
+               "réfléchir : sa gratuité, lue dans l'API de son fournisseur (chez OpenRouter, <%s> : un "
+               "identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie), et "
+               "un chiffre du classement d'Artificial Analysis rapproché par l'identifiant exact. Les nouveaux "
+               "modèles auxquels il manque une de ces informations, de quelque fournisseur qu'ils soient, sont "
+               "dans une pull request à part, en brouillon%s." % (
+                   run, catalogue_url("openrouter"), " (branche %s)" % code_span(other) if other else ""),
+               "",
+               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
+               "commentaire qui cite le catalogue et le jour, et ne la met dans **aucune cascade** : "
+               "fusionnée telle quelle, l'entrée s'appelle par son nom et aucun routeur ne s'en sert. Les "
+               "places données plus bas sont des **suggestions, calculées sur le classement actuel, qui est "
+               "en cours de révision** : son chiffre est celui d'une seule variante d'effort de "
+               "raisonnement, et sa vitesse en jetons par seconde ne dit rien du temps jusqu'à la réponse "
+               "d'un modèle qui raisonne. Rien ne les applique."]
     else:
         out = ["**Brouillon : à ne pas fusionner avant d'avoir fait, pour chaque modèle, les vérifications "
-               "listées sous lui.** Ajouts proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, "
-               "%s. Chaque modèle ci-dessous est ce jour-là au catalogue de son fournisseur, mais aucun de "
-               "ces fournisseurs ne dit dans son API ce qui est gratuit : seule leur page de tarifs le dit, "
-               "en prose, et c'est une personne qui la lit. Les modèles gratuits d'OpenRouter, dont l'API le "
-               "dit, sont dans une pull request à part, prête à relire%s." % (
-                   run, " (branche %s)" % code_span(other) if other else "")]
+               "listées sous lui.** Ajouts **à vérifier**, proposés **sans IA** par "
+               "`.github/workflows/LiteLLM_model_drift.yml`, %s. À chaque modèle ci-dessous, il manque au "
+               "moins une information pour l'ajouter sans y réfléchir : sa gratuité, quand l'API de son "
+               "fournisseur ne la dit pas, un chiffre du classement d'Artificial Analysis, ou un rapprochement "
+               "sûr avec lui. Ce qui manque est dit sous chacun, avec la façon de l'obtenir. Les modèles dont "
+               "l'exécution sait tout sont dans une pull request à part, prête à relire%s." % (
+                   run, " (branche %s)" % code_span(other) if other else ""),
+               "",
+               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
+               "commentaire qui dit d'où elle vient et quand. L'entrée est active, sauf chez un fournisseur "
+               "dont le fichier n'a aucune entrée active : elle suit alors, commentée, sa dernière entrée "
+               "commentée, avec une raison provisoire. Elle n'est mise dans **aucune cascade** : les places "
+               "données plus bas, quand elles se calculent, sont des suggestions."]
     out += ["",
-            "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
-            "commentaire qui dit d'où elle vient et quand (la règle de `CLAUDE.md`, « The model list "
-            "keeps only what can be called », veut que chaque affirmation de la liste cite sa source et "
-            "sa date). L'entrée est active, sauf chez un fournisseur dont le fichier n'a aucune entrée "
-            "active : elle suit alors, commentée, sa dernière entrée commentée, avec une raison "
-            "provisoire. Il ne la met dans **aucune cascade** : fusionnée telle quelle, une entrée active "
-            "s'appelle par son nom et aucun routeur ne s'en sert. Les places données plus bas sont des "
-            "suggestions, que rien n'applique.",
-            "",
-            "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît "
-            "que la branche des suppressions, et celle-ci%s attend tigerblue77." % (
+            "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît que la "
+            "branche des suppressions, et celle-ci%s attend tigerblue77." % (
                 ", %s," % code_span(branch) if branch else ""),
             "",
             "## Décider",
-            "",
-            "- **Garder un modèle** : le laisser. Pour qu'un routeur s'en serve, ajouter son nom à la "
-            "cascade de ce routeur, à la place choisie, dans un commit sur cette branche (et dans la "
-            "table `head` du modèle de configuration s'il en devient le premier membre).",
-            "- **Écarter un modèle** : remplacer son entrée et le commentaire au-dessus par une ligne "
-            "`# drift-ignore: <fournisseur>/<id> -- <raison>`, dans un commit sur cette branche ; celle "
-            "qui est donnée plus bas pour un modèle est prête à coller. Une fois fusionnée, le modèle "
-            "n'est plus jamais proposé.",
+            ""]
+    out.append("- **Garder un modèle** : %spour qu'un routeur s'en serve, ajouter son nom à la cascade de "
+               "ce routeur, à la place choisie, dans un commit sur cette branche (et dans la table `head` du "
+               "modèle de configuration s'il en devient le premier membre) ; fusionnée sans cela, l'entrée "
+               "s'appelle par son nom." % ("" if ready else "faire ses vérifications, puis, "))
+    out += ["- **Écarter un modèle** : remplacer son entrée et le commentaire au-dessus par une ligne "
+            "`# drift-ignore: <fournisseur>/<id> -- <raison>`%s, dans un commit sur cette branche. Une fois "
+            "fusionnée, le modèle n'est plus jamais proposé." % (
+                "" if ready else " ; celle qui est donnée plus bas est prête à coller"),
             "- **Fermer sans fusionner ne décide rien** : la pull request revient à l'exécution suivante "
             "avec les modèles que le fichier ne connaît toujours pas.",
             "",
@@ -4067,17 +4149,21 @@ def render_additions_body(result, kind, chosen, entries, link=None):
         out += ["Entrée %s par le commit :" % ("commentée ajoutée" if anchor["commented"] else "ajoutée"), ""]
         out += yaml_fence(block) + [""]
         placing, unmeasured = placing_lines(result, provider, identifier)
-        if verified:
+        if ready:
+            out.append("- Gratuité : lue dans <https://%s>, le %s." % (FREE_CATALOGUES[provider], date))
             out += [line if line.startswith("  - ") else "- " + line for line in placing]
-            if unmeasured:
-                out += ["", "Pour l'écarter, remplacer son entrée et son commentaire par :", ""]
-                out += yaml_fence(["  # drift-ignore: %s -- %s" % (full, unmeasured)])
             out.append("")
             continue
-        page = PRICING_PAGES[provider]
-        out += ["- [ ] **Gratuité.** Ouvrir <%s> et y chercher, pour %s, %s." % (
-                    page, code_span(identifier, 220), FREE_TIER_CHECKS[provider]),
-                "- [ ] **Catalogue.** Vérifier que %s sert toujours ce modèle : la commande n'affiche "
+        missing = finding.get("missing") or []
+        out += ["**Ce qui manque** :", ""] + ["- %s." % sentence for _, sentence in missing] + [""]
+        if any(what == "free" for what, _ in missing):
+            page = PRICING_PAGES.get(provider, "")
+            out.append("- [ ] **Gratuité.** Ouvrir <%s> et y chercher, pour %s, %s." % (
+                page, code_span(identifier, 220), FREE_TIER_CHECKS.get(provider, "s'il est gratuit")))
+        else:
+            out.append("- Gratuité : lue dans <https://%s>, le %s ; rien à vérifier." % (
+                FREE_CATALOGUES[provider], date))
+        out += ["- [ ] **Catalogue.** Vérifier que %s sert toujours ce modèle : la commande n'affiche "
                 "que sa fiche, aucune clé%s." % (
                     PROVIDER_LABELS[provider],
                     ", et se lance en root sur la machine qui fait tourner la pile, car elle lit la clé "
@@ -4086,34 +4172,41 @@ def render_additions_body(result, kind, chosen, entries, link=None):
                 "  ```sh",
                 "  " + catalogue_command(provider, identifier, anchor["fields"]["api_key"]),
                 "  ```",
-                "",
-                "- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :"]
+                ""]
+        for what, _ in missing:
+            if what in MISSING_HOWTO:
+                out.append("- [ ] **%s.** %s." % (
+                    {"ranking": "Classement", "match": "Rapprochement", "figures": "Chiffres"}[what], MISSING_HOWTO[what][0].upper() + MISSING_HOWTO[what][1:]))
+        out.append("- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :")
         out += ["  - " + line if not line.startswith("  - ") else "  " + line for line in placing]
         if unmeasured:
             out += ["", "  Pour l'écarter faute de mesure, la ligne est :", ""]
             out += yaml_fence(["  # drift-ignore: %s -- %s" % (full, unmeasured)], "  ")
-        page_name = page.split("://", 1)[1]
-        out += ["",
-                "- [ ] **Commentaire.** Remplacer le commentaire provisoire au-dessus de l'entrée par la "
-                "source et la date de la vérification, la date étant celle du jour où la page a été lue "
-                "(AAAA-MM-JJ), par exemple :",
-                ""]
-        if anchor["commented"]:
-            out += yaml_fence(['  # Not routed to: <la raison>, per "%s", checked %s.' % (page_name, date)],
+        if any(what == "free" for what, _ in missing):
+            page_name = PRICING_PAGES.get(provider, "").split("://", 1)[-1]
+            out += ["",
+                    "- [ ] **Commentaire.** Remplacer le commentaire provisoire au-dessus de l'entrée par la "
+                    "source et la date de la vérification, la date étant celle du jour où la page a été lue "
+                    "(AAAA-MM-JJ), par exemple :",
+                    ""]
+            if anchor["commented"]:
+                out += yaml_fence(['  # Not routed to: <la raison>, per "%s", checked %s.' % (page_name, date)],
+                                  "  ")
+            else:
+                out += yaml_fence(['  # Free per "%s", checked %s: "<la mention lue>".' % (page_name, date)],
+                                  "  ")
+            out += ["",
+                    "- **Si la réponse est non** : supprimer l'entrée et son commentaire, et écrire à leur place :",
+                    ""]
+            out += yaml_fence(['  # drift-ignore: %s -- not free per "%s" (read %s)' % (full, page_name, date)],
                               "  ")
-        else:
-            out += yaml_fence(['  # Free per "%s", checked %s: "<la mention lue>".' % (page_name, date)],
-                              "  ")
-        out += ["",
-                "- **Si la réponse est non** : supprimer l'entrée et son commentaire, et écrire à leur place :",
-                ""]
-        out += yaml_fence(['  # drift-ignore: %s -- not free per "%s" (read %s)' % (full, page_name, date)],
-                          "  ")
         out.append("")
     ranking = result.get("rankings") or {"status": "no key"}
     out += ["## Classement", ""]
     if ranking["status"] == "read":
-        out += [ranking_caveat(ranking), ""]
+        out += [ranking_caveat(ranking)
+                + (" Ici, chaque modèle est rapproché par l'identifiant exact : le rapprochement est sûr, "
+                   "pas la place, que le classement en révision changera." if ready else ""), ""]
     else:
         out += ["Le classement d'Artificial Analysis n'a pas été lu à cette exécution (%s) : aucun modèle "
                 "n'est placé." % ("pas de clé : secret `%s`" % RANKING_KEY if ranking["status"] == "no key"
@@ -4122,13 +4215,14 @@ def render_additions_body(result, kind, chosen, entries, link=None):
             "Elle est refaite à chaque exécution depuis `main` : sa branche est `main` plus un commit du "
             "workflow, et son titre et son corps sont réécrits (une case cochée reste cochée tant que sa "
             "ligne ne change pas). Une semaine qui ne change que les dates des commentaires ne pousse rien : "
-            "chaque entrée garde le jour où elle a été proposée. Un modèle fusionné, ou écarté par sa ligne `drift-ignore`, n'y revient "
-            "plus. Un commit d'une personne sur la branche la fige : tant que la pull request est ouverte, "
-            "le workflow n'y touche plus, ni pour l'enrichir ni pour la fermer ; une fois qu'elle est "
-            "fermée sans être fusionnée, son exécution échoue chaque semaine jusqu'à ce que la branche "
-            "soit supprimée. Elle se ferme quand plus rien n'est à proposer, à condition que l'exécution "
-            "ait lu le catalogue de chacun de ses fournisseurs%s." % (
-                "" if verified else " et qu'elle reste en brouillon tant qu'une personne ne la passe pas "
+            "chaque entrée garde le jour où elle a été proposée. Un modèle fusionné, ou écarté par sa ligne "
+            "`drift-ignore`, n'y revient plus ; un modèle à qui il manquait une information passe dans la "
+            "pull request des modèles prêts la semaine où l'exécution l'a. Un commit d'une personne sur la "
+            "branche la fige : tant que la pull request est ouverte, le workflow n'y touche plus, ni pour "
+            "l'enrichir ni pour la fermer ; une fois qu'elle est fermée sans être fusionnée, son exécution "
+            "échoue chaque semaine jusqu'à ce que la branche soit supprimée. Elle se ferme quand plus rien "
+            "n'est à proposer, à condition que l'exécution ait lu chacune des sources dont elle dépend%s." % (
+                "" if ready else " et qu'elle reste en brouillon tant qu'une personne ne la passe pas "
                 "« Ready for review » (là où le dépôt refuse les brouillons, elle est ouverte prête à "
                 "relire, et ce corps seul dit d'attendre)"),
             "", PROPOSAL_SIGNATURE]
@@ -4139,23 +4233,22 @@ def render_additions_commit(result, kind, chosen):
     """The commit that carries the proposed entries, in English like every commit here."""
     identifiers = ", ".join(litellm_id(report["name"], finding["id"])[0] for report, finding, _ in chosen)
     count = count_phrase(len(chosen), "model", "models")
-    if kind == "verified":
-        subject = "Propose the free OpenRouter models the weekly drift check found (#346)"
-        found = ("The weekly drift check read OpenRouter's catalogue on %s and found %s it lists free (a "
-                 "\":free\" id, a price of 0, text as the only output) that the model list does not know: "
-                 "%s." % (result["date"], count, identifiers))
+    if kind == "ready":
+        subject = "Propose the new LiteLLM models the weekly drift check knows everything of (#346)"
+        found = ("The weekly drift check found on %s %s the model list does not know and of which it holds "
+                 "every fact an addition needs: a free tier its provider's API states, and a figure of the "
+                 "Artificial Analysis ranking matched by the exact id: %s. Each is added after the last "
+                 "entry of its provider, modelled on it, under a comment citing the catalogue and the day, "
+                 "in no cascade: the places the pull request suggests are computed on a ranking that is "
+                 "under revision." % (result["date"], count, identifiers))
     else:
-        providers = sorted({PROVIDER_LABELS[report["name"]] for report, _, _ in chosen})
-        subject = "Propose the new models whose free tier a person has to verify (#346)"
-        found = ("The weekly drift check read the catalogues of %s on %s and found %s the model list does "
-                 "not know: %s. None of these providers says in its API what is free, so each entry is "
-                 "marked as not verified yet, and the draft pull request says what to check before it "
-                 "is merged." % (", ".join(providers), result["date"], count, identifiers))
-    return (subject + "\n\n" + wrapped(found) + "\n\n" + wrapped(
-        "Each is added after the last entry of its provider, modelled on it, with a comment saying where "
-        "it comes from and when, and in no cascade: where a model goes is a person's choice, which the "
-        "pull request helps with the places the Artificial Analysis ranking suggests. Nothing merges it "
-        "but a person.") + "\n")
+        subject = "Propose the new LiteLLM models a person has to check before adding (#346)"
+        found = ("The weekly drift check found on %s %s the model list does not know and of which at least "
+                 "one fact an addition needs is missing (a free tier the provider's API does not state, a "
+                 "figure of the ranking, a match with it by the exact id): %s. Each is added after the last "
+                 "entry of its provider, modelled on it, in no cascade, and the draft pull request says what "
+                 "is missing for each and how to get it." % (result["date"], count, identifiers))
+    return subject + "\n\n" + wrapped(found) + "\n\n" + wrapped("Nothing merges it but a person.") + "\n"
 
 
 # ------------------------------------------------------------------------------------------------
@@ -7371,13 +7464,20 @@ router_settings:
 
 
 def proposal_answers(text=SELFTEST_TEMPLATE):
-    """Catalogues that list what "text" holds, and one NEW model of every provider: OpenRouter's free,
-    Cerebras' with no entry of its provider to model one on, and one per provider of a spelling the
-    pull requests do not write (it starts with "~", or ends with "-")."""
+    """Catalogues that list what "text" holds, and one NEW model of every provider: three free on
+    OpenRouter -- one the ranking matches by its exact id, one it matches by its squashed spelling
+    alone, one it does not know --, Cerebras' with no entry of its provider to model one on, and one
+    per provider of a spelling the pull requests do not write (it starts with "~", or ends with "-").
+    The ranking also knows the Gemini one by its exact id, which does not make its free tier known."""
     answers = answers_listing(text)
     fresh = openrouter_model("vendor/fresh:free")
     fresh["name"] = "Vendor: Fresh @bob <img src=x> `x` ::error:: (free)"
-    answers["openrouter"]["data"] += [fresh, openrouter_model("~vendor/odd:free")]
+    answers["openrouter"]["data"] += [fresh, openrouter_model("~vendor/odd:free"),
+                                      openrouter_model("vendor/rough-cut:free"),
+                                      openrouter_model("vendor/unmeasured:free")]
+    answers["rankings"] = ranking_page(ranking_model("fresh", "Fresh", 40, 30, 200, 0.0),
+                                       ranking_model("rough.cut", "Rough Cut", 35, 25, 150, 0.0),
+                                       ranking_model("gemini-10-pro", "Gemini 10 Pro", 60, 50, 100, 1.0))
     answers["gemini"][0]["models"] += [
         {"name": "models/gemini-10-pro", "displayName": "Gemini 10 Pro",
          "supportedGenerationMethods": ["generateContent"]},
@@ -7390,7 +7490,7 @@ def proposal_answers(text=SELFTEST_TEMPLATE):
     return answers
 
 
-def proposal_run(text, answers, environment=SELFTEST_KEYS):
+def proposal_run(text, answers, environment=RANKING_KEYS):
     result = run_online(text, environment, canned_opener(answers, []), "2026-01-01")
     return result, propose_additions(text, result)
 
@@ -7415,20 +7515,29 @@ def run_proposal_cases():
         return [(item["provider"], item["id"]) for item in part["items"]]
 
     result, proposals = proposal_run(SELFTEST_TEMPLATE, proposal_answers())
-    verified, to_verify = proposals["verified"], proposals["to_verify"]
+    ready, to_verify = proposals["ready"], proposals["to_verify"]
     issue = render_issue_body(result, "selftest")
     unproposed = {(report["name"], finding["id"]): finding.get("unproposed") for report in result["providers"]
                   for finding in report["findings"] if finding["kind"] == "new"}
-    judged("OpenRouter's free model goes to the verified pull request, every other provider's to the draft",
+    missing = {(report["name"], finding["id"]): [what for what, _ in finding.get("missing", [])]
+               for report in result["providers"] for finding in report["findings"] if finding["kind"] == "new"}
+    judged("a model the run knows everything of is ready; one with a fact missing, whatever its provider, is to verify",
            first_wrong(
-               (ids(verified) == [("openrouter", "vendor/fresh:free")], "verified: %r" % ids(verified)),
-               (ids(to_verify) == [("sambanova", "SN-Two"), ("gemini", "gemini-10-pro"), ("groq", "vendor/quick"),
+               (ids(ready) == [("openrouter", "vendor/fresh:free")], "ready: %r" % ids(ready)),
+               (ids(to_verify) == [("openrouter", "vendor/rough-cut:free"), ("openrouter", "vendor/unmeasured:free"),
+                                   ("sambanova", "SN-Two"), ("gemini", "gemini-10-pro"), ("groq", "vendor/quick"),
                                    ("mistral", "magistral-9"), ("deepseek", "deepseek-v10")],
                 "to verify: %r" % ids(to_verify)),
                ([item["name"] for item in to_verify["items"]] == [
-                   "sn-two-sambanova", "gemini-10-pro", "quick-groq", "magistral-9", "deepseek-v10-direct"],
+                   "rough-cut-free", "unmeasured-free", "sn-two-sambanova", "gemini-10-pro", "quick-groq",
+                   "magistral-9", "deepseek-v10-direct"],
                 "the names are %r" % [item["name"] for item in to_verify["items"]]),
-               (verified["complete"] and to_verify["complete"], "a kind is said incomplete")))
+               (missing[("openrouter", "vendor/fresh:free")] == [], "the ready model misses %r"
+                % missing[("openrouter", "vendor/fresh:free")]),
+               (missing[("openrouter", "vendor/rough-cut:free")] == ["match"], "an approximate match is not said"),
+               (missing[("openrouter", "vendor/unmeasured:free")] == ["ranking"], "an unmeasured model is not said"),
+               (missing[("gemini", "gemini-10-pro")] == ["free"], "a match by the exact id made a free tier known"),
+               (ready["complete"] and to_verify["complete"], "a kind is said incomplete")))
     judged("a model of a provider with no entry, or of a spelling the file is not written with, is left to the issue",
            first_wrong(
                ("aucune entrée de ce fournisseur" in (unproposed.get(("cerebras", "cb-new")) or ""),
@@ -7437,10 +7546,10 @@ def run_proposal_cases():
                ("forme" in (unproposed.get(("gemini", "gemini-odd-")) or ""), "the odd Gemini id was proposed"),
                ("`cerebras/cb-new`" in issue and "pas proposé par pull request" in issue,
                 "the issue does not list what is not proposed"),
-               ("vendor/fresh:free" not in issue and "gemini-10-pro" not in issue,
+               ("vendor/fresh:free" not in issue and "gemini-10-pro" not in issue and "rough-cut" not in issue,
                 "the issue still lists a proposed model"),
-               ("## Ajouts proposés par pull request" in issue and "- 1 modèle : gratuits" in issue
-                and "- 5 modèles : des autres fournisseurs" in issue, "the issue does not point at the pull requests"),
+               ("## Ajouts proposés par pull request" in issue and ": 1 modèle." in issue
+                and "comment l'obtenir : 7 modèles." in issue, "the issue does not point at the pull requests"),
                (exit_status(result) == 1 and issue_status(result) == 1, "the statuses moved")))
     added = [line for line in difflib.ndiff(SELFTEST_TEMPLATE.split("\n"), to_verify["text"].split("\n"))
              if line.startswith(("+ ", "- "))]
@@ -7450,8 +7559,9 @@ def run_proposal_cases():
                ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the weekly drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
-                '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in verified["text"],
+                '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
+               ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
                ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
                 'weekly drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
                 '  # - model_name: sn-two-sambanova\n  #   litellm_params:\n  #     model: openai/SN-Two\n'
@@ -7460,11 +7570,17 @@ def run_proposal_cases():
                ("  - model_name: quick-groq\n    litellm_params:\n      model: groq/vendor/quick\n"
                 '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"' in to_verify["text"], "the Groq entry is wrong"),
                (addition_problem(SELFTEST_TEMPLATE, to_verify["text"], to_verify["items"]) is None
-                and addition_problem(SELFTEST_TEMPLATE, verified["text"], verified["items"]) is None,
+                and addition_problem(SELFTEST_TEMPLATE, ready["text"], ready["items"]) is None,
                 "a file built does not read back")))
     body = to_verify["body"]
-    gemini = body.split("### `gemini/gemini-10-pro`")[1].split("\n### ")[0] if "### `gemini/gemini-10-pro`" in body else ""
-    samba = body.split("### `openai/SN-Two`")[1].split("\n### ")[0] if "### `openai/SN-Two`" in body else ""
+
+    def section(text, heading):
+        return text.split(heading)[1].split("\n### ")[0].split("\n## ")[0] if heading in text else ""
+
+    gemini = section(body, "### `gemini/gemini-10-pro`")
+    samba = section(body, "### `openai/SN-Two`")
+    rough = section(body, "### `openrouter/vendor/rough-cut:free`")
+    unmeasured = section(body, "### `openrouter/vendor/unmeasured:free`")
     judged("the draft says, for each model, which page to open, what to look for, how to read the catalogue, "
            "what comment to write and what line sets it aside",
            first_wrong(
@@ -7485,14 +7601,27 @@ def run_proposal_cases():
                 "(read 2026-01-01)" in gemini, "the drift-ignore line is missing"),
                ("SECRET" not in body, "a key reached the body"),
                (body.endswith(PROPOSAL_SIGNATURE), "the body is not signed")))
-    vbody = verified["body"]
-    judged("the verified pull request names the catalogue, and sets an unmeasured model aside with a ready line",
+    judged("an OpenRouter model to verify says which fact is missing, how to get it, and not to check its free tier",
+           first_wrong(
+               ("**Ce qui manque** :" in rough and "pas par l'identifiant exact" in rough
+                and "- [ ] **Rapprochement.** Ouvrir sa fiche sur <https://artificialanalysis.ai/>" in rough,
+                "the approximate match is not said with how to check it: %s" % rough[:900]),
+               ("- Gratuité : lue dans <https://openrouter.ai/api/v1/models>, le 2026-01-01 ; rien à vérifier." in rough
+                and "**Gratuité.**" not in rough and "not free per" not in rough, "its free tier is to check"),
+               ("  - Places suggérées :" in rough, "the places that can be computed are missing"),
+               ("- [ ] **Classement.** Le chercher sur <https://artificialanalysis.ai/>" in unmeasured
+                and "  # drift-ignore: openrouter/vendor/unmeasured:free -- no entry of the Artificial Analysis "
+                "ranking measured it on 2026-01-01" in unmeasured, "the unmeasured model is not said so")))
+    vbody = ready["body"]
+    judged("the ready pull request names what it read, places nothing, and says the places are under revision",
            first_wrong(
                ("<https://openrouter.ai/api/v1/models?output_modalities=all>" in vbody, "the catalogue is not named"),
-               ("**Non placé** : le classement d'Artificial Analysis n'a pas été lu" in vbody, "no ranking, yet placed"),
-               ("  # drift-ignore: openrouter/vendor/fresh:free -- the Artificial Analysis ranking was not read on "
-                "2026-01-01, so there are no figures to place it by in any cascade" in vbody, "the line is missing"),
-               ("- [ ]" not in vbody, "the verified pull request has a checklist"),
+               ("- Gratuité : lue dans <https://openrouter.ai/api/v1/models>, le 2026-01-01." in vbody
+                and "rapproché par l'identifiant exact." in vbody, "the facts it holds are not said"),
+               ("**suggestions, calculées sur le classement actuel, qui est en cours de révision**" in vbody
+                and "aucune cascade" in vbody, "the places are not said to be suggestions under revision"),
+               ("drift-ignore: openrouter/vendor/fresh:free" not in vbody, "a ready model is set aside"),
+               ("- [ ]" not in vbody, "the ready pull request has a checklist"),
                # The signature is the one link a body writes on purpose; the issue links pricing pages.
                (hostile_lines(vbody.replace(PROPOSAL_SIGNATURE, ""), body.replace(PROPOSAL_SIGNATURE, "")) is None,
                 str(hostile_lines(vbody.replace(PROPOSAL_SIGNATURE, ""), body.replace(PROPOSAL_SIGNATURE, "")))),
@@ -7500,12 +7629,11 @@ def run_proposal_cases():
                (vbody.endswith(PROPOSAL_SIGNATURE), "the body is not signed")))
     judged("the commits say what they add, in English, under the issue",
            first_wrong(
-               (verified["commit"].startswith("Propose the free OpenRouter models the weekly drift check found (#346)\n\n"),
-                "the verified subject is wrong"),
-               (to_verify["commit"].startswith("Propose the new models whose free tier a person has to verify (#346)\n\n")
-                and "Gemini, Groq, Mistral, DeepSeek, SambaNova" not in to_verify["commit"]
-                and "DeepSeek, Gemini, Groq, Mistral, SambaNova" in to_verify["commit"],
-                "the subject or the providers are wrong: %s" % to_verify["commit"][:300])))
+               (ready["commit"].startswith("Propose the new LiteLLM models the weekly drift check knows everything "
+                                           "of (#346)\n\n"), "the ready subject is wrong"),
+               (to_verify["commit"].startswith("Propose the new LiteLLM models a person has to check before adding "
+                                               "(#346)\n\n") and "openai/SN-Two" in to_verify["commit"],
+                "the subject or the models are wrong: %s" % to_verify["commit"][:300])))
 
     # Decided: merged, or set aside. Neither comes back.
     merged = proposals["to_verify"]["text"]
@@ -7517,25 +7645,33 @@ def run_proposal_cases():
     judged("a model merged, or set aside by drift-ignore, is never proposed again",
            first_wrong(
                (ids(again_proposals["to_verify"]) == [], "merged models came back: %r" % ids(again_proposals["to_verify"])),
-               (ids(again_proposals["verified"]) == [("openrouter", "vendor/fresh:free")], "the other kind moved"),
-               (ids(aside_proposals["verified"]) == [], "a model set aside came back"),
-               (len(aside_proposals["to_verify"]["items"]) == 5, "the other kind moved")))
+               (ids(again_proposals["ready"]) == [("openrouter", "vendor/fresh:free")], "the other kind moved"),
+               (ids(aside_proposals["ready"]) == [], "a model set aside came back"),
+               (len(aside_proposals["to_verify"]["items"]) == 7, "the other kind moved")))
 
     # Partial, and unreadable.
     partial, partial_proposals = proposal_run(SELFTEST_TEMPLATE, proposal_answers(),
-                                              dict(SELFTEST_KEYS, MODEL_DRIFT_GROQ_API_KEY=""))
+                                              dict(RANKING_KEYS, MODEL_DRIFT_GROQ_API_KEY=""))
+    unranked, unranked_proposals = proposal_run(SELFTEST_TEMPLATE, proposal_answers(), SELFTEST_KEYS)
+    failed, failed_proposals = proposal_run(SELFTEST_TEMPLATE, dict(proposal_answers(), rankings=http_error(500)))
     unreadable = run_online("model_list: [unclosed\n", SELFTEST_KEYS, canned_opener(proposal_answers(), []),
                             "2026-01-01")
     nothing = propose_additions("model_list: [unclosed\n", unreadable)
     judged("a catalogue not read leaves its kind incomplete, and a file not read proposes nothing",
            first_wrong(
-               (partial_proposals["verified"]["complete"] and not partial_proposals["to_verify"]["complete"],
+               (partial_proposals["ready"]["complete"] and not partial_proposals["to_verify"]["complete"],
                 "the completeness is wrong"),
                (("groq", "vendor/quick") not in ids(partial_proposals["to_verify"]), "an unread model was proposed"),
-               (nothing == {"verified": {"complete": False, "items": []}, "to_verify": {"complete": False, "items": []}},
+               (not failed_proposals["ready"]["complete"] and failed_proposals["to_verify"]["complete"],
+                "a ranking that failed leaves the ready pull request complete"),
+               (unranked_proposals["ready"]["complete"] and ids(unranked_proposals["ready"]) == []
+                and ("openrouter", "vendor/fresh:free") in ids(unranked_proposals["to_verify"]),
+                "without the ranking a model is still ready"),
+               (nothing == {"ready": {"complete": False, "items": []}, "to_verify": {"complete": False, "items": []}},
                 "an unreadable file proposed something: %r" % nothing)))
 
-    # The ranking: a measured model is placed, an unmeasured one is not, and the issue ranks neither.
+    # The ranking: a model matched by its exact id is ready, with its suggested places; one the ranking does
+    # not know is to verify, not placed, with its line; and the issue ranks neither.
     measured = ranking_answers(ranking_model("gem-top-model", "Gem Top Model", 70, 60, 100, 2.0),
                                ranking_model("groq-mid-model", "Groq Mid Model", 50, 45, 300, 0.5),
                                ranking_model("free-low-model", "Free Low Model", 30, 20, 200, 0.0),
@@ -7544,13 +7680,13 @@ def run_proposal_cases():
                                                  ("vendor/mystery-thing:free", "Vendor: Mystery")])
     ranked = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(measured, []), "2026-01-01")
     ranked_proposals = propose_additions(RANKING_TEMPLATE, ranked)
-    vbody = ranked_proposals["verified"]["body"]
-    fresh = vbody.split("### `openrouter/vendor/fresh-model:free`")[1].split("\n### ")[0]
-    mystery = vbody.split("### `openrouter/vendor/mystery-thing:free`")[1].split("\n## ")[0]
-    judged("a measured model gets its figures and places, an unmeasured one is not placed and gets its line",
+    vbody = ranked_proposals["ready"]["body"]
+    fresh = section(vbody, "### `openrouter/vendor/fresh-model:free`")
+    mystery = section(ranked_proposals["to_verify"]["body"], "### `openrouter/vendor/mystery-thing:free`")
+    judged("a model matched by its exact id is ready with its places, an unmeasured one is to verify and not placed",
            first_wrong(
                ("- Classement : intelligence 55.0, code 70.0, vitesse 250.0" in fresh
-                and "rapproché par l'identifiant : à vérifier" in fresh, "the figures are missing: %s" % fresh[:600]),
+                and "rapproché par l'identifiant exact" in fresh, "the figures are missing: %s" % fresh[:600]),
                ("  - `flash` : avant `groq-mid`" in fresh and "  - `code` : avant `gem-top`" in fresh,
                 "the places are missing"),
                ("drift-ignore" not in fresh, "a measured model is offered a line to set it aside"),
@@ -7568,24 +7704,24 @@ def run_proposal_cases():
     many["openrouter"]["data"] += [openrouter_model("vendor/m%02d:free" % number) for number in range(30)]
     capped_result = run_online(RANKING_TEMPLATE, SELFTEST_KEYS, canned_opener(many, []), "2026-01-01")
     capped_proposals = propose_additions(RANKING_TEMPLATE, capped_result)
+    capped = capped_proposals["to_verify"]
     left = [finding.get("unproposed") for report in capped_result["providers"] for finding in report["findings"]
             if finding.get("unproposed")]
     global BODY_LIMIT
     kept_limit = BODY_LIMIT
     try:
-        BODY_LIMIT = len(capped_proposals["verified"]["body"]) - 1
+        BODY_LIMIT = len(capped["body"]) - 1
         shrunk_result = run_online(RANKING_TEMPLATE, SELFTEST_KEYS, canned_opener(many, []), "2026-01-01")
         shrunk = propose_additions(RANKING_TEMPLATE, shrunk_result)
     finally:
         BODY_LIMIT = kept_limit
     judged("a pull request carries %d entries at most, and fewer when its body would be too long" % PROPOSAL_LIMIT,
            first_wrong(
-               (len(capped_proposals["verified"]["items"]) == PROPOSAL_LIMIT, "it carries %d"
-                % len(capped_proposals["verified"]["items"])),
+               (len(capped["items"]) == PROPOSAL_LIMIT, "it carries %d" % len(capped["items"])),
                (len(left) == 30 - PROPOSAL_LIMIT and all("au-delà des 25" in reason for reason in left),
                 "the rest is not left to the issue: %r" % left[:2]),
-               (0 < len(shrunk["verified"]["items"]) < PROPOSAL_LIMIT
-                and len(shrunk["verified"]["body"]) <= len(capped_proposals["verified"]["body"]) - 1,
+               (0 < len(shrunk["to_verify"]["items"]) < PROPOSAL_LIMIT
+                and len(shrunk["to_verify"]["body"]) <= len(capped["body"]) - 1,
                 "a body too long was not shortened"),
                (any("dépasserait la taille" in (finding.get("unproposed") or "") for report in shrunk_result["providers"]
                     for finding in report["findings"]), "what was dropped does not say why")))
@@ -7593,17 +7729,19 @@ def run_proposal_cases():
     # What the job that writes refuses, refused here first.
     for purpose, items, kind, needle in (
             ("an id spelt otherwise", [{"provider": "openrouter", "id": "vendor/x:free\n- evil", "name": "x-free"}],
-             "verified", "spelt like one"),
+             "ready", "spelt like one"),
             ("a name spelt otherwise", [{"provider": "openrouter", "id": "vendor/x:free", "name": "X_Free"}],
-             "verified", "spelt like the file's"),
+             "ready", "spelt like the file's"),
             ("a name that is a word of the file", [{"provider": "openrouter", "id": "vendor/x:free", "name": "flash"}],
-             "verified", "already a word"),
+             "ready", "already a word"),
             ("a provider this does not read", [{"provider": "__proto__", "id": "vendor/x:free", "name": "x-free"}],
-             "verified", "names no provider"),
-            ("another provider's model as verified", [{"provider": "gemini", "id": "gemini-x", "name": "gemini-x"}],
-             "verified", "OpenRouter's, and only they"),
+             "ready", "names no provider"),
+            ("a model of a provider whose API does not state its free tier as ready",
+             [{"provider": "gemini", "id": "gemini-x", "name": "gemini-x"}], "ready", "free tier, and only"),
+            ("an OpenRouter id without \":free\", even to verify",
+             [{"provider": "openrouter", "id": "vendor/x", "name": "x-free"}], "to_verify", 'does not end in ":free"'),
             ("an item with a key more", [{"provider": "openrouter", "id": "vendor/x:free", "name": "x-free",
-                                           "api_key": "os.environ/X"}], "verified", "is not {provider, id, name}"),
+                                           "api_key": "os.environ/X"}], "ready", "is not {provider, id, name}"),
             ("a provider with no entry to model one on", [{"provider": "cerebras", "id": "cb-x", "name": "cb-x-cerebras"}],
              "to_verify", "no entry of cerebras")):
         problem = build_additions(SELFTEST_TEMPLATE, "2026-01-01", kind, items)[1]
@@ -7624,18 +7762,18 @@ def run_proposal_cases():
     for purpose, base, kind, items, needle in (
             ("an id already a commented-out entry", mini, "to_verify",
              [{"provider": "cerebras", "id": "cb-two", "name": "fresh-cerebras"}], "is already an entry"),
-            ("an id set aside by drift-ignore", mini, "verified",
+            ("an id set aside by drift-ignore", mini, "ready",
              [{"provider": "openrouter", "id": "vendor/set-aside:free", "name": "fresh-free"}], "drift-ignore"),
             ("an entry whose key is not read from the environment", mini, "to_verify",
              [{"provider": "groq", "id": "vendor/fresh", "name": "fresh-groq"}], "not read from the environment"),
             ("an entry whose base is not https", mini, "to_verify",
              [{"provider": "deepseek", "id": "fresh", "name": "fresh-direct"}], "not a plain https address"),
-            ("carriage returns", mini.replace("\n", "\r\n"), "verified",
+            ("carriage returns", mini.replace("\n", "\r\n"), "ready",
              [{"provider": "openrouter", "id": "vendor/x:free", "name": "x-free"}], "plain line feeds"),
-            ("more items than a pull request carries", mini, "verified",
+            ("more items than a pull request carries", mini, "ready",
              [{"provider": "openrouter", "id": "vendor/m%d:free" % number, "name": "m%d-free" % number}
               for number in range(PROPOSAL_LIMIT + 1)], "more than %d" % PROPOSAL_LIMIT),
-            ("an id ending in a colon", mini, "verified",
+            ("an id ending in a colon", mini, "ready",
              [{"provider": "openrouter", "id": "vendor/x:free:", "name": "x-free"}], "spelt like one")):
         problem = build_additions(base, "2026-01-01", kind, items)[1]
         judged("the entries are refused: %s" % purpose,
@@ -7680,13 +7818,42 @@ def run_proposal_cases():
                             ranking_model("blank-model", "Blank Model"),
                             openrouter_extra=[("vendor/blank-model:free", "Vendor: Blank Model (free)")])
     blanked = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(blank, []), "2026-01-01")
-    blank_body = propose_additions(RANKING_TEMPLATE, blanked)["verified"]["body"]
-    judged("a model the ranking knows with no figure is not placed, and gets its line",
+    blank_proposals = propose_additions(RANKING_TEMPLATE, blanked)
+    blank_body = blank_proposals["to_verify"]["body"]
+    judged("a model the ranking knows with no figure is to verify, not placed, and gets its line",
            first_wrong(
+               (blank_proposals["ready"]["items"] == [], "a model with no figure is ready"),
                ("**Non placé**, faute de mesure : le classement le connaît, sans aucun chiffre" in blank_body
                 and "drift-ignore: openrouter/vendor/blank-model:free" in blank_body, "it was placed"),
                ("Aucune dérive." in render_issue_body(blanked, "selftest"),
                 "an issue whose only news is proposed does not say there is no drift")))
+
+    # A match by the exact id, and nothing else, makes a model ready: not one by name after the id found
+    # two entries, not one with no ranking at all, which the body says.
+    twins = ranking_answers(ranking_model("twin-x", "Twin X Prime", 40, 30, 200, 0.0),
+                            ranking_model("twin.x", "Other Twin", 20, 10, 100, 0.0),
+                            openrouter_extra=[("vendor/twin-x:free", "Vendor: Twin X Prime (free)")])
+    twinned = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(twins, []), "2026-01-01")
+    twin_proposals = propose_additions(RANKING_TEMPLATE, twinned)
+    unread = section(unranked_proposals["to_verify"]["body"], "### `openrouter/vendor/fresh:free`")
+    judged("a match by name after the id found two entries is not certain; an unread ranking is said so",
+           first_wrong(
+               (twin_proposals["ready"]["items"] == [] and len(twin_proposals["to_verify"]["items"]) == 1
+                and "par le nom, pas par l'identifiant exact" in twin_proposals["to_verify"]["body"],
+                "a match by name made a model ready"),
+               ("**Non placé** : le classement d'Artificial Analysis n'a pas été lu" in unread
+                and "the Artificial Analysis ranking was not read on 2026-01-01" in unread,
+                "an unread ranking is not said: %s" % unread[:600])))
+    commented_only = ADDITIONS_TEMPLATE.replace(
+        "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
+        "  # Not routed to: a guardrail.\n  # - model_name: free-one\n  #   litellm_params:\n"
+        '  #     model: openrouter/vendor/one:free\n  #     api_key: "os.environ/OPENROUTER_API_KEY"\n')
+    problem = build_additions(commented_only, "2026-01-01", "ready",
+                              [{"provider": "openrouter", "id": "vendor/b:free", "name": "b-free"}])[1]
+    judged("a ready model of a provider with commented-out entries only is refused",
+           None if commented_only != ADDITIONS_TEMPLATE and problem and "follows an active entry" in problem
+           else "refused for %r" % problem)
 
     # The tables the bodies read, against the providers they serve.
     commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
@@ -7694,6 +7861,7 @@ def run_proposal_cases():
     judged("each provider listed to verify has what to look for, and each command quotes nothing it should not",
            first_wrong(
                (set(FREE_TIER_CHECKS) == set(PRICING_PAGES), "FREE_TIER_CHECKS and PRICING_PAGES differ"),
+               (set(FREE_CATALOGUES) == FREE_READABLE, "FREE_CATALOGUES and FREE_READABLE differ"),
                (all(command.count("'") == 2 for command in commands), "a command holds a quote of its own"),
                (all(("docker exec" in command) == keyed(name) for name, command in zip(PROVIDER_NAMES, commands)),
                 "a keyed command does not run in the container, or a keyless one does")))
@@ -7712,9 +7880,10 @@ def run_proposal_command_line_cases():
         arguments = ["--online", "--config", config, "--proposals", folder, "--issue-status", status_file]
 
         def run(answers, flags=arguments):
+            environment = RANKING_KEYS if "rankings" in answers else SELFTEST_KEYS
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 try:
-                    return main(flags, opener=canned_opener(answers, []), environment=SELFTEST_KEYS)
+                    return main(flags, opener=canned_opener(answers, []), environment=environment)
                 except SystemExit as error:
                     return error.code
 
@@ -7725,11 +7894,11 @@ def run_proposal_command_line_cases():
         data = json.loads(Path(folder, "proposals.json").read_text(encoding="utf-8"))
         steps = [
             ("--proposals writes the data, and the body, commit and file of each pull request",
-             status == 1 and files() == ["proposals.json", "to_verify_body.md", "to_verify_commit.txt",
-                                         "to_verify_template.j2", "verified_body.md", "verified_commit.txt",
-                                         "verified_template.j2"]
-             and sorted(data) == ["date", "to_verify", "verified"]
-             and data["verified"] == {"complete": True, "items": [
+             status == 1 and files() == ["proposals.json", "ready_body.md", "ready_commit.txt",
+                                         "ready_template.j2", "to_verify_body.md", "to_verify_commit.txt",
+                                         "to_verify_template.j2"]
+             and sorted(data) == ["date", "ready", "to_verify"]
+             and data["ready"] == {"complete": True, "items": [
                  {"provider": "openrouter", "id": "vendor/fresh:free", "name": "fresh-free"}]}
              and Path(config).read_text(encoding="utf-8") == SELFTEST_TEMPLATE),
             ("--issue-status counts what no pull request carries",
@@ -7756,7 +7925,7 @@ def run_proposal_command_line_cases():
         steps += [
             ("a run with nothing to propose takes back the files of the last one",
              status == 0 and files() == ["proposals.json"]
-             and data["verified"]["items"] == [] and data["to_verify"]["items"] == []
+             and data["ready"]["items"] == [] and data["to_verify"]["items"] == []
              and Path(status_file).read_text(encoding="utf-8") == "0\n"),
             ("--proposals without --online is refused", run({}, ["--config", config, "--proposals", folder]) == 2),
             ("--issue-status without --online is refused",
