@@ -208,10 +208,6 @@ model_list:
   # drift-ignore: gemini/gemini-flash-lite-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-pro-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-omni-flash-preview -- a video generation and editing model per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), no text cascade has any use for it; its endpoint was announced for deprecation on 2026-09-30
-  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing these ids.
-  # drift-ignore: gemini/gemini-4-carbon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Carbon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $2.00 in / $10.00 out per million tokens through 2026-11-30, then $4.00 / $20.00
-  # drift-ignore: gemini/gemini-4-neon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Neon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $3.00 in / $15.00 out per million tokens
-  # drift-ignore: gemini/gemini-omni-1.2-flash -- a video generation and editing model, not a chat model: "ai.google.dev/gemini-api/docs/models/gemini-omni-flash" (read 2026-11-21) calls it a model "for fast, conversational video generation and editing", with "Video with native Audio, Text" as its output and edits made through the Interactions API, and it is paid only, "Not available" in the Free Tier column of "ai.google.dev/gemini-api/docs/pricing" and "Not supported" for the Free tier on "ai.google.dev/gemini-api/docs/rate-limits"
 
 {% endif %}
 {% if has.Mistral %}
@@ -356,9 +352,6 @@ model_list:
   #     model: openai/MiniMax-M3.1-Flash
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
-
-  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing this id.
-  # drift-ignore: sambanova/GLM-5.3 -- no free tier: "api.sambanova.ai/v1/models" prices it per token ($2.80 in / $8.80 out per million), the Free Tier rows of "docs.sambanova.ai/docs/en/models/rate-limits" name only gpt-oss-120b and gemma-4-31B-it, and the Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to run your first requests" with "signupCredits":false (all read 2026-11-21)
 
 {% if has.DeepSeek %}
   # ============================================================================
