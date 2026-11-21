@@ -30,11 +30,11 @@ name: LiteLLM model drift
 #              PyYAML and Jinja2, runs the script, and hands the texts and the edited template to
 #              the next job as an artifact, and five values as job outputs.
 #   "publish"  holds the token that writes, and none of the providers' keys. It checks nothing out
-#              and runs nothing of this repository: it takes what it receives as data (a status among three, a
-#              coverage among two, a flag among three, a count, a commit of main, and a template it
-#              uploads only once it has checked that it is main's own with lines deleted, and rows
-#              of its "head" table written again in the one form that names only models and
-#              providers the file has) and calls the API.
+#              and runs nothing of this repository: it takes what it receives as data (a status
+#              among three, a coverage among two, a flag among three, a count, a commit of main,
+#              and a template it uploads only once it has checked that it is main's own with lines
+#              deleted, and rows of its "head" table written again in the one form that names only
+#              models and providers the file has) and calls the API.
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
 # libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
@@ -88,14 +88,14 @@ name: LiteLLM model drift
 #
 # The pull request: one branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
 # and never a draft. The branch is main plus ONE commit, made through the API with the token the
-# paragraphs below describe and rewritten at every run that finds something to delete, so that it follows main and what the
-# providers list; the title and the body are rewritten with it, and an edit made to either by hand
-# is lost at the next run. A run that finds nothing leaves the branch alone and closes an open pull
-# request with a comment -- unless a provider could not be read or has no key, or a retired model
-# was refused (UNDELETED), since "nothing to delete" would then only mean "nothing seen". A pull
-# request closed by a person is replaced the following week while the providers still do not list
-# the models. Whether it merges by itself is "dependabot-auto-merge.yml"'s to say; if it does not,
-# tigerblue77 merges it or closes it.
+# paragraphs below describe and rewritten at every run that finds something to delete, so that it
+# follows main and what the providers list; the title and the body are rewritten with it, and an
+# edit made to either by hand is lost at the next run. A run that finds nothing leaves the branch
+# alone and closes an open pull request with a comment -- unless a provider could not be read or has
+# no key, or a retired model was refused (UNDELETED), since "nothing to delete" would then only mean
+# "nothing seen". A pull request closed by a person is replaced the following week while the
+# providers still do not list the models. Whether it merges by itself is
+# "dependabot-auto-merge.yml"'s to say; if it does not, tigerblue77 merges it or closes it.
 #
 # A person's commit on the branch freezes it, and the run FAILS to say so, every week, until the
 # branch is deleted (the deletions are then made again from main): force-pushing over somebody's
