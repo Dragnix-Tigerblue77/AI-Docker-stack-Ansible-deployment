@@ -166,7 +166,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job of "ansible-ci.yml".
           check-latest: true
 

@@ -95,14 +95,15 @@ note() {
 # stayed green over a gap that only existed where the repository is actually developed. That is #57.
 #
 # The image already carries 3.10, 3.11, 3.12 and 3.13 -- nothing has to be provisioned, the default
-# is just the wrong one. The version is read from the CI workflow rather than written here, for the
-# reason GITLEAKS_VERSION is: a second copy of a version number is a version number that drifts, and
-# the entire point is that the session runs the interpreter the pull request will meet.
-PYTHON_VERSION="$(sed -n 's/^ *python-version: *"\([^"]*\)".*/\1/p' .github/workflows/ansible-ci.yml | head -1)"
+# is just the wrong one. The version is read from the file the CI reads it from rather than written
+# here, for the reason GITLEAKS_VERSION is: a second copy of a version number is a version number
+# that drifts, and the entire point is that the session runs the interpreter the pull request will
+# meet.
+PYTHON_VERSION="$(head -n 1 .python-version 2> /dev/null | tr -d '[:space:]')"
 PYTHON_BINARY="python3"
 
 if [ -z "$PYTHON_VERSION" ]; then
-    note "no python-version found in .github/workflows/ansible-ci.yml, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
+    note "no version found in .python-version, so the default $(python3 -V 2>&1) is used and pins requiring a newer one will be refused." \
         "the interpreter the CI uses"
 elif command -v "python${PYTHON_VERSION}" > /dev/null 2>&1; then
     PYTHON_BINARY="python${PYTHON_VERSION}"

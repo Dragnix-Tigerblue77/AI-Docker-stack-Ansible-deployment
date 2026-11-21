@@ -716,8 +716,8 @@ and does nothing outside a remote session. See its own header for the detail, an
 which checks the session can actually be trusted to run.
 
 **A session runs the same toolchain CI does, and the work to get there is #57.** The hook installs
-the pins of `requirements.txt` into a virtual environment built on the interpreter the CI workflow
-names, so `ansible-lint` here reports the `ansible-core` that file pins. Trust a green lint in a
+the pins of `requirements.txt` into a virtual environment built on the interpreter `.python-version`
+names, the one file every CI job reads it from, so `ansible-lint` here reports the `ansible-core` that file pins. Trust a green lint in a
 session; it is the same run.
 
 What follows had to be got right for that, and none of it is visible to CI, which gets a clean

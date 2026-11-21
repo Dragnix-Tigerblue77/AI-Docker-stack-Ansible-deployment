@@ -48,7 +48,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           check-latest: true
 
       # The two SHAs travel as environment variables and are not expanded into the script line:

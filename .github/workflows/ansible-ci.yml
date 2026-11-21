@@ -74,7 +74,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
           # can name: a self-hosted runner can keep its tool cache between jobs, and left at its
           # "false" default setup-python looks in that cache FIRST and only asks the versions
@@ -110,7 +110,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -138,7 +138,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -181,7 +181,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -276,7 +276,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"
@@ -354,7 +354,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version-file: ".python-version"
           # See the "yamllint" job above.
           check-latest: true
           cache: "pip"

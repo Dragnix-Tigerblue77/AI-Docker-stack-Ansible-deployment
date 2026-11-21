@@ -43,3 +43,11 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 path = ["**/*.json"]
 SPDX-FileCopyrightText = "2026 Tigerblue77"
 SPDX-License-Identifier = "AGPL-3.0-only"
+
+# One version and nothing else: "actions/setup-python" and the session hook read the file whole, so a
+# header line in it would be read as part of the version. A sidecar would be a second file for one
+# line, so it is declared here, like the JSON above.
+[[annotations]]
+path = ".python-version"
+SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-License-Identifier = "AGPL-3.0-only"
