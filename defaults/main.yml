@@ -294,8 +294,8 @@ Artificial_Intelligence_LiteLLM_Gemini_API_key: ""
 Artificial_Intelligence_LiteLLM_Mistral_API_key: ""
 Artificial_Intelligence_LiteLLM_Groq_API_key: ""
 Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
-# The only PAID provider of this file (#101): DeepSeek's own API has no persistent free tier, unlike
-# every other entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) used to be
+# DeepSeek is PAID, like Mistral above: its own API has no persistent free tier, unlike every other
+# entry above. "deepseek-r1-github" (LiteLLM_config.yaml.j2, via GitHub Models) used to be
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
 Artificial_Intelligence_LiteLLM_DeepSeek_API_key: ""
