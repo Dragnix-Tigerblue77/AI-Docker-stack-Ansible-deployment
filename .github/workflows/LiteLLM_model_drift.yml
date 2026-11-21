@@ -81,7 +81,7 @@ name: LiteLLM model drift
 # One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
 # Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).
 # With it the pull requests of additions carry the intelligence, coding and speed figures of each NEW
-# model and a place suggested per router, and a model it matches by its exact id can be ready;
+# model and a place suggested per router, and a model it matches for certain can be ready;
 # without it the report says "not covered" like for any key, no model is ready, and a failed read
 # changes neither the status of the run nor what it deletes. Like the others it is held by the
 # "read" job alone: "publish" never has it. Their terms ask for the source to be cited, which the
@@ -152,7 +152,9 @@ name: LiteLLM model drift
 # their checks dispatched where no App writes them. They are split by how much the run knows of a
 # model, never by its provider. The first, ready for review, holds the models of which it knows every
 # fact an addition needs: a free tier its provider's API states (today OpenRouter's ":free" at a price
-# of 0) and a figure of the ranking matched by the exact id. The second, opened as a draft, holds any
+# of 0) and a figure of the ranking matched for certain: the end of the id, less ":free", spelt like
+# the slug or name of one entry of the ranking and no other once case and punctuation are dropped,
+# with no variant marker such as "(Reasoning)" on that entry. The second, opened as a draft, holds any
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
 # on a private repository of GitHub's free plan, which has no drafts, it is opened ready for review
 # and its body alone says to wait. Neither puts a model in a cascade: the places are suggestions in

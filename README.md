@@ -737,8 +737,10 @@ les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur
 - **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
   informations qu'un ajout demande -- une gratuité que l'API du fournisseur dit elle-même (aujourd'hui
   les modèles `:free` d'OpenRouter à 0 $, en sortie texte seulement) et un chiffre du classement
-  d'Artificial Analysis rapproché par l'identifiant exact. Un fournisseur dont la gratuité deviendrait
-  lisible dans son API y arriverait sans que la règle change ;
+  d'Artificial Analysis rapproché de façon sûre : la fin de l'identifiant, sans `:free`, s'écrit à la
+  casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte
+  aucune marque de variante entre parenthèses (« (Reasoning) », « (Xhigh) »...). Un fournisseur dont la
+  gratuité deviendrait lisible dans son API y arriverait sans que la règle change ;
 - **`claude/LiteLLM-model-additions-to-verify`, les modèles à vérifier, en brouillon** : tous ceux à qui
   il manque au moins une de ces informations, quel que soit leur fournisseur -- une gratuité que l'API
   ne dit pas (tous les fournisseurs autres qu'OpenRouter aujourd'hui), aucun chiffre du classement, un

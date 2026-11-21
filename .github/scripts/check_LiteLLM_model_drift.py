@@ -381,12 +381,14 @@ run knows of each model, never by its provider:
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
   tier, stated by its provider's own API (FREE_CATALOGUES: today OpenRouter's ":free", both prices
-  "0", text the only output), and a figure of the ranking matched by the exact id (exact_match: the
-  slug of the ranking's entry is the last segment of the id, less ":free"). A provider whose free tier
+  "0", text the only output), and a figure of the ranking matched for certain (certain_match: the last
+  segment of the id, less ":free", and the slug or the name of one entry of the whole ranking and of
+  no other are equal once lower-cased with everything but letters and digits removed, and that
+  entry's name carries no variant marker such as "(Reasoning)"). A provider whose free tier
   becomes machine-readable is added to FREE_CATALOGUES, and nothing else changes;
 * "to_verify", opened as a draft: a model of which at least one of those facts is missing
-  (missing_facts: a free tier the API does not state, a ranking not read, no entry or several, a match
-  by the squashed spelling or by name, an entry with no figure). Its body says, for each model, which
+  (missing_facts: a free tier the API does not state, a ranking not read, no entry, several, a match
+  by name only or onto a variant, an entry with no figure). Its body says, for each model, which
   fact is missing and how to get it: for a free tier, the page to open and what to look for on it
   (FREE_TIER_CHECKS, held to PRICING_PAGES by the selftest), the comment with its date to write above
   the entry, and the "drift-ignore" line that sets the model aside if the answer is no; for the
@@ -3594,7 +3596,7 @@ def render_commit_message(result):
 # "--proposals DIR" writes what the weekly workflow needs to keep two pull requests of additions,
 # split by how much the run knows of each model, never by provider: "ready" for a model of which it
 # holds every fact a person would need (a free tier the provider's own API states, and a figure of the
-# ranking matched by the exact id), "to_verify", opened as a draft, for any model one fact of which is
+# ranking matched for certain), "to_verify", opened as a draft, for any model one fact of which is
 # missing, with which one and how to get it. Neither puts a model in a cascade: the places are
 # suggestions in the body, computed on a ranking that is itself under revision. The job that writes
 # builds the file itself, from nothing but a provider, an id and a name per model, and pushes it only
@@ -3828,19 +3830,24 @@ def addition_problem(text, new_text, items):
     return None
 
 
-def exact_match(row, identifier):
-    """Whether the ranking's entry was matched by the id itself, character for character: the slug
-    of the entry is the last segment of the id, less ":free", in lower case. A match by the squashed
-    spelling or by the provider's name for the model is a guess, and a ready model is not one."""
+# A trailing parenthesis on a ranking entry's name ("(Reasoning)", "(Xhigh)", "(Low)") names the
+# configuration its figure was measured in, which may not be the one the entry calls.
+VARIANT_MARKER = re.compile(r"\([^()]*\)\s*$")
+
+
+def certain_match(row):
+    """Whether the ranking's entry is certainly the model: match_ranking() took it by the id, whose
+    last segment less ":free", squashed, is the squashed slug or name of that one entry of the whole
+    ranking and of no other, and its name carries no variant marker. A match by the provider's name
+    for the model, or onto a variant, is a guess, and a ready model is not one."""
     model = row.get("model") if row else None
-    tail = re.sub(r":free$", "", identifier.rsplit("/", 1)[-1]).lower()
-    return bool(model) and row["how"] == "identifiant" and model.get("slug") == tail
+    return bool(model) and row["how"] == "identifiant" and not VARIANT_MARKER.search(model["name"])
 
 
 def missing_facts(result, provider, finding):
     """[(what, sentence)] of what the run does not know of a NEW model, in French: a model of which it
-    knows both its free tier, from its provider's API, and a figure of the ranking matched by the exact
-    id, is ready; any other is to verify."""
+    knows both its free tier, from its provider's API, and a figure of the ranking matched for certain,
+    is ready; any other is to verify."""
     missing = []
     if not finding.get("free"):
         missing.append(("free", "sa gratuité ne se lit pas dans l'API de %s" % PROVIDER_LABELS[provider]))
@@ -3850,14 +3857,19 @@ def missing_facts(result, provider, finding):
     model = row["model"] if row else None
     if ranking["status"] != "read":
         missing.append(("ranking", "le classement d'Artificial Analysis n'a pas été lu à cette exécution"))
+    elif model is None and row and row["how"] == "ambigu":
+        missing.append(("match", "rapprochement ambigu : plusieurs entrées du classement s'écrivent comme lui, "
+                        "aucune n'est retenue"))
     elif model is None:
-        missing.append(("ranking", "plusieurs entrées du classement portent ce nom, aucune n'est retenue"
-                        if row and row["how"] == "ambigu" else "aucune entrée du classement ne s'écrit comme lui"))
-    elif not exact_match(row, finding["id"]):
-        missing.append(("match", "le classement le rapproche de « %s » par %s, pas par l'identifiant exact : "
-                        "un rapprochement à vérifier" % (safe_text(model["name"], 80),
-                                                         "l'identifiant" if row["how"] == "identifiant"
-                                                         else "le nom")))
+        missing.append(("ranking", "aucune entrée du classement ne s'écrit comme lui"))
+    elif row["how"] != "identifiant":
+        missing.append(("match", "rapprochement par le nom seulement : son identifiant ne s'écrit comme aucune "
+                        "entrée du classement, le nom que lui donne son fournisseur comme « %s »"
+                        % safe_text(model["name"], 80)))
+    elif not certain_match(row):
+        missing.append(("match", "rapprochement vers une variante : « %s » porte entre parenthèses la "
+                        "configuration où son chiffre a été mesuré, qui peut ne pas être celle qu'appelle "
+                        "l'entrée" % safe_text(model["name"], 80)))
     elif all(model.get(key) is None for key in ("intelligence", "coding", "speed")):
         missing.append(("figures", "le classement le connaît, sans aucun chiffre"))
     return missing
@@ -4016,11 +4028,11 @@ def proposals_section(result):
     return out + [""]
 
 
-def figures_text(model, how, exact=False):
+def figures_text(model, how, certain=False):
     return ("intelligence %s, code %s, vitesse %s jetons/s, prix mixte %s $/M jetons, d'après « %s », %s" % (
         figure_text(model["intelligence"]), figure_text(model["coding"]), figure_text(model["speed"]),
         figure_text(model["price"]), safe_text(model["name"], 80),
-        "rapproché par l'identifiant exact" if exact else "rapproché par %s : à vérifier" % (
+        "rapprochement sûr" if certain else "rapproché par %s : à vérifier" % (
             "l'identifiant" if how == "identifiant" else "le nom")))
 
 
@@ -4049,7 +4061,7 @@ def placing_lines(result, provider, identifier):
         return (["**Non placé**, faute de mesure : %s." % why],
                 "no entry of the Artificial Analysis ranking measured it on %s, so there are no figures "
                 "to place it by in any cascade" % result["date"])
-    lines = ["Classement : %s." % figures_text(model, row["how"], exact_match(row, identifier))]
+    lines = ["Classement : %s." % figures_text(model, row["how"], certain_match(row))]
     if row["places"]:
         lines += ["Places suggérées :"] + ["  - " + place_text(router, row["places"][router])
                                            for router, _ in RANKING_ROUTERS if router in row["places"]]
@@ -4088,7 +4100,7 @@ def render_additions_body(result, kind, chosen, entries, link=None):
                "Pour chaque modèle ci-dessous, l'exécution tient tout ce qu'il faut pour l'ajouter sans y "
                "réfléchir : sa gratuité, lue dans l'API de son fournisseur (chez OpenRouter, <%s> : un "
                "identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie), et "
-               "un chiffre du classement d'Artificial Analysis rapproché par l'identifiant exact. Les nouveaux "
+               "un chiffre du classement d'Artificial Analysis rapproché de façon sûre (son identifiant, sans `:free`, s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte aucune marque de variante entre parenthèses). Les nouveaux "
                "modèles auxquels il manque une de ces informations, de quelque fournisseur qu'ils soient, sont "
                "dans une pull request à part, en brouillon%s." % (
                    run, catalogue_url("openrouter"), " (branche %s)" % code_span(other) if other else ""),
@@ -4205,7 +4217,7 @@ def render_additions_body(result, kind, chosen, entries, link=None):
     out += ["## Classement", ""]
     if ranking["status"] == "read":
         out += [ranking_caveat(ranking)
-                + (" Ici, chaque modèle est rapproché par l'identifiant exact : le rapprochement est sûr, "
+                + (" Ici, chaque modèle est rapproché de façon sûre : le rapprochement est sûr, "
                    "pas la place, que le classement en révision changera." if ready else ""), ""]
     else:
         out += ["Le classement d'Artificial Analysis n'a pas été lu à cette exécution (%s) : aucun modèle "
@@ -4237,7 +4249,7 @@ def render_additions_commit(result, kind, chosen):
         subject = "Propose the new LiteLLM models the weekly drift check knows everything of (#346)"
         found = ("The weekly drift check found on %s %s the model list does not know and of which it holds "
                  "every fact an addition needs: a free tier its provider's API states, and a figure of the "
-                 "Artificial Analysis ranking matched by the exact id: %s. Each is added after the last "
+                 "Artificial Analysis ranking matched for certain: %s. Each is added after the last "
                  "entry of its provider, modelled on it, under a comment citing the catalogue and the day, "
                  "in no cascade: the places the pull request suggests are computed on a ranking that is "
                  "under revision." % (result["date"], count, identifiers))
@@ -4245,7 +4257,7 @@ def render_additions_commit(result, kind, chosen):
         subject = "Propose the new LiteLLM models a person has to check before adding (#346)"
         found = ("The weekly drift check found on %s %s the model list does not know and of which at least "
                  "one fact an addition needs is missing (a free tier the provider's API does not state, a "
-                 "figure of the ranking, a match with it by the exact id): %s. Each is added after the last "
+                 "figure of the ranking, a certain match with it): %s. Each is added after the last "
                  "entry of its provider, modelled on it, in no cascade, and the draft pull request says what "
                  "is missing for each and how to get it." % (result["date"], count, identifiers))
     return subject + "\n\n" + wrapped(found) + "\n\n" + wrapped("Nothing merges it but a person.") + "\n"
@@ -7465,10 +7477,10 @@ router_settings:
 
 def proposal_answers(text=SELFTEST_TEMPLATE):
     """Catalogues that list what "text" holds, and one NEW model of every provider: three free on
-    OpenRouter -- one the ranking matches by its exact id, one it matches by its squashed spelling
-    alone, one it does not know --, Cerebras' with no entry of its provider to model one on, and one
-    per provider of a spelling the pull requests do not write (it starts with "~", or ends with "-").
-    The ranking also knows the Gemini one by its exact id, which does not make its free tier known."""
+    OpenRouter -- one the ranking matches for certain, one it matches onto an entry whose name marks
+    a variant, one it does not know --, Cerebras' with no entry of its provider to model one on, and
+    one per provider of a spelling the pull requests do not write (it starts with "~", or ends with
+    "-"). The ranking also knows the Gemini one for certain, which does not make its free tier known."""
     answers = answers_listing(text)
     fresh = openrouter_model("vendor/fresh:free")
     fresh["name"] = "Vendor: Fresh @bob <img src=x> `x` ::error:: (free)"
@@ -7476,7 +7488,7 @@ def proposal_answers(text=SELFTEST_TEMPLATE):
                                       openrouter_model("vendor/rough-cut:free"),
                                       openrouter_model("vendor/unmeasured:free")]
     answers["rankings"] = ranking_page(ranking_model("fresh", "Fresh", 40, 30, 200, 0.0),
-                                       ranking_model("rough.cut", "Rough Cut", 35, 25, 150, 0.0),
+                                       ranking_model("rough.cut", "Rough Cut (Reasoning)", 35, 25, 150, 0.0),
                                        ranking_model("gemini-10-pro", "Gemini 10 Pro", 60, 50, 100, 1.0))
     answers["gemini"][0]["models"] += [
         {"name": "models/gemini-10-pro", "displayName": "Gemini 10 Pro",
@@ -7536,7 +7548,7 @@ def run_proposal_cases():
                 % missing[("openrouter", "vendor/fresh:free")]),
                (missing[("openrouter", "vendor/rough-cut:free")] == ["match"], "an approximate match is not said"),
                (missing[("openrouter", "vendor/unmeasured:free")] == ["ranking"], "an unmeasured model is not said"),
-               (missing[("gemini", "gemini-10-pro")] == ["free"], "a match by the exact id made a free tier known"),
+               (missing[("gemini", "gemini-10-pro")] == ["free"], "a certain match made a free tier known"),
                (ready["complete"] and to_verify["complete"], "a kind is said incomplete")))
     judged("a model of a provider with no entry, or of a spelling the file is not written with, is left to the issue",
            first_wrong(
@@ -7603,7 +7615,7 @@ def run_proposal_cases():
                (body.endswith(PROPOSAL_SIGNATURE), "the body is not signed")))
     judged("an OpenRouter model to verify says which fact is missing, how to get it, and not to check its free tier",
            first_wrong(
-               ("**Ce qui manque** :" in rough and "pas par l'identifiant exact" in rough
+               ("**Ce qui manque** :" in rough and "rapprochement vers une variante : « Rough Cut (Reasoning) »" in rough
                 and "- [ ] **Rapprochement.** Ouvrir sa fiche sur <https://artificialanalysis.ai/>" in rough,
                 "the approximate match is not said with how to check it: %s" % rough[:900]),
                ("- Gratuité : lue dans <https://openrouter.ai/api/v1/models>, le 2026-01-01 ; rien à vérifier." in rough
@@ -7617,7 +7629,8 @@ def run_proposal_cases():
            first_wrong(
                ("<https://openrouter.ai/api/v1/models?output_modalities=all>" in vbody, "the catalogue is not named"),
                ("- Gratuité : lue dans <https://openrouter.ai/api/v1/models>, le 2026-01-01." in vbody
-                and "rapproché par l'identifiant exact." in vbody, "the facts it holds are not said"),
+                and "rapprochement sûr." in vbody and "qui ne porte aucune marque de variante" in vbody,
+                "the facts it holds are not said"),
                ("**suggestions, calculées sur le classement actuel, qui est en cours de révision**" in vbody
                 and "aucune cascade" in vbody, "the places are not said to be suggestions under revision"),
                ("drift-ignore: openrouter/vendor/fresh:free" not in vbody, "a ready model is set aside"),
@@ -7670,7 +7683,7 @@ def run_proposal_cases():
                (nothing == {"ready": {"complete": False, "items": []}, "to_verify": {"complete": False, "items": []}},
                 "an unreadable file proposed something: %r" % nothing)))
 
-    # The ranking: a model matched by its exact id is ready, with its suggested places; one the ranking does
+    # The ranking: a model matched for certain is ready, with its suggested places; one the ranking does
     # not know is to verify, not placed, with its line; and the issue ranks neither.
     measured = ranking_answers(ranking_model("gem-top-model", "Gem Top Model", 70, 60, 100, 2.0),
                                ranking_model("groq-mid-model", "Groq Mid Model", 50, 45, 300, 0.5),
@@ -7683,10 +7696,10 @@ def run_proposal_cases():
     vbody = ranked_proposals["ready"]["body"]
     fresh = section(vbody, "### `openrouter/vendor/fresh-model:free`")
     mystery = section(ranked_proposals["to_verify"]["body"], "### `openrouter/vendor/mystery-thing:free`")
-    judged("a model matched by its exact id is ready with its places, an unmeasured one is to verify and not placed",
+    judged("a model matched for certain is ready with its places, an unmeasured one is to verify and not placed",
            first_wrong(
                ("- Classement : intelligence 55.0, code 70.0, vitesse 250.0" in fresh
-                and "rapproché par l'identifiant exact" in fresh, "the figures are missing: %s" % fresh[:600]),
+                and "rapprochement sûr" in fresh, "the figures are missing: %s" % fresh[:600]),
                ("  - `flash` : avant `groq-mid`" in fresh and "  - `code` : avant `gem-top`" in fresh,
                 "the places are missing"),
                ("drift-ignore" not in fresh, "a measured model is offered a line to set it aside"),
@@ -7828,8 +7841,8 @@ def run_proposal_cases():
                ("Aucune dérive." in render_issue_body(blanked, "selftest"),
                 "an issue whose only news is proposed does not say there is no drift")))
 
-    # A match by the exact id, and nothing else, makes a model ready: not one by name after the id found
-    # two entries, not one with no ranking at all, which the body says.
+    # A certain match, and nothing else, makes a model ready: not one by name after the id found two
+    # entries, not one with no ranking at all, which the body says.
     twins = ranking_answers(ranking_model("twin-x", "Twin X Prime", 40, 30, 200, 0.0),
                             ranking_model("twin.x", "Other Twin", 20, 10, 100, 0.0),
                             openrouter_extra=[("vendor/twin-x:free", "Vendor: Twin X Prime (free)")])
@@ -7839,11 +7852,48 @@ def run_proposal_cases():
     judged("a match by name after the id found two entries is not certain; an unread ranking is said so",
            first_wrong(
                (twin_proposals["ready"]["items"] == [] and len(twin_proposals["to_verify"]["items"]) == 1
-                and "par le nom, pas par l'identifiant exact" in twin_proposals["to_verify"]["body"],
+                and "rapprochement par le nom seulement" in twin_proposals["to_verify"]["body"]
+                and "rapproché par le nom : à vérifier" in twin_proposals["to_verify"]["body"],
                 "a match by name made a model ready"),
                ("**Non placé** : le classement d'Artificial Analysis n'a pas été lu" in unread
                 and "the Artificial Analysis ranking was not read on 2026-01-01" in unread,
                 "an unread ranking is not said: %s" % unread[:600])))
+    # What "certain" means, case by case: the same model spelt with other punctuation, by its slug or by
+    # its name, is certain; two entries that spell alike, a digit apart, or a variant are not.
+    certainty = ranking_answers(
+        ranking_model("lfm3-1-7b", "LFM3-1.7B", 30, 20, 300, 0.0),
+        ranking_model("amazon-nova-lite-v1", "Nova Lite", 30, 20, 300, 0.0),
+        ranking_model("dup-model", "Dup Model", 30, 20, 300, 0.0),
+        ranking_model("dup.model", "Another", 31, 21, 301, 0.0),
+        ranking_model("cutter", "Cutter (Max)", 30, 20, 300, 0.0),
+        ranking_model("mid-paren", "Mid (2026) Paren", 30, 20, 300, 0.0),
+        openrouter_extra=[("liquid/lfm-3-1.7b:free", "LiquidAI: LFM3-1.7B (free)"),
+                          ("liquid/lfm-3-1.8b:free", "LiquidAI: LFM3-1.8B (free)"),
+                          ("vendor/nova-lite:free", "Vendor: Nova Lite (free)"),
+                          ("vendor/dup_model:free", "Vendor: Dupe (free)"),
+                          ("vendor/cutter:free", "Vendor: Cutter (free)"),
+                          ("vendor/mid-paren:free", "Vendor: Mid Paren (free)")])
+    certain_result = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(certainty, []), "2026-01-01")
+    certain_proposals = propose_additions(RANKING_TEMPLATE, certain_result)
+    reasons = {finding["id"]: [sentence for _, sentence in finding.get("missing", [])]
+               for report in certain_result["providers"] for finding in report["findings"] if finding["kind"] == "new"}
+    judged("a match is certain on punctuation, by slug or by name, and only on one entry with no variant",
+           first_wrong(
+               (ids(certain_proposals["ready"]) == [("openrouter", "liquid/lfm-3-1.7b:free"),
+                                                    ("openrouter", "vendor/mid-paren:free"),
+                                                    ("openrouter", "vendor/nova-lite:free")],
+                "ready: %r" % ids(certain_proposals["ready"])),
+               (any("rapprochement ambigu" in reason for reason in reasons["vendor/dup_model:free"])
+                and "- [ ] **Rapprochement.**" in section(certain_proposals["to_verify"]["body"],
+                                                          "### `openrouter/vendor/dup_model:free`"),
+                "two entries that spell alike: %r" % reasons["vendor/dup_model:free"]),
+               (any("aucune entrée du classement" in reason for reason in reasons["liquid/lfm-3-1.8b:free"]),
+                "a digit apart: %r" % reasons["liquid/lfm-3-1.8b:free"]),
+               (any("rapprochement vers une variante : « Cutter (Max) »" in reason
+                    for reason in reasons["vendor/cutter:free"]), "a variant: %r" % reasons["vendor/cutter:free"]),
+               ("rapproché par l'identifiant : à vérifier" in section(certain_proposals["to_verify"]["body"],
+                                                                      "### `openrouter/vendor/cutter:free`"),
+                "a variant's figures are said to come from a certain match")))
     commented_only = ADDITIONS_TEMPLATE.replace(
         "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
         '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
