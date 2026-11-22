@@ -95,10 +95,14 @@ model_list:
       model: gemini/gemini-3.6-flash
       api_key: "os.environ/GEMINI_API_KEY"
 
-  - model_name: gemini-3-5-flash
-    litellm_params:
-      model: gemini/gemini-3.5-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+  # Served, but not routed to: "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-22, says
+  # "gemini-3.5-flash" is no longer available in Google AI Studio and that its endpoint "automatically
+  # routes API requests to gemini-3.6-flash", so a slot for it would answer with the model of the slot
+  # next to it.
+  # - model_name: gemini-3-5-flash
+  #   litellm_params:
+  #     model: gemini/gemini-3.5-flash
+  #     api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash-lite
     litellm_params:
@@ -148,25 +152,27 @@ model_list:
   #     model: gemini/gemini-omni-1.1-flash
   #     api_key: "os.environ/GEMINI_API_KEY"
 
-  # The 2.5 generation stays, checked 2026-09-27: "ai.google.dev/gemini-api/docs/deprecations"
-  # gives no shutdown date for any of the three below, and since 2026-09-18 (".../changelog") Google
-  # limits "access to the 2.5 models to users who have actively used them in the past" while stating
-  # that "These models are not deprecated and will continue to be served until further notice". A
-  # key that never called them may be refused, which inside a cascade only moves the request on to
-  # the next entry.
-  - model_name: gemini-2-5-pro
-    litellm_params:
-      model: gemini/gemini-2.5-pro
-      api_key: "os.environ/GEMINI_API_KEY"
+  # Served until 2026-12-01, but not routed to: "ai.google.dev/gemini-api/docs/deprecations", read
+  # 2026-11-22, says "gemini-2.5-pro" is deprecated and "no longer available to select in Google AI
+  # Studio", that API access is "limited to existing users who have actively used it in the past", and
+  # that from 2026-12-01 its requests "automatically route to gemini-3.8-flash", which every cascade it
+  # was in already holds. A key that never called it is refused today.
+  # - model_name: gemini-2-5-pro
+  #   litellm_params:
+  #     model: gemini/gemini-2.5-pro
+  #     api_key: "os.environ/GEMINI_API_KEY"
 
-  # #2 flags this generation as several releases behind the gemini-3.x line above, which is why it
-  # sits in no cascade at all -- reachable only when asked for by name. Not yet confirmed retired, so
-  # not removed outright. Candidate for a follow-up cleanup once #2's own model-audit work lands.
+  # In no cascade at all, reachable only when asked for by name. The same page, read 2026-11-22, says
+  # "gemini-2.5-flash" is deprecated and no longer available to select in Google AI Studio, and that
+  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It goes when Google
+  # shuts it down.
   - model_name: gemini-2-5-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # The same page, read 2026-11-22, says "gemini-2.5-flash-lite" is not deprecated and "remains
+  # available through the API until further notice".
   - model_name: gemini-2-5-flash-lite
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
@@ -582,7 +588,6 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
-        - gemini-2-5-pro
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-ultra-free
@@ -615,7 +620,6 @@ router_settings:
         - gemini-4-hydrogen
         - gemini-3-8-flash
         - gemini-3-6-flash
-        - gemini-3-5-flash
         - gemini-3-flash-preview
 {% endif %}
 {% if has.Groq %}
@@ -700,7 +704,6 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
-        - gemini-3-5-flash
 {% endif %}
 {% if has.Mistral %}
         - codestral
@@ -727,9 +730,7 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
-        - gemini-2-5-pro
         - gemini-3-6-flash
-        - gemini-3-5-flash
 {% endif %}
 {% if has.Mistral %}
         - codestral
