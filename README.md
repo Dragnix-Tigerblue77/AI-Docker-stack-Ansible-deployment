@@ -1232,7 +1232,7 @@ Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRou
 
 ### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
 
-Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour cinq autres capacités, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement et les préversions ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
+Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour cinq autres capacités, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Les verdicts ont été relus le 2026-11-22 sous ces règles : ceux qui ont changé le disent. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement, les préversions et les dépôts (un dépôt unique jusqu'à 10 €, supposé valable à vie : ni abonnement, ni recharge, ni crédit qui expire) ; un contenu qui part chez un tiers n'est pas une raison d'écarter un fournisseur ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
 
 **Le fait qui décide plusieurs lignes : Cloudflare Workers AI.** La page « OpenAI compatibility » ne liste que les complétions de chat et les embeddings (`/v1/embeddings`) ; elle ne liste ni génération d'images, ni transcription, ni synthèse vocale. Les modèles d'image, de parole et de transcription ne s'atteignent que par l'appel natif `/ai/run/<modèle>`, pour lequel LiteLLM n'a pas de fournisseur : rien n'est donc routable par la passerelle aujourd'hui, même si le quota gratuit (10 000 « neurons » par jour) et la politique sur les données (aucune conservation, aucun entraînement sur le contenu client, page « Data usage ») sont ceux du fournisseur déjà retenu.
 
@@ -1241,16 +1241,17 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Cloudflare Workers AI | Modèles d'image (flux-1-schnell, flux-2, stable-diffusion-xl, etc.) dans les 10 000 « neurons » quotidiens | 720 requêtes par minute pour le texte vers image ; flux-1-schnell : prompt de 2048 caractères au plus, 8 pas au plus ; coût en neurons par tuile et par pas, sans total par image sur la page | À ajouter le jour où un routage existe : seule source gratuite et durable trouvée, mais inatteignable par LiteLLM (appel natif seulement) |
-| OpenRouter | Aucun modèle d'image `:free` trouvé ; la documentation de LiteLLM cite un modèle d'image Gemini payant | Payant | Fournisseur déjà fourni en clé, mais payant : écarté |
+| OpenRouter | Aucun modèle d'image `:free` ni à prix nul dans le catalogue ; des modèles d'image payants existent (Gemini image à environ 0,039 $ l'image, modèles d'image d'OpenAI) | LiteLLM les appelle par `/images/generations` sous la forme `openrouter/<modèle>` et les traduit en complétions de chat avec modalité image (lu dans sa documentation, non essayé) | Candidat comme réserve payante, pas comme palier gratuit : le crédit de 10 $ que le registre recommande pour porter les modèles `:free` de 50 à 1 000 requêtes par jour paierait environ 250 images, mais OpenRouter se réserve le droit d'expirer un crédit inutilisé au bout d'un an (le palier de 1 000 par jour, lui, tient au total acheté). Aucun routeur d'images n'est construit |
 | Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits | Écarté : payant |
-| Together AI, Replicate, fal (plateforme d'images), Recraft, OpenAI, xAI | Payant, sans palier gratuit d'image trouvé ; fal (plateforme d'images) : crédits prépayés ; Recraft : unités non remboursables | Payant | Écartés |
+| Recraft | Unités prépayées (1 $ = 1 000 unités), « Purchased units don't expire » ; 0,007 $ l'image en V4.1 Flash V2, 0,035 $ en V4.1 : 10 € achètent environ 1 600 images Flash ou 330 images V4.1 | Aucune allocation gratuite d'API trouvée ; taille minimale du paquet non lue (derrière un compte) ; route LiteLLM `recraft/recraftv3` | Candidat comme réserve payante (dépôt unique, crédit qui n'expire pas), pas comme palier gratuit : à ajouter seulement si un client du stack génère des images |
+| Together AI, OpenAI, xAI, fal (plateforme d'images), Replicate | Together AI : premier achat de 15 $, au-dessus du plafond ; OpenAI : 5 $ minimum, mais les crédits expirent au bout d'un an ; xAI, fal, Replicate : minimum et expiration non lus | Aucune route d'images de LiteLLM trouvée pour Together AI, xAI, fal ni Replicate | Écartés : plafond, crédit qui expire, ou aucune route |
 | Black Forest Labs | Paiement à l'usage ; les conditions donnent une licence pour entraîner sur les entrées et sorties et interdisent l'accès à l'API depuis autre chose que l'application du développeur | Passerelle exclue par les conditions | Écarté |
 | Stability AI | 25 crédits offerts, une seule fois (environ 8 images « Core ») | Crédit unique | Écarté |
 | Hugging Face, Ideogram | Hugging Face : aucun crédit mensuel pour les comptes gratuits ; Ideogram : l'API n'inclut aucun usage, les crédits hebdomadaires sont ceux de l'application et les images du plan gratuit y sont publiques | Pas d'offre gratuite d'API | Écartés |
-| Pollinations | La documentation dit qu'une clé secrète est requise, ce qui contredit « sans clé » ; quota gratuit non trouvé ; les prompts partent vers des fournisseurs en amont | Non vérifié | Non vérifié, non utilisable en l'état |
-| Fireworks, Leonardo, OmniRoute | Fireworks : aucun modèle d'image sur sa page des tarifs ; Leonardo : page des tarifs introuvable ; OmniRoute : documentation injoignable, offre d'image inconnue | Non vérifié | Non vérifiés |
+| Pollinations | Une route compatible OpenAI `POST /v1/images/generations` existe ; une clé est requise ; le solde « gratuit » est crédité par des quêtes ponctuelles (0,25 à 1 « pollen » chacune), aucune attribution récurrente trouvée | Conditions et politique de données illisibles (pages JavaScript) | Non retenu : aucun palier récurrent trouvé |
+| Fireworks, Leonardo, OmniRoute, Nscale | Fireworks : aucun modèle d'image sur sa page des tarifs ; Leonardo : page des tarifs introuvable ; OmniRoute : documentation injoignable, offre d'image inconnue ; Nscale : fournisseur d'images de LiteLLM, mais documentation et prix derrière un code d'accès | Non vérifié | Non vérifiés |
 
-**Ce qui changerait le verdict** : un fournisseur Cloudflare pour les images dans LiteLLM, ou un point d'accès `images/generations` compatible OpenAI sur Workers AI ; un modèle d'image gratuit sur OpenRouter ; ou un service de diffusion local, que le serveur sans GPU ne permet pas de façon réaliste. LiteLLM route aujourd'hui la génération d'images vers OpenAI, Azure OpenAI, Google AI Studio, Vertex AI, AWS Bedrock, Black Forest Labs, Recraft, OpenRouter, Xinference et Nscale (page « Image Generation ») : aucun n'est à la fois gratuit et durable.
+**Ce qui changerait le verdict** : un client du stack qui génère des images, auquel cas OpenRouter (le crédit déjà recommandé) ou Recraft (un dépôt unique qui n'expire pas) sont joignables ; un fournisseur Cloudflare pour les images dans LiteLLM, ou un point d'accès `images/generations` compatible OpenAI sur Workers AI ; un modèle d'image gratuit sur OpenRouter ; ou un service de diffusion local, que le serveur sans GPU ne permet pas de façon réaliste. LiteLLM route aujourd'hui la génération d'images vers OpenAI, Azure OpenAI, Google AI Studio, Vertex AI, AWS Bedrock, Black Forest Labs, Recraft, OpenRouter, Xinference et Nscale (page « Image Generation ») : aucun n'est à la fois gratuit et durable, seuls OpenRouter et Recraft se paient d'un dépôt unique.
 
 #### Analyse de documents et OCR
 
@@ -1258,27 +1259,27 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | --- | --- | --- | --- |
 | Docling (auto-hébergé) | Licence MIT ; PDF, DOCX, PPTX, XLSX, HTML et images vers Markdown ou JSON ; exécution locale, y compris pour des données sensibles | Aucune mesure de vitesse ni de processeur trouvée : à mesurer sur la machine | À ajouter : un service Docker, pas un routeur. Rien ne quitte la machine |
 | Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits | Servi autrement : aucun nouveau routeur n'est nécessaire |
-| Mistral OCR | Fournisseur `mistral/mistral-ocr-latest` de LiteLLM (page « OCR ») | Prix aux 1 000 pages et palier gratuit de l'API non trouvés ; la clé Mistral est payante | Non vérifié, écarté tant que le prix est inconnu |
+| Mistral OCR | 2 $ les 1 000 pages (3 $ avec annotations), aucun palier gratuit d'OCR trouvé ; le solde est prépayé, un appel à solde nul répond 402, un plafond de dépense se règle, les frais prépayés ne sont pas remboursables (page lue le 2026-11-22) | Fournisseur `mistral/mistral-ocr-latest` de LiteLLM ; minimum et expiration du solde non lus (à lire dans la console) | Utilisable comme réserve payante (10 € achètent environ 5 700 pages), pas comme palier gratuit : à décider avec un besoin d'OCR |
 | Cloudflare Workers AI `toMarkdown` | « Free for most format conversions » (page datée du 2026-04-21) | Liste des formats non trouvée ; appel natif seulement | Non routable, comme ci-dessus |
-| Azure AI Document Intelligence | Niveau F0 : 0 à 500 pages gratuites par mois | Aucune route LiteLLM listée | Écarté : contenu tiers chez un fournisseur cloud, sans route |
-| LlamaParse | 10 000 crédits par mois, récurrents (1 crédit par page en mode rapide, 10 en mode agentique) | Résultats mis en cache supprimés après 48 heures ; absent de LiteLLM | Écarté |
+| Azure AI Document Intelligence | Niveau F0 : 500 pages gratuites par mois, récurrent ; compte Azure avec une carte non prépayée et un numéro de téléphone, sans frais | Route LiteLLM `azure_ai/doc-intelligence/prebuilt-layout` | Candidat : récurrent et joignable par LiteLLM. L'ancienne raison d'écart (contenu tiers chez un fournisseur cloud) ne tient plus ; à ajouter avec un besoin d'OCR |
+| LlamaParse | 10 000 crédits gratuits par mois, récurrents (1 crédit par page en mode rapide, 10 en mode agentique) | Aucun fournisseur LiteLLM ; la suppression des résultats en cache après 48 heures ne compte pas ici | Non routable : hors de la passerelle, comme Docling, qui serait un service à part |
 | Reducto | 150 $ une fois, puis payant | Rétention zéro réservée aux offres Growth et Enterprise | Écarté : crédit unique |
 | Cohere Parse | Clé d'essai | « Not permitted to be used for production or commercial purposes » | Écarté |
-| Unstructured | 10 000 pages gratuites au départ, sans carte | Récurrence non indiquée | Non vérifié |
-| Google Cloud Document AI | Page non récupérable | Tout | Non vérifié |
+| Unstructured | 10 000 pages gratuites une seule fois, sans carte | Aucune route LiteLLM trouvée | Écarté : quota unique |
+| Google Cloud Document AI | OCR : les 1 000 premières pages gratuites, période non précisée (page lue le 2026-11-22) | Aucune route LiteLLM trouvée | Non routable |
 
-**Ce qui changerait le verdict** : la mesure de Docling sur la machine (vitesse et mémoire), qui décide s'il devient un service, et le chantier d'ingestion de documents qui en serait le client ; un palier gratuit durable de Mistral OCR avec une politique de données acceptable. Un document au contenu tiers n'est pas envoyé à un service gratuit qui s'entraîne dessus, d'où la préférence pour le service local.
+**Ce qui changerait le verdict** : la mesure de Docling sur la machine (vitesse et mémoire), qui décide s'il devient un service, et le chantier d'ingestion de documents qui en serait le client ; un palier gratuit durable de Mistral OCR avec une politique de données acceptable. Le service local reste préféré parce qu'il ne coûte rien et ne dépend de personne, non parce que le contenu serait trop sensible : le mainteneur refuse un chemin réservé aux données sensibles.
 
 #### Traduction
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Routeurs de texte existants | Les modèles de chat déjà routés traduisent | Ceux des cascades | Servi autrement : aucun routeur de traduction n'est nécessaire |
-| Azure Translator | Niveau F0 : 2 millions de caractères gratuits par mois | Aucune route LiteLLM vérifiée | Non routé |
-| DeepL API Free | 50 000 caractères par mois | Page de l'API introuvable ; aucune route LiteLLM vérifiée | Non routé, non vérifié |
+| Azure Translator | Niveau F0 : 2 millions de caractères gratuits par mois, récurrent ; compte Azure avec une carte non prépayée et un numéro de téléphone, sans frais | Aucune route LiteLLM | Non routable |
+| DeepL API Free | 500 000 caractères par mois d'après un extrait de la page d'aide (page non lue, refusée à la lecture) ; les 50 000 écrits ici avant la relecture étaient probablement faux | Aucune route LiteLLM | Non routable |
 | Cloudflare Workers AI (m2m100-1.2b) | 0,342 $ par million de jetons, dans les neurons quotidiens | Appel natif seulement | Non routable |
 | LibreTranslate (auto-hébergé) | Licence AGPL, moteur Argos Translate | Vitesse sur processeur non trouvée | Non vérifié |
-| Google Cloud Translation | Page non récupérable | Tout | Non vérifié |
+| Google Cloud Translation | 500 000 caractères gratuits par mois (page lue le 2026-11-22) | Aucune route LiteLLM trouvée | Non routable |
 
 **Ce qui changerait le verdict** : un besoin de volume ou de qualité que les modèles de chat ne couvrent pas, ou une route LiteLLM vérifiée pour un de ces moteurs.
 
@@ -1286,7 +1287,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| OpenAI `omni-moderation-latest` | « The moderation endpoint is free to use » (guide de modération), texte et images | Exige un compte OpenAI, que la passerelle n'a pas | Non routé : rien dans le stack ne demande de modération |
+| OpenAI `omni-moderation-latest` | « The moderation endpoint is free to use » (guide de modération), texte et images ; route LiteLLM `/moderations` avec `openai/omni-moderation-latest` | Un compte OpenAI est nécessaire ; qu'un compte sans dépôt puisse appeler ce point d'accès n'est pas établi. Si un dépôt est exigé : 5 $ au minimum, crédits expirant au bout d'un an et non remboursables, ce qui ne répond pas à la règle du dépôt unique à vie | Candidat technique, non essayé : gratuit et joignable par LiteLLM, mais rien dans le stack ne demande de modération |
 | Mistral | Page de la modération introuvable | Tout | Non vérifié |
 
 **Ce qui changerait le verdict** : un service du stack qui exposerait des entrées d'utilisateurs non fiables ; il faudrait alors un compte OpenAI et vérifier la route dans LiteLLM.
@@ -1295,9 +1296,9 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la page « realtime » de LiteLLM liste Google AI Studio mais sans exemple de configuration Gemini (non vérifié), et aucun client du stack n'ouvre de session temps réel |
+| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la documentation de LiteLLM liste Google AI Studio (Gemini) pour `/realtime` et donne une configuration `mode: realtime`, avec des identifiants de modèle plus anciens que ceux de cette ligne (non essayée) ; reste qu'aucun client du stack n'ouvre de session temps réel |
 
-**Ce qui changerait le verdict** : un client temps réel réel dans le stack et une route Gemini Live vérifiée dans LiteLLM. Aucune décision sur la téléphonie n'est prise ici.
+**Ce qui changerait le verdict** : un client temps réel réel dans le stack et un essai de la route Gemini Live de LiteLLM avec les modèles actuels. Aucune décision sur la téléphonie n'est prise ici.
 
 ### Un compte par personne, pas une paire figée (#103)
 
