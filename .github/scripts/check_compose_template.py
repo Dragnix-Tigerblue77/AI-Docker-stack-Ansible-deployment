@@ -1613,6 +1613,12 @@ LITELLM_PROVIDERS = {
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
 # construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
+# The routers of a capability other than text: aliases of their cascade's first member and absent without a
+# key, like the five above, so the same rules hold them. They are kept apart because LITELLM_ROUTERS is also
+# what the agent's models are validated against, and the agent never asks for speech. Each maps to the
+# "model_info.mode" its members carry, which no member of a text cascade may carry, and to the providers
+# whose keys it depends on.
+LITELLM_MEDIA_ROUTERS = {"tts": ("audio_speech", frozenset({"Gemini"}))}
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
 LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai", "NVIDIA"})
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
@@ -1719,7 +1725,7 @@ def check_litellm_config(document, keys, failures):
                 "under the name that was asked for, so a request made under it would not fall back at all (#300)"
             )
 
-    for router in LITELLM_ROUTERS:
+    for router in LITELLM_ROUTERS + tuple(LITELLM_MEDIA_ROUTERS):
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
         if is_entry:
             failures.append(
@@ -1736,6 +1742,36 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {router!r} points at {aliases[router]!r} but its cascade starts at "
                 f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
             )
+    modes = {entry.get("model_name"): mapping(entry, "model_info").get("mode") for entry in entries}
+    media_modes = {mode for mode, _ in LITELLM_MEDIA_ROUTERS.values()}
+    for name, members in cascades.items():
+        # An alias takes the kind of the router whose head it names.
+        kind = name if name in LITELLM_MEDIA_ROUTERS else next(
+            (router for router in LITELLM_MEDIA_ROUTERS if name in aliases and aliases.get(router) == aliases[name]),
+            None,
+        )
+        wanted_mode = LITELLM_MEDIA_ROUTERS[kind][0] if kind else None
+        for member in members:
+            mode = modes.get(member)
+            if (mode if mode in media_modes else None) != wanted_mode:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} holds {member!r}, whose model_info.mode is {mode!r}: a "
+                    "speech model in a text cascade, or a text model in a speech one, is a request answered by "
+                    "the wrong kind of model or refused by it"
+                )
+    for router, (_, providers) in LITELLM_MEDIA_ROUTERS.items():
+        if (router in declared or router in aliases) != bool(keys & providers):
+            failures.append(
+                f"[{state}] {router!r} is {'absent' if keys & providers else 'served'}, although the keys "
+                f"{'allow' if keys & providers else 'do not allow'} it"
+            )
+        if router in cascades and router in aliases:
+            for alias, target in aliases.items():
+                if target == aliases[router] and cascades.get(alias, cascades[router]) != cascades[router]:
+                    failures.append(
+                        f"[{state}] the cascade of {alias!r} is {cascades[alias]!r}, where the cascade of "
+                        f"{router!r} is {cascades[router]!r}: both name the same head and are written side by side"
+                    )
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
     if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
         failures.append(
@@ -1798,9 +1834,12 @@ LITELLM_VARIABLE_CASES = [
 
 
 def _litellm_document(entries, cascades, aliases):
+    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode"."""
     return {
         "model_list": [
-            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key}} for name, key in entries
+            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
+             **({"model_info": {"mode": mode[0]}} if mode else {})}
+            for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
     }
@@ -1826,6 +1865,12 @@ _MISTRAL_ONLY = _litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
     [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
     {"claude-code": "mistral-large", "auto-code": "mistral-large"},
+)
+
+_TTS_ONLY = _litellm_document(
+    [("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech"), ("chat", "os.environ/GEMINI_API_KEY")],
+    [("tts", ["a-tts"]), ("auto-tts", ["a-tts"]), ("claude-code", ["chat"])],
+    {"tts": "a-tts", "auto-tts": "a-tts", "claude-code": "chat"},
 )
 
 LITELLM_CONFIG_CASES = [
@@ -1919,9 +1964,10 @@ LITELLM_CONFIG_CASES = [
                        {"code": "a", "claude-code": "a"}),
      {"Mistral"}, "have drifted apart"),
     ("a router served as an alias by its cascade's head, Gemini having a key",
-     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
-                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
-                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"]), ("tts", ["a-tts"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash", "tts": "a-tts"}),
      {"Gemini"}, None),
     ("a Kilo entry as the template writes it", _kilo_document(), set(), None),
     ("a Kilo entry that does not blank the header", _kilo_document(extra_headers=None), set(),
@@ -1940,6 +1986,46 @@ LITELLM_CONFIG_CASES = [
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
                        {"claude-code": "gemini-3-8-flash"}),
      {"Gemini"}, "'pro' is a model_list entry"),
+    ("the speech router served as an alias by its cascade's head",
+     _TTS_ONLY, {"Gemini"}, None),
+    ("the speech router written as an entry of the model list",
+     _litellm_document([("tts", "os.environ/GEMINI_API_KEY", "audio_speech"),
+                        ("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech")],
+                       [("tts", ["a-tts"]), ("auto-tts", ["a-tts"])], {"auto-tts": "a-tts"}),
+     {"Gemini"}, "'tts' is a model_list entry"),
+    ("the speech router's alias that is not its cascade's head",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech"),
+                        ("b-tts", "os.environ/GEMINI_API_KEY", "audio_speech")],
+                       [("tts", ["a-tts", "b-tts"]), ("auto-tts", ["a-tts", "b-tts"])],
+                       {"tts": "b-tts", "auto-tts": "b-tts"}),
+     {"Gemini"}, "have drifted apart"),
+    ("the speech router with no cascade",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech")], [],
+                       {"tts": "a-tts"}),
+     {"Gemini"}, "a router and its cascade stand or fall together"),
+    ("the speech router absent although Gemini has a key",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech")], [], {}),
+     {"Gemini"}, "'tts' is absent"),
+    ("the speech router served by a Mistral key alone",
+     _TTS_ONLY, {"Mistral"}, "'tts' is served"),
+    ("a text model in the speech cascade",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech"),
+                        ("chat", "os.environ/GEMINI_API_KEY")],
+                       [("tts", ["a-tts", "chat"]), ("auto-tts", ["a-tts", "chat"])],
+                       {"tts": "a-tts", "auto-tts": "a-tts"}),
+     {"Gemini"}, "model_info.mode is None"),
+    ("a speech model in a text cascade",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech"),
+                        ("chat", "os.environ/GEMINI_API_KEY")],
+                       [("tts", ["a-tts"]), ("auto-tts", ["a-tts"]), ("pro", ["chat", "a-tts"])],
+                       {"tts": "a-tts", "auto-tts": "a-tts", "pro": "chat"}),
+     {"Gemini"}, "the cascade of 'pro' holds 'a-tts'"),
+    ("the speech router's alias with another cascade than its own",
+     _litellm_document([("a-tts", "os.environ/GEMINI_API_KEY", "audio_speech"),
+                        ("b-tts", "os.environ/GEMINI_API_KEY", "audio_speech")],
+                       [("tts", ["a-tts", "b-tts"]), ("auto-tts", ["a-tts"])],
+                       {"tts": "a-tts", "auto-tts": "a-tts"}),
+     {"Gemini"}, "written side by side"),
 ]
 
 

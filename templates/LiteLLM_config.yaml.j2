@@ -27,11 +27,11 @@
   'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
   'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0
 } %}
-# The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
+# The routers below, the text-to-speech one included, are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
 # by the way the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a
 # router that exists as a cascade alone would be refused). A router is left out when no model of its cascade
-# has a key or needs none, which only "claude-code" can come to. "check_compose_template.py" renders every
+# has a key or needs none, which "claude-code" and the text-to-speech router can come to. "check_compose_template.py" renders every
 # non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
 # the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
 # heads one of the three: the table below stops at Kilo. Requesty's members sit right ahead of Kilo's in
@@ -41,7 +41,8 @@
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gemma-3-4b-nvidia' if has.NVIDIA else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-requesty' if has.Requesty else 'nemotron-lightning-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
+  'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -52,7 +53,8 @@
   'flash': ['auto', 'auto-flash', 'auto-fast'],
   'flash-lite': ['auto-flash-lite'],
   'code': ['auto-code'],
-  'claude-code': []
+  'claude-code': [],
+  'tts': ['auto-tts']
 } %}
 model_list:
 {% if has.Gemini %}
@@ -217,6 +219,29 @@ model_list:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # Text to speech, for the "tts" router and for it alone (its cascade says why these two and in this
+  # order). Added 2026-11-22. The speech page of the Gemini API documentation, read that day, lists
+  # French as supported by both models and offers 30 prebuilt voices; "ai.google.dev/gemini-api/docs/
+  # deprecations", read the same day, shuts down the three older preview speech models no earlier than
+  # 2026-12-18, so none is routed. LiteLLM's own source, read the same day, serves these ids through the
+  # "gemini/" provider, maps the OpenAI voice names to Gemini voices and answers WAV, or raw PCM when the
+  # caller asks for "pcm". Whether the free tier covers them, and at what limits, was not read. The free
+  # tier is not for sensitive text: the Gemini API terms (effective 2026-03-23), read that day, say to
+  # submit none to the unpaid services and that their content is used to improve Google's products.
+  - model_name: gemini-3-8-flash-tts
+    litellm_params:
+      model: gemini/gemini-3.8-flash-tts
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      mode: audio_speech
+
+  - model_name: gemini-3-8-flash-lite-tts
+    litellm_params:
+      model: gemini/gemini-3.8-flash-lite-tts
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      mode: audio_speech
+
   # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
   # and each line says why.
   # drift-ignore: gemini/gemini-3.1-flash-lite-preview -- shut down on 2026-05-25 per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), which says to use gemini-3.1-flash-lite, routed above; the catalogue still listed it that day
@@ -283,6 +308,20 @@ model_list:
     litellm_params:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
+
+  # Served, but not routed to: Voxtral text to speech, whose id "docs.mistral.ai/models/voxtral-mini-tts-3-0"
+  # gives (read 2026-11-22). LiteLLM's own source, read the same day, maps six OpenAI voice names
+  # (alloy, echo, fable, onyx, nova, shimmer) to Mistral's English voices and sends any other name on as
+  # a Mistral voice id, and Mistral's documentation says the voice sets the language, not a parameter:
+  # a caller asking for "alloy" over French text would be answered by an English voice, and a caller
+  # asking for "coral" by a voice id Mistral may not know. Its French voices have to be asked for by
+  # their own id, which a cascade shared with the Gemini members, who take the OpenAI names, cannot do.
+  # - model_name: voxtral-mini-tts-mistral
+  #   litellm_params:
+  #     model: mistral/voxtral-mini-tts-3-0
+  #     api_key: "os.environ/MISTRAL_API_KEY"
+  #   model_info:
+  #     mode: audio_speech
 
   # Looked at on 2026-11-02 and turned down (#305).
   # drift-ignore: mistral/labs-leanstral-1-5 -- an experimental Labs model for Lean 4 formal proofs, scheduled to retire on 2026-09-30 per "docs.mistral.ai/getting-started/changelog" (read 2026-11-02); the catalogue still listed it that day
@@ -1375,6 +1414,24 @@ router_settings:
 {% endfor %}
 {% endif %}
 
+    # 6. TTS -- text to speech, for /audio/speech. Not ranked by a leaderboard and with no contract: no
+    # ranking of speech models is read here, so the order is decided by hand. The fuller model comes
+    # first and the lite one second, which is a model of its own and so, if Google counts the quota per
+    # model (not checked), one that answers when the first is refused for quota. A text model never
+    # belongs here and a speech model never belongs in a text cascade: "check_compose_template.py" holds
+    # both, through "model_info.mode". Mistral's Voxtral is served but not routed to, for the reason given
+    # above its commented entry. LiteLLM's own source, read 2026-11-22, applies "fallbacks" and
+    # "model_group_alias" to /audio/speech as it does to chat, and a "response_format" other than "wav"
+    # and "pcm", which Gemini cannot produce, is refused before any request leaves, so by both members alike.
+{% if head['tts'] %}
+    - tts: &tts_cascade
+        - gemini-3-8-flash-tts
+        - gemini-3-8-flash-lite-tts
+{% for alias in aliases_of['tts'] %}
+    - {{ alias }}: *tts_cascade
+{% endfor %}
+{% endif %}
+
   # Transparent alias mappings.
   model_group_alias:
     # The routers are written out one by one and not in a loop: "check_LiteLLM_account_isolation.py"
@@ -1394,7 +1451,10 @@ router_settings:
 {% if head['claude-code'] %}
     "claude-code": "{{ head['claude-code'] }}"
 {% endif %}
-{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code'] if head[router] %}
+{% if head['tts'] %}
+    "tts": "{{ head['tts'] }}"
+{% endif %}
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code', 'tts'] if head[router] %}
 {% for alias in aliases_of[router] %}
     "{{ alias }}": "{{ head[router] }}"
 {% endfor %}
