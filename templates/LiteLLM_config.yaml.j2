@@ -23,7 +23,8 @@
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
   'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0,
   'Cloudflare': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string and Artificial_Intelligence_LiteLLM_Cloudflare_API_key | length > 0,
-  'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0
+  'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0,
+  'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0
 } %}
 # The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
@@ -32,11 +33,12 @@
 # has a key or needs none, which only "claude-code" can come to. "check_compose_template.py" renders every
 # non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
 # the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
-# heads one of the three: the table below stops at Kilo.
+# heads one of the three: the table below stops at Kilo. Requesty's members sit right ahead of Kilo's in
+# "flash" and "flash-lite", so Requesty heads those two when no earlier provider has a key.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'beam-kilo',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'particle-1-kilo',
-  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-kilo',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-requesty' if has.Requesty else 'nemotron-lightning-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
@@ -770,6 +772,61 @@ model_list:
   #     extra_headers:
   #       Authorization: ""
 
+{% if has.Requesty %}
+  # ============================================================================
+  # Requesty ("openai/" through its OpenAI-compatible endpoint, free models only)
+  #
+  # Checked 2026-11-22. Requesty is a gateway that passes each request on to the model's own provider. LiteLLM
+  # has no provider of that name, so each entry is "openai/<provider>/<model>" with an "api_base": LiteLLM
+  # cuts the prefix once, and the rest, slash included, reaches Requesty as the model id, which Requesty asks
+  # in the form "provider/model" ("Quickstart" of the Requesty docs, read that day; a bare name is a managed
+  # policy and is never used here). The base is the European one, which the "Data privacy" page says
+  # processes and stores traffic in Frankfurt. That the free models below are all served there is UNVERIFIED:
+  # the United States base, one line per entry, is the change to make if one answers "not found".
+  #
+  # The "Free models" page of the Requesty docs (read that day) limits free usage per organization: 200
+  # requests a day and 20 a minute for a new one, 1,000 and 60 for one that pays, "across all free models
+  # combined", reset daily. That is a pool of its own, apart from OpenRouter's, and every entry below draws on
+  # it together, so a slot here is a second quota only as long as the pool lasts. The same page says the models
+  # are free "for now" and that a change will be announced in the changelog ahead of time: the entries below
+  # stop being free the day that happens, and 402 is what the "Billing" page says a paid model answers at a
+  # zero balance. The "Data privacy" page says Requesty does not store prompts and responses unless logging is
+  # enabled and does not train on them, and that what the upstream provider keeps depends on that provider.
+  # One account only. The session that wrote this did not read Requesty's terms.
+  #
+  # Only second sources of an OpenRouter ":free" entry, each right behind its twin. Whether the models are
+  # the same weights behind both gateways rests on the names alone. Looked at the same day and not routed,
+  # since none is a model this list serves through another provider: Nemotron 3 Super 120B and Nano 30B,
+  # Nemotron 3.5 content safety, Muse Glimmer, Laguna, Ling and Leanstral, all on that page. The Gemma 4 26B
+  # and the Nemotron 3.5 Super VL of the OpenRouter section have no counterpart on it. Tool calls through
+  # these entries are untried: LiteLLM forwards them, and no page read says each model takes them.
+  # ============================================================================
+  - model_name: nemotron-ultra-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: nemotron-reasoning-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: nemotron-lightning-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-lightning-30b-a3b
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: gemma-4-31b-requesty
+    litellm_params:
+      model: openai/google/gemma-4-31b-it
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+{% endif %}
+
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
@@ -846,6 +903,7 @@ router_settings:
     # after every free entry, Mistral first.
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
+    # Requesty's two Nemotron entries sit right behind their OpenRouter twins.
     # Priority: Google -> OpenRouter heavy -> DeepSeek direct (paid -- last resort before the fully
     # free OmniRoute) -> OmniRoute. Kilo's entries sit right behind their OpenRouter twins, ahead of the paid
     # ones; "beam-kilo" has no twin and is ahead of both Nemotron entries, for the reason given with it.
@@ -859,11 +917,17 @@ router_settings:
 {% if has.OpenRouter %}
         - nemotron-ultra-free
 {% endif %}
+{% if has.Requesty %}
+        - nemotron-ultra-requesty
+{% endif %}
         - nemotron-ultra-kilo
 {% if has.Mistral %}
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-reasoning-free
+{% endif %}
+{% if has.Requesty %}
+        - nemotron-reasoning-requesty
 {% endif %}
         - nemotron-reasoning-kilo
 {% if has.OpenRouter %}
@@ -886,6 +950,7 @@ router_settings:
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
     # the OpenRouter one second because its quota is the daily count all ":free" entries share.
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
+    # Requesty's "gemma-4-31b-requesty" sits right behind its OpenRouter twin, a pool of its own.
     # Kilo's entries sit right behind their OpenRouter twins, ahead of the paid ones. The two of its own with no
     # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
     # which has no record either and closes the free ones.
@@ -913,6 +978,11 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-31b-free
+{% endif %}
+{% if has.Requesty %}
+        - gemma-4-31b-requesty
+{% endif %}
+{% if has.OpenRouter %}
         - particle-1-free
 {% endif %}
         - particle-1-kilo
@@ -949,8 +1019,8 @@ router_settings:
     # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
-    # sits right ahead of its OpenRouter twin, for the reason given under FLASH, Kilo's entries right behind their
-    # OpenRouter twins, and the Cloudflare twins ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") right
+    # sits right ahead of its OpenRouter twin, for the reason given under FLASH, the entries of Requesty and of Kilo, in that order, right
+    # behind their OpenRouter twins, and the Cloudflare twins ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") right
     # behind the last slot of theirs. "llama-3-3-70b-cloudflare" is new to the gateway and closes the free
     # members: no index of Artificial Analysis measures it, and Epoch AI's capabilities index puts it under all
     # of them.
@@ -983,6 +1053,9 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-lightning-free
+{% endif %}
+{% if has.Requesty %}
+        - nemotron-lightning-requesty
 {% endif %}
         - nemotron-lightning-kilo
 {% if has.OpenRouter %}

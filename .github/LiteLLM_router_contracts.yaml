@@ -168,6 +168,7 @@ inputs:
     kilo: "Anonymous, no key and no account: 200 requests per hour per IP address, for the free models only, per the Authentication and Models and providers pages of the Kilo gateway documentation (read 2026-11-22); the free models' availability changes, and each flags that prompts may be trained on"
     cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
     zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
+    requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -648,6 +649,38 @@ models:
     note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index, and the capabilities index has no figure for it"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling and supports_tool_choice"}
     epoch: unknown
+  nemotron-ultra-requesty:
+    slug: nvidia-nemotron-3-ultra-550b-a55b
+    level: unknown
+    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-ultra-550b-a55b"
+    eci: "Nemotron 3 Ultra"
+    note: "Artificial Analysis publishes one record, named Reasoning"
+    tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin nemotron-ultra-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
+    epoch: unknown
+  nemotron-reasoning-requesty:
+    slug: nemotron-3-nano-omni-30b-a3b
+    level: unknown
+    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+    note: "Artificial Analysis publishes one record and no figure for it"
+    tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin nemotron-reasoning-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
+    epoch: unknown
+  nemotron-lightning-requesty:
+    slug: nemotron-3-5-lightning
+    level: unknown
+    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3.5-lightning-30b-a3b"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin nemotron-lightning-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
+    epoch: unknown
+  gemma-4-31b-requesty:
+    slug: gemma-4-31b
+    level: unknown
+    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for google/gemma-4-31b-it"
+    eci: "Gemma 4 31B IT"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin gemma-4-31b-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
+    epoch:
+      ale_bench_external: [gemma-4-31b-it]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}

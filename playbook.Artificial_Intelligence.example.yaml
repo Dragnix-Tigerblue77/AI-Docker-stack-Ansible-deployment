@@ -96,6 +96,9 @@
         Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_account_ID }}"
         # Z AI serves GLM-4.7-Flash free of charge: one key, the account's own.
         Artificial_Intelligence_LiteLLM_Zai_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Zai_API_key }}"
+        # Requesty serves a few models free for now, in one daily quota shared by all of them: one key, the
+        # account's own.
+        Artificial_Intelligence_LiteLLM_Requesty_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Requesty_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

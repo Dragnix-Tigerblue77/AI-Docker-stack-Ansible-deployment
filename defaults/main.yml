@@ -316,6 +316,13 @@ Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: ""
 # say nothing found about a gateway or about several accounts: one key, the gateway's own, and none for
 # another person.
 Artificial_Intelligence_LiteLLM_Zai_API_key: ""
+# Requesty is a gateway that relays each request to the model's own provider, and serves a few models free
+# of charge for now: "Free models" page of its docs, read 2026-11-22, which limits them to 200 requests a day
+# and 20 a minute per organization, all free models together, and says a change of that will be announced
+# ahead of time. The role uses it only as a second source of models already routed through OpenRouter, and
+# through its European endpoint. ONE account: the session that wrote this did not read its terms, so nothing
+# is established about several accounts, circumventing a limit, or reselling.
+Artificial_Intelligence_LiteLLM_Requesty_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret

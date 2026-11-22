@@ -129,16 +129,17 @@ autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des sept clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des huit clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des sept clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des huit clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des sept clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des sept clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des sept clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
-| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des sept clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des huit clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des huit clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des huit clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des huit clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
 | `Artificial_Intelligence_LiteLLM_Cloudflare_account_ID` | `""` | L'identifiant du compte Cloudflare, que LiteLLM lit dans l'environnement du conteneur (`CLOUDFLARE_ACCOUNT_ID`) pour construire l'adresse du point d'accès : aucune entrée du `model_list` ne le nomme. **Un seul compte** : les conditions de Cloudflare interdisent d'en ouvrir un second pour doubler le quota. Voir « Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des sept clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des huit clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des huit clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -615,7 +616,7 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des sept clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI), et échoue en les
+Le rôle exige **au moins une** des huit clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
@@ -654,7 +655,7 @@ l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
 cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
 rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
-compte pour « au moins une des sept clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
+compte pour « au moins une des huit clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
 Cloudflare.
 
 **Un seul compte, et ce n'est pas un réglage.** Les conditions de Cloudflare (*Self-Serve Subscription Agreement*, lues
@@ -1019,6 +1020,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
 | SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Retenu pour gpt-oss-120b seul, en source supplémentaire derrière Groq et Cloudflare ; les trois autres modèles essayés exigent des crédits et restent écartés |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
+| Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
 Pages officielles lues :
@@ -1033,6 +1035,7 @@ Pages officielles lues :
 - Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
 - SambaNova : [Plans](https://cloud.sambanova.ai/plans)
 - DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
+- Requesty : pages « Free models », « Billing », « Quickstart » et « Data privacy » de sa documentation, relues le 2026-11-22
 
 **Groupe 2 -- à ajouter, par ordre de préférence.**
 
@@ -1107,6 +1110,21 @@ Pages officielles lues :
 - **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
 - **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
 - **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue de Kilo : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût.
+
+### Requesty, une seconde source des modèles `:free` d'OpenRouter
+
+Requesty est une passerelle : elle relaie chaque requête vers le fournisseur du modèle. LiteLLM n'a pas de fournisseur de ce nom, donc chaque entrée est écrite `openai/<fournisseur>/<modèle>` avec un `api_base`, comme celles d'OmniRoute : LiteLLM ne retire que le préfixe `openai/`, et le reste, barre oblique comprise, part chez Requesty comme identifiant de modèle, que sa documentation demande sous la forme `fournisseur/modèle`. Cette lecture a été vérifiée dans le code de LiteLLM, appels de fonctions (`tools`) compris ; si chaque modèle les accepte chez Requesty, aucune page lue ne le dit.
+
+Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRouter, chacune juste derrière son jumeau OpenRouter dans les cascades où il a une place : Nemotron 3 Ultra et Nemotron 3 Nano Omni (raisonnement) dans `pro`, Gemma 4 31B dans `flash`, Nemotron 3.5 Lightning dans `flash-lite`. Que ce soient les mêmes poids des deux côtés ne repose que sur les noms. Les autres modèles gratuits de la page « Free models » ne sont pas routés : aucun n'est un modèle que le `model_list` sert déjà. Aucune entrée n'entre dans `code` ni `claude-code`, et la présence d'une clé Requesty seule ne fait donc pas exister `claude-code`.
+
+| Point | Ce que les pages lues disent (relues le 2026-11-22) |
+| --- | --- |
+| Limites | Par organisation : 200 requêtes par jour et 20 par minute pour une organisation neuve, 1 000 et 60 pour une organisation qui paie, « across all free models combined », remis à zéro chaque jour. Un quota à part de celui d'OpenRouter |
+| Durée | Gratuit « for now » : un changement sera annoncé dans le journal des modifications avant d'entrer en vigueur. Un modèle payant répond 402 quand le solde est nul |
+| Quota commun | Toutes les entrées puisent dans le même quota : une place Requesty n'est une seconde source que tant qu'il dure |
+| Point d'accès | Le point d'accès européen est écrit en dur dans les entrées (Francfort, d'après la page « Data privacy »). Que tous les modèles gratuits y soient servis n'est **pas vérifié** ; la base américaine est un changement d'une ligne par entrée |
+| Données | Les requêtes et réponses ne sont pas stockées sauf si la journalisation est activée, et Requesty n'entraîne pas de modèle dessus ; ce que le fournisseur en amont conserve dépend de lui |
+| Compte | Un seul. Les conditions d'utilisation n'ont **pas** été lues par la session qui a écrit ceci (la page n'a rendu aucun texte) : rien n'est établi sur plusieurs comptes, le contournement des limites, les passerelles ou la revente |
 
 ### Un compte par personne, pas une paire figée (#103)
 

@@ -105,6 +105,7 @@ ALLOWED_HOSTS = {
     "developers.cloudflare.com": "Cloudflare's own Workers AI pricing, limits, data usage and model pages, cited in the README ledger of free providers and in the comments of the model list",
     "www.cloudflare.com": "Cloudflare's own terms of service page, cited in the README ledger of free providers and in the comments of the role's variables and of the model list",
     "docs.z.ai": "Z AI's own pricing, model, introduction and terms of use pages, cited in the README ledger of free providers and in the comments of the role's variables and of the model list",
+    "router.eu.requesty.ai": "Requesty's own European OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",
     "kilo.ai": "Kilo's own gateway models page and terms, cited in the README ledger of free providers",
     "ai-gateway.kilo.ai": "Kilo's own OpenAI-compatible gateway, the api_base of its entries in the model list: a public service address, not the caller's",
     "assets.ngc.nvidia.com": "NVIDIA's own API trial terms of service, cited in the README ledger of free providers",

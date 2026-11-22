@@ -88,13 +88,14 @@
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key,
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key,
         Artificial_Intelligence_LiteLLM_Cloudflare_API_key,
-        Artificial_Intelligence_LiteLLM_Zai_API_key
+        Artificial_Intelligence_LiteLLM_Zai_API_key,
+        Artificial_Intelligence_LiteLLM_Requesty_API_key
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
       At least one of the LiteLLM provider keys of the gateway's account (Gemini, Mistral, Groq,
-      OpenRouter, DeepSeek, Cloudflare, Z AI) must be a non-empty string: without one the gateway has no
-      model to route to. They are all empty by default, and "LiteLLM_config.yaml.j2" renders only the
+      OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty) must be a non-empty string: without one the gateway
+      has no model to route to. They are all empty by default, and "LiteLLM_config.yaml.j2" renders only the
       providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Another account's own
       provider keys are not asked for here: they arrive as model_list entries of their own (#107). Not
       from that account's own "/ui" login -- LiteLLM keeps "/model/new" to the proxy admin. The GitHub

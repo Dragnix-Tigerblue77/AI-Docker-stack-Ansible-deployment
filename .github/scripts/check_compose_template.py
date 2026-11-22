@@ -1602,6 +1602,7 @@ LITELLM_PROVIDERS = {
     "DeepSeek": "DEEPSEEK_API_KEY",
     "Cloudflare": "CLOUDFLARE_API_KEY",
     "Zai": "ZAI_API_KEY",
+    "Requesty": "REQUESTY_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
