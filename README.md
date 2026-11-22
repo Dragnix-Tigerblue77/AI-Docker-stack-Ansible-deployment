@@ -1169,9 +1169,38 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
+#### Gemini : conditions et quotas du palier gratuit
+
+Ce qui suit est écrit une fois ici, et les autres sections de ce document y renvoient. Conditions et pages lues le 2026-11-22 ; aucune conclusion juridique n'en est tirée, c'est à l'appelant de les confronter à son propre déploiement.
+
+**Les données.** Les conditions additionnelles de l'API Gemini (« Effective March 23, 2026 », [ai.google.dev/gemini-api/terms](https://ai.google.dev/gemini-api/terms)) distinguent selon la région. Hors de l'Espace économique européen (EEE), de la Suisse et du Royaume-Uni, Google utilise le contenu envoyé sur le quota non payant pour améliorer ses produits, et « human reviewers may read, annotate, and process your API input and output » : on n'y envoie ni information sensible, confidentielle ou personnelle, ni document de tiers. Dans ces trois régions, « the terms under "How Google uses Your Data" in "Paid Services" apply to all Services, including Google AI Studio and unpaid quota in the Gemini API, even though they are offered free of charge » : Google n'y utilise alors ni les requêtes ni les réponses pour améliorer ses produits. Toute mention, dans ce document, d'un contenu réutilisé ou lu par des relecteurs sur le palier gratuit vaut donc **hors de ces trois régions seulement**.
+
+**Les restrictions d'usage**, citées telles quelles :
+
+- « Use of Google AI Studio and Gemini API is for developers building with Google AI models for professional or business purposes, not for consumer use. »
+- « You may use only Paid Services when making API Clients available to users in the European Economic Area, Switzerland, or the United Kingdom. » C'est la phrase qui vise une passerelle partagée avec d'autres personnes dans ces régions.
+- « You must be 18 years of age or older to use the APIs. You also will not use the Services as part of a website, application, or other service [...] that is directed towards or is likely to be accessed by individuals under the age of 18. »
+
+**Plusieurs projets.** Les limites s'appliquent par projet et non par clé ([rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)), et les conditions générales des API de Google (page « Google APIs Terms of Service », « Last modified: November 9, 2021 », section 2(d)) disent : « You agree to, and will not attempt to circumvent, such limitations documented with each API. » Ouvrir plusieurs projets pour multiplier le quota gratuit d'une même application est ce que cette clause interdit ; des projets séparés pour des environnements séparés ne le sont pas.
+
+**Les quotas**, lus le 2026-11-22 dans la page des limites de Google AI Studio pour un projet au niveau sans frais. Ils sont par projet et par modèle, et les quotas quotidiens se remettent à zéro à minuit, heure du Pacifique.
+
+| Modèles | Requêtes par minute | Jetons par minute | Requêtes par jour |
+| --- | --- | --- | --- |
+| Gemini 4 Hydrogen | 5 | 250 K | 20 |
+| Gemini 3.8 Flash, 3.6 Flash, 3 Flash, 2.5 Flash (chacun) | 5 | 250 K | 20 |
+| Gemini 3.5 Flash-Lite, 3.1 Flash-Lite (chacun) | 15 | 250 K | 500 |
+| Gemini 2.5 Flash-Lite | 10 | 250 K | 20 |
+| Gemma 4 31B, 26B (chacun) | 30 | 16 K | 14 400 |
+| Gemini Embedding 1, 2 (chacun) | 100 | 30 K | 1 000 |
+| Synthèse vocale : 3.8 Flash TTS, 3.8 Flash Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS (chacun) | 3 | 10 K | 10 |
+| Gemini 3.5 Transcribe | 3 | 10 K | 25 |
+| Modèles de l'API Live | aucune limite | 65 K ou 20 K | aucune limite |
+| Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon, Carbon | 0 | 0 | 0 : non servis en gratuit |
+
 Pages officielles lues :
 
-- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
+- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing), [Additional Terms of Service](https://ai.google.dev/gemini-api/terms), [Rate limits](https://ai.google.dev/gemini-api/docs/rate-limits), « Google APIs Terms of Service » (sur le site des développeurs de Google)
 - Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
 - Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
 - Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
@@ -1320,7 +1349,7 @@ L'ordre n'est classé par aucun script et ne répond à aucun contrat : il est d
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Groq (`whisper-large-v3`, `whisper-large-v3-turbo`) | Palier gratuit, route compatible OpenAI, `groq/whisper-large-v3` dans LiteLLM | 25 Mo par fichier en gratuit, 100 Mo en payant, durée minimale facturée de 10 secondes ; limites par organisation. Ne conserve pas les données d'inférence par défaut, journaux jusqu'à 30 jours pour la fiabilité et les abus ; entraînement : non indiqué | Routé, têtes de la cascade, `whisper-large-v3` d'abord |
-| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | Limites du palier gratuit affichées dans AI Studio seulement, aucune n'est indiquée ici. **Sur le palier gratuit, le contenu sert à améliorer les produits de Google et les conditions disent de ne pas y envoyer d'informations sensibles, confidentielles ou personnelles, des relecteurs humains pouvant lire les entrées et sorties ; un enregistrement porte la voix de tiers** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `stt` |
+| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | 3 requêtes par minute, 10 K jetons par minute et 25 requêtes par jour (voir « Gemini : conditions et quotas du palier gratuit »). **Hors de l'EEE, de la Suisse et du Royaume-Uni, le palier gratuit sert à améliorer les produits de Google et des relecteurs humains peuvent lire les entrées et sorties, ce qu'un enregistrement portant la voix de tiers ne supporte pas** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `stt` |
 | Mistral (Voxtral) | Aucune pour l'API (voir le groupe 1 du registre ci-dessus) ; `mistral/voxtral-mini-latest` dans LiteLLM ; le français figure parmi les langues de la documentation | Prix par minute et politique sur les données de l'API : non trouvés | Routé en dernier, payant, comme Mistral dans les cascades de texte |
 
 **Groupe 2 -- à ajouter.**
@@ -1358,7 +1387,7 @@ Pages officielles lues le 2026-11-22 :
 | Cascade `tts` | Modèle | Pourquoi là |
 | --- | --- | --- |
 | 1 | `gemini-3.8-flash-tts` | Le modèle complet ; le français est listé comme pris en charge par la page « Speech » de la documentation de l'API Gemini |
-| 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota, **si** Google compte le quota par modèle (non vérifié) |
+| 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota : Google compte le quota par modèle, 10 requêtes par jour chacun au palier gratuit |
 
 Les trois modèles de préversion plus anciens ne sont pas routés : la page « Deprecations » les arrête au plus tôt le 2026-12-18.
 
@@ -1370,7 +1399,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 **Mistral Voxtral est servi mais n'est pas dans la cascade.** LiteLLM traduit six noms d'OpenAI vers des voix **anglaises** de Mistral et transmet les autres tels quels comme identifiants de voix Mistral, et la langue se règle par la voix, non par un paramètre : un appelant qui demande `alloy` pour du texte français serait lu par une voix anglaise. Ses voix françaises (quatre, toutes féminines : Marie, Manon, Lea, Camille) se demandent par leur propre identifiant, ce qu'une cascade partagée avec Gemini ne permet pas. L'entrée est laissée en commentaire dans `LiteLLM_config.yaml.j2`, avec cette raison.
 
-**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : ses conditions (en vigueur le 2026-03-23, lues le 2026-11-22) disent de ne soumettre aucune information sensible, confidentielle ou personnelle aux services non payants, dont le contenu sert à améliorer les produits de Google. Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts`. Les chiffres du palier gratuit pour ces deux modèles (caractères ou requêtes par jour) n'ont pas été lus.
+**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : hors de l'EEE, de la Suisse et du Royaume-Uni, le contenu sert à améliorer les produits de Google (voir « Gemini : conditions et quotas du palier gratuit »). Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts` avec une clé du palier gratuit. Le quota de ces deux modèles est de 10 requêtes par jour chacun.
 
 **Le registre des fournisseurs de synthèse vocale**, lu le 2026-11-22, dans le même ordre que celui des fournisseurs de texte. Les pages de LiteLLM listent comme fournisseurs de `/audio/speech` OpenAI, Azure OpenAI, Azure AI Speech, AWS Polly, Vertex AI, Gemini, ElevenLabs, MiniMax et Mistral : Groq, Cloudflare, Together, Deepgram, Cartesia et Edge n'y sont pas.
 
@@ -1378,7 +1407,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini API | Quota des services non payants, « free of charge with generous limits » d'après la page des tarifs ; les chiffres de la ligne vocale n'ont pas été lus | Format WAV ou PCM seulement ; deux voix par conversation au plus ; contenu réutilisé par Google sur le palier gratuit | Routé, `gemini-3.8-flash-tts` puis `gemini-3.8-flash-lite-tts` |
+| Google Gemini API | Quota des services non payants, « free of charge with generous limits » d'après la page des tarifs ; 10 requêtes par jour et par modèle de synthèse | Format WAV ou PCM seulement ; deux voix par conversation au plus ; contenu réutilisé par Google sur le palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni | Routé, `gemini-3.8-flash-tts` puis `gemini-3.8-flash-lite-tts` |
 | Mistral Voxtral | Aucune : la clé du dépôt est payante, le prix à la minute et un palier d'essai n'ont pas été trouvés | Sortie mp3, wav, pcm, flac ou opus ; la langue se règle par la voix ; quatre voix françaises, toutes féminines | Examiné, non routé (entrée commentée) : les noms de voix d'OpenAI y donnent des voix anglaises |
 
 **Groupe 2 -- à ajouter.**
@@ -1433,7 +1462,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | --- | --- | --- | --- |
 | Cloudflare Workers AI | Modèles d'image (flux-1-schnell, flux-2, stable-diffusion-xl, etc.) dans les 10 000 « neurons » quotidiens | 720 requêtes par minute pour le texte vers image ; flux-1-schnell : prompt de 2048 caractères au plus, 8 pas au plus ; coût en neurons par tuile et par pas, sans total par image sur la page | À ajouter le jour où un routage existe : seule source gratuite et durable trouvée, mais inatteignable par LiteLLM (appel natif seulement) |
 | OpenRouter | Aucun modèle d'image `:free` ni à prix nul dans le catalogue ; des modèles d'image payants existent (Gemini image à environ 0,039 $ l'image, modèles d'image d'OpenAI) | LiteLLM les appelle par `/images/generations` sous la forme `openrouter/<modèle>` et les traduit en complétions de chat avec modalité image (lu dans sa documentation, non essayé) | Candidat comme réserve payante, pas comme palier gratuit : le crédit de 10 $ que le registre recommande pour porter les modèles `:free` de 50 à 1 000 requêtes par jour paierait environ 250 images, mais OpenRouter se réserve le droit d'expirer un crédit inutilisé au bout d'un an (le palier de 1 000 par jour, lui, tient au total acheté). Aucun routeur d'images n'est construit |
-| Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits | Écarté : payant |
+| Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni | Écarté : payant |
 | Recraft | Unités prépayées (1 $ = 1 000 unités), « Purchased units don't expire » ; 0,007 $ l'image en V4.1 Flash V2, 0,035 $ en V4.1 : 10 € achètent environ 1 600 images Flash ou 330 images V4.1 | Aucune allocation gratuite d'API trouvée ; taille minimale du paquet non lue (derrière un compte) ; route LiteLLM `recraft/recraftv3` | Candidat comme réserve payante (dépôt unique, crédit qui n'expire pas), pas comme palier gratuit : à ajouter seulement si un client du stack génère des images |
 | Together AI, OpenAI, xAI, fal (plateforme d'images), Replicate | Together AI : premier achat de 15 $, au-dessus du plafond ; OpenAI : 5 $ minimum, mais les crédits expirent au bout d'un an ; xAI, fal, Replicate : minimum et expiration non lus | Aucune route d'images de LiteLLM trouvée pour Together AI, xAI, fal ni Replicate | Écartés : plafond, crédit qui expire, ou aucune route |
 | Black Forest Labs | Paiement à l'usage ; les conditions donnent une licence pour entraîner sur les entrées et sorties et interdisent l'accès à l'API depuis autre chose que l'application du développeur | Passerelle exclue par les conditions | Écarté |
@@ -1449,7 +1478,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Docling (auto-hébergé) | Licence MIT ; PDF, DOCX, PPTX, XLSX, HTML et images vers Markdown ou JSON ; exécution locale, y compris pour des données sensibles | Aucune mesure de vitesse ni de processeur trouvée : à mesurer sur la machine | À ajouter : un service Docker, pas un routeur. Rien ne quitte la machine |
-| Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits | Servi autrement : aucun nouveau routeur n'est nécessaire |
+| Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni | Servi autrement : aucun nouveau routeur n'est nécessaire |
 | Mistral OCR | 2 $ les 1 000 pages (3 $ avec annotations), aucun palier gratuit d'OCR trouvé ; le solde est prépayé, un appel à solde nul répond 402, un plafond de dépense se règle, les frais prépayés ne sont pas remboursables (page lue le 2026-11-22) | Fournisseur `mistral/mistral-ocr-latest` de LiteLLM ; minimum et expiration du solde non lus (à lire dans la console) | Utilisable comme réserve payante (10 € achètent environ 5 700 pages), pas comme palier gratuit : à décider avec un besoin d'OCR |
 | Cloudflare Workers AI `toMarkdown` | « Free for most format conversions » (page datée du 2026-04-21) | Liste des formats non trouvée ; appel natif seulement | Non routable, comme ci-dessus |
 | Azure AI Document Intelligence | Niveau F0 : 500 pages gratuites par mois, récurrent ; compte Azure avec une carte non prépayée et un numéro de téléphone, sans frais | Route LiteLLM `azure_ai/doc-intelligence/prebuilt-layout` | Candidat : récurrent et joignable par LiteLLM. L'ancienne raison d'écart (contenu tiers chez un fournisseur cloud) ne tient plus ; à ajouter avec un besoin d'OCR |
@@ -1487,7 +1516,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la documentation de LiteLLM liste Google AI Studio (Gemini) pour `/realtime` et donne une configuration `mode: realtime`, avec des identifiants de modèle plus anciens que ceux de cette ligne (non essayée) ; reste qu'aucun client du stack n'ouvre de session temps réel |
+| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la documentation de LiteLLM liste Google AI Studio (Gemini) pour `/realtime` et donne une configuration `mode: realtime`, avec des identifiants de modèle plus anciens que ceux de cette ligne (non essayée) ; reste qu'aucun client du stack n'ouvre de session temps réel |
 
 **Ce qui changerait le verdict** : un client temps réel réel dans le stack et un essai de la route Gemini Live de LiteLLM avec les modèles actuels. Aucune décision sur la téléphonie n'est prise ici.
 
@@ -1504,7 +1533,7 @@ Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: 
 | `gemini-embedding-2` | 3072 par défaut ; le paramètre `dimensions` de la requête (LiteLLM l'envoie à Google comme `outputDimensionality`) accepte de 128 à 3072, Google recommande 768, 1536 ou 3072 ; les vecteurs tronqués sont renormalisés par Google | Entrée de 8 192 jetons au plus ; pas de `task_type` pour ce modèle, la consigne se met dans le texte. Le rôle n'impose aucune valeur par défaut : l'appelant choisit, une fois, et la collection est créée à cette taille |
 | `mistral-embed` | Fixe, **non lue sur une page** : créer la collection d'après la longueur du premier vecteur reçu | La passerelle règle `drop_params: true` : un `dimensions` envoyé à ce modèle est ignoré sans erreur et le vecteur complet revient, alors que LiteLLM seul refuse l'appel |
 
-**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google, et les conditions de l'API Gemini interdisent d'y envoyer des informations personnelles, sensibles ou confidentielles sans passer par le service payant. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
+**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google hors de l'EEE, de la Suisse et du Royaume-Uni (voir « Gemini : conditions et quotas du palier gratuit »), et il n'y a pas lieu d'y envoyer des informations personnelles, sensibles ou confidentielles. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
 
 #### Le registre des embeddings et du rerank
 
@@ -1514,7 +1543,7 @@ Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit : pas pour des documents privés |
+| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni : pas pour des documents privés |
 | Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
 
 Pages officielles lues :
