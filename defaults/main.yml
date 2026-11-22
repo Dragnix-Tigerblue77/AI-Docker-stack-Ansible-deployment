@@ -323,6 +323,16 @@ Artificial_Intelligence_LiteLLM_Zai_API_key: ""
 # through its European endpoint. ONE account: the session that wrote this did not read its terms, so nothing
 # is established about several accounts, circumventing a limit, or reselling.
 Artificial_Intelligence_LiteLLM_Requesty_API_key: ""
+# NVIDIA's hosted API, the "NVIDIA API Catalog", which its home page (read 2026-11-22) offers as "Free
+# inference with leading models", reached through LiteLLM's "nvidia_nim/" provider, which calls NVIDIA's own
+# endpoint on its own: no entry writes an "api_base". It is a TRIAL service. Its "NVIDIA API Trial Terms of
+# Service" (read 2026-11-22) allow it "for limited trial purposes only and without use of the API Service or
+# Generated Content in production", let NVIDIA collect "User Content and Generated Content to improve NVIDIA
+# products and services, including AI models", forbid confidential or sensitive data and personal data, and
+# end the right to use it automatically if the terms are not complied with: whoever gives this key takes
+# those on. No page read states a limit, so the role states none. The container reads the key as
+# "NVIDIA_NIM_API_KEY", the name LiteLLM looks for.
+Artificial_Intelligence_LiteLLM_NVIDIA_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret

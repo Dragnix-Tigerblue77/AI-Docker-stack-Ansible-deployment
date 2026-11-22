@@ -99,6 +99,9 @@
         # Requesty serves a few models free for now, in one daily quota shared by all of them: one key, the
         # account's own.
         Artificial_Intelligence_LiteLLM_Requesty_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Requesty_API_key }}"
+        # NVIDIA's hosted API is a free TRIAL service: its terms allow it for testing and evaluation only, not
+        # in production, let NVIDIA collect the content to improve its models, and forbid personal data.
+        Artificial_Intelligence_LiteLLM_NVIDIA_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_NVIDIA_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model
