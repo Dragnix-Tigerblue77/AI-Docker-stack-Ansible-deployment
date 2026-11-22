@@ -167,6 +167,7 @@ inputs:
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
     kilo: "Anonymous, no key and no account: 200 requests per hour per IP address, for the free models only, per the Authentication and Models and providers pages of the Kilo gateway documentation (read 2026-11-22); the free models' availability changes, and each flags that prompts may be trained on"
     cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
+    zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -639,6 +640,13 @@ models:
     level_source: "unknown: developers.cloudflare.com/workers-ai/models/glm-4.7-flash/, read 2026-11-22, says reasoning is supported and gives no level"
     note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index, and the capabilities index has no figure for it"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  glm-4-7-flash-zai:
+    slug: glm-4-7-flash
+    level: unknown
+    level_source: "unknown: LiteLLM's model map says the model reasons (read 2026-11-22), and no page read gives the level it is called at by default"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index, and the capabilities index has no figure for it"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling and supports_tool_choice"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"

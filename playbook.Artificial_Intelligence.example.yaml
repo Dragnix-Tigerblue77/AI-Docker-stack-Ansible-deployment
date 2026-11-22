@@ -94,6 +94,8 @@
         # double the allowance is what its terms forbid.
         Artificial_Intelligence_LiteLLM_Cloudflare_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_API_key }}"
         Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_account_ID }}"
+        # Z AI serves GLM-4.7-Flash free of charge: one key, the account's own.
+        Artificial_Intelligence_LiteLLM_Zai_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Zai_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

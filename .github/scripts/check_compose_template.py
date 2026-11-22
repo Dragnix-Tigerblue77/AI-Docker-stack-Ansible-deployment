@@ -1601,13 +1601,14 @@ LITELLM_PROVIDERS = {
     "OpenRouter": "OPENROUTER_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
     "Cloudflare": "CLOUDFLARE_API_KEY",
+    "Zai": "ZAI_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
 # construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai"})
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
@@ -1876,6 +1877,12 @@ LITELLM_CONFIG_CASES = [
     ("claude-code missing although Cloudflare has a key",
      _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [], {}),
      {"Cloudflare"}, "'claude-code' is absent"),
+    ("claude-code served by a Z AI key",
+     _litellm_document([("glm", "os.environ/ZAI_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"Zai"}, None),
+    ("claude-code missing although Z AI has a key",
+     _litellm_document([("glm", "os.environ/ZAI_API_KEY")], [], {}),
+     {"Zai"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
      _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
                         ("omniroute-free-code", "os.environ/OMNI")],

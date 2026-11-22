@@ -308,6 +308,7 @@ services:
       # No entry names this one: LiteLLM's "cloudflare/" provider reads it from its environment to build the
       # address of the endpoint, which carries the account's identifier.
       CLOUDFLARE_ACCOUNT_ID: {{ Artificial_Intelligence_LiteLLM_Cloudflare_account_ID | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      ZAI_API_KEY: {{ Artificial_Intelligence_LiteLLM_Zai_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # The workers' shared cooldown state (#71) reaches Redis through "router_settings" in
       # "LiteLLM_config.yaml.j2" -- "redis_host", "redis_port", and this as "redis_password".
       # No REDIS_URL any more: the response cache it was also meant for stays off (#79), its key

@@ -145,8 +145,9 @@ An entry belongs to a provider by the prefix of its "model:", which is how LiteL
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
 below -- OmniRoute, local and keyless, the ones served through Kilo Gateway, keyless too, and the
-"cloudflare/<id>" ones, whose provider this check does not read -- is left out, and the report says how many:
-it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot name Cloudflare.
+"cloudflare/<id>" and "zai/<id>" ones, whose providers this check does not read -- is left out, and the
+report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
+name Cloudflare or Z AI.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -662,7 +663,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 # variable is a non-empty string, and the template reads nothing else.
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
-    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare")
+    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai")
 )
 JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
