@@ -179,11 +179,14 @@ async function play(scenario) {
 # The model list in miniature: the shapes of the real file that matter to what the step reads.
 # ---------------------------------------------------------------------------------------------------
 
-def entry(name, address=False, key="GEMINI"):
+def entry(name, address=False, key="GEMINI", header=None):
     lines = ["  - model_name: %s" % name, "    litellm_params:", "      model: provider/%s" % name,
              '      api_key: "os.environ/%s_API_KEY"' % key]
     if address:
         lines.append("      api_base: http://gateway.invalid:1234/v1")
+    if header is not None:
+        # A keyless gateway's entry blanks the Authorization header, with a value only in the scenario that refuses one.
+        lines += ["      extra_headers:", '        Authorization: "%s"' % header]
     return lines + [""]
 
 
@@ -199,7 +202,8 @@ def miniature(count=8):
     names = ["m%d" % i for i in range(count)]
     lines = ["model_list:", "  # A comment above the first entry."]
     for index, name in enumerate(names):
-        lines += entry(name, address=(index == 3), key="MISTRAL" if index >= 6 else "GEMINI")
+        lines += entry(name, address=(index == 3), key="MISTRAL" if index >= 6 else "GEMINI",
+                       header="" if index == 7 else None)
         if index == 2:
             lines += COMMENTED + [""]
     lines += ["router_settings:", "  routing_strategy: simple-shuffle", "  fallbacks:",
@@ -437,6 +441,8 @@ def scenarios():
         removals(deletion(base, with_slot)[0]))
     add("deletion: a whole entry that git shows starting inside the entry above", "merged",
         removals(shifted_deletion(names, base)))
+    add("deletion: a whole entry of a keyless gateway, the header that blanks Authorization included", "merged",
+        removals(deletion(base, set(block_of(base, "m7")))[0]))
     start = base.index(COMMENTED[0])
     add("deletion: an entry that is commented out", "merged",
         removals(deletion(base, set(range(start, start + len(COMMENTED) + 1)))[0]))
@@ -449,6 +455,12 @@ def scenarios():
     add("deletion: an entry, and the address of one that stays", "not merged",
         removals(deletion(base, whole | {base.index("      api_base: http://gateway.invalid:1234/v1")})[0]),
         needle="starts inside an entry")
+    add("deletion: an entry, and the header lines of one that stays", "not merged",
+        removals(deletion(base, whole | {base.index("      extra_headers:"), base.index('        Authorization: ""')})[0]),
+        needle="starts inside an entry")
+    valued = [line.replace('Authorization: ""', 'Authorization: "Bearer x"') for line in base]
+    add("deletion: an entry of a keyless gateway whose header carries a value", "not merged",
+        removals(deletion(valued, set(block_of(valued, "m7")))[0]), needle="is not a model entry")
     add("deletion: an entry, and a setting that carries a comment", "not merged",
         removals(deletion(base, whole | {base.index(SETTING)})[0]), needle="is not a model entry")
     add("deletion: an entry, and the heading of a section", "not merged",
@@ -760,6 +772,10 @@ MUTATIONS = [
         ("if (hunks.some((each) => each.added)) return 'a line is added';", "")]),
     ("GitHub's count of deleted lines is not compared", [("deleted.length !== file.deletions ||", "")]),
     ("a patch with no model entry passes", [("entries === 0 ||", "")]),
+    ("the header lines of a keyless gateway's entry are not part of an entry", [
+        (' {6}extra_headers:| {8}Authorization:\\s*"")', ')')]),
+    ("any value of the Authorization header is part of an entry", [
+        ('{8}Authorization:\\s*"")', '{8}Authorization:.*)')]),
     ("a commented-out entry is not counted as an entry", [("(?:#\\s*)?", "")]),
     ("the cap on entries is not applied", [
         ("!(entries <= maxEntries)", "false"),

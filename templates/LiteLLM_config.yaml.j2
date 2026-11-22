@@ -785,8 +785,6 @@ model_list:
   # are the same weights behind both gateways rests on the ids alone. Tried by hand on 2026-11-22 with a tool
   # request each: every entry below answered with a well formed tool call, "ernie-5-5-flash-kilo" four times
   # out of five, the other being a 429 "Provider returned error".
-  # Not added: "openrouter/free" and "kilo-auto/free", which pick a model per request ("Auto Free" rotates
-  # through the free ones); the first is routed through OpenRouter's own key above.
   # ============================================================================
   - model_name: nemotron-ultra-kilo
     litellm_params:
@@ -887,6 +885,12 @@ model_list:
       api_key: "kilo-no-key-needed"
       extra_headers:
         Authorization: ""
+
+  # Looked at on 2026-11-22 and set aside: the two virtual models the catalogue lists free besides the ones above.
+  # Each picks a model at every request, which is no model to place in a cascade. Remove a line to have its id
+  # reported again.
+  # drift-ignore: kilo/kilo-auto/free -- a virtual model that picks one of the free models per request ("Auto Free" rotates through them, per the "Models and providers" page of the Kilo gateway documentation, read 2026-11-22), no model to place in a cascade, the free ones it rotates through being routed by their own ids above
+  # drift-ignore: kilo/openrouter/free -- OpenRouter's free router, which picks a model per request and is already routed through OpenRouter's own key above
 
   # Served, but not routed to: it answered none of the seven requests made by hand on 2026-11-22, each refused
   # with a 429 "Provider returned error", where the other entries of this section answered. The same model

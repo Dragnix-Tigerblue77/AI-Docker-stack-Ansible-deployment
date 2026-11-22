@@ -150,13 +150,14 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/") and SambaNova as "openai/<id>" with an "api_base" on
-"api.sambanova.ai". An entry of no provider below -- OmniRoute, local and keyless, the ones served through
-Kilo Gateway and OVHcloud AI Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does
-not read, the "openai/<id>" ones served through Requesty, whose provider it does not read either, and the
-"nvidia_nim/<id>" ones, whose provider it does not read any more than the others -- is left out, and the
-report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
-name Z AI, Requesty or NVIDIA.
+"cloudflare/<id>" (whose id starts with "@cf/"), SambaNova as "openai/<id>" with an "api_base" on
+"api.sambanova.ai", and Kilo Gateway as "openai/<id>" with an "api_base" on "ai-gateway.kilo.ai". An
+entry of no provider below -- OmniRoute, local and keyless, the ones served through OVHcloud AI
+Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does not read, the "openai/<id>"
+ones served through Requesty, whose provider it does not read either, and the "nvidia_nim/<id>" ones,
+whose provider it does not read any more than the others -- is left out, and the report says how many:
+it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot name Z AI, Requesty or
+NVIDIA.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -173,6 +174,8 @@ name Z AI, Requesty or NVIDIA.
   cloudflare  api.cloudflare.com/client/v4/accounts/   task "Text Generation", not marked
               {account}/ai/models/search, paginated    for removal
               -- Bearer
+  kilo        ai-gateway.kilo.ai/api/v1/models         "isFree" true, and text its only
+              -- no key                                 output modality
 
 On top of each provider's own filter, an id naming a non-chat use (NON_CHAT_MARKERS: "tts",
 "whisper", "embed", "guard"...) is never a NEW candidate: Gemini's "generateContent" alone lets its
@@ -186,6 +189,15 @@ still offered as NEW, and is turned down with a "drift-ignore:" line. Gemini's m
 field that would tell it apart (name, version, displayName, description, token limits,
 supportedGenerationMethods, temperature, thinking), and "omni" is not a marker to add: other
 vendors' "omni" models are chat models, one of them routed in the file this check reads.
+
+Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
+whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
+the free ids are offered as NEW. Every id is a member, though: a model that stops being free is still
+listed, and is reported as a NOTICE and never as RETIRED, which is what a deletion would otherwise take
+it for. The list is the only route: Kilo documents no way to ask for one model, so a deletion rests on
+it alone, as OpenRouter's does. It also lists virtual models that pick another at each request
+("kilo-auto/free", "openrouter/free"), which are free and no model to route to, and which the template
+sets aside with a "drift-ignore:" line.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
@@ -226,9 +238,11 @@ WHAT IS REPORTED
 RETIRED    an active entry whose id the catalogue no longer lists: delete it and its cascade slots.
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
-NOTICE     an active entry the provider marks for removal: OpenRouter's "expiration_date",
-           Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated" flag of
-           Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date".
+NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
+           "expiration_date", Mistral's "deprecation" (with "deprecation_replacement_model"), the
+           "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
+           "planned_deprecation_date"; and an active Kilo entry that is no longer flagged free, since
+           its keyless call would be refused.
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -236,11 +250,12 @@ BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twi
 NEW        an id the file does not know. Known ids are those of the active and the commented-out
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
-           <provider> is one of the names above: "sambanova/<id>" for SambaNova, where the
-           entry itself reads "openai/<id>". A Mistral id is known when one of its "aliases" is.
+           <provider> is one of the names above: "sambanova/<id>" for SambaNova and "kilo/<id>" for
+           Kilo Gateway, where the entry itself reads "openai/<id>". A Mistral id is known when one
+           of its "aliases" is.
 
-Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a price of "0". Every
-other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
+Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", and on Kilo
+Gateway, as "isFree". Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
@@ -431,12 +446,13 @@ and which only a person merges. They are split by how much the
 run knows of each model, never by its provider:
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
-  tier, stated by its provider's own API (FREE_CATALOGUES: today OpenRouter's ":free", both prices
-  "0", text the only output), and a figure of the ranking matched for certain (certain_match: the last
-  segment of the id, less ":free", and the slug or the name of one entry of the whole ranking and of
-  no other are equal once lower-cased with everything but letters and digits removed, and that
-  entry's name carries no variant marker such as "(Reasoning)"). A provider whose free tier
-  becomes machine-readable is added to FREE_CATALOGUES, and nothing else changes;
+  tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
+  "0", text the only output, and Kilo's "isFree", text the only output), and a figure of the
+  ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
+  slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
+  with everything but letters and digits removed, and that entry's name carries no variant marker
+  such as "(Reasoning)"). A provider whose free tier becomes machine-readable is added to
+  FREE_CATALOGUES, and nothing else changes;
 * "to_verify", opened as a draft: a model of which at least one of those facts is missing
   (missing_facts: a free tier the API does not state, a ranking not read, no entry, several, a match
   by name only or onto a variant, an entry with no figure). Its body says, for each model, which
@@ -448,7 +464,9 @@ run knows of each model, never by its provider:
   holds the key under the name the entry reads it from).
 
 Each entry is modelled on its provider's last entry in "model_list" -- its last active one, else its
-last commented-out one -- whose key and base it copies, and written right after it (after the comment
+last commented-out one -- whose key and base it copies (a keyless gateway's, KEYLESS_GATEWAYS, copies
+its literal marker and writes the "extra_headers" that blank the Authorization header, which the
+gateway answers 401 to otherwise), and written right after it (after the comment
 block, for a commented-out one, so that a run and its reason stay together), under a comment of a
 fixed text that says where it comes from and when; it is commented out, with a "not routed" reason
 to replace, when the provider has no active entry. Neither pull request puts a model in a cascade:
@@ -464,8 +482,9 @@ built and read back (addition_problem: it renders, breaks no offline rule the fi
 file's entries and the proposed ones and every cascade as it was). It refuses what this refuses: an
 id or a name of another spelling than ADDITION_ID and ADDITION_NAME, a name that is a word of the
 file, a ready model of a provider whose API does not state its free tier, an id of such a provider
-that does not end in ":free", an id already an entry or set aside, an entry to model one on whose key
-is not read from the environment or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
+whose ids all end in a suffix (FREE_SUFFIX: OpenRouter's ":free") that does not, an id already an
+entry or set aside, an entry to model one on whose key is not read from the environment (or, on a
+keyless gateway, is no plain marker) or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
 model this cannot propose -- of a spelling the file is not written with, of a provider with no entry,
 past the cap, or one whose body would be too long -- is listed, with the reason and its entry to
 complete, in the body of the pull request of the models to verify, and in the summary.
@@ -925,8 +944,11 @@ def attribute(model, api_base):
     prefix, identifier = model.split("/", 1)
     if prefix in ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare"):
         return prefix, identifier
-    if prefix == "openai" and isinstance(api_base, str) and "api.sambanova.ai" in api_base:
-        return "sambanova", identifier
+    if prefix == "openai" and isinstance(api_base, str):
+        if "api.sambanova.ai" in api_base:
+            return "sambanova", identifier
+        if "ai-gateway.kilo.ai" in api_base:
+            return "kilo", identifier
     return None
 
 
@@ -1344,6 +1366,31 @@ def read_openrouter(pages):
     return catalogue
 
 
+def read_kilo(pages):
+    """Kilo Gateway: every model it lists, paid ones too, with "isFree" saying which ones the keyless
+    entries can call. Only a free text model is offered as NEW. One that is listed and no longer free
+    is a NOTICE and never a retirement: it still answers, to a caller with an account."""
+    catalogue = new_catalogue()
+    models = listed(pages[0])
+    if models and not any("isFree" in model for model in models):
+        # Without the flag every model would read as paid, and every active entry as a notice.
+        raise FetchError('the answer lists no "isFree" flag')
+    for model in models:
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        if model.get("isFree") is not True:
+            catalogue["notices"][identifier] = {"what": "paid"}
+            continue
+        if model.get("expiration_date"):
+            catalogue["notices"][identifier] = {"what": "expiration",
+                                                "date": safe_text(model["expiration_date"])}
+        architecture = model.get("architecture")
+        architecture = architecture if isinstance(architecture, dict) else {}
+        if architecture.get("output_modalities") == ["text"] and chat_like(identifier):
+            offer(catalogue, identifier, model.get("name") or "")
+    return catalogue
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -1517,6 +1564,7 @@ PROVIDERS = (
     ("cloudflare", "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search"
                    "?include_deprecated=true&per_page=%d&page=1" % CLOUDFLARE_PER_PAGE,
      "MODEL_DRIFT_CLOUDFLARE_API_KEY", bearer, read_cloudflare, cloudflare_next),
+    ("kilo", "https://ai-gateway.kilo.ai/api/v1/models", None, None, read_kilo, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
@@ -1525,7 +1573,7 @@ PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # could carry it.
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
-FREE_READABLE = {"openrouter"}
+FREE_READABLE = {"openrouter", "kilo"}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -4411,6 +4459,7 @@ PROVIDER_LABELS = {
     "openrouter": "OpenRouter", "cerebras": "Cerebras", "sambanova": "SambaNova",
     "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
     "cloudflare": "Cloudflare",
+    "kilo": "Kilo Gateway",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -4426,14 +4475,14 @@ def notice_text(notice, french=False):
     replacement = notice.get("replacement")
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
-                "inactive": "marqué inactif"}.get(what, what)
+                "inactive": "marqué inactif", "paid": "n'est plus gratuit"}.get(what, what)
         if date:
             text += " (`%s`)" % date
         if replacement:
             text += ", remplaçant désigné : `%s`" % replacement
         return text
     text = {"expiration": "expires", "deprecation": "deprecated",
-            "inactive": "listed as inactive"}.get(what, what)
+            "inactive": "listed as inactive", "paid": "no longer flagged free"}.get(what, what)
     if date:
         text += " on %s" % date
     if replacement:
@@ -4441,10 +4490,14 @@ def notice_text(notice, french=False):
     return text
 
 
+# The providers whose entries are "openai/<id>" with the provider's "api_base", by the name the report gives them.
+OPENAI_COMPATIBLE = {"sambanova": "SambaNova", "kilo": "Kilo Gateway"}
+
+
 def litellm_id(provider, identifier):
-    """The id as the file writes it in "model:"; SambaNova's is the one that needs its provider."""
-    if provider == "sambanova":
-        return "openai/%s" % identifier, " on SambaNova"
+    """The id as the file writes it in "model:"; SambaNova's and Kilo's are the ones that need their provider."""
+    if provider in OPENAI_COMPATIBLE:
+        return "openai/%s" % identifier, " on %s" % OPENAI_COMPATIBLE[provider]
     return "%s/%s" % (provider, identifier), ""
 
 
@@ -4600,10 +4653,23 @@ def capped(lines):
 # a catalogue.
 NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
-                 "cloudflare": "-cloudflare"}
-DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1"}
+                 "cloudflare": "-cloudflare", "kilo": "-kilo"}
+DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1"}
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
+# The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
+# a bearer token and the gateway refuses with a 401, so each blanks the Authorization header with
+# "extra_headers": an entry written without it fails at run time, behind a cascade that hides the failure.
+# Their names are the model's and the gateway's ("beam-kilo"), where ":free" is no word of the name.
+KEYLESS_GATEWAYS = {"kilo"}
+
+
+def keyless_header_lines(indent):
+    """The two lines that blank the Authorization header of an entry whose "api_key" is at "indent"."""
+    return [indent + "extra_headers:", indent + '  Authorization: ""']
+
+
+ADDITION_MARKER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 
 
 def provider_basis(entries, provider):
@@ -4614,8 +4680,8 @@ def provider_basis(entries, provider):
         if attributed and attributed[0] == provider:
             keys[entry["api_key"]] += 1
             bases[entry["api_base"]] += 1
-    key = next((k for k, _ in keys.most_common() if isinstance(k, str) and SAFE_KEY.fullmatch(k)),
-               None)
+    safe = ADDITION_MARKER if provider in KEYLESS_GATEWAYS else SAFE_KEY
+    key = next((k for k, _ in keys.most_common() if isinstance(k, str) and safe.fullmatch(k)), None)
     base = bases.most_common(1)[0][0] if bases else DEFAULT_BASES.get(provider)
     if not (isinstance(base, str) and SAFE_BASE.fullmatch(base)):
         base = None
@@ -4630,9 +4696,17 @@ def name_stem(identifier):
     return re.sub(r"[^a-z0-9]+", "-", stem).strip("-") or "model"
 
 
+def suffixed_stem(provider, stem):
+    """The stem with the provider's suffix: OpenRouter's names end in "-free" for the ":free" of the id, and
+    the other providers' get their own, a keyless gateway's replacing the "-free" rather than following it."""
+    if provider in KEYLESS_GATEWAYS:
+        stem = re.sub(r"-free$", "", stem) or stem
+        return stem + NAME_SUFFIXES.get(provider, "")
+    return stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
+
+
 def propose_name(provider, identifier, taken):
-    stem = name_stem(identifier)
-    name = stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
+    name = suffixed_stem(provider, name_stem(identifier))
     for suffix in ("", "-" + provider, "-new"):
         if name + suffix not in taken:
             name += suffix
@@ -4647,6 +4721,9 @@ def snippet(provider, identifier, basis, name):
              "      model: %s" % litellm_id(provider, identifier)[0]]
     if basis["api_base"]:
         lines.append('      api_base: "%s"' % basis["api_base"])
+    if provider in KEYLESS_GATEWAYS:
+        lines.append('      api_key: "%s"' % (basis["api_key"] or "%s-no-key-needed" % provider))
+        return lines + keyless_header_lines("      ")
     lines.append('      api_key: "%s"' % (basis["api_key"]
                                          or "os.environ/%s_API_KEY_<ACCOUNT>" % provider.upper()))
     return lines
@@ -4846,8 +4923,9 @@ def summary_body(result, config_name, link, snippets):
                  "raison écrite au-dessus, et décommenter si elle ne tient plus. La pull request "
                  "des modèles prêts les liste aussi quand elle est ouverte, sinon celle des modèles "
                  "à vérifier."),
-        "new_free": ("Nouveaux modèles gratuits sur OpenRouter",
-                     "`:free` et à 0 $, sortie texte uniquement. À ajouter, ou à commenter avec "
+        "new_free": ("Nouveaux modèles gratuits",
+                     "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
+                     "`isFree`), sortie texte uniquement. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -5347,7 +5425,10 @@ def addition_anchor(entries, provider):
 
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
 # which the selftest holds it to): the comment above the entry of such a model cites it.
-FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models"}
+FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models"}
+# Of those, the ones whose free ids all end in a suffix: OpenRouter's ":free". Kilo flags a model free and
+# spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), so no suffix is asked.
+FREE_SUFFIX = {"openrouter": ":free"}
 
 
 def addition_note(kind, date, provider, commented):
@@ -5373,6 +5454,8 @@ def addition_block(kind, date, item, anchor):
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
     block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
+    if item["provider"] in KEYLESS_GATEWAYS:
+        block += keyless_header_lines(lead + "    ")
     return block
 
 
@@ -5407,7 +5490,7 @@ def build_additions(text, date, kind, items):
             return None, "a ready addition is of a provider whose API states its free tier, and only"
         if not isinstance(identifier, str) or not ADDITION_ID.fullmatch(identifier):
             return None, "an id is not spelt like one"
-        if provider in FREE_CATALOGUES and not identifier.endswith(":free"):
+        if provider in FREE_SUFFIX and not identifier.endswith(FREE_SUFFIX[provider]):
             return None, 'an id of a provider whose API states its free tier does not end in ":free"'
         if (not isinstance(name, str) or len(name) > ADDITION_NAME_LIMIT
                 or not ADDITION_NAME.fullmatch(name)):
@@ -5423,7 +5506,10 @@ def build_additions(text, date, kind, items):
         if anchor is None:
             return None, "the template has no entry of %s to model one on" % provider
         key, base = anchor["fields"].get("api_key"), anchor["fields"].get("api_base")
-        if not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
+        if provider in KEYLESS_GATEWAYS:
+            if not isinstance(key, str) or not ADDITION_MARKER.fullmatch(key):
+                return None, "the key of the entry %s is not a plain marker, as a keyless gateway's is" % anchor["name"]
+        elif not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
             return None, "the key of the entry %s is not read from the environment" % anchor["name"]
         if base is not None and not ADDITION_BASE.fullmatch(base):
             return None, "the api_base of the entry %s is not a plain https address" % anchor["name"]
@@ -5459,6 +5545,13 @@ def addition_problem(text, new_text, items):
         return "the entries it reads are not the file's and the proposed ones"
     if fallback_lists(after["document"]) != fallback_lists(before["document"]):
         return "a cascade is not what it was"
+    # A keyless gateway's entry that does not blank the Authorization header is refused with a 401 at run time.
+    for item in items:
+        if item.get("provider") in KEYLESS_GATEWAYS:
+            entry = next(entry for entry in after["active"] + after["commented"] if entry["name"] == item["name"])
+            parameters = entry["item"].get("litellm_params") if isinstance(entry["item"], dict) else None
+            if not isinstance(parameters, dict) or parameters.get("extra_headers") != {"Authorization": ""}:
+                return "the entry %s of a keyless gateway does not blank the Authorization header" % item["name"]
     return None
 
 
@@ -5510,8 +5603,7 @@ def missing_facts(result, provider, finding):
 def addition_name(provider, identifier, taken):
     """A name for a proposed entry, the way propose_name() makes them, that is no word of the file nor
     another proposal's, or None."""
-    stem = name_stem(identifier)[:60].strip("-") or "model"
-    stem += "" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, "")
+    stem = suffixed_stem(provider, name_stem(identifier)[:60].strip("-") or "model")
     for extra in ["", "-" + provider, "-new"] + ["-%d" % number for number in range(2, 100)]:
         if stem + extra not in taken:
             taken.add(stem + extra)
@@ -5771,6 +5863,13 @@ MISSING_HOWTO = {
 }
 
 
+# How each catalogue that states a free tier says it, for the body of the pull request of the ready models.
+FREE_READINGS = {"openrouter": "un identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie",
+                 "kilo": "le drapeau `isFree`, le texte pour seule sortie"}
+FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], catalogue_url(name), reading)
+                          for name, reading in FREE_READINGS.items())
+
+
 def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     """The body of one addition pull request, in French: what it is, how to decide, and each model with
     its entry, its figures and places, and, for the one to verify, which fact is missing and how to
@@ -5783,12 +5882,11 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     if ready:
         out = ["Ajouts **prêts**, proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, %s. "
                "Pour chaque modèle ci-dessous, l'exécution tient tout ce qu'il faut pour l'ajouter sans y "
-               "réfléchir : sa gratuité, lue dans l'API de son fournisseur (chez OpenRouter, <%s> : un "
-               "identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie), et "
+               "réfléchir : sa gratuité, lue dans l'API de son fournisseur (%s), et "
                "un chiffre du classement d'Artificial Analysis rapproché de façon sûre (son identifiant, sans `:free`, s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte aucune marque de variante entre parenthèses). Les nouveaux "
                "modèles auxquels il manque une de ces informations, de quelque fournisseur qu'ils soient, sont "
                "dans une pull request à part, en brouillon%s." % (
-                   run, catalogue_url("openrouter"), " (branche %s)" % code_span(other) if other else ""),
+                   run, FREE_READING, " (branche %s)" % code_span(other) if other else ""),
                "",
                "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
                "commentaire qui cite le catalogue et le jour, et ne la met dans **aucune cascade** : "
