@@ -394,10 +394,11 @@ serves every application of the homelab, not only the Claude Code agent, and a s
 different model is worth having on its own: a provider is never dropped for being "no better" than the
 ones in place. What is set aside is a trial limited in time (thirty days, say) or a one-time quota,
 unless it is huge. A card the provider asks for does not rule it out, as long as the spend can be capped at zero or
-the account is prepaid and empty. A deposit of up to ten euros is considered too (the maintainer's ceiling, set on 2026-11-22), either as an entry
-ticket that stays on the account and lifts a limit, or as credit that gets spent and is then kept only as a paid
-reserve: the registry row says what the deposit buys, for how long, whether it expires or is refunded, and whether
-that is worth its price. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
+the account is prepaid and empty. A deposit of up to ten euros is considered too (the maintainer's ceiling, set on 2026-11-22), provided it is made once
+and is supposed to last for life: no subscription, no top-up, no credit that expires within a year or two. It is either
+an entry ticket that stays on the account and lifts a limit, or credit that gets spent and is then kept only as a paid
+reserve, never as a free tier: the registry row says what the deposit buys, whether it expires or is refunded, and
+whether that is worth its price. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
 sensitive data is refused: nearly everything the gateway handles carries a name or two. The README's
 registry says which provider was read, what it offers and why it is in or out.
 
