@@ -756,19 +756,28 @@
     label: "{{ item.item.item.username }}"
   when: item is not skipped
 
-# The one place the link is ever shown: a lost one is issued again from "/ui" or against "/invitation/new". "no_log"
-# stays off on this task alone, since the point is that it prints. The link is a path because the address the person
-# reaches the gateway on is the caller's, not the role's.
-- name: "Show each administrator's onboarding link"
-  ansible.builtin.debug:
-    msg: >-
-      LiteLLM administrator "{{ item.item.item.username }}" -- open "/ui/onboarding?id={{ item.json.id }}" on the
-      gateway's own address to choose a password{{ (', before ' ~ item.json.expires_at) if item.json.expires_at is defined else '' }}.
-      Shown once, save nothing: the link is for one use.
-  loop: "{{ Artificial_Intelligence_LiteLLM_administrator_invitation.results }}"
-  loop_control:
-    label: "{{ item.item.item.username }}"
-  when: item is not skipped
+# The one place the link is ever shown: a lost one is issued again from "/ui" or against "/invitation/new". It is a pause
+# rather than a line among the others, since a link that scrolls past is a link to copy out of a log, and the run has
+# nothing to do for that person until the password is chosen. Without a terminal "pause" prints its warning and not its
+# text, so such a run shows no link: the account is then invited by hand, as the failure message of the task above says.
+# Nothing is shown in a dry run, which made no invitation, nor when no invitation was made this run.
+- name: "Ask each invited administrator to choose a password"
+  ansible.builtin.pause:
+    prompt: |-
+      {% set base_URL = Artificial_Intelligence_LiteLLM_UI_URL if Artificial_Intelligence_LiteLLM_UI_URL is string else 'http://' ~ (ansible_host | default(inventory_hostname)) ~ ':' ~ Artificial_Intelligence_LiteLLM_port_to_expose %}
+      LiteLLM is up, and each administrator below has no password yet. Open your link, choose one, then come back here.
+      Each link is for one use and is shown only here.
+
+      {% for invitation in Artificial_Intelligence_LiteLLM_administrator_invitation.results | selectattr('status', 'defined') %}
+      {{ invitation.item.item.username }} : {{ base_URL }}/ui/onboarding?id={{ invitation.json.id }}{{ (' (before ' ~ invitation.json.expires_at ~ ')') if invitation.json.expires_at is defined else '' }}
+      {% endfor %}
+
+      Once the password is chosen :
+      - Press [Return] to continue
+      - Press Ctrl + C and then 'A' to abort
+  when:
+    - not ansible_check_mode
+    - Artificial_Intelligence_LiteLLM_administrator_invitation.results | selectattr('status', 'defined') | list | length > 0
 
 # The Claude Code agent's virtual key (#13), registered by the role under the VALUE the caller
 # vaulted, so that the agent needs nothing by hand and no second run: the key cannot exist before

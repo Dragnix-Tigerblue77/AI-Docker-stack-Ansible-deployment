@@ -76,6 +76,12 @@ Artificial_Intelligence_LibreChat_port_to_expose: 3080
 # Derived from the port above so that one place names it.
 Artificial_Intelligence_LiteLLM_admin_API_URL: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}"
 
+# The address a person opens LiteLLM on, which only the caller knows: the invitation link shown to an administrator is
+# built on it, so it has to be one a browser reaches. "false" means not set, and the link is then built on the node's
+# address as the inventory gives it (its "ansible_host", else its name) and the published port, which only Ansible
+# knows at run time; a caller behind a reverse proxy sets the address it serves LiteLLM on, with no trailing slash.
+Artificial_Intelligence_LiteLLM_UI_URL: false
+
 # LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
 # NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
 # list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.
