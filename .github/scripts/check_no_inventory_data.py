@@ -101,7 +101,7 @@ ALLOWED_HOSTS = {
     "api.mistral.ai": "Mistral's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
     "tbench.ai": "an independent coding-agent leaderboard, cited in a comment",
     "artificialanalysis.ai": "Artificial Analysis's free ranking API, read by check_LiteLLM_model_drift.py when its key is set, and the source its terms ask the report to cite",
-    "epoch.ai": "Epoch AI's benchmark data, the declared source of code quality in the router contracts (CC BY 4.0, to be cited)",
+    "epoch.ai": "Epoch AI's benchmark data, the source of code quality in the router contracts, read by check_LiteLLM_model_drift.py (CC BY 4.0, to be cited)",
     "developers.cloudflare.com": "Cloudflare's own Workers AI pricing, limits and data usage pages, cited in the README ledger of free providers",
     "www.cloudflare.com": "Cloudflare's own terms of service page, cited in the README ledger of free providers",
     "docs.z.ai": "Z AI's own pricing and terms of use pages, cited in the README ledger of free providers",

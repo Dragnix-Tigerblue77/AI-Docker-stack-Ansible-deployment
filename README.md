@@ -763,9 +763,17 @@ routeurs la meilleure qualité, et le délai départage deux membres dont la qua
 routeur. L'unité de routage est « modèle + niveau » : on monte les niveaux d'un modèle depuis le plus bas, et on
 passe au suivant tant qu'il apporte au moins `min_gain_points` points d'indice (un routeur qui tient au temps en
 demande plus). `claude-code` dérive de `code` (même classement, sa cascade est celle de `code` sans les membres qui
-ne prennent pas d'outils), et `code` se classe sur la qualité de code, dont la source (les données d'Epoch AI, sans
-WebDev Arena : la qualité d'une interface web est du design, pas du code) est choisie mais pas encore lue : l'indice
-d'intelligence en tient lieu, et le rapport le dit. Le fichier déclare aussi, sans que rien le lise encore, l'indice de
+ne prennent pas d'outils), et `code` se classe sur la qualité de code, lue par l'exécution en ligne dans les données
+d'Epoch AI (`benchmark_data.zip`, <https://epoch.ai/benchmarks>, CC BY 4.0, citées dans l'issue avec le jour de la
+lecture), sans WebDev Arena : la qualité d'une interface web est du design, pas du code. Pour chacun de cinq
+benchmarks (DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench, ALE-Bench), les membres de la cascade sont
+classés (1 est le meilleur, les égalités partagent le rang moyen) si deux au moins y ont un score ; la qualité de
+code d'un membre est la médiane de ses rangs, sur deux benchmarks au moins, sinon il est inclassable par la qualité de
+code. Les membres classés viennent en premier, les inclassables les suivent dans l'ordre de l'indice d'intelligence,
+qui en tient lieu et que le rapport nomme, et le dernier recours et les membres sous le plancher restent en queue ; le
+plancher reste sur l'indice d'intelligence, puisque les benchmarks de code d'Epoch AI ne comptent aucun modèle sous un
+Gemini Flash. Une lecture qui échoue est signalée « non lue » dans la section et l'indice d'intelligence ordonne alors
+toute la cascade ; l'exécution hors ligne ne lit rien. Le fichier déclare aussi, sans que rien le lise encore, l'indice de
 capacités d'Epoch AI comme repli pour l'intelligence d'un membre sans indice, à signaler « estimé ». Tout le fichier est
 **provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne une section « Contrats par routeur » : par
 routeur, un tableau des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait

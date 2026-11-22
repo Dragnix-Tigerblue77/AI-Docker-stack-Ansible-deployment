@@ -57,27 +57,34 @@
 # "pro" at least as good as the lowest level of the one Gemini Flash that has an index at that level
 # (the Gemini 3.5, 3.6 and 3.7 Flash have none on version 5 of the scale, so none can anchor
 # anything). "code" and "claude-code" are NOT held to the floor of "pro": coding is done well by
-# models that are not the most capable ones, and the general index is only a stand-in for code
-# quality, so they take the floor of "flash" until their floor is expressed on code quality.
+# models that are not the most capable ones, so they take the floor of "flash". That floor stays an
+# anchor on the intelligence index, since Epoch AI's code benchmarks hold no model below a Gemini
+# Flash and no code quality anchor can sit at that level.
 #
 # "claude-code" exists for one reason, tool calls, so it is "code" without the models that cannot take
 # them: it derives from "code", is ranked exactly as "code" is, and its cascade is the cascade of
 # "code" with the members that do not support tools taken out, in the same order. The report checks
 # that on the template and lists the differences.
 #
-# "code" (and so "claude-code") is ranked on code quality, whose source is chosen but not read yet:
-# Epoch AI's benchmark data (benchmark_data.zip of epoch.ai/benchmarks, free, no key, CC BY 4.0 with
-# attribution, updated daily). Artificial Analysis publishes no coding or agentic index on any tier
-# any more. The method to implement next: for each benchmark file (DeepSWE, SWE-bench Verified,
-# CursorBench, Terminal-Bench external, ALE-Bench) rank our members, take the median rank, and require
-# at least two benchmarks per member: a member that does not reach two is unrankable by code quality
-# and is listed. WebDev Arena, and any design or UI arena, is left out on purpose: web interface
-# quality is design, not code. Its known weaknesses: the harnesses differ from one benchmark to the
-# next, efforts are mixed, the sets of models differ per benchmark, and the effort of some entries is
-# not stated in the file. Until it is read, the intelligence index stands in for it, as a stand-in and
-# nothing more. Each entry of "models" below records the Epoch AI model ids it was found under, effort
-# suffix included, or "unknown"; on those files, only the entries with ids in two or more of them
-# would be ranked.
+# "code" (and so "claude-code") is ranked on code quality, read from Epoch AI's benchmark data
+# (benchmark_data.zip of epoch.ai/benchmarks, free, no key, CC BY 4.0 with attribution, updated daily) by
+# the weekly online run, which cites it with the day it was read. Artificial Analysis publishes no coding
+# or agentic index on any tier any more. The method: for each of five benchmark files (DeepSWE,
+# SWE-bench Verified, CursorBench, Terminal-Bench external, ALE-Bench), the score of a member is the
+# best score among the Epoch AI model ids its entry lists in "models" below for that file; the file
+# counts only if at least two members of the cascade have a score in it, and ranks them (1 is the best,
+# a tie shares the average rank); the code quality of a member is the median of its ranks, and a member
+# that fewer than two files rank is unrankable by code quality and is listed as such. The router puts
+# its ranked members first, best code quality first, the shorter time deciding between equal ones. An
+# unrankable member is not removed: it follows the ranked ones in the main tier, ordered on the
+# intelligence index, and the report says it is ranked on that stand-in. A member of the last resort or
+# under the floor goes to the tail as for every other router. WebDev Arena, and any design or UI arena,
+# is never read: web interface quality is design, not code. Its known weaknesses: the harnesses differ
+# from one benchmark to the next, efforts are mixed, the sets of models differ per benchmark, and the
+# effort of some entries is not stated in the file. When the archive cannot be read, the weekly issue
+# says so and the intelligence index orders the whole cascade, as a stand-in and nothing more. Each
+# entry of "models" below records the Epoch AI model ids it was found under, effort suffix included, or
+# "unknown".
 #
 # A member with no index is "unrankable", not removed: it stays where it is in its cascade, flagged,
 # until the fallback below is read. 607 of 764 records have no index on 2026-11-21 (the Gemini 3.6
@@ -181,17 +188,21 @@ routers:
         - {entry: gemini-3-1-flash-lite}
         - {entry: gemini-3-5-flash-lite}
         - {entry: gemini-3-8-flash, level: low}
-      reason: "Declared on the intelligence index that stands in for code quality, at the floor of flash: coding is not reserved to the most capable models, which a floor at the level of pro would do. The floor proper is to be expressed on the code quality source once it is read. Gemini 3.1 Flash-Lite and Gemini 3.8 Flash at Low, the floor of pro, are shown to compare."
+      # Epoch AI's code benchmarks hold no model below a Gemini Flash (no Flash-Lite is on two of them),
+      # so no code quality anchor can sit at the flash level: the floor stays on the intelligence index.
+      reason: "Declared on the intelligence index, at the floor of flash: coding is not reserved to the most capable models, which a floor at the level of pro would do, and the code quality source holds no model at the level of that floor, so it cannot express it. Gemini 3.1 Flash-Lite and Gemini 3.8 Flash at Low, the floor of pro, are shown to compare."
     level_gain:
       min_points_per_second: 0.2
       reason: "Like pro, since code is not bounded by time either: 0.2 points a second stops Gemini 4 Hydrogen at High and keeps Gemini 3.8 Flash at Medium, on the figures of 2026-11-21."
     ranking:
       criterion: code_quality
       source: "Epoch AI benchmark data (CC BY 4.0), median rank over DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench and ALE-Bench, at least two benchmarks, WebDev Arena excluded"
-      source_status: "not read yet"
+      # What the file declares: the weekly online run reads this source. The issue says what each run
+      # actually read, and the plain run reads nothing.
+      source_status: "read"
       stand_in: intelligence
       tie_margin_points: 2
-      reason: "Artificial Analysis publishes no coding index; the source is chosen and its reading is the next step, until then the intelligence index stands in; under 2 points two members are not told apart, so the shorter time decides."
+      reason: "Artificial Analysis publishes no coding index, so the median rank over Epoch AI's code benchmarks orders the members it can rank, the shorter time deciding between equal medians. The intelligence index stands in for the members it cannot rank and for the whole cascade when the data is not read; under 2 points two of those are not told apart, so the shorter time decides."
     last_resort:
       members: [deepseek-v4-pro-direct, omniroute-free-code]
       reason: "The paid DeepSeek and the keyless local entry close the cascade by design, and the local entry has no record."
@@ -207,8 +218,9 @@ routers:
 # medium, high, xhigh, max, reasoning, non-reasoning); the template sets no "reasoning_effort"
 # anywhere, so the level is the provider's default, and "level_source" gives the provider's page and
 # the day it was read, or says "unknown". An entry with no record at all says why in "no_record".
-# "epoch" lists, per benchmark file of Epoch AI's data kept for code quality (not WebDev Arena), the
-# model ids the entry was found under (effort suffix included), or says "unknown". Where Artificial Analysis has no record at the called level, "slug" is the nearest record it has,
+# "epoch" lists, per benchmark file of Epoch AI's data kept for code quality (not WebDev Arena, which
+# is refused), the model ids the entry was found under (effort suffix included), or says "unknown".
+# Where Artificial Analysis has no record at the called level, "slug" is the nearest record it has,
 # and the report says the level is not ranked. Where the level is unknown, "slug" is the record of
 # the highest level the model could be called at by default.
 models:
