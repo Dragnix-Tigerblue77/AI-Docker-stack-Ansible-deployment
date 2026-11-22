@@ -154,10 +154,10 @@ An entry belongs to a provider by the prefix of its "model:", which is how LiteL
 "api.sambanova.ai", and Kilo Gateway as "openai/<id>" with an "api_base" on "ai-gateway.kilo.ai". An
 entry of no provider below -- OmniRoute, local and keyless, the ones served through OVHcloud AI
 Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does not read, the "openai/<id>"
-ones served through Requesty, whose provider it does not read either, and the "nvidia_nim/<id>" ones,
-whose provider it does not read any more than the others -- is left out, and the report says how many:
-it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot name Z AI, Requesty or
-NVIDIA.
+ones served through Requesty or through Cent AI, whose providers it does not read either, and the
+"nvidia_nim/<id>" ones, whose provider it does not read any more than the others -- is left out, and the
+report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
+name Z AI, Requesty, NVIDIA or Cent AI.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -724,7 +724,8 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 # variable is a non-empty string, and the template reads nothing else but the switches below.
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
-    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA")
+    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
+                     "Cent_AI")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1020,9 +1021,15 @@ def render_keyset(text, given):
         return None
 
 
+def provider_name(variable):
+    """The provider a key variable is for: "Artificial_Intelligence_LiteLLM_<Provider>_API_key", a name that
+    may hold underscores ("Cent_AI"), which a count of them from the end would cut."""
+    return variable[len("Artificial_Intelligence_LiteLLM_"):-len("_API_key")]
+
+
 def given_text(given):
     """The providers of a set of key variables, for a message."""
-    names = [variable.split("_")[-3] for variable in given]
+    names = [provider_name(variable) for variable in given]
     return ", ".join(names) if names else "no key"
 
 
@@ -3509,7 +3516,7 @@ HEAD_ROW = re.compile(r"(?P<lead>[ \t]*)'(?P<router>[^']+)'[ \t]*:[ \t]*(?P<chai
                       r"(?P<comma>,?)[ \t]*")
 HEAD_CHAIN = re.compile(r"(?:'[^']+'[ \t]+if[ \t]+has\.\w+[ \t]+else[ \t]+)*(?:'[^']+'|false)")
 HEAD_PLACEHOLDER = "'head-placeholder'"
-HEAD_PROVIDERS = tuple(variable.split("_")[-3] for variable in PROVIDER_KEY_VARIABLES)
+HEAD_PROVIDERS = tuple(provider_name(variable) for variable in PROVIDER_KEY_VARIABLES)
 
 
 def read_head(text):
