@@ -753,42 +753,52 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher sur
-l'indice d'intelligence d'Artificial Analysis, le gain d'indice qu'un niveau de raisonnement de plus doit apporter pour
-valoir qu'on y monte, la façon d'ordonner ses membres, les membres exemptés du plancher à dessein (le « dernier
-recours »), et, pour chaque entrée du modèle de configuration, l'enregistrement d'Artificial Analysis qui la décrit au
-niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne ce niveau, ou « unknown ». **Il n'y a
-aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits, un modèle lent n'est donc jamais
-écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils pour `claude-code`) ; le délai
-moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` met le plus court en tête, les autres
-routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère de moins de la marge du
-routeur. L'unité de routage est « modèle + niveau » : on monte les niveaux d'un modèle depuis le plus bas, et on
-passe au suivant tant qu'il apporte au moins `min_gain_points` points d'indice (un routeur qui tient au temps en
-demande plus). `claude-code` dérive de `code` (même classement, sa cascade est celle de `code` sans les membres qui
-ne prennent pas d'outils), et `code` se classe sur la qualité de code, lue par l'exécution en ligne dans les données
+l'indice d'intelligence, écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque
+exécution et jamais copié dans le fichier : dans le classement d'Artificial Analysis pour une entrée du modèle, dans
+l'indice de capacités d'Epoch AI pour un modèle que celui-ci nomme) ou aucun plancher, le gain d'indice qu'un niveau de
+raisonnement de plus doit apporter pour valoir qu'on y monte, la façon d'ordonner ses membres, les membres exemptés du
+plancher à dessein (le « dernier recours »), et, pour chaque entrée du modèle de configuration, l'enregistrement
+d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
+ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
+un modèle lent n'est donc jamais écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils
+pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` met le
+plus court en tête, les autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère
+de moins de la marge du routeur. L'unité de routage est « modèle + niveau » : on monte les niveaux d'un modèle depuis le
+plus bas, et on passe au suivant tant qu'il apporte au moins `min_gain_points` points d'indice (un routeur qui tient au
+temps en demande plus). `claude-code` dérive de `code` (même classement, sa cascade est celle de `code` sans les membres
+qui ne prennent pas d'outils), et `code` se classe sur la qualité de code, lue par l'exécution en ligne dans les données
 d'Epoch AI (`benchmark_data.zip`, <https://epoch.ai/benchmarks>, CC BY 4.0, citées dans l'issue avec le jour de la
-lecture), sans WebDev Arena : la qualité d'une interface web est du design, pas du code. Pour chacun de cinq
-benchmarks (DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench, ALE-Bench), les membres de la cascade sont
-classés (1 est le meilleur, les égalités partagent le rang moyen) si deux au moins y ont un score ; la qualité de
-code d'un membre est la médiane de ses rangs, sur deux benchmarks au moins, sinon il est inclassable par la qualité de
-code. Les membres classés viennent en premier, les inclassables les suivent dans l'ordre de l'indice d'intelligence,
-qui en tient lieu et que le rapport nomme, et le dernier recours et les membres sous le plancher restent en queue ; le
-plancher reste sur l'indice d'intelligence, puisque les benchmarks de code d'Epoch AI ne comptent aucun modèle sous un
-Gemini Flash. Une lecture qui échoue est signalée « non lue » dans la section et l'indice d'intelligence ordonne alors
-toute la cascade ; l'exécution hors ligne ne lit rien. Le fichier déclare aussi, sans que rien le lise encore, l'indice de
-capacités d'Epoch AI comme repli pour l'intelligence d'un membre sans indice, à signaler « estimé ». Tout le fichier est
-**provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne une section « Contrats par routeur » : par
-routeur, un tableau des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait
-comparé à l'ordre actuel, l'effet de chaque plancher proposé (un membre sous le plancher passe au dernier recours, il
-n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les correspondances dont
-l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas. C'est un rapport : il ne
-change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre (un membre sans indice reste où il est,
-signalé inclassable, tant que le repli n'est pas lu), ne change pas le statut du run et ne bloque pas la pull request de
-suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement sur la forme du fichier (un routeur
-qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison, une ligne ou un fichier mal formé, une clé
-écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée du modèle n'est **pas** un échec : la
-suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une entrée met presque toujours une
-ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0, et l'issue liste ces
-« correspondances sans entrée », qu'une personne retire du fichier.
+lecture), sans WebDev Arena : la qualité d'une interface web est du design, pas du code. Pour chacun de cinq benchmarks
+(DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench, ALE-Bench), les membres de la cascade sont classés (1 est le
+meilleur, les égalités partagent le rang moyen) si deux au moins y ont un score ; la qualité de code d'un membre est la
+médiane de ses rangs, sur deux benchmarks au moins, sinon il est inclassable par la qualité de code. Les membres classés
+viennent en premier, les inclassables les suivent dans l'ordre de l'indice d'intelligence, qui en tient lieu et que le
+rapport nomme, et le dernier recours et les membres sous le plancher restent en queue. Une lecture qui échoue est
+signalée « non lue » dans la section et l'indice d'intelligence ordonne alors toute la cascade ; l'exécution hors ligne
+ne lit rien. L'**indice de capacités** d'Epoch AI (ECI) est lu dans la même archive (le membre
+`epoch_capabilities_index/eci_scores.csv`, mêmes plafonds, même liste de noms permis, même citation) : il couvre presque
+tous les modèles qu'Artificial Analysis n'a pas notés, et le fichier dit comment le ramener à l'échelle de l'indice
+d'intelligence (des points de calibration reliés par une droite, prolongée au-delà de ses extrémités par la pente du
+dernier segment et jamais sous 0). Tout chiffre ainsi obtenu est une **estimation**, marquée « estimé » partout. Les
+planchers y sont ancrés : `pro` doit être au moins aussi bon que Gemini 3 Pro, `flash`, `code` et `claude-code` que
+Gemini 2.5 Flash, et `flash-lite` n'a aucun plancher (le plus court délai avant le premier jeton ordonne, tout membre
+qui répond est admis). Un membre pour lequel le classement n'a pas d'indice au niveau où il est appelé est placé sur
+l'estimation du modèle que nomme son entrée (`eci`) ; l'indice du classement l'emporte partout où il existe, et un
+routeur ordonné par le délai n'utilise aucune estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice
+est introuvable, ne juge personne, et l'issue le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans
+jamais être un échec. Tout le fichier est **provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne
+une section « Contrats par routeur » : par routeur, un tableau des membres (chiffres, niveau appelé, niveau retenu,
+verdict), l'ordre que le contrat donnerait comparé à l'ordre actuel, l'effet de chaque plancher proposé (un membre sous
+le plancher passe au dernier recours, il n'est pas retiré), puis les entrées sans correspondance, celles sans
+enregistrement, les correspondances dont l'enregistrement a disparu et celles appelées à un niveau que le classement ne
+couvre pas. C'est un rapport : il ne change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre
+(un membre sans indice reste où il est, signalé inclassable, tant qu'aucune estimation ne le couvre), ne change pas le
+statut du run et ne bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et
+seulement sur la forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison,
+une ligne ou un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée
+du modèle n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une
+entrée met presque toujours une ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0,
+et l'issue liste ces « correspondances sans entrée », qu'une personne retire du fichier.
 
 **Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
 configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve pull requests*
