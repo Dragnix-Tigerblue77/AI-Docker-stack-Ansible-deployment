@@ -561,7 +561,7 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
-`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- 52 entrées actives, avec les cinq clés, à
+`LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
 travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
 propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
@@ -571,8 +571,8 @@ est supprimé, un modèle servi mais délibérément non routé reste commenté 
 modèle est ajouté. #169 l'a appliquée à Groq, #200 à tous les autres (recensement du 2026-09-27) :
 GitHub Models, fermé par GitHub le 2026-07-30 (#109), est supprimé et non plus archivé ; Cerebras n'a
 plus de palier gratuit permanent (5 $ de crédit après ajout d'un moyen de paiement, expirés au bout
-de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée
-obligatoire, n'est plus lue par aucune entrée active ; Mistral n'a plus de palier gratuit pour
+de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée une
+variable facultative, n'est plus lue par aucune entrée active ; Mistral n'a plus de palier gratuit pour
 l'API (le mode « Free » ne couvre que Vibe et Studio, vérifié le 2026-11-21) : il est payant et placé
 après tous les gratuits. Les entrées `:free` d'OpenRouter
 partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
