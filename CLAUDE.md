@@ -124,6 +124,11 @@ copies drift.
   never on the default one, although it reads as merged. Two changes that depend on each other go in
   one pull request, and a merge is reported only once its content has been read on the default
   branch, never from the pull request's status alone.
+* **A pull request is amended, never closed to open another.** A correction, a rebuild on a newer default
+  branch or a rewritten description is made on the same pull request, by a new commit or, on a branch the
+  session itself owns, by a rebase and a force-push with `--force-with-lease`, which the maintainer allows
+  for exactly this: a second pull request for the same subject splits the discussion across two links and
+  leaves one of them to close. A branch somebody else owns is never rewritten.
 * **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
   session that has the context for it, since a session that ends takes its context with it: "later",
   "tomorrow" and "in a separate pull request" are the maintainer's to choose, and a session may
@@ -388,7 +393,8 @@ day after the next deletion.
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a
 different model is worth having on its own: a provider is never dropped for being "no better" than the
 ones in place. What is set aside is a trial limited in time (thirty days, say) or a one-time quota,
-unless it is huge. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
+unless it is huge. A card the provider asks for does not rule it out, as long as the spend can be capped at zero or
+the account is prepaid and empty. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
 sensitive data is refused: nearly everything the gateway handles carries a name or two. The README's
 registry says which provider was read, what it offers and why it is in or out.
 
