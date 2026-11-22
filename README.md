@@ -1299,6 +1299,64 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 **Ce qui changerait le verdict** : un client temps réel réel dans le stack et une route Gemini Live vérifiée dans LiteLLM. Aucune décision sur la téléphonie n'est prise ici.
 
+### Les modèles d'embeddings, et pourquoi il n'y a ni routeur ni repli pour eux
+
+Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini) et `mistral-embed` (rendue avec la clé Mistral). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `flash` ou `code`.
+
+**Pourquoi.** Les vecteurs de deux modèles ne sont pas comparables entre eux, même à dimensions égales. Un repli d'un modèle vers un autre, ou un alias qui désignerait un modèle différent selon les clés données, ferait changer silencieusement d'espace vectoriel : les nouvelles requêtes seraient comparées à une collection remplie par l'ancien modèle, et rien n'échouerait pour le dire. LiteLLM applique bien les replis à un appel d'embeddings (lu dans son code le 2026-11-22), donc le seul moyen sûr est de n'en déclarer aucun. `check_compose_template.py` le tient : dans chaque rendu, une entrée `mode: embedding` n'est ni membre d'une cascade, ni clé d'une cascade, ni cible ou nom d'un alias.
+
+**Une collection Qdrant est liée à un seul modèle.** Elle est créée avec la taille de vecteur de ce modèle, et ingestion comme requêtes passent par le même nom de modèle et les mêmes `dimensions`. Changer de modèle, y compris de `gemini-embedding-001` à `gemini-embedding-2` (Google dit leurs espaces « incompatible »), c'est créer une nouvelle collection et tout ré-embedder.
+
+| Modèle | Taille du vecteur | À savoir |
+| --- | --- | --- |
+| `gemini-embedding-2` | 3072 par défaut ; le paramètre `dimensions` de la requête (LiteLLM l'envoie à Google comme `outputDimensionality`) accepte de 128 à 3072, Google recommande 768, 1536 ou 3072 ; les vecteurs tronqués sont renormalisés par Google | Entrée de 8 192 jetons au plus ; pas de `task_type` pour ce modèle, la consigne se met dans le texte. Le rôle n'impose aucune valeur par défaut : l'appelant choisit, une fois, et la collection est créée à cette taille |
+| `mistral-embed` | Fixe, **non lue sur une page** : créer la collection d'après la longueur du premier vecteur reçu | La passerelle règle `drop_params: true` : un `dimensions` envoyé à ce modèle est ignoré sans erreur et le vecteur complet revient, alors que LiteLLM seul refuse l'appel |
+
+**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google, et les conditions de l'API Gemini interdisent d'y envoyer des informations personnelles, sensibles ou confidentielles sans passer par le service payant. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
+
+#### Le registre des embeddings et du rerank
+
+Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank n'a aucune entrée : aucun point d'accès gratuit, durable et sans entraînement n'est atteignable avec les clés que le rôle connaît.
+
+**Groupe 1 -- utilisés aujourd'hui.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit : pas pour des documents privés |
+| Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
+
+Pages officielles lues :
+
+- Google Gemini API : [Embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [Deprecations](https://ai.google.dev/gemini-api/docs/deprecations)
+- Mistral : page « Pricing » et page « Embeddings » de sa documentation, dont le corps ne s'affiche pas sans script
+
+**Groupe 2 -- à ajouter.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, soit environ 9,3 millions de jetons `@cf/baai/bge-m3` par jour (**dérivé** du prix de 0,012 $ le million) ; modèles `@cf/baai/bge-m3` (contexte de 60 000 jetons), `@cf/baai/bge-large-en-v1.5` (1024 dimensions, anglais), `@cf/google/embeddinggemma-2` (768 dimensions, options 128, 256, 512) | 3 000 requêtes par minute pour les embeddings ; le rerank (`bge-reranker-base`, 0,003 $ le million) n'a pas de route LiteLLM listée | À ajouter dès que le fournisseur l'est : « Zero data retention » et « No training », donc le meilleur candidat pour des documents privés. Le point d'accès compatible OpenAI sert `/v1/embeddings` |
+
+Pages officielles lues : les mêmes que dans le groupe 2 du registre ci-dessus.
+
+**Groupe 3 -- écartés, avec la raison.**
+
+| Fournisseur | Ce qui est offert | Raison de l'écart |
+| --- | --- | --- |
+| Cohere (embed et rerank) | Clés d'essai : 1 000 appels par mois, rerank limité à 10 requêtes par minute ; le français est géré | Clés d'essai « not permitted to be used for production or commercial purposes » |
+| NVIDIA build | Clé d'essai | Conditions d'essai déjà écartées plus haut |
+| Hugging Face Inference Providers | Aucun crédit pour les comptes gratuits | Pas d'offre gratuite |
+| OpenAI | `text-embedding-3-small` (1536) et `-large` (3072) | Aucune offre gratuite trouvée |
+| Fireworks | Crédits prépayés, embeddings de 0,008 à 0,016 $ le million de jetons | Pas d'offre gratuite |
+
+**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
+
+| Fournisseur | Ce qui a été vu | Ce qui manque |
+| --- | --- | --- |
+| Voyage AI | Famille voyage-4, 1024 dimensions par défaut, 32 000 jetons ; « The first 200 million tokens ... are free for every account » ; rerank-3 à 0,05 $ le million ; fournisseur `voyage/` de LiteLLM | Un compte à ouvrir, et rien ne dit que le crédit se renouvelle |
+| Jina AI | Jetons gratuits pour une clé neuve, 100 requêtes par minute avec une clé gratuite | Le montant ; aucune chaîne d'embedding propre à LiteLLM, le point d'accès compatible OpenAI conviendrait |
+| OpenRouter | Les modalités de sortie « embeddings » et « rerank » existent | Les modèles et leurs prix n'ont pas été énumérés ; que la clé déjà donnée y accède n'est **pas vérifié** |
+| Together AI, Nebius | Pas de prix d'embeddings chez le premier, page des tarifs en 404 chez le second | Tout |
+
 ### Un compte par personne, pas une paire figée (#103)
 
 `Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais une variable nommée par
