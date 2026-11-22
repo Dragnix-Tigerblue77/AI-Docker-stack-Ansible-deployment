@@ -633,7 +633,7 @@ donc LibreChat les propose toujours. À connaître :
 - `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
 
-### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime
+### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime, deux pour ce qui s'ajoute
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
@@ -643,12 +643,11 @@ de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
 `.github/workflows/LiteLLM_model_drift.yml` la lit chaque lundi dans le catalogue des fournisseurs, et
 la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM », assignée à
-tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter,
-nouveaux modèles -- gratuits sur OpenRouter, « à examiner »
-ailleurs, puisque seul OpenRouter dit dans son API ce qui est gratuit, la section « à examiner » donnant
-le lien de la page de tarifs de chaque fournisseur qui y figure (à lire pour vérifier la gratuité : le
-lien est un confort, la vérification reste une personne). L'issue est réécrite à chaque
-exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
+tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter. Les
+nouveaux modèles n'y sont plus listés : ils sont proposés par deux pull requests (voir plus bas), et
+l'issue ne garde que ceux qu'aucune des deux ne peut porter, avec la raison, et un lien vers elles. Un
+nouveau modèle qu'une pull request porte ne compte pas comme une dérive pour l'issue. L'issue est
+réécrite à chaque exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
 
 Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
 un modèle que son fournisseur ne liste plus (et, chez ceux dont l'API sait répondre pour un modèle
@@ -726,17 +725,60 @@ elles, sans que personne n'ait rien à faire.
 Tout le reste se décide à la main, et c'est voulu : ajouter un modèle est un choix (gratuit ? dans
 quelle cascade, à quel rang ?), un retrait seulement annoncé n'en est pas encore un, un modèle
 redevenu gratuit rouvre une raison que quelqu'un a écrite -- et la règle veut que chaque affirmation
-de la liste cite la page du fournisseur et la date de la vérification. Chaque nouvel identifiant
-arrive donc dans l'issue avec une entrée à compléter (nom proposé, clé et `api_base` repris des
-entrées du même fournisseur), à coller telle quelle pour l'activer ou, pour une entrée non routée, à
-commenter avec sa raison. Un modèle examiné et écarté cesse d'être signalé par une ligne
-`# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
+de la liste cite la page du fournisseur et la date de la vérification. Un modèle examiné et écarté
+cesse d'être signalé par une ligne `# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
+
+**Les ajouts arrivent en deux pull requests, qu'aucune fusion automatique ne prend.** Le workflow les
+tient à jour comme celle des suppressions (`main` plus un commit du bot Actions, refaite à chaque
+exécution, écrite avec le jeton de l'App quand il y en a une, assignée à tigerblue77), chacune sur sa
+branche, et `dependabot-auto-merge.yml`, qui ne reconnaît que la branche des suppressions, ne fusionne
+ni l'une ni l'autre (`check_auto_merge_gate.py` joue les deux branches contre lui). Elles se partagent
+les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur :
+
+- **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
+  informations qu'un ajout demande -- une gratuité que l'API du fournisseur dit elle-même (aujourd'hui
+  les modèles `:free` d'OpenRouter à 0 $, en sortie texte seulement) et un chiffre du classement
+  d'Artificial Analysis rapproché de façon sûre : la fin de l'identifiant, sans `:free`, s'écrit à la
+  casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte
+  aucune marque de variante entre parenthèses (« (Reasoning) », « (Xhigh) »...). Un fournisseur dont la
+  gratuité deviendrait lisible dans son API y arriverait sans que la règle change ;
+- **`claude/LiteLLM-model-additions-to-verify`, les modèles à vérifier, en brouillon** : tous ceux à qui
+  il manque au moins une de ces informations, quel que soit leur fournisseur -- une gratuité que l'API
+  ne dit pas (tous les fournisseurs autres qu'OpenRouter aujourd'hui), aucun chiffre du classement, un
+  rapprochement approximatif ou ambigu. Son corps dit, pour chaque modèle, ce qui manque et comment
+  l'obtenir : la page de tarifs à ouvrir et ce qu'il faut y chercher, l'endroit du classement où le
+  chercher, une commande qui lit le modèle dans le catalogue du fournisseur sans rien afficher de
+  secret (celles qui demandent une clé se lancent en root sur la machine qui fait tourner la pile, et
+  lisent la clé dans le conteneur LiteLLM), le commentaire daté à écrire au-dessus de l'entrée, et la
+  ligne `drift-ignore` toute prête si la réponse est non. Un dépôt privé du plan gratuit de GitHub n'a
+  pas de brouillons : elle y est ouverte prête à relire, et son corps seul dit d'attendre.
+
+Le commit ajoute chaque entrée après la dernière entrée de son fournisseur (la dernière active, sinon la
+dernière commentée), dont elle reprend la clé et l'`api_base`, sous un commentaire qui dit d'où elle
+vient et quand ; elle est commentée, avec une raison provisoire, chez un fournisseur qui n'a aucune
+entrée active. Ni l'une ni l'autre ne la met dans une cascade : le corps donne ses chiffres et sa place
+suggérée dans chaque routeur (voir le classement ci-dessous), une suggestion calculée sur un classement
+lui-même en révision, et un modèle que le classement ne mesure pas n'est pas placé, mais nommé avec la
+ligne `drift-ignore` qui l'écarte. Pour **garder** un modèle, on fusionne,
+après avoir ajouté, dans un commit sur la branche, son nom aux cascades voulues ; pour l'**écarter**, on
+remplace son entrée par sa ligne `drift-ignore` avant de fusionner. Un modèle fusionné ou écarté ne
+revient plus ; fermer sans fusionner ne décide rien, la pull request revient la semaine suivante. Un
+commit d'une personne fige la branche : tant que sa pull request est ouverte, le workflow n'y touche
+plus, sans échouer ; une fois qu'elle est fermée sans être fusionnée, l'exécution échoue jusqu'à ce que
+la branche soit supprimée. Une case cochée dans le corps reste cochée tant que sa ligne ne change pas, et
+une semaine qui ne change que les dates des commentaires ne pousse rien (aucun contrôle ne repart) : chaque
+entrée garde le jour où elle a été proposée.
+Chacune se ferme, avec un commentaire, quand plus rien n'est à proposer, sauf si une source dont elle
+dépend (un catalogue, ou le classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écrit ne reçoit, par modèle, qu'un fournisseur, un identifiant et un
+nom, qu'il valide, et construit lui-même le fichier ; il ne pousse que si c'est le texte que le script
+a construit et relu (`check_drift_publish_guard.py` tient les deux au même résultat).
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
-l'issue contient pour chaque nouveau modèle son indice d'intelligence, son indice de code, sa vitesse de
-sortie et son prix mixte, lus dans l'API gratuite d'Artificial Analysis (<https://artificialanalysis.ai/>, la
-source est citée dans l'issue avec le jour de la lecture, comme ses conditions d'utilisation le demandent), puis
+les pull requests d'ajout (et l'issue, pour un nouveau modèle qu'aucune ne porte) donnent pour chaque nouveau
+modèle son indice d'intelligence, son indice de code, sa vitesse de sortie et son prix mixte, lus dans l'API
+gratuite d'Artificial Analysis (<https://artificialanalysis.ai/>, la source est citée avec le jour de la lecture,
+comme ses conditions d'utilisation le demandent), puis
 une **place suggérée** par routeur : avant le premier membre de la cascade que le classement note plus bas sur le
 chiffre qui compte (intelligence pour `pro`, `flash` et `claude-code`, code pour `code`, vitesse pour
 `flash-lite`), sinon après le dernier. Pour `flash` et `flash-lite`, dont la cascade est choisie pour sa
@@ -748,8 +790,8 @@ pour `claude-code`, gratuité, variante d'effort de raisonnement sur laquelle un
 ni le regroupement par fournisseur que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
 **supposition** -- l'identifiant, puis le nom du fournisseur, doivent s'écrire comme exactement une entrée du
 classement, à la casse et à la ponctuation près, au moins quatre caractères -- et chaque ligne est marquée
-« à vérifier ». Sans le secret, l'issue dit « non couvert » comme pour n'importe quelle clé ; une lecture qui
-échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
+« à vérifier ». Sans le secret, l'issue dit « non couvert » comme pour n'importe quelle clé, et aucun modèle n'est placé ;
+une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
 **Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
@@ -757,16 +799,17 @@ configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve
 dans *Settings → Actions → General → Workflow permissions*
 (<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
 si la case est grisée, le même réglage au niveau de l'organisation. Tant qu'elle ne l'est pas, le
-workflow pousse la branche, tient l'issue à jour et échoue à l'étape qui ouvre la pull request, en
+workflow pousse les branches, tient l'issue à jour et échoue à l'étape qui ouvre les pull requests, en
 nommant ce réglage et en donnant son lien.
 
-**Facultatif : une App GitHub qui ouvre la pull request.** Un push et une pull request faits avec le jeton
+**Facultatif : une App GitHub qui ouvre les pull requests.** Un push et une pull request faits avec le jeton
 du workflow ne lancent aucun workflow : GitHub garde les runs de la pull request jusqu'à ce qu'une
 personne les approuve, ne lance jamais `sign-off`, et n'avertit pas `dependabot-auto-merge.yml` d'un run
-que ce jeton a lancé à la main, qui ne voit alors jamais la pull request. Avec une App, la branche et la
-pull request sont écrites avec son jeton, restreint à *Contents* et *Pull requests* en lecture et
-écriture (l'assignation, qui est celle d'une issue, se fait avec le jeton du workflow) : GitHub lance
-lui-même les contrôles, la fusion automatique les voit, et le workflow n'en relance plus aucun à la main.
+que ce jeton a lancé à la main, qui ne voit alors jamais la pull request. Avec une App, les branches et les
+pull requests (celle des suppressions comme celles des ajouts) sont écrites avec son jeton, restreint à
+*Contents* et *Pull requests* en lecture et écriture (l'assignation, qui est celle d'une issue, se fait
+avec le jeton du workflow) : GitHub lance lui-même les contrôles, la fusion automatique les voit (et ne
+prend que celle des suppressions), et le workflow n'en relance plus aucun à la main.
 Pour l'activer : une App GitHub installée sur ce dépôt avec ces deux permissions de dépôt, la variable
 `MODEL_DRIFT_APP_CLIENT_ID` (l'identifiant client affiché sur la page de l'App, pas son identifiant
 d'App), la variable `MODEL_DRIFT_APP_SLUG` (son nom court, que seule la
@@ -792,7 +835,10 @@ script du dépôt). Le découpage borne le jeton qui écrit : un `read` compromi
 pull request qui supprime des lignes du fichier, et cette pull request peut se fusionner seule (voir
 plus haut), à des conditions qui bornent les lignes retirées (cinq entrées et deux cents lignes au plus,
 et rien d'autre que des entrées de modèle, leurs places de cascade, des commentaires et des lignes vides),
-dans un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+dans un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée. Il peut aussi lui faire
+ouvrir les deux pull requests d'ajout, avec des entrées d'une forme fixe, calquées sur celles du fichier (une
+clé et une adresse qu'il a déjà, un identifiant et un nom d'une orthographe étroite), qu'une personne seule
+fusionne. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
 partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
 s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas

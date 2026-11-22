@@ -33,6 +33,9 @@ WHAT IT RUNS
   wait for a human, and every other condition holds for the App's pull request as for the Actions
   bot's (a wrong branch, a second commit, a commit that is not the Actions bot's, a draft, a line
   added, a check red or missing, a sign-off that started and is not green);
+* the two pull requests of additions the same workflow opens, on the branches it names for them: as
+  it opens them, lines added, and as the worst they could be, a deletion that would merge on the
+  deletions' branch, by either bot, every check green, which only their branch keeps from merging;
 * every check the ruleset names but "sign-off", each tried missing and red, so that widening the list
   of checks the step excuses is noticed; a check posted by another app; and the latest of several
   runs of one check, whichever order the API lists them in.
@@ -78,6 +81,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "dependabot-auto-merge.yml"
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 DRIFT_SCRIPT = ROOT / ".github" / "scripts" / "check_LiteLLM_model_drift.py"
+DRIFT_WORKFLOW = ROOT / ".github" / "workflows" / "LiteLLM_model_drift.yml"
 HEAD_SHA = "0123456789abcdef0123456789abcdef01234567"
 
 # Plays the step's script against one scenario at a time. "github", "context" and "core" are the three
@@ -266,6 +270,24 @@ def review_heading():
     if not found:
         raise SystemExit("%s no longer defines REVIEW_HEADING." % DRIFT_SCRIPT.relative_to(ROOT))
     return found.group(1)
+
+
+def additions_branches():
+    """The branches of the two pull requests of additions, as the drift workflow names them: they must
+    be neither the branch of the deletions nor one the gate takes for Dependabot's."""
+    workflow = yaml.safe_load(DRIFT_WORKFLOW.read_text(encoding="utf-8"))
+    env = workflow["jobs"]["publish"].get("env") or {}
+    branches = [env.get("ADDITIONS_BRANCH"), env.get("ADDITIONS_TO_VERIFY_BRANCH")]
+    gate = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["merge"]
+    for branch in branches:
+        if not isinstance(branch, str) or not branch:
+            raise SystemExit("%s names no branch of additions in its publish job." % DRIFT_WORKFLOW.relative_to(ROOT))
+        if branch == env.get("REMOVALS_BRANCH") or branch.startswith("dependabot/") or branch in str(gate.get("if")):
+            raise SystemExit("%s: the branch of additions %r is one the gate may take for a pull request it merges."
+                             % (DRIFT_WORKFLOW.relative_to(ROOT), branch))
+    if branches[0] == branches[1]:
+        raise SystemExit("%s gives both pull requests of additions one branch." % DRIFT_WORKFLOW.relative_to(ROOT))
+    return branches
 
 
 def run_of(name, conclusion="success", started="1", status="completed", app="github-actions"):
@@ -608,6 +630,28 @@ def scenarios():
     add("App: a Dependabot major is refused as ever with the slug set", "not merged",
         dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
 
+    # --- the weekly additions, which nothing but a person merges ---------------------------------------
+    # Each is tried as the workflow opens it, lines added, and as the worst it could be: a deletion that
+    # would merge on the deletions' branch, by the Actions bot or the App, every check green. Only the
+    # branch tells them apart, and it must.
+    added = list(base)
+    added[base.index("router_settings:"):base.index("router_settings:")] = entry("fresh")
+    adding = patch_between(base, added)
+    for branch in additions_branches():
+        tag = "additions on %s: " % branch
+        add(tag + "entries added, as the workflow opens it", "not merged",
+            removals(adding, branch=branch, files=[file_of(additions=counts(adding)[0], deletions=0, patch=adding)]),
+            needle=gone)
+        add(tag + "entries added, opened by the App", "not merged",
+            by_app(branch=branch, files=[file_of(additions=counts(adding)[0], deletions=0, patch=adding)]),
+            needle=gone)
+        add(tag + "a deletion that would merge on the deletions' branch", "not merged",
+            removals(patch, branch=branch), needle=gone)
+        add(tag + "a deletion that would merge, opened by the App", "not merged", by_app(branch=branch), needle=gone)
+        as_draft = removals(patch, branch=branch)
+        as_draft["pr"]["draft"] = True
+        add(tag + "a draft", "not merged", as_draft, needle=gone)
+
     add("deletion: the cap on entries is 1 and one entry goes", "merged",
         removals(patch, env={"REMOVALS_MAX_ENTRIES": "1"}))
     add("deletion: two entries go under a cap of 1", "not merged",
@@ -736,6 +780,8 @@ MUTATIONS = [
     ("the job that checks main afterwards is never told", [("core.setOutput('merged', 'true');", "")]),
     ("any bot's branch is taken for the deletions", [
         ("pr.head.ref === process.env.REMOVALS_BRANCH", "true")]),
+    ("a branch that only starts like the deletions' is taken for them", [
+        ("pr.head.ref === process.env.REMOVALS_BRANCH", "pr.head.ref.startsWith('claude/LiteLLM-model-')")]),
     ("a draft passes", [("|| pr.draft", "")]),
     ("a person's pull request is taken for the deletions", [
         ("removalsAuthors.includes(pr.user.login) &&", "")]),
