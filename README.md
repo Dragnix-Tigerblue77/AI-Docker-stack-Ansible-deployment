@@ -958,7 +958,10 @@ Pages officielles lues :
 | Alibaba Model Studio / DashScope | Quota unique d'environ 1 million de jetons par modèle, valable 90 jours | Crédit unique, et pas pour les comptes neufs |
 | SiliconFlow | Crédit unique de 1 dollar | Crédit unique, aucun modèle gratuit listé |
 | Scaleway Generative APIs | 1 million de jetons gratuits, une fois | Crédit unique, limites liées à un moyen de paiement valide ; lu dans un résumé de recherche, les pages directes ont répondu 403 |
-| Hyperbolic, Novita, AI21, Nebius Token Factory | Aucun palier ni crédit trouvé sur les pages lues | Absence de preuve, pas un refus formel : à relire avant de conclure |
+| Hyperbolic | Palier « Free » par défaut, avec un crédit de 1 $ après vérification d'un téléphone, une seule fois par personne ; les requêtes sont refusées quand le solde est épuisé (pages lues le 2026-11-22) | 60 requêtes par minute sur le plan Free d'après la page des comptes, 300 par clé d'après la page d'inférence : les deux ne concordent pas | Crédit unique, pas de palier gratuit durable ; les conditions interdisent de créer plusieurs comptes pour contourner les limites. Point d'accès compatible OpenAI, aucun fournisseur LiteLLM nommé |
+| Novita AI | « Free to start » et un bon d'inscription dont le montant et la durée ne sont pas publiés, révoqué en cas de comptes multiples depuis le même appareil (pages lues le 2026-11-22) | Limites par palier de recharge, chiffres absents du texte lu | Aucune offre gratuite durable prouvée ; les conditions et la politique de confidentialité n'ont pas rendu leur corps, donc rien n'est établi sur les données |
+| AI21 | Crédit de 10 $ pour un compte neuf, sans carte : 7 jours d'après la page des tarifs, trois mois d'après la documentation (pages lues le 2026-11-22) | Jamba Large et Jamba Mini : 200 requêtes par minute | Crédit unique ; pas de point d'accès compatible OpenAI ni de fournisseur LiteLLM nommé ; la revente est interdite. Ne s'entraîne pas sur les entrées et sorties |
+| Nebius Token Factory | Aucune ; des codes promotionnels ponctuels et, pour des startups financées, jusqu'à 50 000 $ de crédits (pages lues le 2026-11-22) | Limites dynamiques, valeurs par défaut non publiées | Pas de palier gratuit, et une carte bancaire est exigée pour finir l'inscription. Ne s'entraîne pas sur le contenu, mais garde les entrées et sorties sauf si la rétention zéro est activée |
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
 
 Pages officielles lues :
@@ -976,6 +979,10 @@ Pages officielles lues :
 - Alibaba Model Studio : [New free quota](https://www.alibabacloud.com/help/en/model-studio/new-free-quota)
 - SiliconFlow : [Pricing](https://www.siliconflow.com/pricing)
 - Vercel AI Gateway : [Pricing](https://vercel.com/docs/ai-gateway/pricing)
+- Hyperbolic : pages « Account management » et « Inference overview » de sa documentation, et ses conditions d'utilisation
+- Novita AI : pages « Rate limits » et « FAQ » de sa documentation
+- AI21 : page « Pricing », page « Usage and cost » de sa documentation et ses conditions d'utilisation
+- Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
 
 **Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
 
