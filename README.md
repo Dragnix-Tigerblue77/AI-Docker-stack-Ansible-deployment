@@ -1272,6 +1272,78 @@ Pages officielles lues le 2026-11-22 :
 - Cloudflare Workers AI : sa page « Pricing » et la page de sa documentation sur les points d'accès compatibles OpenAI
 - Azure AI Speech : page « Pricing » ; ElevenLabs : page « Pricing » ; Deepgram : page « Pricing »
 
+### La synthèse vocale : le routeur `tts`
+
+`tts` est un routeur comme `pro` ou `flash` -- un alias du premier membre de sa cascade dont la clé est donnée, avec ses alias (`auto-tts`) et sa cascade sous chaque nom -- mais pour `/v1/audio/speech` : le client envoie le texte et un nom de voix, la réponse est un fichier audio. Il n'ajoute aucune variable : il existe dès que la clé Gemini est donnée, et n'existe pas sans elle. Il n'est ni classé ni soumis à un contrat de `.github/LiteLLM_router_contracts.yaml` (aucun classement de modèles vocaux n'a été lu ici) : l'ordre de sa cascade est décidé à la main, et `check_compose_template.py` tient le routeur aux mêmes règles que les cinq autres, plus une : un modèle vocal (`model_info.mode: audio_speech`) n'entre dans aucune cascade de texte, et un modèle de texte dans aucune cascade vocale.
+
+**Ce qui a été lu dans le code de LiteLLM** (le 2026-11-22), parce que la documentation ne le dit pas : le routeur applique `fallbacks` et `model_group_alias` à `/audio/speech` comme au chat, et un essai contre un faux serveur Google l'a confirmé (une réponse 429 de la tête de cascade fait répondre le membre suivant, et l'alias `auto-tts` résout comme `tts`). Les deux modèles Gemini sont servis par le fournisseur `gemini/` de LiteLLM, qui traduit les noms de voix d'OpenAI vers les voix de Gemini.
+
+| Cascade `tts` | Modèle | Pourquoi là |
+| --- | --- | --- |
+| 1 | `gemini-3.8-flash-tts` | Le modèle complet ; le français est listé comme pris en charge par la page « Speech » de la documentation de l'API Gemini |
+| 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota, **si** Google compte le quota par modèle (non vérifié) |
+
+Les trois modèles de préversion plus anciens ne sont pas routés : la page « Deprecations » les arrête au plus tôt le 2026-12-18.
+
+**Ce que l'appelant reçoit.**
+
+- Un fichier **WAV** par défaut (mono, 16 bits, un en-tête à 24 kHz écrit par LiteLLM : le débit réel de Google n'a pas été relu), ou du **PCM brut** avec `response_format: pcm`. Gemini ne produit rien d'autre : `mp3`, `opus`, `aac` ou `flac` sont refusés par LiteLLM avant tout appel, pour les deux membres à la fois. Convertir en mp3 ou en opus est l'affaire de l'appelant.
+- Les noms de voix d'OpenAI `alloy`, `ash`, `ballad`, `cedar`, `coral`, `echo`, `fable`, `marin`, `onyx`, `sage`, `shimmer` et `verse` sont traduits en voix Gemini. **`nova` ne l'est pas** : LiteLLM le transmet tel quel, et ce n'est pas un nom de voix Gemini. Un nom de voix Gemini (`Kore`, `Puck`, `Sulafat`...) passe directement. La page « Speech » en liste trente, avec un descripteur de style et sans genre.
+- Aucune voix masculine française n'est établie ici : ni la page de Gemini ni celle de Mistral n'en donne.
+
+**Mistral Voxtral est servi mais n'est pas dans la cascade.** LiteLLM traduit six noms d'OpenAI vers des voix **anglaises** de Mistral et transmet les autres tels quels comme identifiants de voix Mistral, et la langue se règle par la voix, non par un paramètre : un appelant qui demande `alloy` pour du texte français serait lu par une voix anglaise. Ses voix françaises (quatre, toutes féminines : Marie, Manon, Lea, Camille) se demandent par leur propre identifiant, ce qu'une cascade partagée avec Gemini ne permet pas. L'entrée est laissée en commentaire dans `LiteLLM_config.yaml.j2`, avec cette raison.
+
+**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : ses conditions (en vigueur le 2026-03-23, lues le 2026-11-22) disent de ne soumettre aucune information sensible, confidentielle ou personnelle aux services non payants, dont le contenu sert à améliorer les produits de Google. Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts`. Les chiffres du palier gratuit pour ces deux modèles (caractères ou requêtes par jour) n'ont pas été lus.
+
+**Le registre des fournisseurs de synthèse vocale**, lu le 2026-11-22, dans le même ordre que celui des fournisseurs de texte. Les pages de LiteLLM listent comme fournisseurs de `/audio/speech` OpenAI, Azure OpenAI, Azure AI Speech, AWS Polly, Vertex AI, Gemini, ElevenLabs, MiniMax et Mistral : Groq, Cloudflare, Together, Deepgram, Cartesia et Edge n'y sont pas.
+
+**Groupe 1 -- utilisés ou examinés.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Google Gemini API | Quota des services non payants, « free of charge with generous limits » d'après la page des tarifs ; les chiffres de la ligne vocale n'ont pas été lus | Format WAV ou PCM seulement ; deux voix par conversation au plus ; contenu réutilisé par Google sur le palier gratuit | Routé, `gemini-3.8-flash-tts` puis `gemini-3.8-flash-lite-tts` |
+| Mistral Voxtral | Aucune : la clé du dépôt est payante, le prix à la minute et un palier d'essai n'ont pas été trouvés | Sortie mp3, wav, pcm, flac ou opus ; la langue se règle par la voix ; quatre voix françaises, toutes féminines | Examiné, non routé (entrée commentée) : les noms de voix d'OpenAI y donnent des voix anglaises |
+
+**Groupe 2 -- à ajouter.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| AWS Polly | Voix standard : 5 millions de caractères par mois sans date de fin affichée ; neuronales (1 million) et génératives (100 000) pendant les douze premiers mois seulement ; fournisseur natif de LiteLLM | Voix françaises masculines : Rémi (neuronale et générative), Mathieu (standard), Florian (générative), Liam (français canadien). Un compte AWS, donc une clé d'accès, un secret et une région : trois nouvelles variables ; la carte bancaire n'est pas indiquée | La meilleure piste vérifiée pour une voix masculine française ; pas construit ici, c'est un nouveau fournisseur |
+
+**Groupe 3 -- écartés, avec la raison.**
+
+| Fournisseur | Ce qui est offert | Raison de l'écart |
+| --- | --- | --- |
+| Groq | Orpheus, en anglais et en arabe (saoudien) ; 100 requêtes par jour et 3,6 K jetons par jour affichés pour l'anglais, plan non vérifié | Pas de français, et absent de la liste de LiteLLM pour `/audio/speech` |
+| Cloudflare Workers AI | MeloTTS (`lang` à `fr` accepté) ; les modèles Aura n'ont pas le français | MeloTTS est marqué « Deprecated 11/20/2026 », donc déjà passé ; aucune route de type OpenAI ni chaîne LiteLLM |
+| Cartesia | Plan gratuit de 20 000 crédits par mois (environ 20 000 caractères), français listé | Le plan gratuit n'a pas la licence d'usage commercial, la politique de confidentialité autorise l'entraînement sur le contenu avec une désactivation partielle, et les services sont « designed for users in the United States only » |
+| Deepgram Aura | 200 dollars, une seule fois | Crédit unique ; pas de français indiqué |
+| Together AI, OpenAI | Aucune | Payants (Kokoro 4 dollars le million de caractères, Orpheus 15 ; `tts-1` 15 dollars le million) |
+| edge-tts | Client non officiel du service de lecture à voix haute de Microsoft Edge : sans clé, de nombreuses voix françaises dont des masculines | Usage non officiel d'un service de Microsoft ; son README ne dit rien des conditions, de la stabilité ni des limites |
+
+**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
+
+| Fournisseur | Ce qui a été vu | Ce qui manque |
+| --- | --- | --- |
+| Azure AI Speech (palier F0) | 0,5 million de caractères neuronaux gratuits par mois | Les prix, la liste des voix françaises, et un compte Azure |
+| ElevenLabs | Un résumé de la page des tarifs parle de 10 000 crédits par mois en gratuit, soit environ 10 000 caractères | Rien ne le confirme pour la synthèse, ni l'usage commercial sur le plan gratuit |
+
+**La synthèse locale.** Piper (qui a des voix françaises masculines) ou Kokoro tournant sur le processeur du serveur est la voie saine pour une voix masculine française, sans envoyer de texte à un tiers : elle est suivie par une issue du dépôt, et n'est pas promise ici.
+
+Pages officielles lues :
+
+- Google Gemini API : pages « Speech », « Pricing », « Deprecations » et ses conditions d'utilisation
+- Mistral : documentation du modèle Voxtral de synthèse vocale
+- LiteLLM : page « Text to Speech » de sa documentation, et son code source
+- AWS Polly : pages « Pricing » et des voix
+- Groq : page « Text to Speech » de sa documentation
+- Cloudflare Workers AI : page du modèle MeloTTS et page « Models »
+- Cartesia : pages des tarifs et de confidentialité
+- Deepgram, Together AI, OpenAI : pages des tarifs
+- Azure AI Speech : page « Pricing »
+- ElevenLabs : page des tarifs
+- edge-tts : son README
+
 ### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
 
 Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour cinq autres capacités, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement et les préversions ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
