@@ -52,7 +52,7 @@ from check_LiteLLM_model_drift import (
     WORD, absent_names, addition_name, addition_problem, alias_drift, anchor_floor, anchor_scale,
     apply_removals, apply_to_result, ask_for, attribute, build_additions, carried_sections,
     catalogue_command, catalogue_url, changed_heads, chat_like, chosen_level, code_figure, code_points,
-    code_span, comment_content, confirm_absences, contract_order, contracts_problems,
+    code_span, comment_content, confirm_absences, contract_order, contracts_problems, time_worth, shared_quota_names,
     contracts_report, contracts_section, derivation_differences, derivation_lines, describe_entry,
     eci_scale, eci_to_index, epoch_member_name, epoch_position, error_class, exit_status,
     fallback_lists, fetch_json, floor_text, given_text, guarded, index_to_position, is_bare,
@@ -4548,7 +4548,7 @@ def code_anchor(name, **versions):
 
 def contract_router(anchor, rate, criterion="intelligence", last_resort=(), candidates=None, margin=None):
     ranking = {"criterion": criterion, "reason": "selftest"}
-    if criterion != "first_answer":
+    if criterion != "intelligence_for_time":
         ranking["tie_margin_points"] = 2
     if criterion == "code_quality":
         ranking.update(source="Epoch AI selftest source", source_status="read", stand_in="intelligence")
@@ -4581,7 +4581,8 @@ def contract_document():
                                                {"entry": "alpha", "level": "high"})),
             "flash": contract_router({"entry": "mike"}, 0.5,
                                      candidates=({"entry": "mike"}, {"entry": "charlie", "level": "non-reasoning"})),
-            "flash-lite": contract_router({"entry": "india"}, 1.5, criterion="first_answer"),
+            "flash-lite": dict(contract_router({"entry": "india"}, 1.5, criterion="intelligence_for_time"),
+                               ranking={"criterion": "intelligence_for_time", "shared_quota_with": ["pro"], "reason": "selftest"}),
             "code": contract_router(code_anchor("Alpha code", deepswe_external=["alpha_medium"],
                                                 swe_bench_verified=["alpha_medium"]), 0.2, criterion="code_quality"),
             "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
@@ -4854,11 +4855,12 @@ def run_contract_cases():
                (report["no_record"] == ["foxtrot"], "no record: %r" % report["no_record"]),
                (report["stale"] == [("golf", "golf-gone"), ("november", "twin")], "stale: %r" % report["stale"]),
                ([name for name, _ in report["uncovered"]] == ["delta"], "uncovered: %r" % report["uncovered"])))
-    judged("the order the contract gives puts the conforming first, by quality with the time deciding within the margin or by time alone for flash-lite, then the last resort tier, and leaves the rest out",
+    judged("the order the contract gives puts the conforming first, by quality with the time deciding within the margin or by worth for the time for flash-lite, then the last resort tier, and leaves the rest out",
            first_wrong(
                (pro_order["proposed"] == ["alpha", "india", "juliet", "foxtrot"], "pro: %r" % pro_order["proposed"]),
                (flash_order["proposed"] == ["lima", "papa", "bravo", "kilo", "mike", "romeo"], "flash: %r" % flash_order["proposed"]),
-               (lite_order["proposed"] == ["india", "bravo", "kilo", "lima"], "flash-lite goes by time: %r" % lite_order["proposed"]),
+               (lite_order["proposed"] == ["bravo", "kilo", "lima", "india"],
+                "flash-lite goes by worth for its time (6, 4.5, -75) and ends with india, which shares pro's quota: %r" % lite_order["proposed"]),
                (code_order["proposed"] == ["oscar", "alpha", "sierra"], "code: %r" % code_order["proposed"]),
                (claude_order["proposed"] == ["alpha", "quebec"], "claude-code: %r" % claude_order["proposed"]),
                (flash_order["current"] == ["bravo", "kilo", "lima", "hotel", "golf", "mike", "papa", "romeo"], "the current order moved"),
@@ -4877,7 +4879,7 @@ def run_contract_cases():
                (played(flash_order) == [{"floor": 10, "main": ["lima", "papa", "bravo", "kilo", "mike"], "last": ["romeo"]},
                                         {"floor": 15, "main": ["lima"], "last": ["bravo", "kilo", "mike", "papa", "romeo"]}],
                 "flash: %r" % played(flash_order)),
-               (played(lite_order) == [{"floor": 8, "main": ["india", "bravo", "kilo", "lima"], "last": []}],
+               (played(lite_order) == [{"floor": 8, "main": ["bravo", "kilo", "lima", "india"], "last": []}],
                 "a contract with no candidates is played at its own floor: %r" % played(lite_order))))
     anchor_slugs, anchor_families = ranking_families(contract_ranking()["models"])
 
@@ -5012,7 +5014,17 @@ def run_contract_cases():
         ("a last resort with no reason", drop("routers", "pro", "last_resort", "reason"), '"last_resort", has no "reason"'),
         ("a block that is missing", drop("routers", "pro", "intelligence_floor"), "is missing or is not a mapping"),
         ("a criterion that is none of the three", set_in(("routers", "pro", "ranking", "criterion"), "speed"),
-         '"criterion" among: intelligence, first_answer, code_quality'),
+         '"criterion" among: intelligence, intelligence_for_time, code_quality'),
+        ("a shared quota on a router that does not value time", set_in(("routers", "pro", "ranking", "shared_quota_with"), ["flash"]),
+         'is not ranked on "intelligence_for_time"'),
+        ("a shared quota with the router itself", set_in(("routers", "flash-lite", "ranking", "shared_quota_with"), ["flash-lite"]),
+         'has a "shared_quota_with" that is not a list of other routers'),
+        ("a shared quota with a router that does not exist", set_in(("routers", "flash-lite", "ranking", "shared_quota_with"), ["ghost"]),
+         'has a "shared_quota_with" that is not a list of other routers'),
+        ("a shared quota with a router that derives from another", set_in(("routers", "flash-lite", "ranking", "shared_quota_with"), ["claude-code"]),
+         'has a "shared_quota_with" that is not a list of other routers'),
+        ("a shared quota that is no list", set_in(("routers", "flash-lite", "ranking", "shared_quota_with"), "pro"),
+         'has a "shared_quota_with" that is not a list of other routers'),
         ("code quality with no source", drop("routers", "code", "ranking", "source"), 'must say its "source", its "source_status"'),
         ("code quality with a source of blanks", set_in(("routers", "code", "ranking", "source"), " "), 'must say its "source", its "source_status"'),
         ("code quality with no source status", drop("routers", "code", "ranking", "source_status"), 'must say its "source", its "source_status"'),
@@ -5137,7 +5149,7 @@ def run_contract_cases():
                    ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
                    ("Plancher 20 (Alpha (Low)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence, "
                     "le délai départageant deux membres à moins de 2 points d'écart." in section, "pro's contract is not said"),
-                   ("Plancher 8 (India), un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in section,
+                   ("Plancher 8 (India), un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par l'indice d'intelligence moins 1.5 points par seconde de délai moyen avant le premier jeton de la réponse, le plus grand en tête ; un membre qui a un délai et pas d'indice vient après ceux qui ont les deux, le plus rapide d'abord ; un membre qui est le même modèle chez le même fournisseur qu'un membre de `pro`, donc sur le même quota, passe après tous les autres, dans le même ordre." in section,
                     "flash-lite's criterion is not said"),
                    ("Plancher introuvable (Alpha code (Epoch, position de code) : archive d'Epoch AI non lue), aucun membre n'est jugé sous le plancher, "
                     "un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par la position de code "
@@ -5704,6 +5716,64 @@ def run_epoch_cases():
                        (contract_order([{key: value for key, value in row.items() if key != "quality"}
                                         for row in order_rows(("a", 1, 1, False), ("b", 9, 1, False))], contract_ranking_block) == ["a", "b"],
                         "rows with no quality at all, whose index is equal")))
+    # A router that values time: what a member is worth for its time, and the members that share a quota last.
+    def worth_rows(*members):
+        """(name, intelligence, seconds, shared quota, last resort) -> rows as router_rows makes them."""
+        return [{"name": name, "position": number, "kind": "conforming", "last_resort": resort, "shared_quota": shared,
+                 "intelligence": index, "first_answer": seconds, "record": {"intelligence": index, "first_answer": seconds},
+                 "worth": time_worth(index, seconds, 3)}
+                for number, (name, index, seconds, shared, resort) in enumerate(members)]
+
+    timed_ranking = {"criterion": "intelligence_for_time"}
+    judged("a member is worth its index less the rate times its time, and one with no index or no time has no worth",
+           first_wrong((time_worth(26.9, 7.62, 3) == 26.9 - 3 * 7.62, "the worth of Gemini 4 Hydrogen at Low"),
+                       (time_worth(None, 5, 3) is None and time_worth(5, None, 3) is None, "a missing figure was given a worth"),
+                       (time_worth(0, 2, 3) == -6, "an index of zero is a figure")))
+    judged("a router that values time puts the greatest worth first, then the members with a time and no index by shortest time, the current order settling a tie",
+           first_wrong((contract_order(worth_rows(("a", 6, 9, False, False), ("b", 20, 4, False, False), ("c", 10, 1, False, False),
+                                                 ("d", 10, 1, False, False)), timed_ranking) == ["b", "c", "d", "a"],
+                        "worth first (8, 7, 7, -21), c and d tied on 7 in the current order"),
+                       (contract_order(worth_rows(("a", None, 3, False, False), ("b", None, 1, False, False), ("c", 4, 2, False, False),
+                                                 ("d", None, 1, False, False)), timed_ranking) == ["c", "b", "d", "a"],
+                        "no index: after those that have both, shortest time first, a tie in the current order"),
+                       (contract_order(worth_rows(("a", 5, 9, False, False), ("b", None, 1, False, False)), timed_ranking) == ["a", "b"],
+                        "a worth below zero still comes before a member with no index")))
+    judged("the members that share a quota come after every member that has one of its own, in the same order, and the last resort closes the cascade",
+           first_wrong((contract_order(worth_rows(("hydrogen", 27, 7, True, False), ("lite", 6, 3, False, False), ("flash", 22, 5, True, False),
+                                                 ("bare", None, 1, False, False)), timed_ranking) == ["lite", "bare", "flash", "hydrogen"],
+                        "the best worth of the router is last, behind a member with no index that has its own quota"),
+                       (contract_order(worth_rows(("shared", 27, 7, True, False), ("paid", None, 1, False, True), ("lite", 6, 3, False, False)),
+                                       timed_ranking) == ["lite", "shared", "paid"], "the last resort closes the cascade, after the shared members"),
+                       (contract_order(worth_rows(("sa", None, 1, True, False), ("sb", 5, 9, True, False)), timed_ranking) == ["sb", "sa"],
+                        "among the shared members, the same order")))
+    drawing = {name: {"name": name, "model": model, "api_base": base}
+               for name, model, base in (("hydrogen", "gemini/h", None), ("hydrogen-low", "gemini/h", None), ("lite", "gemini/l", None),
+                                         ("twin", "openai/h", "https://one"), ("twin-two", "openai/h", "https://two"),
+                                         ("nameless", None, None), ("pro-twin", "openai/h", "https://one"))}
+    fallbacks = {("router_settings.fallbacks", "pro"): ["hydrogen", "pro-twin", "nameless", "missing"]}
+    judged("a member shares a quota when it is the same model of the same provider as a member of a router the ranking names, whatever its name, and not otherwise",
+           first_wrong((shared_quota_names(["hydrogen-low", "lite", "twin", "hydrogen"], {"shared_quota_with": ["pro"]}, fallbacks, drawing)
+                        == {"hydrogen-low", "hydrogen", "twin"}, "same model and base: shared, another model: not"),
+                       (shared_quota_names(["twin-two"], {"shared_quota_with": ["pro"]}, fallbacks, drawing) == frozenset(),
+                        "the same model id at another address is another quota"),
+                       (shared_quota_names(["hydrogen-low"], {}, fallbacks, drawing) == frozenset(), "a ranking that names no router shares nothing"),
+                       (shared_quota_names(["nameless", "ghost"], {"shared_quota_with": ["pro"]}, fallbacks, drawing) == frozenset(),
+                        "an entry with no model, or no entry, shares nothing"),
+                       (shared_quota_names(["hydrogen"], {"shared_quota_with": ["flash"]}, fallbacks, drawing) == frozenset(),
+                        "a router with no cascade shares nothing")))
+    lite_document_shared = contract_document()
+    lite_document_shared["routers"]["flash-lite"]["intelligence_floor"] = {"none": True, "reason": "selftest"}
+    sharing = contracts_report(read_template(CONTRACT_TEMPLATE.replace("    - flash-lite: [kilo, india, bravo, lima, quebec]\n",
+                                                                        "    - flash-lite: [kilo, india, bravo, lima, quebec, sierra]\n").replace(
+        "groq/vendor/sierra-model", "groq/vendor/alpha-model"))[0], contract_ranking(), lite_document_shared)
+    shared_rows, shared_order = contract_rows(sharing, "flash-lite")
+    judged("the report finds the members that share a quota by itself in the template: india is pro's own entry and sierra is pro's alpha under another name, and both are said so and end the cascade",
+           first_wrong((shared_rows["india"]["shared_quota"] and shared_rows["sierra"]["shared_quota"]
+                        and not any(shared_rows[name]["shared_quota"] for name in ("kilo", "bravo", "lima", "quebec")),
+                        "shared: %r" % [name for name, row in shared_rows.items() if row["shared_quota"]]),
+                       (shared_order["proposed"] == ["bravo", "kilo", "lima", "india", "sierra"],
+                        "the shared members come last, in the order of their worth: %r" % shared_order["proposed"]),
+                       (shared_rows["india"]["verdict"] == "conforme ; quota partagé : en dernier", "said in the verdict: %r" % shared_rows["india"]["verdict"])))
     stand_in = contracts_report(template, ranking, document)
     failed_read = contracts_report(template, ranking, document, {"status": "error", "date": "2026-01-02", "error": "HTTP 404"})
     stand_code, stand_order = contract_rows(stand_in, "code")
@@ -6082,17 +6152,18 @@ def run_eci_cases():
     free_section = "\n".join(contracts_section({"contracts": no_floor}))
     judged("a router with no floor has every member that is not otherwise excluded conform, a member with no index included, and nothing goes under the floor",
            first_wrong((held["echo"]["kind"] == "unrankable" and held["sierra"]["kind"] == "below_floor", "with a floor: %r %r" % (held["echo"]["kind"], held["sierra"]["kind"])),
-                       (held_order["proposed"] == ["india", "bravo", "kilo", "lima", "sierra"], "with a floor: %r" % held_order["proposed"]),
-                       (free["echo"]["kind"] == "conforming" and free["echo"]["verdict"] == "conforme" and not free["echo"]["estimated"],
-                        "echo, with no index, in a router that needs none: %r" % free["echo"]["verdict"]),
+                       (held_order["proposed"] == ["bravo", "kilo", "lima", "india", "sierra"], "with a floor: %r" % held_order["proposed"]),
+                       (free["echo"]["kind"] == "conforming" and free["echo"]["verdict"] == "conforme ; quota partagé : en dernier"
+                        and not free["echo"]["estimated"], "echo, with no index, in a router that needs none, and in pro: %r" % free["echo"]["verdict"]),
                        (free["sierra"]["kind"] == "conforming", "sierra, under the old floor: %r" % free["sierra"]["verdict"]),
                        (not any(row["kind"] == "below_floor" for row in free.values()), "a member went under a floor that does not exist"),
                        (free["quebec"]["kind"] == "unrankable" and free["quebec"]["verdict"] == "inclassable : pas de délai", "a member with no time was placed"),
-                       (free_order["proposed"] == ["india", "echo", "bravo", "kilo", "sierra", "lima"], "ordered by time alone: %r" % free_order["proposed"]),
+                       (free_order["proposed"] == ["bravo", "kilo", "sierra", "lima", "india", "echo"],
+                        "worth for the time first (6, 4.5, -70, -75), then india (5) and echo (no index), both pro's entries and so last: %r" % free_order["proposed"]),
                        (free_order["contract"]["intelligence_floor"]["value"] is None and free_order["contract"]["intelligence_floor"]["candidates"] == []
                         and free_order["floors"] == [], "the floor has a value or candidates: %r" % free_order["floors"])))
     judged("the summary says that a router has no floor, in its sentence and not as a floor that could not be found",
-           first_wrong(("Aucun plancher, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in free_section,
+           first_wrong(("Aucun plancher, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par l'indice d'intelligence moins 1.5 points par seconde de délai moyen avant le premier jeton de la réponse, le plus grand en tête ; un membre qui a un délai et pas d'indice vient après ceux qui ont les deux, le plus rapide d'abord ; un membre qui est le même modèle chez le même fournisseur qu'un membre de `pro`, donc sur le même quota, passe après tous les autres, dans le même ordre." in free_section,
                         "the sentence: %s" % free_section[:3000]),
                        ("introuvable" not in free_section.split("### `flash-lite`")[1].split("### `code`")[0], "no floor was said not found"),
                        ("Effet de chaque plancher" not in free_section.split("### `flash-lite`")[1].split("### `code`")[0], "a table of floors for no floor")))
