@@ -7,8 +7,8 @@
 # Every "vault_*" the example reads gets a placeholder here. None of them is a secret, and none has to
 # work: nothing is started, so nothing ever authenticates with them. What they have to do is exist, and
 # differ from each other where the role's asserts say so, so that the role judges the example exactly
-# as it would judge a caller copying it. All five provider keys are given, though one would do (#296):
-# the example reads all five, and "check_compose_template.py" is what renders the other sets of keys.
+# as it would judge a caller copying it. Every provider key is given, though one would do: the example
+# reads them all, and "check_compose_template.py" is what renders the other sets of keys.
 vault_Artificial_Intelligence_Claude_code_virtual_key: "sk-role-run-placeholder-claude-code"
 vault_Artificial_Intelligence_LibreChat_JWT_refresh_secret: "role-run-placeholder-LibreChat_JWT_refresh_secret"
 vault_Artificial_Intelligence_LibreChat_JWT_secret: "role-run-placeholder-LibreChat_JWT_secret"
@@ -24,6 +24,7 @@ vault_Artificial_Intelligence_LiteLLM_Groq_API_key: "role-run-placeholder-LiteLL
 vault_Artificial_Intelligence_LiteLLM_Mistral_API_key: "role-run-placeholder-LiteLLM_Mistral_API_key"
 vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "role-run-placeholder-LiteLLM_OpenRouter_API_key"
 vault_Artificial_Intelligence_LiteLLM_UI_password: "role-run-placeholder-LiteLLM_UI_password"
+vault_Artificial_Intelligence_LiteLLM_Zai_API_key: "role-run-placeholder-LiteLLM_Zai_API_key"
 vault_Artificial_Intelligence_LiteLLM_alice_email: "role-run-placeholder-LiteLLM_alice_email"
 vault_Artificial_Intelligence_LiteLLM_master_key: "role-run-placeholder-LiteLLM_master_key"
 vault_Artificial_Intelligence_LiteLLM_salt_key: "role-run-placeholder-LiteLLM_salt_key"

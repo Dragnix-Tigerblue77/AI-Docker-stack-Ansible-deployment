@@ -279,7 +279,7 @@ Artificial_Intelligence_Redis_memory_limit: false
 # --------------------------------------------------------------------------------------------------
 
 # The provider keys of the gateway's one account, of which AT LEAST ONE must be given (#296): the role
-# fails, naming all five, when every one is empty. Each is empty by default, and a provider whose key is
+# fails, naming all of them, when every one is empty. Each is empty by default, and a provider whose key is
 # empty has no entry in the rendered "LiteLLM_config.yaml.j2" at all -- no model listed that cannot
 # answer, no cascade slot that pays a failed call before the next one. Each key is exposed to the
 # "litellm" container as "<PROVIDER>_API_KEY", not a style choice: "check_LiteLLM_account_isolation.py"
@@ -299,6 +299,13 @@ Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
 Artificial_Intelligence_LiteLLM_DeepSeek_API_key: ""
+# Z AI (Zhipu) serves its GLM-4.7-Flash free of charge on its general API endpoint, which is the one LiteLLM's
+# "zai/" provider calls on its own: the coding-plan endpoint, which Z AI limits to its officially supported
+# tools, is never used. Its limits are published nowhere but the account's console, so the role states none.
+# The terms ("Terms of Use" of docs.z.ai, read 2026-11-22) say not to share or publicly disclose a key, and
+# say nothing found about a gateway or about several accounts: one key, the gateway's own, and none for
+# another person.
+Artificial_Intelligence_LiteLLM_Zai_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret

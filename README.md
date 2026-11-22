@@ -129,13 +129,14 @@ autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des cinq clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Z AI), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des cinq clés fournisseurs. Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des clés fournisseurs. Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -568,7 +569,7 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
+travers Gemini, Mistral, Groq, OpenRouter (`:free`), Z AI et OmniRoute en dernier recours -- repris de son
 propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
@@ -612,7 +613,7 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des cinq clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek), et échoue en les
+Le rôle exige **au moins une** des clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Z AI), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
@@ -632,21 +633,54 @@ donc LibreChat les propose toujours. À connaître :
   même ordre, moins `omniroute-free-code` : OmniRoute choisit lui-même un modèle gratuit parmi ses fournisseurs, et sa
   documentation dit qu'un fournisseur gratuit peut émuler les appels d'outils depuis le prompt ou les ignorer, donc rien
   ne garantit ni les outils ni le contexte. `check_compose_template.py` tient les deux listes à cette égalité. Elle ne
-  contient donc que des modèles de Gemini, Groq, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que
-  les autres fournisseurs n'en ont aucun qui convienne. Sans l'une de ces quatre clés l'agent n'a aucun modèle, et le
+  contient donc que des modèles de Gemini, Groq, Z AI, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat
+  que les autres fournisseurs n'en ont aucun qui convienne. Sans l'une de ces clés l'agent n'a aucun modèle, et le
   rôle refuse ce déploiement, sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou
   demande un autre routeur (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
-- `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
+- `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
+
+#### Z AI : une clé, des limites inconnues, et la fin des cascades `code` et `claude-code`
+
+Z AI (Zhipu) est un fournisseur natif de LiteLLM (préfixe `zai/`) : la clé
+(`Artificial_Intelligence_LiteLLM_Zai_API_key`) arrive aux entrées comme `os.environ/ZAI_API_KEY`, et aucune entrée
+n'écrit d'`api_base`. Le code de LiteLLM, lu le 2026-11-22, appelle de lui-même le point d'accès **général** de Z AI ;
+l'autre, celui du « coding plan », que la page « Introduction » de sa documentation réserve aux outils officiellement
+pris en charge, n'est donc jamais atteint par ce fichier. Laquelle des deux adresses sert les modèles gratuits n'est
+dite par aucune page lue, et la clé n'a pas été essayée contre elle : **à confirmer au premier appel**.
+
+Un seul modèle est routé : `glm-4-7-flash-zai` (`zai/glm-4.7-flash`), en queue des membres gratuits de `code` et de
+`claude-code`, devant les payants. La table de modèles de LiteLLM lui donne 200 000 jetons de contexte, les appels
+d'outils et le choix d'outil, et un prix nul ; la page « GLM-4.7 » de la documentation de Z AI donne le même contexte et
+liste les appels de fonction pour toute la famille, sans le dire par modèle. Il remplit donc les deux conditions de
+`claude-code` (appels d'outils, 128 000 jetons au moins) **d'après ces deux sources, sans essai réel**. Ni Artificial
+Analysis ni Epoch AI ne lui donnent de chiffre (lu le 2026-11-21) : rien ne le classe face aux membres qui le précèdent,
+et la fin des gratuits est la place d'un modèle non mesuré. C'est un modèle qui raisonne : Artificial Analysis mesure
+environ 25 secondes avant le premier jeton de réponse pour sa fiche « Reasoning », d'où cette place.
+
+Les deux autres modèles gratuits de la page des tarifs ne sont pas routés. **GLM-4.5-Flash** vient du même compte et de
+la même limite non publiée que GLM-4.7-Flash : une place derrière lui ne s'essaierait que quand le premier a échoué pour
+une raison qu'il partage, et aucun des deux classements ne le mesure. **GLM-4.6V-Flash** est un modèle de vision, absent
+de la table de LiteLLM, et aucune page lue ne donne son contexte ni ses outils.
+
+**Les limites ne sont pas connues.** Z AI ne les publie pas hors de la console du compte (la page de documentation qui les
+annonçait répond 404, celle des limites est une coquille d'application) : ni requêtes par minute, ni jetons, ni
+simultanéité. Une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**. Elles se lisent dans la
+console du compte, et ce dépôt n'en affirme aucune. Les conditions (« Terms of Use », mises à jour le 2026-04-14)
+interdisent de partager ou de divulguer ses clés, et n'ont rien donné sur une passerelle ou sur plusieurs comptes : la clé
+est celle du compte de la passerelle, et aucune autre n'est prévue. Le contenu des clients de l'API n'est pas utilisé pour
+améliorer les services sans accord (article IV.7), l'accord de traitement des données dit qu'il n'est pas stocké, et le
+traitement se fait en général à Singapour. Une carte ou un téléphone exigé à l'inscription, une date d'arrêt des modèles gratuits :
+aucune page lue n'en parle.
 
 ### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime, deux pour ce qui s'ajoute
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
-fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, les cinq clés de
+fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, toutes les clés de
 fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
 de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
@@ -879,7 +913,11 @@ créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_
 `MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
 chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
 contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
-dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Un
+dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Z AI
+n'a ni secret ni lecture de catalogue : le contrôle ne lit pas ses modèles, et ses entrées (préfixe `zai/`) sont
+listées dans l'issue comme « d'aucun catalogue lu ici », avec celles d'OmniRoute, sans jamais être déclarées retirées
+ni inconnues -- un modèle que Z AI retire n'est donc vu que par la personne qui relit sa page des tarifs, ou par
+l'erreur d'un appel. Un
 cinquième secret, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est celui d'aucun fournisseur : c'est la
 clé gratuite d'Artificial Analysis (1 000 requêtes par jour, une par run), qui alimente le classement
 ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
@@ -913,6 +951,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | --- | --- | --- | --- |
 | Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
 | Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
+| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits d'après la page « Pricing » (lue le 2026-11-22) ; fournisseur natif de LiteLLM (préfixe `zai/`) | Non publiées hors de la console du compte : **inconnues ici** (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**). Seul GLM-4.7-Flash est routé ; GLM-4.5-Flash (même compte, même limite, aucun classement) et GLM-4.6V-Flash (vision, absent de la table de LiteLLM) sont écartés | Routé (pages relues le 2026-11-22) : fin des cascades `code` et `claude-code`, devant les payants, modèle non mesuré. Les conditions interdisent de partager les clés, et n'ont rien donné sur les passerelles ni sur les comptes multiples ; contenu des clients de l'API non utilisé pour améliorer les services sans accord, non stocké d'après l'accord de traitement, traitement généralement à Singapour. Carte ou téléphone à l'inscription, date d'arrêt des modèles gratuits : aucune page lue n'en parle. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
 | Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
@@ -924,6 +963,7 @@ Pages officielles lues :
 
 - Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
 - Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
+- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
 - Mistral : [Pricing](https://mistral.ai/pricing)
 - OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
 - Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
@@ -935,12 +975,10 @@ Pages officielles lues :
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Cloudflare Workers AI | 10 000 « neurons » par jour sans frais ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. Listés payants : Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling ; les autres (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b, nemotron-3-120b, llama-3.3-70b, gemma-4-26b, glm-4.7-flash) seraient donc gratuits : **déduction, à confirmer sur le compte** | À ajouter en premier. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas |
-| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits ; fournisseur `zai/` de LiteLLM | Non publiées hors de la console (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**) | Fin des cascades `code` et `claude-code` seulement, après ouverture d'un compte pour lire la vraie limite. Contenu non stocké, traitement à Singapour, la France n'est pas exclue ; les conditions interdisent de partager les clés et de revendre. Carte ou téléphone exigés : inconnu |
 
 Pages officielles lues :
 
 - Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
-- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
 
 **Groupe 3 -- écartés, avec la raison.**
 
@@ -1301,7 +1339,7 @@ chaque bloc de service aux conventions que le modèle commenté du template docu
 limite mémoire quand l'appelant en pose une (aucune par défaut), `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
 récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
-Il rend aussi `LiteLLM_config.yaml.j2` pour chacun des 31 ensembles non vides de clés fournisseurs (#296), et tient
+Il rend aussi `LiteLLM_config.yaml.j2` pour chaque ensemble non vide de clés fournisseurs (#296), et tient
 chaque rendu aux règles de « Les clés fournisseurs » plus haut.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les

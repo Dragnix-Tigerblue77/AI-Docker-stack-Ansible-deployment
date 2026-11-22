@@ -132,6 +132,7 @@ inputs:
     mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
+    zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -504,6 +505,13 @@ models:
   openrouter-auto-free:
     no_record: "A router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  glm-4-7-flash-zai:
+    slug: glm-4-7-flash
+    level: unknown
+    level_source: "unknown: LiteLLM's model map says the model reasons (read 2026-11-22), and no page read gives the level it is called at by default"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index, and the capabilities index has no figure for it"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling and supports_tool_choice"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"

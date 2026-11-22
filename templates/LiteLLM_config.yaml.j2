@@ -20,7 +20,8 @@
   'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
   'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
-  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
+  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0,
+  'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0
 } %}
 # The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key, so that the order of a cascade alone decides and no provider is placed first by the way
@@ -32,8 +33,8 @@
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
-  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -507,6 +508,42 @@ model_list:
   # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- unreliable in practice and unmeasured: of 31 requests made on 2026-11-21, 4 were answered and 27 were refused with a 429 by the shared upstream pool, so it would cost a refusal before most replies; the 4 answers took 22 s on a five-instruction prompt and 14 s on a long-context search; Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and Ling 3.1 Flash, 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash"), is a different model; look again when its free pool is less loaded
 
 {% endif %}
+{% if has.Zai %}
+  # ============================================================================
+  # Z AI (Zhipu), "zai/", on its general API endpoint
+  #
+  # Checked 2026-11-22. The "Pricing" page of docs.z.ai lists GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash
+  # as free and GLM-5.3-Flash as paid. LiteLLM's "zai/" provider calls the general endpoint, the one under
+  # "/api/paas/v4", on its own: no "api_base" is written here, so the coding-plan endpoint, which the "Introduction"
+  # page of docs.z.ai limits to officially supported tools, cannot be reached by this file. Which endpoint
+  # serves the free models is not stated on any page read, and the key was not tried against it. The limits
+  # are published nowhere outside the account's console: this file assumes none.
+  #
+  # "docs.z.ai"'s "Terms of Use" (updated 2026-04-14, read 2026-11-22) refuse sharing a key, and say nothing
+  # that was found about a gateway or several accounts; the key is the gateway's one. The same terms say Z AI
+  # does not use the content of an API customer for improving its services without agreement, and its data
+  # processing agreement says it does not store the content, processed generally in Singapore.
+  #
+  # Looked at the same day and not routed. GLM-4.5-Flash: free and in LiteLLM's model map at 128,000 tokens
+  # with function calling, but it comes from the same account and the same unpublished limit as GLM-4.7-Flash,
+  # so a slot behind it would be tried only once the first has failed for a reason it shares, and neither
+  # Artificial Analysis nor Epoch AI measures it (read 2026-11-21). GLM-4.6V-Flash: a vision model, absent
+  # from LiteLLM's model map, and no page read gives its context or its tools.
+  # ============================================================================
+  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # the paid ones: 200,000 tokens of context, function calling and tool choice in LiteLLM's model map
+  # (read 2026-11-22, zero price), the 200K context of its page "GLM-4.7" of docs.z.ai, which lists function
+  # calling for the family and not per model. Neither Artificial Analysis's index nor Epoch AI's
+  # capabilities index nor its coding benchmarks measure it (read 2026-11-21), so nothing ranks it against
+  # the members before it: the end of the free ones is where an unmeasured model goes. It reasons before it
+  # answers, which Artificial Analysis timed at about 25 seconds to the first answer token for its
+  # reasoning record (read 2026-11-21). Tool calls through this endpoint were not tried.
+  - model_name: glm-4-7-flash-zai
+    litellm_params:
+      model: zai/glm-4.7-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+{% endif %}
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
@@ -695,7 +732,8 @@ router_settings:
     # sibling "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists, Mistral's among them (paid) -> DeepSeek direct (paid -- last
-    # resort before the fully free OmniRoute) -> OmniRoute.
+    # resort before the fully free OmniRoute) -> OmniRoute. "glm-4-7-flash-zai" closes the free members,
+    # ahead of the paid ones: none of the figures this ranking reads measures it.
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
@@ -707,6 +745,9 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.Zai %}
+        - glm-4-7-flash-zai
 {% endif %}
 {% if has.Mistral %}
         - codestral
@@ -743,6 +784,9 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.Zai %}
+        - glm-4-7-flash-zai
 {% endif %}
 {% if has.Mistral %}
         - codestral
