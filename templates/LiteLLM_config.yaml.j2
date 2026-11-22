@@ -27,11 +27,11 @@
   'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
   'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0
 } %}
-# The routers below, the text-to-speech one included, are aliases, whatever the keys: each stands for the first model of its own cascade
+# The routers below, the transcription and text-to-speech routers included, are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
 # by the way the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a
 # router that exists as a cascade alone would be refused). A router is left out when no model of its cascade
-# has a key or needs none, which "claude-code" and the text-to-speech router can come to. "check_compose_template.py" renders every
+# has a key or needs none, which "claude-code" and the two audio routers can come to. "check_compose_template.py" renders every
 # non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
 # the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
 # heads one of the three: the table below stops at Kilo. Requesty's members sit right ahead of Kilo's in
@@ -42,6 +42,7 @@
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gemma-3-4b-nvidia' if has.NVIDIA else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-requesty' if has.Requesty else 'nemotron-lightning-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
+  'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
   'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
@@ -54,6 +55,7 @@
   'flash-lite': ['auto-flash-lite'],
   'code': ['auto-code'],
   'claude-code': [],
+  'stt': [],
   'tts': ['auto-tts']
 } %}
 model_list:
@@ -219,6 +221,26 @@ model_list:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # An embedding model, added 2026-11-22, in no cascade and behind no alias, reached by its own name
+  # alone: the vectors of two models are not comparable, so a fallback or an alias that followed the
+  # keys given would silently change the vector space of a collection that is already filled.
+  # "check_compose_template.py" refuses an embedding entry in any cascade or alias. The caller chooses
+  # "dimensions" (LiteLLM sends it to Google as "outputDimensionality"). "ai.google.dev/gemini-api/docs/
+  # embeddings", read that day, gives "Flexible, supports: 128 - 3072, Recommended: 768, 1536, 3072",
+  # an input limit of 8,192 tokens, no "task_type" for this model (the task goes in the prompt) and
+  # truncated vectors renormalised by Google, and says the spaces of "gemini-embedding-001" and
+  # "gemini-embedding-2" are incompatible, so a switch re-embeds everything.
+  # The free tier is the wrong place for private documents: its terms, known from a summary of the
+  # pricing page and not read verbatim, let Google use the content to improve its products and forbid
+  # personal or confidential data, and the corpus this estate routes includes third-party legal
+  # documents. Embed those through a paid key, or not through this entry.
+  - model_name: gemini-embedding-2
+    litellm_params:
+      model: gemini/gemini-embedding-2
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      mode: embedding
+
   # Text to speech, for the "tts" router and for it alone (its cascade says why these two and in this
   # order). Added 2026-11-22. The speech page of the Gemini API documentation, read that day, lists
   # French as supported by both models and offers 30 prebuilt voices; "ai.google.dev/gemini-api/docs/
@@ -242,26 +264,6 @@ model_list:
     model_info:
       mode: audio_speech
 
-  # An embedding model, added 2026-11-22, in no cascade and behind no alias, reached by its own name
-  # alone: the vectors of two models are not comparable, so a fallback or an alias that followed the
-  # keys given would silently change the vector space of a collection that is already filled.
-  # "check_compose_template.py" refuses an embedding entry in any cascade or alias. The caller chooses
-  # "dimensions" (LiteLLM sends it to Google as "outputDimensionality"). "ai.google.dev/gemini-api/docs/
-  # embeddings", read that day, gives "Flexible, supports: 128 - 3072, Recommended: 768, 1536, 3072",
-  # an input limit of 8,192 tokens, no "task_type" for this model (the task goes in the prompt) and
-  # truncated vectors renormalised by Google, and says the spaces of "gemini-embedding-001" and
-  # "gemini-embedding-2" are incompatible, so a switch re-embeds everything.
-  # The free tier is the wrong place for private documents: its terms, known from a summary of the
-  # pricing page and not read verbatim, let Google use the content to improve its products and forbid
-  # personal or confidential data, and the corpus this estate routes includes third-party legal
-  # documents. Embed those through a paid key, or not through this entry.
-  - model_name: gemini-embedding-2
-    litellm_params:
-      model: gemini/gemini-embedding-2
-      api_key: "os.environ/GEMINI_API_KEY"
-    model_info:
-      mode: embedding
-
   # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
   # and each line says why.
   # drift-ignore: gemini/gemini-3.1-flash-lite-preview -- shut down on 2026-05-25 per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), which says to use gemini-3.1-flash-lite, routed above; the catalogue still listed it that day
@@ -273,6 +275,22 @@ model_list:
   # drift-ignore: gemini/gemini-4-carbon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Carbon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $2.00 in / $10.00 out per million tokens through 2026-11-30, then $4.00 / $20.00
   # drift-ignore: gemini/gemini-4-neon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Neon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $3.00 in / $15.00 out per million tokens
   # drift-ignore: gemini/gemini-omni-1.2-flash -- a video generation and editing model, not a chat model: "ai.google.dev/gemini-api/docs/models/gemini-omni-flash" (read 2026-11-21) calls it a model "for fast, conversational video generation and editing", with "Video with native Audio, Text" as its output and edits made through the Interactions API, and it is paid only, "Not available" in the Free Tier column of "ai.google.dev/gemini-api/docs/pricing" and "Not supported" for the Free tier on "ai.google.dev/gemini-api/docs/rate-limits"
+
+  # Speech to text, the third slot of the "stt" cascade, routed on the maintainer's authorisation of
+  # 2026-11-22, with its cost to data kept in view. The "Gemini Transcribe" row of
+  # "ai.google.dev/gemini-api/docs/pricing", read 2026-11-22, gives "Free of charge" in its Free Tier
+  # column, and says that on the free tier the content is used to improve Google's products ("Not used"
+  # on the paid one). "ai.google.dev/gemini-api/terms", the same day, says "Do not submit sensitive,
+  # confidential, or personal information to the Unpaid Services" and that human reviewers may read what
+  # an unpaid call sends and returns. A recorded call carries the voices of people who agreed to nothing,
+  # so a caller who cannot accept that does not give a Gemini key to a gateway that serves "stt". Its
+  # free-tier request limits are shown in AI Studio only, and none is stated here.
+  - model_name: gemini-3-5-transcribe
+    litellm_params:
+      model: gemini/gemini-3.5-transcribe
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      mode: audio_transcription
 
 {% endif %}
 {% if has.Mistral %}
@@ -329,6 +347,30 @@ model_list:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
 
+  # An embedding model, added 2026-11-22, in no cascade and behind no alias, for the reason given at
+  # "gemini-embedding-2" above. Paid like the rest of this section: $0.10 per million tokens in
+  # LiteLLM's price map, read that day. Its vector size is not stated by any page read, and LiteLLM's
+  # map gives none: with "drop_params" below a "dimensions" sent to it is dropped and the full vector
+  # comes back, where LiteLLM without that setting refuses the call (run 2026-11-22). Create a
+  # collection from the length of a first answer, not from a number written here.
+  - model_name: mistral-embed
+    litellm_params:
+      model: mistral/mistral-embed
+      api_key: "os.environ/MISTRAL_API_KEY"
+    model_info:
+      mode: embedding
+
+  # Speech to text, the last slot of the "stt" cascade: the one paid member of it, as everything of this
+  # section is. "docs.mistral.ai" lists French among the languages its Voxtral transcription supports
+  # (read 2026-11-22). Its price per minute and any free tier were not found on Mistral's own pages that
+  # day, so none is stated; its API data policy was not found either.
+  - model_name: voxtral-mini-mistral
+    litellm_params:
+      model: mistral/voxtral-mini-latest
+      api_key: "os.environ/MISTRAL_API_KEY"
+    model_info:
+      mode: audio_transcription
+
   # Served, but not routed to: Voxtral text to speech, whose id "docs.mistral.ai/models/voxtral-mini-tts-3-0"
   # gives (read 2026-11-22). LiteLLM's own source, read the same day, maps six OpenAI voice names
   # (alloy, echo, fable, onyx, nova, shimmer) to Mistral's English voices and sends any other name on as
@@ -342,19 +384,6 @@ model_list:
   #     api_key: "os.environ/MISTRAL_API_KEY"
   #   model_info:
   #     mode: audio_speech
-
-  # An embedding model, added 2026-11-22, in no cascade and behind no alias, for the reason given at
-  # "gemini-embedding-2" above. Paid like the rest of this section: $0.10 per million tokens in
-  # LiteLLM's price map, read that day. Its vector size is not stated by any page read, and LiteLLM's
-  # map gives none: with "drop_params" below a "dimensions" sent to it is dropped and the full vector
-  # comes back, where LiteLLM without that setting refuses the call (run 2026-11-22). Create a
-  # collection from the length of a first answer, not from a number written here.
-  - model_name: mistral-embed
-    litellm_params:
-      model: mistral/mistral-embed
-      api_key: "os.environ/MISTRAL_API_KEY"
-    model_info:
-      mode: embedding
 
   # Looked at on 2026-11-02 and turned down (#305).
   # drift-ignore: mistral/labs-leanstral-1-5 -- an experimental Labs model for Lean 4 formal proofs, scheduled to retire on 2026-09-30 per "docs.mistral.ai/getting-started/changelog" (read 2026-11-02); the catalogue still listed it that day
@@ -406,6 +435,31 @@ model_list:
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
+
+  # Speech to text, the first two slots of the "stt" cascade. "console.groq.com/docs/speech-to-text"
+  # ("Speech to Text"), read 2026-11-22, lists "whisper-large-v3" at $0.111 per hour and
+  # "whisper-large-v3-turbo" at $0.04 per hour, both through the OpenAI-compatible route LiteLLM's "groq/"
+  # provider calls, with a word error rate of 10.3 % and 12 % and a file limit of 25 MB on the free tier
+  # (100 MB on the paid one). It names no per-language figure and does not name French, only
+  # "multilingual". Whether the 20 requests per minute and 7.2K audio seconds per hour of its rate-limits
+  # table are the free plan's was not established, so none is stated here. "console.groq.com/docs/your-data",
+  # the same day: Groq does not retain inference data by default, and keeps logs up to 30 days for
+  # reliability and abuse unless a workspace opts out; whether it trains on them is not stated. The two
+  # models are two entries so that each has its own quota, "whisper-large-v3-turbo" after the other
+  # because its word error rate is the higher.
+  - model_name: whisper-large-v3-groq
+    litellm_params:
+      model: groq/whisper-large-v3
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      mode: audio_transcription
+
+  - model_name: whisper-large-v3-turbo-groq
+    litellm_params:
+      model: groq/whisper-large-v3-turbo
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      mode: audio_transcription
 
   # Looked at on 2026-11-02 and turned down (#305).
   # drift-ignore: groq/allam-2-7b -- a 7B Arabic and English model with a 4,096-token context window and its pricing still "Pending" on "console.groq.com/docs/model/allam-2-7b" (read 2026-11-02): no free tier is stated, and no cascade is for Arabic
@@ -1447,7 +1501,30 @@ router_settings:
 {% endfor %}
 {% endif %}
 
-    # 6. TTS -- text to speech, for /audio/speech. Not ranked by a leaderboard and with no contract: no
+    # 6. STT -- speech to text, for "/audio/transcriptions". Not ranked by a script and held to no
+    # contract: its order is set by hand. Accuracy first, per Groq's own table of word error rates
+    # ("console.groq.com/docs/speech-to-text", read 2026-11-22): "whisper-large-v3", then
+    # "whisper-large-v3-turbo", which has its own quota and a higher rate. Gemini's free transcription
+    # model comes next, ahead of the paid one because it costs nothing, behind Groq because of what its
+    # free tier does with the audio (see its entry above). Mistral's Voxtral is last because it is paid.
+{% if head['stt'] %}
+    - stt: &stt_cascade
+{% if has.Groq %}
+        - whisper-large-v3-groq
+        - whisper-large-v3-turbo-groq
+{% endif %}
+{% if has.Gemini %}
+        - gemini-3-5-transcribe
+{% endif %}
+{% if has.Mistral %}
+        - voxtral-mini-mistral
+{% endif %}
+{% for alias in aliases_of['stt'] %}
+    - {{ alias }}: *stt_cascade
+{% endfor %}
+{% endif %}
+
+    # 7. TTS -- text to speech, for /audio/speech. Not ranked by a leaderboard and with no contract: no
     # ranking of speech models is read here, so the order is decided by hand. The fuller model comes
     # first and the lite one second, which is a model of its own and so, if Google counts the quota per
     # model (not checked), one that answers when the first is refused for quota. A text model never
@@ -1484,10 +1561,13 @@ router_settings:
 {% if head['claude-code'] %}
     "claude-code": "{{ head['claude-code'] }}"
 {% endif %}
+{% if head['stt'] %}
+    "stt": "{{ head['stt'] }}"
+{% endif %}
 {% if head['tts'] %}
     "tts": "{{ head['tts'] }}"
 {% endif %}
-{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code', 'tts'] if head[router] %}
+{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code', 'stt', 'tts'] if head[router] %}
 {% for alias in aliases_of[router] %}
     "{{ alias }}": "{{ head[router] }}"
 {% endfor %}
