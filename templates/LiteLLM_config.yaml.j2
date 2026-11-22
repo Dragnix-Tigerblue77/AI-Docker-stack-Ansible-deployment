@@ -20,7 +20,8 @@
   'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
   'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
-  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
+  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0,
+  'Cloudflare': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string and Artificial_Intelligence_LiteLLM_Cloudflare_API_key | length > 0
 } %}
 # The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key, so that the order of a cascade alone decides and no provider is placed first by the way
@@ -30,10 +31,10 @@
 # member of its cascade.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
-  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
-  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
+  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -490,8 +491,8 @@ model_list:
   # its intelligence index, with 230 tokens/s but 13.8 s to the first answer token for a model that
   # always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read that day), and Liquid's own model card
   # says it is not for agentic coding or complex multi-step reasoning. It is therefore in "flash-lite"
-  # only, as its last member: a hair under the Gemini 3.1 Flash-Lite that heads that cascade (6.2), and
-  # the slowest to answer in it.
+  # only, as the last of its OpenRouter members: a hair under the Gemini 3.1 Flash-Lite that heads that
+  # cascade (6.2), and the slowest to answer in it.
   - model_name: lfm-3-1-7b-free
     litellm_params:
       model: openrouter/liquid/lfm-3-1.7b:free
@@ -505,6 +506,79 @@ model_list:
 
   # Tried by hand on 2026-11-21 and set aside. Remove the line to have its id reported again.
   # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- unreliable in practice and unmeasured: of 31 requests made on 2026-11-21, 4 were answered and 27 were refused with a 429 by the shared upstream pool, so it would cost a refusal before most replies; the 4 answers took 22 s on a five-instruction prompt and 14 s on a long-context search; Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and Ling 3.1 Flash, 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash"), is a different model; look again when its free pool is less loaded
+
+{% endif %}
+{% if has.Cloudflare %}
+  # ============================================================================
+  # Cloudflare Workers AI ("cloudflare/", through its OpenAI-compatible endpoint)
+  #
+  # Checked 2026-11-22. "developers.cloudflare.com/workers-ai/platform/pricing/" gives every account 10,000
+  # neurons a day at no charge, reset at 00:00 UTC, counted across every model of the account together, and
+  # ".../platform/limits/" 300 requests per minute for text generation. The note of the pricing page names the
+  # models that need a paid billing method (the Kimi K2.6 and K2.7, GLM-5.x, DeepSeek V4.x and Inkling
+  # ones): none is below. Every model below is absent from that note, so it is DEDUCED free, which the page
+  # does not say, and has to be confirmed on the account before it is relied on. The allowance is small: a
+  # day's neurons buy a few hundred thousand tokens of the larger models (the README says how many), which
+  # is why a model that another provider serves too sits behind that provider's slot.
+  #
+  # The identifier of the account is not written here, nor is an "api_base": LiteLLM builds the endpoint's
+  # address from "CLOUDFLARE_ACCOUNT_ID", which the container is given. That makes ONE account, as Cloudflare's
+  # terms require: "www.cloudflare.com/terms/" (read 2026-11-22) refuses a use "intended to circumvent
+  # Service-specific usage limits, quotas", which a second account opened for more neurons would be.
+  #
+  # "developers.cloudflare.com/workers-ai/platform/data-usage/" says Cloudflare does not train on the
+  # content processed and does not retain it for a standard inference, and each model page below lists
+  # zero data retention.
+  #
+  # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
+  # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
+  # Qwen 3.8 27B, whose page gives a 262,144-token context and function calling but which LiteLLM's model
+  # map does not list, so nothing here would say what its context and tools are but that page. It would sit
+  # right behind "qwen3-8-27b-groq", wherever that one is, once the map lists it.
+  # ============================================================================
+  # Second source of "gpt-oss-120b-groq", right behind it in "flash": the same weights through an allowance
+  # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
+  # (read 2026-11-22), with reasoning at "medium" by default as on Groq. Free status unconfirmed.
+  - model_name: gpt-oss-120b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/openai/gpt-oss-120b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Second source of "gpt-oss-20b-groq", right behind it in "flash-lite", for the same reason. 128,000 tokens
+  # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
+  - model_name: gpt-oss-20b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/openai/gpt-oss-20b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Third source of Gemma 4 26B in "flash-lite", right behind the two others ("gemma-4-26b-gemini", then
+  # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
+  # 2026-11-22). Free status unconfirmed.
+  - model_name: gemma-4-26b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/google/gemma-4-26b-a4b-it
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # New to the gateway, and in "flash-lite" only, as the last of its free members: 24,000 tokens of context
+  # in LiteLLM's model map and on its page (read 2026-11-22), which is what "flash-lite" takes, and no
+  # reasoning phase to wait for. Epoch AI's capabilities index puts it at 126.2 (read 2026-11-21), under every
+  # member of that cascade that it measures, hence the place. Its context is far under the 128,000 tokens
+  # "claude-code" asks, so "code" has no place for it either. Free status unconfirmed.
+  - model_name: llama-3-3-70b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # the paid ones: 131,072 tokens and function calling in LiteLLM's model map and on its page (read
+  # 2026-11-22), which describes it as made for "multi-turn tool calling". Neither Artificial Analysis's
+  # index nor Epoch AI's capabilities index nor its coding benchmarks measure it (read 2026-11-21), so
+  # nothing ranks it against the members before it: the end of the free ones is where an unmeasured model
+  # goes. Free status unconfirmed, and tool calls through this endpoint not tried.
+  - model_name: glm-4-7-flash-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/zai-org/glm-4.7-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
 {% endif %}
   # ============================================================================
@@ -616,6 +690,8 @@ router_settings:
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
     # the OpenRouter one second because its quota is the daily count all ":free" entries share.
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
+    # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
+    # allowance of its own.
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
@@ -626,6 +702,11 @@ router_settings:
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-120b-groq
+{% endif %}
+{% if has.Cloudflare %}
+        - gpt-oss-120b-cloudflare
+{% endif %}
+{% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
@@ -657,7 +738,10 @@ router_settings:
     # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
-    # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
+    # sits right ahead of its OpenRouter twin, for the reason given under FLASH, and the Cloudflare twins
+    # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") right behind the last slot of theirs.
+    # "llama-3-3-70b-cloudflare" is new to the gateway and closes the free members: no index of Artificial
+    # Analysis measures it, and Epoch AI's capabilities index puts it under all of them.
 {% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
@@ -669,6 +753,11 @@ router_settings:
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-20b-groq
+{% endif %}
+{% if has.Cloudflare %}
+        - gpt-oss-20b-cloudflare
+{% endif %}
+{% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
@@ -676,8 +765,16 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-26b-free
+{% endif %}
+{% if has.Cloudflare %}
+        - gemma-4-26b-cloudflare
+{% endif %}
+{% if has.OpenRouter %}
         - nemotron-lightning-free
         - lfm-3-1-7b-free
+{% endif %}
+{% if has.Cloudflare %}
+        - llama-3-3-70b-cloudflare
 {% endif %}
 {% if has.Mistral %}
         - ministral-3b
@@ -695,7 +792,8 @@ router_settings:
     # sibling "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists, Mistral's among them (paid) -> DeepSeek direct (paid -- last
-    # resort before the fully free OmniRoute) -> OmniRoute.
+    # resort before the fully free OmniRoute) -> OmniRoute. "glm-4-7-flash-cloudflare" closes the free
+    # members, ahead of the paid ones: none of the figures this ranking reads measures it.
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
@@ -707,6 +805,9 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.Cloudflare %}
+        - glm-4-7-flash-cloudflare
 {% endif %}
 {% if has.Mistral %}
         - codestral
@@ -743,6 +844,9 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.Cloudflare %}
+        - glm-4-7-flash-cloudflare
 {% endif %}
 {% if has.Mistral %}
         - codestral
