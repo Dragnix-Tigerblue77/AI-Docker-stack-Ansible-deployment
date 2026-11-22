@@ -25,7 +25,8 @@
   'Cloudflare': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string and Artificial_Intelligence_LiteLLM_Cloudflare_API_key | length > 0,
   'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0,
   'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
-  'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0
+  'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0,
+  'Cent_AI': Artificial_Intelligence_LiteLLM_Cent_AI_API_key is string and Artificial_Intelligence_LiteLLM_Cent_AI_API_key | length > 0
 } %}
 # The routers below, the transcription and text-to-speech routers included, are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
@@ -37,7 +38,8 @@
 # heads one of the three: the table below stops at Kilo. OVHcloud's sit behind every other free member of "pro",
 # "flash", "flash-lite" and "code", ahead of the paid ones, so they head "code" when no keyed free provider
 # does. Requesty's members sit right ahead of Kilo's in
-# "flash" and "flash-lite", so Requesty heads those two when no earlier provider has a key.
+# "flash" and "flash-lite", so Requesty heads those two when no earlier provider has a key. Cent AI's sit behind
+# Kilo's in "pro", "flash" and "flash-lite", and in no other router, so it heads none.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
@@ -1227,6 +1229,39 @@ model_list:
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
 {% endif %}
+
+{% if has.Cent_AI %}
+  # ============================================================================
+  # Cent AI ("openai/" through its OpenAI-compatible endpoint, one free model)
+  #
+  # Checked 2026-11-22. Cent AI is a reseller of models. LiteLLM has no provider of that name, so the entry is
+  # "openai/<id>" with an "api_base": LiteLLM cuts the prefix once and the id reaches Cent AI as written, the
+  # ":free" included. A real call to it answered that day, from the maintainer's own test; tool calls through it
+  # were not tried.
+  #
+  # Its home page says "Free until Nov 30 · no daily limit" and says nothing of what follows. The catalogue lists
+  # the model at 0 $, and whether it is billed at its rate after that is UNVERIFIED. It is routed until then and
+  # looked at again on 2026-12-01. A key given a spending limit on Cent AI's key page keeps a billed call from
+  # costing anything: the call then fails and the cascade moves on, so such a limit is what to set on the key
+  # given here. The site also draws one free "event" model a day, whose id changes every day: it cannot be
+  # routed, and nothing here names it.
+  #
+  # The operator is an individual whose terms are a draft, and the requests are relayed to vendors it does not
+  # name: whoever gives the key lets a third party read the prompts. One account only.
+  # ============================================================================
+  # Tencent's Hy4 Flash, as far as its name says. No Artificial Analysis record carries that name (its one
+  # Tencent record, "Tencent Hy4", is the model Tencent lists beside this one, not this one), and neither the
+  # capabilities index nor a code benchmark of Epoch AI holds it (both read 2026-11-21), so no figure places it:
+  # it closes the free members of "pro", "flash" and "flash-lite", behind those that have a figure or a twin
+  # and ahead of OVHcloud's, and is in no other router, its tool calls being untried. It REASONS before it answers, so no "max_tokens" is set on it
+  # and a caller must not cap it low: with 20 the answer was cut, with a finish reason of "length".
+  - model_name: hy4-flash-cent-ai
+    litellm_params:
+      model: openai/hy4-flash:free
+      api_base: "https://api.cent-ai.dev/v1"
+      api_key: "os.environ/CENT_AI_API_KEY"
+
+{% endif %}
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
@@ -1308,7 +1343,8 @@ router_settings:
     # free OmniRoute) -> OmniRoute. NVIDIA's entries sit among the Google ones by their index, except its three
     # Nemotron entries, each right behind the last of its keyed twins. Kilo's entries sit behind their keyed
     # twins, ahead of the paid ones; "beam-kilo" has no twin and is ahead of the Nemotron entries, for the
-    # reason given with it. OVHcloud's three heaviest entries close the free ones, ahead of the paid ones.
+    # reason given with it. "hy4-flash-cent-ai", which no figure places, closes the free members, behind Kilo's
+    # and ahead of OVHcloud's three heaviest entries, which close the free ones, ahead of the paid ones.
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
@@ -1356,6 +1392,9 @@ router_settings:
         - nemotron-super-vl-nvidia
 {% endif %}
         - nemotron-super-vl-kilo
+{% if has.Cent_AI %}
+        - hy4-flash-cent-ai
+{% endif %}
         - deepseek-v4-1-flash-ovh
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
@@ -1380,8 +1419,9 @@ router_settings:
     # Requesty's "gemma-4-31b-requesty" sits right behind its OpenRouter twin, a pool of its own.
     # Kilo's entries sit behind their keyed twins, ahead of the paid ones. The two of its own with no
     # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
-    # which has no record either and closes the free ones. OVHcloud's entries follow that router, behind the
-    # last free member and ahead of the paid ones, heaviest first.
+    # which has no record either and closes the free ones. "hy4-flash-cent-ai", which no figure places, follows
+    # that router. OVHcloud's entries follow it, behind the last free member and ahead of the paid ones, heaviest
+    # first.
     # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
     # allowance of its own.
 {% if head['flash'] %}
@@ -1448,6 +1488,9 @@ router_settings:
 {% if has.OpenRouter %}
         - openrouter-auto-free
 {% endif %}
+{% if has.Cent_AI %}
+        - hy4-flash-cent-ai
+{% endif %}
         - deepseek-v4-1-flash-ovh
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
@@ -1480,7 +1523,8 @@ router_settings:
     # Gemma 3 entries are placed by the time Artificial Analysis gives them, which the router orders by, and
     # "nemotron-bolt-e4b-nvidia", which has no figure, closes its free members. "llama-3-3-70b-cloudflare" is new
     # to the gateway and closes the free members: no index of Artificial Analysis measures it, and Epoch AI's
-    # capabilities index puts it under all of them. OVHcloud's entries close the free members, behind that one.
+    # capabilities index puts it under all of them. "hy4-flash-cent-ai", which has no figure either, follows it. OVHcloud's
+    # entries close the free members, behind that one.
 {% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
@@ -1531,6 +1575,9 @@ router_settings:
         - lfm-3-1-7b-kilo
 {% if has.Cloudflare %}
         - llama-3-3-70b-cloudflare
+{% endif %}
+{% if has.Cent_AI %}
+        - hy4-flash-cent-ai
 {% endif %}
         - gpt-oss-20b-ovh
         - gemma-4-26b-ovh

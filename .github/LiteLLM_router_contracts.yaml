@@ -171,6 +171,7 @@ inputs:
     zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
     nvidia: "40 requests per minute, shown on the account page (read 2026-11-22); no credit count, daily cap or end date is shown there or on any other page read, the API trial terms of service included"
+    cent_ai: "no limit stated: the home page says \"Free until Nov 30 · no daily limit\" (read 2026-11-22) and nothing of what follows the 30th, when the model may be billed; a spending limit set on the key keeps a billed call from costing anything, since the call then fails and the cascade moves on"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -869,6 +870,10 @@ models:
     level: n/a
     level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
     tools: {support: "unknown", source: "no model card of Gemma 3 4B was found on the NVIDIA API Catalog (the address its pattern gives returned a page without one, read 2026-11-22), so nothing declares it"}
+    epoch: unknown
+  hy4-flash-cent-ai:
+    no_record: "Artificial Analysis lists no Hy4 Flash on 2026-11-21: its one Tencent record, Tencent Hy4, is another model, and the capabilities index and the code benchmarks of Epoch AI hold none either"
+    tools: {support: "unknown", source: "nothing read declares it: the pages of Cent AI read on 2026-11-22 give no capability data for the model"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
