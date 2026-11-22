@@ -997,6 +997,48 @@ Pages officielles lues :
 - Together AI : [Pricing](https://www.together.ai/pricing)
 - Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
 
+### La transcription de la parole : le routeur `stt`
+
+Un client qui envoie de l'audio à `/v1/audio/transcriptions` demande le modèle `stt`, qui est un alias comme `pro` ou `flash` : celui de la tête de sa cascade dont le fournisseur a une clé, et rien du tout quand aucun membre n'a de clé. La cascade est `whisper-large-v3-groq`, puis `whisper-large-v3-turbo-groq`, puis `voxtral-mini-mistral` en dernier recours payant. Ses entrées portent `model_info.mode: audio_transcription`, et `check_compose_template.py` refuse une cascade `stt` qui contient un modèle d'un autre mode, une cascade de texte qui contient un modèle audio, un `stt` servi sans clé de Groq ni de Mistral et un alias qui n'est pas la tête de sa cascade. Aucune variable n'est ajoutée : les clés sont celles de Groq et de Mistral.
+
+L'ordre n'est classé par aucun script et ne répond à aucun contrat : il est décidé à la main, par le taux d'erreur sur les mots que Groq publie sur sa page « Speech to Text » (10,3 % pour `whisper-large-v3`, 12 % pour `whisper-large-v3-turbo`, relue le 2026-11-22), le modèle payant passant après les deux gratuits. Les deux modèles de Groq sont deux entrées pour que chacun ait son propre quota. Le code de LiteLLM a été lu pour s'assurer que le routeur applique les cascades de repli et les alias de groupe aux appels de transcription comme à ceux de chat : la route `/audio/transcriptions` appelle `atranscription`, qui passe par la même marche de repli que `aembedding` et `aspeech`, sous le nom demandé.
+
+**Ce qui n'est pas établi.** Groq ne nomme pas le français, seulement « multilingual », et ne donne aucun taux par langue ; le tableau de limites de sa page affiche 20 requêtes par minute et 7,2K secondes d'audio par heure pour les deux modèles, sans que le plan auquel il se rapporte soit établi ; son corps de fichier est limité à 25 Mo sur l'offre gratuite. Le prix de Voxtral par minute, une éventuelle offre gratuite et la politique sur les données de l'API de Mistral n'ont pas été trouvés sur ses pages.
+
+**Groupe 1 -- utilisés aujourd'hui.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Groq (`whisper-large-v3`, `whisper-large-v3-turbo`) | Palier gratuit, route compatible OpenAI, `groq/whisper-large-v3` dans LiteLLM | 25 Mo par fichier en gratuit, 100 Mo en payant, durée minimale facturée de 10 secondes ; limites par organisation. Ne conserve pas les données d'inférence par défaut, journaux jusqu'à 30 jours pour la fiabilité et les abus ; entraînement : non indiqué | Routé, têtes de la cascade, `whisper-large-v3` d'abord |
+| Mistral (Voxtral) | Aucune pour l'API (voir le groupe 1 du registre ci-dessus) ; `mistral/voxtral-mini-latest` dans LiteLLM ; le français figure parmi les langues de la documentation | Prix par minute et politique sur les données de l'API : non trouvés | Routé en dernier, payant, comme Mistral dans les cascades de texte |
+
+**Groupe 2 -- à ajouter.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Cloudflare Workers AI (`whisper-large-v3-turbo`) | 10 000 « neurons » par jour, soit environ 214 minutes d'audio par jour (46,6 neurons par minute, **calcul**, non publié tel quel) ; aucune rétention des données ni entraînement | Pas de route de transcription compatible OpenAI, et aucune chaîne `cloudflare/` de transcription dans LiteLLM : l'appel est natif | À ajouter le jour où la passerelle sait l'appeler ; **non routable aujourd'hui** |
+
+**Groupe 3 -- écartés, avec la raison.**
+
+| Fournisseur | Ce qui est offert | Raison de l'écart |
+| --- | --- | --- |
+| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | Sur le palier gratuit, le contenu sert à améliorer les produits de Google et les conditions disent de ne pas y envoyer d'informations sensibles ou personnelles, des relecteurs humains pouvant lire les entrées et sorties ; un enregistrement porte la voix de tiers. L'entrée est commentée dans le template, « Served, but not routed to », et se route en la décommentant et en ajoutant son nom à la cascade |
+| Azure AI Speech (palier F0) | 5 heures d'audio gratuites par mois, transcription en temps réel seulement | API native, aucune chaîne de transcription dans LiteLLM, compte Azure exigé |
+| ElevenLabs Scribe | 10 000 crédits gratuits par mois à 330 crédits la minute, soit environ 30 minutes par mois (**calcul**) ; `elevenlabs/scribe_v1` dans LiteLLM | Trop étroit ; les conditions n'ont pas été lues |
+| Deepgram | 200 $ de crédit une seule fois, sans carte ni échéance ; `deepgram/nova-2` dans LiteLLM ; ne stocke pas les transcriptions | Crédit unique, pas de palier durable ; le français n'est pas nommé |
+| AssemblyAI, Speechmatics, Gladia | Crédits d'essai uniques (50 $, 100 $ pendant 12 mois, 50 EUR pendant un an) | Crédits uniques, aucune route dans LiteLLM |
+| OpenAI (`gpt-transcribe`, `whisper-1`) | Aucune offre gratuite trouvée pour l'API ; `whisper-1` s'arrête le 2027-02-26 | Payant |
+| Soniox, Together AI, Fireworks, Hugging Face, Google Cloud Speech-to-Text | Aucun palier gratuit durable trouvé, ou non évalué (page de Fireworks introuvable, page de Google non récupérable ; Hugging Face : pas de crédit mensuel pour les comptes gratuits) | Rien d'établi ; aucun n'est un verdict |
+
+Pages officielles lues le 2026-11-22 :
+
+- Groq : pages « Speech to Text », « Rate limits » et « Your data » de sa documentation
+- Mistral : la page de sa documentation sur la transcription audio (la liste des langues) et sa page « Pricing »
+- Google Gemini API : pages « Pricing » et « Terms of service »
+- LiteLLM : pages « Audio Transcription » et « Providers » de sa documentation
+- Cloudflare Workers AI : sa page « Pricing » et la page de sa documentation sur les points d'accès compatibles OpenAI
+- Azure AI Speech : page « Pricing » ; ElevenLabs : page « Pricing » ; Deepgram : page « Pricing »
+
 ### Un compte par personne, pas une paire figée (#103)
 
 `Artificial_Intelligence_LiteLLM_internal_users` est une **liste**, vide par défaut, jamais une variable nommée par
