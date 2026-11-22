@@ -169,6 +169,7 @@ inputs:
     cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
     zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
+    nvidia: "40 requests per minute, shown on the account page (read 2026-11-22); no credit count, daily cap or end date is shown there or on any other page read, the API trial terms of service included"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -681,6 +682,114 @@ models:
     epoch:
       ale_bench_external: [gemma-4-31b-it]
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  kimi-k3-1-pro-nvidia:
+    slug: kimi-k3-1-pro
+    level: unknown
+    level_source: "unknown: the model card of Kimi K3.1 Pro on the NVIDIA API Catalog, read 2026-11-22, states no default reasoning level"
+    eci: "Kimi K3.1 Pro"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "the model card of Kimi K3.1 Pro on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch:
+      ale_bench_external: [kimi-k3.1-pro_max]
+  mistral-large-4-nvidia:
+    slug: mistral-large-4
+    level: high
+    level_source: "the model card of Mistral Large 4 on the NVIDIA API Catalog, read 2026-11-22, gives high as the vendor's default reasoning effort and says the options of the hosted endpoint depend on its serving configuration: the default of the endpoint itself is not confirmed"
+    eci: "Mistral Large 4"
+    tools: {support: "yes", source: "the model card of Mistral Large 4 on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch:
+      ale_bench_external: [mistral-large-4-0_unknown]
+    epoch_note: "the effort of that run is not stated, and nothing says it is the build the endpoint serves"
+  nemotron-ultra-nvidia:
+    slug: nvidia-nemotron-3-ultra-550b-a55b
+    level: unknown
+    level_source: "unknown: the model card of Nemotron 3 Ultra on the NVIDIA API Catalog, read 2026-11-22, makes thinking a switch of the chat template and states no default"
+    eci: "Nemotron 3 Ultra"
+    note: "Artificial Analysis publishes one record, named Reasoning"
+    tools: {support: "yes", source: "the model card of Nemotron 3 Ultra on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  nemotron-reasoning-nvidia:
+    slug: nemotron-3-nano-omni-30b-a3b
+    level: unknown
+    level_source: "unknown: the model card of Nemotron 3 Nano Omni on the NVIDIA API Catalog, read 2026-11-22, states no default for thinking"
+    note: "Artificial Analysis publishes one record and no figure for it"
+    tools: {support: "yes", source: "the model card of Nemotron 3 Nano Omni on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  nemotron-lightning-nvidia:
+    slug: nemotron-3-5-lightning
+    level: unknown
+    level_source: "unknown: the model card of Nemotron 3.5 Lightning on the NVIDIA API Catalog, read 2026-11-22, states no default for thinking"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "the model card of Nemotron 3.5 Lightning on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  nemotron-super-vl-nvidia:
+    slug: nemotron-3-5-super-vl
+    level: unknown
+    level_source: "unknown: the model card of Nemotron 3.5 Super VL on the NVIDIA API Catalog, read 2026-11-22, makes thinking a switch of the chat template and states no default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "the model card of Nemotron 3.5 Super VL on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  nemotron-bolt-e4b-nvidia:
+    no_record: "Artificial Analysis lists a Nemotron 3.5 Bolt E4B 4GB record on 2026-11-21 with neither an index nor a timing, and nothing says it is the build this endpoint serves"
+    tools: {support: "yes", source: "the model card of Nemotron 3.5 Bolt E4B on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  glm-5-3-flash-nvidia:
+    slug: glm-5-3-flash
+    level: max
+    level_source: "the model card of GLM-5.3-Flash on the NVIDIA API Catalog, read 2026-11-22: reasoning_effort accepts low, high or max and defaults to max"
+    eci: "GLM-5.3-Flash"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "the model card of GLM-5.3-Flash on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch:
+      deepswe_external: [glm-5.3-flash_max]
+      ale_bench_external: [glm-5.3-flash_high]
+  minimax-m3-1-flash-nvidia:
+    slug: minimax-m3-1-flash
+    level: unknown
+    level_source: "unknown: the model card of MiniMax-M3.1-Flash on the NVIDIA API Catalog, read 2026-11-22, says the reasoning effort is set in the chat template and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level, and the capabilities index has no MiniMax-M3.1-Flash"
+    tools: {support: "yes", source: "the model card of MiniMax-M3.1-Flash on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  step-5-preview-nvidia:
+    slug: step-5
+    level: unknown
+    level_source: "unknown: the model card of Step 5 Preview on the NVIDIA API Catalog, read 2026-11-22, says its reported results use the High reasoning setting and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level, and the capabilities index has no Step 5 Preview"
+    tools: {support: "yes", source: "the model card of Step 5 Preview on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  laguna-xs-2-1-nvidia:
+    no_record: "Artificial Analysis lists no Laguna on 2026-11-21"
+    tools: {support: "yes", source: "the model card of Laguna XS 2.1 on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  muse-glimmer-nvidia:
+    slug: muse-glimmer
+    level: unknown
+    level_source: "unknown: the model card of Muse Glimmer on the NVIDIA API Catalog, read 2026-11-22, reports its benchmarks at high reasoning and gives no default"
+    note: "Artificial Analysis publishes one record, named High"
+    tools: {support: "yes", source: "the model card of Muse Glimmer on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch: unknown
+  gemma-4-31b-nvidia:
+    slug: gemma-4-31b
+    level: unknown
+    level_source: "unknown: the model card of Gemma 4 31B IT on the NVIDIA API Catalog, read 2026-11-22, says thinking is switched on by a token in the system prompt and states no default for the endpoint"
+    eci: "Gemma 4 31B IT"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "the model card of Gemma 4 31B IT on the NVIDIA API Catalog, read 2026-11-22: function calling among its capabilities"}
+    epoch:
+      ale_bench_external: [gemma-4-31b-it]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-3-12b-nvidia:
+    slug: gemma-3-12b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    tools: {support: "unknown", source: "no model card of Gemma 3 12B was found on the NVIDIA API Catalog (the address its pattern gives returned a page without one, read 2026-11-22), so nothing declares it"}
+    epoch: unknown
+  gemma-3-4b-nvidia:
+    slug: gemma-3-4b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    tools: {support: "unknown", source: "no model card of Gemma 3 4B was found on the NVIDIA API Catalog (the address its pattern gives returned a page without one, read 2026-11-22), so nothing declares it"}
+    epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}

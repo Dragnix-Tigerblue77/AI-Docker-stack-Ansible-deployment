@@ -71,6 +71,10 @@ on Kilo Gateway's base is held to the one shape that keyless provider answers to
 to the placeholder sent as a bearer token and serves a call whose header is empty or absent, so each such
 entry must blank the "Authorization" header LiteLLM would otherwise fill from its placeholder "api_key".
 
+It holds the compose file to the same table of providers: the container of the gateway must receive each
+provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
+not always the provider's own name.
+
 What it deliberately does NOT flag
 ----------------------------------
 * A published "ports:" mapping. Whether a service is web-facing is a deployment decision, not a
@@ -1603,13 +1607,14 @@ LITELLM_PROVIDERS = {
     "Cloudflare": "CLOUDFLARE_API_KEY",
     "Zai": "ZAI_API_KEY",
     "Requesty": "REQUESTY_API_KEY",
+    "NVIDIA": "NVIDIA_NIM_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
 # construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai", "NVIDIA"})
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
@@ -1884,6 +1889,12 @@ LITELLM_CONFIG_CASES = [
     ("claude-code missing although Z AI has a key",
      _litellm_document([("glm", "os.environ/ZAI_API_KEY")], [], {}),
      {"Zai"}, "'claude-code' is absent"),
+    ("claude-code served by an NVIDIA key",
+     _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"NVIDIA"}, None),
+    ("claude-code missing although NVIDIA has a key",
+     _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [], {}),
+     {"NVIDIA"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
      _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
                         ("omniroute-free-code", "os.environ/OMNI")],
@@ -1932,6 +1943,38 @@ LITELLM_CONFIG_CASES = [
 ]
 
 
+def check_litellm_key_environment(document, state, failures):
+    """The container of the gateway receives every provider key under the name LiteLLM looks it up by, the
+    one the routing configuration reads it as. "check_litellm_config" holds the configuration to
+    LITELLM_PROVIDERS and nothing holds the compose file to it, so a key handed over under another name
+    ("NVIDIA_API_KEY" for the "NVIDIA_NIM_API_KEY" LiteLLM's NVIDIA provider reads) would leave every other
+    rule green and the provider with no key at all."""
+    environment = mapping(mapping(mapping(document, "services"), "litellm"), "environment")
+    for provider, variable in LITELLM_PROVIDERS.items():
+        if variable not in environment:
+            failures.append(
+                f"[{state}] the litellm container does not receive {variable}, the name its {provider} entries "
+                "read the key under: the provider would have no key"
+            )
+
+
+_LITELLM_ENVIRONMENT = {variable: "key" for variable in LITELLM_PROVIDERS.values()}
+# (name, the compose document, expected substring or None)
+LITELLM_KEY_ENVIRONMENT_CASES = [
+    ("every provider key handed over under its LiteLLM name",
+     {"services": {"litellm": service(environment=_LITELLM_ENVIRONMENT)}}, None),
+    ("the NVIDIA key handed over under the provider's name instead of LiteLLM's",
+     {"services": {"litellm": service(environment={
+         **{k: v for k, v in _LITELLM_ENVIRONMENT.items() if k != "NVIDIA_NIM_API_KEY"}, "NVIDIA_API_KEY": "key"})}},
+     "does not receive NVIDIA_NIM_API_KEY"),
+    ("a key not handed over at all",
+     {"services": {"litellm": service(environment={
+         k: v for k, v in _LITELLM_ENVIRONMENT.items() if k != "GROQ_API_KEY"})}},
+     "does not receive GROQ_API_KEY"),
+    ("the gateway not rendered", {"services": {}}, "does not receive GEMINI_API_KEY"),
+]
+
+
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
     problems = []
@@ -1972,6 +2015,11 @@ def selftest():
         except Exception as error:  # noqa: BLE001 - a crash IS the finding here
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, document, expected in LITELLM_KEY_ENVIRONMENT_CASES:
+        failures = []
+        check_litellm_key_environment(document, "selftest", failures)
         problems.extend(_verdict(name, failures, expected))
 
     for name, document, expected in CONVENTION_CASES:
@@ -2125,6 +2173,7 @@ def selftest():
         f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
         f"{len(CONVENTION_CASES)} convention case(s), {len(LIMITS_SET_CASES)} memory-limit case(s), "
         f"{len(STATE_CASES)} two-state case(s), "
+        f"{len(LITELLM_KEY_ENVIRONMENT_CASES)} LiteLLM key environment case(s), "
         f"{len(AGENT_WORKSPACE_CASES)} agent workspace case(s), {len(DOLLAR_CASES)} '$' case(s), "
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
@@ -2291,6 +2340,8 @@ def main():
             )
     check_quote_exemptions(defaults, failures)
     key_sets = check_litellm_configs(failures)
+    if "published network unset" in documents:
+        check_litellm_key_environment(documents["published network unset"], "published network unset", failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")
