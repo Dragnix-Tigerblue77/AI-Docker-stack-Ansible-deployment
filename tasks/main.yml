@@ -434,6 +434,40 @@
       that either references an undeclared network, or declares one nobody uses -- and in the first
       case the orchestrator only says so at deployment time.
 
+# The administrators share the "/user/new" call, and so the one space of usernames and emails, with the internal
+# users: an identifier the other list took answers 409, which the creation reads as "already there", so the second
+# entry would be dropped without a word. Said here, before anything is deployed.
+- name: "Check the LiteLLM administrators are well formed"
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.username is defined
+      - item.username is string
+      - item.username | length > 0
+      - item.email is defined
+      - item.email is string
+      - item.email | length > 0
+    quiet: true
+    fail_msg: >-
+      Every entry of "Artificial_Intelligence_LiteLLM_admin_users" needs a non-empty "username" and "email".
+  loop: "{{ Artificial_Intelligence_LiteLLM_admin_users }}"
+  loop_control:
+    label: "{{ item.username | default('?') if item is mapping else '?' }}"
+
+- name: "Check no LiteLLM username or email is declared twice"
+  ansible.builtin.assert:
+    that:
+      - (LiteLLM_accounts | map(attribute='username') | list | unique | length) == (LiteLLM_accounts | length)
+      - (LiteLLM_accounts | map(attribute='email') | map('lower') | list | unique | length) == (LiteLLM_accounts | length)
+    quiet: true
+    fail_msg: >-
+      A username or an email appears twice across "Artificial_Intelligence_LiteLLM_internal_users" and
+      "Artificial_Intelligence_LiteLLM_admin_users" (emails are compared without regard to case). LiteLLM answers 409 to
+      the second, which would be read as "already created" and skipped.
+  vars:
+    LiteLLM_accounts: "{{ Artificial_Intelligence_LiteLLM_internal_users + Artificial_Intelligence_LiteLLM_admin_users }}"
+  when: Artificial_Intelligence_LiteLLM_admin_users | length > 0
+
 # The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
 # not contain. The four variables below are the contract: they carry the names the homelab
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.
@@ -507,8 +541,8 @@
     Docker_stack_deployment_detached: false
     Docker_stack_deployment_timeout_in_seconds: 1800
 
-# The one wait for the gateway, before the two tasks that call its admin API (#295): the creation of the
-# internal users and the registration of the Claude Code agent's key. "/health/readiness" tests the
+# The one wait for the gateway, before the tasks that call its admin API: the creation of the
+# internal users and the administrators and the registration of the Claude Code agent's key. "/health/readiness" tests the
 # database connection and calls no model. About 45 s were measured between the container's recreation and
 # the first answer of the admin API on a first start (161 Prisma migrations, LiteLLM 1.100.0, 4 workers),
 # so three minutes leave four times that. A deployer that waits for convergence (above) has normally got
@@ -525,9 +559,12 @@
   changed_when: false
   when:
     - not ansible_check_mode
-    - (Artificial_Intelligence_LiteLLM_internal_users | length > 0) or Artificial_Intelligence_Claude_code_enabled
+    - >-
+      (Artificial_Intelligence_LiteLLM_internal_users | length > 0)
+      or (Artificial_Intelligence_LiteLLM_admin_users | length > 0)
+      or Artificial_Intelligence_Claude_code_enabled
 
-# Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), created against the gateway's own admin API --
+# Every "Artificial_Intelligence_LiteLLM_internal_users" entry, and every administrator, created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
 # "/user/new" is confirmed (read in LiteLLM's own source, "internal_user_endpoints.py") to answer
 # 409 on a user_id or email that already exists rather than upsert it, so a re-run is a no-op here,
@@ -540,7 +577,7 @@
 # Skipped with "--check", like the wait: there is no gateway to ask, and "uri" answers "skipped" with no
 # status, which the "when" of the key task below would then fail to read (measured on this role with one
 # internal user: "object of type 'dict' has no attribute 'status'").
-- name: "Create each additional LiteLLM internal user"
+- name: "Create each additional LiteLLM internal user and administrator"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
     method: POST
@@ -550,19 +587,23 @@
     body:
       user_id: "{{ item.username }}"
       user_email: "{{ item.email }}"
-      user_role: "internal_user"
+      user_role: "{{ item.role }}"
       # "/user/new" mints a key of its own by default, with no model restriction, and this task never
       # showed it to anyone: every account ended up with a second, unseen key next to the one the
       # task below prints. Measured on LiteLLM 1.100.0 through "/user/info". The key comes from
       # "/key/generate" below, and from nowhere else.
       auto_create_key: false
     status_code: [200, 201, 409]
-  register: Artificial_Intelligence_LiteLLM_internal_user_creation
+  register: Artificial_Intelligence_LiteLLM_user_creation
   no_log: true
-  loop: "{{ Artificial_Intelligence_LiteLLM_internal_users }}"
+  # One call for both lists, each entry carrying the role it is created with: a second copy of this task would
+  # have to be kept in step with the first on everything above, the 409 included.
+  loop: >-
+    {{ Artificial_Intelligence_LiteLLM_internal_users | map('combine', {'role': 'internal_user'}) | list
+       + Artificial_Intelligence_LiteLLM_admin_users | map('combine', {'role': 'proxy_admin'}) | list }}
   loop_control:
     label: "{{ item.username }}"
-  changed_when: Artificial_Intelligence_LiteLLM_internal_user_creation.status in [200, 201]
+  changed_when: Artificial_Intelligence_LiteLLM_user_creation.status in [200, 201]
   when: not ansible_check_mode
 
 # Deliberately a SEPARATE call from "/user/new" above, on the RECOMMENDED shape of LiteLLM's own
@@ -598,12 +639,13 @@
     status_code: [200]
   register: Artificial_Intelligence_LiteLLM_internal_user_key
   no_log: true
-  loop: "{{ Artificial_Intelligence_LiteLLM_internal_user_creation.results }}"
+  loop: "{{ Artificial_Intelligence_LiteLLM_user_creation.results }}"
   loop_control:
     label: "{{ item.item.username }}"
   when:
     - not ansible_check_mode
     - item.status in [200, 201]
+    - item.item.role == 'internal_user'
   changed_when: true
 
 # The ONE place this key is ever shown: LiteLLM does not return it again on a later call, the same
@@ -618,6 +660,46 @@
       LiteLLM virtual key for "{{ item.item.item.username }}" -- shown once, save it now:
       {{ item.json.key }}
   loop: "{{ Artificial_Intelligence_LiteLLM_internal_user_key.results }}"
+  loop_control:
+    label: "{{ item.item.item.username }}"
+  when: item is not skipped
+
+# An administrator is invited, not given a password: "/user/new" takes none, and one set afterwards through
+# "/user/update" has to be changed at the first sign-in, so whatever the caller vaulted would be stale from then
+# on. "/invitation/new" answers with an identifier whose onboarding page lets the person choose a password that
+# works as it is. Asked only for an account this run has just created, exactly as the virtual key above: an
+# account that already exists (409) is left alone, its password never reset, and no second link is made.
+- name: "Invite each newly created LiteLLM administrator"
+  ansible.builtin.uri:
+    url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/invitation/new"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+    body_format: json
+    body:
+      user_id: "{{ item.item.username }}"
+    status_code: [200]
+  register: Artificial_Intelligence_LiteLLM_administrator_invitation
+  no_log: true
+  loop: "{{ Artificial_Intelligence_LiteLLM_user_creation.results }}"
+  loop_control:
+    label: "{{ item.item.username }}"
+  when:
+    - not ansible_check_mode
+    - item.status in [200, 201]
+    - item.item.role == 'proxy_admin'
+  changed_when: true
+
+# The one place the link is ever shown: a lost one is issued again from "/ui" or against "/invitation/new". "no_log"
+# stays off on this task alone, since the point is that it prints. The link is a path because the address the person
+# reaches the gateway on is the caller's, not the role's.
+- name: "Show each administrator's onboarding link"
+  ansible.builtin.debug:
+    msg: >-
+      LiteLLM administrator "{{ item.item.item.username }}" -- open "/ui/onboarding?id={{ item.json.id }}" on the
+      gateway's own address to choose a password{{ (', before ' ~ item.json.expires_at) if item.json.expires_at is defined else '' }}.
+      Shown once, save nothing: the link is for one use.
+  loop: "{{ Artificial_Intelligence_LiteLLM_administrator_invitation.results }}"
   loop_control:
     label: "{{ item.item.item.username }}"
   when: item is not skipped

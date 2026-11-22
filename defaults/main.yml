@@ -273,6 +273,19 @@ Artificial_Intelligence_LiteLLM_disable_env_credential_login: false
 # picks (#107).
 Artificial_Intelligence_LiteLLM_internal_users: []
 
+# The people who administer the gateway from "/ui": a LIST of {"username": ..., "email": ...}, empty by default,
+# each created as LiteLLM's "proxy_admin" and INVITED rather than given a password. "/user/new" takes none, and one
+# set afterwards through "/user/update" has to be changed at the first sign-in, so a password in the caller's vault
+# would be stale from then on. The role asks for an invitation instead ("/invitation/new") and shows its link once,
+# in its own output, the run the account is created: the person opens it on the gateway's address and chooses a
+# password that works as it is. An account that exists already is left alone, its password never reset, and no
+# second link is made; a lost one is issued again from "/ui" ("Internal Users") or with the master key against
+# "/invitation/new". Usernames and emails must differ from the internal users', which share the one "/user/new" call.
+#
+# The environment login above stays whatever is declared here: it is how a first deployment is entered, and
+# nothing in this list removes it.
+Artificial_Intelligence_LiteLLM_admin_users: []
+
 Artificial_Intelligence_Redis_data_Docker_volume_name: "Redis_data"
 
 # Unlimited by default. Cooldown state is small compared to the corpora the other services here hold

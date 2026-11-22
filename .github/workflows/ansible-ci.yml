@@ -186,7 +186,7 @@ jobs:
   # ten gigabytes of images per pull request. What therefore stays unexercised here is everything that
   # needs a running container: the tasks that look for one find none and skip, exactly as written to.
   # The one exception is the agent's key registration, which talks to the gateway's admin API and would
-  # wait for a gateway that was never started: "stand_in_gateway.py" answers its three calls, and
+  # wait for a gateway that was never started: "stand_in_gateway.py" answers the calls the role makes, and
   # refuses any other. The rest of that half is #85's, on a machine that looks like the target.
   #
   # Twice: with the Claude Code agent on (the example's default), and off, since each state has an

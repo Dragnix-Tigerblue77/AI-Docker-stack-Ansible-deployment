@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
-"""A stand-in for the three endpoints of LiteLLM's admin API that the role calls after deploying.
+"""A stand-in for the endpoints of LiteLLM's admin API that the role calls after deploying.
 
 CI only, for the "role run" jobs of ".github/workflows/ansible-ci.yml". With the Claude Code agent on,
 which is the example playbook's default, the role registers the agent's virtual key in the gateway
@@ -13,6 +13,11 @@ task, and holds the role to the calls it is written to make:
   GET  /key/info?key=<sha256>  404 until that key was generated, 200 after (the role looks first)
   POST /key/generate           200, with the key, its alias and its model allow-list in the body: a list
                                of distinct non-empty strings, as LiteLLM's own "models" is (#307)
+  POST /user/new               200 for a user it has not seen, 409 for one it has (by username or email); the
+                               body must hold a user_id, a user_email, a user_role that is "internal_user" or
+                               "proxy_admin" and "auto_create_key" false
+  POST /invitation/new         200, with an id and an expiry, for a "proxy_admin" it created: the role invites
+                               administrators only, and only the run that created them
 
 Every call but the first must carry the master key as a bearer token. Anything else is answered 500 and
 printed, so the role's task fails with the reason on the runner's log rather than a quiet success.
@@ -34,6 +39,8 @@ VARS = pathlib.Path(__file__).with_name("vars.yml")
 MASTER_KEY = yaml.safe_load(VARS.read_text())["vault_Artificial_Intelligence_LiteLLM_master_key"]
 PORT = 4000
 GENERATED = set()
+USERS = {}
+ROLES = ("internal_user", "proxy_admin")
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -71,12 +78,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.refuse("no such endpoint in this stand-in")
 
     def do_POST(self):  # noqa: N802
-        if self.path != "/key/generate":
+        handlers = {"/key/generate": self.generate_key, "/user/new": self.new_user, "/invitation/new": self.new_invitation}
+        if self.path not in handlers:
             self.refuse("no such endpoint in this stand-in")
             return
         if not self.authorised():
             return
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        handlers[self.path](json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}"))
+
+    def new_user(self, body):
+        missing = [name for name in ("user_id", "user_email", "user_role") if not isinstance(body.get(name), str) or not body[name]]
+        if missing:
+            self.refuse(f"the body lacks a string {', '.join(missing)}")
+        elif body["user_role"] not in ROLES:
+            self.refuse(f"user_role is {body['user_role']!r}, not one of {ROLES}")
+        elif body.get("auto_create_key") is not False:
+            self.refuse("auto_create_key is not false: LiteLLM would mint a key nobody is shown")
+        elif body["user_id"] in USERS or body["user_email"].lower() in {user["email"] for user in USERS.values()}:
+            self.reply(409, {"error": "user already exists"})
+        else:
+            USERS[body["user_id"]] = {"email": body["user_email"].lower(), "role": body["user_role"]}
+            print(f"stand-in gateway: user {body['user_id']!r} created as {body['user_role']}", flush=True)
+            self.reply(200, {"user_id": body["user_id"], "user_email": body["user_email"], "user_role": body["user_role"]})
+
+    def new_invitation(self, body):
+        user = USERS.get(body.get("user_id"))
+        if user is None:
+            self.refuse(f"invitation for a user this stand-in never created: {body.get('user_id')!r}")
+        elif user["role"] != "proxy_admin":
+            self.refuse("an invitation for a user who is not a proxy_admin: the role invites administrators only")
+        else:
+            self.reply(200, {"id": f"invitation-{body['user_id']}", "user_id": body["user_id"], "is_accepted": False,
+                             "expires_at": "2099-01-01T00:00:00Z"})
+
+    def generate_key(self, body):
         missing = [name for name in ("key", "key_alias", "models") if not body.get(name)]
         if missing:
             self.refuse(f"the body lacks {', '.join(missing)}")
