@@ -89,6 +89,19 @@
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
         # DeepSeek is PAID, like Mistral above: leave a paid provider's key out not to use it.
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key }}"
+        # Cloudflare Workers AI is free within a daily allowance, and takes two values given together or not
+        # at all: its API token, and the identifier of its account. One account only: opening a second to
+        # double the allowance is what its terms forbid.
+        Artificial_Intelligence_LiteLLM_Cloudflare_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_API_key }}"
+        Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_account_ID }}"
+        # Z AI serves GLM-4.7-Flash free of charge: one key, the account's own.
+        Artificial_Intelligence_LiteLLM_Zai_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Zai_API_key }}"
+        # Requesty serves a few models free for now, in one daily quota shared by all of them: one key, the
+        # account's own.
+        Artificial_Intelligence_LiteLLM_Requesty_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Requesty_API_key }}"
+        # NVIDIA's hosted API is a free TRIAL service: its terms allow it for testing and evaluation only, not
+        # in production, let NVIDIA collect the content to improve its models, and forbid personal data.
+        Artificial_Intelligence_LiteLLM_NVIDIA_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_NVIDIA_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

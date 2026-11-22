@@ -59,14 +59,21 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
-It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the five
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the
 provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
 whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
-the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
+the renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
-cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
+cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for. An entry
+on Kilo Gateway's base is held to the one shape that keyless provider answers to: its gateway answered a 401
+to the placeholder sent as a bearer token and serves a call whose header is empty or absent, so each such
+entry must blank the "Authorization" header LiteLLM would otherwise fill from its placeholder "api_key".
+
+It holds the compose file to the same table of providers: the container of the gateway must receive each
+provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
+not always the provider's own name.
 
 What it deliberately does NOT flag
 ----------------------------------
@@ -1597,12 +1604,17 @@ LITELLM_PROVIDERS = {
     "Groq": "GROQ_API_KEY",
     "OpenRouter": "OPENROUTER_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "Cloudflare": "CLOUDFLARE_API_KEY",
+    "Zai": "ZAI_API_KEY",
+    "Requesty": "REQUESTY_API_KEY",
+    "NVIDIA": "NVIDIA_NIM_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
-# of the cascade has a key. None is an entry of the model list: no provider is first by construction.
+# of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
+# construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai", "NVIDIA"})
 # The routers of an endpoint that is not chat, each with the providers whose models it routes to and the
 # "model_info.mode" its members carry. They are aliases of their cascade's head like the five above, but are
 # kept apart from LITELLM_ROUTERS: that tuple is also the set of names the Claude Code agent may be given,
@@ -1611,10 +1623,13 @@ LITELLM_MEDIA_ROUTERS = {"stt": (frozenset({"Groq", "Gemini", "Mistral"}), "audi
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
+# The base of the keyless provider whose gateway answered 401 to the placeholder sent as a bearer token and
+# serves a call whose header is empty or absent: an entry on it sends the header empty.
+LITELLM_KILO_BASE = "https://ai-gateway.kilo.ai/api/v1"
 
 
 def litellm_key_sets():
-    """Every non-empty set of the five provider keys, in a stable order."""
+    """Every non-empty set of the provider keys, in a stable order."""
     names = list(LITELLM_PROVIDERS)
     return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
 
@@ -1623,7 +1638,7 @@ def render_litellm_config(keys):
     """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
     environment = template_environment(
         loader=FileSystemLoader(str(ROLE / "templates")),
-        undefined=jinja2.StrictUndefined,  # the file reads these five variables and nothing else
+        undefined=jinja2.StrictUndefined,  # the file reads the provider keys' variables and nothing else
         trim_blocks=True,  # the "template" module's default, which the compose render does not need
         keep_trailing_newline=True,
     )
@@ -1657,6 +1672,25 @@ def check_litellm_config(document, keys, failures):
     for provider, variable in LITELLM_PROVIDERS.items():
         if variable in given and variable not in read:
             failures.append(f"[{state}] the {provider} key was given and no entry reads {variable}")
+
+    for entry in entries:
+        parameters = mapping(entry, "litellm_params")
+        if parameters.get("api_base") != LITELLM_KILO_BASE:
+            continue
+        reference = parameters.get("api_key")
+        if not isinstance(reference, str) or not reference or reference.startswith("os.environ/"):
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not carry "
+                "a literal marker as its api_key: it reads no key, so it belongs to no account"
+            )
+        headers = mapping(parameters, "extra_headers")
+        if headers.get("Authorization") != "":
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not blank "
+                "its Authorization header (extra_headers: {Authorization: \"\"}): LiteLLM would send its placeholder "
+                "api_key as a bearer token, which the gateway answered 401 INVALID_TOKEN, where a call whose "
+                "header is empty or absent is served"
+            )
 
     cascades = {}
     for item in router_settings.get("fallbacks") or []:
@@ -1748,8 +1782,27 @@ def check_litellm_config(document, keys, failures):
             )
 
 
+LITELLM_KEY_VARIABLE = re.compile(r"Artificial_Intelligence_LiteLLM_[A-Za-z0-9]+_API_key")
+
+
+def litellm_unsupplied_variables(source, providers):
+    """The provider keys' variables the template reads that this check does not render it with. The
+    template tests each key with "is string", which is false on a name nobody supplies instead of raising:
+    a provider missing from LITELLM_PROVIDERS would be left out of every set of keys, and every rule of
+    "check_litellm_config" would pass on a file whose entries and cascade slots were never rendered."""
+    read = jinja2.meta.find_undeclared_variables(Environment().parse(source))
+    supplied = {f"Artificial_Intelligence_LiteLLM_{provider}_API_key" for provider in providers}
+    return sorted(name for name in read if LITELLM_KEY_VARIABLE.fullmatch(name) and name not in supplied)
+
+
 def check_litellm_configs(failures):
     """Render the routing configuration for every non-empty set of provider keys and judge each one."""
+    source = (ROLE / "templates" / LITELLM_CONFIG_TEMPLATE).read_text(encoding="utf-8")
+    for name in litellm_unsupplied_variables(source, LITELLM_PROVIDERS):
+        failures.append(
+            f"[LiteLLM config] the template reads {name}, which no set of keys here gives: add its provider to "
+            "LITELLM_PROVIDERS, or its entries and cascade slots are never rendered and so never judged"
+        )
     rendered = 0
     for keys in litellm_key_sets():
         try:
@@ -1762,12 +1815,39 @@ def check_litellm_configs(failures):
     return rendered
 
 
+# What the template reads, as source text: a name in the table passes, a name outside it is found, and a
+# variable that is no provider key is none of this check's business.
+LITELLM_VARIABLE_CASES = [
+    ("a key the table renders", "{{ Artificial_Intelligence_LiteLLM_Groq_API_key }}", {"Groq"}, []),
+    ("a key the table lacks, read the way the template reads them",
+     "{% set has = {'X': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string} %}", {"Groq"},
+     ["Artificial_Intelligence_LiteLLM_Cloudflare_API_key"]),
+    ("a variable that is no provider key", "{{ Artificial_Intelligence_LiteLLM_config_Docker_name }}", {"Groq"}, []),
+]
+
+
 def _litellm_document(entries, cascades, aliases):
     return {
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key}} for name, key in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
+    }
+
+
+def _kilo_document(**overrides):
+    """One Kilo entry as the template writes it, with `overrides` replacing parts of its litellm_params; a
+    value of None drops the key."""
+    parameters = {"model": "openai/vendor/model:free", "api_base": LITELLM_KILO_BASE, "api_key": "kilo-no-key-needed",
+                  "extra_headers": {"Authorization": ""}}
+    for key, value in overrides.items():
+        if value is None:
+            parameters.pop(key, None)
+        else:
+            parameters[key] = value
+    return {
+        "model_list": [{"model_name": "a-kilo", "litellm_params": parameters}],
+        "router_settings": {"fallbacks": [{"flash": ["a-kilo"]}], "model_group_alias": {"flash": "a-kilo"}},
     }
 
 
@@ -1872,6 +1952,24 @@ LITELLM_CONFIG_CASES = [
      {"OpenRouter"}, "'claude-code' is served"),
     ("claude-code served by a Groq key",
      _stt_document(), {"Groq"}, None),
+    ("claude-code served by a Cloudflare key",
+     _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"Cloudflare"}, None),
+    ("claude-code missing although Cloudflare has a key",
+     _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [], {}),
+     {"Cloudflare"}, "'claude-code' is absent"),
+    ("claude-code served by a Z AI key",
+     _litellm_document([("glm", "os.environ/ZAI_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"Zai"}, None),
+    ("claude-code missing although Z AI has a key",
+     _litellm_document([("glm", "os.environ/ZAI_API_KEY")], [], {}),
+     {"Zai"}, "'claude-code' is absent"),
+    ("claude-code served by an NVIDIA key",
+     _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"NVIDIA"}, None),
+    ("claude-code missing although NVIDIA has a key",
+     _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [], {}),
+     {"NVIDIA"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
      _with_stt(_litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
                                   ("omniroute-free-code", "os.environ/OMNI")],
@@ -1900,6 +1998,18 @@ LITELLM_CONFIG_CASES = [
                                  [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
                                  {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}), "GEMINI_API_KEY"),
      {"Gemini"}, None),
+    ("a Kilo entry as the template writes it", _kilo_document(), set(), None),
+    ("a Kilo entry that does not blank the header", _kilo_document(extra_headers=None), set(),
+     "does not blank its Authorization header"),
+    ("a Kilo entry whose header is blanked to a token", _kilo_document(extra_headers={"Authorization": "Bearer x"}),
+     set(), "does not blank its Authorization header"),
+    ("a Kilo entry blanking another header", _kilo_document(extra_headers={"X-Other": ""}), set(),
+     "does not blank its Authorization header"),
+    ("a Kilo entry reading a key", _kilo_document(api_key="os.environ/KILO_API_KEY"), set(),
+     "does not carry a literal marker"),
+    ("a Kilo entry with no api_key", _kilo_document(api_key=None), set(), "does not carry a literal marker"),
+    ("an entry on another base is not held to the Kilo shape",
+     _kilo_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a transcription router served by its cascade's head",
      _stt_document(entries=("whisper-a", "whisper-b")), {"Groq"}, None),
     ("a transcription router with no key it routes to",
@@ -1931,6 +2041,38 @@ LITELLM_CONFIG_CASES = [
 ]
 
 
+def check_litellm_key_environment(document, state, failures):
+    """The container of the gateway receives every provider key under the name LiteLLM looks it up by, the
+    one the routing configuration reads it as. "check_litellm_config" holds the configuration to
+    LITELLM_PROVIDERS and nothing holds the compose file to it, so a key handed over under another name
+    ("NVIDIA_API_KEY" for the "NVIDIA_NIM_API_KEY" LiteLLM's NVIDIA provider reads) would leave every other
+    rule green and the provider with no key at all."""
+    environment = mapping(mapping(mapping(document, "services"), "litellm"), "environment")
+    for provider, variable in LITELLM_PROVIDERS.items():
+        if variable not in environment:
+            failures.append(
+                f"[{state}] the litellm container does not receive {variable}, the name its {provider} entries "
+                "read the key under: the provider would have no key"
+            )
+
+
+_LITELLM_ENVIRONMENT = {variable: "key" for variable in LITELLM_PROVIDERS.values()}
+# (name, the compose document, expected substring or None)
+LITELLM_KEY_ENVIRONMENT_CASES = [
+    ("every provider key handed over under its LiteLLM name",
+     {"services": {"litellm": service(environment=_LITELLM_ENVIRONMENT)}}, None),
+    ("the NVIDIA key handed over under the provider's name instead of LiteLLM's",
+     {"services": {"litellm": service(environment={
+         **{k: v for k, v in _LITELLM_ENVIRONMENT.items() if k != "NVIDIA_NIM_API_KEY"}, "NVIDIA_API_KEY": "key"})}},
+     "does not receive NVIDIA_NIM_API_KEY"),
+    ("a key not handed over at all",
+     {"services": {"litellm": service(environment={
+         k: v for k, v in _LITELLM_ENVIRONMENT.items() if k != "GROQ_API_KEY"})}},
+     "does not receive GROQ_API_KEY"),
+    ("the gateway not rendered", {"services": {}}, "does not receive GEMINI_API_KEY"),
+]
+
+
 def selftest():
     """Confront the checks with cases whose verdict is known, and report every disagreement."""
     problems = []
@@ -1959,6 +2101,11 @@ def selftest():
             if resolved.get(key) != value:
                 problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
 
+    for name, source, providers, expected in LITELLM_VARIABLE_CASES:
+        found = litellm_unsupplied_variables(source, providers)
+        if found != expected:
+            problems.append(f"{name!r}: found {found!r}, expected {expected!r}")
+
     for name, document, keys, expected in LITELLM_CONFIG_CASES:
         failures = []
         try:
@@ -1966,6 +2113,11 @@ def selftest():
         except Exception as error:  # noqa: BLE001 - a crash IS the finding here
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, document, expected in LITELLM_KEY_ENVIRONMENT_CASES:
+        failures = []
+        check_litellm_key_environment(document, "selftest", failures)
         problems.extend(_verdict(name, failures, expected))
 
     for name, document, expected in CONVENTION_CASES:
@@ -2119,6 +2271,7 @@ def selftest():
         f"check_compose_template selftest: {len(DEFAULTS_CASES) + len(DEFAULTS_OVERRIDE_CASES)} defaults case(s), "
         f"{len(CONVENTION_CASES)} convention case(s), {len(LIMITS_SET_CASES)} memory-limit case(s), "
         f"{len(STATE_CASES)} two-state case(s), "
+        f"{len(LITELLM_KEY_ENVIRONMENT_CASES)} LiteLLM key environment case(s), "
         f"{len(AGENT_WORKSPACE_CASES)} agent workspace case(s), {len(DOLLAR_CASES)} '$' case(s), "
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
@@ -2126,7 +2279,8 @@ def selftest():
         f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
-        f"case(s) and {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) all judged as expected."
+        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s) and {len(LITELLM_CONFIG_CASES)} "
+        "LiteLLM routing case(s) all judged as expected."
     )
     return 0
 
@@ -2284,6 +2438,8 @@ def main():
             )
     check_quote_exemptions(defaults, failures)
     key_sets = check_litellm_configs(failures)
+    if "published network unset" in documents:
+        check_litellm_key_environment(documents["published network unset"], "published network unset", failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")

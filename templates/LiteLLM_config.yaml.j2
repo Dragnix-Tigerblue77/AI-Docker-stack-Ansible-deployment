@@ -14,26 +14,34 @@
 # variable, never from a name written into this template.
 # #296: only the providers whose key the caller gives are rendered. A provider without a key has no
 # entry below and no slot in any cascade: a model listed that cannot answer would be tried, fail, and
-# only then hand the request on.
+# only then hand the request on. The two providers that need no key, OmniRoute and Kilo Gateway, are the
+# exception and are always rendered.
 {% set has = {
   'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
   'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
   'Groq': Artificial_Intelligence_LiteLLM_Groq_API_key is string and Artificial_Intelligence_LiteLLM_Groq_API_key | length > 0,
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,
-  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
+  'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0,
+  'Cloudflare': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string and Artificial_Intelligence_LiteLLM_Cloudflare_API_key | length > 0,
+  'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0,
+  'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
+  'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0
 } %}
-# The routers below are aliases, whatever the keys: each stands for the first model of its own cascade
-# that has a key, so that the order of a cascade alone decides and no provider is placed first by the way
-# the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a router
-# that exists as a cascade alone would be refused). A router is left out when no model of its cascade has
-# a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
-# member of its cascade.
+# The routers below, the transcription one included, are aliases, whatever the keys: each stands for the first model of its own cascade
+# that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
+# by the way the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a
+# router that exists as a cascade alone would be refused). A router is left out when no model of its cascade
+# has a key or needs none, which "claude-code" and the transcription router can come to. "check_compose_template.py" renders every
+# non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
+# the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
+# heads one of the three: the table below stops at Kilo. Requesty's members sit right ahead of Kilo's in
+# "flash" and "flash-lite", so Requesty heads those two when no earlier provider has a key.
 {% set head = {
-  'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
-  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
-  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
+  'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gemma-3-4b-nvidia' if has.NVIDIA else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-requesty' if has.Requesty else 'nemotron-lightning-kilo',
+  'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
@@ -544,8 +552,8 @@ model_list:
   # its intelligence index, with 230 tokens/s but 13.8 s to the first answer token for a model that
   # always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read that day), and Liquid's own model card
   # says it is not for agentic coding or complex multi-step reasoning. It is therefore in "flash-lite"
-  # only, as its last member: a hair under the Gemini 3.1 Flash-Lite that heads that cascade (6.2), and
-  # the slowest to answer in it.
+  # only, as the last of its OpenRouter members: a hair under the Gemini 3.1 Flash-Lite that heads that
+  # cascade (6.2), and the slowest to answer in it.
   - model_name: lfm-3-1-7b-free
     litellm_params:
       model: openrouter/liquid/lfm-3-1.7b:free
@@ -559,6 +567,458 @@ model_list:
 
   # Tried by hand on 2026-11-21 and set aside. Remove the line to have its id reported again.
   # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- unreliable in practice and unmeasured: of 31 requests made on 2026-11-21, 4 were answered and 27 were refused with a 429 by the shared upstream pool, so it would cost a refusal before most replies; the 4 answers took 22 s on a five-instruction prompt and 14 s on a long-context search; Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and Ling 3.1 Flash, 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash"), is a different model; look again when its free pool is less loaded
+
+{% endif %}
+{% if has.Cloudflare %}
+  # ============================================================================
+  # Cloudflare Workers AI ("cloudflare/", through its OpenAI-compatible endpoint)
+  #
+  # Checked 2026-11-22. "developers.cloudflare.com/workers-ai/platform/pricing/" gives every account 10,000
+  # neurons a day at no charge, reset at 00:00 UTC, counted across every model of the account together, and
+  # ".../platform/limits/" 300 requests per minute for text generation. The note of the pricing page names the
+  # models that need a paid billing method (the Kimi K2.6 and K2.7, GLM-5.x, DeepSeek V4.x and Inkling
+  # ones): none is below. Every model below is absent from that note, so it is DEDUCED free, which the page
+  # does not say, and has to be confirmed on the account before it is relied on. The allowance is small: a
+  # day's neurons buy a few hundred thousand tokens of the larger models (the README says how many), which
+  # is why a model that another provider serves too sits behind that provider's slot.
+  #
+  # The identifier of the account is not written here, nor is an "api_base": LiteLLM builds the endpoint's
+  # address from "CLOUDFLARE_ACCOUNT_ID", which the container is given. That makes ONE account, as Cloudflare's
+  # terms require: "www.cloudflare.com/terms/" (read 2026-11-22) refuses a use "intended to circumvent
+  # Service-specific usage limits, quotas", which a second account opened for more neurons would be.
+  #
+  # "developers.cloudflare.com/workers-ai/platform/data-usage/" says Cloudflare does not train on the
+  # content processed and does not retain it for a standard inference, and each model page below lists
+  # zero data retention.
+  #
+  # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
+  # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
+  # Qwen 3.8 27B, whose page gives a 262,144-token context and function calling but which LiteLLM's model
+  # map does not list, so nothing here would say what its context and tools are but that page. It also cannot
+  # be steered: asked a hard question on 2026-11-22 with "reasoning_effort" low and xhigh, and with
+  # "chat_template_kwargs" turning thinking off, it answered in 2,547, 1,770 and 2,616 tokens over 109, 81 and
+  # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
+  # past the gateway's limit on a hard question.
+  # ============================================================================
+  # Second source of "gpt-oss-120b-groq", right behind it in "flash": the same weights through an allowance
+  # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
+  # (read 2026-11-22), with reasoning at "medium" by default as on Groq. Free status unconfirmed.
+  - model_name: gpt-oss-120b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/openai/gpt-oss-120b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Second source of "gpt-oss-20b-groq", right behind it in "flash-lite", for the same reason. 128,000 tokens
+  # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
+  - model_name: gpt-oss-20b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/openai/gpt-oss-20b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Third source of Gemma 4 26B in "flash-lite", right behind the two others ("gemma-4-26b-gemini", then
+  # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
+  # 2026-11-22). Free status unconfirmed.
+  - model_name: gemma-4-26b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/google/gemma-4-26b-a4b-it
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # New to the gateway, and in "flash-lite" only, as the last of its free members: 24,000 tokens of context
+  # in LiteLLM's model map and on its page (read 2026-11-22), which is what "flash-lite" takes, and no
+  # reasoning phase to wait for. Epoch AI's capabilities index puts it at 126.2 (read 2026-11-21), under every
+  # member of that cascade that it measures, hence the place. Its context is far under the 128,000 tokens
+  # "claude-code" asks, so "code" has no place for it either. Free status unconfirmed.
+  - model_name: llama-3-3-70b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # the paid ones: 131,072 tokens and function calling in LiteLLM's model map and on its page (read
+  # 2026-11-22), which describes it as made for "multi-turn tool calling". Neither Artificial Analysis's
+  # index nor Epoch AI's capabilities index nor its coding benchmarks measure it (read 2026-11-21), so
+  # nothing ranks it against the members before it: the end of the free ones is where an unmeasured model
+  # goes. Free status unconfirmed, and tool calls through this endpoint not tried.
+  - model_name: glm-4-7-flash-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/zai-org/glm-4.7-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+{% endif %}
+{% if has.Zai %}
+  # ============================================================================
+  # Z AI (Zhipu), "zai/", on its general API endpoint
+  #
+  # Checked 2026-11-22. The "Pricing" page of docs.z.ai lists GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash
+  # as free and GLM-5.3-Flash as paid. LiteLLM's "zai/" provider calls the general endpoint, the one under
+  # "/api/paas/v4", on its own: no "api_base" is written here, so the coding-plan endpoint, which the "Introduction"
+  # page of docs.z.ai limits to officially supported tools, cannot be reached by this file. Which endpoint
+  # serves the free models is not stated on any page read, and the key was not tried against it. The limits
+  # are published nowhere outside the account's console: this file assumes none.
+  #
+  # "docs.z.ai"'s "Terms of Use" (updated 2026-04-14, read 2026-11-22) refuse sharing a key, and say nothing
+  # that was found about a gateway or several accounts; the key is the gateway's one. The same terms say Z AI
+  # does not use the content of an API customer for improving its services without agreement, and its data
+  # processing agreement says it does not store the content, processed generally in Singapore.
+  #
+  # Looked at the same day and not routed. GLM-4.5-Flash: free and in LiteLLM's model map at 128,000 tokens
+  # with function calling, but it comes from the same account and the same unpublished limit as GLM-4.7-Flash,
+  # so a slot behind it would be tried only once the first has failed for a reason it shares, and neither
+  # Artificial Analysis nor Epoch AI measures it (read 2026-11-21). GLM-4.6V-Flash: a vision model, absent
+  # from LiteLLM's model map, and no page read gives its context or its tools.
+  # ============================================================================
+  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # the paid ones: 200,000 tokens of context, function calling and tool choice in LiteLLM's model map
+  # (read 2026-11-22, zero price), the 200K context of its page "GLM-4.7" of docs.z.ai, which lists function
+  # calling for the family and not per model. Neither Artificial Analysis's index nor Epoch AI's
+  # capabilities index nor its coding benchmarks measure it (read 2026-11-21), so nothing ranks it against
+  # the members before it: the end of the free ones is where an unmeasured model goes. It reasons before it
+  # answers, which Artificial Analysis timed at about 25 seconds to the first answer token for its
+  # reasoning record (read 2026-11-21). Tool calls through this endpoint were not tried.
+  - model_name: glm-4-7-flash-zai
+    litellm_params:
+      model: zai/glm-4.7-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+{% endif %}
+  # ============================================================================
+  # Kilo Gateway -- anonymous, keyless, free models only (see the note at the top of this file).
+  #
+  # Read 2026-11-22. The "Authentication" page of the Kilo gateway documentation says "The gateway allows
+  # unauthenticated access for free models only" and that anonymous requests "are identified by IP address
+  # and are subject to rate limiting (200 requests per hour per IP)"; its "Models and providers" page says the
+  # free models' "availability changes" and that "Auto Free may route your requests to providers that log
+  # prompts and outputs and use them to improve their services", and of NVIDIA's free endpoints, "Trial use
+  # only - do not submit personal or confidential data". The catalogue the gateway serves without a key flags
+  # each model below as one that "mayTrainOnYourPrompts". Logging and training are accepted here, as for every
+  # free model of this file. The 200 are counted per IP address, so they are one pool for the whole host,
+  # shared by every entry of this section and by nothing else here: a slot is a second quota next to
+  # OpenRouter's only as long as the pool and each free model last. The "Terms" page, last updated
+  # 2026-11-02, was read and not cleared: it allows one account per entity (none is used) and forbids
+  # scrapers and circumventing access controls, which a gateway calling the documented API is taken not to
+  # be. No entry reads a key, so none belongs to an account: like OmniRoute's, the "api_key" is a literal
+  # marker.
+  #
+  # The marker is not what the gateway sees. LiteLLM's "openai/" provider sends "Authorization: Bearer
+  # <api_key>", and the gateway answered 401 "INVALID_TOKEN" to this very marker sent that way (tried by hand
+  # the same day), while it serves a call whose header is empty or absent. Each entry therefore blanks the
+  # header with "extra_headers", and the proxy then sends an empty one, which the gateway answers 200.
+  # "check_compose_template.py" holds every entry on the gateway's base to that, since the 401 would
+  # otherwise only show up at run time. "openai/" is cut once by LiteLLM, so the id after it, slash and
+  # ":free" included, reaches the gateway whole.
+  #
+  # Second sources, each right behind its twin, of the OpenRouter entries above for the same ids: that they
+  # are the same weights behind both gateways rests on the ids alone. Tried by hand on 2026-11-22 with a tool
+  # request each: every entry below answered with a well formed tool call, "ernie-5-5-flash-kilo" four times
+  # out of five, the other being a 429 "Provider returned error".
+  # Not added: "openrouter/free" and "kilo-auto/free", which pick a model per request ("Auto Free" rotates
+  # through the free ones); the first is routed through OpenRouter's own key above.
+  # ============================================================================
+  - model_name: nemotron-ultra-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-reasoning-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-lightning-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-lightning:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-super-vl-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-super-vl:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: particle-1-kilo
+    litellm_params:
+      model: openai/particle-ai/particle-1:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: ernie-5-5-flash-kilo
+    litellm_params:
+      model: openai/baidu/ernie-5.5-flash-preview:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: lfm-3-1-7b-kilo
+    litellm_params:
+      model: openai/liquid/lfm-3-1.7b:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Without a twin: "Beam 1.0" of Reflection. The catalogue, read 2026-11-22, calls it "Reflection's reasoning
+  # model for coding and agentic workflows", free, with a 1,048,576-token context and "tools" and "tool_choice"
+  # among its supported parameters. Artificial Analysis gives "Beam 1.0" an intelligence index of 17.7 and 10.8 s
+  # to the first answer token (matched by its name, to be checked, read 2026-11-21), and Epoch AI's capabilities
+  # index gives it 150.84 (same day): over the floor of "flash", under that of "pro", where the Nemotron
+  # entries are under it too, and ahead of each of them on both figures. It therefore leads the free entries of
+  # "pro" and sits in "flash" ahead of "nemotron-super-vl-free", behind "particle-1-free" and
+  # "ernie-5-5-flash-free", which were placed there first. It is not in "flash-lite", whose point is speed and
+  # which 10.8 s does not serve, nor in "code" and "claude-code": Epoch AI scores it on one of the five
+  # benchmarks "code" is ranked on, too few to place it, and "claude-code" holds keyed providers only.
+  - model_name: beam-kilo
+    litellm_params:
+      model: openai/reflection/beam-free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Added 2026-11-22, with no figure to place it by: neither Artificial Analysis nor Epoch AI lists it (read
+  # 2026-11-21), so it sits at the end of the free entries of "flash" and in no other cascade. The catalogue
+  # says it is "an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out
+  # of 40B total", built "for coding agents", and lists a 262,144-token context and "tools" among its
+  # supported parameters, "tool_choice" not. It is the ":free" id that the catalogue flags free: the id
+  # without the suffix is priced at zero but not flagged free.
+  - model_name: flint-kilo
+    litellm_params:
+      model: openai/recursive/flint-v1.0:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Added 2026-11-22, placed as "flint-kilo" is, behind it. The catalogue describes it as "an anonymous
+  # reasoning model in early access" whose "prompts and outputs will be retained by the provider", with a
+  # 256,000-token context and "tools" and "tool_choice" among its supported parameters. Nothing says who
+  # makes it or for how long it stays, so it can leave the free list without notice.
+  - model_name: glyph-cluster-kilo
+    litellm_params:
+      model: openai/stealth/glyph-cluster
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Served, but not routed to: it answered none of the seven requests made by hand on 2026-11-22, each refused
+  # with a 429 "Provider returned error", where the other entries of this section answered. The same model
+  # through OpenRouter was set aside above the day before for the same reason. The catalogue lists it free,
+  # with a 1,048,576-token context and "tools" and "tool_choice" among its supported parameters. Uncommenting
+  # it, behind "glyph-cluster-kilo", is all that putting it back takes.
+  # - model_name: ling-3-2-flash-kilo
+  #   litellm_params:
+  #     model: openai/inclusionai/ling-3.2-flash:free
+  #     api_base: "https://ai-gateway.kilo.ai/api/v1"
+  #     api_key: "kilo-no-key-needed"
+  #     extra_headers:
+  #       Authorization: ""
+
+{% if has.Requesty %}
+  # ============================================================================
+  # Requesty ("openai/" through its OpenAI-compatible endpoint, free models only)
+  #
+  # Checked 2026-11-22. Requesty is a gateway that passes each request on to the model's own provider. LiteLLM
+  # has no provider of that name, so each entry is "openai/<provider>/<model>" with an "api_base": LiteLLM
+  # cuts the prefix once, and the rest, slash included, reaches Requesty as the model id, which Requesty asks
+  # in the form "provider/model" ("Quickstart" of the Requesty docs, read that day; a bare name is a managed
+  # policy and is never used here). The base is the European one, which the "Data privacy" page says
+  # processes and stores traffic in Frankfurt. That the free models below are all served there is UNVERIFIED:
+  # the United States base, one line per entry, is the change to make if one answers "not found".
+  #
+  # The "Free models" page of the Requesty docs (read that day) limits free usage per organization: 200
+  # requests a day and 20 a minute for a new one, 1,000 and 60 for one that pays, "across all free models
+  # combined", reset daily. That is a pool of its own, apart from OpenRouter's, and every entry below draws on
+  # it together, so a slot here is a second quota only as long as the pool lasts. The same page says the models
+  # are free "for now" and that a change will be announced in the changelog ahead of time: the entries below
+  # stop being free the day that happens, and 402 is what the "Billing" page says a paid model answers at a
+  # zero balance. The "Data privacy" page says Requesty does not store prompts and responses unless logging is
+  # enabled and does not train on them, and that what the upstream provider keeps depends on that provider.
+  # One account only. The session that wrote this did not read Requesty's terms.
+  #
+  # Only second sources of an OpenRouter ":free" entry, each right behind its twin. Whether the models are
+  # the same weights behind both gateways rests on the names alone. Looked at the same day and not routed,
+  # since none is a model this list serves through another provider: Nemotron 3 Super 120B and Nano 30B,
+  # Nemotron 3.5 content safety, Muse Glimmer, Laguna, Ling and Leanstral, all on that page. The Gemma 4 26B
+  # and the Nemotron 3.5 Super VL of the OpenRouter section have no counterpart on it. Tool calls through
+  # these entries are untried: LiteLLM forwards them, and no page read says each model takes them.
+  # ============================================================================
+  - model_name: nemotron-ultra-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: nemotron-reasoning-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: nemotron-lightning-requesty
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-lightning-30b-a3b
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: gemma-4-31b-requesty
+    litellm_params:
+      model: openai/google/gemma-4-31b-it
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+{% endif %}
+
+{% if has.NVIDIA %}
+  # ============================================================================
+  # NVIDIA API Catalog ("nvidia_nim/"): NVIDIA's own hosted endpoint, a TRIAL service
+  #
+  # Checked 2026-11-22. The home page of the catalogue offers "Free inference with leading models", and every
+  # model below was in the list the endpoint serves that day, read without a key. That a given one is free is
+  # UNVERIFIED: the page says it of the service, not model by model. LiteLLM's "nvidia_nim/" provider calls
+  # NVIDIA's own endpoint by default (read in its source), so no entry writes an "api_base". Each entry's tool
+  # support and context length are those its model card on the catalogue declares in its capability data (read
+  # that day). That LiteLLM forwards tools to this provider was shown against a stand-in server; that the
+  # models answer tool calls through the endpoint itself was not tried.
+  #
+  # The account page shows a rate limit of 40 requests per minute (read 2026-11-22); no page read states a
+  # credit count, a daily cap or an end date, so this file assumes none. The "NVIDIA API Trial Terms of Service" (read
+  # 2026-11-22) give access "for limited trial purposes only and without use of the API Service or Generated
+  # Content in production" and "for internal testing and evaluation purposes", let NVIDIA collect "User
+  # Content and Generated Content to improve NVIDIA products and services, including AI models", forbid
+  # confidential or sensitive data and personal data "unless expressly permitted by an API Service", and end
+  # the right to use the service automatically, without notice, on a failure to comply. Whoever gives the key
+  # takes those on.
+  #
+  # Placed by the same figures as the other entries: Artificial Analysis's index (read 2026-11-21) and, for
+  # "code" and "claude-code", Epoch AI's coding benchmarks where it has them. The Nemotron and Gemma entries are
+  # further sources of models reached through another key, each right behind its twin. The same day's list also
+  # holds models that are not routed: a vision model, a quantum calibration model and a translation model
+  # whose cards list no function calling, and, judging by their names, safety and privacy filters, retrieval
+  # and embedding models, a CLIP model, a video detector and a code completion model.
+  # ============================================================================
+  # Released on the catalogue 2026-11-04, with a 1,048,576-token context. Artificial Analysis's index gives it
+  # 46.5, second only to Gemini 4 Hydrogen among the members of "pro", and Epoch AI's ALE-Bench puts it first of
+  # the members of "code" that it scores. Its mean time to the first answer token on Artificial Analysis's probes
+  # is 155 s, longer than the "stream_timeout" below: at the effort those probes used, the router may give it up
+  # before it answers.
+  - model_name: kimi-k3-1-pro-nvidia
+    litellm_params:
+      model: nvidia_nim/moonshotai/kimi-k3.1-pro
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 262,144-token context in the capability data of its card page, whose text says up to 1M: the smaller is
+  # taken. Index 26.1 at the high effort its card gives as the vendor's default, which the endpoint was not
+  # confirmed to use; 71 s to the first answer token.
+  - model_name: mistral-large-4-nvidia
+    litellm_params:
+      model: nvidia_nim/mistralai/mistral-large-4-1t-a52b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # The same model as "nemotron-ultra-free", through NVIDIA's own pool. 1,048,576-token context.
+  - model_name: nemotron-ultra-nvidia
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # The same model as "nemotron-reasoning-free". 262,144-token context.
+  - model_name: nemotron-reasoning-nvidia
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # The same model as "nemotron-lightning-free". 1,048,576-token context.
+  - model_name: nemotron-lightning-nvidia
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # The same model as "nemotron-super-vl-free". 262,144-token context.
+  - model_name: nemotron-super-vl-nvidia
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 65,536-token context, under what "claude-code" requires, and the one record Artificial Analysis has is for a
+  # 4GB build, with neither an index nor a timing: no figure places it, so it closes the free members of
+  # "flash-lite" and is in no other router.
+  - model_name: nemotron-bolt-e4b-nvidia
+    litellm_params:
+      model: nvidia_nim/nvidia/nemotron-3.5-bolt-e4b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 1,048,576-token context. Its card says reasoning_effort defaults to max, the effort Epoch AI's DeepSWE
+  # file scores it at. Index 27.8, 87 s to the first answer token on Artificial Analysis's probes, close to the
+  # "stream_timeout" below.
+  - model_name: glm-5-3-flash-nvidia
+    litellm_params:
+      model: nvidia_nim/z-ai/glm-5.3-flash
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 262,144-token context in the capability data of its card page, whose text says up to 1M: the smaller is
+  # taken. Index 29.1, 52 s to the first answer token. Epoch AI scores no model of this name, only MiniMax-M3,
+  # which is another model, so nothing places it by coding.
+  - model_name: minimax-m3-1-flash-nvidia
+    litellm_params:
+      model: nvidia_nim/minimaxai/minimax-m3.1-flash
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 1,048,576-token context. Index 28.5, 38 s to the first answer token. Epoch AI scores no model of this
+  # name.
+  - model_name: step-5-preview-nvidia
+    litellm_params:
+      model: nvidia_nim/stepfun-ai/step-5-preview
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # Poolside's model for agentic coding, with a 262,144-token context. Neither Artificial Analysis nor Epoch AI
+  # lists it (read 2026-11-21), so no figure places it: it closes the free members of "code" and "claude-code",
+  # the two routers its purpose fits, and is in no other.
+  - model_name: laguna-xs-2-1-nvidia
+    litellm_params:
+      model: nvidia_nim/poolside/laguna-xs-2.1
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # A 131,072-token context, the least that still meets the 128k "claude-code" asks for. Index 6.3 at the high
+  # level of its one Artificial Analysis record, low enough to sit behind the other NVIDIA entries that have a
+  # figure.
+  - model_name: muse-glimmer-nvidia
+    litellm_params:
+      model: nvidia_nim/meta/muse-glimmer-30b
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # The same model as "gemma-4-31b-gemini" and "gemma-4-31b-free", through a pool of its own. 262,144-token context.
+  - model_name: gemma-4-31b-nvidia
+    litellm_params:
+      model: nvidia_nim/google/gemma-4-31b-it
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # Served by the endpoint, but no model card was found at the address the catalogue's pattern gives: its tool
+  # support and its context are unknown. In "flash-lite" only, where Artificial Analysis's timing (3.1 s to the
+  # first answer token) places it; that router has no floor.
+  - model_name: gemma-3-12b-nvidia
+    litellm_params:
+      model: nvidia_nim/google/gemma-3-12b-it
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  # As "gemma-3-12b-nvidia": no card was found, so tools and context are unknown. 1.9 s to the first answer
+  # token on Artificial Analysis's probes.
+  - model_name: gemma-3-4b-nvidia
+    litellm_params:
+      model: nvidia_nim/google/gemma-3-4b-it
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
 {% endif %}
   # ============================================================================
@@ -637,23 +1097,59 @@ router_settings:
     # after every free entry, Mistral first.
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
+    # Requesty's two Nemotron entries sit right behind their OpenRouter twins.
     # Priority: Google -> OpenRouter heavy -> DeepSeek direct (paid -- last resort before the fully
-    # free OmniRoute) -> OmniRoute.
+    # free OmniRoute) -> OmniRoute. NVIDIA's entries sit among the Google ones by their index, except its three
+    # Nemotron entries, each right behind the last of its keyed twins. Kilo's entries sit behind their keyed
+    # twins, ahead of the paid ones; "beam-kilo" has no twin and is ahead of the Nemotron entries, for the
+    # reason given with it.
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
         - gemini-4-hydrogen
+{% endif %}
+{% if has.NVIDIA %}
+        - kimi-k3-1-pro-nvidia
+{% endif %}
+{% if has.Gemini %}
         - gemini-3-8-flash
 {% endif %}
+{% if has.NVIDIA %}
+        - step-5-preview-nvidia
+        - minimax-m3-1-flash-nvidia
+        - mistral-large-4-nvidia
+        - glm-5-3-flash-nvidia
+{% endif %}
+        - beam-kilo
 {% if has.OpenRouter %}
         - nemotron-ultra-free
 {% endif %}
+{% if has.Requesty %}
+        - nemotron-ultra-requesty
+{% endif %}
+{% if has.NVIDIA %}
+        - nemotron-ultra-nvidia
+{% endif %}
+        - nemotron-ultra-kilo
 {% if has.Mistral %}
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-reasoning-free
+{% endif %}
+{% if has.Requesty %}
+        - nemotron-reasoning-requesty
+{% endif %}
+{% if has.NVIDIA %}
+        - nemotron-reasoning-nvidia
+{% endif %}
+        - nemotron-reasoning-kilo
+{% if has.OpenRouter %}
         - nemotron-super-vl-free
 {% endif %}
+{% if has.NVIDIA %}
+        - nemotron-super-vl-nvidia
+{% endif %}
+        - nemotron-super-vl-kilo
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
@@ -668,18 +1164,44 @@ router_settings:
     # (paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
     # twin rather than with their provider: "gemma-4-31b-gemini" (Google) right ahead of
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
-    # the OpenRouter one second because its quota is the daily count all ":free" entries share.
+    # the OpenRouter one second because its quota is the daily count all ":free" entries share. NVIDIA's
+    # "gemma-4-31b-nvidia" and "nemotron-super-vl-nvidia" sit behind their OpenRouter twins and Requesty's, and its
+    # other entries among the Google ones by their index.
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
+    # Requesty's "gemma-4-31b-requesty" sits right behind its OpenRouter twin, a pool of its own.
+    # Kilo's entries sit behind their keyed twins, ahead of the paid ones. The two of its own with no
+    # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
+    # which has no record either and closes the free ones.
+    # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
+    # allowance of its own.
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
         - gemini-4-hydrogen
+{% endif %}
+{% if has.NVIDIA %}
+        - kimi-k3-1-pro-nvidia
+{% endif %}
+{% if has.Gemini %}
         - gemini-3-8-flash
+{% endif %}
+{% if has.NVIDIA %}
+        - step-5-preview-nvidia
+        - minimax-m3-1-flash-nvidia
+        - mistral-large-4-nvidia
+        - glm-5-3-flash-nvidia
+{% endif %}
+{% if has.Gemini %}
         - gemini-3-6-flash
         - gemini-3-flash-preview
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-120b-groq
+{% endif %}
+{% if has.Cloudflare %}
+        - gpt-oss-120b-cloudflare
+{% endif %}
+{% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
@@ -687,9 +1209,33 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-31b-free
+{% endif %}
+{% if has.Requesty %}
+        - gemma-4-31b-requesty
+{% endif %}
+{% if has.NVIDIA %}
+        - gemma-4-31b-nvidia
+{% endif %}
+{% if has.OpenRouter %}
         - particle-1-free
+{% endif %}
+        - particle-1-kilo
+{% if has.OpenRouter %}
         - ernie-5-5-flash-free
+{% endif %}
+        - ernie-5-5-flash-kilo
+        - beam-kilo
+{% if has.OpenRouter %}
         - nemotron-super-vl-free
+{% endif %}
+{% if has.NVIDIA %}
+        - nemotron-super-vl-nvidia
+        - muse-glimmer-nvidia
+{% endif %}
+        - nemotron-super-vl-kilo
+        - flint-kilo
+        - glyph-cluster-kilo
+{% if has.OpenRouter %}
         - openrouter-auto-free
 {% endif %}
 {% if has.Mistral %}
@@ -711,18 +1257,33 @@ router_settings:
     # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
-    # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
+    # sits right ahead of its OpenRouter twin, for the reason given under FLASH, the entries of Requesty, of NVIDIA
+    # and of Kilo, in that order, right behind their OpenRouter twins, and the Cloudflare twins
+    # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") right behind the last slot of theirs. NVIDIA's two
+    # Gemma 3 entries are placed by the time Artificial Analysis gives them, which the router orders by, and
+    # "nemotron-bolt-e4b-nvidia", which has no figure, closes its free members. "llama-3-3-70b-cloudflare" is new
+    # to the gateway and closes the free members: no index of Artificial Analysis measures it, and Epoch AI's
+    # capabilities index puts it under all of them.
 {% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
 {% endif %}
+{% if has.NVIDIA %}
+        - gemma-3-4b-nvidia
+        - gemma-3-12b-nvidia
+{% endif %}
 {% if has.Gemini %}
         - gemini-4-hydrogen
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-20b-groq
+{% endif %}
+{% if has.Cloudflare %}
+        - gpt-oss-20b-cloudflare
+{% endif %}
+{% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
@@ -730,8 +1291,29 @@ router_settings:
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-26b-free
+{% endif %}
+{% if has.Cloudflare %}
+        - gemma-4-26b-cloudflare
+{% endif %}
+{% if has.OpenRouter %}
         - nemotron-lightning-free
+{% endif %}
+{% if has.Requesty %}
+        - nemotron-lightning-requesty
+{% endif %}
+{% if has.NVIDIA %}
+        - nemotron-lightning-nvidia
+{% endif %}
+        - nemotron-lightning-kilo
+{% if has.OpenRouter %}
         - lfm-3-1-7b-free
+{% endif %}
+{% if has.NVIDIA %}
+        - nemotron-bolt-e4b-nvidia
+{% endif %}
+        - lfm-3-1-7b-kilo
+{% if has.Cloudflare %}
+        - llama-3-3-70b-cloudflare
 {% endif %}
 {% if has.Mistral %}
         - ministral-3b
@@ -749,18 +1331,38 @@ router_settings:
     # sibling "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
     # Priority: syntax/code specialists, Mistral's among them (paid) -> DeepSeek direct (paid -- last
-    # resort before the fully free OmniRoute) -> OmniRoute.
+    # resort before the fully free OmniRoute) -> OmniRoute. NVIDIA's entries follow Gemini 3.8 Flash, where the
+    # figures read 2026-11-21 put them, and "laguna-xs-2-1-nvidia", which no figure places, closes its free
+    # members. "glm-4-7-flash-cloudflare" and "glm-4-7-flash-zai" close the free members, behind it and ahead
+    # of the paid ones: none of the figures this ranking reads measures them.
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
 {% endif %}
+{% if has.NVIDIA %}
+        - glm-5-3-flash-nvidia
+        - kimi-k3-1-pro-nvidia
+        - step-5-preview-nvidia
+        - minimax-m3-1-flash-nvidia
+        - mistral-large-4-nvidia
+{% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.NVIDIA %}
+        - muse-glimmer-nvidia
+        - laguna-xs-2-1-nvidia
+{% endif %}
+{% if has.Cloudflare %}
+        - glm-4-7-flash-cloudflare
+{% endif %}
+{% if has.Zai %}
+        - glm-4-7-flash-zai
 {% endif %}
 {% if has.Mistral %}
         - codestral
@@ -792,11 +1394,28 @@ router_settings:
         - gemini-4-hydrogen
         - gemini-3-8-flash
 {% endif %}
+{% if has.NVIDIA %}
+        - glm-5-3-flash-nvidia
+        - kimi-k3-1-pro-nvidia
+        - step-5-preview-nvidia
+        - minimax-m3-1-flash-nvidia
+        - mistral-large-4-nvidia
+{% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% endif %}
+{% if has.NVIDIA %}
+        - muse-glimmer-nvidia
+        - laguna-xs-2-1-nvidia
+{% endif %}
+{% if has.Cloudflare %}
+        - glm-4-7-flash-cloudflare
+{% endif %}
+{% if has.Zai %}
+        - glm-4-7-flash-zai
 {% endif %}
 {% if has.Mistral %}
         - codestral

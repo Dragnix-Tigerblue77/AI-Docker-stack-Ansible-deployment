@@ -129,13 +129,18 @@ autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des cinq clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des neuf clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des cinq clés fournisseurs. Le seul fournisseur **payant** de ce fichier (#101) -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des neuf clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des neuf clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
+| `Artificial_Intelligence_LiteLLM_Cloudflare_account_ID` | `""` | L'identifiant du compte Cloudflare, que LiteLLM lit dans l'environnement du conteneur (`CLOUDFLARE_ACCOUNT_ID`) pour construire l'adresse du point d'accès : aucune entrée du `model_list` ne le nomme. **Un seul compte** : les conditions de Cloudflare interdisent d'en ouvrir un second pour doubler le quota. Voir « Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des neuf clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
+| `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` | `""` | Une des neuf clés fournisseurs : la clé d'API du catalogue hébergé de NVIDIA, que le conteneur reçoit comme `NVIDIA_NIM_API_KEY`. Vide : aucune entrée NVIDIA. **Un service d'essai** dont les conditions interdisent la production et les données personnelles. Voir « NVIDIA : un service d'essai, des limites inconnues » plus bas. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -568,8 +573,8 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
-propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, payant
+travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway (sans clé), Cloudflare Workers AI, Z AI, NVIDIA et OmniRoute en
+dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
 (`CLAUDE.md`, « The model list keeps only what can be called ») : un modèle retiré par son fournisseur
@@ -612,7 +617,7 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des cinq clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek), et échoue en les
+Le rôle exige **au moins une** des neuf clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
@@ -623,8 +628,8 @@ aucun fournisseur : un nom qui n'est ni une entrée ni un alias est refusé par 
 `fallbacks` (mesuré sur LiteLLM 1.100.0), et le routeur est donc, quelles que soient les clés, l'**alias** du premier
 modèle de sa cascade dont la clé est donnée. Aucun fournisseur n'est premier par la façon dont les noms sont
 construits : l'ordre de la cascade, qui suit l'intelligence et la vitesse des modèles, décide seul. Le routeur garde sa
-cascade ; quand aucun modèle de sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour
-`flash-lite`, par exemple). LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
+cascade ; quand aucun modèle de sa cascade n'a de clé ni n'en demande, il disparaît avec ses alias : `claude-code`
+seul peut s'y trouver, depuis que les entrées sans clé de Kilo Gateway et d'OmniRoute servent les quatre autres. LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
 donc LibreChat les propose toujours. À connaître :
 
 - La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au moins
@@ -632,21 +637,173 @@ donc LibreChat les propose toujours. À connaître :
   même ordre, moins `omniroute-free-code` : OmniRoute choisit lui-même un modèle gratuit parmi ses fournisseurs, et sa
   documentation dit qu'un fournisseur gratuit peut émuler les appels d'outils depuis le prompt ou les ignorer, donc rien
   ne garantit ni les outils ni le contexte. `check_compose_template.py` tient les deux listes à cette égalité. Elle ne
-  contient donc que des modèles de Gemini, Groq, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que
-  les autres fournisseurs n'en ont aucun qui convienne. Sans l'une de ces quatre clés l'agent n'a aucun modèle, et le
-  rôle refuse ce déploiement, sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou
-  demande un autre routeur (`Artificial_Intelligence_Claude_code_model`).
+  contient donc que des modèles de Gemini, Groq, NVIDIA, Cloudflare, Z AI, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un
+  constat que les autres fournisseurs n'en ont aucun qui convienne. Sans l'une de ces sept clés l'agent n'a aucun
+  modèle, et le rôle refuse ce déploiement, sauf si l'agent est éteint
+  (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
+  (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
-- `check_compose_template.py` rend la configuration pour chacun des 31 ensembles non vides de clés, et tient chaque
+- `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
+  Il tient aussi le fichier compose à la même table : le conteneur de la passerelle doit recevoir chaque clé sous le
+  nom que la configuration lit, qui n'est pas toujours celui du fournisseur (`NVIDIA_NIM_API_KEY`, pas
+  `NVIDIA_API_KEY`).
+
+#### NVIDIA : un service d'essai, des limites inconnues, et une place dans chaque cascade
+
+NVIDIA offre, avec son « NVIDIA API Catalog », un accès hébergé à des modèles de plusieurs éditeurs : la page
+d'accueil du catalogue (lue le 2026-11-22) annonce « Free inference with leading models », et les fiches de modèle
+disent que « The trial service is governed by the NVIDIA API Trial Terms of Service ». C'est un fournisseur natif de
+LiteLLM (préfixe `nvidia_nim/`). La clé (`Artificial_Intelligence_LiteLLM_NVIDIA_API_key`) arrive au conteneur sous le
+nom `NVIDIA_NIM_API_KEY`, celui que LiteLLM cherche, et aucune entrée n'écrit d'`api_base` : le code de LiteLLM, lu le
+2026-11-22, appelle de lui-même le point d'accès hébergé de NVIDIA. Que le conteneur reçoive chaque clé sous ce nom
+exact est tenu par `check_compose_template.py`, qui ne tenait cela pour aucun fournisseur auparavant.
+
+**Les conditions sont celles d'un service d'essai, et le mainteneur a choisi de s'en servir.** Les « NVIDIA API Trial
+Terms of Service » (PDF lu le 2026-11-22) donnent l'accès « for limited trial purposes only and without use of the API
+Service or Generated Content in production » et « for internal testing and evaluation purposes, not in production ».
+NVIDIA peut collecter « User Content and Generated Content to improve NVIDIA products and services, including AI
+models ». L'utilisateur ne doit fournir ni information confidentielle, ni donnée contrôlée ou sensible, ni donnée
+personnelle « unless expressly permitted by an API Service ». Et le droit d'utiliser le service « terminates
+automatically without notice from NVIDIA » si l'utilisateur manque au contrat. La passerelle sert toutes les
+applications du homelab : le mainteneur accepte que ce qui y passe puisse entraîner les modèles de NVIDIA, que les
+conditions interdisent les données personnelles, et que NVIDIA puisse couper la clé, un risque qu'il ne veut pas
+anticiper.
+
+**Une seule limite est connue : 40 requêtes par minute.** La page du compte du mainteneur l'affiche (« Your API Rate
+Limit : Up to 40 rpm », lue le 2026-11-22 avant qu'une clé soit créée), et c'est un débit, pas un crédit. Aucun crédit,
+plafond quotidien ni date de fin ne figure sur une page lue, celle du compte comprise, ni la façon d'obtenir la clé ;
+les conditions d'essai disent seulement que l'usage « may be limited to a certain number of API access instances or by
+API access duration ». La vérification par SMS, citée sur des forums, n'est **pas vérifiée**. Un plafond de crédits ou
+de durée éventuel se lit à la création de la clé, et ce dépôt n'en affirme aucun. Que
+chaque modèle routé soit gratuit n'est pas établi non plus : la page le dit du service, pas modèle par modèle, et
+l'étiquette « Free Endpoint » de la page de découverte, lue sur sa première page de résultats seulement, ne porte pas
+sur tous les modèles routés et n'est expliquée nulle part -- rien n'en est conclu.
+
+**Ce qui a été vérifié, et ce qui ne l'a pas été.** La liste des modèles que le point d'accès sert (lue sans clé le
+2026-11-22) contient tous les modèles ci-dessous. Les appels d'outils et le contexte de chacun sont ceux que sa fiche
+déclare dans les données de sa page (lue le même jour) ; pour trois d'entre eux (Mistral Large 4, MiniMax-M3.1-Flash,
+Nemotron 3.5 Super VL) le texte de la fiche dit jusqu'à 1 million de jetons et les données 262 144 : le plus petit est
+retenu. Que LiteLLM transmet `tools` et `tool_choice` à ce fournisseur, et rend les appels d'outils en continu comme
+en bloc, a été **mesuré** contre un serveur de remplacement, pour chaque entrée ci-dessous. Que la clé soit acceptée par
+le point d'accès, et que chaque modèle réponde réellement à un appel d'outils à travers lui, n'a **pas** été essayé :
+à confirmer au premier appel.
+
+| Modèle (entrée) | Contexte | Indice d'Artificial Analysis | Où |
+| --- | --- | --- | --- |
+| Kimi K3.1 Pro (`kimi-k3-1-pro-nvidia`) | 1 048 576 | 46,5 | `pro`, `flash`, `code`, `claude-code` |
+| Step 5 Preview (`step-5-preview-nvidia`) | 1 048 576 | 28,5 | `pro`, `flash`, `code`, `claude-code` |
+| MiniMax-M3.1-Flash (`minimax-m3-1-flash-nvidia`) | 262 144 | 29,1 | `pro`, `flash`, `code`, `claude-code` |
+| GLM-5.3-Flash (`glm-5-3-flash-nvidia`) | 1 048 576 | 27,8 | `pro`, `flash`, `code`, `claude-code` |
+| Mistral Large 4 (`mistral-large-4-nvidia`) | 262 144 | 26,1 | `pro`, `flash`, `code`, `claude-code` |
+| Muse Glimmer (`muse-glimmer-nvidia`) | 131 072 | 6,3 | `flash`, `code`, `claude-code` |
+| Laguna XS 2.1 (`laguna-xs-2-1-nvidia`) | 262 144 | aucun enregistrement | `code`, `claude-code`, en fin des gratuits |
+| Nemotron 3 Ultra (`nemotron-ultra-nvidia`) | 1 048 576 | 11,8 | `pro`, derrière son jumeau OpenRouter |
+| Nemotron 3 Nano Omni (`nemotron-reasoning-nvidia`) | 262 144 | aucun indice | `pro`, derrière son jumeau OpenRouter |
+| Nemotron 3.5 Super VL (`nemotron-super-vl-nvidia`) | 262 144 | 13,6 | `pro` et `flash`, derrière son jumeau OpenRouter |
+| Gemma 4 31B (`gemma-4-31b-nvidia`) | 262 144 | estimé, aucun indice au niveau appelé | `flash`, derrière ses deux jumeaux |
+| Nemotron 3.5 Lightning (`nemotron-lightning-nvidia`) | 1 048 576 | 5,5 | `flash-lite`, derrière son jumeau OpenRouter |
+| Nemotron 3.5 Bolt E4B (`nemotron-bolt-e4b-nvidia`) | 65 536 | aucun indice | `flash-lite`, en fin des gratuits |
+| Gemma 3 12B et Gemma 3 4B (`gemma-3-12b-nvidia`, `gemma-3-4b-nvidia`) | inconnu | aucun indice, délais de 3,1 s et 1,9 s | `flash-lite`, placés par leur délai |
+
+Chaque modèle est placé par les chiffres que les autres entrées suivent : l'indice d'Artificial Analysis (lu le
+2026-11-21) pour `pro` et `flash`, les benchmarks de code d'Epoch AI là où ils existent pour `code` et `claude-code`,
+le délai avant le premier jeton pour `flash-lite`. Les modèles d'une famille que le fichier sert déjà (Nemotron,
+Gemma) sont des sources de plus, chacune juste derrière son jumeau ; un modèle sans aucun chiffre ferme les gratuits
+de ses cascades. Les planchers admettent chacun des modèles ci-dessus dans les routeurs où il est ; `claude-code` demande
+des appels d'outils déclarés et 128 000 jetons de contexte au moins, d'où l'absence de Nemotron 3.5 Bolt E4B et des deux
+Gemma 3 (le contexte de Muse Glimmer est tout juste suffisant). Les noms des entrées portent le suffixe `-nvidia`.
+
+**À surveiller : deux modèles sont lents à répondre.** Artificial Analysis mesure environ 155 s avant le premier jeton de
+réponse pour Kimi K3.1 Pro et 87 s pour GLM-5.3-Flash (lu le 2026-11-21, à l'effort de ses sondes), contre 90 s pour le
+`stream_timeout` du routeur : à ce niveau, le routeur peut abandonner Kimi avant qu'il réponde. Ils sont pourtant placés
+par leur capacité, la règle des contrats de routeur ne fixant aucun budget de temps. Si l'usage montre qu'ils expirent
+presque toujours, ce délai ou leur place est à revoir.
+
+Vus le même jour dans la liste du point d'accès et non routés : un modèle de vision, un modèle de calibration quantique
+et un modèle de traduction dont les fiches ne listent aucun appel de fonction, puis, d'après leurs noms seulement, des
+filtres de sécurité et de données personnelles, des modèles de recherche d'information et d'embeddings, un modèle CLIP,
+un détecteur de vidéo et un modèle de complétion de code. Les modèles d'embeddings n'ont aucune route de discussion
+à occuper.
+
+#### Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons
+
+Cloudflare est le seul fournisseur qui demande **deux valeurs** : le jeton d'API
+(`Artificial_Intelligence_LiteLLM_Cloudflare_API_key`, lu par les entrées comme `os.environ/CLOUDFLARE_API_KEY`) et
+l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`, exposé au conteneur comme
+`CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
+cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
+rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
+compte pour « au moins une des neuf clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
+Cloudflare.
+
+**Un seul compte, et ce n'est pas un réglage.** Les conditions de Cloudflare (*Self-Serve Subscription Agreement*, lues
+le 2026-11-22) interdisent d'utiliser le service « in a manner that violates or is intended to circumvent
+Service-specific usage limits, quotas » : ouvrir un second compte pour doubler les 10 000 neurons quotidiens en est un.
+Aucune entrée d'un second compte Cloudflare n'est donc prévue, alors que les autres fournisseurs savent en porter
+plusieurs (clé suffixée par une étiquette).
+
+**Où le quota compte.** Les 10 000 neurons par jour sont **un seul compteur pour tous les modèles Cloudflare du
+compte**, remis à zéro à 00:00 UTC ; les 300 requêtes par minute du texte sont l'autre limite. Ce que 10 000 neurons
+achètent se lit dans la table des tarifs, en prix par million de jetons rapporté en neurons (calcul : 10 000 divisé par
+le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la sortie, jamais les deux à la fois) :
+
+| Modèle routé | Jetons d'entrée par jour au plus | Jetons de sortie par jour au plus | Cascades |
+| --- | --- | --- | --- |
+| `gpt-oss-120b-cloudflare` | environ 314 000 | environ 147 000 | `flash`, derrière `gpt-oss-120b-groq` |
+| `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `flash-lite`, derrière `gpt-oss-20b-groq` |
+| `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `flash-lite`, derrière les deux autres sources |
+| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, dernier membre gratuit |
+| `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
+
+Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
+le quota d'une journée fait environ 36 requêtes de `glm-4-7-flash-cloudflare` et 6 de `gpt-oss-120b-cloudflare`, sorties
+non comptées. C'est pourquoi chaque modèle Cloudflare est placé **derrière** les autres sources du même modèle, ou en
+queue des membres gratuits pour les modèles qu'aucun autre fournisseur ne sert ici : la cascade n'y arrive que quand les
+autres ont échoué. Les raisonneurs (`gpt-oss`, `glm-4-7-flash`) dépensent en plus des jetons de sortie pour raisonner.
+Les modèles placés sont **déduits gratuits** (la page des tarifs nomme ceux qui exigent un moyen de paiement, et ils
+n'en font pas partie) et **à confirmer sur le compte** : le tableau de bord Cloudflare montre les neurons consommés.
+
+#### Z AI : une clé, des limites inconnues, et la fin des cascades `code` et `claude-code`
+
+Z AI (Zhipu) est un fournisseur natif de LiteLLM (préfixe `zai/`) : la clé
+(`Artificial_Intelligence_LiteLLM_Zai_API_key`) arrive aux entrées comme `os.environ/ZAI_API_KEY`, et aucune entrée
+n'écrit d'`api_base`. Le code de LiteLLM, lu le 2026-11-22, appelle de lui-même le point d'accès **général** de Z AI ;
+l'autre, celui du « coding plan », que la page « Introduction » de sa documentation réserve aux outils officiellement
+pris en charge, n'est donc jamais atteint par ce fichier. Laquelle des deux adresses sert les modèles gratuits n'est
+dite par aucune page lue, et la clé n'a pas été essayée contre elle : **à confirmer au premier appel**.
+
+Un seul modèle est routé : `glm-4-7-flash-zai` (`zai/glm-4.7-flash`), en queue des membres gratuits de `code` et de
+`claude-code`, devant les payants. La table de modèles de LiteLLM lui donne 200 000 jetons de contexte, les appels
+d'outils et le choix d'outil, et un prix nul ; la page « GLM-4.7 » de la documentation de Z AI donne le même contexte et
+liste les appels de fonction pour toute la famille, sans le dire par modèle. Il remplit donc les deux conditions de
+`claude-code` (appels d'outils, 128 000 jetons au moins) **d'après ces deux sources, sans essai réel**. Ni Artificial
+Analysis ni Epoch AI ne lui donnent de chiffre (lu le 2026-11-21) : rien ne le classe face aux membres qui le précèdent,
+et la fin des gratuits est la place d'un modèle non mesuré. C'est un modèle qui raisonne : Artificial Analysis mesure
+environ 25 secondes avant le premier jeton de réponse pour sa fiche « Reasoning », d'où cette place.
+
+Les deux autres modèles gratuits de la page des tarifs ne sont pas routés. **GLM-4.5-Flash** vient du même compte et de
+la même limite non publiée que GLM-4.7-Flash : une place derrière lui ne s'essaierait que quand le premier a échoué pour
+une raison qu'il partage, et aucun des deux classements ne le mesure. **GLM-4.6V-Flash** est un modèle de vision, absent
+de la table de LiteLLM, et aucune page lue ne donne son contexte ni ses outils.
+
+**Les limites ne sont pas connues.** Z AI ne les publie pas hors de la console du compte (la page de documentation qui les
+annonçait répond 404, celle des limites est une coquille d'application) : ni requêtes par minute, ni jetons, ni
+simultanéité. Une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**. Elles se lisent dans la
+console du compte, et ce dépôt n'en affirme aucune. Les conditions (« Terms of Use », mises à jour le 2026-04-14)
+interdisent de partager ou de divulguer ses clés, et n'ont rien donné sur une passerelle ou sur plusieurs comptes : la clé
+est celle du compte de la passerelle, et aucune autre n'est prévue. Le contenu des clients de l'API n'est pas utilisé pour
+améliorer les services sans accord (article IV.7), l'accord de traitement des données dit qu'il n'est pas stocké, et le
+traitement se fait en général à Singapour. Une carte ou un téléphone exigé à l'inscription, une date d'arrêt des modèles gratuits :
+aucune page lue n'en parle.
 
 ### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime, deux pour ce qui s'ajoute
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
-fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, les cinq clés de
+fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, toutes les clés de
 fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
 de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
@@ -803,51 +960,70 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
-**Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher sur
-l'indice d'intelligence, écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque
-exécution et jamais copié dans le fichier : dans le classement d'Artificial Analysis pour une entrée du modèle, dans
-l'indice de capacités d'Epoch AI pour un modèle que celui-ci nomme) ou aucun plancher, le gain d'indice qu'un niveau de
-raisonnement de plus doit apporter pour valoir qu'on y monte, la façon d'ordonner ses membres, les membres exemptés du
+**Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
+écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié
+dans le fichier), sur l'une de deux échelles, ou aucun plancher. Sur l'indice d'intelligence (plus il est grand,
+meilleur c'est), l'ancre nomme soit une entrée du modèle de configuration, lue dans le classement d'Artificial Analysis,
+soit un modèle de l'indice de capacités d'Epoch AI. Sur l'échelle de code (plus la position est petite, meilleur c'est),
+qui est celle de `code` et de `claude-code`, l'ancre nomme les versions de modèle des benchmarks d'Epoch AI qui
+représentent un modèle (`code_epoch`). Un plancher sur l'indice peut porter une `margin`, en points d'indice (0 si elle
+est omise) : un membre est conforme tant que son chiffre n'est pas plus de la marge sous le plancher, et le rapport dit
+la marge partout où il dit le plancher. Le fichier dit aussi le gain d'indice qu'un niveau de raisonnement de plus doit
+apporter pour valoir qu'on y monte (`min_points_per_second`), la façon d'ordonner les membres, les membres exemptés du
 plancher à dessein (le « dernier recours »), et, pour chaque entrée du modèle de configuration, l'enregistrement
 d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
 ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
 un modèle lent n'est donc jamais écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils
 pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` met le
 plus court en tête, les autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère
-de moins de la marge du routeur. L'unité de routage est « modèle + niveau » : on monte les niveaux d'un modèle depuis le
-plus bas, et on passe au suivant tant qu'il apporte au moins `min_gain_points` points d'indice (un routeur qui tient au
-temps en demande plus). `claude-code` dérive de `code` (même classement, sa cascade est celle de `code` sans les membres
-qui ne prennent pas d'outils), et `code` se classe sur la qualité de code, lue par l'exécution en ligne dans les données
-d'Epoch AI (`benchmark_data.zip`, <https://epoch.ai/benchmarks>, CC BY 4.0, citées dans l'issue avec le jour de la
-lecture), sans WebDev Arena : la qualité d'une interface web est du design, pas du code. Pour chacun de cinq benchmarks
-(DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench, ALE-Bench), les membres de la cascade sont classés (1 est le
-meilleur, les égalités partagent le rang moyen) si deux au moins y ont un score ; la qualité de code d'un membre est la
-médiane de ses rangs, sur deux benchmarks au moins, sinon il est inclassable par la qualité de code. Les membres classés
-viennent en premier, les inclassables les suivent dans l'ordre de l'indice d'intelligence, qui en tient lieu et que le
-rapport nomme, et le dernier recours et les membres sous le plancher restent en queue. Une lecture qui échoue est
-signalée « non lue » dans la section et l'indice d'intelligence ordonne alors toute la cascade ; l'exécution hors ligne
-ne lit rien. L'**indice de capacités** d'Epoch AI (ECI) est lu dans la même archive (le membre
-`epoch_capabilities_index/eci_scores.csv`, mêmes plafonds, même liste de noms permis, même citation) : il couvre presque
-tous les modèles qu'Artificial Analysis n'a pas notés, et le fichier dit comment le ramener à l'échelle de l'indice
-d'intelligence (des points de calibration reliés par une droite, prolongée au-delà de ses extrémités par la pente du
-dernier segment et jamais sous 0). Tout chiffre ainsi obtenu est une **estimation**, marquée « estimé » partout. Les
-planchers y sont ancrés : `pro` doit être au moins aussi bon que Gemini 3 Pro, `flash`, `code` et `claude-code` que
-Gemini 2.5 Flash, et `flash-lite` n'a aucun plancher (le plus court délai avant le premier jeton ordonne, tout membre
-qui répond est admis). Un membre pour lequel le classement n'a pas d'indice au niveau où il est appelé est placé sur
-l'estimation du modèle que nomme son entrée (`eci`) ; l'indice du classement l'emporte partout où il existe, et un
-routeur ordonné par le délai n'utilise aucune estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice
-est introuvable, ne juge personne, et l'issue le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans
-jamais être un échec. Tout le fichier est **provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne
-une section « Contrats par routeur » : par routeur, un tableau des membres (chiffres, niveau appelé, niveau retenu,
-verdict), l'ordre que le contrat donnerait comparé à l'ordre actuel, l'effet de chaque plancher proposé (un membre sous
-le plancher passe au dernier recours, il n'est pas retiré), puis les entrées sans correspondance, celles sans
-enregistrement, les correspondances dont l'enregistrement a disparu et celles appelées à un niveau que le classement ne
-couvre pas. C'est un rapport : il ne change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre
-(un membre sans indice reste où il est, signalé inclassable, tant qu'aucune estimation ne le couvre), ne change pas le
-statut du run et ne bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et
-seulement sur la forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison,
-une ligne ou un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée
-du modèle n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une
+de moins de la marge du routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
+d'un modèle depuis le plus bas, et on passe au suivant tant qu'il apporte au moins `min_points_per_second` points
+d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `claude-code` dérive de `code` (même
+classement, sa cascade est celle de `code` sans les membres qui ne prennent pas d'outils). `code` se classe sur la
+**position de code**, lue par l'exécution en ligne dans les données d'Epoch AI (`benchmark_data.zip`,
+<https://epoch.ai/benchmarks>, CC BY 4.0, citées dans l'issue avec le jour de la lecture), sans WebDev Arena : la
+qualité d'une interface web est du design, pas du code. Dans chacun de cinq benchmarks (DeepSWE, SWE-bench Verified,
+CursorBench, Terminal-Bench, ALE-Bench), la position d'un score est (1 + le nombre de modèles du fichier dont le score
+est strictement meilleur) / le nombre de modèles du fichier, en pourcentage : plus elle est petite, meilleur est le
+modèle, et les variantes d'effort d'un modèle comptent chacune pour un modèle. La position d'un membre dans un benchmark
+est celle du meilleur score parmi les versions que son entrée y liste, et sa position de code est la médiane de ses
+positions, sur deux benchmarks au moins, sinon il n'en a pas ; elle ne dépend d'aucune cascade. Un membre qui n'a pas de
+position de code mais a un indice d'intelligence (celui du classement, ou l'estimation tirée de l'indice de capacités)
+reçoit une position **estimée**, par la conversion que déclare le fichier (`code_fallback` : des points indice-position
+reliés par des segments, bornés aux deux bouts sans extrapolation), marquée « estimé » partout, jugée contre le plancher
+comme les autres et sans délai propre ; un membre qui n'a ni l'un ni l'autre reste où il est, signalé inclassable. Les
+membres qui ont une position viennent en premier, la plus petite en tête, le délai départageant deux membres dont les
+positions diffèrent de moins de `tie_margin_points` (un membre estimé n'a pas de délai et passe après), et le dernier
+recours et les membres sous le plancher restent en queue. Une lecture qui échoue est signalée « non lue » dans la
+section : le plancher de `code` est alors introuvable et ne juge personne, et l'indice d'intelligence ordonne toute la
+cascade ; l'exécution hors ligne ne lit rien. L'**indice de capacités** d'Epoch AI (ECI) est lu dans la même archive (le
+membre `epoch_capabilities_index/eci_scores.csv`, mêmes plafonds, même liste de noms permis, même citation) : il couvre
+presque tous les modèles qu'Artificial Analysis n'a pas notés, et le fichier dit comment le ramener à l'échelle de
+l'indice d'intelligence (des points de calibration reliés par une droite, prolongée au-delà de ses extrémités par la
+pente du dernier segment et jamais sous 0). Tout chiffre ainsi obtenu est une **estimation**, marquée « estimé »
+partout. Les planchers de `pro` et de `flash` y sont ancrés : `pro` doit être au moins aussi bon que Gemini 3 Pro et
+`flash` que Gemini 2.5 Flash, avec une marge de 2 points, parce que l'indice ne donne qu'un chiffre par modèle, avec un
+intervalle d'environ deux points, si bien qu'un modèle à moins de cette marge du plancher ne s'en distingue pas. `code`
+et `claude-code` ont pour plancher la position de code de Gemini 2.5 Flash, sans marge, et `flash-lite` n'a aucun
+plancher (le plus court délai avant le premier jeton ordonne, tout membre qui répond est admis). Un membre pour lequel
+le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
+(`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur ordonné par le délai n'utilise aucune
+estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et l'issue
+le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Le mainteneur a
+**validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent
+déclarés sans rien imposer. L'issue hebdomadaire gagne une section « Contrats par routeur » : par routeur, un tableau
+des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait comparé à l'ordre
+actuel, pour `code` et `claude-code` la position de chaque membre dans chaque benchmark et sa position de code (« 18 %
+», ou « 56 % (estimé) »), l'effet de chaque plancher proposé (un membre sous le plancher passe au dernier recours, il
+n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les correspondances dont
+l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas. C'est un rapport : il ne
+change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre (un membre sans indice ni position
+reste où il est, signalé inclassable, tant qu'aucune estimation ne le couvre), ne change pas le statut du run et ne
+bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement sur la
+forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison, une ancre mal
+formée ou un plancher sur deux échelles, une conversion de l'indice en position qui ne va pas dans le bon sens, une
+ligne ou un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée du
+modèle n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une
 entrée met presque toujours une ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0,
 et l'issue liste ces « correspondances sans entrée », qu'une personne retire du fichier.
 
@@ -879,7 +1055,11 @@ créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_
 `MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
 chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
 contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
-dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Un
+dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Cloudflare Workers AI,
+Z AI et NVIDIA n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées (préfixes
+`cloudflare/`, `zai/` et `nvidia_nim/`) sont listées dans l'issue comme « d'aucun catalogue lu ici », avec celles d'OmniRoute, sans
+jamais être déclarées retirées ni inconnues -- un modèle que l'un d'eux retire n'est donc vu que par la personne qui
+relit la page ou le catalogue de ses modèles, ou par l'erreur d'un appel. Un
 cinquième secret, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est celui d'aucun fournisseur : c'est la
 clé gratuite d'Artificial Analysis (1 000 requêtes par jour, une par run), qui alimente le classement
 ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
@@ -905,7 +1085,7 @@ plus protégée qu'une autre branche.
 
 Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examiné de zéro : chaque ligne dit ce que l'offre gratuite est, ses limites, le verdict et la page officielle lue, relue le 2026-11-21 sauf mention contraire. Les commentaires du `model_list` de `LiteLLM_config.yaml.j2` restent la source de ce qui est **déjà routé** et de la raison de chaque modèle commenté ; ce registre les résume, il ne les remplace pas, et ne porte aucun chiffre que le template ne donne pas.
 
-**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
+**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Une carte bancaire exigée n'écarte pas un fournisseur tant que la dépense peut être plafonnée à 0 $ ou que le compte est prépayé et vide : elle se note, elle ne tranche pas. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
 
 **Groupe 1 -- utilisés aujourd'hui** (état du template, vérifications datées dans ses commentaires).
 
@@ -913,43 +1093,46 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | --- | --- | --- | --- |
 | Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
 | Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, pour tout le compte, remis à zéro à 00:00 UTC ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. La page des tarifs nomme les modèles qui exigent un moyen de paiement (Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling) : aucun n'est routé. Les cinq routés (gpt-oss-120b, gpt-oss-20b, gemma-4-26b, llama-3.3-70b, glm-4.7-flash) n'y figurent pas et seraient donc gratuits : **déduction, à confirmer sur le compte**. Écartés : nemotron-3-120b (sa page dit « Deprecated 11/20/2026 »), qwen3.8-27b (absent de la table de modèles de LiteLLM le 2026-11-22, et non réglable : sur une question difficile, `reasoning_effort` bas ou très haut et `enable_thinking` désactivé donnent tous 1 770 à 2 616 jetons et 81 à 109 s, avec un champ de raisonnement à chaque fois) | Routé (page relue le 2026-11-22) : deuxième source derrière Groq pour gpt-oss, troisième pour gemma-4-26b, en queue des membres gratuits pour llama-3.3-70b (`flash-lite`) et glm-4.7-flash (`code`, `claude-code`). Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas. **Non lu par le contrôle de dérive hebdomadaire** (aucun secret `MODEL_DRIFT_*` pour lui, aucun catalogue lu) : ses entrées n'y sont ni retirées ni inconnues, elles sont listées comme « d'aucun catalogue lu ici », et rien ne vérifie qu'un modèle Cloudflare existe encore |
+| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits d'après la page « Pricing » (lue le 2026-11-22) ; fournisseur natif de LiteLLM (préfixe `zai/`) | Non publiées hors de la console du compte : **inconnues ici** (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**). Seul GLM-4.7-Flash est routé ; GLM-4.5-Flash (même compte, même limite, aucun classement) et GLM-4.6V-Flash (vision, absent de la table de LiteLLM) sont écartés | Routé (pages relues le 2026-11-22) : fin des cascades `code` et `claude-code`, devant les payants, modèle non mesuré. Les conditions interdisent de partager les clés, et n'ont rien donné sur les passerelles ni sur les comptes multiples ; contenu des clients de l'API non utilisé pour améliorer les services sans accord, non stocké d'après l'accord de traitement, traitement généralement à Singapour. Carte ou téléphone à l'inscription, date d'arrêt des modèles gratuits : aucune page lue n'en parle. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
+| NVIDIA API Catalog (build) | Inférence « gratuite » d'essai sur les modèles du catalogue, annoncée pour le service et non modèle par modèle ; fournisseur natif de LiteLLM (préfixe `nvidia_nim/`) | 40 requêtes par minute, affichées sur la page du compte (lue le 2026-11-22) ; aucun crédit, plafond quotidien ni date de fin sur une page lue : **inconnus ici** | Routé (pages lues le 2026-11-22), un compte à créer. Conditions d'un service d'essai : « limited trial purposes only and without use ... in production », contenu collecté pour améliorer les produits NVIDIA, modèles d'IA compris, données personnelles interdites. Le mainteneur choisit de s'en servir malgré tout et accepte le risque d'une clé coupée. Clé après vérification par SMS, d'après les forums seulement. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
 | Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
+| Kilo Gateway | Modèles gratuits sans clé ni compte : le catalogue du service, lisible sans authentification, marque chacun comme gratuit ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 200 requêtes par heure et par IP, pour tous ces modèles ensemble ; les modèles gratuits changent, et le catalogue marque chacun comme pouvant être entraîné sur les prompts | Routé sans clé, derrière son jumeau OpenRouter quand il en a un. Aucun compte n'est utilisé, donc la clause « un compte par entité » ne joue pas ; prompts journalisés et utilisés pour l'entraînement, accepté ; conditions lues, non validées |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
-| SambaNova | Le plan gratuit de la console demande d'ajouter un moyen de paiement et d'acheter des crédits ; la documentation décrit un palier de 20 requêtes par jour et par modèle, en conflit avec la console | Deux sources en conflit, la console fait foi | Examiné, non routé (la console fait foi) |
+| SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Retenu pour gpt-oss-120b seul, en source supplémentaire derrière Groq et Cloudflare ; les trois autres modèles essayés exigent des crédits et restent écartés |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
+| Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
 Pages officielles lues :
 
 - Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
 - Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
+- Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
+- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
+- NVIDIA API Catalog : page d'accueil du catalogue, fiches de ses modèles et [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
 - Mistral : [Pricing](https://mistral.ai/pricing)
 - OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
+- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Authentication](https://kilo.ai/docs/gateway/authentication), [Terms](https://kilo.ai/terms)
 - Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
 - SambaNova : [Plans](https://cloud.sambanova.ai/plans)
 - DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
+- Requesty : pages « Free models », « Billing », « Quickstart » et « Data privacy » de sa documentation, relues le 2026-11-22
 
 **Groupe 2 -- à ajouter, par ordre de préférence.**
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. Listés payants : Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling ; les autres (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b, nemotron-3-120b, llama-3.3-70b, gemma-4-26b, glm-4.7-flash) seraient donc gratuits : **déduction, à confirmer sur le compte** | À ajouter en premier. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas |
-| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits ; fournisseur `zai/` de LiteLLM | Non publiées hors de la console (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**) | Fin des cascades `code` et `claude-code` seulement, après ouverture d'un compte pour lire la vraie limite. Contenu non stocké, traitement à Singapour, la France n'est pas exclue ; les conditions interdisent de partager les clés et de revendre. Carte ou téléphone exigés : inconnu |
-
-Pages officielles lues :
-
-- Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
-- Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
+| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle ; 33 modèles listés sans clé le 2026-11-22, dont Qwen3.5 397B, DeepSeek V4.1 Flash, gpt-oss-120b, Llama 3.3 70B, Mistral Small 3.2, Whisper large v3 turbo et BGE-M3 ; fournisseur `ovhcloud/` de LiteLLM | 2 par minute et par modèle ; avec une clé, 400 par minute, mais un moyen de paiement sur un projet Public Cloud est exigé et aucun plafond de dépense n'existe | À ajouter en queue des cascades, après vérification qu'un appel sans clé répond (un essai depuis la session a reçu 429, adresse partagée : non concluant). Hébergé dans l'UE, « Your data is never used to train our models », rétention zéro |
+| Aion Labs | Palier gratuit à l'inscription, sans carte : 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour, « a courtesy that we may change or withdraw at any time » (conditions du 2026-10-17) | Modèles Aion, variantes de DeepSeek V3.2 et de la famille GLM d'après sa page ; 20 000 jetons par jour font quelques requêtes ; point d'accès compatible OpenAI, aucun fournisseur LiteLLM nommé | À ajouter en dernier : un seul compte, partage de clé interdit, passerelle autorisée. Ne s'entraîne pas sur le contenu et ne le stocke pas ; société polonaise |
 
 **Groupe 3 -- écartés, avec la raison.**
 
 | Fournisseur | Ce qui est offert | Raison de l'écart |
 | --- | --- | --- |
-| Kilo Gateway | Gratuit sans compte, 200 requêtes par heure et par IP | Conditions mises à jour le 2026-11-02 : un compte par entité et licence perpétuelle sur les données client pour améliorer le service ; les modèles gratuits journalisent les prompts |
-| NVIDIA build | Clé d'API d'essai | Conditions d'essai : « limited trial purposes only and without use ... in production » ; contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris ; clé après vérification par SMS, d'après les forums seulement |
+
 | Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
-| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle | Trop étroit ; avec une clé, une carte est exigée |
 | GitHub Models | Fermé le 2026-07-30 | Plus de service |
 | Hugging Face Inference Providers | Aucun crédit mensuel pour les comptes gratuits | Pas d'offre gratuite |
 | Chutes | Aucune : « We do not offer a free tier at this time » | Pas d'offre gratuite |
@@ -963,11 +1146,11 @@ Pages officielles lues :
 | AI21 | Crédit de 10 $ pour un compte neuf, sans carte : 7 jours d'après la page des tarifs, trois mois d'après la documentation (pages lues le 2026-11-22) | Jamba Large et Jamba Mini : 200 requêtes par minute | Crédit unique ; pas de point d'accès compatible OpenAI ni de fournisseur LiteLLM nommé ; la revente est interdite. Ne s'entraîne pas sur les entrées et sorties |
 | Nebius Token Factory | Aucune ; des codes promotionnels ponctuels et, pour des startups financées, jusqu'à 50 000 $ de crédits (pages lues le 2026-11-22) | Limites dynamiques, valeurs par défaut non publiées | Pas de palier gratuit, et une carte bancaire est exigée pour finir l'inscription. Ne s'entraîne pas sur le contenu, mais garde les entrées et sorties sauf si la rétention zéro est activée |
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
+| Fireworks | Un crédit de 1 $ une seule fois ; sans moyen de paiement, 10 requêtes par minute puis « Your account will be suspended until you add a payment method » ; aucun modèle serverless gratuit listé (pages relues le 2026-11-22) | Ne journalise pas les prompts des modèles ouverts sans accord explicite | Crédit unique, carte exigée pour continuer ; fournisseur `fireworks_ai/` de LiteLLM |
+| Together AI | « doesn't currently offer free trials » : au moins 15 $ de crédits à acheter avant de créer une clé ; un seul modèle gratuit affiché, un « Ternary Bonsai 27B » dont le contexte et les outils ne sont pas lus (pages relues le 2026-11-22) | Garde par défaut les prompts et les réponses et peut s'en servir pour améliorer ses produits ; la rétention zéro se règle dans les paramètres de l'organisation | Pas de palier gratuit, achat préalable ; fournisseur `together_ai/` de LiteLLM |
 
 Pages officielles lues :
 
-- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Terms](https://kilo.ai/terms)
-- NVIDIA build : [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
 - Cohere : [Rate limits](https://docs.cohere.com/docs/rate-limits)
 - Cohere : [Terms of use](https://www.cohere.com/terms-of-use)
 - OVHcloud AI Endpoints : [Getting started](https://docs.ovhcloud.com/en/guides/public-cloud/ai-machine-learning/ai-endpoints-getting-started)
@@ -983,19 +1166,47 @@ Pages officielles lues :
 - Novita AI : pages « Rate limits » et « FAQ » de sa documentation
 - AI21 : page « Pricing », page « Usage and cost » de sa documentation et ses conditions d'utilisation
 - Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
+- Aion Labs : pages « Pricing », « Rate limits », « Terms » et « Privacy »
+- Fireworks : pages « Pricing », « Account quotas », « What happens when I finish my $1 credit » et « Data handling » de sa documentation
+- Together AI : pages « Pricing », « Billing and credits » et « Privacy and security » de sa documentation
 
 **Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
 
 | Fournisseur | Ce qui a été vu | Ce qui manque |
 | --- | --- | --- |
-| Together AI | Un « Ternary Bonsai 27B » gratuit affiché sur la page des tarifs | Rien ne confirme qu'il s'appelle sans paiement |
-| Fireworks | 10 requêtes par minute sans moyen de paiement ni crédit | Accès serverless sans paiement non confirmé |
-| LLM7, Pollinations, ModelScope, Aion Labs, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| LLM7, Pollinations, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| ModelScope (Alibaba) | Les pages officielles se rendent vides ; une sonde tierce de septembre 2026 dit que le quota de 2 000 appels par jour a été remplacé par un solde « Magicube » (200 par jour à la connexion, 50 de plus avec un compte Alibaba Cloud lié, expirant en 24 heures, 0,5 à 2 par appel) et que l'API exige un compte Alibaba Cloud avec vérification d'identité (lu le 2026-11-22, sources tierces) | Les conditions, le lieu de traitement des données (probablement la Chine) et l'inscription depuis l'étranger |
 
 Pages officielles lues :
 
 - Together AI : [Pricing](https://www.together.ai/pricing)
 - Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
+
+### Kilo Gateway : des modèles gratuits sans clé, une limite par adresse IP
+
+`LiteLLM_config.yaml.j2` route aussi des modèles gratuits de Kilo Gateway, **sans clé et sans compte**. Comme celles d'OmniRoute, ses entrées sont toujours rendues, portent un `api_key` littéral et n'appartiennent à personne : `check_LiteLLM_account_isolation.py` les exempte pour la même raison. Aucune variable n'est ajoutée au rôle. Les pages citées ci-dessous sont celles du registre plus haut, lues le 2026-11-22.
+
+- **Une limite par adresse IP, pour toute la machine.** La page « Authentication » de la documentation du service réserve l'accès anonyme aux modèles gratuits et le limite à 200 requêtes par heure et par adresse IP. C'est un seul compteur, partagé par toutes les entrées Kilo de toutes les cascades : un second quota à côté des 50 requêtes par jour d'OpenRouter, tant que le compteur et chaque modèle gratuit durent. La page « Models and providers » dit que la disponibilité des modèles gratuits change.
+- **Les prompts sont journalisés et peuvent servir à l'entraînement.** Le catalogue marque chaque modèle gratuit comme pouvant être entraîné sur les prompts, la page « Models and providers » le dit de « Auto Free », et elle dit des points d'accès gratuits de NVIDIA : « Trial use only - do not submit personal or confidential data ». C'est accepté ici comme pour les autres modèles gratuits, et aucune voie n'est réservée aux données sensibles.
+- **Les conditions sont lues, pas validées.** La page « Terms », mise à jour le 2026-11-02, limite un compte à une entité (aucun n'est utilisé) et interdit les outils d'aspiration automatique et le contournement des contrôles d'accès, ce qu'une passerelle qui appelle l'API documentée est tenue de ne pas être. Sa clause sur la licence des données n'a été lue que dans un résumé : **non vérifiée**.
+- **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
+- **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
+- **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue de Kilo : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût.
+
+### Requesty, une seconde source des modèles `:free` d'OpenRouter
+
+Requesty est une passerelle : elle relaie chaque requête vers le fournisseur du modèle. LiteLLM n'a pas de fournisseur de ce nom, donc chaque entrée est écrite `openai/<fournisseur>/<modèle>` avec un `api_base`, comme celles d'OmniRoute : LiteLLM ne retire que le préfixe `openai/`, et le reste, barre oblique comprise, part chez Requesty comme identifiant de modèle, que sa documentation demande sous la forme `fournisseur/modèle`. Cette lecture a été vérifiée dans le code de LiteLLM, appels de fonctions (`tools`) compris ; si chaque modèle les accepte chez Requesty, aucune page lue ne le dit.
+
+Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRouter, chacune juste derrière son jumeau OpenRouter dans les cascades où il a une place : Nemotron 3 Ultra et Nemotron 3 Nano Omni (raisonnement) dans `pro`, Gemma 4 31B dans `flash`, Nemotron 3.5 Lightning dans `flash-lite`. Que ce soient les mêmes poids des deux côtés ne repose que sur les noms. Les autres modèles gratuits de la page « Free models » ne sont pas routés : aucun n'est un modèle que le `model_list` sert déjà. Aucune entrée n'entre dans `code` ni `claude-code`, et la présence d'une clé Requesty seule ne fait donc pas exister `claude-code`.
+
+| Point | Ce que les pages lues disent (relues le 2026-11-22) |
+| --- | --- |
+| Limites | Par organisation : 200 requêtes par jour et 20 par minute pour une organisation neuve, 1 000 et 60 pour une organisation qui paie, « across all free models combined », remis à zéro chaque jour. Un quota à part de celui d'OpenRouter |
+| Durée | Gratuit « for now » : un changement sera annoncé dans le journal des modifications avant d'entrer en vigueur. Un modèle payant répond 402 quand le solde est nul |
+| Quota commun | Toutes les entrées puisent dans le même quota : une place Requesty n'est une seconde source que tant qu'il dure |
+| Point d'accès | Le point d'accès européen est écrit en dur dans les entrées (Francfort, d'après la page « Data privacy »). Que tous les modèles gratuits y soient servis n'est **pas vérifié** ; la base américaine est un changement d'une ligne par entrée |
+| Données | Les requêtes et réponses ne sont pas stockées sauf si la journalisation est activée, et Requesty n'entraîne pas de modèle dessus ; ce que le fournisseur en amont conserve dépend de lui |
+| Compte | Un seul. Les conditions d'utilisation n'ont **pas** été lues par la session qui a écrit ceci (la page n'a rendu aucun texte) : rien n'est établi sur plusieurs comptes, le contournement des limites, les passerelles ou la revente |
 
 ### La transcription de la parole : le routeur `stt`
 
@@ -1221,10 +1432,11 @@ réel, donc ce que Claude Code affiche quand une requête est refusée reste non
 routeur, on le nomme : `/model flash` en session, ou `claude --model flash` au lancement. Claude Code envoie alors ce
 nom tel quel (mesuré avec `--model` sur la version 2.1.316 ; la saisie `/model` n'a pas été mesurée), et la passerelle
 l'accepte parce que la clé de l'agent l'autorise : `pro`, `flash`, `flash-lite` et `code` par défaut
-(`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, tous adossés aux modèles
-du compte par défaut -- l'agent n'atteint donc aucun quota qu'il n'atteignait pas déjà par `claude-code`. Un nom hors de
+(`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, adossés aux modèles
+du compte par défaut et à ceux, sans compte, d'OmniRoute et de Kilo Gateway -- l'agent n'atteint donc le quota d'aucun
+autre compte, mais celui, anonyme et par adresse IP, de Kilo, que `claude-code` ne sert pas. Un nom hors de
 la liste, celui d'un modèle d'un autre compte compris, reste refusé. Les paliers du CLI (`opus`, `sonnet`, `haiku`) ne
-choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur sans clé fournisseur n'existe pas dans la
+choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur dont aucun membre n'a de clé ni n'en demande n'existe pas dans la
 passerelle, et le demander est refusé par elle, pas par le rôle ; LiteLLM 1.100.0 n'examine pas les noms de `models`
 d'une clé sans équipe ni projet à sa création (lu dans son code), si bien qu'un routeur absent peut figurer dans la
 liste sans erreur. **Un agent déjà déployé ne reçoit pas la nouvelle liste** : supprimez sa clé depuis `/ui` avant de
@@ -1343,7 +1555,7 @@ chaque bloc de service aux conventions que le modèle commenté du template docu
 limite mémoire quand l'appelant en pose une (aucune par défaut), `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
 récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
-Il rend aussi `LiteLLM_config.yaml.j2` pour chacun des 31 ensembles non vides de clés fournisseurs (#296), et tient
+Il rend aussi `LiteLLM_config.yaml.j2` pour chaque ensemble non vide de clés fournisseurs (#296), et tient
 chaque rendu aux règles de « Les clés fournisseurs » plus haut.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les

@@ -124,6 +124,11 @@ copies drift.
   never on the default one, although it reads as merged. Two changes that depend on each other go in
   one pull request, and a merge is reported only once its content has been read on the default
   branch, never from the pull request's status alone.
+* **A pull request is amended, never closed to open another.** A correction, a rebuild on a newer default
+  branch or a rewritten description is made on the same pull request, by a new commit or, on a branch the
+  session itself owns, by a rebase and a force-push with `--force-with-lease`, which the maintainer allows
+  for exactly this: a second pull request for the same subject splits the discussion across two links and
+  leaves one of them to close. A branch somebody else owns is never rewritten.
 * **Nothing is postponed on the session's own initiative.** What comes next is done now, in the
   session that has the context for it, since a session that ends takes its context with it: "later",
   "tomorrow" and "in a separate pull request" are the maintainer's to choose, and a session may
@@ -365,23 +370,33 @@ announced retirement and a model free again stay a person's, from the issue.
 What the workflow needs and what it refuses to delete are in its header and in the docstring of the
 script.
 
-The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router an intelligence floor, the
-gain in index points an extra reasoning level must buy, how its members are ordered and the members exempt from
-the floor on purpose, plus the explicit mapping from each entry to the Artificial Analysis record, and the
-reasoning level, that describes it. **No router has a time budget**: a slow free model is never ineligible, time
-only orders. They are **provisional** until the maintainer validates them, and they are **reported, not
+The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
+intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
+extra reasoning level must buy, how its members are ordered and the members exempt from the floor on
+purpose, plus the explicit mapping from each entry to the Artificial Analysis record, and the reasoning
+level, that describes it. **No router has a time budget**: a slow free model is never ineligible, time only
+orders. Their `status` says whether the maintainer has validated them, and they are **reported, not
 enforced**: the weekly issue says how the cascades stand against them, a member under a floor goes to the
-router's last resort tier rather than out of it, a member with no index stays where it is, flagged, and nothing
-in them changes a cascade, an entry or a `head` row. Only the shape of the file fails the plain run. A row for an
-entry the template no longer has does not fail it, since the weekly deletion pull request must stay green to
-merge itself: the plain run prints a notice, the issue lists it as a stale row, and an entry added or renamed gets
-its row in the same change.
+router's last resort tier rather than out of it, a member with no index stays where it is, flagged, and
+nothing in them changes a cascade, an entry or a `head` row. Only the shape of the file fails the plain run.
+A row for an entry the template no longer has does not fail it, since the weekly deletion pull request must
+stay green to merge itself: the plain run prints a notice, the issue lists it as a stale row, and an entry
+added or renamed gets its row in the same change.
 
 A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
 and "two places only" are made false by a deletion that nobody is shown, where a comment that names a
 deleted model is listed in that pull request for a person to read. A claim about the list as it stands
 keeps the date it was checked and is true of that day for good; a claim that is a count is true of no
 day after the next deletion.
+
+**Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
+serves every application of the homelab, not only the Claude Code agent, and a second quota or a
+different model is worth having on its own: a provider is never dropped for being "no better" than the
+ones in place. What is set aside is a trial limited in time (thirty days, say) or a one-time quota,
+unless it is huge. A card the provider asks for does not rule it out, as long as the spend can be capped at zero or
+the account is prepaid and empty. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
+sensitive data is refused: nearly everything the gateway handles carries a name or two. The README's
+registry says which provider was read, what it offers and why it is in or out.
 
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that

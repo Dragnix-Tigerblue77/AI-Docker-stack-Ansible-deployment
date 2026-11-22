@@ -279,7 +279,7 @@ Artificial_Intelligence_Redis_memory_limit: false
 # --------------------------------------------------------------------------------------------------
 
 # The provider keys of the gateway's one account, of which AT LEAST ONE must be given (#296): the role
-# fails, naming all five, when every one is empty. Each is empty by default, and a provider whose key is
+# fails, naming all of them, when every one is empty. Each is empty by default, and a provider whose key is
 # empty has no entry in the rendered "LiteLLM_config.yaml.j2" at all -- no model listed that cannot
 # answer, no cascade slot that pays a failed call before the next one. Each key is exposed to the
 # "litellm" container as "<PROVIDER>_API_KEY", not a style choice: "check_LiteLLM_account_isolation.py"
@@ -299,6 +299,40 @@ Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
 Artificial_Intelligence_LiteLLM_DeepSeek_API_key: ""
+# Cloudflare Workers AI is free up to a daily allowance of 10,000 "neurons", the unit it meters every model
+# in, shared by all the Cloudflare models of the account together. The API token goes in this variable and
+# the account's identifier in the next one, which LiteLLM reads from the environment as
+# "CLOUDFLARE_ACCOUNT_ID" to build the address of the endpoint: "tasks/main.yml" refuses one given without
+# the other. ONE account only: its Self-Serve Subscription Agreement ("www.cloudflare.com/terms/", read
+# 2026-11-22) forbids using the service "in a manner that violates or is intended to circumvent
+# Service-specific usage limits, quotas", and a second account opened to double the allowance is that, so
+# a second Cloudflare account never gets keys of its own here.
+Artificial_Intelligence_LiteLLM_Cloudflare_API_key: ""
+Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: ""
+# Z AI (Zhipu) serves its GLM-4.7-Flash free of charge on its general API endpoint, which is the one LiteLLM's
+# "zai/" provider calls on its own: the coding-plan endpoint, which Z AI limits to its officially supported
+# tools, is never used. Its limits are published nowhere but the account's console, so the role states none.
+# The terms ("Terms of Use" of docs.z.ai, read 2026-11-22) say not to share or publicly disclose a key, and
+# say nothing found about a gateway or about several accounts: one key, the gateway's own, and none for
+# another person.
+Artificial_Intelligence_LiteLLM_Zai_API_key: ""
+# Requesty is a gateway that relays each request to the model's own provider, and serves a few models free
+# of charge for now: "Free models" page of its docs, read 2026-11-22, which limits them to 200 requests a day
+# and 20 a minute per organization, all free models together, and says a change of that will be announced
+# ahead of time. The role uses it only as a second source of models already routed through OpenRouter, and
+# through its European endpoint. ONE account: the session that wrote this did not read its terms, so nothing
+# is established about several accounts, circumventing a limit, or reselling.
+Artificial_Intelligence_LiteLLM_Requesty_API_key: ""
+# NVIDIA's hosted API, the "NVIDIA API Catalog", which its home page (read 2026-11-22) offers as "Free
+# inference with leading models", reached through LiteLLM's "nvidia_nim/" provider, which calls NVIDIA's own
+# endpoint on its own: no entry writes an "api_base". It is a TRIAL service. Its "NVIDIA API Trial Terms of
+# Service" (read 2026-11-22) allow it "for limited trial purposes only and without use of the API Service or
+# Generated Content in production", let NVIDIA collect "User Content and Generated Content to improve NVIDIA
+# products and services, including AI models", forbid confidential or sensitive data and personal data, and
+# end the right to use it automatically if the terms are not complied with: whoever gives this key takes
+# those on. No page read states a limit, so the role states none. The container reads the key as
+# "NVIDIA_NIM_API_KEY", the name LiteLLM looks for.
+Artificial_Intelligence_LiteLLM_NVIDIA_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret
@@ -409,10 +443,11 @@ Artificial_Intelligence_Claude_code_model: "claude-code"
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
 # above, which stays what the container asks for when nobody chooses. They go into the key's allow-list
 # and nowhere else: the container's own model variables are untouched. These are the other four routers
-# of "LiteLLM_config.yaml.j2", all backed by the default account's models, so the agent reaches no
-# quota it does not already reach through the alias. A router with no provider key is absent from the
-# gateway and a name that nothing serves is refused there, not here; "check_compose_template.py" keeps
-# this list level with the template's routers. The role creates the key and does not reconcile an
+# of "LiteLLM_config.yaml.j2", backed by the default account's models and by the keyless ones of OmniRoute
+# and Kilo Gateway, so the agent reaches no other account's quota, but Kilo's anonymous one, which the alias
+# does not serve. A router none of whose members has a key or needs none is absent from the gateway and a
+# name that nothing serves is refused there, not here; "check_compose_template.py" keeps this list level
+# with the template's routers. The role creates the key and does not reconcile an
 # existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
 Artificial_Intelligence_Claude_code_additional_models:
   - "pro"
