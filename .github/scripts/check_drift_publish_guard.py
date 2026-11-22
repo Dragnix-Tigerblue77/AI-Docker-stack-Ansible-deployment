@@ -502,7 +502,8 @@ READY_ITEMS = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
 TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
              item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
              item("cerebras", "zai-glm-9", "zai-glm-9-cerebras"),
-             item("sambanova", "DeepSeek-V9", "deepseek-v9-sambanova")]
+             item("sambanova", "DeepSeek-V9", "deepseek-v9-sambanova"),
+             item("cloudflare", "@cf/vendor/model-9", "model-9-cloudflare")]
 
 
 
@@ -530,7 +531,8 @@ def builder_scenarios(real, drift):
     hostile_ids = ("vendor/a b:free", "vendor/x:free\n  - model_name: evil", "{{ 7 * 7 }}:free",
                    "vendor/a::b:free", "vendor//a:free", "vendor/a:free:", "vendor/\"a:free",
                    "vendor/#a:free", "-vendor/a:free", "vendor/a:free'", "x" * 200 + ":free",
-                   "vendor/a:free\r", "vendor/a:free`")
+                   "vendor/a:free\r", "vendor/a:free`", "@evil/a:free", "x@cf/a:free", "@cf/@cf/a:free",
+                   "vendor/@cf/a:free", "@cf/", "@@cf/a:free")
     for identifier in hostile_ids:
         add("an id spelt otherwise is refused: %r" % identifier[:40],
             [item("openrouter", identifier, "a-free")], "an id is not spelt like one")
@@ -557,6 +559,13 @@ def builder_scenarios(real, drift):
     add("an id that is no text is refused", [{"provider": "openrouter", "id": 7, "name": "a-free"}], "an id is not")
     add("a ready model of a provider whose API does not state its free tier is refused",
         [item("gemini", "gemini-9", "gemini-9")], "free tier, and only")
+    add("a ready Cloudflare model is refused too: its free tier is prose on a pricing page",
+        [item("cloudflare", "@cf/vendor/model-9", "model-9-cloudflare")], "free tier, and only")
+    for identifier in ("@evil/model-9", "@cf/", "@cf/@cf/model-9", "vendor/@cf/model-9", "@cf/model-9@x"):
+        add("a Cloudflare id spelt otherwise is refused: %r" % identifier,
+            [item("cloudflare", identifier, "model-9-cloudflare")], "an id is not spelt like one", kind="to_verify")
+    add("a Cloudflare id that is already an entry is refused",
+        [item("cloudflare", "@cf/openai/gpt-oss-120b", "fresh-cloudflare")], "is already an entry", kind="to_verify")
     add("an OpenRouter model to verify, a fact of it missing, is built alike",
         [item("openrouter", "vendor/a:free", "a-free"), item("gemini", "gemini-9", "gemini-9")], kind="to_verify")
     add('an OpenRouter id without ":free" is refused when ready', [item("openrouter", "vendor/a", "a-free")],
@@ -1291,6 +1300,11 @@ def issue_scenarios():
     legacy_open = issue(3, LEGACY_TITLE)
     scenario("the last attempt that still cannot read opens the issue, naming the providers, their class and the times",
              opened, unreadable="groq:4xx mistral:network")
+    scenario("Cloudflare is a provider the issue names, with its class", lambda result: first(
+        (not result["failures"], "it failed: %s" % result["failures"][:1]),
+        ("| Cloudflare | HTTP 4xx :" in (calls(result, "issues.create") or [{"body": ""}])[0]["body"], "it is not named")),
+             unreadable="cloudflare:4xx")
+    scenario("a catalogue of a provider the table does not name is refused", refused, unreadable="cloudflare2:4xx")
     scenario("an earlier attempt that cannot read opens nothing, and says the next one reads again",
              warned("two hours"), unreadable="groq:4xx", last="false")
     scenario("a run started by hand that cannot read opens nothing, and says so", warned("by hand"),

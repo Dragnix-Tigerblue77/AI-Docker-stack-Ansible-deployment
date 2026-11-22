@@ -99,6 +99,7 @@ ALLOWED_HOSTS = {
     "api.cerebras.ai": "Cerebras' keyless public model catalogue, read by check_LiteLLM_model_drift.py",
     "api.groq.com": "Groq's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
     "api.mistral.ai": "Mistral's model catalogue, read by check_LiteLLM_model_drift.py when its key is set",
+    "api.cloudflare.com": "Cloudflare's API, whose model catalogue of Workers AI check_LiteLLM_model_drift.py reads when its token and account identifier are set",
     "tbench.ai": "an independent coding-agent leaderboard, cited in a comment",
     "artificialanalysis.ai": "Artificial Analysis's free ranking API, read by check_LiteLLM_model_drift.py when its key is set, and the source its terms ask the report to cite",
     "epoch.ai": "Epoch AI's benchmark data, the source of code quality in the router contracts, read by check_LiteLLM_model_drift.py (CC BY 4.0, to be cited)",

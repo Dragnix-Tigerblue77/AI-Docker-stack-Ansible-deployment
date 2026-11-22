@@ -1101,19 +1101,31 @@ fusion automatique lit) et le secret `MODEL_DRIFT_APP_PRIVATE_KEY`. Sans la prem
 fait ce qu'il faisait avant. La clé privée n'atteint que `publish`, qui n'extrait rien du dépôt et n'y
 exécute aucun script ; l'issue des catalogues illisibles garde le jeton du workflow.
 
-OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
-créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
-`MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
-chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
-contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
-dépensé. Sans l'un d'eux, le résumé dit chaque semaine que son fournisseur est « non couvert ». Cloudflare Workers AI,
-Z AI et NVIDIA n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées (préfixes
-`cloudflare/`, `zai/` et `nvidia_nim/`) sont listées dans le résumé comme « d'aucun catalogue lu ici », avec celles d'OmniRoute, sans
-jamais être déclarées retirées ni inconnues -- un modèle que l'un d'eux retire n'est donc vu que par la personne qui
-relit la page ou le catalogue de ses modèles, ou par l'erreur d'un appel. Un
-cinquième secret, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est celui d'aucun fournisseur : c'est la
-clé gratuite d'Artificial Analysis (1 000 requêtes par jour, une par run), qui alimente le classement
-ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
+OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les autres, créer dans
+*Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
+`MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY`, et, pour
+Cloudflare Workers AI, **deux** : `MODEL_DRIFT_CLOUDFLARE_API_KEY`, un jeton d'API du compte dont la seule
+permission est *Account → Workers AI → Read*, et `MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID`, l'identifiant du compte
+(32 caractères hexadécimaux), que l'adresse du catalogue contient et que le contrôle remplace par `***` partout
+où un message pourrait l'afficher, comme une clé. Chacun est facultatif, de préférence une clé dédiée, révocable
+sans toucher à celles de LiteLLM, et les deux de Cloudflare vont ensemble : l'un sans l'autre, le résumé dit
+lequel manque. Le contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun
+jeton dépensé. Sans l'un d'eux, le résumé dit chaque semaine que son fournisseur est « non couvert ». Z AI et
+NVIDIA n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées (préfixes
+`zai/` et `nvidia_nim/`) sont listées dans le résumé comme « d'aucun catalogue lu ici », avec celles d'OmniRoute,
+sans jamais être déclarées retirées ni inconnues -- un modèle que l'un d'eux retire n'est donc vu que par la
+personne qui relit la page ou le catalogue de ses modèles, ou par l'erreur d'un appel.
+
+La réponse du catalogue de Cloudflare n'est pas documentée par son API, qui type chaque modèle « unknown » : le
+contrôle lit la forme que lisent la documentation de ses modèles et son outil en ligne de commande, et aucune
+exécution n'a lu la réponse réelle. Un modèle est retiré quand il a quitté la liste, demandée avec les modèles
+dépréciés que l'API garde trois mois après leur date ; une date de dépréciation annoncée (propriété
+`planned_deprecation_date`) ou un indicateur `deprecated` est une alerte, comme chez les autres fournisseurs. La
+gratuité d'un modèle Cloudflare ne se lit nulle part : la page des tarifs la dit en prose, par la note qui nomme les
+modèles qui exigent un moyen de facturation payant, et le contrôle n'en invente pas la lecture. Un nouveau modèle est
+donc seulement proposé à vérifier, jamais prêt. Un secret de plus, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est
+celui d'aucun fournisseur : c'est la clé gratuite d'Artificial Analysis (1 000 requêtes par jour, une par run), qui
+alimente le classement ci-dessus, et il est tenu par `read` comme les autres, jamais par `publish`.
 
 Le workflow tient les clés des fournisseurs et un jeton qui écrit, et aucun travail ne doit tenir
 ce jeton à côté de code que personne n'a relu (une mise à jour de PyYAML ou de Jinja2, que Dependabot

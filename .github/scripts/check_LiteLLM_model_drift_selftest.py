@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import check_LiteLLM_model_drift as drift  # noqa: E402
 from check_LiteLLM_model_drift import (
-    ADDITION_NAME, ADDITION_NAME_LIMIT, BANNER_RULE, CONFIG, CONTRACTS, CRASH_STATUS,
+    ADDITION_ID, ADDITION_NAME, ADDITION_NAME_LIMIT, CLOUDFLARE_PER_PAGE, NAME_SUFFIXES, SAFE_MODEL_ID, BANNER_RULE, CONFIG, CONTRACTS, CRASH_STATUS,
     DRIFT_IGNORE_START, EPOCH_ECI_KEY, EPOCH_ECI_MEMBER, EPOCH_FILES, EPOCH_KEYS,
     EPOCH_MAX_ARCHIVE, EPOCH_URL, FREE_CATALOGUES, FREE_READABLE, FREE_TIER_CHECKS, FetchError,
     JINJA_PLACEHOLDER, LOOKUPS, LOOKUP_LIMIT, MAX_PAGES, PRICING_PAGES, PROPOSAL_LIMIT,
@@ -48,7 +48,7 @@ from check_LiteLLM_model_drift import (
     RANKING_URL, REASON, REFUSALS, REVIEW_HEADING, SETTINGS_SECTIONS, TIMEOUT, UNCARRIED_HEADING,
     WORD, absent_names, addition_name, addition_problem, alias_drift, anchor_floor, anchor_scale,
     apply_removals, apply_to_result, ask_for, attribute, build_additions, carried_sections,
-    catalogue_command, changed_heads, chat_like, chosen_level, code_figure, code_points,
+    catalogue_command, catalogue_url, changed_heads, chat_like, chosen_level, code_figure, code_points,
     code_span, comment_content, confirm_absences, contract_order, contracts_problems,
     contracts_report, contracts_section, derivation_differences, derivation_lines, describe_entry,
     eci_scale, eci_to_index, epoch_member_name, epoch_position, error_class, exit_status,
@@ -56,7 +56,7 @@ from check_LiteLLM_model_drift import (
     is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents,
     left_behind, left_outside_pull_requests, main, match_ranking, median_position, member_quality,
     offline_contract_notices, offline_contract_problems, place, plan_lines, pricing_page_problems,
-    propose_additions, proposed, ranking_families, read_catalogue, read_epoch, read_head,
+    propose_additions, propose_name, proposed, ranking_families, read_catalogue, read_epoch, read_head,
     read_layout, read_ranking_models, read_template, refusal_text, render_commit_message,
     render_pr_body, render_summary, render_text, render_with_keys, rewrite_heads, router_quality,
     run_online, seconds_figure, slots_text, split_level, squash, TEMPLATE_SWITCHES, time_ties,
@@ -373,6 +373,9 @@ def selftest_answers():
             {"id": "mistral-embed", "capabilities": {"completion_chat": False}},
         ]},
         "deepseek": {"data": [{"id": "deepseek-v9"}]},
+        # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
+        "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
+                        "success": True}],
     }
 
 
@@ -402,6 +405,8 @@ def answers_listing(text, without=()):
         "mistral": {"data": [{"id": i, "capabilities": {"completion_chat": True}}
                              for i in sorted(ids["mistral"])]},
         "deepseek": {"data": [{"id": i} for i in sorted(ids["deepseek"])]},
+        "cloudflare": [{"result": [{"name": i, "task": {"name": "Text Generation"}}
+                                   for i in sorted(ids["cloudflare"])], "success": True}],
     }
 
 
@@ -410,6 +415,8 @@ SELFTEST_KEYS = {
     "MODEL_DRIFT_GROQ_API_KEY": "selftest-groq-key-SECRET",
     "MODEL_DRIFT_MISTRAL_API_KEY": "selftest-mistral-key-SECRET",
     "MODEL_DRIFT_DEEPSEEK_API_KEY": "selftest-deepseek-key-SECRET",
+    "MODEL_DRIFT_CLOUDFLARE_API_KEY": "selftest-cloudflare-key-SECRET",
+    "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID": "0123456789abcdef0123456789abcdef",
 }
 
 
@@ -455,6 +462,17 @@ def canned_opener(answers, calls):
         for name, base in LOOKUPS.items():
             if url.startswith(base):
                 return lookup(name, urllib.parse.unquote(url[len(base):]))
+        if "/ai/models/search?" in url:
+            # Cloudflare's, paged "?page=N" like the ranking source's: a page nobody wrote is a read too far.
+            answer = answers["cloudflare"]
+            if isinstance(answer, list):
+                number = int(re.search(r"[?&]page=(\d+)", url).group(1))
+                if number > len(answer):
+                    raise AssertionError("Cloudflare was asked for page %d of %d" % (number, len(answer)))
+                answer = answer[number - 1]
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
         if url.startswith(RANKING_URL):
             answer = answers["rankings"]
             if isinstance(answer, list):
@@ -4263,7 +4281,7 @@ def run_pricing_page_cases():
     # mistake a table of addresses invites, and nothing else would see it.
     own_domains = {"cerebras": "inference-docs.cerebras.ai", "sambanova": "cloud.sambanova.ai",
                    "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "mistral.ai",
-                   "deepseek": "api-docs.deepseek.com"}
+                   "deepseek": "api-docs.deepseek.com", "cloudflare": "developers.cloudflare.com"}
 
     def foreign(table):
         return ["%s -> %s" % (name, urllib.parse.urlparse(url).hostname)
@@ -6137,6 +6155,290 @@ def run_eci_cases():
     return failures
 
 
+# ------------------------------------------------------------------------------------------------
+# Cloudflare Workers AI: the one catalogue whose address carries a secret of its own
+# ------------------------------------------------------------------------------------------------
+
+CLOUDFLARE_ACCOUNT = SELFTEST_KEYS["MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"]
+CLOUDFLARE_ENVIRONMENT = SELFTEST_KEYS
+# SELFTEST_TEMPLATE with a Cloudflare entry in the "flash" cascade and a commented-out one under its reason.
+CLOUDFLARE_BLOCK = """\
+  - model_name: cf-large
+    litellm_params:
+      model: cloudflare/@cf/vendor/large
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Served, but not routed to: needs a paid plan.
+  # - model_name: cf-paid
+  #   litellm_params:
+  #     model: cloudflare/@cf/vendor/paid
+  #     api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+"""
+assert SELFTEST_TEMPLATE.count("  - model_name: local\n") == 1 and SELFTEST_TEMPLATE.count("        - large\n") == 1
+CLOUDFLARE_TEMPLATE = SELFTEST_TEMPLATE.replace(
+    "  - model_name: local\n", CLOUDFLARE_BLOCK + "  - model_name: local\n", 1).replace(
+    "        - large\n", "        - cf-large\n        - large\n", 1)
+
+
+def cloudflare_model(name, task="Text Generation", planned=None, deprecated=None):
+    """One model as the documentation's own catalogue holds it: the "@cf/..." id is the "name"."""
+    properties = [{"property_id": "context_window", "value": "128000"}]
+    if planned is not None:
+        properties.append({"property_id": "planned_deprecation_date", "value": planned})
+    model = {"id": "00000000-0000-4000-8000-000000000000", "source": 1, "name": name,
+             "description": "A model.", "task": {"id": "t", "name": task, "description": "A task."},
+             "tags": [], "properties": properties}
+    if deprecated is not None:
+        model["deprecated"] = deprecated
+    return model
+
+
+def cloudflare_page(*models):
+    return {"result": list(models), "success": True, "errors": [], "messages": []}
+
+
+def cloudflare_catalogue(*extra, without=()):
+    """The models the template routes to or sets aside, and the ones that are no chat model."""
+    models = [cloudflare_model("@cf/vendor/large"), cloudflare_model("@cf/vendor/paid"),
+              cloudflare_model("@cf/vendor/embed-9", task="Text Embeddings"),
+              cloudflare_model("@cf/vendor/hear-9", task="Automatic Speech Recognition"),
+              cloudflare_model("@cf/vendor/guard-9")]
+    return [cloudflare_page(*[model for model in models if model["name"] not in without], *extra)]
+
+
+def cloudflare_answers(pages):
+    answers = selftest_answers()
+    answers["cloudflare"] = pages
+    return answers
+
+
+def run_cloudflare_cases():
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def run(pages, environment=CLOUDFLARE_ENVIRONMENT):
+        calls = []
+        result = run_online(CLOUDFLARE_TEMPLATE, environment,
+                            canned_opener(cloudflare_answers(pages), calls), "2026-01-01")
+        return (result, [(url, headers) for url, headers in calls if "/ai/models/search?" in url],
+                render_text(result, "selftest"), render_summary(result, "selftest", link=None))
+
+    def found(result):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      for finding in report["findings"])
+
+    def cloudflare_report(result):
+        return next(report for report in result["providers"] if report["name"] == "cloudflare")
+
+    def hides_account(*texts):
+        return first_wrong(
+            (not any(CLOUDFLARE_ACCOUNT in text for text in texts), "the account identifier reached the output"),
+            (not any("SECRET" in text for text in texts), "a key reached the output"))
+
+    def no_mention(*texts):
+        # An "@cf/" id is safe in a code span and nowhere else: a mention is made of it outside one.
+        for text in texts:
+            outside = re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", text, flags=re.S))
+            if "@cf" in outside:
+                return "an @cf/ id reached the output outside a code span: %r" % outside[outside.index("@cf") - 20:][:60]
+        return None
+
+    result, asked, report, body = run(cloudflare_catalogue())
+    url, headers = asked[0] if asked else ("", {})
+    judged("Cloudflare is read: the route, the deprecated models asked for, the token in a header and the "
+           "account in the path only, and nothing of either in the report",
+           first_wrong(
+               (len(asked) == 1, "%d catalogue requests" % len(asked)),
+               (url == "https://api.cloudflare.com/client/v4/accounts/%s/ai/models/search"
+                       "?include_deprecated=true&per_page=50&page=1" % CLOUDFLARE_ACCOUNT, "the address is %s" % url),
+               (headers.get("Authorization") == "Bearer selftest-cloudflare-key-SECRET", "the token is not a bearer"),
+               (not any("SECRET" in value for key, value in headers.items() if key != "Authorization"),
+                "the token is in another header"),
+               (found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
+               ("cloudflare  read, 5 model(s), 2 chat candidate(s); 1 active, 1 commented-out id(s) here" in report,
+                "the report: %s" % report),
+               (result["unattributed"] == ["openai/auto/best-free"], "an entry of Cloudflare is of no catalogue"),
+               (hides_account(report, body) is None, hides_account(report, body))))
+    result, _, report, body = run(cloudflare_catalogue(
+        cloudflare_model("@cf/vendor/new-text"), cloudflare_model("@cf/vendor/new-embed", task="Text Embeddings"),
+        cloudflare_model("@cf/vendor/old-text", deprecated=True),
+        cloudflare_model("@cf/vendor/ending-text", planned="2026-12-01")))
+    examine = body.split("## Nouveaux modèles à examiner")[1].split("\n## ")[0] if "## Nouveaux modèles à examiner" in body else ""
+    judged("a Text Generation model the file does not know is NEW, to examine against Cloudflare's pricing page, "
+           "and never claimed free; one of another task or that is deprecated or ending is not offered",
+           first_wrong(
+               (found(result) == [("new", "@cf/vendor/new-text")], "findings %r" % found(result)),
+               ("`cloudflare/@cf/vendor/new-text`" in examine, "the model is not listed to examine"),
+               ("[cloudflare](https://developers.cloudflare.com/workers-ai/platform/pricing/)" in examine,
+                "the pricing page is not linked"),
+               ("Leur gratuité ne se lit pas dans l'API du fournisseur" in examine, "it is not said that free is unread"),
+               ("cloudflare/@cf/vendor/new-text: to examine, its free tier is not machine-readable" in report,
+                "the model is not said to be one to examine: %s" % report),
+               (no_mention(body) is None, no_mention(body))))
+    judged("a deprecated flag or a planned deprecation date on an active entry is a NOTICE with its date",
+           first_wrong(
+               (found(run([cloudflare_page(cloudflare_model("@cf/vendor/large", planned="2026-12-01"),
+                                           cloudflare_model("@cf/vendor/paid"))])[0])
+                == [("notice", "@cf/vendor/large")], "a planned date is not a notice"),
+               (found(run([cloudflare_page(cloudflare_model("@cf/vendor/large", deprecated=True),
+                                           cloudflare_model("@cf/vendor/paid"))])[0])
+                == [("notice", "@cf/vendor/large")], "a deprecated flag is not a notice")))
+    result, _, report, body = run([cloudflare_page(
+        cloudflare_model("@cf/vendor/large", planned="2026-12-01"), cloudflare_model("@cf/vendor/paid"))])
+    judged("the notice says the date, in the report and in French in the summary",
+           first_wrong(("cloudflare/@cf/vendor/large (cf-large): deprecated on 2026-12-01" in report, report),
+                       ("`cloudflare/@cf/vendor/large` (`cf-large`) : déprécié (`2026-12-01`)" in body, body)))
+    result, _, report, body = run(cloudflare_catalogue(without=("@cf/vendor/large", "@cf/vendor/paid")))
+    judged("an active id the catalogue no longer lists is RETIRED, and a commented-out one is GONE",
+           first_wrong((found(result) == [("gone", "@cf/vendor/paid"), ("retired", "@cf/vendor/large")],
+                        "findings %r" % found(result)),
+                       (exit_status(result) == 1, "the status")))
+
+    # A list of 50 on its first page goes on: the second is asked for, with the same parameters.
+    fillers = [cloudflare_model("@cf/vendor/filler-%d" % number, task="Text Embeddings") for number in range(46)]
+    first = cloudflare_page(cloudflare_model("@cf/vendor/large"), cloudflare_model("@cf/vendor/paid"),
+                            cloudflare_model("@cf/vendor/hear-9", task="Automatic Speech Recognition"),
+                            cloudflare_model("@cf/vendor/embed-9", task="Text Embeddings"),
+                            cloudflare_model("@cf/vendor/guard-9"), *fillers[:45])
+    assert len(first["result"]) == 50
+    result, asked, report, body = run([first, cloudflare_page(cloudflare_model("@cf/vendor/second-page"))])
+    judged("a full page is followed by the next, and a model found on it is NEW",
+           first_wrong(
+               ([url.rsplit("&", 1)[1] for url, _ in asked] == ["page=1", "page=2"], "asked %r" % [url for url, _ in asked]),
+               (all("include_deprecated=true&per_page=50" in url for url, _ in asked), "the parameters did not follow"),
+               (found(result) == [("new", "@cf/vendor/second-page")], "findings %r" % found(result)),
+               (hides_account(report, body) is None, hides_account(report, body))))
+    result, asked, _, _ = run(cloudflare_catalogue())
+    judged("a short page is the last", first_wrong((len(asked) == 1, "%d requests" % len(asked))))
+    result, _, report, body = run(first)
+    judged("a server that ignores the page asked for, and serves the same one again, is that provider's error",
+           first_wrong((cloudflare_report(result)["status"] == "error" and exit_status(result) == 2, "status"),
+                       ("pages of the answer repeat a model" in report, report)))
+    endless = [cloudflare_page(*[cloudflare_model("@cf/vendor/p%d-%d" % (page, number), task="Text Embeddings")
+                                 for number in range(CLOUDFLARE_PER_PAGE)]) for page in range(MAX_PAGES)]
+    result, asked, report, body = run(endless)
+    judged("a list still going after the last page this check reads is an error, never a catalogue read in part",
+           first_wrong((len(asked) == MAX_PAGES, "%d requests" % len(asked)),
+                       (cloudflare_report(result)["status"] == "error" and exit_status(result) == 2, "status"),
+                       ("goes on past the last page" in report, report), (found(result) == [], "a finding")))
+    judged("an answer with no list, or one that says it failed, is an error",
+           first_wrong(*[(cloudflare_report(run(page)[0])["status"] == "error",
+                          "%r was read" % (page,)) for page in ({"result": None, "success": True},
+                                                                {"result": [], "success": False}, {"models": []})]))
+    judged("a model with no name, or of a shape nobody documented, is skipped and no crash",
+           first_wrong((found(run([cloudflare_page(*cloudflare_catalogue()[0]["result"], {"id": "x"}, 5,
+                                                   {"name": "@cf/vendor/odd", "task": 5, "properties": 5})])[0])
+                        == [], "an odd model was a finding"),))
+
+    # Without both values the provider is not covered, and is never called.
+    for variables, said, french in (
+            (("MODEL_DRIFT_CLOUDFLARE_API_KEY",), "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID is unset",
+             "secret `MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID`"),
+            (("MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID",), "MODEL_DRIFT_CLOUDFLARE_API_KEY is unset",
+             "secret `MODEL_DRIFT_CLOUDFLARE_API_KEY`"),
+            ((), "MODEL_DRIFT_CLOUDFLARE_API_KEY and MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID are unset",
+             "secrets `MODEL_DRIFT_CLOUDFLARE_API_KEY` et `MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID`")):
+        environment = {name: value for name, value in SELFTEST_KEYS.items()
+                       if not name.startswith("MODEL_DRIFT_CLOUDFLARE_") or name in variables}
+        result, asked, report, body = run(cloudflare_catalogue(), environment)
+        judged("Cloudflare is not covered, never called, and the report names what is unset: %s" % (
+            " and ".join(variables) or "neither"),
+               first_wrong((asked == [], "the catalogue was called with one of the two values missing"),
+                           ("not covered (no key): " + said in report, report),
+                           ("non couvert (pas de clé : %s)" % french in body, body),
+                           (exit_status(result) == 0 and not is_complete(result), "the status or the coverage")))
+    for account in ("not-an-identifier", CLOUDFLARE_ACCOUNT[:-1], CLOUDFLARE_ACCOUNT + "0", "../" + CLOUDFLARE_ACCOUNT[3:],
+                    CLOUDFLARE_ACCOUNT[:31] + "g", CLOUDFLARE_ACCOUNT[:16] + "/" + CLOUDFLARE_ACCOUNT[:15]):
+        result, asked, report, body = run(cloudflare_catalogue(), dict(
+            CLOUDFLARE_ENVIRONMENT, MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID=account))
+        judged("an account identifier that is not 32 hexadecimal characters is an error, named, never shown or "
+               "put in an address: %r" % account[:20],
+               first_wrong((asked == [], "it was put in an address"),
+                           (cloudflare_report(result)["status"] == "error" and exit_status(result) == 2, "status"),
+                           ("MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID is not an account identifier" in report, report),
+                           (account not in report + body, "its value was shown")))
+
+    # The identifier is in the path of the address, so a message that carries the address carries it too.
+    carried = "https://api.cloudflare.com/client/v4/accounts/%s/ai refused selftest-cloudflare-key-SECRET"
+    result, _, report, body = run(urllib.error.URLError(carried % CLOUDFLARE_ACCOUNT))
+    judged("an error that carries the address, with the account identifier and the token in it, is shown with "
+           "neither: both are replaced",
+           first_wrong((cloudflare_report(result)["status"] == "error" and exit_status(result) == 2, "status"),
+                       (hides_account(report, body) is None, hides_account(report, body)),
+                       ("accounts/***/ai refused ***" in report, report)))
+    result, _, report, body = run(urllib.error.HTTPError(
+        "https://api.cloudflare.com/client/v4/accounts/%s/ai/models/search" % CLOUDFLARE_ACCOUNT, 403,
+        "Forbidden for " + CLOUDFLARE_ACCOUNT, None, io.BytesIO(b'{"errors": ["' + CLOUDFLARE_ACCOUNT.encode() + b'"]}')))
+    judged("a 403 is its status and nothing else: neither its reason phrase nor its body, which can carry the account",
+           first_wrong((hides_account(report, body) is None, hides_account(report, body)),
+                       ("HTTP 403" in report and cloudflare_report(result)["error_class"] == "4xx", report)))
+    result, _, report, body = run(cloudflare_catalogue(), dict(CLOUDFLARE_ENVIRONMENT, MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID="  "
+                                                              + CLOUDFLARE_ACCOUNT + "\n"))
+    judged("an identifier with whitespace round it, as a secret is often pasted, is read as it is without it",
+           first_wrong((cloudflare_report(result)["status"] == "read", cloudflare_report(result)["status"])))
+    judged("the address that the report and the summary can cite keeps the placeholder, never an account",
+           first_wrong(("{account_id}" in catalogue_url("cloudflare"), catalogue_url("cloudflare")),
+                       (hides_account(catalogue_url("cloudflare")) is None, "an account in PROVIDERS")))
+
+    # A deletion and its cascade slot, and the refusal of one made on a list that holds nothing.
+    outputs = apply_run(CLOUDFLARE_TEMPLATE, cloudflare_answers(cloudflare_catalogue(without=("@cf/vendor/large",))),
+                        CLOUDFLARE_ENVIRONMENT)
+    new_text = outputs[1]
+    judged("a Cloudflare entry its catalogue no longer lists is deleted with its cascade slot, and the pull request "
+           "names it and the account nowhere",
+           first_wrong(("cloudflare/@cf/vendor/large" not in new_text and "cf-large" not in new_text, "it is still there"),
+                       ("cf-paid" in new_text and "- large\n" in new_text, "something else was taken"),
+                       (outputs[4] is not None and "`cloudflare/@cf/vendor/large`" in outputs[4], "the pull request"),
+                       (hides_account(*[text for text in outputs[2:] if text]) is None, "the account reached a text")))
+    outputs = apply_run(CLOUDFLARE_TEMPLATE, cloudflare_answers([cloudflare_page()]), CLOUDFLARE_ENVIRONMENT)
+    judged("a catalogue that lists no model at all deletes nothing: an empty answer is a failed read",
+           first_wrong((outputs[1] == CLOUDFLARE_TEMPLATE and outputs[4] is None, "something was deleted"),
+                       (undeleted_count(outputs[0]) == 2, "the findings are not left to a person")))
+
+    # An addition: the entry is modelled on the file's own, "@cf/" and all, and is never ready.
+    result, proposals = proposal_run(CLOUDFLARE_TEMPLATE, cloudflare_answers(cloudflare_catalogue(
+        cloudflare_model("@cf/vendor/new-text"))), CLOUDFLARE_ENVIRONMENT)
+    part = proposals["to_verify"]
+    judged("a NEW Cloudflare model is proposed in the pull request of the models to verify only, under the "
+           "file's own naming, key and no base, and the file it builds reads back",
+           first_wrong(
+               (proposals["ready"]["items"] == [], "a Cloudflare model was ready"),
+               (part["items"] == [{"provider": "cloudflare", "id": "@cf/vendor/new-text", "name": "new-text-cloudflare"}],
+                "items %r" % part["items"]),
+               ('  - model_name: new-text-cloudflare\n    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
+                '      api_key: "os.environ/CLOUDFLARE_API_KEY"\n' in part["text"], "the entry"),
+               ("api_base" not in part["text"].split("new-text-cloudflare")[1].split("\n\n")[0], "an api_base was invented"),
+               (addition_problem(CLOUDFLARE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
+               ("[ ] **Gratuité.** Ouvrir <https://developers.cloudflare.com/workers-ai/platform/pricing/>" in part["body"],
+                "the pricing page is not what the draft sends to"),
+               ("docker exec" in part["body"] and "CLOUDFLARE_ACCOUNT_ID" in part["body"]
+                and "os.environ" in part["body"] and CLOUDFLARE_ACCOUNT not in part["body"],
+                "the command to read the model does not take the account from the container"),
+               (no_mention(part["body"]) is None, no_mention(part["body"]))))
+    judged("an id with an @ anywhere but in front of \"cf/\" is no id: it is not offered, and is not proposed",
+           first_wrong(*[(not ADDITION_ID.fullmatch(identifier) and not SAFE_MODEL_ID.fullmatch(identifier), identifier)
+                         for identifier in ("@evil/x", "x@cf/y", "@cf/@cf/x", "@cf/", "@cf/x@y", "@@cf/x", "@cf//x",
+                                            "@cf/x::y", " @cf/x", "@cf/x ")]
+                       + [(ADDITION_ID.fullmatch("@cf/meta/x-9") and SAFE_MODEL_ID.fullmatch("@cf/meta/x-9"), "good")]))
+    judged("an entry's \"cloudflare/@cf/...\" is attributed to Cloudflare, and a catalogue id is the \"@cf/...\" part",
+           first_wrong((attribute("cloudflare/@cf/openai/gpt-oss-120b", None) == ("cloudflare", "@cf/openai/gpt-oss-120b"),
+                        "attribute"),
+                       ("cloudflare" in PROVIDER_NAMES and NAME_SUFFIXES["cloudflare"] == "-cloudflare", "the suffix"),
+                       (propose_name("cloudflare", "@cf/openai/gpt-oss-120b", set()) == "gpt-oss-120b-cloudflare", "the name")))
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -6184,6 +6486,7 @@ def run_selftest_cases():
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
+    failures += run_cloudflare_cases()
     failures += run_apply_cases()
     failures += run_head_cases()
     failures += run_pricing_page_cases()
