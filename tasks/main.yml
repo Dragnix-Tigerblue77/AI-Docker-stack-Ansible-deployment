@@ -100,12 +100,13 @@
         Artificial_Intelligence_LiteLLM_Cloudflare_API_key,
         Artificial_Intelligence_LiteLLM_Zai_API_key,
         Artificial_Intelligence_LiteLLM_Requesty_API_key,
-        Artificial_Intelligence_LiteLLM_NVIDIA_API_key
+        Artificial_Intelligence_LiteLLM_NVIDIA_API_key,
+        Artificial_Intelligence_LiteLLM_Cent_AI_API_key
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
       At least one of the LiteLLM provider keys of the gateway's account (Gemini, Mistral, Groq,
-      OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA) must be a non-empty string: without one the
+      OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI) must be a non-empty string: without one the
       gateway has no model to route to. They are all empty by default, and "LiteLLM_config.yaml.j2" renders only the
       providers whose key is given, each read as "os.environ/<PROVIDER>_API_KEY". Another account's own
       provider keys are not asked for here: they arrive as model_list entries of their own (#107). Not
@@ -679,11 +680,42 @@
     label: "{{ item.item.item.username }}"
   when: item is not skipped
 
+# LiteLLM stores who made an invitation ("created_by" and "updated_by") as foreign keys to its user table, and
+# fills both with the identity of the caller. The master key's identity is "default_user_id", a row LiteLLM
+# creates only when somebody signs in to "/ui" with the environment credentials. A gateway whose environment
+# login is switched off from its first deployment never gets that sign-in, so the invitation is refused with a 400
+# that blames "User id does not exist", whichever of the foreign keys it is. The row is the one that sign-in
+# would write (a proxy admin with no key), created here only when an invitation is about to be made and
+# accepted as it is when it already exists (409). It is a workaround for that behaviour of LiteLLM, which
+# the repository's issue tracker keeps under "waiting-on-third-party".
+- name: "Create the gateway's own administrator identity the invitations are made under"
+  ansible.builtin.uri:
+    url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/user/new"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+    body_format: json
+    body:
+      user_id: "default_user_id"
+      user_role: "proxy_admin"
+      auto_create_key: false
+    status_code: [200, 201, 409]
+  register: Artificial_Intelligence_LiteLLM_admin_identity
+  changed_when: Artificial_Intelligence_LiteLLM_admin_identity.status in [200, 201]
+  when:
+    - not ansible_check_mode
+    - >-
+      Artificial_Intelligence_LiteLLM_user_creation.results
+      | selectattr('status', 'in', [200, 201]) | selectattr('item.role', 'eq', 'proxy_admin') | list | length > 0
+
 # An administrator is invited, not given a password: "/user/new" takes none, and one set afterwards through
 # "/user/update" has to be changed at the first sign-in, so whatever the caller vaulted would be stale from then
 # on. "/invitation/new" answers with an identifier whose onboarding page lets the person choose a password that
 # works as it is. Asked only for an account this run has just created, exactly as the virtual key above: an
 # account that already exists (409) is left alone, its password never reset, and no second link is made.
+#
+# "no_log" hides the answer, which on success holds the link; so a refusal is not allowed to fail here, where its
+# reason would be hidden with it, but in the task below, which says what LiteLLM answered.
 - name: "Invite each newly created LiteLLM administrator"
   ansible.builtin.uri:
     url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/invitation/new"
@@ -704,20 +736,48 @@
     - item.status in [200, 201]
     - item.item.role == 'proxy_admin'
   changed_when: true
+  failed_when: false
 
-# The one place the link is ever shown: a lost one is issued again from "/ui" or against "/invitation/new". "no_log"
-# stays off on this task alone, since the point is that it prints. The link is a path because the address the person
-# reaches the gateway on is the caller's, not the role's.
-- name: "Show each administrator's onboarding link"
-  ansible.builtin.debug:
-    msg: >-
-      LiteLLM administrator "{{ item.item.item.username }}" -- open "/ui/onboarding?id={{ item.json.id }}" on the
-      gateway's own address to choose a password{{ (', before ' ~ item.json.expires_at) if item.json.expires_at is defined else '' }}.
-      Shown once, save nothing: the link is for one use.
+# What a refusal says holds no secret, so it is shown; the account it was for already exists by now, and a run
+# that follows meets a 409 and makes no second invitation, which the message says.
+- name: "Check each administrator's invitation was made"
+  ansible.builtin.assert:
+    that: item.status | default(-1) == 200
+    quiet: true
+    fail_msg: >-
+      LiteLLM did not make the invitation of the administrator "{{ item.item.item.username }}": it answered
+      {{ item.status | default('nothing') }} ({{ (item.json | default(item.msg | default('no message'))) | string | truncate(300) }}).
+      The account exists without a password, and a new run will not invite it again. With the environment
+      login still switched on in the gateway, sign in to "/ui" with it and invite the account from
+      "Internal Users"; otherwise set "Artificial_Intelligence_LiteLLM_disable_env_credential_login" to false,
+      deploy, invite the account, then set it back.
   loop: "{{ Artificial_Intelligence_LiteLLM_administrator_invitation.results }}"
   loop_control:
     label: "{{ item.item.item.username }}"
   when: item is not skipped
+
+# The one place the link is ever shown: a lost one is issued again from "/ui" or against "/invitation/new". It is a pause
+# rather than a line among the others, since a link that scrolls past is a link to copy out of a log, and the run has
+# nothing to do for that person until the password is chosen. Without a terminal "pause" prints its warning and not its
+# text, so such a run shows no link: the account is then invited by hand, as the failure message of the task above says.
+# Nothing is shown in a dry run, which made no invitation, nor when no invitation was made this run.
+- name: "Ask each invited administrator to choose a password"
+  ansible.builtin.pause:
+    prompt: |-
+      {% set base_URL = Artificial_Intelligence_LiteLLM_UI_URL if Artificial_Intelligence_LiteLLM_UI_URL is string else 'http://' ~ (ansible_host | default(inventory_hostname)) ~ ':' ~ Artificial_Intelligence_LiteLLM_port_to_expose %}
+      LiteLLM is up, and each administrator below has no password yet. Open your link, choose one, then come back here.
+      Each link is for one use and is shown only here.
+
+      {% for invitation in Artificial_Intelligence_LiteLLM_administrator_invitation.results | selectattr('status', 'defined') %}
+      {{ invitation.item.item.username }} : {{ base_URL }}/ui/onboarding?id={{ invitation.json.id }}{{ (' (before ' ~ invitation.json.expires_at ~ ')') if invitation.json.expires_at is defined else '' }}
+      {% endfor %}
+
+      Once the password is chosen :
+      - Press [Return] to continue
+      - Press Ctrl + C and then 'A' to abort
+  when:
+    - not ansible_check_mode
+    - Artificial_Intelligence_LiteLLM_administrator_invitation.results | selectattr('status', 'defined') | list | length > 0
 
 # The Claude Code agent's virtual key (#13), registered by the role under the VALUE the caller
 # vaulted, so that the agent needs nothing by hand and no second run: the key cannot exist before

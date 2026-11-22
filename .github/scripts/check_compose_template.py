@@ -1610,6 +1610,7 @@ LITELLM_PROVIDERS = {
     "Zai": "ZAI_API_KEY",
     "Requesty": "REQUESTY_API_KEY",
     "NVIDIA": "NVIDIA_NIM_API_KEY",
+    "Cent_AI": "CENT_AI_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
@@ -1835,7 +1836,7 @@ def check_litellm_config(document, keys, failures):
             )
 
 
-LITELLM_KEY_VARIABLE = re.compile(r"Artificial_Intelligence_LiteLLM_[A-Za-z0-9]+_API_key")
+LITELLM_KEY_VARIABLE = re.compile(r"Artificial_Intelligence_LiteLLM_[A-Za-z0-9_]+_API_key")
 
 
 def litellm_unsupplied_variables(source, providers):

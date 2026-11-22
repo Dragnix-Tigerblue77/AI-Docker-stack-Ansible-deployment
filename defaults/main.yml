@@ -76,6 +76,12 @@ Artificial_Intelligence_LibreChat_port_to_expose: 3080
 # Derived from the port above so that one place names it.
 Artificial_Intelligence_LiteLLM_admin_API_URL: "http://localhost:{{ Artificial_Intelligence_LiteLLM_port_to_expose }}"
 
+# The address a person opens LiteLLM on, which only the caller knows: the invitation link shown to an administrator is
+# built on it, so it has to be one a browser reaches. "false" means not set, and the link is then built on the node's
+# address as the inventory gives it (its "ansible_host", else its name) and the published port, which only Ansible
+# knows at run time; a caller behind a reverse proxy sets the address it serves LiteLLM on, with no trailing slash.
+Artificial_Intelligence_LiteLLM_UI_URL: false
+
 # LibreChat's port in "mode: host" instead of through the ingress routing mesh. Swarm's mesh source
 # NATs every client, so a caller that must see the client's own address (a reverse proxy, an access
 # list, a log) needs "true". "false" keeps the short syntax, which Compose and Swarm both read.
@@ -358,6 +364,15 @@ Artificial_Intelligence_LiteLLM_Requesty_API_key: ""
 # those on. No page read states a limit, so the role states none. The container reads the key as
 # "NVIDIA_NIM_API_KEY", the name LiteLLM looks for.
 Artificial_Intelligence_LiteLLM_NVIDIA_API_key: ""
+# Cent AI, a reseller of models, which serves one model free of charge: "hy4-flash:free", reached through its
+# OpenAI-compatible endpoint. Its home page (read 2026-11-22) says "Free until Nov 30 · no daily limit" and
+# says nothing of what follows, so whether the model is then billed at its catalogue rate is UNVERIFIED. It is
+# routed until then and looked at again on 2026-12-01. A key given a spending limit on Cent AI's key page
+# keeps a billed call from costing anything, since the call then fails and the cascade moves on: set one. The
+# operator is an individual whose terms are a draft, and it relays requests to vendors it does not name, so
+# whoever gives this key lets a third party read the prompts. ONE account: the session that wrote this read
+# nothing about several. The container reads the key as "CENT_AI_API_KEY".
+Artificial_Intelligence_LiteLLM_Cent_AI_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret

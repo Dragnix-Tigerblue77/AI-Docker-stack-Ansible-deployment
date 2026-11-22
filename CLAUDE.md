@@ -405,7 +405,8 @@ per request (the Gemini entries Artificial Analysis measures), and an entry per 
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a
 different model is worth having on its own: a provider is never dropped for being "no better" than the
 ones in place. What is set aside is a trial limited in time (thirty days, say) or a one-time quota,
-unless it is huge. A card the provider asks for does not rule it out, as long as the spend can be capped at zero or
+unless it is huge. Free until a date with nothing announced after it is taken, and looked at again on that
+date; free until a date and then a stated price is a trial, and is set aside. A card the provider asks for does not rule it out, as long as the spend can be capped at zero or
 the account is prepaid and empty. A deposit of up to ten euros is considered too (the maintainer's ceiling, set on 2026-11-22), provided it is made once
 and is supposed to last for life: no subscription, no top-up, no credit that expires within a year or two. It is either
 an entry ticket that stays on the account and lifts a limit, or credit that gets spent and is then kept only as a paid
