@@ -533,8 +533,11 @@ model_list:
   # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
   # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
   # Qwen 3.8 27B, whose page gives a 262,144-token context and function calling but which LiteLLM's model
-  # map does not list, so nothing here would say what its context and tools are but that page. It would sit
-  # right behind "qwen3-8-27b-groq", wherever that one is, once the map lists it.
+  # map does not list, so nothing here would say what its context and tools are but that page. It also cannot
+  # be steered: asked a hard question on 2026-11-22 with "reasoning_effort" low and xhigh, and with
+  # "chat_template_kwargs" turning thinking off, it answered in 2,547, 1,770 and 2,616 tokens over 109, 81 and
+  # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
+  # past the gateway's limit on a hard question.
   # ============================================================================
   # Second source of "gpt-oss-120b-groq", right behind it in "flash": the same weights through an allowance
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
