@@ -131,7 +131,7 @@ autres comptes n'ont pas les leurs ici) :
 |---|---|---|
 | `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des cinq clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek), voir « Les clés fournisseurs (#296) » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Mistral. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
 | `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée Groq. |
 | `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des cinq clés fournisseurs. Vide : aucune entrée OpenRouter. |
@@ -563,8 +563,8 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- 52 entrées actives, avec les cinq clés, à
 travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
-propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, seul
-fournisseur payant du fichier : placé en dernier recours dans chaque cascade où il apparaît, juste
+propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, payant
+comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
 (`CLAUDE.md`, « The model list keeps only what can be called ») : un modèle retiré par son fournisseur
 est supprimé, un modèle servi mais délibérément non routé reste commenté avec sa raison, un nouveau
@@ -572,8 +572,9 @@ modèle est ajouté. #169 l'a appliquée à Groq, #200 à tous les autres (recen
 GitHub Models, fermé par GitHub le 2026-07-30 (#109), est supprimé et non plus archivé ; Cerebras n'a
 plus de palier gratuit permanent (5 $ de crédit après ajout d'un moyen de paiement, expirés au bout
 de 30 jours), ses deux modèles sont donc commentés comme ceux de SambaNova, et sa clé, restée
-obligatoire, n'est plus lue par aucune entrée active ; Mistral ne donne plus qu'un crédit de 10 $
-par mois (« Free mode », sans carte), traité comme gratuit. Les entrées `:free` d'OpenRouter
+obligatoire, n'est plus lue par aucune entrée active ; Mistral n'a plus de palier gratuit pour
+l'API (le mode « Free » ne couvre que Vibe et Studio, vérifié le 2026-11-21) : il est payant et placé
+après tous les gratuits. Les entrées `:free` d'OpenRouter
 partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 par jour, 1000 une fois
 10 crédits achetés.
 
@@ -606,8 +607,8 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
 Le rôle exige **au moins une** des cinq clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek), et échoue en les
-nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose pas
-DeepSeek, qui est payant, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
+nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
+Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
 requête qui le traverse, avant de passer le relais, et s'afficherait dans LibreChat sans jamais répondre.
 
@@ -847,11 +848,11 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | --- | --- | --- | --- |
 | Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
 | Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
-| Mistral La Plateforme | Mode « Free », 10 $ de crédit d'API par mois, sans carte | Un seul crédit partagé par tous les modèles ; limites par modèle visibles seulement dans la console du compte | Routé |
+| Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
 | SambaNova | Le plan gratuit de la console demande d'ajouter un moyen de paiement et d'acheter des crédits ; la documentation décrit un palier de 20 requêtes par jour et par modèle, en conflit avec la console | Deux sources en conflit, la console fait foi | Examiné, non routé (la console fait foi) |
-| DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, seul fournisseur payant, clé facultative |
+| DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
 Pages officielles lues :
