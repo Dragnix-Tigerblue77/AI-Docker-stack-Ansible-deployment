@@ -1405,6 +1405,10 @@ general_settings:
   # file is mounted read-only into the container and would otherwise carry both in clear text.
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
+{% if Artificial_Intelligence_LiteLLM_disable_env_credential_login %}
+  # "/ui" refuses "UI_USERNAME"/"UI_PASSWORD" and the master key: only a user stored in the database signs in.
+  disable_env_credential_login: true
+{% endif %}
 
 litellm_settings:
   request_timeout: 120          # long enough for heavy reasoning models' thinking phase

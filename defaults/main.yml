@@ -211,6 +211,17 @@ Artificial_Intelligence_LiteLLM_memory_limit: false
 Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # Artificial_Intelligence_LiteLLM_UI_password:
 
+# Whether "/ui" stops accepting the two variables above (and the master key) as a login. LiteLLM reports that login
+# as a critical deployment-health alert: one shared, permanent secret in the container's environment, no revocation
+# per person and no trace of who did what ("https://docs.litellm.ai/docs/proxy/ui"). It is the only way in on a fresh
+# deployment, so this stays false by default and a caller who wants the alert gone sets it to true.
+#
+# ! Only AFTER a "proxy_admin" user with a password of its own exists in "/ui" ("Internal Users", "Invite User"):
+# with none, nobody can sign in, and the way back is to set this to false and deploy again. That is why
+# "UI_USERNAME" and "UI_PASSWORD" are still required and still set when this is true: they are inert, and they are
+# what a deploy with this false gives access back through.
+Artificial_Intelligence_LiteLLM_disable_env_credential_login: false
+
 # The key LiteLLM encrypts everything it stores in PostgreSQL with (#164): a model's "litellm_params"
 # (its provider key, its "api_base", even its upstream "model"), the "/credentials" entries, and the
 # environment variables and MCP server credentials saved from "/ui". MANDATORY and without a default,

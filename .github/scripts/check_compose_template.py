@@ -1629,7 +1629,7 @@ def litellm_key_sets():
     return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
 
 
-def render_litellm_config(keys):
+def render_litellm_config(keys, disable_env_credential_login=False):
     """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
     environment = template_environment(
         loader=FileSystemLoader(str(ROLE / "templates")),
@@ -1641,6 +1641,7 @@ def render_litellm_config(keys):
         f"Artificial_Intelligence_LiteLLM_{provider}_API_key": "given" if provider in keys else ""
         for provider in LITELLM_PROVIDERS
     }
+    context["Artificial_Intelligence_LiteLLM_disable_env_credential_login"] = disable_env_credential_login
     return environment.get_template(LITELLM_CONFIG_TEMPLATE).render(**context)
 
 
@@ -1766,6 +1767,25 @@ def litellm_unsupplied_variables(source, providers):
     return sorted(name for name in read if LITELLM_KEY_VARIABLE.fullmatch(name) and name not in supplied)
 
 
+def check_litellm_login_switch(document, switch, failures):
+    """Hold one rendering to the switch it was rendered with: the key that turns the environment-credential
+    login off is there, true, when the switch is on, and absent when it is off, so that a deployment that never
+    asked for it keeps the login it has, which is the only way in on a fresh one."""
+    state = "LiteLLM config, environment-credential login switch " + ("on" if switch else "off")
+    settings = document.get("general_settings") if isinstance(document, dict) else None
+    settings = settings if isinstance(settings, dict) else {}
+    if switch and settings.get("disable_env_credential_login") is not True:
+        failures.append(
+            f"[{state}] general_settings has no 'disable_env_credential_login: true': the switch is on and "
+            "the login would stay, with LiteLLM's critical alert"
+        )
+    if not switch and "disable_env_credential_login" in settings:
+        failures.append(
+            f"[{state}] general_settings carries 'disable_env_credential_login' with the switch off: a "
+            "deployment that never asked for it would be locked out of '/ui' until an admin exists in the database"
+        )
+
+
 def check_litellm_configs(failures):
     """Render the routing configuration for every non-empty set of provider keys and judge each one."""
     source = (ROLE / "templates" / LITELLM_CONFIG_TEMPLATE).read_text(encoding="utf-8")
@@ -1783,7 +1803,27 @@ def check_litellm_configs(failures):
             continue
         check_litellm_config(document, keys, failures)
         rendered += 1
+    for switch in (False, True):
+        try:
+            document = yaml.safe_load(render_litellm_config(frozenset({"Gemini"}), switch))
+        except Exception as error:  # noqa: BLE001 - the message is the whole point
+            failures.append(f"[LiteLLM config, login switch {'on' if switch else 'off'}] does not render: {error}")
+            continue
+        check_litellm_login_switch(document, switch, failures)
     return rendered
+
+
+LITELLM_LOGIN_SWITCH_CASES = [
+    # (what it is, the document, the switch it was rendered with, a fragment every run must report -- None when it must pass)
+    ("switch on, key written", {"general_settings": {"disable_env_credential_login": True}}, True, None),
+    ("switch off, key absent", {"general_settings": {"master_key": "x"}}, False, None),
+    ("switch on, key missing", {"general_settings": {"master_key": "x"}}, True, "has no 'disable_env_credential_login: true'"),
+    ("switch on, key written false", {"general_settings": {"disable_env_credential_login": False}}, True,
+     "has no 'disable_env_credential_login: true'"),
+    ("switch off, key still there", {"general_settings": {"disable_env_credential_login": True}}, False,
+     "with the switch off"),
+    ("switch on, no general_settings at all", {"model_list": []}, True, "has no 'disable_env_credential_login: true'"),
+]
 
 
 # What the template reads, as source text: a name in the table passes, a name outside it is found, and a
@@ -2017,6 +2057,11 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, document, switch, expected in LITELLM_LOGIN_SWITCH_CASES:
+        failures = []
+        check_litellm_login_switch(document, switch, failures)
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, expected in LITELLM_KEY_ENVIRONMENT_CASES:
         failures = []
         check_litellm_key_environment(document, "selftest", failures)
@@ -2181,8 +2226,8 @@ def selftest():
         f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
-        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s) and {len(LITELLM_CONFIG_CASES)} "
-        "LiteLLM routing case(s) all judged as expected."
+        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
+        f"LiteLLM routing case(s) and {len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
     )
     return 0
 

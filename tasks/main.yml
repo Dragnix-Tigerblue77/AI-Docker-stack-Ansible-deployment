@@ -58,6 +58,16 @@
       "Artificial_Intelligence_LiteLLM_UI_password" is the only thing standing between the LAN and "/ui" now that its port
       is published, so it is held to the same standard as the other two.
 
+# A string such as "false" is true to the template's test, and would switch the login off without a word.
+- name: "Check the LiteLLM environment-credential login switch is a boolean"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LiteLLM_disable_env_credential_login is boolean
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LiteLLM_disable_env_credential_login" must be true or false, not a string: a string
+      is read as true by the configuration template, which would switch the "/ui" login off by accident.
+
 # The superuser's password is compared with LiteLLM's further down, with the other secrets that must
 # differ, since that comparison does not run in check mode.
 - name: "Check the PostgreSQL superuser is provided and kept apart from LiteLLM's role"
