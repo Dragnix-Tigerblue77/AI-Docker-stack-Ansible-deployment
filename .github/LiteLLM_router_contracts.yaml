@@ -3,13 +3,13 @@
 ---
 # What each LiteLLM router is held to, and which Artificial Analysis record describes each entry of
 # "templates/LiteLLM_config.yaml.j2". Read by "check_LiteLLM_model_drift.py", which reports how the
-# cascades stand against it in the weekly issue ("Contrats par routeur"). It is a REPORT: nothing
-# here changes a cascade, an entry or a row of the "head" table, no member is removed from a cascade
-# by it, and a model that breaks a contract is information, never a failure. The one thing that
-# fails the plain run is the file's own shape (a router that does not exist, a number that is not a
-# number, a value with no reason, a malformed row or file, a key written twice). A name kept here
-# that is no entry of the template any more is not a failure, since a deletion leaves it: the plain
-# run prints a notice and the weekly issue lists it as a stale row, to be removed by a person.
+# cascades stand against it in the summary of each weekly run ("Contrats par routeur"). It is a
+# REPORT: nothing here changes a cascade, an entry or a row of the "head" table, no member is removed
+# from a cascade by it, and a model that breaks a contract is information, never a failure. The one
+# thing that fails the plain run is the file's own shape (a router that does not exist, a number that
+# is not a number, a value with no reason, a malformed row or file, a key written twice). A name kept
+# here that is no entry of the template any more is not a failure, since a deletion leaves it: the
+# plain run prints a notice and the weekly summary lists it as a stale row, to be removed by a person.
 #
 # VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
 # and the curve that estimates it. Every number still derives from the figures cited in its own reason
@@ -41,13 +41,13 @@
 # How the figures are read. The time is the mean time to the first ANSWER token ("performance_v3"
 # of the free API: the time the model spends thinking is part of it), the intelligence is the
 # Artificial Analysis Intelligence Index on the version below, and both are the published figures, as
-# the terms of that API ask the issue to cite them.
+# the terms of that API ask the summary to cite them.
 #
 # Floors. A member past its router's floor is not removed: it goes to the router's last resort
 # tier, after the members that conform. A floor is an ANCHOR, never a number: "at least as good as
 # that model", whose figure the report reads at every run. Nothing is copied here, so nothing goes
 # stale when a source revises a figure, and an anchor that can no longer be read is said in the weekly
-# issue instead of leaving a figure nobody checks: the router is then judged against nothing until a
+# summary instead of leaving a figure nobody checks: the router is then judged against nothing until a
 # person names another anchor. The anchor tells the scale of the floor, and a floor keeps to one.
 #
 # On the intelligence index (more is better), an anchor names either an entry of the template
@@ -101,7 +101,7 @@
 # of the last resort or past the floor goes to the tail as for every other router. Its known weaknesses:
 # the harnesses differ from one benchmark to the next, efforts are mixed, the sets of models differ per
 # benchmark, and the effort of some entries is not stated in the file. When the archive cannot be read,
-# the weekly issue says so, the floor of "code" is not found and judges nobody, and the intelligence
+# the weekly summary says so, the floor of "code" is not found and judges nobody, and the intelligence
 # index orders the whole cascade, as a stand-in and nothing more. Each entry of "models" below
 # records the Epoch AI model ids it was found under, effort suffix included, or "unknown".
 #
@@ -166,6 +166,7 @@ inputs:
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
     kilo: "Anonymous, no key and no account: 200 requests per hour per IP address, for the free models only, per the Authentication and Models and providers pages of the Kilo gateway documentation (read 2026-11-22); the free models' availability changes, and each flags that prompts may be trained on"
+    ovhcloud: "Anonymous, no key and no account: 2 requests per minute per IP address and per model, observed from the maintainer's network on 2026-11-22 (a second call within the minute answered 429) and written on no page read, so one pool per entry, shared by the whole house; with a key, 400 a minute, but a payment method on a Public Cloud project is required and no spend cap exists (OVHcloud AI Endpoints page, read 2026-11-22)"
     cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
     zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
@@ -255,7 +256,7 @@ routers:
     ranking:
       criterion: code_quality
       source: "Epoch AI benchmark data (CC BY 4.0), median position over DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench and ALE-Bench, at least two benchmarks, WebDev Arena excluded"
-      # What the file declares: the weekly online run reads this source. The issue says what each run
+      # What the file declares: the weekly online run reads this source. The summary says what each run
       # actually read, and the plain run reads nothing.
       source_status: "read"
       stand_in: intelligence
@@ -596,6 +597,85 @@ models:
   glyph-cluster-kilo:
     no_record: "Artificial Analysis lists no Glyph Cluster on 2026-11-21"
     tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  deepseek-v4-1-flash-ovh:
+    slug: deepseek-v4-1-flash-1017-high
+    level: unknown
+    level_source: "unknown: the OVHcloud AI Endpoints catalogue card of DeepSeek-V4.1-Flash-1017, read 2026-11-22, gives no default reasoning level"
+    eci: "DeepSeek V4.1 Flash 1017"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch:
+      ale_bench_external: [deepseek-v4.1-flash-1017_max, deepseek-v4.1-flash_max]
+  qwen3-5-397b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3.5-397B-A17B on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  gpt-oss-120b-ovh:
+    slug: gpt-oss-120b
+    level: unknown
+    level_source: "unknown: the OVHcloud AI Endpoints catalogue card of gpt-oss-120b, read 2026-11-22, gives no default reasoning level"
+    eci: "gpt-oss-120b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch:
+      terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
+      ale_bench_external: [gpt-oss-120b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-8-27b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3.8-27B at the level the endpoint calls it at on 2026-11-22"
+    eci: "Qwen 3.8 27B"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  qwen3-6-35b-ovh:
+    no_record: "No Artificial Analysis record was matched to qwen3.6-35b-a3b on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  nemotron3-omni-30b-ovh:
+    slug: nemotron-3-nano-omni-30b-a3b
+    level: unknown
+    level_source: "unknown: the OVHcloud AI Endpoints catalogue card of nemotron3-omni-30b, read 2026-11-22, gives no default reasoning level"
+    note: "Artificial Analysis publishes one record and no figure for it, matched by its name"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  mistral-small-3-2-ovh:
+    no_record: "No Artificial Analysis record was matched to Mistral-Small-3.2-24B-Instruct-2506 on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  gpt-oss-20b-ovh:
+    slug: gpt-oss-20b
+    level: unknown
+    level_source: "unknown: the OVHcloud AI Endpoints catalogue card of gpt-oss-20b, read 2026-11-22, gives no default reasoning level"
+    eci: "gpt-oss-20b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch:
+      terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]
+      ale_bench_external: [gpt-oss-20b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-4-26b-ovh:
+    slug: gemma-4-26b-a4b
+    level: unknown
+    level_source: "unknown: the OVHcloud AI Endpoints catalogue card of gemma-4-26b-a4b, read 2026-11-22, gives no default reasoning level"
+    eci: "Gemma 4 26B A4B"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch:
+      ale_bench_external: [gemma-4-26b-a4b]
+  nemotron3-nano-30b-ovh:
+    no_record: "No Artificial Analysis record was matched to nemotron3-nano-30b on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  qwen3-5-9b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3.5-9B on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  olala-mini-ovh:
+    no_record: "No Artificial Analysis record was matched to Olala-v1.0-mini-7A1B on 2026-11-22"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  laguna-xs-2-1-ovh:
+    no_record: "Artificial Analysis lists no Laguna on 2026-11-21"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
     epoch: unknown
   gpt-oss-120b-cloudflare:
     slug: gpt-oss-120b

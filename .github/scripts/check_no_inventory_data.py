@@ -108,6 +108,8 @@ ALLOWED_HOSTS = {
     "router.eu.requesty.ai": "Requesty's own European OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",
     "kilo.ai": "Kilo's own gateway models page and terms, cited in the README ledger of free providers",
     "ai-gateway.kilo.ai": "Kilo's own OpenAI-compatible gateway, the api_base of its entries in the model list: a public service address, not the caller's",
+    "oai.endpoints.kepler.ai.cloud.ovh.net": "OVHcloud AI Endpoints' own keyless OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",
+    "www.ovhcloud.com": "OVHcloud's own AI Endpoints service and catalogue pages, cited in the README ledger of free providers",
     "assets.ngc.nvidia.com": "NVIDIA's own API trial terms of service, cited in the README ledger of free providers",
     "docs.cohere.com": "Cohere's own rate limits page, cited in the README ledger of free providers",
     "www.cohere.com": "Cohere's own terms of use page, cited in the README ledger of free providers",

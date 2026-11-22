@@ -67,9 +67,11 @@ the renders is held to the rules in "check_litellm_config", among them that an a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
 cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for. An entry
-on Kilo Gateway's base is held to the one shape that keyless provider answers to: its gateway answered a 401
-to the placeholder sent as a bearer token and serves a call whose header is empty or absent, so each such
-entry must blank the "Authorization" header LiteLLM would otherwise fill from its placeholder "api_key".
+on the base of a keyless gateway (Kilo Gateway, OVHcloud AI Endpoints) is held to the one shape such a
+provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a bearer token and serves a
+call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
+otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
+endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1615,12 +1617,24 @@ LITELLM_PROVIDERS = {
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
 LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai", "NVIDIA"})
+# The routers of an endpoint that is not chat, each with the providers whose models it routes to and the
+# "model_info.mode" its members carry, which no member of a text cascade may carry. They are aliases of their
+# cascade's head like the five above, but are kept apart from LITELLM_ROUTERS: that tuple is also the set of
+# names the Claude Code agent may be given, and the agent never asks for transcription or speech.
+LITELLM_MEDIA_ROUTERS = {
+    "stt": (frozenset({"Groq", "Gemini", "Mistral"}), "audio_transcription"),
+    "tts": (frozenset({"Gemini"}), "audio_speech"),
+}
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
-# 128k of context, and nothing says that of the model OmniRoute's free combo picks.
+# 128k of context, and nothing says that of the model OmniRoute's free combo picks. The entries on a keyless
+# base below are left out too, whatever they are: that router is reserved for keyed providers.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
-# The base of the keyless provider whose gateway answered 401 to the placeholder sent as a bearer token and
-# serves a call whose header is empty or absent: an entry on it sends the header empty.
-LITELLM_KILO_BASE = "https://ai-gateway.kilo.ai/api/v1"
+# The bases of the keyless gateways. Kilo's answered 401 to the placeholder sent as a bearer token and serves
+# a call whose header is empty or absent, so an entry on a base listed here sends the header empty.
+LITELLM_KEYLESS_BASES = {
+    "Kilo": "https://ai-gateway.kilo.ai/api/v1",
+    "OVHcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+}
 
 
 def litellm_key_sets():
@@ -1668,22 +1682,25 @@ def check_litellm_config(document, keys, failures):
         if variable in given and variable not in read:
             failures.append(f"[{state}] the {provider} key was given and no entry reads {variable}")
 
+    keyless = set()
     for entry in entries:
         parameters = mapping(entry, "litellm_params")
-        if parameters.get("api_base") != LITELLM_KILO_BASE:
+        gateway = next((name for name, base in LITELLM_KEYLESS_BASES.items() if parameters.get("api_base") == base), None)
+        if gateway is None:
             continue
+        keyless.add(entry.get("model_name"))
         reference = parameters.get("api_key")
         if not isinstance(reference, str) or not reference or reference.startswith("os.environ/"):
             failures.append(
-                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not carry "
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless {gateway} gateway and does not carry "
                 "a literal marker as its api_key: it reads no key, so it belongs to no account"
             )
         headers = mapping(parameters, "extra_headers")
         if headers.get("Authorization") != "":
             failures.append(
-                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not blank "
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless {gateway} gateway and does not blank "
                 "its Authorization header (extra_headers: {Authorization: \"\"}): LiteLLM would send its placeholder "
-                "api_key as a bearer token, which the gateway answered 401 INVALID_TOKEN, where a call whose "
+                "api_key as a bearer token, which Kilo's gateway answered 401 INVALID_TOKEN, where a call whose "
                 "header is empty or absent is served"
             )
 
@@ -1719,7 +1736,33 @@ def check_litellm_config(document, keys, failures):
                 "under the name that was asked for, so a request made under it would not fall back at all (#300)"
             )
 
-    for router in LITELLM_ROUTERS:
+    # An embedding model is reached by its own name alone: the vectors of two models are not comparable, and
+    # LiteLLM does walk fallbacks for an embedding call, so one in a cascade, or one an alias resolves to
+    # whichever keys were given, would change the vector space of a filled collection without a word.
+    embeddings = {
+        entry.get("model_name") for entry in entries if mapping(entry, "model_info").get("mode") == "embedding"
+    }
+    for name, members in cascades.items():
+        if name in embeddings:
+            failures.append(
+                f"[{state}] the embedding model {name!r} has a cascade of its own: its vectors are comparable "
+                "with no other model's, so nothing can stand in for it when it fails"
+            )
+        for member in members:
+            if member in embeddings:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} holds the embedding model {member!r}: a fallback to "
+                    "another vector space silently corrupts a collection, so an embedding model is in no cascade"
+                )
+    for alias, target in aliases.items():
+        if alias in embeddings or target in embeddings:
+            failures.append(
+                f"[{state}] the alias {alias!r} involves the embedding model "
+                f"{alias if alias in embeddings else target!r}: an alias follows the keys given, and with it "
+                "the vector space of a collection, so an embedding model is addressed by its own name only"
+            )
+
+    for router in LITELLM_ROUTERS + tuple(LITELLM_MEDIA_ROUTERS):
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
         if is_entry:
             failures.append(
@@ -1736,6 +1779,43 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {router!r} points at {aliases[router]!r} but its cascade starts at "
                 f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
             )
+    modes = {entry.get("model_name"): mapping(entry, "model_info").get("mode") for entry in entries}
+    media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
+    # A name that is not one of the text routers takes the kind of the media router whose head it names.
+    kinds = {router: router for router in LITELLM_MEDIA_ROUTERS}
+    for alias, target in aliases.items():
+        for router in LITELLM_MEDIA_ROUTERS:
+            if alias not in LITELLM_ROUTERS and router in aliases and aliases[router] == target:
+                kinds.setdefault(alias, router)
+    for router, (providers, mode) in LITELLM_MEDIA_ROUTERS.items():
+        expected = bool(keys & providers)
+        if (router in declared or router in aliases) != expected:
+            failures.append(
+                f"[{state}] {router!r} is {'absent' if expected else 'served'}, although the keys "
+                f"{'allow' if expected else 'do not allow'} it: it is served exactly when a provider it routes to "
+                "has a key"
+            )
+        for alias, kind in kinds.items():
+            if kind == router and alias in cascades and router in cascades and cascades[alias] != cascades[router]:
+                failures.append(
+                    f"[{state}] the cascade of {alias!r} is {cascades[alias]!r}, where the cascade of {router!r} is "
+                    f"{cascades[router]!r}: both name the same head and are written side by side"
+                )
+    for name, members in cascades.items():
+        wanted = LITELLM_MEDIA_ROUTERS[kinds[name]][1] if name in kinds else None
+        for member in members:
+            mode = modes.get(member)
+            if wanted and mode != wanted:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, whose model_info.mode is {mode!r} and "
+                    f"not {wanted!r}: the proxy routes by that mode, and a model of another kind behind this route "
+                    "can only fail"
+                )
+            elif not wanted and mode in media_modes:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, a member of a non-chat router: a chat "
+                    "request would be sent to an audio model"
+                )
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
     if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
         failures.append(
@@ -1744,11 +1824,12 @@ def check_litellm_config(document, keys, failures):
             "rests on exactly that"
         )
     if "claude-code" in cascades and "code" in cascades:
-        wanted = [member for member in cascades["code"] if member not in LITELLM_CLAUDE_CODE_LEAVES_OUT]
+        left_out = LITELLM_CLAUDE_CODE_LEAVES_OUT | keyless
+        wanted = [member for member in cascades["code"] if member not in left_out]
         if cascades["claude-code"] != wanted:
             failures.append(
                 f"[{state}] the cascade of 'claude-code' is {cascades['claude-code']!r}, where the cascade of 'code' "
-                f"without {sorted(LITELLM_CLAUDE_CODE_LEAVES_OUT)} is {wanted!r}: the two lists are written by hand "
+                f"without {sorted(left_out)} is {wanted!r}: the two lists are written by hand "
                 "side by side and have drifted apart"
             )
 
@@ -1798,35 +1879,141 @@ LITELLM_VARIABLE_CASES = [
 
 
 def _litellm_document(entries, cascades, aliases):
+    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode"."""
     return {
         "model_list": [
-            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key}} for name, key in entries
+            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
+             **({"model_info": {"mode": mode[0]}} if mode else {})}
+            for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
     }
 
 
-def _kilo_document(**overrides):
-    """One Kilo entry as the template writes it, with `overrides` replacing parts of its litellm_params; a
-    value of None drops the key."""
-    parameters = {"model": "openai/vendor/model:free", "api_base": LITELLM_KILO_BASE, "api_key": "kilo-no-key-needed",
-                  "extra_headers": {"Authorization": ""}}
+def _keyless_document(gateway="Kilo", **overrides):
+    """One entry on a keyless gateway as the template writes it, with `overrides` replacing parts of its
+    litellm_params; a value of None drops the key."""
+    parameters = {"model": "openai/vendor/model", "api_base": LITELLM_KEYLESS_BASES[gateway],
+                  "api_key": "no-key-needed", "extra_headers": {"Authorization": ""}}
     for key, value in overrides.items():
         if value is None:
             parameters.pop(key, None)
         else:
             parameters[key] = value
     return {
-        "model_list": [{"model_name": "a-kilo", "litellm_params": parameters}],
-        "router_settings": {"fallbacks": [{"flash": ["a-kilo"]}], "model_group_alias": {"flash": "a-kilo"}},
+        "model_list": [{"model_name": "a-keyless", "litellm_params": parameters}],
+        "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"}},
     }
 
 
-_MISTRAL_ONLY = _litellm_document(
+def _keyless_member_document(gateway, left_out):
+    """A keyed member and a keyless one, both in "code", and "claude-code" with or without the keyless one."""
+    document = _litellm_document(
+        [("a", "os.environ/MISTRAL_API_KEY"), ("b-keyless", "no-key-needed")],
+        [("code", ["a", "b-keyless"]), ("claude-code", ["a"] if left_out else ["a", "b-keyless"])],
+        {"code": "a", "claude-code": "a"},
+    )
+    document["model_list"][1]["litellm_params"].update(
+        api_base=LITELLM_KEYLESS_BASES[gateway], extra_headers={"Authorization": ""})
+    return _with_stt(document, "MISTRAL_API_KEY")
+
+
+def _with_media(document, router="stt", variable="GROQ_API_KEY", entries=("whisper-a",), cascade=True, head=True):
+    """The same rendering with a media router added over entries read from `variable`, carrying its mode."""
+    document["model_list"] += [
+        {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": "os.environ/" + variable},
+         "model_info": {"mode": LITELLM_MEDIA_ROUTERS[router][1]}}
+        for name in entries
+    ]
+    if cascade:
+        document["router_settings"]["fallbacks"].append({router: list(entries)})
+    if head:
+        document["router_settings"]["model_group_alias"][router] = entries[0]
+    return document
+
+
+def _with_stt(document, variable="GROQ_API_KEY", **faults):
+    return _with_media(document, "stt", variable, **faults)
+
+
+def _with_tts(document, variable="GEMINI_API_KEY", entries=("a-tts",), **faults):
+    """The speech router, and the alias "auto-tts" that is written beside it with the same cascade."""
+    document = _with_media(document, "tts", variable, entries, **faults)
+    document["router_settings"]["fallbacks"].append({"auto-tts": list(entries)})
+    document["router_settings"]["model_group_alias"]["auto-tts"] = entries[0]
+    return document
+
+
+def _stt_document(**faults):
+    """A Groq-only rendering with its "claude-code" router and a "stt" router, the faults a case asks for."""
+    document = _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])],
+                                 {"claude-code": "qwen"})
+    return _with_stt(document, **faults)
+
+
+_MISTRAL_ONLY = _with_stt(_litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
     [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
     {"claude-code": "mistral-large", "auto-code": "mistral-large"},
-)
+), "MISTRAL_API_KEY")
+
+def _stt_alias_off_head():
+    document = _stt_document(entries=("whisper-a", "whisper-b"))
+    document["router_settings"]["model_group_alias"]["stt"] = "whisper-b"
+    return document
+
+
+def _stt_entry():
+    document = _stt_document()
+    document["model_list"].append({"model_name": "stt", "litellm_params": {"api_key": "os.environ/GROQ_API_KEY"},
+                                   "model_info": {"mode": "audio_transcription"}})
+    return document
+
+
+def _stt_chat_member():
+    document = _stt_document()
+    document["router_settings"]["fallbacks"][-1]["stt"].append("qwen")
+    return document
+
+
+def _stt_in_chat_cascade():
+    document = _stt_document()
+    document["router_settings"]["fallbacks"].append({"flash": ["whisper-a"]})
+    document["router_settings"]["model_group_alias"]["flash"] = "whisper-a"
+    return document
+
+
+def _tts_document(**faults):
+    """A Gemini-only rendering: its chat router, the transcription router its key also serves, and the speech
+    router with its alias, the faults a case asks for."""
+    document = _with_stt(_litellm_document([("chat", "os.environ/GEMINI_API_KEY")], [("claude-code", ["chat"])],
+                                           {"claude-code": "chat"}), variable="GEMINI_API_KEY")
+    return _with_tts(document, **faults)
+
+
+_TTS_ONLY = _tts_document()
+
+
+def _tts_fault(fault):
+    """A Gemini-only rendering with one fault in its speech router."""
+    document = _tts_document(entries=("a-tts", "b-tts") if fault in ("off-head", "other-cascade") else ("a-tts",))
+    router_settings = document["router_settings"]
+    cascades = {name: members for item in router_settings["fallbacks"] for name, members in item.items()}
+    if fault == "entry":
+        document["model_list"].append({"model_name": "tts", "model_info": {"mode": "audio_speech"},
+                                       "litellm_params": {"api_key": "os.environ/GEMINI_API_KEY"}})
+    elif fault == "off-head":
+        router_settings["model_group_alias"].update({"tts": "b-tts", "auto-tts": "b-tts"})
+    elif fault == "text-member":
+        cascades["tts"].append("chat")
+        cascades["auto-tts"].append("chat")
+    elif fault == "in-text-cascade":
+        router_settings["fallbacks"].append({"pro": ["chat", "a-tts"]})
+        router_settings["model_group_alias"]["pro"] = "chat"
+    elif fault == "other-cascade":
+        cascades["auto-tts"].remove("b-tts")
+    return document
+
 
 LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
@@ -1875,8 +2062,7 @@ LITELLM_CONFIG_CASES = [
      _litellm_document([("gpt", "os.environ/OPENROUTER_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
      {"OpenRouter"}, "'claude-code' is served"),
     ("claude-code served by a Groq key",
-     _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])], {"claude-code": "qwen"}),
-     {"Groq"}, None),
+     _stt_document(), {"Groq"}, None),
     ("claude-code served by a Cloudflare key",
      _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
      {"Cloudflare"}, None),
@@ -1896,10 +2082,10 @@ LITELLM_CONFIG_CASES = [
      _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [], {}),
      {"NVIDIA"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
-     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
-                        ("omniroute-free-code", "os.environ/OMNI")],
-                       [("code", ["a", "b", "omniroute-free-code"]), ("claude-code", ["a", "b"])],
-                       {"code": "a", "claude-code": "a"}),
+     _with_stt(_litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
+                                  ("omniroute-free-code", "os.environ/OMNI")],
+                                 [("code", ["a", "b", "omniroute-free-code"]), ("claude-code", ["a", "b"])],
+                                 {"code": "a", "claude-code": "a"}), "MISTRAL_API_KEY"),
      {"Mistral"}, None),
     ("claude-code missing a member that code has",
      _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY")],
@@ -1919,27 +2105,100 @@ LITELLM_CONFIG_CASES = [
                        {"code": "a", "claude-code": "a"}),
      {"Mistral"}, "have drifted apart"),
     ("a router served as an alias by its cascade's head, Gemini having a key",
-     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
-                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
-                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     _with_tts(_with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
+                                           [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                           {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+                         "GEMINI_API_KEY")),
      {"Gemini"}, None),
-    ("a Kilo entry as the template writes it", _kilo_document(), set(), None),
-    ("a Kilo entry that does not blank the header", _kilo_document(extra_headers=None), set(),
-     "does not blank its Authorization header"),
-    ("a Kilo entry whose header is blanked to a token", _kilo_document(extra_headers={"Authorization": "Bearer x"}),
-     set(), "does not blank its Authorization header"),
-    ("a Kilo entry blanking another header", _kilo_document(extra_headers={"X-Other": ""}), set(),
-     "does not blank its Authorization header"),
-    ("a Kilo entry reading a key", _kilo_document(api_key="os.environ/KILO_API_KEY"), set(),
-     "does not carry a literal marker"),
-    ("a Kilo entry with no api_key", _kilo_document(api_key=None), set(), "does not carry a literal marker"),
-    ("an entry on another base is not held to the Kilo shape",
-     _kilo_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
+    *[case for gateway in LITELLM_KEYLESS_BASES for case in (
+        (f"an entry of {gateway}, one as the template writes it", _keyless_document(gateway), set(), None),
+        (f"an entry of {gateway}, one that does not blank the header", _keyless_document(gateway, extra_headers=None), set(),
+         "does not blank its Authorization header"),
+        (f"an entry of {gateway}, one whose header is blanked to a token",
+         _keyless_document(gateway, extra_headers={"Authorization": "Bearer x"}), set(),
+         "does not blank its Authorization header"),
+        (f"an entry of {gateway}, one blanking another header", _keyless_document(gateway, extra_headers={"X-Other": ""}),
+         set(), "does not blank its Authorization header"),
+        (f"an entry of {gateway}, one reading a key", _keyless_document(gateway, api_key="os.environ/ANY_API_KEY"), set(),
+         "does not carry a literal marker"),
+        (f"an entry of {gateway}, one with no api_key", _keyless_document(gateway, api_key=None), set(),
+         "does not carry a literal marker"),
+        (f"claude-code leaving out a member of {gateway} that code holds", _keyless_member_document(gateway, True),
+         {"Mistral"}, None),
+        (f"claude-code holding a member of {gateway} that code holds", _keyless_member_document(gateway, False),
+         {"Mistral"}, "have drifted apart"),
+    )],
+    ("an entry on another base is not held to the keyless shape",
+     _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
+    ("a transcription router served by its cascade's head",
+     _stt_document(entries=("whisper-a", "whisper-b")), {"Groq"}, None),
+    ("a transcription router with no key it routes to",
+     _with_stt(_litellm_document([("g", "os.environ/OPENROUTER_API_KEY")], [], {}), "GROQ_API_KEY"),
+     {"OpenRouter"}, "'stt' is served"),
+    ("a transcription router served by a Gemini key alone",
+     _with_tts(_with_stt(_litellm_document([("g", "os.environ/GEMINI_API_KEY")], [("claude-code", ["g"])],
+                                           {"claude-code": "g"}), "GEMINI_API_KEY")),
+     {"Gemini"}, None),
+    ("a transcription router missing although Gemini has a key",
+     _litellm_document([("g", "os.environ/GEMINI_API_KEY")], [("claude-code", ["g"])], {"claude-code": "g"}),
+     {"Gemini"}, "'stt' is absent"),
+    ("a transcription router missing although Groq has a key",
+     _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])], {"claude-code": "qwen"}),
+     {"Groq"}, "'stt' is absent"),
+    ("a transcription router whose alias is not its cascade's head",
+     _stt_alias_off_head(), {"Groq"}, "have drifted apart"),
+    ("a transcription router served with no cascade", _stt_document(cascade=False), {"Groq"}, "has no cascade"),
+    ("a transcription router that is only a cascade", _stt_document(head=False), {"Groq"}, "not served"),
+    ("a transcription router written as an entry of the model list", _stt_entry(), {"Groq"},
+     "'stt' is a model_list entry"),
+    ("a transcription cascade holding a chat model", _stt_chat_member(), {"Groq"}, "model_info.mode is None"),
+    ("a chat cascade holding an audio model", _stt_in_chat_cascade(), {"Groq"}, "a member of a non-chat router"),
     ("a router written as an entry of the model list",
      _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
                        {"claude-code": "gemini-3-8-flash"}),
      {"Gemini"}, "'pro' is a model_list entry"),
+    ("an embedding model served by its own name alone",
+     _with_tts(_with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                                            ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                                           [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                           {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+                         "GEMINI_API_KEY")),
+     {"Gemini"}, None),
+    ("an embedding model in a cascade",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash", "gemini-embedding-2"]), ("claude-code", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, "holds the embedding model 'gemini-embedding-2'"),
+    ("an embedding model with a cascade of its own",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"]),
+                        ("gemini-embedding-2", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, "has a cascade of its own"),
+    ("an alias that resolves to an embedding model",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"]),
+                        ("embed", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash", "embed": "gemini-embedding-2"}),
+     {"Gemini"}, "involves the embedding model 'gemini-embedding-2'"),
+    ("the speech router served as an alias by its cascade's head", _TTS_ONLY, {"Gemini"}, None),
+    ("the speech router written as an entry of the model list", _tts_fault("entry"), {"Gemini"},
+     "'tts' is a model_list entry"),
+    ("the speech router's alias that is not its cascade's head", _tts_fault("off-head"), {"Gemini"},
+     "have drifted apart"),
+    ("the speech router with no cascade", _tts_document(cascade=False), {"Gemini"},
+     "a router and its cascade stand or fall together"),
+    ("the speech router absent although Gemini has a key", _tts_document(head=False), {"Gemini"}, "'tts' is absent"),
+    ("the speech router served by a Mistral key alone", _TTS_ONLY, {"Mistral"}, "'tts' is served"),
+    ("a text model in the speech cascade", _tts_fault("text-member"), {"Gemini"}, "model_info.mode is None"),
+    ("a speech model in a text cascade", _tts_fault("in-text-cascade"), {"Gemini"},
+     "the cascade of 'pro' names 'a-tts'"),
+    ("the speech router's alias with another cascade than its own", _tts_fault("other-cascade"), {"Gemini"},
+     "written side by side"),
 ]
 
 

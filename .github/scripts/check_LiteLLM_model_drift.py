@@ -24,8 +24,8 @@ providers publish them. Every part of that rule decays in silence:
 * A new model is, by definition, one nobody here has heard of yet.
 
 Nothing else in this CI can see any of that: the file is valid YAML either way. This check, and
-the weekly issue it feeds, exist to see it; the deletion of what a provider has retired, which nobody
-should have to do by hand, is its third mode.
+the weekly report and pull requests it feeds, exist to see it; the deletion of what a provider has
+retired, which nobody should have to do by hand, is its third mode.
 
 HOW THE FILE IS READ
 --------------------
@@ -98,9 +98,15 @@ Offline, the default, run on every pull request. It reads the file and nothing e
   (d) every "# drift-ignore:" line is well formed and gives its reason.
 
 "--online" reads each provider's model catalogue as well, and reports the drift: it prints a
-plain-text report and, with "--issue-body PATH", writes the body of the rolling issue
-".github/workflows/LiteLLM_model_drift.yml" keeps up to date. That body is in French, since an issue
-is read by the maintainers (CLAUDE.md, "Language"); the report is English, like any run's output.
+plain-text report and, with "--summary PATH", writes the whole report that
+".github/workflows/LiteLLM_model_drift.yml" puts in the summary of its run. That text is in French,
+since it is read on GitHub by the maintainers (CLAUDE.md, "Language"); the printed report is English,
+like any run's output. "--unreadable PATH" writes one line "<provider> <class>" per catalogue that
+could not be read, the class being that of the HTTP status ("4xx"...), "network" when nothing answered
+or "answer" when the answer could not be read, and nothing else: an empty file when every catalogue
+was read, no file when the model list itself could not be read. Those lines alone make the workflow
+try again two hours later and, at the day's last attempt, open its issue; a missing key is not one of
+them.
 Exit status: 0 no drift, 1 drift, 2 a provider, or the file itself, could not be read (an error outranks
 drift, since it means the report is incomplete), 70 a crash: the script's own bug, or an
 answer it could not read at all, which prints the kind of error and where and never its message.
@@ -144,7 +150,7 @@ HOW EACH PROVIDER IS READ
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
-below -- OmniRoute, local and keyless, the ones served through Kilo Gateway, keyless too, the
+below -- OmniRoute, local and keyless, the ones served through Kilo Gateway and OVHcloud AI Endpoints, keyless too, the
 "cloudflare/<id>" and "zai/<id>" ones, whose providers this check does not read, the "openai/<id>"
 ones served through Requesty, whose provider it does not read either, and the "nvidia_nim/<id>" ones,
 whose provider it does not read any more than the others -- is left out, and the report says how many:
@@ -203,13 +209,14 @@ NEW        an id the file does not know. Known ids are those of the active and t
 
 Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a price of "0". Every
 other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
-to examine, never claimed free, and the issue links the page of each provider listed there
+to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
 
 A NEW id that neither pull request of additions carries (see "PROPOSING WHAT IS NEW" below), or
-every NEW id when the run proposes nothing, is listed in the issue with an entry to complete, ready
-to paste: the "model:" with its
+every NEW id when the run proposes nothing, is listed in the summary, and in the body of the pull
+request of the models to verify when there is one, with an entry to complete, ready to paste: the
+"model:" with its
 provider prefix, a model_name proposed the way the file's own names are made (the id with its dots
 turned to dashes, and the provider's name as a suffix for the providers whose names carry one, a
 name already taken getting it anyway), and the "api_key" and "api_base" most of that provider's
@@ -218,7 +225,7 @@ provider with no entry yet gets a placeholder for the key. Pasted as it is, it i
 for one that is not routed to, a "# " goes in after the two spaces of indentation of each line, as
 the file's other commented-out entries have it (a "# " in front of the indentation is a comment
 this check does not read as an entry), and the reason goes above, with the provider's page and the
-date, which only a person can write. The snippets are left out when they would take the issue past
+date, which only a person can write. The snippets are left out when they would take the text past
 the size GitHub accepts.
 
 DELETING WHAT A PROVIDER HAS RETIRED
@@ -230,7 +237,7 @@ model.
 A list can omit a model that is still served, so on the providers whose API answers for one model
 by its id (LOOKUPS: Gemini, Groq, Mistral) a finding is acted on only once the provider has been
 asked for the model itself. One it still serves leaves the findings and is listed apart (SERVED in
-the report, a section of the issue). One it answers 404 for is deleted. Any other answer leaves the
+the report, a section of the summary). One it answers 404 for is deleted. Any other answer leaves the
 finding to a person, with that answer in the report, and so does a route that cannot be believed:
 it has to answer 200 first for a model the list does name, of the same shape (with a slash in its
 id or without, since a slash may not be routed like a plain id). The references document the route
@@ -273,7 +280,8 @@ Groq entries alone), nor a provider-qualified mention ("distinct from Groq's qwe
 id that a surviving entry of another provider carries too, which the bare-id match leaves alone.
 The pull request is read by a person, whose job this is.
 
-What it refuses to delete, leaving the finding in the issue with the reason, and writing nothing
+What it refuses to delete, leaving the finding in the summary and in the body of the deletion pull
+request with the reason, and writing nothing
 for that model (all of its entries or none):
 
 * a model_name that a cascade starts from (the virtual routers: "pro", "flash"...), or that a
@@ -310,7 +318,7 @@ for that model (all of its entries or none):
 * every id of a provider whose catalogue omits more than half of the ids the file holds for it,
   once that is three or more: a short but valid answer (a key that sees another tier, a truncated
   page, a provider in an incident) is what a mass retirement looks like too, and a deletion pull
-  request of a hundred lines rewritten every week on its word is not worth the risk. The issue
+  request of a hundred lines rewritten every week on its word is not worth the risk. The summary
   lists them, and a person decides.
 
 THE HEAD TABLE
@@ -337,15 +345,15 @@ providers the template declares ("check_drift_publish_guard.py" plays that rule)
 THE RANKINGS
 ------------
 Where a NEW model would go in a cascade is a question of figures, which someone used to look up by
-hand: the pull requests of additions now carry them, and the issue for a NEW model neither carries.
+hand: the pull requests of additions now carry them, and the summary for a NEW model neither carries.
 With MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY set, the run reads
 Artificial Analysis's free API (GET https://artificialanalysis.ai/api/v2/language/models/free, the key
 in the "x-api-key" header, 100 requests per 24 hours, one made per page of the answer and at most
-MAX_PAGES per run) and the issue gains a table of each
+MAX_PAGES per run) and the summary gains a table of each
 NEW model's intelligence index, coding index, output speed and blended price, then a suggested place
 per router: before the first member of that router's cascade the ranking scores lower on the figure
 that decides it (intelligence for "pro", "flash" and "claude-code", coding for "code", speed for
-"flash-lite"), or after the last one. The source is named in the issue with its day, as the terms of
+"flash-lite"), or after the last one. The source is named in the summary with its day, as the terms of
 use of that API ask, and the figures are shown as published.
 
 * It is optional the way a provider's key is, and no more than that: without the key the report says
@@ -387,7 +395,7 @@ use of that API ask, and the figures are shown as published.
 PROPOSING WHAT IS NEW
 --------------------
 "--proposals DIR" proposes the NEW models in two pull requests of their own, which the workflow keeps
-and which only a person merges, rather than listing them in the issue. They are split by how much the
+and which only a person merges. They are split by how much the
 run knows of each model, never by its provider:
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
@@ -427,9 +435,15 @@ file, a ready model of a provider whose API does not state its free tier, an id 
 that does not end in ":free", an id already an entry or set aside, an entry to model one on whose key
 is not read from the environment or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
 model this cannot propose -- of a spelling the file is not written with, of a provider with no entry,
-past the cap, or one whose body would be too long -- stays in the issue, with the reason;
-"--issue-status PATH" writes the status the issue is kept by, the exit status less the NEW models a
-pull request carries.
+past the cap, or one whose body would be too long -- is listed, with the reason and its entry to
+complete, in the body of the pull request of the models to verify, and in the summary.
+
+What no entry is made of rides on the body of the pull request it concerns (carried_sections), which
+notifies the people it is assigned to: a commented-out model free again on OpenRouter on the ready one
+(on the one to verify when no ready one is opened), the NEW models no pull request proposes on the
+one to verify, and an announced retirement (NOTICE) on the deletion pull request, under a heading that
+does not hold its merge. A section that would take a body past the size GitHub accepts loses its
+entries, then itself. Whatever has no pull request to ride on that week is in the summary only.
 
 THE ROUTER CONTRACTS
 --------------------
@@ -458,7 +472,7 @@ points per second; a step that is no slower is taken when it buys points, a step
 time is unknown is not taken). "claude-code" derives from "code": it is ranked as
 "code" is, and its cascade is the cascade of "code" without the members that cannot take tools, which the
 report checks and whose differences it lists. The file carries a "status", provisional until the
-maintainer validates it and validated after, which the weekly issue says.
+maintainer validates it and validated after, which the summary says.
 
 The capabilities index (ECI) of Epoch AI is read from the same archive as the code positions (the member
 "epoch_capabilities_index/eci_scores.csv", a figure per display name, under the same caps and the same
@@ -472,7 +486,7 @@ record, an index-less record or a level that is not verified, is placed on the c
 its entry names ("eci"), ordered by it like any other with the margin and the time rule (the time is the
 ranking's, so an estimate has none); the index of the ranking always wins where it exists, the level kept
 and the exchange rate stay the ranking's, and a router ordered by time takes no estimate. Where the index
-was not read, an anchor on it cannot be read, nothing is judged against it and the issue says so, as for an
+was not read, an anchor on it cannot be read, nothing is judged against it and the summary says so, as for an
 entry that cannot be read; a name the index no longer holds is listed as stale, and is information.
 
 "code" is ranked on its CODE POSITION, read from Epoch AI's benchmark data (benchmark_data.zip, free, no
@@ -506,9 +520,9 @@ them); the last resort and the members past the floor go to the tail as for ever
 that fails, whatever the reason (the network, a size, the shape of the archive, no usable row), is
 reported as "not read" in that section and changes nothing else: the floor of "code" is not found and
 judges nobody, and the intelligence index orders the cascade, as it did before any of this. The status
-the issue shows is what the run read, never what the file declares. The plain run reads no archive.
+the summary shows is what the run read, never what the file declares. The plain run reads no archive.
 
-It is a report and nothing else. The weekly issue gains a section "Contrats par routeur" (and no other
+It is a report and nothing else. The summary gains a section "Contrats par routeur" (and no other
 text carries it) with, per router, a table of its members (record, level called, intelligence, time,
 speed, the level the router would keep, the verdict), the order the contract would give against the
 current one, the outcome of each floor the contract proposes to compare, and for a derived router how its
@@ -534,12 +548,12 @@ against the repository's template (or the file given by "--contracts"), since a 
 template means nothing against another. A name the file keeps that is no entry of the template any more,
 in a mapping or in a last resort, is NOT a failure: the weekly deletion pull request is merged by a gate
 that wants CI green, and a deletion leaves exactly that behind. The plain run prints one notice line for
-each such stale row and exits 0, and the issue lists them under "Correspondances sans entrée", for a
+each such stale row and exits 0, and the summary lists them under "Correspondances sans entrée", for a
 person to remove from the file.
 
 UNTRUSTED TEXT
 --------------
-What a catalogue says -- an id, a name, a date -- ends up in the log, in an issue, in a pull request
+What a catalogue says -- an id, a name, a date -- ends up in the log, in a summary, in a pull request
 and in a snippet someone pastes, and is read as untrusted. An id is offered as NEW only when it is
 spelt the way ids are (letters, digits and "._:/+~-", no "::", no "//", so that no address and no
 workflow command can be one); any other piece of an answer that is shown is cut to plain words, in
@@ -547,7 +561,7 @@ which no newline, backtick, "@", angle bracket, square bracket or "::" survives,
 code span. The catalogue's members are never filtered, since an id is retired by not being among
 ALL of them. No key and no response body is ever printed: a failed read says its HTTP status and
 nothing else (the reason phrase can carry a key as the body can, and HTTP/2 has none), whatever
-else of an error is shown has every key of the run replaced by "***", and the issue shows it in a
+else of an error is shown has every key of the run replaced by "***", and the summary shows it in a
 code span. A redirect is never followed, since the keys travel in the
 headers of the request, which urllib sends again to wherever the redirect points: it is reported
 as the HTTP status it is.
@@ -565,8 +579,9 @@ WHAT IT DELIBERATELY DOES NOT DO
   is somebody's statement, so what the check produces for those -- the pull requests of additions,
   BACK, NOTICE -- is where a person's check starts, not a substitute for it.
 * It opens no pull request and pushes nothing: it edits a file and writes the texts it is given
-  a path for (the issue, the pull request, the commit message, the coverage, the count of what it
-  did not delete, the proposals). The workflow that runs it does the rest.
+  a path for (the summary, the catalogues it could not read, the pull request, the commit message,
+  the coverage, the count of what it did not delete, the proposals). The workflow that runs it does
+  the rest, the issue included, whose text it writes itself.
 * It does not call any model. A listed model can still refuse a given key -- Google restricts
   Gemini 2.5 to accounts that used it before -- and only LiteLLM's own health check on the node
   would see that.
@@ -590,14 +605,14 @@ Run it from the repository root:
 
     python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
     python3 .github/scripts/check_LiteLLM_model_drift.py
-    python3 .github/scripts/check_LiteLLM_model_drift.py --online --issue-body /tmp/body.md
+    python3 .github/scripts/check_LiteLLM_model_drift.py --online --summary /tmp/summary.md
 
 and, on a checkout you can throw away, what the workflow runs:
 
-    python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply --issue-body /tmp/body.md \\
-        --pr-body /tmp/pull_request.md --commit-message /tmp/commit.txt \\
-        --coverage /tmp/coverage.txt --undeleted /tmp/undeleted.txt \\
-        --proposals /tmp/proposals --issue-status /tmp/issue_status.txt
+    python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply --summary /tmp/summary.md \\
+        --unreadable /tmp/unreadable.txt --pr-body /tmp/pull_request.md \\
+        --commit-message /tmp/commit.txt --coverage /tmp/coverage.txt \\
+        --undeleted /tmp/undeleted.txt --proposals /tmp/proposals
 """
 
 import argparse
@@ -637,11 +652,6 @@ except ImportError:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "templates" / "LiteLLM_config.yaml.j2"
-
-# ".github/workflows/LiteLLM_model_drift.yml" finds its rolling issue by its exact title AND this
-# marker in the body, and writes the same string: a change here goes there in the same commit. The
-# workflow refuses a body without its marker rather than open a second issue.
-ISSUE_MARKER = "<!-- LiteLLM-model-drift -->"
 
 # LiteLLM's four fallback keys, read under both sections, as "check_LiteLLM_account_isolation.py"
 # does: the three besides "fallbacks" name model groups just as well.
@@ -696,7 +706,7 @@ CRASH_STATUS = 70
 
 TIMEOUT = 30
 MAX_PAGES = 20
-MAX_LISTED = 150  # per section of the issue body, which GitHub caps at 65536 characters
+MAX_LISTED = 150  # per section of a body, which GitHub caps at 65536 characters
 USER_AGENT = "check_LiteLLM_model_drift (AI-Docker-stack-Ansible-deployment)"
 
 
@@ -1208,7 +1218,7 @@ def fetch_json(opener, url, headers):
 
 def scrub(text, environment):
     """"text" with every key of the run replaced by "***". No message here is meant to carry one,
-    and this is what stands between a surprise and the log, the issue and the pull request."""
+    and this is what stands between a surprise and the log, the summary and the pull request."""
     for variable in [provider[2] for provider in PROVIDERS if provider[2]] + [RANKING_KEY]:
         key = (environment.get(variable) or "").strip()
         if key:
@@ -1235,7 +1245,7 @@ def listed(payload, key="data"):
     return [item for item in items if isinstance(item, dict) and isinstance(item.get("id"), str)]
 
 
-# Everything a provider's answer says is untrusted text, and ends up in a run's log, an issue, a pull
+# Everything a provider's answer says is untrusted text, and ends up in a run's log, a summary, a pull
 # request and a YAML snippet someone pastes. An id is therefore offered as NEW only when it is spelt
 # the way ids are (SAFE_ID), and every other piece of the answer that is shown -- a name, a date, a
 # replacement, a reason phrase -- is cut down to plain words by safe_text(): no newline, no
@@ -1803,6 +1813,7 @@ def run_online(text, environment, opener, today):
         except FetchError as error:
             report["status"] = "error"
             report["error"] = scrub(str(error), environment)
+            report["error_class"] = error_class(error)
             continue
         report["members"] = len(catalogue["members"])
         report["candidates"] = len(catalogue["candidates"])
@@ -1812,6 +1823,26 @@ def run_online(text, environment, opener, today):
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
+
+
+def error_class(error):
+    """What kind of failure a FetchError is, in one word the workflow can carry and the issue show:
+    the class of its HTTP status, "network" when nothing answered, "answer" when what answered could
+    not be read. Never more: the status class says what a person needs, and nothing of a key or a
+    body can ride on it."""
+    if error.status is not None:
+        return "%dxx" % (error.status // 100) if 100 <= error.status <= 599 else "answer"
+    return "network" if str(error).startswith("network error") else "answer"
+
+
+def unreadable_providers(result):
+    """[(provider, class)] of the catalogues the run could not read, or None when the model list itself
+    could not be read, which reads no catalogue and says nothing of them. These alone make the workflow
+    try again two hours later, and open its issue when the day's last attempt still cannot read one."""
+    if result["unreadable"]:
+        return None
+    return [(report["name"], report.get("error_class") or "answer")
+            for report in result["providers"] if report["status"] == "error"]
 
 
 def exit_status(result):
@@ -2842,9 +2873,9 @@ def offline_contract_problems(text, path):
 
 
 def router_contracts(text, result, path):
-    """The contracts' reading of the cascades for the issue, or None where there is nothing to say
+    """The contracts' reading of the cascades for the summary, or None where there is nothing to say
     (no path, or the ranking was not read). It never raises and never changes the run: a file that
-    is wrong says so in the issue, and so does a computation that failed, by the kind of error."""
+    is wrong says so in the summary, and so does a computation that failed, by the kind of error."""
     ranking = result.get("rankings")
     if path is None or not ranking or ranking["status"] != "read":
         return None
@@ -2864,7 +2895,7 @@ def level_text(record):
 
 
 def contract_cells(row):
-    """The cells of a member's row in the issue: the record, the level called, its figures, the level
+    """The cells of a member's row in the summary: the record, the level called, its figures, the level
     the router would keep, and the verdict."""
     found, record = row["found"], row["record"]
     name = "`%s`%s" % (safe_text(row["name"], 60), " (dernier recours)" if row["last_resort"] else "")
@@ -2997,7 +3028,7 @@ def quality_lines(router, epoch, fallback=None):
 
 
 def contracts_section(result):
-    """The section "Contrats par routeur" of the weekly issue, in French: one table per router, the
+    """The section "Contrats par routeur" of the summary, in French: one table per router, the
     order the contract would give against the current one, the floors side by side, and what the
     mapping does not cover. A report, whose every violation is information."""
     report = result.get("contracts")
@@ -3113,7 +3144,7 @@ def contracts_section(result):
 
 BANNER_RULE = re.compile(r"^\s*#\s*={8,}\s*$")
 
-# Why a deletion is left to a human: (the run's report, in English; the issue, in French). The %s is
+# Why a deletion is left to a human: (the run's report, in English; the summary, in French). The %s is
 # the place the reason is about, which is always a name or a position read from the file itself.
 REFUSALS = {
     "source": (
@@ -4186,7 +4217,7 @@ def apply_removals(text, wanted):
 # A catalogue that omits MORE than this share of the ids the file holds for its provider, and at
 # least this many of them, is not believed either: a key that sees another tier, a truncated page or
 # a provider in the middle of an incident all answer 200 with a short list, and a short list is
-# exactly what a mass retirement looks like. Such a week is a person's to read, in the issue.
+# exactly what a mass retirement looks like. Such a week is a person's to read, in the summary.
 IMPLAUSIBLE_SHARE = 0.5
 IMPLAUSIBLE_FLOOR = 3
 
@@ -4236,7 +4267,7 @@ def apply_to_result(text, result):
 
 
 # ------------------------------------------------------------------------------------------------
-# The renderings: the run's report in English, the issue, pull request and commit in the language
+# The renderings: the run's report in English, the summary, pull request and commit in the language
 # the people who read each of them write in
 # ------------------------------------------------------------------------------------------------
 
@@ -4246,8 +4277,12 @@ PROVIDER_LABELS = {
     "openrouter": "OpenRouter", "cerebras": "Cerebras", "sambanova": "SambaNova",
     "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
 }
-# GitHub refuses an issue or pull request body past 65536 characters.
+# GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
+# to the same size.
 BODY_LIMIT = 60000
+UNCARRIED_HEADING = "## Nouveaux modèles qu'aucun ajout ne porte"
+UNPROPOSED_ELSEWHERE = (" La pull request des modèles à vérifier liste aussi ceux qu'aucun ajout ne "
+                        "porte, quand cette exécution l'ouvre ou la réécrit.")
 
 
 def notice_text(notice, french=False):
@@ -4403,7 +4438,7 @@ def run_link():
 
 def pulls_link():
     """Where the deletion pull request is, found by its branch, which the workflow names in
-    REMOVALS_BRANCH: the number is not known when the issue body is written."""
+    REMOVALS_BRANCH: the number is not known when the summary is written."""
     server = os.environ.get("GITHUB_SERVER_URL")
     repository = os.environ.get("GITHUB_REPOSITORY")
     branch = os.environ.get("REMOVALS_BRANCH")
@@ -4448,7 +4483,7 @@ def provider_basis(entries, provider):
     if not (isinstance(base, str) and SAFE_BASE.fullmatch(base)):
         base = None
     # The entries of a provider do not all agree on the "api_base" (Gemini's Gemma ones have none):
-    # the snippet gets the majority's, and the issue says the choice is open.
+    # the snippet gets the majority's, and the summary says the choice is open.
     return {"api_key": key, "api_base": base, "mixed": len(bases) > 1}
 
 
@@ -4508,7 +4543,7 @@ def place_text(router, place):
 
 
 def ranking_caveat(ranking):
-    """Where the figures come from and what a suggested place does not judge, in French: the issue
+    """Where the figures come from and what a suggested place does not judge, in French: the summary
     and the addition pull requests both say it above the places they suggest."""
     return ("Chiffres lus le %s dans l'API gratuite d'Artificial Analysis, <%s> (source à citer ; "
             "ses « Terms of Use » et « Data Platform Terms » s'appliquent). Le rapprochement entre "
@@ -4569,30 +4604,44 @@ def ranking_section(result):
     return out
 
 
-def render_issue_body(result, config_name, link=None):
-    body = issue_body(result, config_name, link, snippets=True)
+def render_summary(result, config_name, link=None):
+    """The whole report of a run, in French, for the run's summary: what the pull requests carry and
+    what none of them does. It notifies nobody, which is why the issue is kept for the one finding
+    nothing else carries, a catalogue that stays unreadable."""
+    body = summary_body(result, config_name, link, snippets=True)
     if len(body) > BODY_LIMIT:
-        body = issue_body(result, config_name, link, snippets=False)
+        body = summary_body(result, config_name, link, snippets=False)
     return body
 
 
-def issue_body(result, config_name, link, snippets):
+def left_outside_pull_requests(result):
+    """Whether the run found anything that no pull request of additions carries: a broken rule, a
+    provider in error, or a finding that is not a NEW model one of them proposes."""
+    return exit_status(result) != 0 and (
+        exit_status(result) == 2 or bool(result["rules"]) or any(
+            not finding.get("proposed") for report in result["providers"] for finding in report["findings"]))
+
+
+def summary_body(result, config_name, link, snippets):
     applying = "removals" in result
-    out = [ISSUE_MARKER, ""]
+    out = []
     out.append(
-        "Rapport hebdomadaire de `.github/workflows/LiteLLM_model_drift.yml` : il compare "
-        "`%s` sur `main` au catalogue que publie chaque fournisseur. **Ce texte est réécrit à "
-        "chaque exécution** : ce qu'on y modifierait à la main serait perdu. L'issue se ferme "
-        "d'elle-même à la première exécution sans dérive, et c'est elle qui se rouvre la fois "
-        "suivante." % config_name
+        "Rapport de `.github/workflows/LiteLLM_model_drift.yml` : il compare `%s` sur `main` au "
+        "catalogue que publie chaque fournisseur. Ce résumé est le rapport entier de l'exécution, et "
+        "le seul endroit où figure ce qu'aucune pull request ne porte ; il n'envoie aucune "
+        "notification. Les retraits annoncés sont aussi dans la pull request des suppressions, et les "
+        "modèles redevenus gratuits et les nouveaux modèles qu'aucun ajout ne peut porter dans les "
+        "pull requests d'ajout, quand cette exécution les ouvre ou les met à jour. Une issue n'est "
+        "ouverte que pour un catalogue de fournisseur encore illisible à la dernière tentative du "
+        "samedi." % config_name
     )
     out.append("")
     if applying:
         out.append(
             "Une seule sorte de constat se traite sans jugement : un modèle que son fournisseur ne "
             "liste plus. Le workflow le supprime lui-même, sans IA, dans une pull request, en "
-            "citant le catalogue lu et la date ; ce qu'il ne peut pas supprimer sans risque reste "
-            "ici avec sa raison. Tout le reste se décide ici, après vérification sur la page du "
+            "citant le catalogue lu et la date ; ce qu'il ne peut pas supprimer sans risque est "
+            "listé ici avec sa raison. Tout le reste se décide après vérification sur la page du "
             "fournisseur (`CLAUDE.md`, « The model list keeps only what can be called » : chaque "
             "affirmation de la liste cite la page du fournisseur et la date) : ajouter un modèle "
             "est un choix, et un retrait annoncé n'est pas encore un retrait."
@@ -4653,18 +4702,22 @@ def issue_body(result, config_name, link, snippets):
                     if applying else "")),
         "notice": ("Retraits annoncés",
                    "Entrées actives que le fournisseur marque pour retrait : prévoir leur "
-                   "remplacement dans les cascades."),
+                   "remplacement dans les cascades. La pull request des suppressions les liste "
+                   "aussi quand cette exécution l'ouvre ou la réécrit."),
         "back": ("De nouveau gratuits sur OpenRouter",
                  "Entrées commentées dont la variante `:free` est au catalogue, à 0 $ : relire la "
-                 "raison écrite au-dessus, et décommenter si elle ne tient plus."),
+                 "raison écrite au-dessus, et décommenter si elle ne tient plus. La pull request "
+                 "des modèles prêts les liste aussi quand elle est ouverte, sinon celle des modèles "
+                 "à vérifier."),
         "new_free": ("Nouveaux modèles gratuits sur OpenRouter",
                      "`:free` et à 0 $, sortie texte uniquement. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
-                     "<raison>` dans le fichier." + (" " + help_text if snippets else "")),
+                     "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
+                     + (" " + help_text if snippets else "")),
         "new_examine": ("Nouveaux modèles à examiner",
                         "Leur gratuité ne se lit pas dans l'API du fournisseur : la vérifier sur "
                         "sa page de tarifs avant de les router, et sinon les écarter comme "
-                        "ci-dessus." + (" " + help_text if snippets else "")),
+                        "ci-dessus." + UNPROPOSED_ELSEWHERE + (" " + help_text if snippets else "")),
     }
     taken = set(result.get("names", ()))
     for kind in ("removed", "retired", "gone", "notice", "back", "new_free", "new_examine"):
@@ -4682,24 +4735,10 @@ def issue_body(result, config_name, link, snippets):
                     finding_kind = "removed"
                 if finding_kind != kind:
                     continue
-                identifier, where = litellm_id(report["name"], finding["id"])
-                line = "- `%s`%s" % (identifier, where.replace(" on ", " chez "))
-                if finding.get("names"):
-                    line += " (%s)" % ", ".join("`%s`" % name for name in finding["names"])
-                if kind == "notice":
-                    line += " : " + notice_text(finding["notice"], french=True)
-                if kind.startswith("new") and finding.get("label"):
-                    line += " : `%s`" % finding["label"]
-                if removal and removal["status"] == "refused":
-                    line += " : **non supprimé par le workflow** : " + refusal_text(removal, True)
-                if finding.get("unproposed"):
-                    line += " : **pas proposé par pull request** : " + finding["unproposed"]
-                if kind.startswith("new") and snippets:
-                    name = propose_name(report["name"], finding["id"], taken)
-                    block = snippet(report["name"], finding["id"], report["basis"], name)
-                    line += "\n" + "\n".join(
-                        ["  ```yaml"] + ["  " + code for code in block] + ["  ```"])
-                lines.append(line)
+                if kind.startswith("new"):
+                    lines.append(new_model_line(report, finding, snippets, taken))
+                else:
+                    lines.append(finding_line(report, finding))
                 if report["name"] not in listed:
                     listed.append(report["name"])
         if lines:
@@ -4742,7 +4781,10 @@ def issue_body(result, config_name, link, snippets):
         out += ["## Erreurs", "",
                 "Catalogues qui n'ont pas pu être lus : leurs modèles ne sont ni confirmés ni "
                 "déclarés retirés. Un `401` ou un `403` désigne en général une clé invalide, "
-                "expirée ou révoquée, et Gemini répond `400` à une clé invalide.", ""]
+                "expirée ou révoquée, et Gemini répond `400` à une clé invalide. Le samedi, le "
+                "workflow refait l'exécution deux heures plus tard, trois fois au plus, tant qu'un "
+                "catalogue reste illisible, et n'ouvre son issue que si la dernière tentative ne le "
+                "lit toujours pas.", ""]
         out += ["- %s : %s" % (report["name"], code_span(report["error"]))
                 for report in errors] + [""]
 
@@ -4751,7 +4793,7 @@ def issue_body(result, config_name, link, snippets):
         out += ["## Classements non lus", "",
                 "La source des classements n'a pas pu être lue : aucune place n'est suggérée cette "
                 "semaine pour les nouveaux modèles. Rien d'autre n'en dépend, ni les suppressions ni "
-                "la fermeture de cette issue.", "", "- Artificial Analysis : %s"
+                "l'issue du workflow.", "", "- Artificial Analysis : %s"
                 % code_span(ranking["error"]), ""]
 
     out += ["## Couverture", "",
@@ -4783,9 +4825,39 @@ def issue_body(result, config_name, link, snippets):
         out.append("Entrées actives d'aucun catalogue lu ici : %s."
                    % ", ".join("`%s`" % model for model in result["unattributed"]))
         out.append("")
-    if issue_status(result) == 0:
+    if not left_outside_pull_requests(result):
         out += ["Aucune dérive.", ""]
     return "\n".join(out) + "\n"
+
+
+def finding_line(report, finding):
+    """A finding as a list item, in French: the id, the names it has here, and what is said of it."""
+    identifier, where = litellm_id(report["name"], finding["id"])
+    line = "- `%s`%s" % (identifier, where.replace(" on ", " chez "))
+    if finding.get("names"):
+        line += " (%s)" % ", ".join("`%s`" % name for name in finding["names"])
+    if finding["kind"] == "notice":
+        line += " : " + notice_text(finding["notice"], french=True)
+    removal = finding.get("removal")
+    if removal and removal["status"] == "refused":
+        line += " : **non supprimé par le workflow** : " + refusal_text(removal, True)
+    return line
+
+
+def new_model_line(report, finding, snippets, taken):
+    """A NEW model no pull request of additions carries, as a list item in French: its label, why it is
+    not proposed, and, with "snippets", the entry to complete, ready to paste. The summary and the pull
+    request of the models to verify both list them this way."""
+    line = finding_line(report, finding)
+    if finding.get("label"):
+        line += " : `%s`" % finding["label"]
+    if finding.get("unproposed"):
+        line += " : **pas proposé par pull request** : " + finding["unproposed"]
+    if snippets:
+        name = propose_name(report["name"], finding["id"], taken)
+        block = snippet(report["name"], finding["id"], report["basis"], name)
+        line += "\n" + "\n".join(["  ```yaml"] + ["  " + code for code in block] + ["  ```"])
+    return line
 
 
 def code_span(text, limit=100):
@@ -4846,7 +4918,7 @@ def render_pr_body(result, link=None):
         "échoue chaque semaine pour le dire, jusqu'à ce que la branche soit supprimée. "
         "Fermée sans être fusionnée, elle est remplacée par une nouvelle à l'exécution suivante si "
         "les fournisseurs ne listent toujours pas ces modèles ; fusionnée, ces modèles "
-        "disparaissent de l'issue hebdomadaire à l'exécution d'après.",
+        "disparaissent du rapport à l'exécution d'après.",
         "",
         "Elle se fusionne seule quand aucune section « À relire » n'y figure, que les lignes "
         "supprimées sont uniquement des entrées entières, les places de cascade qui les nomment, "
@@ -4934,11 +5006,24 @@ def render_pr_body(result, link=None):
     if refused:
         out += ["## Non supprimé par le workflow", "",
                 "Ces modèles sont retirés eux aussi, mais les supprimer demande un choix : ils "
-                "restent dans l'issue hebdomadaire, avec la raison.", ""]
+                "restent dans le résumé de chaque exécution, avec la raison, jusqu'à ce qu'une "
+                "personne le fasse.", ""]
         out += capped(["- `%s` : %s." % (safe_text(litellm_id(report["name"], finding["id"])[0],
                                                     120),
                                            refusal_text(finding["removal"], True))
                        for report, finding in refused]) + [""]
+
+    notices = [(report, finding) for report in result["providers"] for finding in report["findings"]
+               if finding["kind"] == "notice"]
+    if notices:
+        # Not the section that asks for a reading: an announced retirement does not hold back the
+        # deletions this pull request makes.
+        out += ["## Retraits annoncés", "",
+                "Le fournisseur marque ces entrées actives pour retrait sans les avoir encore "
+                "retirées : cette pull request ne les supprime pas, et ne s'en fusionne pas moins "
+                "seule. Prévoir leur remplacement dans les cascades ; elles viendront ici, supprimées, "
+                "la semaine où leur catalogue ne les listera plus.", ""]
+        out += capped([finding_line(report, finding) for report, finding in notices]) + [""]
 
     unread = [report["name"] for report in result["providers"] if report["status"] != "read"]
     if unread:
@@ -4993,9 +5078,10 @@ def render_commit_message(result):
                   "model, when asking for it directly says it does not exist), only when the "
                   "cascades and aliases it leaves behind still "
                   "name an active entry, and only after reading the result back against the "
-                  "original. What it could not delete without choosing stays in the weekly "
-                  "issue, with the reason; so do additions and announced retirements, which are "
-                  "choices.")
+                  "original. What it could not delete without choosing is listed in the pull "
+                  "request and in the run's summary, with the reason; announced retirements are "
+                  "listed in the pull request too, and additions get pull requests of their own, "
+                  "since they are choices.")
         + written_again
         + "\n")
 
@@ -5069,16 +5155,6 @@ def proposed(result, provider, identifier):
     return any(finding.get("proposed") for report in result["providers"] if report["name"] == provider
                for finding in report["findings"]
                if finding["kind"] == "new" and finding["id"] == identifier)
-
-
-def issue_status(result):
-    """The exit status, less the NEW models an addition pull request carries: the issue no longer
-    lists them, so a week whose only news is one of them leaves it closed."""
-    status = exit_status(result)
-    if status != 1 or result["rules"]:
-        return status
-    return 1 if any(not finding.get("proposed") for report in result["providers"]
-                    for finding in report["findings"]) else 0
 
 
 def addition_entries(lines):
@@ -5302,9 +5378,10 @@ def addition_name(provider, identifier, taken):
 def propose_additions(text, result, link=None):
     """{kind: {"complete", "items", "text", "body", "commit"}} for the two
     addition pull requests, every NEW finding being marked "proposed" (the kind that carries it) or
-    "unproposed" (why not, in French, which the issue shows), and "missing" (what the run does not
-    know of it, empty for a ready one). "complete" says whether every source the kind draws on was
-    read: a pull request is closed over "nothing left to propose" only then."""
+    "unproposed" (why not, in French, which the summary and the pull request of the models to verify
+    show), and "missing" (what the run does not know of it, empty for a ready one). "complete" says
+    whether every source the kind draws on was read: a pull request is closed over "nothing left to
+    propose" only then. The bodies also carry what no entry is made of (carried_sections)."""
     proposals = {kind: {"complete": False, "items": []} for kind in PROPOSAL_KINDS}
     if result["unreadable"]:
         return proposals
@@ -5315,6 +5392,7 @@ def propose_additions(text, result, link=None):
     entries = addition_entries(text.split("\n")) or []
     taken = set(WORD.findall(text))
     candidates = {kind: [] for kind in PROPOSAL_KINDS}
+    kept = {}
     for report in result["providers"]:
         for finding in report["findings"]:
             if finding["kind"] != "new":
@@ -5353,12 +5431,56 @@ def propose_additions(text, result, link=None):
             if len(body) <= BODY_LIMIT:
                 proposals[kind].update(items=items, text=built, body=body,
                                        commit=render_additions_commit(result, kind, chosen))
+                kept[kind] = chosen
                 break
             chosen.pop()[1]["unproposed"] = "le corps de la pull request dépasserait la taille que GitHub accepte"
         for _, finding, _ in chosen:
             finding["proposed"] = kind
+    # Once every NEW finding is marked, so that what a body carries apart is final. The ready pull
+    # request carries the models free again, its free tier being the same fact; the other one when it
+    # alone is open. A section that would take a body past the limit loses its entries first, then
+    # itself: it is in the run's summary all the same.
+    back = next((kind for kind in PROPOSAL_KINDS if proposals[kind]["items"]), None)
+    for kind, chosen in kept.items():
+        for snippets in (True, False):
+            carried = carried_sections(result, kind, back, snippets)
+            if not carried:
+                break
+            body = render_additions_body(result, kind, chosen, entries, link, carried)
+            if len(body) <= BODY_LIMIT:
+                proposals[kind]["body"] = body
+                break
     result["proposals"] = {kind: len(proposals[kind]["items"]) for kind in PROPOSAL_KINDS}
     return proposals
+
+
+def carried_sections(result, kind, back, snippets):
+    """What the addition pull request of "kind" carries beside its entries, in French: the commented-out
+    models free again on OpenRouter, in the pull request "back" names,
+    and, in the one of the models to verify, every NEW model no pull request proposes, with why and the
+    entry to complete."""
+    out = []
+    returning = [(report, finding) for report in result["providers"] for finding in report["findings"]
+                 if finding["kind"] == "back"]
+    if returning and kind == back:
+        out += ["## De nouveau gratuits sur OpenRouter", "",
+                "Entrées commentées du fichier dont la variante `:free` est au catalogue d'OpenRouter, à "
+                "0 $ : relire la raison écrite au-dessus de chacune, et la décommenter, dans un commit à "
+                "part, si elle ne tient plus. Cette pull request ne les touche pas.", ""]
+        out += capped([finding_line(report, finding) for report, finding in returning]) + [""]
+    left = [(report, finding) for report in result["providers"] for finding in report["findings"]
+            if finding["kind"] == "new" and not finding.get("proposed")]
+    if left and kind == "to_verify":
+        taken = set(result.get("names", ()))
+        out += [UNCARRIED_HEADING, "",
+                "Le fichier ne les connaît pas, mais le workflow ne sait pas écrire leur entrée, pour la "
+                "raison donnée à chacun : ils sont listés ici avec l'entrée à compléter, à ajouter dans "
+                "un commit sur cette branche, à commenter avec sa raison, ou à écarter par une ligne "
+                "`# drift-ignore: <fournisseur>/<id> -- <raison>`." + (
+                    " Coller l'entrée telle quelle l'active ; la clé et l'`api_base` sont ceux de la "
+                    "plupart des entrées existantes du même fournisseur." if snippets else ""), ""]
+        out += capped([new_model_line(report, finding, snippets, taken) for report, finding in left]) + [""]
+    return out
 
 
 def write_proposals(directory, proposals, date):
@@ -5423,7 +5545,7 @@ def catalogue_command(provider, identifier, key):
 
 
 def proposals_section(result):
-    """The pointer of the issue to the two addition pull requests, in French."""
+    """The pointer of the summary to the two addition pull requests, in French."""
     counts = result.get("proposals")
     if not counts or not any(counts.values()):
         return []
@@ -5498,10 +5620,10 @@ MISSING_HOWTO = {
 }
 
 
-def render_additions_body(result, kind, chosen, entries, link=None):
+def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     """The body of one addition pull request, in French: what it is, how to decide, and each model with
     its entry, its figures and places, and, for the one to verify, which fact is missing and how to
-    get it."""
+    get it; then the sections "carried" holds."""
     date = result["date"]
     ready = kind == "ready"
     other = os.environ.get(PROPOSAL_BRANCHES["to_verify" if ready else "ready"])
@@ -5625,6 +5747,7 @@ def render_additions_body(result, kind, chosen, entries, link=None):
             out += yaml_fence(['  # drift-ignore: %s -- not free per "%s" (read %s)' % (full, page_name, date)],
                               "  ")
         out.append("")
+    out += list(carried)
     ranking = result.get("rankings") or {"status": "no key"}
     out += ["## Classement", ""]
     if ranking["status"] == "read":
@@ -6160,14 +6283,15 @@ def online_cases():
         if "not covered (no key): MODEL_DRIFT_GROQ_API_KEY" not in report:
             return "the report does not say which key is missing"
         if "MODEL_DRIFT_GROQ_API_KEY" not in body:
-            return "the issue body does not name the missing secret"
+            return "the summary body does not name the missing secret"
         return None
 
     def french_body(result, calls, report, body):
-        for needle in (ISSUE_MARKER, "## Retirés : à supprimer", "`openrouter/vendor/one:free`",
+        for needle in ("Rapport de `.github/workflows/LiteLLM_model_drift.yml`", "## Retirés : à supprimer",
+                       "`openrouter/vendor/one:free`",
                        "## Couverture"):
             if needle not in body:
-                return "the issue body lacks %r" % needle
+                return "the summary body lacks %r" % needle
         return None
 
     def second_page_read(result, calls, report, body):
@@ -6189,7 +6313,7 @@ def online_cases():
         if not result["unreadable"]:
             return "a template that does not render was not reported as unreadable"
         if "## Fichier illisible" not in body or "not valid Jinja" not in body:
-            return "the issue body does not say the file could not be read, nor why"
+            return "the summary body does not say the file could not be read, nor why"
         if calls:
             return "a catalogue was read although the file could not be"
         return None
@@ -6286,7 +6410,7 @@ def online_cases():
          "body says why",
          SELFTEST_TEMPLATE + "{% if %}\n", SELFTEST_KEYS, base, no_drift, 2, unreadable),
         ("a reason phrase that carries a key and an address reaches neither the report nor the "
-         "issue: the status is all that is shown",
+         "summary: the status is all that is shown",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("deepseek", urllib.error.HTTPError(
              "https://selftest.invalid/", 500,
@@ -6325,7 +6449,7 @@ def online_cases():
          no_drift, 1,
          lambda result, calls, report, body: (
              None if "## Règles du fichier" in body and result["rules"]
-             else "the broken rule is not in the issue body")),
+             else "the broken rule is not in the summary body")),
     )
 
 
@@ -7312,7 +7436,7 @@ def ranking_answers(*aa_models, openrouter_extra=()):
 def ranking_run(environment, answers):
     calls = []
     result = run_online(RANKING_TEMPLATE, environment, canned_opener(answers, calls), "2026-01-01")
-    return result, calls, render_text(result, "selftest"), render_issue_body(result, "selftest")
+    return result, calls, render_text(result, "selftest"), render_summary(result, "selftest")
 
 
 def run_ranking_cases():
@@ -7383,7 +7507,7 @@ def run_ranking_cases():
                ("SECRET" not in report and "SECRET" not in body, "a key reached the output"),
                (hostile_lines(report, body) is None, str(hostile_lines(report, body))),
                ("@bob" not in body and "<img" not in body and "::error" not in body and "`x`" not in body,
-                "the source's text carried markup into the issue")))
+                "the source's text carried markup into the summary")))
 
     # A model that ranks below every member goes last; a router with no ranked member gets no place.
     # It is as fast as the members (250 tokens/s against 100, 300 and 200), so speed leaves it eligible.
@@ -7600,7 +7724,7 @@ def run_ranking_cases():
         judged(purpose, first_wrong(
             (result["rankings"]["status"] == "error" and wanted in result["rankings"]["error"], "got %r" % (result["rankings"],)),
             ("rankings    ERROR, not read: " + wanted in report, "the report does not carry it"),
-            ("## Classements non lus" in body and "Rien d'autre n'en dépend" in body, "the issue does not say it"),
+            ("## Classements non lus" in body and "Rien d'autre n'en dépend" in body, "the summary does not say it"),
             ("## Classement des nouveaux modèles" not in body, "a table was written without figures"),
             (result["ranked"] == [], "rows were built from a source that was not read"),
             ("SECRET" not in report and "SECRET" not in body, "a key reached the output"),
@@ -8082,17 +8206,17 @@ def run_hardening_cases():
     try:
         answers = selftest_answers()
         answers["groq"] = GROQ_WITHOUT_FAST
-        issue = apply_run(SELFTEST_TEMPLATE, answers)[3]
+        summary = apply_run(SELFTEST_TEMPLATE, answers)[3]
     finally:
         for name, value in saved.items():
             if value is None:
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
-    cases.append(("the issue names the branch of the deletions, and links the pull request found by it",
-                  "sur la branche `claude/selftest-branch`" in issue
+    cases.append(("the summary names the branch of the deletions, and links the pull request found by it",
+                  "sur la branche `claude/selftest-branch`" in summary
                   and "(https://selftest.invalid/owner/repo/pulls?q=is%3Apr+is%3Aopen+head%3A"
-                      "claude%2Fselftest-branch)" in issue))
+                      "claude%2Fselftest-branch)" in summary))
 
     status, written = crash_through_main()
     cases.append(("run as a script, a crash exits 70, not 1, and writes none of the message",
@@ -8148,16 +8272,16 @@ def run_hardening_cases():
 
 
 def apply_run(text, answers, environment=None):
-    """One whole online run with --apply, on canned catalogues: (result, new text, report, issue
+    """One whole online run with --apply, on canned catalogues: (result, new text, report, summary
     body, pull request body, commit message). The last two are None when nothing was deleted."""
     calls = []
     result = run_online(text, SELFTEST_KEYS if environment is None else environment,
                         canned_opener(answers, calls), "2026-01-01")
     new_text = apply_to_result(text, result)
     report = render_text(result, "selftest")
-    issue = render_issue_body(result, "selftest", link=None)
+    summary = render_summary(result, "selftest", link=None)
     changed = result["removals"]["changed"]
-    return (result, new_text, report, issue,
+    return (result, new_text, report, summary,
             render_pr_body(result) if changed else None,
             render_commit_message(result) if changed else None)
 
@@ -8165,7 +8289,7 @@ def apply_run(text, answers, environment=None):
 def hostile_lines(*texts):
     """The first line, if any, a workflow command could be read from at the head of: GitHub reads
     "::command::" after trimming the left of a log line, and any markup that makes a mention, a
-    tag or a link from a catalogue's text is as unwelcome in an issue."""
+    tag or a link from a catalogue's text is as unwelcome in a summary."""
     for text in texts:
         for line in (text or "").splitlines():
             if line.lstrip().startswith("::"):
@@ -8191,7 +8315,7 @@ def openrouter_with_notice(base):
 
 
 def online_apply_cases():
-    """(what the case proves, template, answers, a check on (result, new_text, report, issue, pr,
+    """(what the case proves, template, answers, a check on (result, new_text, report, summary, pr,
     commit) returning None when it holds and why not otherwise, the exit status expected)."""
     base = selftest_answers()
 
@@ -8207,27 +8331,27 @@ def online_apply_cases():
 
     groq_without_fast = GROQ_WITHOUT_FAST
 
-    def deletes_fast(result, new_text, report, issue, pr, commit):
+    def deletes_fast(result, new_text, report, summary, pr, commit):
         if "groq/vendor/fast" in new_text or "model_name: fast\n" in new_text:
             return "the retired entry is still in the file"
         if undeleted_count(result) != 0:
             return "a model that was deleted is counted as left to a person"
-        for name, needle in (("issue", "## Supprimés par la pull request"),
-                             ("issue", "`groq/vendor/fast`"),
+        for name, needle in (("summary", "## Supprimés par la pull request"),
+                             ("summary", "`groq/vendor/fast`"),
                              ("pr", "`groq/vendor/fast` chez Groq"),
                              ("pr", "<https://api.groq.com/openai/v1/models>, lu le 2026-01-01"),
                              ("pr", "ansible-ci.yml"),
                              ("commit", "found 1 id it no longer lists, from Groq (1)")):
-            if needle not in " ".join({"issue": issue, "pr": pr, "commit": commit}[name].split()):
+            if needle not in " ".join({"summary": summary, "pr": pr, "commit": commit}[name].split()):
                 return "the %s lacks %r" % (name, needle)
-        if "## Retirés" in issue:
+        if "## Retirés" in summary:
             return "a deletion the pull request makes is still listed as to do by hand"
         if commit.splitlines()[0] != ("Delete the models their provider has retired from the "
                                       "LiteLLM model list (#243)"):
             return "the commit subject is %r" % commit.splitlines()[0]
         return None
 
-    def nothing_to_read(result, new_text, report, issue, pr, commit):
+    def nothing_to_read(result, new_text, report, summary, pr, commit):
         # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no
         # "À relire" section: this is the case where it has none.
         if "groq/vendor/fast" in new_text:
@@ -8236,7 +8360,7 @@ def online_apply_cases():
             return "the pull request asks a person to read something although nothing is left over"
         return None
 
-    def something_to_read(result, new_text, report, issue, pr, commit):
+    def something_to_read(result, new_text, report, summary, pr, commit):
         # ... and the case where it has one, which has to be a person's to merge.
         if "groq/vendor/fast" in new_text:
             return "the retired entry is still in the file"
@@ -8244,7 +8368,7 @@ def online_apply_cases():
             return "the prose left above a deleted entry is not listed under \"À relire\""
         return None
 
-    def keeps_free_one(result, new_text, report, issue, pr, commit):
+    def keeps_free_one(result, new_text, report, summary, pr, commit):
         if new_text != SELFTEST_TEMPLATE:
             return "the file changed although the only retired model is behind an alias"
         if undeleted_count(result) != 1:
@@ -8253,33 +8377,33 @@ def online_apply_cases():
             return "a pull request body was written although nothing was deleted"
         for needle in ("## Retirés : à supprimer à la main", "non supprimé par le workflow",
                        "l'alias \"auto-hidden\" pointe vers lui", "`openrouter/vendor/one:free`"):
-            if needle not in issue:
-                return "the issue lacks %r" % needle
+            if needle not in summary:
+                return "the summary lacks %r" % needle
         if "NOT DELETED, left to a person: the alias" not in report:
             return "the report does not say the model was left alone"
         return None
 
-    def empty_not_believed(result, new_text, report, issue, pr, commit):
+    def empty_not_believed(result, new_text, report, summary, pr, commit):
         if new_text != SELFTEST_TEMPLATE:
             return "an empty catalogue was taken for everything retired"
-        if "catalogue ne liste aucun modèle" not in issue:
-            return "the issue does not say why"
+        if "catalogue ne liste aucun modèle" not in summary:
+            return "the summary does not say why"
         if undeleted_count(result) != 1:
             return "a commented-out model that was refused is not counted as left to a person"
         return None
 
-    def error_deletes_nothing_else(result, new_text, report, issue, pr, commit):
+    def error_deletes_nothing_else(result, new_text, report, summary, pr, commit):
         if "deepseek/deepseek-v9" not in new_text:
             return "the entry of the provider that could not be read was deleted"
         if "## Catalogues non lus" not in pr or "`deepseek`" not in pr.split("## Catalogues non lus")[1]:
             return "the pull request does not say which catalogue was not read"
         if "groq/vendor/fast" in new_text:
             return "what could be read was not deleted"
-        return hostile_lines(report, issue, pr, commit) or (
+        return hostile_lines(report, summary, pr, commit) or (
             "a key or an echoed key reached the output"
-            if any("SECRET" in (text or "") for text in (report, issue, pr, commit)) else None)
+            if any("SECRET" in (text or "") for text in (report, summary, pr, commit)) else None)
 
-    def idempotent(result, new_text, report, issue, pr, commit):
+    def idempotent(result, new_text, report, summary, pr, commit):
         again, second, _, _, again_pr, _ = apply_run(new_text, changed(groq=groq_without_fast))
         if second != new_text or again_pr is not None:
             return "a second run deleted something more"
@@ -8287,7 +8411,7 @@ def online_apply_cases():
             return "the second run still finds the model retired"
         return None
 
-    def decisions_untouched(result, new_text, report, issue, pr, commit):
+    def decisions_untouched(result, new_text, report, summary, pr, commit):
         kinds = sorted({f["kind"] for r in result["providers"] for f in r["findings"]})
         if kinds != ["back", "new", "notice"]:
             return "the findings are %r, expected an announced retirement, a BACK and a NEW" % kinds
@@ -8297,8 +8421,8 @@ def online_apply_cases():
             return "a finding that is a decision was given an outcome"
         return None
 
-    def snippets(result, new_text, report, issue, pr, commit):
-        blocks = re.findall(r"  ```yaml\n(.*?)\n  ```", issue, re.DOTALL)
+    def snippets(result, new_text, report, summary, pr, commit):
+        blocks = re.findall(r"  ```yaml\n(.*?)\n  ```", summary, re.DOTALL)
         news = [f for r in result["providers"] for f in r["findings"] if f["kind"] == "new"]
         if len(blocks) != len(news) or len(news) != 6:
             return "%d snippet(s) for %d NEW id(s), expected 6 and 6" % (len(blocks), len(news))
@@ -8331,35 +8455,35 @@ def online_apply_cases():
                           "sn-new-sambanova", "cb-new-cerebras"}
         if set(names) != expected_names:
             return "proposed names %r, expected %r" % (sorted(names), sorted(expected_names))
-        if "ne s'accordent pas" in issue:
-            return "the issue says a provider's entries disagree on the api_base, and none does"
-        if "insérer `# ` après les deux espaces d'indentation de chaque ligne" not in issue:
-            return "the issue does not say how to comment a snippet out"
+        if "ne s'accordent pas" in summary:
+            return "the summary says a provider's entries disagree on the api_base, and none does"
+        if "insérer `# ` après les deux espaces d'indentation de chaque ligne" not in summary:
+            return "the summary does not say how to comment a snippet out"
         return None
 
-    def mixed_api_base_said(result, new_text, report, issue, pr, commit):
+    def mixed_api_base_said(result, new_text, report, summary, pr, commit):
         if "Les entrées existantes de `gemini` ne s'accordent pas toutes sur l'`api_base`" \
-                not in issue:
-            return "the issue does not say that the Gemini entries disagree on the api_base"
-        if "Les entrées existantes de `groq`" in issue:
-            return "the issue says so of a provider whose entries agree"
+                not in summary:
+            return "the summary does not say that the Gemini entries disagree on the api_base"
+        if "Les entrées existantes de `groq`" in summary:
+            return "the summary says so of a provider whose entries agree"
         return None
 
-    def snippets_dropped_when_too_long(result, new_text, report, issue, pr, commit):
-        if "```yaml" in issue:
+    def snippets_dropped_when_too_long(result, new_text, report, summary, pr, commit):
+        if "```yaml" in summary:
             return "the snippets were kept in a body past the limit"
-        if len(issue) > 65536:
-            return "the body is %d characters, past GitHub's limit" % len(issue)
-        if "- `openrouter/vendor/bulk-0:free`" not in issue:
+        if len(summary) > 65536:
+            return "the body is %d characters, past GitHub's limit" % len(summary)
+        if "- `openrouter/vendor/bulk-0:free`" not in summary:
             return "the findings themselves were dropped with the snippets"
         return None
 
-    def commented_form_is_read(result, new_text, report, issue, pr, commit):
-        block = next((b for b in re.findall(r"  ```yaml\n(.*?)\n  ```", issue, re.DOTALL)
+    def commented_form_is_read(result, new_text, report, summary, pr, commit):
+        block = next((b for b in re.findall(r"  ```yaml\n(.*?)\n  ```", summary, re.DOTALL)
                       if "vendor/fresh:free" in b), None)
         if block is None:
             return "no snippet for the new OpenRouter id"
-        # What the issue says to do: a "# " after the two spaces of indentation of each line.
+        # What the summary says to do: a "# " after the two spaces of indentation of each line.
         pasted = "".join("  # " + line[4:] + "\n" for line in block.split("\n"))
         text = SELFTEST_TEMPLATE.replace(
             "\nrouter_settings:\n",
@@ -8384,7 +8508,7 @@ def online_apply_cases():
         return [finding["removal"] for report in result["providers"] if report["name"] == "groq"
                 for finding in report["findings"] if "removal" in finding]
 
-    def too_short_not_believed(result, new_text, report, issue, pr, commit):
+    def too_short_not_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
         if new_text != APPLY_TEMPLATE or pr is not None or commit is not None:
             return "a catalogue that omits most of what the file holds changed the file"
@@ -8393,11 +8517,11 @@ def online_apply_cases():
             return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
         if "omits 4 of the 7 ids this file holds for that provider" not in report:
             return "the report does not say why"
-        if "ne liste pas 4 des 7 identifiants" not in issue:
-            return "the issue does not say why"
+        if "ne liste pas 4 des 7 identifiants" not in summary:
+            return "the summary does not say why"
         return None
 
-    def three_of_seven_believed(result, new_text, report, issue, pr, commit):
+    def three_of_seven_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
         if len(outcomes) != 3 or any(o["status"] != "applied" for o in outcomes):
             return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
@@ -8415,7 +8539,7 @@ def online_apply_cases():
         "  # - model_name: c2-groq\n  #   litellm_params:\n  #     model: groq/vendor/c2\n"
         '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
 
-    def commented_ids_count_as_held(result, new_text, report, issue, pr, commit):
+    def commented_ids_count_as_held(result, new_text, report, summary, pr, commit):
         outcomes = {o["id"]: o for o in groq_outcomes(result)}
         if len(outcomes) != 4 or any(o["reason"] and o["reason"][0] == "implausible"
                                      for o in outcomes.values()):
@@ -8430,7 +8554,7 @@ def online_apply_cases():
         "\n  - model_name: extra-groq\n    litellm_params:\n      model: groq/vendor/extra\n"
         '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
 
-    def half_believed(result, new_text, report, issue, pr, commit):
+    def half_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
         if len(outcomes) != 4 or any(o["status"] != "applied" for o in outcomes):
             return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
@@ -8448,7 +8572,7 @@ def online_apply_cases():
         + "router_settings:\n  fallbacks:\n    - router:\n"
         + "".join("        - q%d-groq\n" % number for number in range(1, 5)))
 
-    def three_of_four_not_believed(result, new_text, report, issue, pr, commit):
+    def three_of_four_not_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
         if new_text != quartet or pr is not None:
             return "a catalogue that omits three of the four ids the file holds changed the file"
@@ -8457,7 +8581,7 @@ def online_apply_cases():
             return "outcomes %r" % [(o["status"], o["reason"]) for o in outcomes]
         return None
 
-    def small_provider_believed(result, new_text, report, issue, pr, commit):
+    def small_provider_believed(result, new_text, report, summary, pr, commit):
         outcomes = [finding["removal"] for r in result["providers"] if r["name"] == "cerebras"
                     for finding in r["findings"] if "removal" in finding]
         if len(outcomes) != 2 or any(o["status"] != "applied" for o in outcomes):
@@ -8466,14 +8590,14 @@ def online_apply_cases():
             return "the two Cerebras entries were not deleted"
         return None
 
-    def hostile(result, new_text, report, issue, pr, commit):
-        problem = hostile_lines(report, issue, pr, commit)
+    def hostile(result, new_text, report, summary, pr, commit):
+        problem = hostile_lines(report, summary, pr, commit)
         if problem:
             return problem
-        if any(spelling in issue for spelling in (
+        if any(spelling in summary for spelling in (
                 "vendor/evil", "vendor/tick", "vendor//slashes", "vendor/colon")):
             return "an id spelt out of the ordinary became a NEW candidate"
-        okay = [line for line in issue.splitlines()
+        okay = [line for line in summary.splitlines()
                 if line.startswith("- `openrouter/vendor/okay:free`")]
         if len(okay) != 1:
             return "the well-spelt id with a hostile name is not listed once"
@@ -8515,7 +8639,7 @@ def online_apply_cases():
                 {"id": "vendor/bulk-%d" % number, "active": True} for number in range(200)]}}
 
     return (
-        ("a retired model nobody routes to is deleted, and the issue, the pull request and the "
+        ("a retired model nobody routes to is deleted, and the summary, the pull request and the "
          "commit all say so",
          SELFTEST_TEMPLATE,
          changed(groq=groq_without_fast),
@@ -8531,7 +8655,7 @@ def online_apply_cases():
              "  - model_name: fast\n", 1),
          changed(groq=groq_without_fast),
          something_to_read, 1),
-        ("a retired model an alias points at is left alone, and the issue says why in French",
+        ("a retired model an alias points at is left alone, and the summary says why in French",
          SELFTEST_TEMPLATE, changed(openrouter=lacking("openrouter", "vendor/one:free")),
          keeps_free_one, 1),
         ("an announced retirement, a model free again and a new model are never touched",
@@ -8552,7 +8676,7 @@ def online_apply_cases():
          changed(groq=groq_without_fast), idempotent, 1),
         ("every NEW id comes with an entry to complete, modelled on its provider's own",
          SELFTEST_TEMPLATE, snippet_answers, snippets, 1),
-        ("the commented-out form the issue documents is one the check reads as an entry",
+        ("the commented-out form the summary documents is one the check reads as an entry",
          SELFTEST_TEMPLATE, snippet_answers, commented_form_is_read, 1),
         ("a provider whose entries disagree on the api_base is said to, next to the snippet",
          SELFTEST_TEMPLATE.replace("\nrouter_settings:\n", "\n  - model_name: flash-two\n"
@@ -8565,7 +8689,7 @@ def online_apply_cases():
              {"name": "models/gemini-10-pro", "supportedGenerationMethods": ["generateContent"]}]}],
                  groq={"data": base["groq"]["data"] + [{"id": "vendor/new-fast", "active": True}]}),
          mixed_api_base_said, 1),
-        ("snippets are dropped, findings kept, when the issue body would pass GitHub's limit",
+        ("snippets are dropped, findings kept, when the summary body would pass GitHub's limit",
          SELFTEST_TEMPLATE, changed(**many), snippets_dropped_when_too_long, 1),
         ("text from a catalogue cannot start a workflow command, mention anyone or make markup",
          SELFTEST_TEMPLATE, hostile_answers, hostile, 2),
@@ -8614,7 +8738,7 @@ def run_online_apply_cases():
 
 
 def confirmation_cases():
-    """(what the case proves, template, answers, a check on (result, new_text, report, issue, pr,
+    """(what the case proves, template, answers, a check on (result, new_text, report, summary, pr,
     commit) returning None when it holds and why not otherwise, the exit status expected): what a
     model that its provider's list omits is, once the provider has been asked for it."""
     def changed(**replaced):
@@ -8630,7 +8754,7 @@ def confirmation_cases():
                                     "supportedGenerationMethods": ["embedContent"]}]}]
 
     def kept_and_said(label, config_name):
-        def check(result, new_text, report, issue, pr, commit):
+        def check(result, new_text, report, summary, pr, commit):
             if new_text != SELFTEST_TEMPLATE or pr is not None:
                 return "a model its provider still serves was deleted"
             if any(finding["kind"] in ("retired", "gone")
@@ -8641,13 +8765,13 @@ def confirmation_cases():
             block = report.split("SERVED")[1] if "SERVED" in report else ""
             if label not in block.split("\n\n")[0]:
                 return "the report does not name the model as still served"
-            section = issue.split("## Absents de la liste, mais toujours servis")
+            section = summary.split("## Absents de la liste, mais toujours servis")
             if len(section) != 2 or "`%s` (`%s`)" % (label, config_name) not in section[1]:
-                return "the issue does not name the model under the section for the served ones"
+                return "the summary does not name the model under the section for the served ones"
             return None
         return check
 
-    def deleted_and_confirmed(result, new_text, report, issue, pr, commit):
+    def deleted_and_confirmed(result, new_text, report, summary, pr, commit):
         if "mistral/mistral-large-latest" in new_text or "model_name: large" in new_text:
             return "a model its provider says it does not know was not deleted"
         retired = [finding for each in result["providers"] for finding in each["findings"]
@@ -8662,7 +8786,7 @@ def confirmation_cases():
         return None
 
     def left_to_a_person(reason, french_reason=None):
-        def check(result, new_text, report, issue, pr, commit):
+        def check(result, new_text, report, summary, pr, commit):
             if new_text != SELFTEST_TEMPLATE or pr is not None:
                 return "a deletion nobody confirmed was made"
             if undeleted_count(result) != 1:
@@ -8671,16 +8795,16 @@ def confirmation_cases():
                       "provider for the model itself did not confirm that it is gone: " + reason)
             if wanted not in report:
                 return "the report lacks %r" % wanted
-            if "**non supprimé par le workflow** : la liste de son fournisseur l'omet" not in issue:
-                return "the issue does not say, in French, that the workflow left it alone"
-            if reason not in issue:
-                return "the issue does not give the answer the provider made"
-            return hostile_lines(report, issue) or (
+            if "**non supprimé par le workflow** : la liste de son fournisseur l'omet" not in summary:
+                return "the summary does not say, in French, that the workflow left it alone"
+            if reason not in summary:
+                return "the summary does not give the answer the provider made"
+            return hostile_lines(report, summary) or (
                 "a key reached the output"
-                if any("SECRET" in (text or "") for text in (report, issue)) else None)
+                if any("SECRET" in (text or "") for text in (report, summary)) else None)
         return check
 
-    def not_a_lookup_provider(result, new_text, report, issue, pr, commit):
+    def not_a_lookup_provider(result, new_text, report, summary, pr, commit):
         if "deepseek/deepseek-v9" in new_text:
             return "a retired model of a provider that cannot be asked was not deleted"
         retired = [finding for each in result["providers"] for finding in each["findings"]
@@ -8928,7 +9052,7 @@ def proposal_run(text, answers, environment=RANKING_KEYS):
 
 def run_proposal_cases():
     """The two pull requests of additions: what is proposed in which, the files with the entries added,
-    the bodies and their checklists, what the issue keeps, and what is refused."""
+    the bodies and their checklists, what the summary keeps, and what is refused."""
     failures = 0
 
     def judged(purpose, why):
@@ -8947,7 +9071,7 @@ def run_proposal_cases():
 
     result, proposals = proposal_run(SELFTEST_TEMPLATE, proposal_answers())
     ready, to_verify = proposals["ready"], proposals["to_verify"]
-    issue = render_issue_body(result, "selftest")
+    summary = render_summary(result, "selftest")
     unproposed = {(report["name"], finding["id"]): finding.get("unproposed") for report in result["providers"]
                   for finding in report["findings"] if finding["kind"] == "new"}
     missing = {(report["name"], finding["id"]): [what for what, _ in finding.get("missing", [])]
@@ -8969,19 +9093,20 @@ def run_proposal_cases():
                (missing[("openrouter", "vendor/unmeasured:free")] == ["ranking"], "an unmeasured model is not said"),
                (missing[("gemini", "gemini-10-pro")] == ["free"], "a certain match made a free tier known"),
                (ready["complete"] and to_verify["complete"], "a kind is said incomplete")))
-    judged("a model of a provider with no entry, or of a spelling the file is not written with, is left to the issue",
+    judged("a model of a provider with no entry, or of a spelling the file is not written with, is left to the summary",
            first_wrong(
                ("aucune entrée de ce fournisseur" in (unproposed.get(("cerebras", "cb-new")) or ""),
                 "cerebras: %r" % unproposed.get(("cerebras", "cb-new"))),
                ("forme" in (unproposed.get(("openrouter", "~vendor/odd:free")) or ""), "the odd id was proposed"),
                ("forme" in (unproposed.get(("gemini", "gemini-odd-")) or ""), "the odd Gemini id was proposed"),
-               ("`cerebras/cb-new`" in issue and "pas proposé par pull request" in issue,
-                "the issue does not list what is not proposed"),
-               ("vendor/fresh:free" not in issue and "gemini-10-pro" not in issue and "rough-cut" not in issue,
-                "the issue still lists a proposed model"),
-               ("## Ajouts proposés par pull request" in issue and ": 1 modèle." in issue
-                and "comment l'obtenir : 7 modèles." in issue, "the issue does not point at the pull requests"),
-               (exit_status(result) == 1 and issue_status(result) == 1, "the statuses moved")))
+               ("`cerebras/cb-new`" in summary and "pas proposé par pull request" in summary,
+                "the summary does not list what is not proposed"),
+               ("vendor/fresh:free" not in summary and "gemini-10-pro" not in summary and "rough-cut" not in summary,
+                "the summary still lists a proposed model"),
+               ("## Ajouts proposés par pull request" in summary and ": 1 modèle." in summary
+                and "comment l'obtenir : 7 modèles." in summary, "the summary does not point at the pull requests"),
+               (exit_status(result) == 1 and left_outside_pull_requests(result), "the status moved, or what no "
+                "pull request carries is not said to be left outside them")))
     added = [line for line in difflib.ndiff(SELFTEST_TEMPLATE.split("\n"), to_verify["text"].split("\n"))
              if line.startswith(("+ ", "- "))]
     judged("each entry follows its provider's last entry, modelled on it, active or commented out like it",
@@ -9054,12 +9179,12 @@ def run_proposal_cases():
                 and "aucune cascade" in vbody, "the places are not said to be suggestions under revision"),
                ("drift-ignore: openrouter/vendor/fresh:free" not in vbody, "a ready model is set aside"),
                ("- [ ]" not in vbody, "the ready pull request has a checklist"),
-               # The signature is the one link a body writes on purpose; the issue links pricing pages.
+               # The signature is the one link a body writes on purpose; the summary links pricing pages.
                (hostile_lines(vbody.replace(PROPOSAL_SIGNATURE, ""), body.replace(PROPOSAL_SIGNATURE, "")) is None,
                 str(hostile_lines(vbody.replace(PROPOSAL_SIGNATURE, ""), body.replace(PROPOSAL_SIGNATURE, "")))),
-               ("@bob" not in issue and "<img" not in issue and "::error" not in issue, "markup reached the issue"),
+               ("@bob" not in summary and "<img" not in summary and "::error" not in summary, "markup reached the summary"),
                (vbody.endswith(PROPOSAL_SIGNATURE), "the body is not signed")))
-    judged("the commits say what they add, in English, under the issue",
+    judged("the commits say what they add, in English, under the summary",
            first_wrong(
                (ready["commit"].startswith("Propose the new LiteLLM models the weekly drift check knows everything "
                                            "of (#346)\n\n"), "the ready subject is wrong"),
@@ -9103,7 +9228,7 @@ def run_proposal_cases():
                 "an unreadable file proposed something: %r" % nothing)))
 
     # The ranking: a model matched for certain is ready, with its suggested places; one the ranking does
-    # not know is to verify, not placed, with its line; and the issue ranks neither.
+    # not know is to verify, not placed, with its line; and the summary ranks neither.
     measured = ranking_answers(ranking_model("gem-top-model", "Gem Top Model", 70, 60, 100, 2.0),
                                ranking_model("groq-mid-model", "Groq Mid Model", 50, 45, 300, 0.5),
                                ranking_model("free-low-model", "Free Low Model", 30, 20, 200, 0.0),
@@ -9126,10 +9251,11 @@ def run_proposal_cases():
                 and "  # drift-ignore: openrouter/vendor/mystery-thing:free -- no entry of the Artificial Analysis "
                 "ranking measured it on 2026-01-01" in mystery, "the unmeasured model is placed: %s" % mystery[:600]),
                ("**approximatif**" in vbody, "the caveat of the matching is missing"),
-               ("## Classement des nouveaux modèles" not in render_issue_body(ranked, "selftest"),
-                "the issue still ranks the proposed models"),
-               (issue_status(ranked) == 0 and exit_status(ranked) == 1,
-                "a week whose only news is proposed does not leave the issue closed")))
+               ("## Classement des nouveaux modèles" not in render_summary(ranked, "selftest"),
+                "the summary still ranks the proposed models"),
+               (not left_outside_pull_requests(ranked) and exit_status(ranked) == 1
+                and "Aucune dérive." in render_summary(ranked, "selftest"),
+                "a week whose only news is proposed says something is left outside the pull requests")))
 
     # The caps: entries per pull request, and the size of a body.
     many = answers_listing(RANKING_TEMPLATE)
@@ -9139,22 +9265,40 @@ def run_proposal_cases():
     capped = capped_proposals["to_verify"]
     left = [finding.get("unproposed") for report in capped_result["providers"] for finding in report["findings"]
             if finding.get("unproposed")]
+    # The section of what no entry is made of comes after the entries are chosen, and a body too long
+    # for its entries alone is what loses one.
+    carried_section = capped["body"][capped["body"].find(UNCARRIED_HEADING):capped["body"].find("## Classement")]
     global BODY_LIMIT
     kept_limit = BODY_LIMIT
     try:
-        BODY_LIMIT = len(capped["body"]) - 1
+        BODY_LIMIT = len(capped["body"]) - len(carried_section) - 1
         shrunk_result = run_online(RANKING_TEMPLATE, SELFTEST_KEYS, canned_opener(many, []), "2026-01-01")
         shrunk = propose_additions(RANKING_TEMPLATE, shrunk_result)
+        # Room for the section without its entries to complete, and not with them.
+        bare = "\n".join(carried_sections(capped_result, "to_verify", None, False)) + "\n"
+        BODY_LIMIT = len(capped["body"]) - len(carried_section) + len(bare) + 10
+        bare_result = run_online(RANKING_TEMPLATE, SELFTEST_KEYS, canned_opener(many, []), "2026-01-01")
+        bared = propose_additions(RANKING_TEMPLATE, bare_result)["to_verify"]
+        bare_limit = BODY_LIMIT
     finally:
         BODY_LIMIT = kept_limit
+    bare_section = bared["body"][bared["body"].find(UNCARRIED_HEADING):bared["body"].find("## Classement")]
     judged("a pull request carries %d entries at most, and fewer when its body would be too long" % PROPOSAL_LIMIT,
            first_wrong(
                (len(capped["items"]) == PROPOSAL_LIMIT, "it carries %d" % len(capped["items"])),
                (len(left) == 30 - PROPOSAL_LIMIT and all("au-delà des 25" in reason for reason in left),
-                "the rest is not left to the issue: %r" % left[:2]),
+                "the rest is not left to the summary: %r" % left[:2]),
                (0 < len(shrunk["to_verify"]["items"]) < PROPOSAL_LIMIT
-                and len(shrunk["to_verify"]["body"]) <= len(capped["body"]) - 1,
+                and len(shrunk["to_verify"]["body"]) <= len(capped["body"]) - len(carried_section) - 1,
                 "a body too long was not shortened"),
+               (carried_section.startswith(UNCARRIED_HEADING) and carried_section.count("```yaml") == 5
+                and all("`openrouter/vendor/m%02d:free`" % number in carried_section for number in range(25, 30))
+                and "au-delà des 25 entrées" in carried_section,
+                "the models past the cap are not in the body of the one to verify, with their entry and why"),
+               (len(bared["items"]) == PROPOSAL_LIMIT and bare_section.startswith(UNCARRIED_HEADING)
+                and "```yaml" not in bare_section and "`openrouter/vendor/m29:free`" in bare_section
+                and len(bared["body"]) <= bare_limit,
+                "a section too long with its entries to complete is not kept without them"),
                (any("dépasserait la taille" in (finding.get("unproposed") or "") for report in shrunk_result["providers"]
                     for finding in report["findings"]), "what was dropped does not say why")))
 
@@ -9228,17 +9372,18 @@ def run_proposal_cases():
            None if names[:3] == ["same-free", "same-free-openrouter", "same-free-new"]
            and len(names[3]) <= ADDITION_NAME_LIMIT and ADDITION_NAME.fullmatch(names[3]) else "names %r" % names)
 
-    # The issue keeps what the files break, and the commands read the right header and route.
+    # The summary keeps what the files break, and the commands read the right header and route.
     broken = SELFTEST_TEMPLATE.replace("  # Served at $0, but not routed to: a guardrail, not a generator.\n", "")
     rules = run_online(broken, SELFTEST_KEYS, canned_opener(dict(answers_listing(broken), openrouter={"data": [
         openrouter_model(i) for i in ("vendor/one:free", "vendor/paid-one", "vendor/paid-two",
                                       "vendor/guardrail:free", "vendor/new-one:free")]}), []), "2026-01-01")
     propose_additions(broken, rules)
     groq = to_verify["body"].split("### `groq/vendor/quick`")[1].split("\n### ")[0]
-    judged("a file that breaks a rule keeps the issue open, whatever is proposed; each command its own header",
+    judged("a file that breaks a rule is left outside the pull requests, whatever is proposed; each command its own header",
            first_wrong(
-               (rules["rules"] and proposed(rules, "openrouter", "vendor/new-one:free") and issue_status(rules) == 1,
-                "the issue would close over a broken rule"),
+               (rules["rules"] and proposed(rules, "openrouter", "vendor/new-one:free") and left_outside_pull_requests(rules)
+                and "Aucune dérive." not in render_summary(rules, "selftest"),
+                "the summary would say there is no drift over a broken rule"),
                ('"Authorization": "Bearer " + os.environ["GROQ_API_KEY_SELFTEST"]' in groq
                 and "x-goog-api-key" not in groq and "https://api.groq.com/openai/v1/models/vendor/quick" in groq,
                 "the Groq command is wrong"),
@@ -9257,8 +9402,8 @@ def run_proposal_cases():
                (blank_proposals["ready"]["items"] == [], "a model with no figure is ready"),
                ("**Non placé**, faute de mesure : le classement le connaît, sans aucun chiffre" in blank_body
                 and "drift-ignore: openrouter/vendor/blank-model:free" in blank_body, "it was placed"),
-               ("Aucune dérive." in render_issue_body(blanked, "selftest"),
-                "an issue whose only news is proposed does not say there is no drift")))
+               ("Aucune dérive." in render_summary(blanked, "selftest"),
+                "a summary whose only news is proposed does not say there is no drift")))
 
     # A certain match, and nothing else, makes a model ready: not one by name after the id found two
     # entries, not one with no ranking at all, which the body says.
@@ -9337,16 +9482,135 @@ def run_proposal_cases():
     return failures
 
 
+def run_carried_cases():
+    """What the issue used to carry, now that only an unreadable catalogue opens one: an announced
+    retirement in the body of the deletion pull request, a model free again in the body of the pull
+    request of additions that concerns it, a NEW model no pull request proposes in the body of the one to
+    verify, and all of it, with the rest, in the run's summary, which is where it stays in a week with no
+    pull request to carry it."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def section(body, heading):
+        """The text of a section of "body", from its heading to the next one, or ""."""
+        if heading not in body:
+            return ""
+        return body.split(heading, 1)[1].split("\n## ", 1)[0]
+
+    def week(answers):
+        result = run_online(SELFTEST_TEMPLATE, RANKING_KEYS, canned_opener(answers, []), "2026-01-01")
+        new_text = apply_to_result(SELFTEST_TEMPLATE, result)
+        proposals = propose_additions(SELFTEST_TEMPLATE, result)
+        return (result, new_text, proposals, render_summary(result, "selftest"),
+                render_pr_body(result) if result["removals"]["changed"] else None)
+
+    def news(answers, fresh=True):
+        """"answers" with a model free again (paid-one), an announced retirement (free-one) and, unless
+        "fresh" is false, the one model the run knows everything of."""
+        listing = [openrouter_model("vendor/one:free", expiration="2026-02-01") if model["id"] == "vendor/one:free"
+                   else model for model in answers["openrouter"]["data"]
+                   if fresh or model["id"] != "vendor/fresh:free"]
+        return dict(answers, openrouter={"data": listing + [openrouter_model("vendor/paid-one:free")]})
+
+    retiring = proposal_answers()
+    retiring["groq"] = {"data": [model for model in retiring["groq"]["data"] if model["id"] != "vendor/fast"]}
+    result, new_text, proposals, summary, pr = week(news(retiring))
+    ready, to_verify = proposals["ready"]["body"], proposals["to_verify"]["body"]
+    notice = section(pr or "", "## Retraits annoncés")
+    judged("an announced retirement is in the body of the deletion pull request, under a heading that does not hold its merge",
+           first_wrong(
+               (pr is not None and "model: groq/vendor/fast" not in new_text, "nothing was deleted"),
+               ("`openrouter/vendor/one:free` (`free-one`) : expiration annoncée (`2026-02-01`)" in notice,
+                "the deletion pull request does not carry it: %r" % notice[:300]),
+               ("`groq/vendor/fast`" not in notice, "a deletion is listed as announced"),
+               (REVIEW_HEADING not in (pr or ""), "the announcement asks for a reading, which holds the merge back")))
+    judged("a model free again is in the body of the pull request of ready additions, and not in the other one",
+           first_wrong(
+               ("`openrouter/vendor/paid-one:free` (`paid-one`)" in section(ready, "## De nouveau gratuits sur OpenRouter"),
+                "the ready pull request does not carry it"),
+               ("## De nouveau gratuits" not in to_verify, "the one to verify carries it too")))
+    left = section(to_verify, UNCARRIED_HEADING)
+    judged("a NEW model no pull request proposes is in the body of the one to verify, with why and its entry",
+           first_wrong(
+               ("`cerebras/cb-new`" in left and "aucune entrée de ce fournisseur" in left,
+                "a provider with no entry is not carried: %r" % left[:300]),
+               ("`openrouter/~vendor/odd:free`" in left and "`gemini/gemini-odd-`" in left and "forme" in left,
+                "an id of another spelling is not carried"),
+               (left.count("```yaml") == 3 and "model: cerebras/cb-new" in left
+                and 'api_key: "os.environ/CEREBRAS_API_KEY_<ACCOUNT>"' in left, "the entries to complete are missing"),
+               ("vendor/fresh:free" not in left and "gemini-10-pro" not in left, "a proposed model is listed as not proposed"),
+               (UNCARRIED_HEADING not in ready, "the ready pull request carries them")))
+    judged("the run's summary has all of it, the router contracts' place and the coverage included",
+           first_wrong(
+               (all(heading in summary for heading in ("## Supprimés par la pull request", "## Retraits annoncés",
+                                                       "## De nouveau gratuits sur OpenRouter",
+                                                       "## Nouveaux modèles à examiner", "## Couverture")),
+                "a section is missing from the summary"),
+               ("`cerebras/cb-new`" in summary and "Aucune dérive." not in summary, "what nothing carries is not there"),
+               ("<!--" not in summary, "the summary carries the marker of the issue")))
+
+    result, _, proposals, summary, _ = week(news(proposal_answers(), fresh=False))
+    judged("a model free again goes to the pull request of the models to verify when no ready one is opened",
+           first_wrong(
+               (proposals["ready"]["items"] == [], "a model is ready"),
+               ("`openrouter/vendor/paid-one:free` (`paid-one`)" in section(proposals["to_verify"]["body"],
+                                                          "## De nouveau gratuits sur OpenRouter"),
+                "the pull request to verify does not carry it")))
+
+    result, new_text, proposals, summary, pr = week(news(dict(answers_listing(SELFTEST_TEMPLATE),
+                                                              rankings=ranking_page()), fresh=False))
+    judged("a week with no pull request to carry them leaves the announcement and the model free again to the summary",
+           first_wrong(
+               (pr is None and new_text == SELFTEST_TEMPLATE, "something was deleted"),
+               (not any(part["items"] for part in proposals.values()), "something was proposed"),
+               ("`openrouter/vendor/one:free`" in section(summary, "## Retraits annoncés")
+                and "`openrouter/vendor/paid-one:free` (`paid-one`)" in section(summary, "## De nouveau gratuits sur OpenRouter"),
+                "the summary does not carry them"),
+               (exit_status(result) == 1 and unreadable_providers(result) == [],
+                "a week of drift alone names a catalogue as unreadable")))
+
+    failing = dict(answers_listing(SELFTEST_TEMPLATE), groq=leaky_401("groq"))
+    result = run_online(SELFTEST_TEMPLATE, SELFTEST_KEYS, canned_opener(failing, []), "2026-01-01")
+    summary = render_summary(result, "selftest")
+    judged("a catalogue that could not be read is named with the class of its status, and the summary says when the issue opens",
+           first_wrong(
+               (unreadable_providers(result) == [("groq", "4xx")], "unreadable: %r" % unreadable_providers(result)),
+               ("n'ouvre son issue que si la dernière tentative ne le lit toujours pas" in section(summary, "## Erreurs"),
+                "the summary does not say what the error leads to"),
+               ("SECRET" not in summary, "a key reached the summary")))
+    unreadable_file = run_online("model_list: [\n", SELFTEST_KEYS, canned_opener(failing, []), "2026-01-01")
+    judged("a model list that cannot be read names no catalogue either way",
+           None if unreadable_providers(unreadable_file) is None else "it named %r" % unreadable_providers(unreadable_file))
+    judged("the class of a failure is that of its status, and says nothing else",
+           first_wrong(*[(error_class(error) == expected, "%r gave %r" % (error, error_class(error))) for error, expected in (
+               (FetchError("HTTP 404", 404), "4xx"), (FetchError("HTTP 302", 302), "3xx"),
+               (FetchError("HTTP 503", 503), "5xx"), (FetchError("HTTP 999", 999), "answer"),
+               (FetchError("network error: timed out"), "network"),
+               (FetchError("the answer is not JSON"), "answer"))]))
+    return failures
+
+
 def run_proposal_command_line_cases():
-    """"--proposals" and "--issue-status" end to end: the files the workflow reads are written, and the
-    ones of a run with nothing to propose are taken back."""
+    """"--proposals" and "--unreadable" end to end: the files the workflow reads are written, the ones of
+    a run with nothing to propose are taken back, and the catalogues that could not be read are named
+    with the class of their failure and nothing else."""
     failures = 0
     with tempfile.TemporaryDirectory() as directory:
         config = os.path.join(directory, "config.yaml.j2")
         folder = os.path.join(directory, "proposals")
-        status_file = os.path.join(directory, "issue_status.txt")
+        unread_file = os.path.join(directory, "unreadable.txt")
         Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
-        arguments = ["--online", "--config", config, "--proposals", folder, "--issue-status", status_file]
+        arguments = ["--online", "--config", config, "--proposals", folder, "--unreadable", unread_file]
 
         def run(answers, flags=arguments):
             environment = RANKING_KEYS if "rankings" in answers else SELFTEST_KEYS
@@ -9359,6 +9623,9 @@ def run_proposal_command_line_cases():
         def files():
             return sorted(os.listdir(folder)) if os.path.isdir(folder) else []
 
+        def unread():
+            return Path(unread_file).read_text(encoding="utf-8") if os.path.exists(unread_file) else None
+
         status = run(proposal_answers())
         data = json.loads(Path(folder, "proposals.json").read_text(encoding="utf-8"))
         steps = [
@@ -9370,35 +9637,39 @@ def run_proposal_command_line_cases():
              and data["ready"] == {"complete": True, "items": [
                  {"provider": "openrouter", "id": "vendor/fresh:free", "name": "fresh-free"}]}
              and Path(config).read_text(encoding="utf-8") == SELFTEST_TEMPLATE),
-            ("--issue-status counts what no pull request carries",
-             Path(status_file).read_text(encoding="utf-8") == "1\n"),
+            ("--unreadable is an empty file when every catalogue was read, whatever drifted", unread() == ""),
         ]
         only_new = answers_listing(SELFTEST_TEMPLATE)
         only_new["groq"]["data"] = [model for model in only_new["groq"]["data"] if model["id"] != "vendor/fast"]
         only_new["groq"]["data"].append({"id": "vendor/quick", "active": True})
         status = run(only_new, arguments + ["--apply"])
         steps += [
-            ("--issue-status leaves out what a pull request carries, and --apply does not change what is proposed on",
-             status == 1 and Path(status_file).read_text(encoding="utf-8") == "1\n"
+            ("--apply does not change what is proposed on, and names no catalogue for a deletion",
+             status == 1 and unread() == ""
              and "groq/vendor/fast" not in Path(config).read_text(encoding="utf-8")
              and "model: groq/vendor/fast" in Path(folder, "to_verify_template.j2").read_text(encoding="utf-8")),
         ]
         Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
-        only_new = answers_listing(SELFTEST_TEMPLATE)
-        only_new["groq"]["data"].append({"id": "vendor/quick", "active": True})
-        status = run(only_new)
-        steps.append(("a run whose only news is proposed leaves the issue at 0",
-                      status == 1 and Path(status_file).read_text(encoding="utf-8") == "0\n"))
+        failing = dict(answers_listing(SELFTEST_TEMPLATE), groq=leaky_401("groq"), mistral=http_error(503),
+                       cerebras=urllib.error.URLError("selftest-groq-key-SECRET"),
+                       deepseek=b"not json selftest-deepseek-key-SECRET")
+        status = run(failing)
+        steps.append(("--unreadable names each catalogue not read with the class of its failure, and no key",
+                      status == 2 and unread() == "cerebras network\ngroq 4xx\nmistral 5xx\ndeepseek answer\n"))
+        Path(config).write_text("model_list: [\n", encoding="utf-8")
+        status = run(failing)
+        steps.append(("--unreadable writes no file when the model list itself cannot be read",
+                      status == 2 and unread() is None))
+        Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
         status = run(answers_listing(SELFTEST_TEMPLATE))
         data = json.loads(Path(folder, "proposals.json").read_text(encoding="utf-8"))
         steps += [
             ("a run with nothing to propose takes back the files of the last one",
              status == 0 and files() == ["proposals.json"]
-             and data["ready"]["items"] == [] and data["to_verify"]["items"] == []
-             and Path(status_file).read_text(encoding="utf-8") == "0\n"),
+             and data["ready"]["items"] == [] and data["to_verify"]["items"] == [] and unread() == ""),
             ("--proposals without --online is refused", run({}, ["--config", config, "--proposals", folder]) == 2),
-            ("--issue-status without --online is refused",
-             run({}, ["--config", config, "--issue-status", status_file]) == 2),
+            ("--unreadable without --online is refused",
+             run({}, ["--config", config, "--unreadable", unread_file]) == 2),
         ]
     for purpose, passed in steps:
         if passed:
@@ -9429,8 +9700,8 @@ def run_command_line_cases():
     with tempfile.TemporaryDirectory() as directory:
         config = os.path.join(directory, "config.yaml.j2")
         paths = {name: os.path.join(directory, name)
-                 for name in ("issue", "pr", "commit", "coverage", "undeleted")}
-        arguments = ["--online", "--config", config, "--issue-body", paths["issue"]]
+                 for name in ("summary", "pr", "commit", "coverage", "undeleted")}
+        arguments = ["--online", "--config", config, "--summary", paths["summary"]]
 
         def read(name):
             return Path(paths[name]).read_text(encoding="utf-8") if os.path.exists(
@@ -9462,8 +9733,8 @@ def run_command_line_cases():
             ("with --apply, the file is rewritten in place, and its line endings are kept",
              status == 1 and "groq/vendor/fast" not in rewritten and "\r\n" in rewritten
              and "\n" not in rewritten.replace("\r\n", "")),
-            ("with --apply, the issue, the pull request and the commit are written",
-             all(read(name) for name in ("issue", "pr", "commit"))
+            ("with --apply, the summary, the pull request and the commit are written",
+             all(read(name) for name in ("summary", "pr", "commit"))
              and "DELETED from the file" in out
              and "1 deletion(s) made, 0 left to a person" in out),
         ]
@@ -9473,7 +9744,7 @@ def run_command_line_cases():
             ("a second run deletes nothing, finds no drift, and takes back the stale texts",
              status == 0 and Path(config).read_bytes().decode("utf-8") == rewritten
              and read("pr") is None and read("commit") is None
-             and "Aucune dérive." in (read("issue") or "")),
+             and "Aucune dérive." in (read("summary") or "")),
         ]
         Path(paths["undeleted"]).write_text("0\n", encoding="utf-8")
         Path(config).write_text("model_list: [unclosed\n", encoding="utf-8")
@@ -9699,7 +9970,7 @@ def run_real_list_cases():
 
 def run_selftest():
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
-    # What the weekly workflow sets in the job that runs this check makes the issue carry a link to
+    # What the weekly workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
         "REMOVALS_BRANCH", "ADDITIONS_BRANCH", "ADDITIONS_TO_VERIFY_BRANCH", "GITHUB_SERVER_URL",
@@ -10165,7 +10436,7 @@ def run_contract_cases():
     unread_report = contracts_report(template, contract_ranking(), unread)
     unread_pro, unread_order = contract_rows(unread_report, "pro")
     unread_section = "\n".join(contracts_section({"contracts": unread_report}))
-    judged("a floor whose anchor cannot be read judges nothing: no member is under it, the floor has no value, the candidates still readable are compared, and the issue says that the anchor is not found",
+    judged("a floor whose anchor cannot be read judges nothing: no member is under it, the floor has no value, the candidates still readable are compared, and the summary says that the anchor is not found",
            first_wrong(
                (unread_order["contract"]["intelligence_floor"]["value"] is None, "a floor of an unreadable anchor has a value"),
                (not any(row["kind"] == "below_floor" for row in unread_pro.values()), "a member was put under a floor that is not there"),
@@ -10375,29 +10646,29 @@ def run_contract_cases():
                            (good == [], "good: %r" % good),
                            (unreadable_template == [], "a template that cannot be read is another rule's to say")))
 
-        # The issue: the section from the command line, end to end, on a template and a contracts file.
+        # The summary: the section from the command line, end to end, on a template and a contracts file.
         config = os.path.join(directory, "config.yaml.j2")
         Path(config).write_text(CONTRACT_TEMPLATE, encoding="utf-8")
-        issue = os.path.join(directory, "issue.md")
+        summary = os.path.join(directory, "summary.md")
         listing = answers_listing(CONTRACT_TEMPLATE)
 
         def run(arguments, environment=RANKING_KEYS, version=5.0):
             page = ranking_page(*contract_records())
             page["intelligence_index_version"] = version
             out = io.StringIO()
-            Path(issue).unlink(missing_ok=True)
+            Path(summary).unlink(missing_ok=True)
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
                 try:
                     status = main(arguments, opener=canned_opener(dict(listing, rankings=page), []),
                                   environment=environment)
                 except SystemExit as error:
                     status = error.code
-            return status, out.getvalue(), Path(issue).read_text(encoding="utf-8") if os.path.exists(issue) else ""
+            return status, out.getvalue(), Path(summary).read_text(encoding="utf-8") if os.path.exists(summary) else ""
 
-        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        online = ["--online", "--config", config, "--summary", summary, "--contracts", path]
         status, out, body = run(online)
         section = body.split("## Contrats par routeur")[1].split("\n## ")[0] if "## Contrats par routeur" in body else ""
-        judged("with the ranking read, the issue carries a section of contracts: a table per router, the two orders, the floors side by side and what the mapping does not cover, and nothing else changes",
+        judged("with the ranking read, the summary carries a section of contracts: a table per router, the two orders, the floors side by side and what the mapping does not cover, and nothing else changes",
                first_wrong(
                    (status == 0 and "Aucune dérive." in body, "the section changed the status or the drift: %d" % status),
                    ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
@@ -10451,9 +10722,9 @@ def run_contract_cases():
                     "the fallback is not said"),
                    ("<https://artificialanalysis.ai/>" in section, "the source is not named"),
                    ("version" not in section.split("### `pro`")[0], "a version warning without a version change")))
-        judged("what a record's name carries into the issue is cut to plain words",
+        judged("what a record's name carries into the summary is cut to plain words",
                first_wrong((hostile_lines(body) is None, str(hostile_lines(body))),
-                           ("@bob" not in body and "<img" not in body, "markup reached the issue")))
+                           ("@bob" not in body and "<img" not in body, "markup reached the summary")))
         judged("the contracts are read from the file's text, once, and the same run's exit status is the one the drift gives",
                first_wrong((run(["--online", "--config", config, "--contracts", path])[0] == status, "the status moved")))
 
@@ -10468,7 +10739,7 @@ def run_contract_cases():
 
         # No key, another template, a file that is wrong and a computation that fails: the run is the same.
         status_none, _, body_none = run(online, environment=SELFTEST_KEYS)
-        status_other, _, body_other = run(["--online", "--config", config, "--issue-body", issue])
+        status_other, _, body_other = run(["--online", "--config", config, "--summary", summary])
         judged("without the ranking, or with another template and no contracts of its own, no section is written and the status is the same",
                first_wrong(("## Contrats par routeur" not in body_none, "a section without the ranking"),
                            ("## Contrats par routeur" not in body_other, "the repository's contracts were read against another template"),
@@ -10477,7 +10748,7 @@ def run_contract_cases():
         del broken_document["routers"]["pro"]["level_gain"]["reason"]
         Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
         status_bad, _, body_bad = run(online)
-        judged("a contracts file with a structural problem says so in the issue, computes nothing, and changes neither the status nor the rest",
+        judged("a contracts file with a structural problem says so in the summary, computes nothing, and changes neither the status nor the rest",
                first_wrong(("n'a pas la forme attendue" in body_bad and '"level_gain", has no "reason"' in body_bad, "the problem is not said"),
                            ("### `pro`" not in body_bad, "a table was written from a file that is wrong"),
                            (status_bad == status and "Aucune dérive." in body_bad, "the status or the drift moved")))
@@ -10494,10 +10765,10 @@ def run_contract_cases():
             globals()["contracts_report"] = real
         judged("a computation that fails says the kind of the error and nothing of its message, and never fails the run",
                first_wrong(("Le calcul a échoué (`RuntimeError`)" in body_boom, "the failure is not said"),
-                           ("SECRET" not in body_boom, "the message of the error reached the issue"),
+                           ("SECRET" not in body_boom, "the message of the error reached the summary"),
                            (status_boom == status and "Aucune dérive." in body_boom, "the status moved")))
 
-        # A deleted entry leaves its row: reported as stale in the issue and as a notice in the plain run,
+        # A deleted entry leaves its row: reported as stale in the summary and as a notice in the plain run,
         # and neither fails.
         stale_document = contract_document()
         stale_document["models"]["zulu"] = contract_mapping("zulu", "n/a")
@@ -10511,7 +10782,7 @@ def run_contract_cases():
                    (absent_names(stale_document, template) == absent, "absent: %r" % absent_names(stale_document, template)),
                    (contracts_report(template, contract_ranking(), stale_document)["absent"] == absent, "the report does not hold them"),
                    ("Correspondances sans entrée (l'entrée n'est plus au modèle, la ligne est à retirer du fichier des contrats) :\n\n"
-                    "- `zulu` (correspondance)\n- `zulu` (dernier recours de `code`)\n" in body_stale, "the issue does not list them"),
+                    "- `zulu` (correspondance)\n- `zulu` (dernier recours de `code`)\n" in body_stale, "the summary does not list them"),
                    (status_stale == status and "Aucune dérive." in body_stale, "the status moved"),
                    (status_notice == 0 and 'Router contracts: "zulu" (mapping) is no entry of the template any more: a stale mapping, '
                     "its row is to be removed from contracts.yaml." in out_notice
@@ -10684,11 +10955,11 @@ def epoch_ranking():
 
 
 def contracts_runner(directory, document, template_text=CONTRACT_TEMPLATE):
-    """A template and a contracts file written into "directory", and (run, config, path, issue): run(arguments,
+    """A template and a contracts file written into "directory", and (run, config, path, summary): run(arguments,
     served, environment, opener) is the command line on them, with the ranking of contract_records() read and
-    "served" as the archive of Epoch AI (nothing served is a 404), and gives (status, output, the issue written,
+    "served" as the archive of Epoch AI (nothing served is a 404), and gives (status, output, the summary written,
     the requests made for the archive)."""
-    config, path, issue = (os.path.join(directory, name) for name in ("config.yaml.j2", "contracts.yaml", "issue.md"))
+    config, path, summary = (os.path.join(directory, name) for name in ("config.yaml.j2", "contracts.yaml", "summary.md"))
     Path(config).write_text(template_text, encoding="utf-8")
     Path(path).write_text(yaml.safe_dump(document), encoding="utf-8")
     listing = answers_listing(template_text)
@@ -10697,14 +10968,14 @@ def contracts_runner(directory, document, template_text=CONTRACT_TEMPLATE):
 
     def run(arguments, served=None, environment=RANKING_KEYS, opener=None):
         calls, out = [], io.StringIO()
-        Path(issue).unlink(missing_ok=True)
+        Path(summary).unlink(missing_ok=True)
         answers = dict(listing, rankings=page, **({} if served is None else {"epoch": served}))
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             status = main(arguments, opener=opener or canned_opener(answers, calls), environment=environment)
-        return (status, out.getvalue(), Path(issue).read_text(encoding="utf-8") if os.path.exists(issue) else "",
+        return (status, out.getvalue(), Path(summary).read_text(encoding="utf-8") if os.path.exists(summary) else "",
                 [url for url, _ in calls if url == EPOCH_URL])
 
-    return run, config, path, issue
+    return run, config, path, summary
 
 
 def run_epoch_cases():
@@ -11031,11 +11302,11 @@ def run_epoch_cases():
                        (edge_rows["p"]["kind"] == "below_floor", "a hair over the margin is accepted"),
                        (contract_rows(contracts_report(template, ranking, epoch_document(), archive), "code")[0]["p"]["kind"] == "below_floor", "no margin")))
 
-    # The issue.
+    # The summary.
     section = "\n".join(contracts_section({"contracts": report}))
     code_block = section.split("### `code`")[1].split("### `claude-code`")[0]
     claude_block = section.split("### `claude-code`")[1]
-    judged("the issue says, for code and claude-code, the position of each member in each benchmark, its code position, the place it gives, which members are placed on an estimate, with the attribution and the day of the reading",
+    judged("the summary says, for code and claude-code, the position of each member in each benchmark, its code position, the place it gives, which members are placed on an estimate, with the attribution and the day of the reading",
            first_wrong(
                ("Position de code, d'après Epoch AI, benchmark data, CC BY 4.0 (<https://epoch.ai/benchmarks>, archive lue le 2026-01-02)." in code_block
                 and "Position de code, d'après Epoch AI, benchmark data, CC BY 4.0" in claude_block, "the attribution or the day is missing"),
@@ -11072,7 +11343,7 @@ def run_epoch_cases():
                        ("| `s` | — | — | — | 50 % | — | " in skipped_section and "| `s` | — | 20 % |" not in skipped_section, "s was placed on a file that was not read")))
     unread_section = "\n".join(contracts_section({"contracts": stand_in}))
     failed_section = "\n".join(contracts_section({"contracts": failed_read}))
-    judged("an archive that was not read leaves the stand-in, and the issue says that the source is not read: no quality block, no position, and a floor that is not found",
+    judged("an archive that was not read leaves the stand-in, and the summary says that the source is not read: no quality block, no position, and a floor that is not found",
            first_wrong(("(source : Epoch AI selftest source, non lue) ; Artificial Analysis n'a pas d'indice de code, l'indice d'intelligence en tient lieu à titre provisoire"
                         in unread_section, "unread: %s" % unread_section[:500]),
                        ("(source : Epoch AI selftest source, non lue (HTTP 404)) ; Artificial Analysis n'a pas d'indice de code" in failed_section,
@@ -11082,16 +11353,16 @@ def run_epoch_cases():
                         "the floor that nothing read is not said"),
                        ("Ordre des contrats : `q` > `p` > `r` > `s` > `t` > `u` > `v` > `z`." in unread_section, "the order moved without the archive"),
                        ("CC BY" not in unread_section and "CC BY" not in failed_section, "an attribution for a source that was not read")))
-    judged("what the archive carries into the issue is cut to plain words",
+    judged("what the archive carries into the summary is cut to plain words",
            first_wrong((hostile_lines("\n".join(contracts_section({"contracts": contracts_report(template, ranking, document, dict(
-               archive, skipped={"deepswe_external": "@bob <img src=x> ::error:: `x`"}))}))) is None, "markup from a reason reached the issue")))
+               archive, skipped={"deepswe_external": "@bob <img src=x> ::error:: `x`"}))}))) is None, "markup from a reason reached the summary")))
     hostile_document = epoch_document()
     hostile_document["routers"]["code"]["intelligence_floor"]["anchor"] = code_anchor(
         "@bob <img src=x> ::error:: `x`", deepswe_external=["x3"], ale_bench_external=["x3"])
     hostile_section = "\n".join(contracts_section({"contracts": contracts_report(template, ranking, hostile_document, archive)}))
-    judged("the name of an anchor on the code scale is cut to plain words in the issue, and the floor is still read",
+    judged("the name of an anchor on the code scale is cut to plain words in the summary, and the floor is still read",
            first_wrong((hostile_lines(hostile_section) is None, str(hostile_lines(hostile_section))),
-                       ("@bob" not in hostile_section and "<img" not in hostile_section, "markup from a name reached the issue"),
+                       ("@bob" not in hostile_section and "<img" not in hostile_section, "markup from a name reached the summary"),
                        ("Plancher 50 % (" in hostile_section, "the floor was not read")))
     no_fallback_section = "\n".join(contracts_section({"contracts": contracts_report(template, ranking, no_conversion, archive)}))
     judged("a file that declares no conversion says that a member with no measured position is not placed",
@@ -11109,17 +11380,17 @@ def run_epoch_cases():
         run_document["models"]["oscar"]["epoch"] = {key: ["oscar_high"] for key in ("deepswe_external", "swe_bench_verified", "cursorbench_external")}
         run_document["routers"]["code"]["intelligence_floor"]["anchor"] = code_anchor(
             "Floor Model", deepswe_external=["floor_model"], swe_bench_verified=["floor_model"])
-        run, config, path, issue = contracts_runner(directory, run_document)
+        run, config, path, summary = contracts_runner(directory, run_document)
         run_archive = epoch_zip(epoch_members({
             "deepswe_external": {"oscar_high": 0.8, "other": 0.6, "alpha_medium": 0.4, "floor_model": 0.3},
             "swe_bench_verified": {"alpha_medium": 0.9, "other": 0.7, "oscar_high": 0.5, "floor_model": 0.1},
             "cursorbench_external": {"alpha_medium": 0.9, "other": 0.5, "floor_model": 0.2, "oscar_high": 0.1}}))
-        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        online = ["--online", "--config", config, "--summary", summary, "--contracts", path]
         status, out, body, asked = run(online, run_archive)
         status_none, out_none, body_none, asked_none = run(online)
         section = body.split("## Contrats par routeur")[1].split("\n## ")[0]
         none_section = body_none.split("## Contrats par routeur")[1].split("\n## ")[0]
-        judged("the online run that has the contracts reads the archive once, and the issue orders code on it",
+        judged("the online run that has the contracts reads the archive once, and the summary orders code on it",
                first_wrong((asked == [EPOCH_URL], "asked: %r" % asked),
                            ("Plancher 100 % (Floor Model (Epoch, position de code)), un niveau de plus" in section, "the floor of code: %s" % section[:300]),
                            ("Ordre des contrats : `alpha` > `oscar` > `sierra`." in section, "the order of code: %s" % section[:200]),
@@ -11127,14 +11398,14 @@ def run_epoch_cases():
                            ("| `alpha` | 75 % | 25 % | 25 % | — | — | 25 % | 1 |" in section and "| `oscar` | 25 % | 75 % | 100 % | — | — | 75 % | 2 |" in section
                             and "| `sierra` | — | — | — | — | — | 80 % (estimé) | 3 |" in section, "the positions of the three: %s" % section),
                            ("epoch " in out and "read, 3 of the 5 benchmark file(s)" in out and "Epoch AI, benchmark data, CC BY 4.0" in out, "the log: %s" % out)))
-        judged("an archive nobody serves is a read that failed: the issue and the log say so, the order is the stand-in's, and nothing else of the run moves",
+        judged("an archive nobody serves is a read that failed: the summary and the log say so, the order is the stand-in's, and nothing else of the run moves",
                first_wrong((asked_none == [EPOCH_URL], "asked: %r" % asked_none),
                            ("Ordre des contrats : `oscar` > `alpha` > `sierra`." in none_section, "the stand-in order: %s" % none_section[:200]),
                            ("non lue (HTTP 404)" in none_section and "Position de code, d'après" not in none_section, "the failure is not said"),
                            ("Plancher introuvable (Floor Model (Epoch, position de code) : archive d'Epoch AI non lue)" in none_section, "the floor is not said unread"),
                            ("ERROR, not read: HTTP 404" in out_none, "the log: %s" % out_none),
                            (status_none == status and "Aucune dérive." in body_none and "Aucune dérive." in body, "the status or the drift moved"),
-                           (body.split("## Contrats par routeur")[0] == body_none.split("## Contrats par routeur")[0], "the rest of the issue moved")))
+                           (body.split("## Contrats par routeur")[0] == body_none.split("## Contrats par routeur")[0], "the rest of the summary moved")))
         status_bad, _, body_bad, _ = run(online, b"not an archive")
         status_boom, _, body_boom, _ = run(online, RuntimeError("selftest: SECRET"))
         judged("an answer that is no archive, or a reader that fails, is a read that failed and never the run's failure",
@@ -11142,7 +11413,7 @@ def run_epoch_cases():
                            ("non lue (failed: RuntimeError)" in body_boom and "SECRET" not in body_boom, "a failing opener"),
                            (status_bad == status and status_boom == status, "the status moved")))
         status_off, _, body_off, asked_off = run(online, run_archive, environment=SELFTEST_KEYS)
-        status_other, _, body_other, asked_other = run(["--online", "--config", config, "--issue-body", issue], run_archive)
+        status_other, _, body_other, asked_other = run(["--online", "--config", config, "--summary", summary], run_archive)
         judged("the archive is not read where there is no section to use it: without the ranking, or with another template and no contracts",
                first_wrong((asked_off == [] and asked_other == [], "asked: %r %r" % (asked_off, asked_other)),
                            ("## Contrats par routeur" not in body_off and "## Contrats par routeur" not in body_other, "a section without its inputs")))
@@ -11273,7 +11544,7 @@ def run_eci_cases():
     unread = contracts_report(template, ranking, document)
     unread_pro, unread_order = contract_rows(unread, "pro")
     unread_section = "\n".join(contracts_section({"contracts": unread}))
-    judged("with the archive not read, an anchor on the capabilities index has no value, nothing is judged against it and the issue says introuvable and why, as for an entry that cannot be read",
+    judged("with the archive not read, an anchor on the capabilities index has no value, nothing is judged against it and the summary says introuvable and why, as for an entry that cannot be read",
            first_wrong((unread_order["contract"]["intelligence_floor"]["value"] is None, "a floor with a value"),
                        (unread_order["contract"]["intelligence_floor"]["candidates"] == [40], "the candidates that can be read are not compared: %r" % unread_order["contract"]["intelligence_floor"]["candidates"]),
                        (not any(row["kind"] == "below_floor" for row in unread_pro.values()), "a member was put under a floor that is not there"),
@@ -11301,14 +11572,14 @@ def run_eci_cases():
                        (pro["delta"]["verdict"] == "sous le plancher (12.0 estimé contre 20) : dernier recours", "delta: %r" % pro["delta"]["verdict"]),
                        (pro["india"]["verdict"] == "sous le plancher (8.0 contre 20) : dernier recours", "india, whose figure is the ranking's: %r" % pro["india"]["verdict"])))
     lost = contracts_report(template, ranking, document, dict(archive, eci={}, skipped={EPOCH_ECI_KEY: "absent from the archive"}))
-    judged("an archive read without its capabilities index gives no estimate and no floor on it, and says why in the issue",
+    judged("an archive read without its capabilities index gives no estimate and no floor on it, and says why in the summary",
            first_wrong((contract_rows(lost, "pro")[1]["contract"]["intelligence_floor"]["value"] is None, "a floor from nothing"),
                        (contract_rows(lost, "pro")[0]["echo"]["estimated"] is False and contract_rows(lost, "pro")[0]["echo"]["intelligence"] is None, "an estimate from nothing"),
                        ("n'est pas lu (absent from the archive)" in "\n".join(contracts_section({"contracts": lost})), "the missing member is not said"),
                        (lost["eci_stale"] == [], "a name was called stale before the index was read")))
     section = "\n".join(contracts_section({"contracts": report}))
     pro_block = section.split("### `pro`")[1].split("### `flash`")[0]
-    judged("the issue says the capabilities index was read from the same archive, with the attribution and the day, shows each estimate as estimated and each floor with its anchor named, the candidates side by side",
+    judged("the summary says the capabilities index was read from the same archive, with the attribution and the day, shows each estimate as estimated and each floor with its anchor named, the candidates side by side",
            first_wrong(("Indice de capacités d'Epoch AI (ECI), lu le 2026-01-02 dans la même archive : Epoch AI, benchmark data, CC BY 4.0 (<https://epoch.ai/benchmarks>)." in section
                         and "tout chiffre ainsi obtenu est une **estimation**, marquée « estimé »" in section, "the capabilities index is not said: %s" % section[:1700]),
                        ("Plancher 20 (Floor Model (Epoch, estimé)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence"
@@ -11331,7 +11602,7 @@ def run_eci_cases():
                         "stale: %r" % thin["eci_stale"]),
                        ("Noms absents de l'indice de capacités d'Epoch AI (le nom est à corriger dans le fichier des contrats) :\n\n- `" in thin_section
                         and "- `charlie` : `Floor Model`\n" in thin_section
-                        and "- ancre d'un plancher : `Floor Model`\n" in thin_section, "the issue does not list them: %s" % thin_section[-1500:]),
+                        and "- ancre d'un plancher : `Floor Model`\n" in thin_section, "the summary does not list them: %s" % thin_section[-1500:]),
                        (report["eci_stale"] == [] and unread["eci_stale"] == [], "a name was stale in an index that holds it, or before it was read"),
                        (contract_rows(thin, "pro")[0]["charlie"]["estimated"] is False, "a stale name gave an estimate")))
 
@@ -11357,7 +11628,7 @@ def run_eci_cases():
                        (free_order["proposed"] == ["india", "echo", "bravo", "kilo", "sierra", "lima"], "ordered by time alone: %r" % free_order["proposed"]),
                        (free_order["contract"]["intelligence_floor"]["value"] is None and free_order["contract"]["intelligence_floor"]["candidates"] == []
                         and free_order["floors"] == [], "the floor has a value or candidates: %r" % free_order["floors"])))
-    judged("the issue says that a router has no floor, in its sentence and not as a floor that could not be found",
+    judged("the summary says that a router has no floor, in its sentence and not as a floor that could not be found",
            first_wrong(("Aucun plancher, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in free_section,
                         "the sentence: %s" % free_section[:3000]),
                        ("introuvable" not in free_section.split("### `flash-lite`")[1].split("### `code`")[0], "no floor was said not found"),
@@ -11425,7 +11696,7 @@ def run_eci_cases():
                        (bounded_order["proposed"] == ["echo", "alpha", "charlie", "delta", "india", "juliet", "foxtrot"], "pro with a margin of 8: %r" % bounded_order["proposed"])))
     margin_section = "\n".join(contracts_section({"contracts": margined(8)}))
     margin_block = margin_section.split("### `pro`")[1].split("### `flash`")[0]
-    judged("the issue says the margin wherever it says the floor: beside the floor of the router, in the verdicts and above the floors side by side, and nothing of it for a floor that has none",
+    judged("the summary says the margin wherever it says the floor: beside the floor of the router, in the verdicts and above the floors side by side, and nothing of it for a floor that has none",
            first_wrong(("Plancher 20 (Floor Model (Epoch, estimé)), marge 8, un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus" in margin_block,
                         "the floor: %s" % margin_block[:400]),
                        ("sous le plancher (8.0 contre 20, marge 8) : dernier recours |" in margin_block, "the verdict"),
@@ -11567,8 +11838,8 @@ def run_eci_cases():
     # The run: the same archive gives the index, and the plain run reads nothing.
     with tempfile.TemporaryDirectory() as directory:
         run_document = eci_document()
-        run, config, path, issue = contracts_runner(directory, run_document)
-        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        run, config, path, summary = contracts_runner(directory, run_document)
+        online = ["--online", "--config", config, "--summary", summary, "--contracts", path]
         served = epoch_zip(epoch_members({}, None, EPOCH_ECI))
         status, out, body, asked = run(online, served)
         status_down, out_down, body_down, _ = run(online)
@@ -11629,7 +11900,7 @@ def run_selftest_cases():
         found = sorted((finding["kind"], finding["id"])
                        for report in result["providers"] for finding in report["findings"])
         report = render_text(result, "selftest")
-        body = render_issue_body(result, "selftest", link=None)
+        body = render_summary(result, "selftest", link=None)
         why = None
         if found != sorted(expected):
             why = "findings %r, expected %r" % (found, sorted(expected))
@@ -11661,6 +11932,7 @@ def run_selftest_cases():
     failures += run_hardening_cases()
     failures += run_command_line_cases()
     failures += run_proposal_cases()
+    failures += run_carried_cases()
     failures += run_proposal_command_line_cases()
     failures += run_real_list_cases()
     return 1 if failures else 0
@@ -11681,8 +11953,14 @@ def main(argv=None, opener=urllib_opener, environment=None):
                         help="with --online, delete from --config every RETIRED and GONE entry "
                              "that can be deleted without anybody's judgment, and rewrite it "
                              "IN PLACE: run it on a checkout you can throw away")
-    parser.add_argument("--issue-body", metavar="PATH",
-                        help="with --online, write the rolling issue's body (French) to PATH")
+    parser.add_argument("--summary", metavar="PATH",
+                        help="with --online, write the whole report (French) to PATH, for the run's "
+                             "summary")
+    parser.add_argument("--unreadable", metavar="PATH",
+                        help="with --online, write to PATH one line \"<provider> <class>\" per "
+                             "catalogue that could not be read, the class being that of its HTTP "
+                             "status, \"network\" or \"answer\"; no file when the model list "
+                             "itself could not be read")
     parser.add_argument("--pr-body", metavar="PATH",
                         help="with --apply, write the deletion pull request's body (French) to "
                              "PATH, when something was deleted")
@@ -11700,13 +11978,10 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "request is closed over \"nothing left to delete\" only at 0, "
                              "since a model the run refused to delete is still retired")
     parser.add_argument("--proposals", metavar="DIR",
-                        help="with --online, propose the NEW models in two pull requests rather than "
-                             "in the issue, and write to DIR what the workflow keeps them with: "
+                        help="with --online, propose the NEW models in two pull requests, and write "
+                             "to DIR what the workflow keeps them with: "
                              "proposals.json, and for each pull request with something to propose its "
                              "body, its commit message and the file with the entries added")
-    parser.add_argument("--issue-status", metavar="PATH",
-                        help="with --online, write to PATH the status the issue is kept by: the exit "
-                             "status, less the NEW models a pull request of --proposals carries")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
     parser.add_argument("--contracts", metavar="PATH",
@@ -11716,9 +11991,9 @@ def main(argv=None, opener=urllib_opener, environment=None):
 
     if arguments.selftest:
         return run_selftest()
-    if (arguments.issue_body or arguments.coverage or arguments.undeleted or arguments.proposals
-            or arguments.issue_status) and not arguments.online:
-        parser.error("--issue-body, --coverage, --undeleted, --proposals and --issue-status need --online")
+    if (arguments.summary or arguments.coverage or arguments.undeleted or arguments.proposals
+            or arguments.unreadable) and not arguments.online:
+        parser.error("--summary, --coverage, --undeleted, --proposals and --unreadable need --online")
     if arguments.apply and not arguments.online:
         parser.error("--apply needs --online")
     if (arguments.pr_body or arguments.commit_message) and not arguments.apply:
@@ -11791,11 +12066,17 @@ def main(argv=None, opener=urllib_opener, environment=None):
         if not result["unreadable"]:
             Path(arguments.undeleted).write_text("%d\n" % undeleted_count(result),
                                                  encoding="utf-8")
-    if arguments.issue_status:
-        Path(arguments.issue_status).write_text("%d\n" % issue_status(result), encoding="utf-8")
-    if arguments.issue_body:
-        Path(arguments.issue_body).write_text(render_issue_body(result, shown, link=run_link()),
-                                              encoding="utf-8")
+    if arguments.unreadable:
+        # No file is no answer: the workflow neither tries again nor opens or closes its issue over a
+        # model list it could not read.
+        Path(arguments.unreadable).unlink(missing_ok=True)
+        unread = unreadable_providers(result)
+        if unread is not None:
+            Path(arguments.unreadable).write_text(
+                "".join("%s %s\n" % pair for pair in unread), encoding="utf-8")
+    if arguments.summary:
+        Path(arguments.summary).write_text(render_summary(result, shown, link=run_link()),
+                                           encoding="utf-8")
     deleted = result.get("removals", {}).get("changed")
     for target, render in ((arguments.pr_body, lambda: render_pr_body(result, run_link())),
                            (arguments.commit_message, lambda: render_commit_message(result))):

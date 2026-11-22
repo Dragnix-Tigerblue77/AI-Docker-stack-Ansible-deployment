@@ -4,42 +4,83 @@
 name: LiteLLM model drift
 
 # Once a week, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
-# lists, keeps ONE rolling issue in step with the answer, opens ONE pull request that deletes the
-# models a provider no longer lists, and TWO that propose the models it does not know yet. Deletions
-# are the only thing that may merge without a person, because they need no judgment: CLAUDE.md
-# ("The model list keeps only what can be called") says a retired model is deleted, entry and
-# cascade slots alike. No model reads a catalogue or writes a line here:
-# "check_LiteLLM_model_drift.py --apply" does it, and deletes only what it can read back as the
-# original minus the deletion. What it cannot delete without choosing stays in the issue with its
-# reason, and so does an announced retirement or a model free again. An addition is a choice, so its
-# pull requests only make it cheap: the entry is written, its place in each router suggested, and,
-# where the run lacks a fact a person needs to decide, which one and how to get it is listed (below). What each
-# finding means is in the docstring of that script, which this workflow only runs. The README says
-# what the repository needs for it, the setting "Allow GitHub Actions to create and approve pull
-# requests" included: while it is off, and no GitHub App writes the pull requests (below), the step
-# that opens them fails and names it.
+# lists, writes the whole report to the run's summary, opens ONE pull request that deletes the models
+# a provider no longer lists, and TWO that propose the models it does not know yet. Deletions are the
+# only thing that may merge without a person, because they need no judgment: CLAUDE.md ("The model
+# list keeps only what can be called") says a retired model is deleted, entry and cascade slots
+# alike. No model reads a catalogue or writes a line here: "check_LiteLLM_model_drift.py --apply"
+# does it, and deletes only what it can read back as the original minus the deletion. An addition is
+# a choice, so its pull requests only make it cheap: the entry is written, its place in each router
+# suggested, and, where the run lacks a fact a person needs to decide, which one and how to get it is
+# listed (below). What each finding means is in the docstring of that script, which this workflow
+# only runs. The README says what the repository needs for it, the setting "Allow GitHub Actions to
+# create and approve pull requests" included: while it is off, and no GitHub App writes the pull
+# requests (below), the step that opens them fails and names it.
+#
+# What a person has to read rides on the pull request it concerns, which notifies them: an announced
+# retirement in the body of the deletion pull request, a model free again in the body of the pull
+# request of ready additions (of the one to verify when the ready one is not opened), and a NEW model
+# neither can carry -- an id spelt otherwise, a provider with no entry yet, past the cap, a body too
+# long -- with its entry and why, in the body of the one to verify. The summary of the "read" job has
+# all of it, the router contracts included, and is the only place of what has no pull request that
+# week to ride on. It notifies nobody, and that is the point: the issue is kept for the one finding no
+# pull request can carry, a catalogue that could not be read (below).
 #
 # Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
 # announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
 # the run sees the model gone within a week: a cascade one entry shorter for that week, since a
-# refused call only moves the request on. Monday 05:17 UTC, off the top of the hour, when every
-# scheduled workflow on GitHub starts at once.
+# refused call only moves the request on. Weekly and not daily because every run costs included
+# minutes on a private repository; once the repository is public, a daily run is wanted. Saturday
+# 06:47 UTC -- 7:47 in Paris in winter, 8:47 in summer -- off the top of the hour, when every scheduled
+# workflow on GitHub starts at once. Saturday, because providers release from Monday to Thursday
+# (about 90 % of the releases since November 2025, by the release dates of Artificial Analysis and
+# Epoch AI), on Friday about 10 %, at the weekend about 2 %: a Saturday run has the whole week behind
+# it. And in the morning, because the stack is used from 17:00 to 22:00 on weekdays and from 10:00 to
+# 22:00 at weekends and on holidays: what the run proposes is ready before the weekend's use begins.
 #
-# Two jobs, because no job may both hold a write token and run code nobody has reviewed yet -- the
+# Three retries, the same Saturday at 08:47, 10:47 and 12:47 UTC, for a catalogue that could not be
+# read: a provider's incident, a network error or a rate limit usually passes within hours, and an
+# issue for every one of them would teach a person to ignore the issue. A retry runs the whole
+# pipeline only when the attempt before it ended with a catalogue it could not read (a request that
+# failed, the catalogue of a provider with a key that did not answer); otherwise its "gate" job ends
+# within seconds having done nothing, so a healthy week costs one run and three of a few seconds. The
+# issue is opened, or updated, only by the fourth attempt, when a catalogue is still unreadable: it
+# names the providers, the class of each one's HTTP status (never a key, never an answer) and the
+# times of the three attempts before. It is closed by the first run that reads every catalogue. A run
+# started by hand is one attempt and no chain: it may close the issue, and never opens one, since the
+# person who started it is watching it, and its summary says what it could not read.
+#
+# What carries one attempt to the next is GitHub's own record of the runs, and nothing this workflow
+# writes elsewhere. The attempt is the place of the cron that fired the run ("github.event.schedule")
+# among the four, which no earlier run has to have left behind. What the attempt before ended with is
+# the NAME of an artifact its "read" job uploads, "LiteLLM-model-drift-outcome-read" or
+# "...-unreadable", kept one day: the gate lists the artifacts of the day's earlier scheduled runs
+# with a read-only token and reads no content, so neither a key nor a model's text can travel that
+# way. A variable or a cache would need a token that writes, or would be read back by a job that runs
+# code. An attempt that left no outcome (skipped, cancelled, crashed, or never started by GitHub) is
+# passed over and the one before it decides; with none before it, nothing is tried again, and the
+# run that left none shows why.
+#
+# Three jobs, because no job may both hold a write token and run code nobody has reviewed yet -- the
 # rule "dependabot-auto-merge.yml" is built on. A freshly bumped PyYAML or Jinja2 is such code:
 # Dependabot's updates merge themselves once CI is green, and the script imports both.
 #
+#   "gate"     holds a token that reads the Actions records and nothing else, and none of the keys.
+#              It checks nothing out, and decides whether this attempt runs (above).
 #   "read"     holds the providers' keys and a READ-ONLY token. It checks main out, installs
 #              PyYAML and Jinja2, runs the script, and hands the texts, the edited template and the
-#              proposals to the next job as an artifact, and six values as job outputs.
+#              proposals to the next job as an artifact, and six values as job outputs; it writes the
+#              report to the run's summary, and uploads the artifact whose name is its outcome.
 #   "publish"  holds the token that writes, and none of the providers' keys. It checks nothing out
 #              and runs nothing of this repository: it takes what it receives as data (a status
-#              among three, twice, a coverage among two, a flag among three, a count, a commit of
+#              among three, the catalogues not read as words of a provider and a class, a coverage
+#              among two, a flag among three, a count, a commit of
 #              main, a template it uploads only once it has checked that it is main's own with
 #              lines deleted, and rows of its "head" table written again in the one form that names
 #              only models and providers the file has, and for each pull request of additions a list
 #              of a provider, an id and a name per model, from which it writes the template itself)
-#              and calls the API.
+#              and calls the API. It builds the issue's text itself, from a provider among seven, a
+#              class among five and the times the gate read from GitHub.
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
 # libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
@@ -48,14 +89,14 @@ name: LiteLLM model drift
 # a pull request that deletes lines of the template and re-points a router among models and
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
 # template's own (a key name and an address it already has, an id and a name of a narrow spelling),
-# which nothing but a person merges, and write an issue -- not push to main, which
-# "contents: write" next to such code would allow on a repository whose main no ruleset can protect
-# (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
+# which nothing but a person merges, and open an issue that names providers of the seven -- not push
+# to main, which "contents: write" next to such code would allow on a repository whose main no
+# ruleset can protect (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
 # itself is for "dependabot-auto-merge.yml" to say.
 #
 # Never on a pull request, and from main: this is the one workflow that holds the providers' keys,
 # and no job may hold them next to the code of a pull request, which nobody has reviewed yet. So it
-# runs on a schedule and by hand, and both jobs refuse any ref but main -- a guard against a run
+# runs on a schedule and by hand, and every job refuses any ref but main -- a guard against a run
 # started by mistake, no boundary against a person who can push here, who could dispatch an edited
 # copy of this file from a branch, with the secrets. The offline half of the check, which needs no
 # key, runs on every pull request in "ansible-ci.yml".
@@ -70,8 +111,9 @@ name: LiteLLM model drift
 # with its HTTP status and nothing else, a key found in an error is replaced, and a redirect is not
 # followed, since the keys travel in the headers.
 #
-# Secrets, each optional. A provider without one is listed as "not covered (no key)" in the issue
-# every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova need none.
+# Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
+# every week, rather than skipped in silence; OpenRouter, Cerebras and SambaNova need none. A missing
+# key is no failed read: it opens no issue and starts no retry.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
 #   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
@@ -85,19 +127,18 @@ name: LiteLLM model drift
 # without it the report says "not covered" like for any key, no model is ready, and a failed read
 # changes neither the status of the run nor what it deletes. Like the others it is held by the
 # "read" job alone: "publish" never has it. Their terms ask for the source to be cited, which the
-# issue does, with the day the figures were read.
+# summary and the pull requests of additions do, with the day the figures were read.
 #
-# Cost: two jobs of under a minute each, once a week -- about eight to ten of the included minutes a
-# month on this private repository -- plus, when something is deleted, the checks of the pull request.
+# Cost: three jobs of under a minute each, once a week, and three gates of a few seconds, each job
+# billed as a whole minute -- six minutes a week, about twenty-six of the included minutes a month on
+# this private repository -- plus, when something is deleted or proposed, the checks of the pull
+# requests, and two minutes more per retry that runs, in a week a catalogue fails.
 #
-# The issue is found by its exact title and a hidden marker in its body (ISSUE_MARKER), among the
-# issues this workflow's own token opened: no label to create, and an issue somebody else writes
-# with the same title is never overwritten. It closes at the first run that finds nothing and the
-# same one reopens at the next drift; a run that could not read a provider opens it too. A deletion
-# the pull request proposes counts as drift until it is merged, and is listed under its own heading.
-# A NEW model one of the pull requests of additions carries is not listed, and counts as no drift for
-# the issue: the issue points at those pull requests, and lists only the NEW models neither carries,
-# with the reason.
+# The issue is found by a hidden marker in its body, among the issues this workflow's own token
+# opened, under its title or the one it had while it reported every drift, so that one still open
+# is closed or taken over: no label to create, and an issue somebody else writes is never
+# overwritten. Its text is written by the "publish" job, and the same issue is reopened the next
+# time.
 #
 # The pull request: one branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
 # and never a draft. The branch is main plus ONE commit, made through the API with the token the
@@ -130,8 +171,7 @@ name: LiteLLM model drift
 # two, and the assignee, which is an issue's, with GITHUB_TOKEN: GitHub then starts the pull
 # request's checks itself, "sign-off" included, and tells the gate, which accepts the App's bot as
 # the pull request's author beside the Actions bot. The private key reaches this job alone, which
-# checks nothing out and runs no script of this repository. The rolling issue keeps GITHUB_TOKEN
-# too.
+# checks nothing out and runs no script of this repository. The issue keeps GITHUB_TOKEN too.
 #
 # Without the variable nothing changes and nothing breaks: the run writes with GITHUB_TOKEN and
 # dispatches "ansible-ci.yml" and "gitleaks.yml" on the branch itself -- the one event that token
@@ -168,29 +208,135 @@ name: LiteLLM model drift
 # with a comment, when nothing is left to propose -- unless a source it draws on (a catalogue, and the
 # ranking for the ready one) could not be read, or the report was not trusted.
 #
-# Both jobs take their runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
+# A report is trusted when the step that keeps the issue found what the "read" job handed over well
+# formed: a status among three that agrees with the unreadable catalogues it names. That step runs
+# whether or not it then writes anything, and the pull requests are closed only after it succeeded.
+#
+# Every job takes its runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
 # says what it may name). The keys and the write token may reach a self-hosted runner that way,
 # which is safe only for one thrown away after each job: a persistent pool that also serves
 # "ansible-ci.yml" has run a pull request's code before them, and what that code left behind would
 # run next to the keys or the token.
 
 on:
+  # The first attempt, then the three retries; the gate numbers them in this order, from its
+  # SCHEDULES, which "check_drift_publish_guard.py" holds equal to this list.
   schedule:
-    - cron: "17 5 * * 1"
+    - cron: "47 6 * * 6"
+    - cron: "47 8 * * 6"
+    - cron: "47 10 * * 6"
+    - cron: "47 12 * * 6"
   workflow_dispatch:
 
 permissions: {}
 
 # A manual run started while the scheduled one is going would otherwise race it to create the issue,
-# and two issues would be the result -- or push the branch from under it.
+# and two issues would be the result -- or push the branch from under it. It also holds a retry
+# until the attempt before it has ended, so that the gate finds that attempt's outcome.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: decide whether this attempt runs
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    # The runs of this workflow and their artifacts' names, and nothing else: no key, no checkout.
+    permissions:
+      actions: read
+    outputs:
+      # "true" when this attempt reads the catalogues, "false" when it has nothing to do.
+      run: ${{ steps.decide.outputs.run }}
+      # The attempt of the day, 1 to 4; 1 for a run started by hand.
+      attempt: ${{ steps.decide.outputs.attempt }}
+      # "true" for the day's last scheduled attempt, the one that may open the issue.
+      last: ${{ steps.decide.outputs.last }}
+      # When the earlier attempts of the day that could not read a catalogue started, in UTC.
+      earlier: ${{ steps.decide.outputs.earlier }}
+    steps:
+      - name: Find what the earlier attempts of the day ended with
+        id: decide
+        uses: actions/github-script@v9
+        env:
+          # The crons of "on.schedule", in their order: the place of the one that fired is the attempt.
+          SCHEDULES: |
+            47 6 * * 6
+            47 8 * * 6
+            47 10 * * 6
+            47 12 * * 6
+          # The "read" job names the artifact it uploads this, followed by "read" or "unreadable".
+          OUTCOME_PREFIX: LiteLLM-model-drift-outcome-
+        with:
+          script: |
+            // BEGIN gate
+            // Whether this attempt has anything to do, from what GitHub lists and nothing else: the
+            // cron that fired, and the names of the artifacts of the day's earlier scheduled runs. A
+            // retry runs when the latest of them that recorded an outcome recorded "unreadable".
+            // "check_drift_publish_guard.py" plays this code against made-up days; keep the markers.
+            const { owner, repo } = context.repo;
+            const prefix = process.env.OUTCOME_PREFIX;
+            const schedules = process.env.SCHEDULES.split('\n').map((line) => line.trim()).filter(Boolean);
+            const decide = (run, attempt, last, earlier) => {
+              core.setOutput('run', run ? 'true' : 'false');
+              core.setOutput('attempt', String(attempt));
+              core.setOutput('last', last ? 'true' : 'false');
+              core.setOutput('earlier', earlier.join(' '));
+            };
+            if (context.eventName !== 'schedule') {
+              core.notice('A run started by hand is one attempt: it reads every catalogue once, may close the issue and never opens it.');
+              decide(true, 1, false, []);
+              return;
+            }
+            const attempt = schedules.indexOf(context.payload.schedule) + 1;
+            if (attempt === 0) {
+              core.setFailed(`The schedule "${context.payload.schedule}" is none of SCHEDULES: give it its place there.`);
+              decide(false, 0, false, []);
+              return;
+            }
+            if (attempt === 1) {
+              decide(true, 1, false, []);
+              return;
+            }
+            const { data: current } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: context.runId });
+            const day = current.created_at.slice(0, 10);
+            const { data: listed } = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: current.workflow_id, event: 'schedule', created: `>=${day}`, per_page: 100,
+            });
+            // The day's earlier scheduled runs, the latest first. A run started by hand is no attempt
+            // of the chain, and a run of another day belongs to another week.
+            const before = listed.workflow_runs
+              .filter((run) => run.event === 'schedule' &&
+                run.created_at.slice(0, 10) === day && run.created_at < current.created_at)
+              .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+            const outcomes = [];
+            for (const run of before) {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id, per_page: 100 });
+              const names = data.artifacts.map((artifact) => artifact.name).filter((name) => name.startsWith(prefix));
+              const outcome = names.length === 1 ? names[0].slice(prefix.length) : null;
+              if (['read', 'unreadable'].includes(outcome)) outcomes.push({ run, outcome });
+            }
+            if (outcomes.length === 0) {
+              core.notice(`Attempt ${attempt}: no earlier attempt of the day left an outcome, so there is nothing to try again.`);
+              decide(false, attempt, false, []);
+              return;
+            }
+            if (outcomes[0].outcome !== 'unreadable') {
+              core.notice(`Attempt ${attempt}: the attempt before read every catalogue, so there is nothing to try again.`);
+              decide(false, attempt, false, []);
+              return;
+            }
+            const earlier = outcomes.filter((each) => each.outcome === 'unreadable')
+              .map((each) => (each.run.run_started_at ?? each.run.created_at).replace(/\.[0-9]+Z$/, 'Z')).reverse();
+            core.notice(`Attempt ${attempt}: the attempt before could not read a catalogue, so this one reads them again.`);
+            decide(true, attempt, attempt === schedules.length, earlier);
+            // END gate
+
   read:
     name: read the providers' catalogues
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: gate
+    if: ${{ github.ref == 'refs/heads/main' && needs.gate.outputs.run == 'true' }}
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     # The keys, and no write. Checking out needs to read.
@@ -205,8 +351,8 @@ jobs:
     outputs:
       # 0 no drift, 1 drift, 2 a provider could not be read.
       status: ${{ steps.drift.outputs.status }}
-      # The same, less the NEW models a pull request of additions carries: what the issue is kept by.
-      issue: ${{ steps.drift.outputs.issue }}
+      # "<provider>:<class>" per catalogue that could not be read, space-separated, or nothing.
+      unreadable: ${{ steps.drift.outputs.unreadable }}
       # "complete" when every provider's catalogue was read, "partial" otherwise.
       covered: ${{ steps.drift.outputs.covered }}
       # How many retired models the script did not delete, or "unknown".
@@ -242,13 +388,16 @@ jobs:
       # script gives a crash a status of its own (70) because an uncaught exception would exit 1,
       # which is "drift", and the next job would act on a report nobody wrote.
       # "--apply" edits the checked-out model list in place and writes the pull request's body and
-      # the commit's message beside the issue's; the first two do not exist when nothing was
-      # deleted. "--proposals" writes what the two pull requests of additions are made of, built on
-      # main as it was checked out, and "--issue-status" the status the issue is kept by. All of it
-      # goes to one directory, which is what the next job receives.
+      # the commit's message, which do not exist when nothing was deleted. "--proposals" writes what
+      # the two pull requests of additions are made of, built on main as it was checked out,
+      # "--summary" the whole report, which goes to the run's summary, and "--unreadable" the
+      # catalogues it could not read, or no file when the model list itself could not be read. All
+      # of it goes to one directory, which is what the next job receives.
       - name: Compare the model list with every provider's catalogue, and delete what they retired
         id: drift
         env:
+          ATTEMPT: ${{ needs.gate.outputs.attempt }}
+          EVENT: ${{ github.event_name }}
           MODEL_DRIFT_GEMINI_API_KEY: ${{ secrets.MODEL_DRIFT_GEMINI_API_KEY }}
           MODEL_DRIFT_GROQ_API_KEY: ${{ secrets.MODEL_DRIFT_GROQ_API_KEY }}
           MODEL_DRIFT_MISTRAL_API_KEY: ${{ secrets.MODEL_DRIFT_MISTRAL_API_KEY }}
@@ -259,13 +408,24 @@ jobs:
           mkdir -p "$out"
           status=0
           python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply \
-            --issue-body "$out/issue.md" \
+            --summary "$out/summary.md" \
+            --unreadable "$out/unreadable.txt" \
             --pr-body "$out/pull_request.md" \
             --commit-message "$out/commit.txt" \
             --coverage "$out/coverage.txt" \
             --undeleted "$out/undeleted.txt" \
-            --proposals "$out/proposals" \
-            --issue-status "$out/issue_status.txt" || status=$?
+            --proposals "$out/proposals" || status=$?
+          if [ -f "$out/summary.md" ]; then
+            {
+              if [ "$EVENT" = schedule ]; then
+                echo "Tentative $ATTEMPT sur 4 du samedi, état de sortie $status."
+              else
+                echo "Exécution lancée à la main, une seule tentative, état de sortie $status."
+              fi
+              echo
+              cat "$out/summary.md"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
           case "$status" in
             0 | 1 | 2) ;;
             *)
@@ -281,16 +441,44 @@ jobs:
           if [ -f "$out/undeleted.txt" ]; then
             undeleted="$(tr -d '[:space:]' < "$out/undeleted.txt")"
           fi
-          issue="$status"
-          if [ -f "$out/issue_status.txt" ]; then
-            issue="$(tr -d '[:space:]' < "$out/issue_status.txt")"
+          # One line per catalogue becomes one word, so that nothing the script wrote can start an
+          # output of its own; the next job checks each word against the providers it knows.
+          unreadable=unknown
+          outcome=
+          if [ -f "$out/unreadable.txt" ]; then
+            unreadable="$(awk 'NF { printf "%s%s:%s", (n++ ? " " : ""), $1, $2 }' "$out/unreadable.txt")"
+            outcome=read
+            if [ -n "$unreadable" ]; then
+              outcome=unreadable
+            fi
+            echo "$outcome $unreadable" > "$RUNNER_TEMP/outcome.txt"
           fi
           {
             echo "status=$status"
-            echo "issue=$issue"
+            echo "unreadable=$unreadable"
+            echo "outcome=$outcome"
             echo "covered=$covered"
             echo "undeleted=$undeleted"
           } >> "$GITHUB_OUTPUT"
+
+      # The one thing a retry cannot cure and the issue is not for: the template is on main, where
+      # the offline check of every pull request reads it, and this red run is what says it broke.
+      - name: Stop when the model list itself could not be read
+        if: ${{ steps.drift.outputs.unreadable == 'unknown' }}
+        run: |
+          echo "::error::The model list could not be read, so no catalogue was compared and nothing is published. The run's summary says why."
+          exit 1
+
+      # What the next attempt's gate reads, by its name alone: a day is enough, since the chain ends
+      # with the day.
+      - name: Record what this attempt ended with, for the next one
+        if: ${{ steps.drift.outputs.outcome != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: LiteLLM-model-drift-outcome-${{ steps.drift.outputs.outcome }}
+          path: ${{ runner.temp }}/outcome.txt
+          if-no-files-found: error
+          retention-days: 1
 
       # What the script changed in the checkout. It edits one file and no other: anything else
       # modified here is a bug to stop at, not a change to push, and the next job says so.
@@ -317,9 +505,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+
   publish:
     name: publish the issue and the pull requests
-    needs: read
+    needs: [gate, read]
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
@@ -331,7 +520,7 @@ jobs:
       contents: write
       # The deletion pull request and the two of additions: opened, updated, or closed.
       pull-requests: write
-      # The rolling issue, and the pull requests' assignee, which is an issue's.
+      # The issue, and the pull requests' assignee, which is an issue's.
       issues: write
       # Dispatching "ansible-ci.yml" and "gitleaks.yml" on the branches where no App writes the pull
       # requests, whose checks this token then starts none of; and downloading the artifact.
@@ -350,38 +539,59 @@ jobs:
 
       # github-script rather than gh, for the reason "dependabot-auto-merge.yml" gives: the runner's
       # own Node is the one thing every runner is guaranteed to have, hosted or self-hosted.
-      - name: Create, update or close the rolling issue
+      - name: Open, update or close the issue of the unreadable catalogues
         id: issue
         uses: actions/github-script@v9
         env:
-          # The exit status less the NEW models a pull request of additions carries: the issue does
-          # not list those, and a week with nothing else leaves it closed.
-          DRIFT_STATUS: ${{ needs.read.outputs.issue }}
-          DRIFT_BODY: ${{ runner.temp }}/drift/issue.md
+          DRIFT_STATUS: ${{ needs.read.outputs.status }}
+          UNREADABLE: ${{ needs.read.outputs.unreadable }}
+          LAST_ATTEMPT: ${{ needs.gate.outputs.last }}
+          EARLIER: ${{ needs.gate.outputs.earlier }}
         with:
           script: |
-            const fs = require('fs');
-            // The script writes the marker too, as ISSUE_MARKER: change it there and here in the
-            // same commit.
-            const title = 'Dérive de la liste de modèles LiteLLM';
-            const marker = '<!-- LiteLLM-model-drift -->';
-            const assignee = 'tigerblue77';
-            const status = process.env.DRIFT_STATUS;
+            // BEGIN issue
+            // Opened or updated for one thing only, a catalogue still unreadable at the day's last
+            // scheduled attempt, and closed by the first run that reads every catalogue. Its text is
+            // made here, from what is checked first: a provider of the seven, a class of the five, the
+            // times the gate read from GitHub. "check_drift_publish_guard.py" plays this code against
+            // made-up issues; keep the markers.
             const { owner, repo } = context.repo;
-
-            if (!['0', '1', '2'].includes(status)) {
-              core.setFailed(`The drift check reported the status "${status}", which is neither 0, 1 nor 2: there is no report to trust.`);
+            const marker = '<!-- LiteLLM-model-drift -->';
+            const title = 'Catalogue de fournisseur illisible pour la liste de modèles LiteLLM';
+            // The title the issue had while it reported every drift: one still open is closed by the
+            // first run that reads every catalogue, or taken over.
+            const titles = [title, 'Dérive de la liste de modèles LiteLLM'];
+            const assignee = 'tigerblue77';
+            const PROVIDERS = {
+              openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
+              groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek',
+            };
+            const CLASSES = {
+              '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
+              '4xx': 'HTTP 4xx : la requête est refusée, en général pour une clé invalide, expirée ou révoquée (Gemini répond 400 à une clé invalide)',
+              '5xx': 'HTTP 5xx : une erreur du fournisseur',
+              network: 'aucune réponse : une erreur de réseau ou un délai dépassé',
+              answer: 'une réponse illisible : pas du JSON, vide de liste, ou d\'une forme que le contrôle ne lit pas',
+            };
+            const status = process.env.DRIFT_STATUS;
+            const words = (text) => (text ?? '').trim().split(/\s+/).filter(Boolean);
+            const unread = [];
+            for (const word of words(process.env.UNREADABLE)) {
+              const match = /^([a-z]+):([0-9a-z]+)$/.exec(word);
+              if (!match || !Object.hasOwn(PROVIDERS, match[1]) || !Object.hasOwn(CLASSES, match[2]) ||
+                  unread.some((each) => each.provider === match[1])) {
+                core.setFailed(`The drift check named "${word.slice(0, 60)}" as a catalogue it could not read, which is no provider and class this step knows: there is no report to trust.`);
+                return;
+              }
+              unread.push({ provider: match[1], kind: match[2] });
+            }
+            if (!['0', '1', '2'].includes(status) || (status === '2') !== (unread.length > 0)) {
+              core.setFailed(`The drift check reported the status "${status}" and ${unread.length} catalogue(s) it could not read, which do not agree: there is no report to trust.`);
               return;
             }
-            let body;
-            try {
-              body = fs.readFileSync(process.env.DRIFT_BODY, 'utf8');
-            } catch (error) {
-              core.setFailed(`The drift check wrote no issue body (${error.message}).`);
-              return;
-            }
-            if (!body.includes(marker)) {
-              core.setFailed('The issue body lacks its marker: the script and this workflow disagree on it, and a body without it would open a second issue next week.');
+            const earlier = words(process.env.EARLIER);
+            if (earlier.some((time) => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/.test(time))) {
+              core.setFailed('The gate handed over a time of an earlier attempt that is no time: there is no report to trust.');
               return;
             }
 
@@ -391,37 +601,68 @@ jobs:
             const existing = issues
               .filter((issue) => !issue.pull_request &&
                 issue.user?.login === 'github-actions[bot]' &&
-                issue.title === title &&
+                titles.includes(issue.title) &&
                 (issue.body ?? '').includes(marker))
               .sort((a, b) => a.number - b.number)[0];
+            const link = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const day = new Date().toISOString().slice(0, 10);
 
-            if (status === '0') {
+            if (unread.length === 0) {
               if (existing && existing.state === 'open') {
-                await github.rest.issues.update({
-                  owner, repo, issue_number: existing.number, body,
-                  state: 'closed', state_reason: 'completed',
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: existing.number,
+                  body: `Fermée par le workflow : l'exécution du ${day} (${link}) a lu le catalogue de chaque fournisseur. Elle se rouvrira si une prochaine exécution du samedi ne peut toujours pas en lire un à sa dernière tentative.`,
                 });
-                core.notice(`No drift any more: #${existing.number} closed.`);
+                await github.rest.issues.update({
+                  owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed',
+                });
+                core.notice(`Every catalogue was read: #${existing.number} closed.`);
               } else {
-                core.notice('No drift, and no open drift issue: nothing to do.');
+                core.notice('Every catalogue was read, and no issue is open: nothing to do.');
               }
               return;
             }
+            const named = unread.map((each) => PROVIDERS[each.provider]).join(', ');
+            if (process.env.LAST_ATTEMPT !== 'true') {
+              core.warning(context.eventName === 'schedule'
+                ? `${named} could not be read: the next attempt, two hours from now, reads every catalogue again, and only the last one of the day opens the issue.`
+                : `${named} could not be read: a run started by hand opens no issue, and its summary says what failed.`);
+              return;
+            }
 
+            const body = [
+              marker,
+              '',
+              `Le workflow \`.github/workflows/LiteLLM_model_drift.yml\` n'a pas pu lire le catalogue de ces fournisseurs à la dernière tentative du samedi, l'[exécution du ${day}](${link}) :`,
+              '',
+              '| Fournisseur | Échec |',
+              '| --- | --- |',
+              ...unread.map((each) => `| ${PROVIDERS[each.provider]} | ${CLASSES[each.kind]} |`),
+              '',
+              earlier.length > 0
+                ? `Les tentatives précédentes du jour n'avaient pas pu lire un catalogue non plus ; elles ont démarré à ${earlier.map((time) => `\`${time}\``).join(', ')} (UTC).`
+                : 'Aucune tentative précédente du jour n\'a laissé de résultat.',
+              '',
+              'Tant qu\'un catalogue n\'est pas lu, rien n\'est supprimé pour son fournisseur, et les pull requests qui en dépendent restent ouvertes ; le reste de l\'exécution se fait comme les autres semaines, et son résumé donne le rapport entier. Une clé qui manque n\'ouvre pas cette issue : le résumé la dit « non couverte ».',
+              '',
+              'Ce texte est réécrit chaque samedi où la dernière tentative échoue encore, et l\'issue se ferme d\'elle-même à la première exécution qui lit le catalogue de chaque fournisseur.',
+              '',
+            ].join('\n');
             if (existing) {
               await github.rest.issues.update({
-                owner, repo, issue_number: existing.number, body, state: 'open',
+                owner, repo, issue_number: existing.number, title, body, state: 'open',
               });
               await github.rest.issues.addAssignees({
                 owner, repo, issue_number: existing.number, assignees: [assignee],
               });
-              core.notice(`Drift reported in #${existing.number}.`);
+              core.notice(`The unreadable catalogues are reported in #${existing.number}.`);
             } else {
               const { data: created } = await github.rest.issues.create({
                 owner, repo, title, body, assignees: [assignee],
               });
-              core.notice(`Drift reported in the new issue #${created.number}.`);
+              core.notice(`The unreadable catalogues are reported in the new issue #${created.number}.`);
             }
+            // END issue
 
       # Only when the App is configured: without the variable there is nothing to mint from, the
       # step is skipped, and the next one writes with GITHUB_TOKEN. Narrowed to what that step
@@ -474,8 +715,9 @@ jobs:
           NATIVE_CHECKS: ${{ steps.app-token.outputs.token != '' && 'true' || 'false' }}
           DRIFT_STATUS: ${{ needs.read.outputs.status }}
           COVERED: ${{ needs.read.outputs.covered }}
-          # Whether the report of this run was trusted enough to be written: a pull request is
-          # closed over "nothing left to delete" or "nothing left to propose" only on a report that was.
+          # Whether the step that keeps the issue found the report well formed (see the header): a
+          # pull request is closed over "nothing left to delete" or "nothing left to propose" only
+          # on a report that was.
           ISSUE_OUTCOME: ${{ steps.issue.outcome }}
           CHANGED: ${{ needs.read.outputs.changed }}
           # How many retired models the script did not delete: a pull request is closed over
