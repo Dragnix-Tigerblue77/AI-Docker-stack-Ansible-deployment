@@ -11,10 +11,10 @@
 # that is no entry of the template any more is not a failure, since a deletion leaves it: the plain
 # run prints a notice and the weekly issue lists it as a stale row, to be removed by a person.
 #
-# PROVISIONAL. Every number and every choice below is a proposal, derived from the figures cited in
-# its own reason line, until the maintainer validates it and sets "status" to "validated". The
-# criteria a router is held to and the measures behind them are still to be defined with him: what
-# is here is what the data of 2026-11-21 allows, not the final list.
+# VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
+# and the curve that estimates it. Every number still derives from the figures cited in its own reason
+# line, and none is final: a source revises its figures, so each is read again at every run. What stays
+# declared and imposes nothing is the quota and the availability of the providers ("inputs" below).
 #
 # NO TIME BUDGET. The goal is to use as many free models as possible, so a slow model is never
 # disqualified for being slow. A member is eligible for a router if it reaches the router's
@@ -125,7 +125,7 @@
 # and leaves room for the error rate observed on the gateway, which is not measured yet; nothing in
 # the report reads it.
 
-status: provisional
+status: validated
 index_version: 5
 source: "Artificial Analysis free API (artificialanalysis.ai), figures read 2026-11-21"
 

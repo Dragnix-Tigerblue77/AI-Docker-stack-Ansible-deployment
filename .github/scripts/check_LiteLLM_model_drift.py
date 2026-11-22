@@ -452,8 +452,8 @@ answer token buys at least "min_points_per_second" points of index (a router tha
 points per second; a step that is no slower is taken when it buys points, a step that buys none or whose
 time is unknown is not taken). "claude-code" derives from "code": it is ranked as
 "code" is, and its cascade is the cascade of "code" without the members that cannot take tools, which the
-report checks and whose differences it lists. The whole file is PROVISIONAL until the maintainer
-validates it, and its header says what is left to define.
+report checks and whose differences it lists. The file carries a "status", provisional until the
+maintainer validates it and validated after, which the weekly issue says.
 
 The capabilities index (ECI) of Epoch AI is read from the same archive as the code positions (the member
 "epoch_capabilities_index/eci_scores.csv", a figure per display name, under the same caps and the same
@@ -2900,9 +2900,10 @@ def ranking_text(contract, epoch):
         return "l'indice d'intelligence" + margin
     source = "source : %s, %s" % (safe_text(ranking["source"], 200), epoch_status_text(epoch))
     if epoch["status"] == "read":
-        return ("la position de code (%s), la médiane des positions sur les benchmarks, la plus petite en tête%s ; "
-                "un membre qui n'en a pas reçoit une position estimée d'après son indice d'intelligence"
-                % (source, margin))
+        return ("la position de code (%s), la médiane des positions sur les benchmarks, la plus petite en tête, "
+                "le délai départageant deux membres à moins de %g points de position d'écart ; un membre qui n'en a "
+                "pas reçoit une position estimée d'après son indice d'intelligence"
+                % (source, ranking["tie_margin_points"]))
     return ("la position de code (%s) ; Artificial Analysis n'a pas d'indice de code, l'indice d'intelligence "
             "en tient lieu à titre provisoire%s" % (source, margin))
 
@@ -11051,7 +11052,7 @@ def run_epoch_cases():
                ("Plancher 50 % (Floor Model (Epoch, position de code)), un niveau de plus" in code_block
                 and "Dérivé de `code` : mêmes plancher (50 % (Floor Model (Epoch, position de code)))" in claude_block, "the floor is not said as a position"),
                ("(source : Epoch AI selftest source, lue le 2026-01-02), la médiane des positions sur les benchmarks, la plus petite en tête, "
-                "le délai départageant deux membres à moins de 2 points d'écart ; un membre qui n'en a pas reçoit une position estimée d'après son indice d'intelligence"
+                "le délai départageant deux membres à moins de 2 points de position d'écart ; un membre qui n'en a pas reçoit une position estimée d'après son indice d'intelligence"
                 in code_block, "the ranking is not said: %s" % code_block[:900]),
                ("| 50 % (Floor Model (Epoch, position de code)) (proposé) |" in code_block and "| 70 % (Pee Code (Epoch, position de code)) |" in code_block
                 and "| 25 % (Vee Code (Epoch, position de code)) |" in code_block, "the floors side by side"),

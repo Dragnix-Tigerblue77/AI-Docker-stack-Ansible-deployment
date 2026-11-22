@@ -852,18 +852,19 @@ plancher (le plus court délai avant le premier jeton ordonne, tout membre qui r
 le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
 (`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur ordonné par le délai n'utilise aucune
 estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et l'issue
-le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Tout le fichier est
-**provisoire** jusqu'à validation du mainteneur. L'issue hebdomadaire gagne une section « Contrats par routeur » : par
-routeur, un tableau des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait
-comparé à l'ordre actuel, pour `code` et `claude-code` la position de chaque membre dans chaque benchmark et sa position
-de code (« 18 % », ou « 56 % (estimé) »), l'effet de chaque plancher proposé (un membre sous le plancher passe au
-dernier recours, il n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les
-correspondances dont l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas. C'est un
-rapport : il ne change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre (un membre sans indice
-ni position reste où il est, signalé inclassable, tant qu'aucune estimation ne le couvre), ne change pas le statut du
-run et ne bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement
-sur la forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison, une ancre
-mal formée ou un plancher sur deux échelles, une conversion de l'indice en position qui ne va pas dans le bon sens, une
+le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Le mainteneur a
+**validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent
+déclarés sans rien imposer. L'issue hebdomadaire gagne une section « Contrats par routeur » : par routeur, un tableau
+des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait comparé à l'ordre
+actuel, pour `code` et `claude-code` la position de chaque membre dans chaque benchmark et sa position de code (« 18 %
+», ou « 56 % (estimé) »), l'effet de chaque plancher proposé (un membre sous le plancher passe au dernier recours, il
+n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les correspondances dont
+l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas. C'est un rapport : il ne
+change aucune cascade, aucune entrée, aucune ligne `head`, ne retire aucun membre (un membre sans indice ni position
+reste où il est, signalé inclassable, tant qu'aucune estimation ne le couvre), ne change pas le statut du run et ne
+bloque pas la pull request de suppression. Seule l'exécution hors ligne, celle de la CI, échoue, et seulement sur la
+forme du fichier (un routeur qui n'existe pas, un nombre qui n'en est pas un, une valeur sans raison, une ancre mal
+formée ou un plancher sur deux échelles, une conversion de l'indice en position qui ne va pas dans le bon sens, une
 ligne ou un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée du
 modèle n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une
 entrée met presque toujours une ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0,
