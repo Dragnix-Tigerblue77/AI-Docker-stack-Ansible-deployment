@@ -1085,7 +1085,7 @@ plus protégée qu'une autre branche.
 
 Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examiné de zéro : chaque ligne dit ce que l'offre gratuite est, ses limites, le verdict et la page officielle lue, relue le 2026-11-21 sauf mention contraire. Les commentaires du `model_list` de `LiteLLM_config.yaml.j2` restent la source de ce qui est **déjà routé** et de la raison de chaque modèle commenté ; ce registre les résume, il ne les remplace pas, et ne porte aucun chiffre que le template ne donne pas.
 
-**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Une carte bancaire exigée n'écarte pas un fournisseur tant que la dépense peut être plafonnée à 0 $ ou que le compte est prépayé et vide : elle se note, elle ne tranche pas. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
+**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Une carte bancaire exigée n'écarte pas un fournisseur tant que la dépense peut être plafonnée à 0 $ ou que le compte est prépayé et vide : elle se note, elle ne tranche pas. Un dépôt jusqu'à 10 € est de même considéré (plafond fixé par le mainteneur le 2026-11-22), soit comme ticket d'entrée, un crédit qui reste sur le compte et lève une limite, soit comme crédit dépensé en jetons, qui reste un quota unique et ne se retient que comme réserve payante : la ligne dit alors ce que le dépôt achète, pour combien de temps, s'il expire ou se rembourse, et si cela vaut son prix. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
 
 **Groupe 1 -- utilisés aujourd'hui** (état du template, vérifications datées dans ses commentaires).
 
@@ -1100,7 +1100,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
 | Kilo Gateway | Modèles gratuits sans clé ni compte : le catalogue du service, lisible sans authentification, marque chacun comme gratuit ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 200 requêtes par heure et par IP, pour tous ces modèles ensemble ; les modèles gratuits changent, et le catalogue marque chacun comme pouvant être entraîné sur les prompts | Routé sans clé, derrière son jumeau OpenRouter quand il en a un. Aucun compte n'est utilisé, donc la clause « un compte par entité » ne joue pas ; prompts journalisés et utilisés pour l'entraînement, accepté ; conditions lues, non validées |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
-| SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Retenu pour gpt-oss-120b seul, en source supplémentaire derrière Groq et Cloudflare ; les trois autres modèles essayés exigent des crédits et restent écartés |
+| SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Plus tard le même jour, cinq appels de gpt-oss-120b espacés de 70 secondes répondent tous par l'erreur de crédits épuisés (code `CREDITS_EXHAUSTED`, solde de 0 unité) : ce n'est pas une limite de débit, et le compte n'a jamais reçu de crédit, aucun n'ayant été acheté. L'explication la plus simple est le quota gratuit de la page des limites (20 requêtes par jour et par modèle), que l'API énoncerait en « crédits épuisés » ; les appels de la journée n'ont pas été comptés, c'est donc une hypothèse, qu'un seul appel après la remise à zéro quotidienne tranchera. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Non tranché, non routé : un appel après la remise à zéro quotidienne dira si une carte liée sans achat ouvre un quota qui se renouvelle (palier récurrent, à prendre) ou un solde qui s'épuise ; les pages ne disent ni le minimum d'achat ni l'expiration des crédits, et un dépôt n'achèterait que des jetons (voir les dépôts jusqu'à 10 € plus bas) |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
@@ -1175,7 +1175,7 @@ Pages officielles lues :
 | Fournisseur | Ce qui a été vu | Ce qui manque |
 | --- | --- | --- |
 | LLM7, Pollinations, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
-| ModelScope (Alibaba) | Les pages officielles se rendent vides ; une sonde tierce de septembre 2026 dit que le quota de 2 000 appels par jour a été remplacé par un solde « Magicube » (200 par jour à la connexion, 50 de plus avec un compte Alibaba Cloud lié, expirant en 24 heures, 0,5 à 2 par appel) et que l'API exige un compte Alibaba Cloud avec vérification d'identité (lu le 2026-11-22, sources tierces) | Les conditions, le lieu de traitement des données (probablement la Chine) et l'inscription depuis l'étranger |
+| ModelScope (Alibaba) | La page officielle des limites (lue le 2026-11-22) exige un compte lié à un compte Alibaba Cloud ayant passé la vérification d'identité ; le quota de 2 000 appels par jour n'y figure plus, l'usage se compte en « magicube » (0,5 à 2 par appel selon le modèle) sans que le montant gratuit y soit publié (une sonde tierce de septembre 2026 dit 200 par jour) ; gratuit, non commercial, « pas pour des tâches en ligne à forte concurrence ou sous SLA » | Si la vérification d'identité accepte un étranger (en Chine elle demande normalement une pièce d'identité chinoise), les conditions, et le lieu de traitement des données (probablement la Chine) |
 
 Pages officielles lues :
 
@@ -1192,6 +1192,28 @@ Pages officielles lues :
 - **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
 - **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
 - **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue de Kilo : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût.
+
+**Les dépôts jusqu'à 10 €, relus le 2026-11-22.** Taux supposé : 1 € = 1,15 $. « Environ N jours » veut dire un million de jetons par jour (quatre d'entrée pour un de sortie, sans remise de cache) au prix de la page citée : un ordre de grandeur. Les lignes marquées « résumé » viennent d'un résumé de page et non de la page elle-même.
+
+| Fournisseur | Ce que le dépôt achète | Expiration, remboursement, plafond | Verdict |
+| --- | --- | --- | --- |
+| OpenRouter | 10 crédits achetés au total (achat minimal de 5 $, frais de 5,5 % avec un minimum de 0,80 $ : environ 10,80 $, soit 9,4 €, pour 10 $ de crédit) font passer les modèles `:free` de 50 à 1 000 requêtes par jour, 20 par minute dans les deux cas, pour tout le compte ; les modèles `:free` ne consomment pas le crédit | Les crédits peuvent expirer 365 jours après l'achat ; remboursement dans les 24 heures seulement, frais non remboursables ; que l'expiration retire le seuil des 10 crédits n'est pas vérifié ; plafond de dépense par clé possible | **Rentable.** Le seul dépôt qui multiplie par vingt un palier gratuit déjà routé, et le crédit reste une réserve payante très bon marché (environ 134 jours sur DeepSeek V4.1 Flash, d'après la liste de prix de l'API). Coût : au plus 9,4 € par an si l'expiration défait le palier, une fois sinon. À mesurer : combien de fois le plafond de 50 par jour est atteint |
+| Google Gemini API | 5 $ minimum, prépayé (résumé) ; ouvre les modèles que le palier gratuit ne sert pas ; un projet gratuit peut rester à côté | Expire au bout de 12 mois, sans remboursement ; le solde est un arrêt dur | À la limite : du crédit dépensé (environ 72 jours sur le modèle lite le moins cher, 15 sur le suivant), pas un palier gratuit de plus. Non pris |
+| OVHcloud AI Endpoints | Aucun dépôt : un moyen de paiement sur un projet Public Cloud, facturé à terme ; la clé fait passer 2 requêtes par minute par adresse IP et par modèle à 400 par minute | Aucun plafond de dépense trouvé | Non : sans plafond, le critère de la carte n'est pas rempli ; reste sans clé |
+| Scaleway Generative APIs | Aucun dépôt, facturé à terme ; 200 000 jetons par minute et par modèle une fois le moyen de paiement validé | Alertes de facturation seulement, pas de plafond dur ; le million de jetons gratuits n'est pas dit mensuel | Non : rien de récurrent, aucun plafond |
+| Cerebras | Le premier achat ouvre un niveau sans plafond de jetons par jour ; l'essai de 5 $ garde ses 30 jours | Crédits achetés valables un an, achats définitifs (résumé) ; minimum non trouvé | Non : du paiement à l'usage |
+| Cloudflare Workers AI | Pas un dépôt : l'abonnement Workers Paid coûte 5 $ par mois et les 10 000 neurons gratuits par jour sont les mêmes qu'en gratuit | Abonnement mensuel | Non |
+| SambaNova | Les crédits n'achètent que des jetons ; voir la ligne du registre pour l'essai du jour | Prépayé, le solde est le plafond ; minimum et expiration non lus | Non en ticket d'entrée ; à la limite en réserve payante (environ 39 jours sur gpt-oss-120b) |
+| Fireworks | Un moyen de paiement et des crédits font passer de 10 à 6 000 requêtes par minute ; rien de récurrent (résumé) | Plafond de dépense mensuel ; minimum et expiration non lus | Non |
+| Together AI | Premier achat de 15 $, au-dessus du plafond ; rien de gratuit | Aucune expiration affichée | Non |
+| Vercel AI Gateway | Acheter des crédits fait passer au niveau payant et **fait perdre le crédit gratuit mensuel** ; ce crédit exige un moyen de paiement lié et son montant n'est pas publié sur les pages lues | | Ne pas déposer ; reste un candidat sans dépôt si lier une carte convient (non essayé) |
+| Groq | Aucun dépôt : le plan Developer facture à terme et monte les limites (chiffres non lus) ; un plafond de dépense mensuel existe | Quitter le palier gratuit pour en profiter | À la limite : seulement si les limites du palier gratuit deviennent le goulot |
+| Hugging Face, Ollama Cloud, DeepSeek, Mistral, SiliconFlow, Hyperbolic | Un dépôt n'achète que des jetons payants, aucune allocation récurrente | | Non |
+| AMD Radeon Token Factory | Une allocation quotidienne gratuite par clé, de taille non publiée ; la première clé exige l'échange d'un code, dont aucun moyen public d'obtention n'est trouvé ; le « 10 $ par jour » d'un annuaire ne figure pas sur la page officielle | | Un dépôt n'y change rien ; non vérifié, non pris |
+| Free AI | Plan gratuit annoncé : 1 000 requêtes par mois et 30 000 jetons par jour pour tout le compte, un seul modèle propre (un Qwen), les autres étant des relais gratuits d'OpenRouter ; les pages se contredisent sur l'obtention d'une clé gratuite | | Non pris : environ 33 requêtes par jour, aucun quota propre sur les relais, clé gratuite non vérifiée |
+| AnyModel | La route gratuite `am/free` exige un solde positif dont le minimum n'est pas indiqué ; revendeur qui relaie des paliers gratuits (aucun quota propre), paiement en cartes russes ou en cryptomonnaie, exploitant non vérifiable | | Non |
+| Cent AI | Revendeur prépayé (dépôt minimal de 1 $) ; un modèle gratuit « jusqu'au 30 novembre » pour tous, puis un pool gratuit quotidien partagé, premier arrivé premier servi, sans allocation par compte | Crédit d'inscription unique de 30 jours | Non : promotion à date fixe et pool partagé |
+| Puter, Rewind AI, Top Tools AI | Puter : ses points d'accès compatibles OpenAI refusent les comptes gratuits ; Rewind AI : le moteur de Free AI avec 5 000 jetons par jour ; Top Tools AI : revendeur à forfait mensuel | | Non |
 
 ### Requesty, une seconde source des modèles `:free` d'OpenRouter
 
@@ -1279,6 +1301,133 @@ Pages officielles lues :
 - Azure AI Speech : page « Pricing »
 - ElevenLabs : page des tarifs
 - edge-tts : son README
+
+### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
+
+Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour cinq autres capacités, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement et les préversions ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
+
+**Le fait qui décide plusieurs lignes : Cloudflare Workers AI.** La page « OpenAI compatibility » ne liste que les complétions de chat et les embeddings (`/v1/embeddings`) ; elle ne liste ni génération d'images, ni transcription, ni synthèse vocale. Les modèles d'image, de parole et de transcription ne s'atteignent que par l'appel natif `/ai/run/<modèle>`, pour lequel LiteLLM n'a pas de fournisseur : rien n'est donc routable par la passerelle aujourd'hui, même si le quota gratuit (10 000 « neurons » par jour) et la politique sur les données (aucune conservation, aucun entraînement sur le contenu client, page « Data usage ») sont ceux du fournisseur déjà retenu.
+
+#### Génération d'images
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Cloudflare Workers AI | Modèles d'image (flux-1-schnell, flux-2, stable-diffusion-xl, etc.) dans les 10 000 « neurons » quotidiens | 720 requêtes par minute pour le texte vers image ; flux-1-schnell : prompt de 2048 caractères au plus, 8 pas au plus ; coût en neurons par tuile et par pas, sans total par image sur la page | À ajouter le jour où un routage existe : seule source gratuite et durable trouvée, mais inatteignable par LiteLLM (appel natif seulement) |
+| OpenRouter | Aucun modèle d'image `:free` trouvé ; la documentation de LiteLLM cite un modèle d'image Gemini payant | Payant | Fournisseur déjà fourni en clé, mais payant : écarté |
+| Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits | Écarté : payant |
+| Together AI, Replicate, fal (plateforme d'images), Recraft, OpenAI, xAI | Payant, sans palier gratuit d'image trouvé ; fal (plateforme d'images) : crédits prépayés ; Recraft : unités non remboursables | Payant | Écartés |
+| Black Forest Labs | Paiement à l'usage ; les conditions donnent une licence pour entraîner sur les entrées et sorties et interdisent l'accès à l'API depuis autre chose que l'application du développeur | Passerelle exclue par les conditions | Écarté |
+| Stability AI | 25 crédits offerts, une seule fois (environ 8 images « Core ») | Crédit unique | Écarté |
+| Hugging Face, Ideogram | Hugging Face : aucun crédit mensuel pour les comptes gratuits ; Ideogram : l'API n'inclut aucun usage, les crédits hebdomadaires sont ceux de l'application et les images du plan gratuit y sont publiques | Pas d'offre gratuite d'API | Écartés |
+| Pollinations | La documentation dit qu'une clé secrète est requise, ce qui contredit « sans clé » ; quota gratuit non trouvé ; les prompts partent vers des fournisseurs en amont | Non vérifié | Non vérifié, non utilisable en l'état |
+| Fireworks, Leonardo, OmniRoute | Fireworks : aucun modèle d'image sur sa page des tarifs ; Leonardo : page des tarifs introuvable ; OmniRoute : documentation injoignable, offre d'image inconnue | Non vérifié | Non vérifiés |
+
+**Ce qui changerait le verdict** : un fournisseur Cloudflare pour les images dans LiteLLM, ou un point d'accès `images/generations` compatible OpenAI sur Workers AI ; un modèle d'image gratuit sur OpenRouter ; ou un service de diffusion local, que le serveur sans GPU ne permet pas de façon réaliste. LiteLLM route aujourd'hui la génération d'images vers OpenAI, Azure OpenAI, Google AI Studio, Vertex AI, AWS Bedrock, Black Forest Labs, Recraft, OpenRouter, Xinference et Nscale (page « Image Generation ») : aucun n'est à la fois gratuit et durable.
+
+#### Analyse de documents et OCR
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Docling (auto-hébergé) | Licence MIT ; PDF, DOCX, PPTX, XLSX, HTML et images vers Markdown ou JSON ; exécution locale, y compris pour des données sensibles | Aucune mesure de vitesse ni de processeur trouvée : à mesurer sur la machine | À ajouter : un service Docker, pas un routeur. Rien ne quitte la machine |
+| Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits | Servi autrement : aucun nouveau routeur n'est nécessaire |
+| Mistral OCR | Fournisseur `mistral/mistral-ocr-latest` de LiteLLM (page « OCR ») | Prix aux 1 000 pages et palier gratuit de l'API non trouvés ; la clé Mistral est payante | Non vérifié, écarté tant que le prix est inconnu |
+| Cloudflare Workers AI `toMarkdown` | « Free for most format conversions » (page datée du 2026-04-21) | Liste des formats non trouvée ; appel natif seulement | Non routable, comme ci-dessus |
+| Azure AI Document Intelligence | Niveau F0 : 0 à 500 pages gratuites par mois | Aucune route LiteLLM listée | Écarté : contenu tiers chez un fournisseur cloud, sans route |
+| LlamaParse | 10 000 crédits par mois, récurrents (1 crédit par page en mode rapide, 10 en mode agentique) | Résultats mis en cache supprimés après 48 heures ; absent de LiteLLM | Écarté |
+| Reducto | 150 $ une fois, puis payant | Rétention zéro réservée aux offres Growth et Enterprise | Écarté : crédit unique |
+| Cohere Parse | Clé d'essai | « Not permitted to be used for production or commercial purposes » | Écarté |
+| Unstructured | 10 000 pages gratuites au départ, sans carte | Récurrence non indiquée | Non vérifié |
+| Google Cloud Document AI | Page non récupérable | Tout | Non vérifié |
+
+**Ce qui changerait le verdict** : la mesure de Docling sur la machine (vitesse et mémoire), qui décide s'il devient un service, et le chantier d'ingestion de documents qui en serait le client ; un palier gratuit durable de Mistral OCR avec une politique de données acceptable. Un document au contenu tiers n'est pas envoyé à un service gratuit qui s'entraîne dessus, d'où la préférence pour le service local.
+
+#### Traduction
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Routeurs de texte existants | Les modèles de chat déjà routés traduisent | Ceux des cascades | Servi autrement : aucun routeur de traduction n'est nécessaire |
+| Azure Translator | Niveau F0 : 2 millions de caractères gratuits par mois | Aucune route LiteLLM vérifiée | Non routé |
+| DeepL API Free | 50 000 caractères par mois | Page de l'API introuvable ; aucune route LiteLLM vérifiée | Non routé, non vérifié |
+| Cloudflare Workers AI (m2m100-1.2b) | 0,342 $ par million de jetons, dans les neurons quotidiens | Appel natif seulement | Non routable |
+| LibreTranslate (auto-hébergé) | Licence AGPL, moteur Argos Translate | Vitesse sur processeur non trouvée | Non vérifié |
+| Google Cloud Translation | Page non récupérable | Tout | Non vérifié |
+
+**Ce qui changerait le verdict** : un besoin de volume ou de qualité que les modèles de chat ne couvrent pas, ou une route LiteLLM vérifiée pour un de ces moteurs.
+
+#### Modération
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| OpenAI `omni-moderation-latest` | « The moderation endpoint is free to use » (guide de modération), texte et images | Exige un compte OpenAI, que la passerelle n'a pas | Non routé : rien dans le stack ne demande de modération |
+| Mistral | Page de la modération introuvable | Tout | Non vérifié |
+
+**Ce qui changerait le verdict** : un service du stack qui exposerait des entrées d'utilisateurs non fiables ; il faudrait alors un compte OpenAI et vérifier la route dans LiteLLM.
+
+#### Voix en temps réel
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la page « realtime » de LiteLLM liste Google AI Studio mais sans exemple de configuration Gemini (non vérifié), et aucun client du stack n'ouvre de session temps réel |
+
+**Ce qui changerait le verdict** : un client temps réel réel dans le stack et une route Gemini Live vérifiée dans LiteLLM. Aucune décision sur la téléphonie n'est prise ici.
+
+### Les modèles d'embeddings, et pourquoi il n'y a ni routeur ni repli pour eux
+
+Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini) et `mistral-embed` (rendue avec la clé Mistral). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `flash` ou `code`.
+
+**Pourquoi.** Les vecteurs de deux modèles ne sont pas comparables entre eux, même à dimensions égales. Un repli d'un modèle vers un autre, ou un alias qui désignerait un modèle différent selon les clés données, ferait changer silencieusement d'espace vectoriel : les nouvelles requêtes seraient comparées à une collection remplie par l'ancien modèle, et rien n'échouerait pour le dire. LiteLLM applique bien les replis à un appel d'embeddings (lu dans son code le 2026-11-22), donc le seul moyen sûr est de n'en déclarer aucun. `check_compose_template.py` le tient : dans chaque rendu, une entrée `mode: embedding` n'est ni membre d'une cascade, ni clé d'une cascade, ni cible ou nom d'un alias.
+
+**Une collection Qdrant est liée à un seul modèle.** Elle est créée avec la taille de vecteur de ce modèle, et ingestion comme requêtes passent par le même nom de modèle et les mêmes `dimensions`. Changer de modèle, y compris de `gemini-embedding-001` à `gemini-embedding-2` (Google dit leurs espaces « incompatible »), c'est créer une nouvelle collection et tout ré-embedder.
+
+| Modèle | Taille du vecteur | À savoir |
+| --- | --- | --- |
+| `gemini-embedding-2` | 3072 par défaut ; le paramètre `dimensions` de la requête (LiteLLM l'envoie à Google comme `outputDimensionality`) accepte de 128 à 3072, Google recommande 768, 1536 ou 3072 ; les vecteurs tronqués sont renormalisés par Google | Entrée de 8 192 jetons au plus ; pas de `task_type` pour ce modèle, la consigne se met dans le texte. Le rôle n'impose aucune valeur par défaut : l'appelant choisit, une fois, et la collection est créée à cette taille |
+| `mistral-embed` | Fixe, **non lue sur une page** : créer la collection d'après la longueur du premier vecteur reçu | La passerelle règle `drop_params: true` : un `dimensions` envoyé à ce modèle est ignoré sans erreur et le vecteur complet revient, alors que LiteLLM seul refuse l'appel |
+
+**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google, et les conditions de l'API Gemini interdisent d'y envoyer des informations personnelles, sensibles ou confidentielles sans passer par le service payant. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
+
+#### Le registre des embeddings et du rerank
+
+Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank n'a aucune entrée : aucun point d'accès gratuit, durable et sans entraînement n'est atteignable avec les clés que le rôle connaît.
+
+**Groupe 1 -- utilisés aujourd'hui.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit : pas pour des documents privés |
+| Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
+
+Pages officielles lues :
+
+- Google Gemini API : [Embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [Deprecations](https://ai.google.dev/gemini-api/docs/deprecations)
+- Mistral : page « Pricing » et page « Embeddings » de sa documentation, dont le corps ne s'affiche pas sans script
+
+**Groupe 2 -- à ajouter.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, soit environ 9,3 millions de jetons `@cf/baai/bge-m3` par jour (**dérivé** du prix de 0,012 $ le million) ; modèles `@cf/baai/bge-m3` (contexte de 60 000 jetons), `@cf/baai/bge-large-en-v1.5` (1024 dimensions, anglais), `@cf/google/embeddinggemma-2` (768 dimensions, options 128, 256, 512) | 3 000 requêtes par minute pour les embeddings ; le rerank (`bge-reranker-base`, 0,003 $ le million) n'a pas de route LiteLLM listée | À ajouter dès que le fournisseur l'est : « Zero data retention » et « No training », donc le meilleur candidat pour des documents privés. Le point d'accès compatible OpenAI sert `/v1/embeddings` |
+
+Pages officielles lues : les mêmes que dans le groupe 2 du registre ci-dessus.
+
+**Groupe 3 -- écartés, avec la raison.**
+
+| Fournisseur | Ce qui est offert | Raison de l'écart |
+| --- | --- | --- |
+| Cohere (embed et rerank) | Clés d'essai : 1 000 appels par mois, rerank limité à 10 requêtes par minute ; le français est géré | Clés d'essai « not permitted to be used for production or commercial purposes » |
+| NVIDIA build | Clé d'essai | Conditions d'essai déjà écartées plus haut |
+| Hugging Face Inference Providers | Aucun crédit pour les comptes gratuits | Pas d'offre gratuite |
+| OpenAI | `text-embedding-3-small` (1536) et `-large` (3072) | Aucune offre gratuite trouvée |
+| Fireworks | Crédits prépayés, embeddings de 0,008 à 0,016 $ le million de jetons | Pas d'offre gratuite |
+
+**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
+
+| Fournisseur | Ce qui a été vu | Ce qui manque |
+| --- | --- | --- |
+| Voyage AI | Famille voyage-4, 1024 dimensions par défaut, 32 000 jetons ; « The first 200 million tokens ... are free for every account » ; rerank-3 à 0,05 $ le million ; fournisseur `voyage/` de LiteLLM | Un compte à ouvrir, et rien ne dit que le crédit se renouvelle |
+| Jina AI | Jetons gratuits pour une clé neuve, 100 requêtes par minute avec une clé gratuite | Le montant ; aucune chaîne d'embedding propre à LiteLLM, le point d'accès compatible OpenAI conviendrait |
+| OpenRouter | Les modalités de sortie « embeddings » et « rerank » existent | Les modèles et leurs prix n'ont pas été énumérés ; que la clé déjà donnée y accède n'est **pas vérifié** |
+| Together AI, Nebius | Pas de prix d'embeddings chez le premier, page des tarifs en 404 chez le second | Tout |
 
 ### Un compte par personne, pas une paire figée (#103)
 
