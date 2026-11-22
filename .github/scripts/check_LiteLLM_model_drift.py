@@ -166,6 +166,12 @@ all. The filter narrows NEW only. Whether a model is RETIRED is decided against 
 provider lists, so that no filter can ever make a served model look retired -- which is also why
 OpenRouter is read with "output_modalities=all", its default being "text" only.
 
+A video generation model served through "generateContent" (Gemini's "omni" one is) is therefore
+still offered as NEW, and is turned down with a "drift-ignore:" line. Gemini's model listing has no
+field that would tell it apart (name, version, displayName, description, token limits,
+supportedGenerationMethods, temperature, thinking), and "omni" is not a marker to add: other
+vendors' "omni" models are chat models, one of them routed in the file this check reads.
+
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY and MODEL_DRIFT_DEEPSEEK_API_KEY. An unset or empty one leaves its
 provider "not covered (no key)", which the report says every time rather than skipping it. Gemini's
