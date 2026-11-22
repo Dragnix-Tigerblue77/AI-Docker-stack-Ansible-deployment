@@ -123,7 +123,8 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_disable_env_credential_login` | `false` | Fait refuser à `/ui` la connexion par `UI_USERNAME`/`UI_PASSWORD` et par la clé maîtresse, que LiteLLM signale comme critique. **Le rôle refuse `true` tant que `Artificial_Intelligence_LiteLLM_admin_users` est vide** : sans administrateur en base, plus personne ne se connecte, et on revient en la remettant à `false`. Un booléen, jamais une chaîne (`tasks/main.yml` la refuse). Voir « La connexion par identifiants d'environnement ». |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
-| `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique que le run affiche une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
+| `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique, sur lequel le run s'arrête une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
+| `Artificial_Intelligence_LiteLLM_UI_URL` | `false` | L'adresse sur laquelle une personne ouvre LiteLLM, sur laquelle est construit le lien d'invitation d'un administrateur. `false` : celle du nœud telle que l'inventaire la donne (`ansible_host`, à défaut son nom) et le port publié, que seul Ansible connaît à l'exécution. Un appelant derrière un reverse proxy y met l'adresse qu'il sert, sans barre oblique finale. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
@@ -410,7 +411,7 @@ vaut `false` par défaut et que le rendu de la configuration est alors identique
 l'ordre :
 
 1. Déclarer l'administrateur dans `Artificial_Intelligence_LiteLLM_admin_users` (voir « Les administrateurs de `/ui`,
-   invités et non dotés d'un mot de passe ») et lancer le rôle : le run affiche une seule fois le lien d'invitation.
+   invités et non dotés d'un mot de passe ») et lancer le rôle : le run s'arrête sur le lien d'invitation, une seule fois.
 2. Ouvrir le lien, choisir son mot de passe, puis **tester cette connexion** : se déconnecter, se reconnecter avec son
    courriel.
 3. Passer la variable à `true` et redéployer. La configuration change, donc le conteneur de la passerelle est recréé
@@ -1590,9 +1591,11 @@ critique, sans le faire elle-même.
 **Une invitation, pas un mot de passe.** `/user/new` n'en accepte pas ; `/user/update` en pose un, soumis à la politique de LiteLLM (12
 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et à changer à la première connexion : la valeur du coffre de
 l'appelant serait périmée dès que la personne se serait connectée une fois. Le rôle demande donc `POST /invitation/new` pour chaque
-compte **créé à ce run** et affiche, **une seule fois**, le chemin `/ui/onboarding?id=<id>`, valable sept jours : la personne l'ouvre
-sur l'adresse de la passerelle, choisit son mot de passe, qui sert tel quel, puis se connecte avec son courriel. Le lien est un chemin
-parce que l'adresse sur laquelle la personne atteint la passerelle est celle de l'appelant, pas celle du rôle.
+compte **créé à ce run** et s'arrête, **une seule fois**, sur le lien complet `<Artificial_Intelligence_LiteLLM_UI_URL>/ui/onboarding?id=<id>`,
+valable sept jours, un par administrateur, chacun sur sa ligne pour être cliquable : la personne l'ouvre, choisit son mot de passe, qui
+sert tel quel, puis se connecte avec son courriel, et le run reprend à Entrée (Ctrl+C puis A l'abandonne), comme les autres rôles qui
+attendent une action à la main. L'adresse est celle de l'appelant, pas celle du rôle : `Artificial_Intelligence_LiteLLM_UI_URL`, dont le
+défaut est celle du nœud.
 
 - **Un compte qui existe déjà** (409) n'est ni modifié ni réinvité, et son mot de passe n'est jamais réinitialisé : le rôle ne crée
   un compte qu'une fois. Un lien perdu se refait depuis *Internal Users* de `/ui`, ou par `POST /invitation/new` avec la clé maîtresse.
@@ -1611,6 +1614,7 @@ parce que l'adresse sur laquelle la personne atteint la passerelle est celle de 
   et non plus avec un « 400 Bad Request » sans corps. Le compte existe alors sans mot de passe et un nouveau run ne l'invite pas :
   le message dit comment l'inviter depuis *Internal Users*.
 - **Avec `--check`**, ces tâches sont sautées, comme celles des comptes internes : il n'y a pas de passerelle à interroger.
+- **Sans terminal** (CI, Semaphore), la pause n'affiche que « Not waiting for response to prompt », pas son texte : le run continue et le lien n'est montré nulle part. Le compte existe alors sans mot de passe, et un nouveau run ne le réinvite pas : on l'invite depuis *Internal Users* de `/ui` tant que la connexion d'environnement est active, ou par `POST /invitation/new` avec la clé maîtresse.
 - **Les administrateurs n'ont pas de clé virtuelle** : l'invitation est tout ce que le rôle leur donne.
 
 
