@@ -383,6 +383,14 @@ deleted model is listed in that pull request for a person to read. A claim about
 keeps the date it was checked and is true of that day for good; a claim that is a count is true of no
 day after the next deletion.
 
+**Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
+serves every application of the homelab, not only the Claude Code agent, and a second quota or a
+different model is worth having on its own: a provider is never dropped for being "no better" than the
+ones in place. What is set aside is a trial limited in time (thirty days, say) or a one-time quota,
+unless it is huge. Whether a provider cuts a key one day is not anticipated, and a lane reserved for
+sensitive data is refused: nearly everything the gateway handles carries a name or two. The README's
+registry says which provider was read, what it offers and why it is in or out.
+
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
 exists today, it factors them -- a loop, an included task file, a Jinja macro -- instead of copying

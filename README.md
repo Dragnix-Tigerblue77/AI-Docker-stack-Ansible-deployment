@@ -905,7 +905,7 @@ plus protégée qu'une autre branche.
 
 Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examiné de zéro : chaque ligne dit ce que l'offre gratuite est, ses limites, le verdict et la page officielle lue, relue le 2026-11-21 sauf mention contraire. Les commentaires du `model_list` de `LiteLLM_config.yaml.j2` restent la source de ce qui est **déjà routé** et de la raison de chaque modèle commenté ; ce registre les résume, il ne les remplace pas, et ne porte aucun chiffre que le template ne donne pas.
 
-**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
+**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
 
 **Groupe 1 -- utilisés aujourd'hui** (état du template, vérifications datées dans ses commentaires).
 
@@ -916,7 +916,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
-| SambaNova | Le plan gratuit de la console demande d'ajouter un moyen de paiement et d'acheter des crédits ; la documentation décrit un palier de 20 requêtes par jour et par modèle, en conflit avec la console | Deux sources en conflit, la console fait foi | Examiné, non routé (la console fait foi) |
+| SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Deux sources en conflit, seul un essai avec une clé sans carte tranche ; prépayé ou différé : non indiqué | Examiné ; à ajouter, en seconde source de gpt-oss-120b et de gemma-4-31B, si une clé sans carte répond |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
@@ -936,6 +936,9 @@ Pages officielles lues :
 | --- | --- | --- | --- |
 | Cloudflare Workers AI | 10 000 « neurons » par jour sans frais ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. Listés payants : Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling ; les autres (gpt-oss-120b, gpt-oss-20b, qwen3.8-27b, nemotron-3-120b, llama-3.3-70b, gemma-4-26b, glm-4.7-flash) seraient donc gratuits : **déduction, à confirmer sur le compte** | À ajouter en premier. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas |
 | Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits ; fournisseur `zai/` de LiteLLM | Non publiées hors de la console (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**) | Fin des cascades `code` et `claude-code` seulement, après ouverture d'un compte pour lire la vraie limite. Contenu non stocké, traitement à Singapour, la France n'est pas exclue ; les conditions interdisent de partager les clés et de revendre. Carte ou téléphone exigés : inconnu |
+| NVIDIA build | Clé d'API d'essai, « Free inference with leading models » ; 33 modèles servis d'après la liste lue sans clé le 2026-11-22, dont Kimi K3.1 Pro, Mistral Large 4, Nemotron 3 Ultra, GLM 5.3 Flash et MiniMax M3.1 Flash ; fournisseur `nvidia_nim/` de LiteLLM | Limite par minute **non publiée** (environ 40 d'après des forums, non vérifié) ; l'obtention de la clé n'est pas documentée sur les pages lues | À ajouter. Conditions d'essai relues le 2026-11-22 : accès « for limited trial purposes only and without use ... in production », contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris, données personnelles interdites, fin du droit d'usage « without notice » en cas de manquement : le mainteneur accepte ces risques |
+| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle ; 33 modèles listés sans clé le 2026-11-22, dont Qwen3.5 397B, DeepSeek V4.1 Flash, gpt-oss-120b, Llama 3.3 70B, Mistral Small 3.2, Whisper large v3 turbo et BGE-M3 ; fournisseur `ovhcloud/` de LiteLLM | 2 par minute et par modèle ; avec une clé, 400 par minute, mais un moyen de paiement sur un projet Public Cloud est exigé et aucun plafond de dépense n'existe | À ajouter en queue des cascades, après vérification qu'un appel sans clé répond (un essai depuis la session a reçu 429, adresse partagée : non concluant). Hébergé dans l'UE, « Your data is never used to train our models », rétention zéro |
+| Aion Labs | Palier gratuit à l'inscription, sans carte : 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour, « a courtesy that we may change or withdraw at any time » (conditions du 2026-10-17) | Modèles Aion, variantes de DeepSeek V3.2 et de la famille GLM d'après sa page ; 20 000 jetons par jour font quelques requêtes ; point d'accès compatible OpenAI, aucun fournisseur LiteLLM nommé | À ajouter en dernier : un seul compte, partage de clé interdit, passerelle autorisée. Ne s'entraîne pas sur le contenu et ne le stocke pas ; société polonaise |
 
 Pages officielles lues :
 
@@ -947,9 +950,7 @@ Pages officielles lues :
 | Fournisseur | Ce qui est offert | Raison de l'écart |
 | --- | --- | --- |
 | Kilo Gateway | Gratuit sans compte, 200 requêtes par heure et par IP | Conditions mises à jour le 2026-11-02 : un compte par entité et licence perpétuelle sur les données client pour améliorer le service ; les modèles gratuits journalisent les prompts |
-| NVIDIA build | Clé d'API d'essai | Conditions d'essai : « limited trial purposes only and without use ... in production » ; contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris ; clé après vérification par SMS, d'après les forums seulement |
 | Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
-| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle | Trop étroit ; avec une clé, une carte est exigée |
 | GitHub Models | Fermé le 2026-07-30 | Plus de service |
 | Hugging Face Inference Providers | Aucun crédit mensuel pour les comptes gratuits | Pas d'offre gratuite |
 | Chutes | Aucune : « We do not offer a free tier at this time » | Pas d'offre gratuite |
@@ -963,6 +964,8 @@ Pages officielles lues :
 | AI21 | Crédit de 10 $ pour un compte neuf, sans carte : 7 jours d'après la page des tarifs, trois mois d'après la documentation (pages lues le 2026-11-22) | Jamba Large et Jamba Mini : 200 requêtes par minute | Crédit unique ; pas de point d'accès compatible OpenAI ni de fournisseur LiteLLM nommé ; la revente est interdite. Ne s'entraîne pas sur les entrées et sorties |
 | Nebius Token Factory | Aucune ; des codes promotionnels ponctuels et, pour des startups financées, jusqu'à 50 000 $ de crédits (pages lues le 2026-11-22) | Limites dynamiques, valeurs par défaut non publiées | Pas de palier gratuit, et une carte bancaire est exigée pour finir l'inscription. Ne s'entraîne pas sur le contenu, mais garde les entrées et sorties sauf si la rétention zéro est activée |
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
+| Fireworks | Un crédit de 1 $ une seule fois ; sans moyen de paiement, 10 requêtes par minute puis « Your account will be suspended until you add a payment method » ; aucun modèle serverless gratuit listé (pages relues le 2026-11-22) | Ne journalise pas les prompts des modèles ouverts sans accord explicite | Crédit unique, carte exigée pour continuer ; fournisseur `fireworks_ai/` de LiteLLM |
+| Together AI | « doesn't currently offer free trials » : au moins 15 $ de crédits à acheter avant de créer une clé ; un seul modèle gratuit affiché, un « Ternary Bonsai 27B » dont le contexte et les outils ne sont pas lus (pages relues le 2026-11-22) | Garde par défaut les prompts et les réponses et peut s'en servir pour améliorer ses produits ; la rétention zéro se règle dans les paramètres de l'organisation | Pas de palier gratuit, achat préalable ; fournisseur `together_ai/` de LiteLLM |
 
 Pages officielles lues :
 
@@ -983,14 +986,16 @@ Pages officielles lues :
 - Novita AI : pages « Rate limits » et « FAQ » de sa documentation
 - AI21 : page « Pricing », page « Usage and cost » de sa documentation et ses conditions d'utilisation
 - Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
+- Aion Labs : pages « Pricing », « Rate limits », « Terms » et « Privacy »
+- Fireworks : pages « Pricing », « Account quotas », « What happens when I finish my $1 credit » et « Data handling » de sa documentation
+- Together AI : pages « Pricing », « Billing and credits » et « Privacy and security » de sa documentation
 
 **Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
 
 | Fournisseur | Ce qui a été vu | Ce qui manque |
 | --- | --- | --- |
-| Together AI | Un « Ternary Bonsai 27B » gratuit affiché sur la page des tarifs | Rien ne confirme qu'il s'appelle sans paiement |
-| Fireworks | 10 requêtes par minute sans moyen de paiement ni crédit | Accès serverless sans paiement non confirmé |
-| LLM7, Pollinations, ModelScope, Aion Labs, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| LLM7, Pollinations, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| ModelScope (Alibaba) | Les pages officielles se rendent vides ; une sonde tierce de septembre 2026 dit que le quota de 2 000 appels par jour a été remplacé par un solde « Magicube » (200 par jour à la connexion, 50 de plus avec un compte Alibaba Cloud lié, expirant en 24 heures, 0,5 à 2 par appel) et que l'API exige un compte Alibaba Cloud avec vérification d'identité (lu le 2026-11-22, sources tierces) | Les conditions, le lieu de traitement des données (probablement la Chine) et l'inscription depuis l'étranger |
 
 Pages officielles lues :
 
