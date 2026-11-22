@@ -165,6 +165,7 @@ inputs:
     mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
+    kilo: "Anonymous, no key and no account: 200 requests per hour per IP address, for the free models only, per the Authentication and Models and providers pages of the Kilo gateway documentation (read 2026-11-22); the free models' availability changes, and each flags that prompts may be trained on"
     cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
@@ -531,6 +532,67 @@ models:
   openrouter-auto-free:
     no_record: "A router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  nemotron-ultra-kilo:
+    slug: nvidia-nemotron-3-ultra-550b-a55b
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-ultra-550b-a55b:free"
+    eci: "Nemotron 3 Ultra"
+    note: "Artificial Analysis publishes one record, named Reasoning"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  nemotron-reasoning-kilo:
+    slug: nemotron-3-nano-omni-30b-a3b
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for the nano omni model"
+    note: "Artificial Analysis publishes one record and no figure for it"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  nemotron-lightning-kilo:
+    slug: nemotron-3-5-lightning
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3.5-lightning:free"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  nemotron-super-vl-kilo:
+    slug: nemotron-3-5-super-vl
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for the super vl model"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  particle-1-kilo:
+    no_record: "Artificial Analysis lists no Particle-1 on 2026-11-21"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  ernie-5-5-flash-kilo:
+    no_record: "Artificial Analysis lists no ERNIE 5.5 Flash on 2026-11-21"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  lfm-3-1-7b-kilo:
+    slug: lfm3-1-7b
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for liquid/lfm-3-1.7b:free"
+    note: "Artificial Analysis publishes one record, named LFM3-1.7B"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  beam-kilo:
+    slug: reflection-beam
+    level: unknown
+    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for reflection/beam-free"
+    eci: "Beam 1.0"
+    note: "Artificial Analysis publishes one record, named Beam 1.0, matched by its name"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch:
+      ale_bench_external: [beam-1.0_max]
+  flint-kilo:
+    no_record: "Artificial Analysis lists no Flint on 2026-11-21"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  glyph-cluster-kilo:
+    no_record: "Artificial Analysis lists no Glyph Cluster on 2026-11-21"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
     epoch: unknown
   gpt-oss-120b-cloudflare:
     slug: gpt-oss-120b

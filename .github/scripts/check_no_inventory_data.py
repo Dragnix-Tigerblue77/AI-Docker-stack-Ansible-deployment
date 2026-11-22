@@ -106,6 +106,7 @@ ALLOWED_HOSTS = {
     "www.cloudflare.com": "Cloudflare's own terms of service page, cited in the README ledger of free providers and in the comments of the role's variables and of the model list",
     "docs.z.ai": "Z AI's own pricing and terms of use pages, cited in the README ledger of free providers",
     "kilo.ai": "Kilo's own gateway models page and terms, cited in the README ledger of free providers",
+    "ai-gateway.kilo.ai": "Kilo's own OpenAI-compatible gateway, the api_base of its entries in the model list: a public service address, not the caller's",
     "assets.ngc.nvidia.com": "NVIDIA's own API trial terms of service, cited in the README ledger of free providers",
     "docs.cohere.com": "Cohere's own rate limits page, cited in the README ledger of free providers",
     "www.cohere.com": "Cohere's own terms of use page, cited in the README ledger of free providers",
