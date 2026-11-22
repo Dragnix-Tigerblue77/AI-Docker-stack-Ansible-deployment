@@ -30,8 +30,8 @@
 # member of its cascade.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'mistral-small' if has.Mistral else 'gemma-4-31b-free' if has.OpenRouter else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
-  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'ministral-3b' if has.Mistral else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else false,
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
   'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
@@ -216,17 +216,17 @@ model_list:
 {% endif %}
 {% if has.Mistral %}
   # ============================================================================
-  # Mistral AI (Free mode: a $10 monthly API credit, no card)
+  # Mistral AI -- PAID, like DeepSeek below: its API has no free access.
   #
-  # Checked 2026-09-27. The free "Experiment" plan this section was written against is gone:
-  # "docs.mistral.ai/admin/billing-usage/subscriptions" lists "Free mode, Pro, Education, Team, and
-  # Enterprise", and says "Free mode is the default state for new accounts." What Free mode gives is
-  # on "mistral.ai/pricing": "$10 /mo in API credits" -- one credit, "shared across Studio, the API,
-  # and Vibe Code" (the same docs page), that every entry below draws on, rather than a quota per
-  # model. Nothing on either page asks for a payment method to get it, so it is treated as free and
-  # every entry stays routed. The per-model rate limits are published nowhere but the account's own
-  # admin panel ("docs.mistral.ai/admin/billing-usage/usage-limits": "Review API rate limits" under
-  # "Admin Panel > API > Limits"), so this file cannot state them.
+  # Checked 2026-11-21. "docs.mistral.ai/admin/billing-usage/usage-limits" says "Free mode includes a
+  # monthly usage budget for trying Vibe and Studio. It doesn't include API access. Creating API keys
+  # and using the API require billing activation and pay-as-you-go", and "mistral.ai/pricing" no longer
+  # shows the "$10 /mo in API credits" this section was written against on 2026-09-27. Every entry below
+  # is therefore metered against a prepaid balance. They stay in the file for whoever gives a key, which
+  # is optional (without it none is rendered), and sit after every free entry of the cascades they
+  # appear in, right before DeepSeek. The per-model rate limits are published nowhere but the account's
+  # own admin panel ("docs.mistral.ai/admin/billing-usage/usage-limits": "Review API rate limits"
+  # under "Admin Panel > API > Limits"), so this file cannot state them.
   # ============================================================================
   - model_name: codestral
     litellm_params:
@@ -362,7 +362,7 @@ model_list:
 
 {% if has.DeepSeek %}
   # ============================================================================
-  # DeepSeek (direct API, #101) -- the only PAID provider in this file, unlike everything else here.
+  # DeepSeek (direct API, #101) -- PAID, like Mistral above, unlike everything else here.
   # DeepSeek's own API has no persistent free tier: calls are metered against a prepaid balance, not
   # a developer quota. Placed last in every cascade it appears in (below), after every free option.
   # The balance is not tied to a bank card: "api-docs.deepseek.com/faq" ("How to Top Up?", checked
@@ -571,12 +571,12 @@ router_settings:
     # group that no longer existed; "check_LiteLLM_account_isolation.py" now refuses a fallback to an
     # undeclared name (its rule 5).
     #
-    # Cost enters the ranking through DeepSeek direct, the one paid provider, which ranks after every
-    # free entry.
+    # Cost enters the ranking through Mistral and DeepSeek direct, the two paid providers, which rank
+    # after every free entry, Mistral first.
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
-    # Priority: Google -> OpenRouter heavy -> Mistral Large -> DeepSeek direct (#101, paid -- last
-    # resort before the fully free OmniRoute) -> OmniRoute.
+    # Priority: Google -> OpenRouter heavy -> DeepSeek direct (paid -- last resort before the fully
+    # free OmniRoute) -> OmniRoute.
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
@@ -603,8 +603,8 @@ router_settings:
 {% endif %}
 
     # 2. FLASH -- balanced daily driver.
-    # Priority: Google Flash (1M) -> LPU (Groq) -> Mistral -> OpenRouter -> DeepSeek direct (#101,
-    # paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
+    # Priority: Google Flash (1M) -> LPU (Groq) -> OpenRouter -> Mistral (paid) -> DeepSeek direct
+    # (paid -- last resort before the fully free OmniRoute) -> OmniRoute. Entries sit with their
     # twin rather than with their provider: "gemma-4-31b-gemini" (Google) right ahead of
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
     # the OpenRouter one second because its quota is the daily count all ":free" entries share.
@@ -622,11 +622,6 @@ router_settings:
         - gpt-oss-120b-groq
         - qwen3-8-27b-groq
 {% endif %}
-{% if has.Mistral %}
-        - mistral-small
-        - ministral-14b
-        - ministral-8b
-{% endif %}
 {% if has.Gemini %}
         - gemma-4-31b-gemini
 {% endif %}
@@ -636,6 +631,11 @@ router_settings:
         - ernie-5-5-flash-free
         - nemotron-super-vl-free
         - openrouter-auto-free
+{% endif %}
+{% if has.Mistral %}
+        - mistral-small
+        - ministral-14b
+        - ministral-8b
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-flash-direct
@@ -658,9 +658,6 @@ router_settings:
         - gemini-3-1-flash-lite
         - gemini-2-5-flash-lite
 {% endif %}
-{% if has.Mistral %}
-        - ministral-3b
-{% endif %}
 {% if has.Gemini %}
         - gemini-4-hydrogen
 {% endif %}
@@ -676,6 +673,9 @@ router_settings:
         - nemotron-lightning-free
         - lfm-3-1-7b-free
 {% endif %}
+{% if has.Mistral %}
+        - ministral-3b
+{% endif %}
 {% for alias in aliases_of['flash-lite'] %}
     - {{ alias }}: *flash_lite_cascade
 {% endfor %}
@@ -688,8 +688,8 @@ router_settings:
     # top: no current coding-benchmark placement could be found for it (a weak predecessor proxy). Its
     # sibling "mistral-code-agent" is gone from this cascade entirely, not just reordered: #112 found no
     # evidence "mistral-code-agent-latest" was ever a currently published Mistral model id.
-    # Priority: syntax/code specialists -> DeepSeek direct (paid -- last resort before the fully free
-    # OmniRoute) -> OmniRoute.
+    # Priority: syntax/code specialists, Mistral's among them (paid) -> DeepSeek direct (paid -- last
+    # resort before the fully free OmniRoute) -> OmniRoute.
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
