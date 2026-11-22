@@ -3640,8 +3640,10 @@ FREE_TIER_CHECKS = {
             "par minute et par jour) ; absent du tableau, il n'a pas de quota gratuit. Sa fiche, "
             "depuis <https://console.groq.com/docs/models>, dit aussi s'il est parmi les « Preview "
             "Models », que Groq peut arrêter à bref délai",
-    "mistral": "que l'offre « Free mode » (« $10 /mo in API credits ») couvre ce modèle sans moyen "
-               "de paiement : c'est ce qui laisse les autres entrées Mistral routées",
+    "mistral": "son prix par million de jetons : Mistral n'a plus d'offre gratuite pour l'API (le mode "
+               "« Free » ne couvre que Vibe et Studio, d'après sa documentation), et ses entrées sont "
+               "payantes, rangées après les gratuits comme celles de DeepSeek ; l'ajouter, c'est "
+               "accepter ce prix",
     "deepseek": "son prix par million de jetons : DeepSeek n'a pas d'offre gratuite, et ses entrées "
                 "sont un dernier recours payant, en fin de cascade ; l'ajouter, c'est accepter ce prix",
     "cerebras": "la réponse de la FAQ à « Is there a permanently free tier? » : tant qu'elle est "
