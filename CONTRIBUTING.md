@@ -77,7 +77,8 @@ python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
-python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
+python3 .github/scripts/check_LiteLLM_model_drift.py --selftest   # lance le module ci-dessous ; la CI le joue dans un job à part
+python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
 python3 .github/scripts/check_LiteLLM_model_drift.py       # hors ligne ; « --online » lit les catalogues des fournisseurs (clés requises, jamais lancé par la CI d'une pull request)
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
@@ -118,7 +119,8 @@ est un contrôle que personne ne croit. Le premier compare ses verdicts aux conf
 en tête le verdict qu'elle attend ; le second à seize lignes construites en mémoire ; celui du
 sign-off construit de vrais dépôts git jetables dans un répertoire temporaire, et y rejoue aussi le
 hook de démarrage de session ; celui de la porte d'auto-fusion casse le script de l'étape une garde à la
-fois et exige qu'un scénario le remarque.
+fois et exige qu'un scénario le remarque ; celui du contrôle de dérive des modèles est dans son propre
+fichier, `check_LiteLLM_model_drift_selftest.py`, que son `--selftest` lance, et sa CI lui consacre un job.
 
 > `gitleaks dir .` lancé **en local** sur un arbre contenant un vrai `.env` sort en 1, alors que le
 > job de CI est vert : `dir` lit l'arbre de travail et ne consulte pas le `.gitignore`, tandis que

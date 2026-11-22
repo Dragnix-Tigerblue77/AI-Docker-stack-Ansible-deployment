@@ -573,7 +573,8 @@ python3 .github/scripts/check_compose_template.py --selftest
 python3 .github/scripts/check_compose_template.py          # the one that matters for the template
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
-python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
+python3 .github/scripts/check_LiteLLM_model_drift.py --selftest   # runs the next line's module
+python3 .github/scripts/check_LiteLLM_model_drift_selftest.py   # the same cases run directly, in the CI job of their own
 python3 .github/scripts/check_LiteLLM_model_drift.py       # offline; --online reads the providers' catalogues
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
@@ -606,6 +607,11 @@ are set. Its docstring says how.
 Each home-made check knows how to verify itself with `--selftest` -- a check whose failure nobody
 has ever seen is a check nobody believes. `check_compose_template.py`'s cases are Python literals
 rather than fixture files, because a fixture on disk is reachable by `ansible-lint --fix` (#58).
+The exception is the drift check, whose cases are too many to share a file with the script:
+they live in `check_LiteLLM_model_drift_selftest.py`, still as Python literals, which its
+`--selftest` imports and which can be run directly. They run in a job of their own, since they take
+minutes, so the `Repository rules` job no longer runs them; a case is added to that module, and the
+job name is one of the contexts `.github/rulesets/main.json` requires.
 
 **`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
 own yamllint profile on these settings**: `comments.min-spaces-from-content`, `comments-indentation`,
