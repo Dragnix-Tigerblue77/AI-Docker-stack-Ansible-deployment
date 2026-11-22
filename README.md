@@ -121,6 +121,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
+| `Artificial_Intelligence_LiteLLM_disable_env_credential_login` | `false` | Fait refuser à `/ui` la connexion par `UI_USERNAME`/`UI_PASSWORD` et par la clé maîtresse, que LiteLLM signale comme critique. **À ne passer à `true` qu'une fois un `proxy_admin` à mot de passe propre créé dans `/ui`** : sans lui, plus personne ne se connecte, et on revient en la remettant à `false`. Un booléen, jamais une chaîne (`tasks/main.yml` la refuse). Voir « La connexion par identifiants d'environnement ». |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
@@ -397,6 +398,32 @@ fournisseur restent donc des entrées du `model_list` gérées par l'administrat
 `Artificial_Intelligence_LiteLLM_UI_password` plus haut) comme seule chose entre le LAN et le conteneur qui porte la clé
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
+
+**La connexion par identifiants d'environnement : l'alerte critique de LiteLLM et comment la lever.** Sur un
+déploiement neuf, `UI_USERNAME`/`UI_PASSWORD` est la seule porte de `/ui`, et le tableau de bord de LiteLLM la signale
+dans *Deployment health* comme critique : un secret partagé, permanent, en clair dans l'environnement du conteneur,
+qu'on ne peut pas révoquer par personne et qui ne dit pas qui a fait quoi
+([le guide de LiteLLM](https://docs.litellm.ai/docs/proxy/ui)). Garder l'alerte est un choix défendable pour un
+administrateur unique sur un LAN de confiance, c'est pourquoi `Artificial_Intelligence_LiteLLM_disable_env_credential_login`
+vaut `false` par défaut et que le rendu de la configuration est alors identique à celui d'avant. Pour la lever, dans
+l'ordre :
+
+1. Se connecter à `/ui` avec `UI_USERNAME`/`UI_PASSWORD`.
+2. Créer un utilisateur `proxy_admin` : *Internal Users*, *+ Invite User*, rôle `proxy_admin`, puis ouvrir le lien
+   d'invitation pour y choisir son mot de passe. Par l'API, `POST /user/new` accepte `user_role: proxy_admin` et
+   `auto_create_key: false` mais pas de mot de passe, qui se pose par `POST /user/update`, soumis à la politique de
+   LiteLLM (12 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et, sur les versions récentes de LiteLLM, à changer
+   à la première connexion.
+3. **Tester cette connexion avant d'aller plus loin** : se déconnecter, se reconnecter avec ce compte.
+4. Passer la variable à `true` et redéployer. La configuration change, donc le conteneur de la passerelle est recréé
+   (nom de la Docker config suffixé de la somme de contrôle du fichier).
+5. `/ui` répond 401 à `UI_USERNAME`/`UI_PASSWORD` et à la clé maîtresse, et l'alerte disparaît. Seule la page de
+   connexion est concernée : les utilisateurs de la base, dont les `Artificial_Intelligence_LiteLLM_internal_users`,
+   et l'API (donc les tâches de ce rôle, qui l'appellent avec la clé maîtresse) ne changent pas.
+
+Passer la variable à `true` avant l'étape 2 enferme dehors tout le monde, y compris sur un déploiement neuf : on s'en
+sort en la remettant à `false` et en redéployant, d'où les deux variables d'identifiants qui restent **obligatoires et
+posées** même quand elle vaut `true` : inertes alors, elles sont ce qui rend l'accès.
 
 **La clé de sel (#164) chiffre ce que `/ui` enregistre, et ne change plus jamais.** Avec
 `STORE_MODEL_IN_DB`, LiteLLM garde en base ce que `/ui` ou son API d'administration lui confient -- les
