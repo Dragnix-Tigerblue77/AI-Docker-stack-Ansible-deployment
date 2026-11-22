@@ -1607,7 +1607,7 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSee
 # "model_info.mode" its members carry. They are aliases of their cascade's head like the five above, but are
 # kept apart from LITELLM_ROUTERS: that tuple is also the set of names the Claude Code agent may be given,
 # and a transcription router is not one of them.
-LITELLM_MEDIA_ROUTERS = {"stt": (frozenset({"Groq", "Mistral"}), "audio_transcription")}
+LITELLM_MEDIA_ROUTERS = {"stt": (frozenset({"Groq", "Gemini", "Mistral"}), "audio_transcription")}
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
@@ -1896,15 +1896,22 @@ LITELLM_CONFIG_CASES = [
                        {"code": "a", "claude-code": "a"}),
      {"Mistral"}, "have drifted apart"),
     ("a router served as an alias by its cascade's head, Gemini having a key",
-     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
-                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
-                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     _with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
+                                 [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                 {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}), "GEMINI_API_KEY"),
      {"Gemini"}, None),
     ("a transcription router served by its cascade's head",
      _stt_document(entries=("whisper-a", "whisper-b")), {"Groq"}, None),
     ("a transcription router with no key it routes to",
-     _with_stt(_litellm_document([("g", "os.environ/GEMINI_API_KEY")], [], {}), "GROQ_API_KEY"),
-     {"Gemini"}, "'stt' is served"),
+     _with_stt(_litellm_document([("g", "os.environ/OPENROUTER_API_KEY")], [], {}), "GROQ_API_KEY"),
+     {"OpenRouter"}, "'stt' is served"),
+    ("a transcription router served by a Gemini key alone",
+     _with_stt(_litellm_document([("g", "os.environ/GEMINI_API_KEY")], [("claude-code", ["g"])],
+                                 {"claude-code": "g"}), "GEMINI_API_KEY"),
+     {"Gemini"}, None),
+    ("a transcription router missing although Gemini has a key",
+     _litellm_document([("g", "os.environ/GEMINI_API_KEY")], [("claude-code", ["g"])], {"claude-code": "g"}),
+     {"Gemini"}, "'stt' is absent"),
     ("a transcription router missing although Groq has a key",
      _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])], {"claude-code": "qwen"}),
      {"Groq"}, "'stt' is absent"),
