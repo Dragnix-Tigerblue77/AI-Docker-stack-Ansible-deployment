@@ -121,7 +121,7 @@ inputs:
   quota:
     gemini: "unknown: no limit is stated in this repository"
     groq: "Free plan, 30 requests and 8K tokens per minute for these models, per console.groq.com/docs/rate-limits as the template quotes it (checked 2026-09-27)"
-    mistral: "A $10 monthly API credit shared by every entry, per mistral.ai/pricing as the template quotes it (checked 2026-09-27); per-model limits only in the account's admin panel"
+    mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
     omniroute: "No quota: local and keyless"
@@ -224,6 +224,14 @@ routers:
 # and the report says the level is not ranked. Where the level is unknown, "slug" is the record of
 # the highest level the model could be called at by default.
 models:
+  gemini-4-hydrogen:
+    slug: gemini-4-hydrogen-high
+    level: high
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level high for gemini-4-hydrogen"
+    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
+    epoch:
+      cursorbench_external: [gemini-4-hydrogen_high, gemini-4-hydrogen_low, gemini-4-hydrogen_medium, gemini-4-hydrogen_xhigh]
+      ale_bench_external: [gemini-4-hydrogen_xhigh]
   gemini-3-8-flash:
     slug: gemini-3-8-flash-medium
     level: medium
