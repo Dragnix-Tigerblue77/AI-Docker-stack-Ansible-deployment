@@ -724,35 +724,15 @@ model_list:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: clairic-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/cloudflare/clairic
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/cloudflare/clairic -- not a chat model: Cloudflare's own extraction and estimation model, called with a state and typed fields rather than messages, in preview (read 2026-11-22)
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: clairic-flash-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/cloudflare/clairic-flash
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/cloudflare/clairic-flash -- not a chat model: the same extraction model in early research preview (read 2026-11-22)
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: clef-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/cloudflare/clef
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/cloudflare/clef -- not a chat model: a decision model that answers typed questions with probabilities, LiteLLM's model map lists it as mode "evaluation" (read 2026-11-22)
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: clef-flash-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/cloudflare/clef-flash
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/cloudflare/clef-flash -- not a chat model: the 9B decision model of the same family (read 2026-11-22)
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: clef-omni-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/cloudflare/clef-omni
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/cloudflare/clef-omni -- not a chat model: the multimodal decision model of the same family (read 2026-11-22)
 
   # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
   - model_name: phonellm-mini-alpha-2-cloudflare
@@ -760,11 +740,7 @@ model_list:
       model: cloudflare/@cf/daily-co/phonellm-mini-alpha-2
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: deepseek-v4-1-flash-1017-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/deepseek-ai/deepseek-v4.1-flash-1017
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/deepseek-ai/deepseek-v4.1-flash-1017 -- paid per "developers.cloudflare.com/workers-ai/platform/pricing/" (read 2026-11-22), which names it among the models that need a paid billing method; OVHcloud serves the same model above
 
   # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
   - model_name: granite-4-0-h-micro-cloudflare
@@ -802,11 +778,7 @@ model_list:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
-  - model_name: qwen3-8-27b-cloudflare
-    litellm_params:
-      model: cloudflare/@cf/qwen/qwen3.8-27b
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  # drift-ignore: cloudflare/@cf/qwen/qwen3.8-27b -- looked at and not routed on 2026-11-22: not in LiteLLM's model map, cannot be steered and answered a hard question in 81-109 s with reasoning every time; Groq and OVHcloud serve the same model above
 
   # Proposed by the weekly drift run on 2026-11-22: its free tier on Cloudflare is not verified yet.
   - model_name: apertus-v1-5-8b-cloudflare
