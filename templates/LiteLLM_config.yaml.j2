@@ -32,7 +32,7 @@
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
-  'code': 'gemini-3-8-flash' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
@@ -66,10 +66,12 @@ model_list:
   # available "on both the free and paid tiers" "across both GenerateContent and the Interactions
   # API": the call LiteLLM's "gemini/" provider makes. Artificial Analysis's ranking, read 2026-11-21 and matched by its id ("Gemini 4 Hydrogen
   # (Xhigh)", to be checked), gives it an intelligence index of 53.9 and 164.0 tokens per second:
-  # ahead of "gemini-3-8-flash" (30.8) in "pro", "flash" and "claude-code", and ahead of
-  # "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". "code" ranks by coding benchmarks and
-  # the index has none for it, so it is in no "code" slot. The free tier's own rate limits are shown
-  # in AI Studio only ("ai.google.dev/gemini-api/docs/rate-limits"): none is stated here.
+  # ahead of "gemini-3-8-flash" (30.8) in "pro", "flash", "code" and "claude-code", and ahead of
+  # "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". It heads "code" too: Epoch AI's coding
+  # benchmarks measure it (CursorBench and ALE-Bench, read 2026-11-21) and put it ahead of
+  # "gemini-3-8-flash" on the one they share, and where a model has no coding figure its intelligence
+  # index stands in. The free tier's own rate limits are shown in AI Studio only
+  # ("ai.google.dev/gemini-api/docs/rate-limits"): none is stated here.
   - model_name: gemini-4-hydrogen
     litellm_params:
       model: gemini/gemini-4-hydrogen
@@ -697,6 +699,7 @@ router_settings:
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
+        - gemini-4-hydrogen
         - gemini-3-8-flash
 {% endif %}
 {% if has.Groq %}
