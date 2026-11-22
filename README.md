@@ -621,12 +621,15 @@ cascade ; quand aucun modèle de sa cascade n'a de clé, il disparaît avec ses 
 `flash-lite`, par exemple). LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
 donc LibreChat les propose toujours. À connaître :
 
-- La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au
-  moins (le commentaire de la cascade, dans le template, le dit), et elle ne contient aujourd'hui que des modèles de
-  Gemini, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que les autres fournisseurs n'en ont
-  aucun qui convienne. Sans l'une de ces trois clés l'agent n'a aucun modèle, et le rôle refuse ce déploiement,
-  sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou demande un autre routeur
-  (`Artificial_Intelligence_Claude_code_model`).
+- La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au moins
+  (le commentaire de la cascade, dans le template, le dit). C'est la cascade de `code`, membre pour membre et dans le
+  même ordre, moins `omniroute-free-code` : OmniRoute choisit lui-même un modèle gratuit parmi ses fournisseurs, et sa
+  documentation dit qu'un fournisseur gratuit peut émuler les appels d'outils depuis le prompt ou les ignorer, donc rien
+  ne garantit ni les outils ni le contexte. `check_compose_template.py` tient les deux listes à cette égalité. Elle ne
+  contient donc que des modèles de Gemini, Groq, Mistral et DeepSeek : c'est ce qui y a été retenu, pas un constat que
+  les autres fournisseurs n'en ont aucun qui convienne. Sans l'une de ces quatre clés l'agent n'a aucun modèle, et le
+  rôle refuse ce déploiement, sauf si l'agent est éteint (`Artificial_Intelligence_Claude_code_enabled: false`) ou
+  demande un autre routeur (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.

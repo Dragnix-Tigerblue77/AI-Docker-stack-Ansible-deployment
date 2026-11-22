@@ -1602,7 +1602,10 @@ LITELLM_PROVIDERS = {
 # of the cascade has a key. None is an entry of the model list: no provider is first by construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Mistral", "DeepSeek"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek"})
+# The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
+# 128k of context, and nothing says that of the model OmniRoute's free combo picks.
+LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
 
 
 def litellm_key_sets():
@@ -1706,6 +1709,14 @@ def check_litellm_config(document, keys, failures):
             f"{'allow' if claude_code_expected else 'do not allow'} it: the agent's assert in tasks/main.yml "
             "rests on exactly that"
         )
+    if "claude-code" in cascades and "code" in cascades:
+        wanted = [member for member in cascades["code"] if member not in LITELLM_CLAUDE_CODE_LEAVES_OUT]
+        if cascades["claude-code"] != wanted:
+            failures.append(
+                f"[{state}] the cascade of 'claude-code' is {cascades['claude-code']!r}, where the cascade of 'code' "
+                f"without {sorted(LITELLM_CLAUDE_CODE_LEAVES_OUT)} is {wanted!r}: the two lists are written by hand "
+                "side by side and have drifted apart"
+            )
 
 
 def check_litellm_configs(failures):
@@ -1780,9 +1791,35 @@ LITELLM_CONFIG_CASES = [
     ("claude-code missing although Mistral has a key",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [], {}),
      {"Mistral"}, "'claude-code' is absent"),
-    ("claude-code served by a Groq key alone",
-     _litellm_document([("gpt", "os.environ/GROQ_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
-     {"Groq"}, "'claude-code' is served"),
+    ("claude-code served by an OpenRouter key alone",
+     _litellm_document([("gpt", "os.environ/OPENROUTER_API_KEY")], [("claude-code", ["gpt"])], {"claude-code": "gpt"}),
+     {"OpenRouter"}, "'claude-code' is served"),
+    ("claude-code served by a Groq key",
+     _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])], {"claude-code": "qwen"}),
+     {"Groq"}, None),
+    ("claude-code as the cascade of code without the member it leaves out",
+     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
+                        ("omniroute-free-code", "os.environ/OMNI")],
+                       [("code", ["a", "b", "omniroute-free-code"]), ("claude-code", ["a", "b"])],
+                       {"code": "a", "claude-code": "a"}),
+     {"Mistral"}, None),
+    ("claude-code missing a member that code has",
+     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY")],
+                       [("code", ["a", "b"]), ("claude-code", ["a"])], {"code": "a", "claude-code": "a"}),
+     {"Mistral"}, "have drifted apart"),
+    ("claude-code holding a member that code lacks",
+     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY")],
+                       [("code", ["a"]), ("claude-code", ["a", "b"])], {"code": "a", "claude-code": "a"}),
+     {"Mistral"}, "have drifted apart"),
+    ("claude-code in another order than code",
+     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY")],
+                       [("code", ["a", "b"]), ("claude-code", ["b", "a"])], {"code": "a", "claude-code": "b"}),
+     {"Mistral"}, "have drifted apart"),
+    ("claude-code holding the member it must leave out",
+     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("omniroute-free-code", "os.environ/OMNI")],
+                       [("code", ["a", "omniroute-free-code"]), ("claude-code", ["a", "omniroute-free-code"])],
+                       {"code": "a", "claude-code": "a"}),
+     {"Mistral"}, "have drifted apart"),
     ("a router served as an alias by its cascade's head, Gemini having a key",
      _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
