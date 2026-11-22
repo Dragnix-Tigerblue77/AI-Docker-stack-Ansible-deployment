@@ -311,6 +311,7 @@ def run_selftest():
 # ---------------------------------------------------------------------------------------------------
 
 DRIFT_SCRIPT = ROOT / ".github" / "scripts" / "check_LiteLLM_model_drift.py"
+DRIFT_SELFTEST = ROOT / ".github" / "scripts" / "check_LiteLLM_model_drift_selftest.py"
 BUILDER_BEGIN, BUILDER_END = "// BEGIN additions builder", "// END additions builder"
 BASE_SHA = "0123456789abcdef0123456789abcdef01234567"
 
@@ -435,12 +436,21 @@ async function play(scenario) {
 """
 
 
-def drift_module():
-    """The drift script, imported: its build_additions is what the builder of the step must agree with."""
-    spec = importlib.util.spec_from_file_location("check_LiteLLM_model_drift", DRIFT_SCRIPT)
+def load_module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def drift_module():
+    """The drift script, imported: its build_additions is what the builder of the step must agree with."""
+    return load_module("check_LiteLLM_model_drift", DRIFT_SCRIPT)
+
+
+def drift_selftest_module():
+    """The module of the drift script's verification cases, imported: it holds the miniature template."""
+    return load_module("check_LiteLLM_model_drift_selftest", DRIFT_SELFTEST)
 
 
 def step_document():
@@ -501,7 +511,7 @@ def builder_scenarios(real, drift):
     alike, or a text the step's reason for refusing contains (the script must refuse it too)."""
     out = []
     date = "2026-11-23"
-    miniature = drift.ADDITIONS_TEMPLATE
+    miniature = drift_selftest_module().ADDITIONS_TEMPLATE
 
     def add(name, items, expected=None, base=real, kind="ready", day=date):
         out.append((name, base, day, kind, items, expected))

@@ -254,6 +254,33 @@ jobs:
       ROLE_RUN_CLAUDE_CODE_AGENT: "on"
     steps: *role_run_steps
 
+  LiteLLM-drift-selftest:
+    name: "LiteLLM drift check: verification cases"
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # The cases take minutes on their own, which is why they run beside the other checks and not in
+    # their job: they would be the longest step of it. 25 and not 15, for the setup time of a
+    # self-hosted pool on top of that (see the "REUSE compliance" job above).
+    timeout-minutes: 25
+    steps:
+      - name: Check the repository out
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: ".python-version"
+          # See the "yamllint" job above.
+          check-latest: true
+          cache: "pip"
+
+      # PyYAML and Jinja2, which the cases render the model list with, come from requirements.txt.
+      - name: Install the tooling
+        run: pip install -r requirements.txt
+
+      # The script's "--selftest" runs the module of the cases; the module is what is named here.
+      - name: Run the verification cases
+        run: python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
+
   repository-rules:
     name: Repository rules
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
@@ -323,10 +350,7 @@ jobs:
       # The offline half of the drift check: cascades and aliases name active entries, no name twice, every
       # commented-out entry gives its reason. The online half reads the providers' catalogues with
       # their keys, and so never runs on a pull request -- "LiteLLM_model_drift.yml" runs it weekly.
-      - name: "LiteLLM model list: check the check itself"
-        if: ${{ !cancelled() }}
-        run: python3 .github/scripts/check_LiteLLM_model_drift.py --selftest
-
+      # The check's own verification cases are the job "LiteLLM drift check: verification cases".
       - name: "LiteLLM model list: hold it to its rule"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_model_drift.py

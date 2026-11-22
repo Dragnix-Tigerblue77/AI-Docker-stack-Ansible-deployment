@@ -37,6 +37,9 @@
             "context": "role run (Claude Code agent on)"
           },
           {
+            "context": "LiteLLM drift check: verification cases"
+          },
+          {
             "context": "Repository rules"
           },
           {
