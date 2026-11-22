@@ -799,7 +799,7 @@ améliorer les services sans accord (article IV.7), l'accord de traitement des d
 traitement se fait en général à Singapour. Une carte ou un téléphone exigé à l'inscription, une date d'arrêt des modèles gratuits :
 aucune page lue n'en parle.
 
-### Une issue par semaine pour ce qui a bougé chez les fournisseurs, une pull request pour ce qui se supprime, deux pour ce qui s'ajoute
+### Chaque samedi : une pull request pour ce qui se supprime, deux pour ce qui s'ajoute, une issue pour un catalogue illisible
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
@@ -807,13 +807,35 @@ fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, toutes l
 fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
 de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
-`.github/workflows/LiteLLM_model_drift.yml` la lit chaque lundi dans le catalogue des fournisseurs, et
-la rapporte dans **une seule issue**, « Dérive de la liste de modèles LiteLLM », assignée à
-tigerblue77 : modèles retirés, retraits annoncés, modèles redevenus gratuits sur OpenRouter. Les
-nouveaux modèles n'y sont plus listés : ils sont proposés par deux pull requests (voir plus bas), et
-l'issue ne garde que ceux qu'aucune des deux ne peut porter, avec la raison, et un lien vers elles. Un
-nouveau modèle qu'une pull request porte ne compte pas comme une dérive pour l'issue. L'issue est
-réécrite à chaque exécution, fermée quand plus rien ne dérive, et c'est la même qui se rouvre ensuite.
+`.github/workflows/LiteLLM_model_drift.yml` la lit chaque samedi à 06:47 UTC (7 h 47 à Paris en hiver,
+8 h 47 en été) dans le catalogue des fournisseurs. Le samedi, parce que les fournisseurs publient du
+lundi au jeudi (environ 90 % des sorties depuis novembre 2025, d'après les dates de sortie
+d'Artificial Analysis et d'Epoch AI), le vendredi pour environ 10 % et le week-end pour 2 % : le run a
+la semaine derrière lui, et ce qu'il propose est prêt avant l'usage du week-end. Une fois par semaine
+seulement, parce que chaque run coûte des minutes incluses sur un dépôt privé : un run quotidien est
+voulu une fois le dépôt public.
+
+Le rapport entier, section « Contrats par routeur » comprise, va dans le **résumé du run** (l'onglet
+*Summary* de l'exécution), qui ne notifie personne. Ce qu'une personne doit lire va dans le corps de la
+pull request qu'il concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
+suppressions, les modèles redevenus gratuits sur OpenRouter dans celle des modèles prêts (dans celle
+des modèles à vérifier quand la première n'est pas ouverte), et les nouveaux modèles qu'aucun ajout ne
+peut porter -- un identifiant d'une autre forme, un fournisseur sans entrée, au-delà du plafond, un
+corps trop long --, avec leur entrée à compléter et la raison, dans celle des modèles à vérifier. Une
+semaine sans pull request pour le porter, cela n'est que dans le résumé.
+
+**Une issue, et pour une seule chose : un catalogue qui reste illisible.** Un catalogue qui ne se lit
+pas (une erreur HTTP, pas de réponse, une réponse illisible) est relu le même samedi à 08:47, 10:47 et
+12:47 UTC ; une reprise ne refait le run que si la tentative d'avant n'a pas pu lire un catalogue, et
+se termine sinon en quelques secondes sans rien faire. Si la quatrième tentative ne le lit toujours
+pas, le workflow ouvre l'issue « Catalogue de fournisseur illisible pour la liste de modèles LiteLLM »,
+assignée à tigerblue77, ou rouvre la même, avec les fournisseurs, la classe de leur statut HTTP (jamais
+une clé ni une réponse) et l'heure des trois tentatives précédentes ; la première exécution qui lit
+chaque catalogue la ferme. Une clé absente n'est pas un échec de lecture : le résumé dit le fournisseur
+« non couvert ». Une exécution lancée à la main est une seule tentative : elle peut fermer l'issue,
+jamais l'ouvrir. D'une tentative à l'autre, rien n'est gardé que GitHub ne garde déjà : le numéro de la
+tentative est la place de la planification qui l'a lancée, et ce qu'a donné la précédente est le nom
+d'un artefact de son run, lu par un job sans clé et au jeton en lecture seule.
 
 Une seule sorte de constat se traite sans jugement, et le workflow la traite lui-même, **sans IA** :
 un modèle que son fournisseur ne liste plus (et, chez ceux dont l'API sait répondre pour un modèle
@@ -867,7 +889,8 @@ de la pull request liste. Le job qui pousse, seul à détenir un jeton qui écri
 cette forme, et seulement avec des noms d'entrées du fichier et des fournisseurs que le modèle déclare
 (`check_drift_publish_guard.py` joue cette règle).
 
-Ce que le workflow ne supprime pas reste dans l'issue, avec la raison, et la liste complète en est
+Ce que le workflow ne supprime pas est listé, avec la raison, dans la pull request des suppressions et
+dans le résumé du run, et la liste complète en est
 dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
 routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade (pour chaque jeu de clés de fournisseur,
 pas sur leur union), un modèle que le modèle de configuration nomme dans une instruction Jinja (rien ici ne sait
@@ -941,7 +964,7 @@ a construit et relu (`check_drift_publish_guard.py` tient les deux au même rés
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
-les pull requests d'ajout (et l'issue, pour un nouveau modèle qu'aucune ne porte) donnent pour chaque nouveau
+les pull requests d'ajout (et le résumé du run, pour un nouveau modèle qu'aucune ne porte) donnent pour chaque nouveau
 modèle son indice d'intelligence, son indice de code, sa vitesse de sortie et son prix mixte, lus dans l'API
 gratuite d'Artificial Analysis (<https://artificialanalysis.ai/>, la source est citée avec le jour de la lecture,
 comme ses conditions d'utilisation le demandent), puis
@@ -956,7 +979,7 @@ pour `claude-code`, gratuité, variante d'effort de raisonnement sur laquelle un
 ni le regroupement par fournisseur que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
 **supposition** -- l'identifiant, puis le nom du fournisseur, doivent s'écrire comme exactement une entrée du
 classement, à la casse et à la ponctuation près, au moins quatre caractères -- et chaque ligne est marquée
-« à vérifier ». Sans le secret, l'issue dit « non couvert » comme pour n'importe quelle clé, et aucun modèle n'est placé ;
+« à vérifier ». Sans le secret, le résumé dit « non couvert » comme pour n'importe quelle clé, et aucun modèle n'est placé ;
 une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
@@ -981,7 +1004,7 @@ d'un modèle depuis le plus bas, et on passe au suivant tant qu'il apporte au mo
 d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `claude-code` dérive de `code` (même
 classement, sa cascade est celle de `code` sans les membres qui ne prennent pas d'outils). `code` se classe sur la
 **position de code**, lue par l'exécution en ligne dans les données d'Epoch AI (`benchmark_data.zip`,
-<https://epoch.ai/benchmarks>, CC BY 4.0, citées dans l'issue avec le jour de la lecture), sans WebDev Arena : la
+<https://epoch.ai/benchmarks>, CC BY 4.0, citées dans le résumé avec le jour de la lecture), sans WebDev Arena : la
 qualité d'une interface web est du design, pas du code. Dans chacun de cinq benchmarks (DeepSWE, SWE-bench Verified,
 CursorBench, Terminal-Bench, ALE-Bench), la position d'un score est (1 + le nombre de modèles du fichier dont le score
 est strictement meilleur) / le nombre de modèles du fichier, en pourcentage : plus elle est petite, meilleur est le
@@ -1008,10 +1031,10 @@ et `claude-code` ont pour plancher la position de code de Gemini 2.5 Flash, sans
 plancher (le plus court délai avant le premier jeton ordonne, tout membre qui répond est admis). Un membre pour lequel
 le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
 (`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur ordonné par le délai n'utilise aucune
-estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et l'issue
+estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et le résumé
 le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Le mainteneur a
 **validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent
-déclarés sans rien imposer. L'issue hebdomadaire gagne une section « Contrats par routeur » : par routeur, un tableau
+déclarés sans rien imposer. Le résumé de chaque run porte une section « Contrats par routeur » : par routeur, un tableau
 des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait comparé à l'ordre
 actuel, pour `code` et `claude-code` la position de chaque membre dans chaque benchmark et sa position de code (« 18 %
 », ou « 56 % (estimé) »), l'effet de chaque plancher proposé (un membre sous le plancher passe au dernier recours, il
@@ -1025,14 +1048,14 @@ formée ou un plancher sur deux échelles, une conversion de l'indice en positio
 ligne ou un fichier mal formé, une clé écrite deux fois). Un nom que le fichier garde et qui n'est plus une entrée du
 modèle n'est **pas** un échec : la suppression hebdomadaire se fusionne seule quand la CI est verte, et supprimer une
 entrée met presque toujours une ligne dans ce cas. L'exécution hors ligne affiche alors une ligne d'avis et sort en 0,
-et l'issue liste ces « correspondances sans entrée », qu'une personne retire du fichier.
+et le résumé liste ces « correspondances sans entrée », qu'une personne retire du fichier.
 
 **Une condition, une seule fois**, tant que le workflow écrit avec son propre jeton (pas d'App
 configurée, voir plus bas) : cocher *Allow GitHub Actions to create and approve pull requests*
 dans *Settings → Actions → General → Workflow permissions*
 (<https://github.com/Dragnix-Tigerblue77/AI-Docker-stack-Ansible-deployment/settings/actions>), ou,
 si la case est grisée, le même réglage au niveau de l'organisation. Tant qu'elle ne l'est pas, le
-workflow pousse les branches, tient l'issue à jour et échoue à l'étape qui ouvre les pull requests, en
+workflow pousse les branches, écrit son résumé et échoue à l'étape qui ouvre les pull requests, en
 nommant ce réglage et en donnant son lien.
 
 **Facultatif : une App GitHub qui ouvre les pull requests.** Un push et une pull request faits avec le jeton
@@ -1048,16 +1071,16 @@ Pour l'activer : une App GitHub installée sur ce dépôt avec ces deux permissi
 d'App), la variable `MODEL_DRIFT_APP_SLUG` (son nom court, que seule la
 fusion automatique lit) et le secret `MODEL_DRIFT_APP_PRIVATE_KEY`. Sans la première variable, le workflow
 fait ce qu'il faisait avant. La clé privée n'atteint que `publish`, qui n'extrait rien du dépôt et n'y
-exécute aucun script ; l'issue hebdomadaire garde le jeton du workflow.
+exécute aucun script ; l'issue des catalogues illisibles garde le jeton du workflow.
 
 OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les quatre autres,
 créer dans *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
 `MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY` --
 chacun facultatif, de préférence une clé dédiée, révocable sans toucher à celles de LiteLLM. Le
 contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun jeton
-dépensé. Sans l'un d'eux, l'issue dit chaque semaine que son fournisseur est « non couvert ». Cloudflare Workers AI,
+dépensé. Sans l'un d'eux, le résumé dit chaque semaine que son fournisseur est « non couvert ». Cloudflare Workers AI,
 Z AI et NVIDIA n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées (préfixes
-`cloudflare/`, `zai/` et `nvidia_nim/`) sont listées dans l'issue comme « d'aucun catalogue lu ici », avec celles d'OmniRoute, sans
+`cloudflare/`, `zai/` et `nvidia_nim/`) sont listées dans le résumé comme « d'aucun catalogue lu ici », avec celles d'OmniRoute, sans
 jamais être déclarées retirées ni inconnues -- un modèle que l'un d'eux retire n'est donc vu que par la personne qui
 relit la page ou le catalogue de ses modèles, ou par l'erreur d'un appel. Un
 cinquième secret, `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`, n'est celui d'aucun fournisseur : c'est la

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Play the guard of the weekly model-drift pull request step against made-up templates.
+"""Play the guards of the weekly model-drift workflow against made-up templates, days and issues.
 
 WHY THIS CHECK EXISTS
 ---------------------
@@ -43,13 +43,33 @@ deletion that leaves the additions done; a commit of the other job that is not o
 which share the step's code with them, are played the same way: pushed and opened ready for review, a
 line added refused, a person's commit failing the step, closed when nothing is left.
 
+The workflow keeps an issue for one thing, a catalogue still unreadable at the day's last attempt, and
+two more scripts decide it. The gate's, between "BEGIN/END gate", is played on made-up Saturdays: a run
+started by hand and the first attempt read without asking anything; a retry reads only when the latest
+earlier scheduled attempt of the same day that left an outcome left "unreadable", passing over one that
+left none, a run started by hand, a run of another day, a run listed after it, an artifact of another
+outcome and a run with two; the fourth attempt alone is the last, with the times of the earlier ones in
+order; a cron it does not number fails. Its SCHEDULES are held to the crons of "on.schedule", in their
+order. The issue step's, between "BEGIN/END issue", is played on made-up issues: opened at the last
+attempt only, with the providers, the class of each failure and the earlier times; nothing written at an
+earlier attempt or by a run started by hand; the issue the workflow kept while it reported every drift
+taken over rather than doubled; closed, with a comment, by any run that reads every catalogue, a week of
+deletions or of additions alone included; somebody else's issue, or one without the marker or under
+another title, never written; and what the "read" job hands over refused, with nothing written, when a
+word is no provider and class it knows, when the status and the catalogues named disagree, or when an
+earlier time is no time.
+
 "--selftest" proves the scenarios can fail: it breaks the function one guard at a time and requires
-some scenario to notice each, then does the same to the builder and the step. A guard no scenario
-notices is one this check cannot vouch for.
+some scenario to notice each, then does the same to the builder and the step, to the gate and to the
+issue step, and reorders the crons without the gate. A guard no scenario notices is one this check
+cannot vouch for.
 
 WHAT IT DOES NOT PROVE
 ----------------------
-That the step calls the function on what it reads from GitHub: the wiring is checked as text. Nor
+That the step calls the function on what it reads from GitHub: the wiring is checked as text. Nor that
+GitHub fires a cron with "github.event.schedule" spelt as "on.schedule" writes it, holds a retry behind
+the attempt before it, or lists the runs and artifacts as the made-up one does; no scheduled run can be
+played here. Nor
 that "the rows of the table written again" are right -- "check_compose_template.py" holds each alias
 to the first member of its cascade for every set of keys. Nor that GitHub answers as the made-up one
 does: its answers are octokit's as the documentation gives them, not recorded, and the refusal of a
@@ -998,9 +1018,409 @@ def run_additions_selftest():
     return 0
 
 
+# ---------------------------------------------------------------------------------------------------
+# The gate that decides whether an attempt runs, and the step that keeps the issue
+# ---------------------------------------------------------------------------------------------------
+
+GATE_STEP = "Find what the earlier attempts of the day ended with"
+ISSUE_STEP = "Open, update or close the issue of the unreadable catalogues"
+LEGACY_TITLE = "Dérive de la liste de modèles LiteLLM"
+MARKER = "<!-- LiteLLM-model-drift -->"
+DAY = "2026-11-28"
+SCHEDULES = ["47 6 * * 6", "47 8 * * 6", "47 10 * * 6", "47 12 * * 6"]
+
+# Plays one step's script against a made-up GitHub that knows runs, their artifacts and issues. It
+# filters nothing the real API would filter for the script ("event", "created"), so that the filters
+# the script applies itself are what is tested.
+ACTIONS_HARNESS = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
+async function play(scenario) {
+  const run = new AsyncFunction('github', 'context', 'core', 'process', 'require', input.script);
+  const calls = [];
+  const notices = [];
+  const warnings = [];
+  const failures = [];
+  const outputs = {};
+  const record = (name, args) => calls.push({ name, args });
+  let next = 500;
+  const github = {
+    paginate: async (method, args) => (await method(args)).data,
+    rest: {
+      actions: {
+        getWorkflowRun: async (args) => {
+          record('actions.getWorkflowRun', args);
+          return { data: scenario.runs.find((each) => each.id === args.run_id) };
+        },
+        listWorkflowRuns: async (args) => {
+          record('actions.listWorkflowRuns', args);
+          return { data: { workflow_runs: scenario.runs.filter((each) => each.workflow_id === args.workflow_id) } };
+        },
+        listWorkflowRunArtifacts: async (args) => {
+          record('actions.listWorkflowRunArtifacts', args);
+          return { data: { artifacts: (scenario.artifacts[String(args.run_id)] ?? []).map((name) => ({ name })) } };
+        },
+      },
+      issues: {
+        listForRepo: async (args) => { record('issues.listForRepo', args); return { data: scenario.issues }; },
+        create: async (args) => { record('issues.create', args); return { data: { number: next++ } }; },
+        update: async (args) => { record('issues.update', args); return { data: {} }; },
+        addAssignees: async (args) => { record('issues.addAssignees', args); return { data: {} }; },
+        createComment: async (args) => { record('issues.createComment', args); return { data: {} }; },
+      },
+    },
+  };
+  const core = {
+    notice: (message) => notices.push(String(message)),
+    warning: (message) => warnings.push(String(message)),
+    error: (message) => failures.push(String(message)),
+    setFailed: (message) => failures.push(String(message)),
+    setOutput: (name, value) => { outputs[name] = value; },
+  };
+  const context = Object.assign({ repo: { owner: 'o', repo: 'r' }, serverUrl: 'https://github.com', runId: 4 },
+                                scenario.context);
+  let crashed = null;
+  try {
+    await run(github, context, core, { env: scenario.env }, require);
+  } catch (error) {
+    crashed = String(error && error.stack || error);
+  }
+  return { calls, notices, warnings, failures, outputs, crashed };
+}
+
+(async () => {
+  const out = [];
+  for (const scenario of input.scenarios) out.push(await play(scenario));
+  process.stdout.write(JSON.stringify(out));
+})();
+"""
+
+
+def named_step(job, name):
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    step = next((step for step in document["jobs"][job]["steps"] if step.get("name") == name), None)
+    if step is None:
+        raise SystemExit("the step %r is not in the job %r of %s" % (name, job, WORKFLOW.name))
+    return document, step
+
+
+def schedule_problem(document):
+    """Why the gate would number the attempts wrongly, or None: its SCHEDULES must be the crons of
+    "on.schedule", in their order, and the day's last attempt the last of them."""
+    on = document.get("on", document.get(True)) or {}
+    crons = [entry.get("cron") for entry in on.get("schedule") or []]
+    gate = next((step for step in document["jobs"]["gate"]["steps"] if step.get("name") == GATE_STEP), None)
+    if gate is None:
+        return "the gate has no step %r" % GATE_STEP
+    listed = [line.strip() for line in gate["env"]["SCHEDULES"].splitlines() if line.strip()]
+    if listed != crons:
+        return "the gate's SCHEDULES (%s) are not the crons of on.schedule (%s), in their order" % (
+            ", ".join(listed), ", ".join(crons))
+    if "workflow_dispatch" not in on:
+        return "the workflow cannot be started by hand any more"
+    return None
+
+
+def workflow_run(identifier, time, event="schedule"):
+    """A run of the workflow as the API lists it: GitHub's times carry no fraction, but a start may."""
+    return {"id": identifier, "workflow_id": 77, "event": event, "created_at": time,
+            "run_started_at": time.replace("Z", ".123Z")}
+
+
+def gate_scenarios():
+    """[(name, scenario, check)] for the gate, on a Saturday whose current run is the one of id 4."""
+    out = []
+    env = named_step("gate", GATE_STEP)[1]["env"]
+    times = {1: DAY + "T06:47:31Z", 2: DAY + "T08:47:12Z", 3: DAY + "T10:48:02Z", 4: DAY + "T12:47:05Z"}
+
+    def scenario(name, attempt, artifacts, check, extra_runs=(), event="schedule", schedule=None):
+        current = {2: times[2], 3: times[3], 4: times[4]}.get(attempt, times[4])
+        runs = [workflow_run(number, times[number]) for number in range(1, 4) if times[number] < current]
+        runs += [workflow_run(4, current)] + list(extra_runs)
+        context = {"eventName": event, "runId": 4,
+                   "payload": {"schedule": schedule or SCHEDULES[attempt - 1]} if event == "schedule" else {}}
+        out.append((name, {"context": context, "runs": runs, "artifacts": artifacts, "issues": [],
+                           "env": {key: str(value) for key, value in env.items()}}, check))
+
+    def outputs(run, attempt=None, last="false", earlier=""):
+        def check(result):
+            got = result["outputs"]
+            wanted = {"run": run, "last": last, "earlier": earlier}
+            if attempt is not None:
+                wanted["attempt"] = attempt
+            wrong = {key: got.get(key) for key, value in wanted.items() if got.get(key) != value}
+            if result["failures"]:
+                return "it failed: %s" % result["failures"][:1]
+            return "the outputs are %r, not %r" % (wrong, {key: wanted[key] for key in wrong}) if wrong else None
+        return check
+
+    def unread(*numbers):
+        return " ".join(times[number] for number in numbers)
+
+    def calls_nothing(check):
+        def both(result):
+            if result["calls"]:
+                return "it asked the API although nothing needs to be read: %r" % result["calls"][:1]
+            return check(result)
+        return both
+
+    out_of = "LiteLLM-model-drift-outcome-"
+    scenario("a run started by hand reads, once, and is no last attempt", 1, {},
+             calls_nothing(outputs("true", "1")), event="workflow_dispatch")
+    scenario("the first attempt of the day reads, without asking anything", 1, {}, calls_nothing(outputs("true", "1")))
+    scenario("a retry after an attempt that could not read a catalogue reads, and is not the last", 2,
+             {"1": [out_of + "unreadable", "LiteLLM-model-drift"]}, outputs("true", "2", earlier=unread(1)))
+    scenario("a retry after an attempt that read everything does nothing", 2, {"1": [out_of + "read"]},
+             outputs("false", "2"))
+    scenario("a retry after a retry that did nothing does nothing", 3, {"1": [out_of + "read"]}, outputs("false", "3"))
+    scenario("an attempt that left no outcome is passed over, and the one before decides", 3,
+             {"1": [out_of + "unreadable"]}, outputs("true", "3", earlier=unread(1)))
+    scenario("the fourth attempt after three that could not read is the last, with their times in order", 4,
+             {"1": [out_of + "unreadable"], "2": [out_of + "unreadable"], "3": [out_of + "unreadable"]},
+             outputs("true", "4", last="true", earlier=unread(1, 2, 3)))
+    scenario("the fourth attempt after a third that read everything does nothing", 4,
+             {"1": [out_of + "unreadable"], "2": [out_of + "unreadable"], "3": [out_of + "read"]},
+             outputs("false", "4"))
+    scenario("a retry with no earlier attempt of the day does nothing", 2, {}, outputs("false", "2"))
+    scenario("a run started by hand is no attempt of the chain", 2,
+             {"1": [out_of + "read"], "9": [out_of + "unreadable"]}, outputs("false", "2"),
+             extra_runs=[workflow_run(9, DAY + "T08:00:00Z", event="workflow_dispatch")])
+    scenario("an attempt of another day is no attempt of this one", 2, {"8": [out_of + "unreadable"]},
+             outputs("false", "2"), extra_runs=[workflow_run(8, "2026-11-21T12:47:00Z")])
+    scenario("a run listed after this one is no attempt before it", 2,
+             {"1": [out_of + "read"], "5": [out_of + "unreadable"]}, outputs("false", "2"),
+             extra_runs=[workflow_run(5, DAY + "T08:50:00Z")])
+    scenario("an artifact of another outcome is no outcome", 3,
+             {"1": [out_of + "unreadable"], "2": [out_of + "maybe"]}, outputs("true", "3", earlier=unread(1)))
+    scenario("a run with two outcomes has none", 3,
+             {"1": [out_of + "unreadable"], "2": [out_of + "read", out_of + "unreadable"]},
+             outputs("true", "3", earlier=unread(1)))
+
+    def refused(result):
+        if not any("none of SCHEDULES" in failure for failure in result["failures"]):
+            return "it did not fail"
+        return None if result["outputs"].get("run") == "false" else "it runs: %r" % result["outputs"]
+    scenario("a cron the gate does not number fails, and runs nothing", 1, {}, refused, schedule="17 5 * * 1")
+    return out
+
+
+def issue_scenarios():
+    """[(name, scenario, check)] for the step that keeps the issue."""
+    out = []
+    earlier = " ".join((DAY + "T06:47:31Z", DAY + "T08:47:12Z", DAY + "T10:48:02Z"))
+
+    def issue(number, title, state="open", login="github-actions[bot]", body=MARKER + "\nx"):
+        return {"number": number, "title": title, "state": state, "body": body, "user": {"login": login}}
+
+    def scenario(name, check, unreadable="", status=None, last="true", issues=(), event="schedule", times=earlier):
+        status = status if status is not None else ("2" if unreadable else "1")
+        env = {"DRIFT_STATUS": status, "UNREADABLE": unreadable, "LAST_ATTEMPT": last, "EARLIER": times}
+        out.append((name, {"context": {"eventName": event}, "runs": [], "artifacts": {}, "issues": list(issues),
+                           "env": env}, check))
+
+    def calls(result, name):
+        return [call["args"] for call in result["calls"] if call["name"] == name]
+
+    def writes(result):
+        return [call for call in result["calls"] if call["name"] != "issues.listForRepo"]
+
+    def first(*checks):
+        return next((why for ok, why in checks if not ok), None)
+
+    def nothing_written(result):
+        return first((not result["failures"], "it failed: %s" % result["failures"][:1]),
+                     (not writes(result), "it wrote: %r" % writes(result)[:1]))
+
+    def refused(result):
+        return first((bool(result["failures"]), "it did not fail"),
+                     (not writes(result), "it wrote: %r" % writes(result)[:1]))
+
+    def opened(result, title=None):
+        made = calls(result, "issues.create")
+        body = made[0]["body"] if made else ""
+        return first((not result["failures"], "it failed: %s" % result["failures"][:1]),
+                     (len(made) == 1 and not calls(result, "issues.update"), "it did not open one issue: %r" % writes(result)),
+                     (made and made[0].get("assignees") == ["tigerblue77"], "it is not assigned"),
+                     (made and made[0]["title"] != LEGACY_TITLE and "illisible" in made[0]["title"], "the title is wrong"),
+                     (body.startswith(MARKER), "the body does not start with the marker"),
+                     ("| Groq | HTTP 4xx :" in body and "| Mistral | aucune réponse" in body, "the providers are not named with their class"),
+                     (all("`%s`" % time in body for time in earlier.split()), "the earlier attempts' times are missing"),
+                     ("/actions/runs/4" in body, "the run is not linked"))
+
+    def taken_over(result):
+        updated = calls(result, "issues.update")
+        return first((not result["failures"], "it failed: %s" % result["failures"][:1]),
+                     (not calls(result, "issues.create"), "a second issue was opened"),
+                     (len(updated) == 1 and updated[0]["issue_number"] == 3 and updated[0].get("state") == "open"
+                      and updated[0].get("title") != LEGACY_TITLE and MARKER in updated[0].get("body", ""),
+                      "the issue was not reopened under its title: %r" % updated),
+                     ([args["assignees"] for args in calls(result, "issues.addAssignees")] == [["tigerblue77"]],
+                      "it was not assigned"))
+
+    def closed(result):
+        updated = calls(result, "issues.update")
+        return first((not result["failures"], "it failed: %s" % result["failures"][:1]),
+                     ([(args["issue_number"], args.get("state")) for args in updated] == [(3, "closed")],
+                      "it was not closed: %r" % updated),
+                     (len(calls(result, "issues.createComment")) == 1, "no comment says why"),
+                     (not calls(result, "issues.create"), "an issue was opened"))
+
+    def warned(word):
+        def check(result):
+            return first((not writes(result), "it wrote: %r" % writes(result)[:1]),
+                         (any(word in warning for warning in result["warnings"]), "it did not say why: %r" % result["warnings"]))
+        return check
+
+    def opened_beside(result):
+        return first((len(calls(result, "issues.create")) == 1, "no issue of its own was opened"),
+                     (not calls(result, "issues.update") and not calls(result, "issues.addAssignees"),
+                      "somebody else's issue was written"))
+
+    legacy_closed = issue(3, LEGACY_TITLE, state="closed")
+    legacy_open = issue(3, LEGACY_TITLE)
+    scenario("the last attempt that still cannot read opens the issue, naming the providers, their class and the times",
+             opened, unreadable="groq:4xx mistral:network")
+    scenario("an earlier attempt that cannot read opens nothing, and says the next one reads again",
+             warned("two hours"), unreadable="groq:4xx", last="false")
+    scenario("a run started by hand that cannot read opens nothing, and says so", warned("by hand"),
+             unreadable="groq:4xx", last="false", event="workflow_dispatch")
+    scenario("the issue of the drift reports, closed, is reopened under the new title rather than doubled", taken_over,
+             unreadable="groq:4xx mistral:network", issues=[legacy_closed])
+    scenario("a run that reads every catalogue closes the open issue, with a comment", closed, issues=[legacy_open])
+    scenario("a week of deletions only opens no issue", nothing_written, status="1")
+    scenario("a week of additions only, the issue open: the run reads every catalogue and closes it", closed,
+             status="1", issues=[issue(3, "Catalogue de fournisseur illisible pour la liste de modèles LiteLLM")])
+    scenario("a week with nothing opens no issue", nothing_written, status="0")
+    scenario("a run started by hand that reads everything closes the issue too", closed, last="false",
+             event="workflow_dispatch", issues=[legacy_open])
+    scenario("somebody else's issue under the title, with the marker, is never written", opened_beside,
+             unreadable="groq:4xx mistral:network", issues=[issue(3, LEGACY_TITLE, login="somebody")])
+    scenario("an issue of the bot under another title is never taken over", opened_beside,
+             unreadable="groq:4xx mistral:network", issues=[issue(3, "Another report")])
+    scenario("an issue of the bot under the title, without the marker, is never taken over", opened_beside,
+             unreadable="groq:4xx mistral:network", issues=[issue(3, LEGACY_TITLE, body="no marker")])
+    for word, why in (("acme:4xx", "a provider it does not know"), ("__proto__:4xx", "a key of every object"),
+                      ("groq:401", "a status rather than a class"), ("groq:4xx groq:5xx", "a provider twice"),
+                      ("groq:4xx<img>", "a word with more after it"), ("x groq:4xx", "a word of no shape")):
+        scenario("what names %s is refused, and nothing is written" % why, refused, unreadable=word)
+    scenario("a status 2 without a catalogue named is refused", refused, status="2")
+    scenario("a catalogue named under a status other than 2 is refused", refused, unreadable="groq:4xx", status="1")
+    scenario("a status it does not know is refused", refused, status="9")
+    scenario("a time of an earlier attempt that is no time is refused", refused, unreadable="groq:4xx",
+             times="yesterday")
+    return out
+
+
+def play_actions(script, cases):
+    payload = {"script": script, "scenarios": [scenario for _, scenario, _ in cases]}
+    results = node(ACTIONS_HARNESS, payload)
+    if len(results) != len(cases):
+        raise SystemExit("node answered %d scenario(s) out of %d." % (len(results), len(cases)))
+    return results
+
+
+def attempts_wrong(gate=None, issue=None):
+    """[(name, why)] of every scenario of the gate and of the issue step that went wrong, for the
+    scripts as they are or as given, and the number of scenarios."""
+    if gate is None:
+        gate = named_step("gate", GATE_STEP)[1]["with"]["script"]
+    if issue is None:
+        issue = named_step("publish", ISSUE_STEP)[1]["with"]["script"]
+    gates, issues = gate_scenarios(), issue_scenarios()
+    wrong = judge_step(gates, play_actions(gate, gates)) + judge_step(issues, play_actions(issue, issues))
+    problem = schedule_problem(named_step("gate", GATE_STEP)[0])
+    if problem:
+        wrong.append(("the gate numbers the attempts as on.schedule lists them", problem))
+    return wrong, len(gates) + len(issues)
+
+
+# Breaks of the gate and of the issue step, one at a time: (which step, what stops being done, text,
+# replacement).
+ATTEMPT_MUTATIONS = [
+    ("gate", "treat a run started by hand as one attempt", "if (context.eventName !== 'schedule') {", "if (false) {"),
+    ("gate", "fail on a cron it does not number", "if (attempt === 0) {", "if (false) {"),
+    ("gate", "read on the first attempt without asking", "if (attempt === 1) {", "if (false) {"),
+    ("gate", "leave out a run started by hand", "run.event === 'schedule' &&", ""),
+    ("gate", "leave out another day", "run.created_at.slice(0, 10) === day &&", ""),
+    ("gate", "leave out a run after this one", "&& run.created_at < current.created_at)", ")"),
+    ("gate", "take the latest outcome first", "(a.created_at < b.created_at ? 1 : -1)", "(a.created_at < b.created_at ? -1 : 1)"),
+    ("gate", "take an artifact of one outcome only", "names.length === 1 ?", "names.length > 0 ?"),
+    ("gate", "know the two outcomes only", "['read', 'unreadable'].includes(outcome)", "outcome !== null"),
+    ("gate", "do nothing without an earlier outcome", "if (outcomes.length === 0) {", "if (false) {"),
+    ("gate", "do nothing after an attempt that read everything", "if (outcomes[0].outcome !== 'unreadable') {",
+     "if (false) {"),
+    ("gate", "call the fourth attempt alone the last", "attempt === schedules.length, earlier", "true, earlier"),
+    ("gate", "give the earlier times in order", ".replace(/\\.[0-9]+Z$/, 'Z')).reverse();", ".replace(/\\.[0-9]+Z$/, 'Z'));"),
+    ("gate", "give the earlier times without a fraction", ".replace(/\\.[0-9]+Z$/, 'Z')", ""),
+    ("issue", "open the issue at the last attempt only", "if (process.env.LAST_ATTEMPT !== 'true') {", "if (false) {"),
+    ("issue", "write only the issues of the workflow's own token", "issue.user?.login === 'github-actions[bot]' &&", ""),
+    ("issue", "take over an issue under its titles only", "titles.includes(issue.title) &&", ""),
+    ("issue", "take over the issue of the drift reports", "const titles = [title, 'Dérive de la liste de modèles LiteLLM'];",
+     "const titles = [title];"),
+    ("issue", "take over an issue with the marker only", "(issue.body ?? '').includes(marker))", "true)"),
+    ("issue", "refuse a provider it does not know", "!Object.hasOwn(PROVIDERS, match[1]) ||", ""),
+    ("issue", "refuse a class it does not know", "!Object.hasOwn(CLASSES, match[2]) ||", ""),
+    ("issue", "refuse a provider named twice", "unread.some((each) => each.provider === match[1])", "false"),
+    ("issue", "read a word whole", "/^([a-z]+):([0-9a-z]+)$/", "/([a-z]+):([0-9a-z]+)/"),
+    ("issue", "hold the status to the catalogues named", "|| (status === '2') !== (unread.length > 0)", ""),
+    ("issue", "refuse a status it does not know", "!['0', '1', '2'].includes(status) || ", ""),
+    ("issue", "refuse a time that is no time", "if (earlier.some((time) =>", "if (false && earlier.some((time) =>"),
+    ("issue", "close the open issue when every catalogue is read", "if (existing && existing.state === 'open') {",
+     "if (false) {"),
+    ("issue", "reopen the issue it takes over", "title, body, state: 'open',", "title, body,"),
+    ("issue", "assign the issue it takes over", "await github.rest.issues.addAssignees({", "await (async () => {})({"),
+    ("issue", "assign the issue it opens", "owner, repo, title, body, assignees: [assignee],", "owner, repo, title, body,"),
+]
+
+
+def run_attempts_selftest():
+    wrong, _ = attempts_wrong()
+    if wrong:
+        print("the gate and the issue step fail their own scenarios before anything is broken:")
+        for name, why in wrong:
+            print("  %s: %s" % (name, why))
+        return 1
+    scripts = {"gate": named_step("gate", GATE_STEP)[1]["with"]["script"],
+               "issue": named_step("publish", ISSUE_STEP)[1]["with"]["script"]}
+    failures = 0
+    for which, label, old, new in ATTEMPT_MUTATIONS:
+        if scripts[which].count(old) != 1:
+            failures += 1
+            print("selftest: the text of the %s step that should %s has moved: %r" % (which, label, old))
+            continue
+        broken = dict(scripts, **{which: scripts[which].replace(old, new, 1)})
+        try:
+            noticed = bool(attempts_wrong(broken["gate"], broken["issue"])[0])
+        except SystemExit as error:
+            failures += 1
+            print("selftest: breaking the %s step that should %s left a script that does not run: %s"
+                  % (which, label, str(error)[:200]))
+            continue
+        if noticed:
+            print("selftest: ok -- some scenario notices a %s step that stops: %s" % (which, label))
+        else:
+            failures += 1
+            print("selftest: FAILED -- no scenario notices a %s step that stops: %s" % (which, label))
+    document = named_step("gate", GATE_STEP)[0]
+    moved = yaml.safe_load(yaml.safe_dump(document))
+    on = moved.get("on", moved.get(True))
+    on["schedule"] = list(reversed(on["schedule"]))
+    if schedule_problem(moved) is None:
+        failures += 1
+        print("selftest: FAILED -- crons reordered without the gate's SCHEDULES go unnoticed")
+    else:
+        print("selftest: ok -- crons reordered without the gate's SCHEDULES are noticed")
+    if failures:
+        return 1
+    print("check_drift_publish_guard selftest: the gate and the issue step as expected, %d broken guard(s) "
+          "of theirs noticed, and a schedule out of step with the gate." % len(ATTEMPT_MUTATIONS))
+    return 0
+
+
 def main(argv):
     if argv[1:] == ["--selftest"]:
-        return run_selftest() or run_additions_selftest()
+        return run_selftest() or run_additions_selftest() or run_attempts_selftest()
     if argv[1:]:
         print("usage: check_drift_publish_guard.py [--selftest]", file=sys.stderr)
         return 2
@@ -1020,6 +1440,14 @@ def main(argv):
         return 1
     print("Additions: %d template(s) built alike by the step and the script, or refused by both, and the "
           "step's handling of the three pull requests as expected." % built)
+    wrong, played = attempts_wrong()
+    if wrong:
+        print("%d scenario(s) of the gate and the issue went the wrong way:\n" % len(wrong))
+        for name, why in wrong:
+            print("  %s: %s" % (name, why))
+        return 1
+    print("Attempts: %d scenario(s) of the gate and of the issue step as expected, and the gate numbers the "
+          "attempts as on.schedule lists them." % played)
     return 0
 
 
