@@ -112,6 +112,13 @@
           - username: "alice"
             email: "{{ vault_Artificial_Intelligence_LiteLLM_alice_email }}"
 
+        # A LIST too, empty by default: each entry becomes a LiteLLM "proxy_admin", invited and never given a
+        # password -- the run shows a one-use link, where the person chooses their own. Usernames and emails must
+        # differ from the internal users'. See the role's README, "Les administrateurs de `/ui`".
+        Artificial_Intelligence_LiteLLM_admin_users:
+          - username: "bob"
+            email: "{{ vault_Artificial_Intelligence_LiteLLM_admin_email }}"
+
         # MANDATORY since #71, and without a default: "--requirepass" would otherwise be empty.
         Artificial_Intelligence_Redis_password: "{{ vault_Artificial_Intelligence_Redis_password }}"
 

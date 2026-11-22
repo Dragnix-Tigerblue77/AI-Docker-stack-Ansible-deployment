@@ -122,6 +122,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
+| `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique que le run affiche une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
@@ -1207,6 +1208,32 @@ Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRou
 | Point d'accès | Le point d'accès européen est écrit en dur dans les entrées (Francfort, d'après la page « Data privacy »). Que tous les modèles gratuits y soient servis n'est **pas vérifié** ; la base américaine est un changement d'une ligne par entrée |
 | Données | Les requêtes et réponses ne sont pas stockées sauf si la journalisation est activée, et Requesty n'entraîne pas de modèle dessus ; ce que le fournisseur en amont conserve dépend de lui |
 | Compte | Un seul. Les conditions d'utilisation n'ont **pas** été lues par la session qui a écrit ceci (la page n'a rendu aucun texte) : rien n'est établi sur plusieurs comptes, le contournement des limites, les passerelles ou la revente |
+
+### Les administrateurs de `/ui`, invités et non dotés d'un mot de passe
+
+`Artificial_Intelligence_LiteLLM_admin_users` est une **liste**, vide par défaut, de `{username, email}`. Chaque entrée devient un
+compte LiteLLM au rôle `proxy_admin`, créé par le même appel `POST /user/new` que les comptes internes (`auto_create_key: false` :
+un administrateur n'a pas besoin de clé pour se connecter à `/ui`, et LiteLLM en mintait une que personne ne voyait). Le compte
+`Artificial_Intelligence_LiteLLM_UI_username`/`_password` reste : c'est par lui qu'un premier déploiement s'ouvre, et rien dans cette
+liste ne le retire. Elle prépare le jour où il sera désactivé, ce que LiteLLM recommande puisqu'il signale ce secret partagé comme
+critique, sans le faire elle-même.
+
+**Une invitation, pas un mot de passe.** `/user/new` n'en accepte pas ; `/user/update` en pose un, soumis à la politique de LiteLLM (12
+caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et à changer à la première connexion : la valeur du coffre de
+l'appelant serait périmée dès que la personne se serait connectée une fois. Le rôle demande donc `POST /invitation/new` pour chaque
+compte **créé à ce run** et affiche, **une seule fois**, le chemin `/ui/onboarding?id=<id>`, valable sept jours : la personne l'ouvre
+sur l'adresse de la passerelle, choisit son mot de passe, qui sert tel quel, puis se connecte avec son courriel. Le lien est un chemin
+parce que l'adresse sur laquelle la personne atteint la passerelle est celle de l'appelant, pas celle du rôle.
+
+- **Un compte qui existe déjà** (409) n'est ni modifié ni réinvité, et son mot de passe n'est jamais réinitialisé : le rôle ne crée
+  un compte qu'une fois. Un lien perdu se refait depuis *Internal Users* de `/ui`, ou par `POST /invitation/new` avec la clé maîtresse.
+- **Pour changer le mot de passe d'un administrateur**, il se le change lui-même (menu du compte) ; pour repartir de zéro, on
+  supprime l'utilisateur dans `/ui` puis on relance le rôle, qui le recrée et en reinvite.
+- **Noms et courriels distincts** de ceux de `Artificial_Intelligence_LiteLLM_internal_users`, dont les entrées passent par le même
+  appel : un 409 sur un identifiant déjà pris par l'autre liste ferait ignorer l'entrée sans un mot, donc `tasks/main.yml` refuse la
+  collision (courriels comparés sans tenir compte de la casse) avant tout déploiement.
+- **Avec `--check`**, ces tâches sont sautées, comme celles des comptes internes : il n'y a pas de passerelle à interroger.
+- **Les administrateurs n'ont pas de clé virtuelle** : l'invitation est tout ce que le rôle leur donne.
 
 ### Un compte par personne, pas une paire figée (#103)
 
