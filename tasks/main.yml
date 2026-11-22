@@ -468,6 +468,21 @@
     LiteLLM_accounts: "{{ Artificial_Intelligence_LiteLLM_internal_users + Artificial_Intelligence_LiteLLM_admin_users }}"
   when: Artificial_Intelligence_LiteLLM_admin_users | length > 0
 
+# With the environment login switched off, an administrator of the database is the only way into "/ui": with none
+# declared, nobody could sign in, and the first deployment would end with the gateway shut to everyone. The account
+# is created through the API, which the switch does not touch, so declaring it and switching the login off in the same
+# run is sound. The check cannot see whether the person has chosen a password yet, which the README says how to mend.
+- name: "Check the environment login is not switched off with no administrator declared"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LiteLLM_admin_users | length > 0
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LiteLLM_disable_env_credential_login" is true while
+      "Artificial_Intelligence_LiteLLM_admin_users" is empty: no one could sign in to "/ui". Declare at least one
+      administrator (a username and an email), or set the switch back to false.
+  when: Artificial_Intelligence_LiteLLM_disable_env_credential_login
+
 # The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
 # not contain. The four variables below are the contract: they carry the names the homelab
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.

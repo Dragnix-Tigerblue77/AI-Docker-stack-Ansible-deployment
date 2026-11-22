@@ -216,8 +216,9 @@ Artificial_Intelligence_LiteLLM_UI_username: "admin"
 # per person and no trace of who did what ("https://docs.litellm.ai/docs/proxy/ui"). It is the only way in on a fresh
 # deployment, so this stays false by default and a caller who wants the alert gone sets it to true.
 #
-# ! Only AFTER a "proxy_admin" user with a password of its own exists in "/ui" ("Internal Users", "Invite User"):
-# with none, nobody can sign in, and the way back is to set this to false and deploy again. That is why
+# ! Needs an administrator of the database, which the role refuses to run without when this is true: declare one in
+# "Artificial_Intelligence_LiteLLM_admin_users". Nothing can see whether that person has chosen a password yet, and
+# until one has, nobody can sign in: the way back is to set this to false and deploy again. That is why
 # "UI_USERNAME" and "UI_PASSWORD" are still required and still set when this is true: they are inert, and they are
 # what a deploy with this false gives access back through.
 Artificial_Intelligence_LiteLLM_disable_env_credential_login: false
