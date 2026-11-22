@@ -424,6 +424,40 @@
       that either references an undeclared network, or declares one nobody uses -- and in the first
       case the orchestrator only says so at deployment time.
 
+# The administrators share the "/user/new" call, and so the one space of usernames and emails, with the internal
+# users: an identifier the other list took answers 409, which the creation reads as "already there", so the second
+# entry would be dropped without a word. Said here, before anything is deployed.
+- name: "Check the LiteLLM administrators are well formed"
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.username is defined
+      - item.username is string
+      - item.username | length > 0
+      - item.email is defined
+      - item.email is string
+      - item.email | length > 0
+    quiet: true
+    fail_msg: >-
+      Every entry of "Artificial_Intelligence_LiteLLM_admin_users" needs a non-empty "username" and "email".
+  loop: "{{ Artificial_Intelligence_LiteLLM_admin_users }}"
+  loop_control:
+    label: "{{ item.username | default('?') if item is mapping else '?' }}"
+
+- name: "Check no LiteLLM username or email is declared twice"
+  ansible.builtin.assert:
+    that:
+      - (LiteLLM_accounts | map(attribute='username') | list | unique | length) == (LiteLLM_accounts | length)
+      - (LiteLLM_accounts | map(attribute='email') | map('lower') | list | unique | length) == (LiteLLM_accounts | length)
+    quiet: true
+    fail_msg: >-
+      A username or an email appears twice across "Artificial_Intelligence_LiteLLM_internal_users" and
+      "Artificial_Intelligence_LiteLLM_admin_users" (emails are compared without regard to case). LiteLLM answers 409 to
+      the second, which would be read as "already created" and skipped.
+  vars:
+    LiteLLM_accounts: "{{ Artificial_Intelligence_LiteLLM_internal_users + Artificial_Intelligence_LiteLLM_admin_users }}"
+  when: Artificial_Intelligence_LiteLLM_admin_users | length > 0
+
 # The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
 # not contain. The four variables below are the contract: they carry the names the homelab
 # repository's deployment roles expect, unprefixed, because they are theirs and not ours.
@@ -497,41 +531,7 @@
     Docker_stack_deployment_detached: false
     Docker_stack_deployment_timeout_in_seconds: 1800
 
-# The administrators share the "/user/new" call, and so the one space of usernames and emails, with the internal
-# users: an identifier the other list took answers 409, which the creation reads as "already there", so the second
-# entry would be dropped without a word. Said here, before anything is deployed.
-- name: "Check the LiteLLM administrators are well formed"
-  ansible.builtin.assert:
-    that:
-      - item is mapping
-      - item.username is defined
-      - item.username is string
-      - item.username | length > 0
-      - item.email is defined
-      - item.email is string
-      - item.email | length > 0
-    quiet: true
-    fail_msg: >-
-      Every entry of "Artificial_Intelligence_LiteLLM_admin_users" needs a non-empty "username" and "email".
-  loop: "{{ Artificial_Intelligence_LiteLLM_admin_users }}"
-  loop_control:
-    label: "{{ item.username | default('?') if item is mapping else '?' }}"
-
-- name: "Check no LiteLLM username or email is declared twice"
-  ansible.builtin.assert:
-    that:
-      - (LiteLLM_accounts | map(attribute='username') | list | unique | length) == (LiteLLM_accounts | length)
-      - (LiteLLM_accounts | map(attribute='email') | map('lower') | list | unique | length) == (LiteLLM_accounts | length)
-    quiet: true
-    fail_msg: >-
-      A username or an email appears twice across "Artificial_Intelligence_LiteLLM_internal_users" and
-      "Artificial_Intelligence_LiteLLM_admin_users" (emails are compared without regard to case). LiteLLM answers 409 to
-      the second, which would be read as "already created" and skipped.
-  vars:
-    LiteLLM_accounts: "{{ Artificial_Intelligence_LiteLLM_internal_users + Artificial_Intelligence_LiteLLM_admin_users }}"
-  when: Artificial_Intelligence_LiteLLM_admin_users | length > 0
-
-# The one wait for the gateway, before the tasks that call its admin API (#295): the creation of the
+# The one wait for the gateway, before the tasks that call its admin API: the creation of the
 # internal users and the administrators and the registration of the Claude Code agent's key. "/health/readiness" tests the
 # database connection and calls no model. About 45 s were measured between the container's recreation and
 # the first answer of the admin API on a first start (161 Prisma migrations, LiteLLM 1.100.0, 4 workers),
@@ -554,7 +554,7 @@
       or (Artificial_Intelligence_LiteLLM_admin_users | length > 0)
       or Artificial_Intelligence_Claude_code_enabled
 
-# Every "Artificial_Intelligence_LiteLLM_internal_users" entry (#103), and every administrator, created against the gateway's own admin API --
+# Every "Artificial_Intelligence_LiteLLM_internal_users" entry, and every administrator, created against the gateway's own admin API --
 # never against "/ui" by hand, which would not be idempotent or repeatable across a fresh machine.
 # "/user/new" is confirmed (read in LiteLLM's own source, "internal_user_endpoints.py") to answer
 # 409 on a user_id or email that already exists rather than upsert it, so a re-run is a no-op here,
