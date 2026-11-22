@@ -365,6 +365,18 @@ announced retirement and a model free again stay a person's, from the issue.
 What the workflow needs and what it refuses to delete are in its header and in the docstring of the
 script.
 
+The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router an intelligence floor, the
+gain in index points an extra reasoning level must buy, how its members are ordered and the members exempt from
+the floor on purpose, plus the explicit mapping from each entry to the Artificial Analysis record, and the
+reasoning level, that describes it. **No router has a time budget**: a slow free model is never ineligible, time
+only orders. They are **provisional** until the maintainer validates them, and they are **reported, not
+enforced**: the weekly issue says how the cascades stand against them, a member under a floor goes to the
+router's last resort tier rather than out of it, a member with no index stays where it is, flagged, and nothing
+in them changes a cascade, an entry or a `head` row. Only the shape of the file fails the plain run. A row for an
+entry the template no longer has does not fail it, since the weekly deletion pull request must stay green to
+merge itself: the plain run prints a notice, the issue lists it as a stale row, and an entry added or renamed gets
+its row in the same change.
+
 A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
 and "two places only" are made false by a deletion that nobody is shown, where a comment that names a
 deleted model is listed in that pull request for a person to read. A claim about the list as it stands

@@ -426,6 +426,95 @@ past the cap, or one whose body would be too long -- stays in the issue, with th
 "--issue-status PATH" writes the status the issue is kept by, the exit status less the NEW models a
 pull request carries.
 
+THE ROUTER CONTRACTS
+--------------------
+".github/LiteLLM_router_contracts.yaml" says what each router is held to: a floor on the intelligence
+index (on the version the file names), written as an ANCHOR, "at least as good as that model", whose
+figure is read at every run and never copied into the file -- from the Artificial Analysis ranking for an
+entry of the template, from Epoch AI's capabilities index for a model that index names -- or NO floor,
+for a router that takes every model that answers; the exchange rate an extra reasoning level
+must reach to be worth climbing to (points of index per extra second to the first answer token), how its
+members are ordered, the members exempt from the floor on
+purpose (the last resort), and, for each entry of the template, the Artificial Analysis record that
+describes it at the reasoning level the entry is called at, with the page that gives that level, or
+"unknown". There is NO time budget: the goal is to use as many free models as possible, so a slow model is
+never ineligible. A member is eligible for a router if it reaches the floor (and, for "claude-code", takes
+tool calls), and time only orders: "flash-lite" puts the shortest mean time to the first answer token
+first, and the other routers put the best quality first, the time deciding between members whose quality
+is less than the router's "tie_margin_points" apart.
+
+The unit of routing is model plus level: Artificial Analysis has one record per level, told apart by the
+suffix of its name. The level a router keeps for a model is found by walking up the levels that have an
+index from the lowest, and climbing to the next only while each extra second of the time to the first
+answer token buys at least "min_points_per_second" points of index (a router that values time asks more
+points per second; a step that is no slower is taken when it buys points, a step that buys none or whose
+time is unknown is not taken). "claude-code" derives from "code": it is ranked as
+"code" is, and its cascade is the cascade of "code" without the members that cannot take tools, which the
+report checks and whose differences it lists. The whole file is PROVISIONAL until the maintainer
+validates it, and its header says what is left to define.
+
+The capabilities index (ECI) of Epoch AI is read from the same archive as code quality (the member
+"epoch_capabilities_index/eci_scores.csv", a figure per display name, under the same caps and the same
+allow-list; the other members of that folder are never opened), with the same attribution. It measures
+nearly every model the ranking has no index for, and the file declares how to turn it into the scale of the
+intelligence index: calibration points, joined by a line that goes on past its ends with the slope of the
+end segment and is never below 0. Every figure so obtained is an ESTIMATE, said "estimé" wherever it is
+shown. It is used for two things. A floor may name a model of that index ("epoch") and then is the
+converted figure. A member the ranking has no index for at the level it is called at, whether it has no
+record, an index-less record or a level that is not verified, is placed on the converted index of the model
+its entry names ("eci"), ordered by it like any other with the margin and the time rule (the time is the
+ranking's, so an estimate has none); the index of the ranking always wins where it exists, the level kept
+and the exchange rate stay the ranking's, and a router ordered by time takes no estimate. Where the index
+was not read, an anchor on it cannot be read, nothing is judged against it and the issue says so, as for an
+entry that cannot be read; a name the index no longer holds is listed as stale, and is information.
+
+"code" is ranked on code quality, read from Epoch AI's benchmark data (benchmark_data.zip, free, no key, CC
+BY 4.0, to be cited with the day it was read) by the online run that has the contracts, after the ranking
+the contracts stand on. Five of its files are read and no other (DeepSWE, SWE-bench Verified, CursorBench,
+Terminal-Bench, ALE-Bench: WebDev Arena and any design or interface arena measure design, and are never
+opened): the archive is held in memory, its members are found by their exact names, each is cut at a size,
+a row that is not a model version with a finite score is left out and counted, and a model version listed
+several times keeps its best score. For a cascade, the score of a member in a file is the best of the model
+versions its entry lists for that file; a file counts only if two members of the cascade have a score in
+it, and ranks them (1 is the best, a tie shares the average rank); the code quality of a member is the
+median of its ranks, over two files at least, and a member that fewer files rank is UNRANKABLE by code
+quality. The router puts its ranked members first, best code quality first, the shorter time between equal
+ones; the unrankable members are not removed, they follow in the main tier on the intelligence index that
+stands in for it (with the time deciding inside the margin), and the report says so; the last resort and the
+members under the floor go to the tail as for every router. The cascade of a router that derives from
+"code" is ranked with the pool of that of "code", so that the two orders cannot disagree, and a member it
+has that "code" has not is unrankable. A read that fails,
+whatever the reason (the network, a size, the shape of the archive, no usable row), is reported as "not
+read" in that section and changes nothing else: the intelligence index orders the cascade, as it did before
+any of this, and the status the issue shows is what the run read, never what the file declares. The plain
+run reads no archive.
+
+It is a report and nothing else. The weekly issue gains a section "Contrats par routeur" (and no other
+text carries it) with, per router, a table of its members (record, level called, intelligence, time,
+speed, the level the router would keep, the verdict), the order the contract would give against the
+current one, the outcome of each floor the contract proposes to compare, and for a derived router how its
+cascade differs from the one it must be; then the entries without a mapping, those with no record, the
+names the file keeps that the template no longer has, the mappings whose slug the ranking no longer has
+("stale") and those called at a level the ranking does not cover. A verdict is "conforme", "sous le
+plancher" (the member goes to the last resort tier, it is not removed), "inclassable" (no index, or, for a
+router ordered by time, no time), or "variante non vérifiée" (the level is unknown and the family has
+several, or the ranking has the family at other levels only). No member is removed from a cascade by it,
+whatever its verdict: a member with no index stays where it is, flagged, until the fallback is read. It is
+computed from the ranking the run already read, by the job that holds the key, from the template as it
+stood before any deletion; it changes no cascade, no entry and no row of the "head" table, never changes
+the exit status, never blocks the deletion pull request, and says only the kind of error when its
+computation fails.
+
+The plain offline run reads the file too, and fails on its structure alone: a router that does not exist
+or has no contract, a number that is not a number, a value with no reason, a mapping with fields that are
+wrong (no tools declaration, say), a file that cannot be read, a key written twice. It reads it only
+against the repository's template (or the file given by "--contracts"), since a contract written for one
+template means nothing against another. A name the file keeps that is no entry of the template any more,
+in a mapping or in a last resort, is NOT a failure: the weekly deletion pull request is merged by a gate
+that wants CI green, and a deletion leaves exactly that behind. The plain run prints one notice line for
+each such stale row and exits 0, and the issue lists them under "Correspondances sans entrée", for a
+person to remove from the file.
+
 UNTRUSTED TEXT
 --------------
 What a catalogue says -- an id, a name, a date -- ends up in the log, in an issue, in a pull request
@@ -493,6 +582,7 @@ import argparse
 import collections
 import contextlib
 import copy
+import csv
 import datetime
 import difflib
 import http.client
@@ -503,6 +593,7 @@ import json
 import os
 import re
 import runpy
+import statistics
 import sys
 import tempfile
 import textwrap
@@ -511,6 +602,7 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
 
 try:
@@ -1060,15 +1152,18 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def urllib_opener(url, headers):
+def urllib_opener(url, headers, limit=None):
+    """The answer's body, or with a "limit" at most one byte more than it, which says it is too big
+    without having held all of it."""
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.build_opener(NoRedirect).open(request, timeout=TIMEOUT) as response:
-        return response.read()
+        return response.read() if limit is None else response.read(limit + 1)
 
 
-def fetch_json(opener, url, headers):
+def fetch_raw(opener, url, headers, *limit):
+    """The body of an answer, or a FetchError that says no more than the kind of failure."""
     try:
-        raw = opener(url, headers)
+        return opener(url, headers, *limit)
     except urllib.error.HTTPError as error:
         # Neither the body nor the reason phrase is read: a provider may echo the key back in
         # either, and the status says all a person needs to know (HTTP/2 has no phrase at all).
@@ -1077,6 +1172,10 @@ def fetch_json(opener, url, headers):
         raise FetchError("network error: %s" % safe_text(error.reason)) from None
     except (OSError, ValueError, http.client.HTTPException) as error:
         raise FetchError("network error: %s" % error.__class__.__name__) from None
+
+
+def fetch_json(opener, url, headers):
+    raw = fetch_raw(opener, url, headers)
     try:
         return json.loads(raw)
     except ValueError:
@@ -1537,6 +1636,8 @@ def read_ranking_models(payload):
             "intelligence": figure(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": figure(evaluations.get("artificial_analysis_coding_index")),
             "speed": speed_figure(performance.get("mean_output_tokens_per_second")),
+            "slug": slug if SAFE_ID.fullmatch(slug) else "",
+            "first_answer": seconds_figure(performance.get("mean_time_to_first_answer_token_seconds")),
             "price": blended_price(pricing.get("price_1m_input_tokens"), pricing.get("price_1m_output_tokens")),
         })
     return models
@@ -1554,6 +1655,7 @@ def read_rankings(opener, environment, today):
         for number in range(1, MAX_PAGES + 1):
             payload = fetch_json(opener, "%s?page=%d" % (RANKING_URL, number), headers)
             ranking["models"] += read_ranking_models(payload)
+            ranking["index_version"] = figure(payload.get("intelligence_index_version"))
             if not has_more_pages(payload):
                 break
         else:
@@ -1712,6 +1814,1187 @@ def undeleted_count(result):
     return sum(1 for report in result["providers"] for finding in report["findings"]
                if finding["kind"] in ("retired", "gone")
                and finding.get("removal", {}).get("status") != "applied")
+
+
+# ------------------------------------------------------------------------------------------------
+# Epoch AI's benchmark data: the source of code quality, and of the capabilities index
+# ------------------------------------------------------------------------------------------------
+
+EPOCH_URL = "https://epoch.ai/data/benchmark_data.zip"
+EPOCH_SITE = "https://epoch.ai/benchmarks"
+EPOCH_ATTRIBUTION = "Epoch AI, benchmark data, CC BY 4.0"
+# The benchmark files code quality is read from, as (key, name shown, the column that holds the score).
+# Only these five members of the archive, and the capabilities index below, are ever opened, by their
+# exact name: a web interface arena measures design and is left out on purpose, and nothing else of the
+# archive is code quality.
+EPOCH_FILES = (
+    ("deepswe_external", "DeepSWE", "Pass@1"),
+    ("swe_bench_verified", "SWE-bench Verified", "mean_score"),
+    ("cursorbench_external", "CursorBench", "Score"),
+    ("terminalbench_external", "Terminal-Bench", "Accuracy mean"),
+    ("ale_bench_external", "ALE-Bench", "Performance"),
+)
+EPOCH_KEYS = tuple(key for key, _, _ in EPOCH_FILES)
+EPOCH_ID_COLUMN = "Model version"
+# The capabilities index (ECI) is one figure per model, in a member of its own: the model's display name
+# and the index. It is held under its own key where the archive says what it did not read.
+EPOCH_ECI_KEY = "eci"
+EPOCH_ECI_MEMBER = "epoch_capabilities_index/eci_scores.csv"
+EPOCH_ECI_ID_COLUMN = "Display name"
+EPOCH_ECI_COLUMN = "eci"
+# The archive is downloaded whole and its members are read from memory, never extracted. The caps are
+# a few times what the real figures are, so that an answer that is not the archive is refused before
+# it is held, and a member that expands far beyond its size is cut.
+EPOCH_MAX_ARCHIVE = 8 * 1024 * 1024
+EPOCH_MAX_MEMBER = 2 * 1024 * 1024
+EPOCH_MAX_ROWS = 20000
+EPOCH_MAX_BAD_ROWS = 1000
+EPOCH_MAX_ID = 200
+# A benchmark file ranks the members of a cascade only if this many of them have a score in it, and a
+# member is ranked only if this many files rank it.
+EPOCH_MIN_MEMBERS = 2
+EPOCH_MIN_FILES = 2
+
+
+def epoch_member_name(key):
+    return key + ".csv"
+
+
+def read_epoch_scores(raw, column, id_column=EPOCH_ID_COLUMN):
+    """({name: best score}, rows read, rows left out) of one CSV member, or the reason it is not read
+    as a string. A model version listed several times (Terminal-Bench has a row per agent) keeps its
+    best score. A row with no name, or no score that is a finite number, is left out and counted, and
+    a file that is not a table at all is no file."""
+    try:
+        reader = csv.DictReader(io.StringIO(raw.decode("utf-8-sig", errors="replace")))
+        if id_column not in (reader.fieldnames or ()) or column not in reader.fieldnames:
+            return "it has not the columns expected"
+        rows = iter(reader)
+        scores, read, bad = {}, 0, 0
+        while read + bad < EPOCH_MAX_ROWS and bad <= EPOCH_MAX_BAD_ROWS:
+            try:
+                row = next(rows)
+            except StopIteration:
+                break
+            except csv.Error:
+                bad += 1
+                continue
+            identifier, text = row.get(id_column), row.get(column)
+            try:
+                score = figure(float(text.strip())) if isinstance(text, str) else None
+            except ValueError:
+                score = None
+            if not isinstance(identifier, str) or not identifier.strip() or score is None \
+                    or len(identifier.strip()) > EPOCH_MAX_ID:
+                bad += 1
+                continue
+            read += 1
+            identifier = identifier.strip()
+            scores[identifier] = max(scores.get(identifier, score), score)
+    except (csv.Error, ValueError):
+        return "it is not read as a table"
+    return (scores, read, bad) if scores else "it has no usable row"
+
+
+def read_epoch_member(archive, name, column, id_column=EPOCH_ID_COLUMN):
+    """The scores of one member of the archive, found by its exact name, as read_epoch_scores gives
+    them, or the reason it is not read. At most EPOCH_MAX_MEMBER bytes of it are read, whatever its
+    header says."""
+    info = archive.NameToInfo.get(name)
+    if info is None or info.is_dir():
+        return "absent from the archive"
+    if info.file_size > EPOCH_MAX_MEMBER:
+        return "larger than %d bytes" % EPOCH_MAX_MEMBER
+    try:
+        with archive.open(info) as member:
+            data = member.read(EPOCH_MAX_MEMBER + 1)
+    except Exception as error:
+        return "unreadable (%s)" % error.__class__.__name__
+    if len(data) > EPOCH_MAX_MEMBER:
+        return "larger than %d bytes" % EPOCH_MAX_MEMBER
+    return read_epoch_scores(data, column, id_column)
+
+
+def read_epoch_archive(raw):
+    """(files, skipped, eci) from the bytes of the archive: {key: {"scores", "rows", "bad"}} for each of
+    the five benchmark members that gave a usable row, {key: reason} for each member that did not
+    (the capabilities index under EPOCH_ECI_KEY), and {display name: index} of the capabilities index,
+    empty when its member is not read. Raises FetchError when the bytes are no archive. Nothing is
+    extracted."""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except (zipfile.BadZipFile, ValueError, OSError):
+        raise FetchError("the answer is not a zip archive") from None
+    files, skipped, eci = {}, {}, {}
+    with archive:
+        for key, _, column in EPOCH_FILES:
+            found = read_epoch_member(archive, epoch_member_name(key), column)
+            if isinstance(found, str):
+                skipped[key] = found
+            else:
+                files[key] = {"scores": found[0], "rows": found[1], "bad": found[2]}
+        found = read_epoch_member(archive, EPOCH_ECI_MEMBER, EPOCH_ECI_COLUMN, EPOCH_ECI_ID_COLUMN)
+        if isinstance(found, str):
+            skipped[EPOCH_ECI_KEY] = found
+        else:
+            eci = found[0]
+    return files, skipped, eci
+
+
+def read_epoch(opener, today):
+    """The state of Epoch AI's archive: {"status": "read" | "error", "date", ...}. "read" holds the
+    benchmark files that gave scores, the capabilities index ("eci", empty when its member is not
+    read) and, for the members that did not, why not; "error" says why nothing was read, and is never
+    more than the kind of failure. It raises nothing and changes nothing else of the run: a code
+    quality that is not read is the intelligence index standing in for it."""
+    try:
+        raw = fetch_raw(opener, EPOCH_URL, {"User-Agent": USER_AGENT, "Accept": "application/zip"},
+                        EPOCH_MAX_ARCHIVE)
+        if len(raw) > EPOCH_MAX_ARCHIVE:
+            raise FetchError("the archive is larger than %d bytes" % EPOCH_MAX_ARCHIVE)
+        files, skipped, eci = read_epoch_archive(raw)
+        if not files and not eci:
+            raise FetchError("no benchmark file of the archive holds a usable row")
+    except FetchError as error:
+        return {"status": "error", "date": today, "error": safe_text(error, 120)}
+    except Exception as error:
+        return {"status": "error", "date": today, "error": "failed: %s" % error.__class__.__name__}
+    return {"status": "read", "date": today, "files": files, "skipped": skipped, "eci": eci}
+
+
+# ------------------------------------------------------------------------------------------------
+# Router contracts: what each router is held to, reported and never enforced
+# ------------------------------------------------------------------------------------------------
+
+CONTRACTS = ROOT / ".github" / "LiteLLM_router_contracts.yaml"
+CONTRACT_STATUSES = ("provisional", "validated")
+CONTRACT_CRITERIA = ("intelligence", "first_answer", "code_quality")
+CONTRACT_STAND_INS = ("intelligence",)
+CONTRACT_REQUIRES = ("tools",)
+TOOLS_SUPPORT = ("yes", "no", "unknown")
+CONTRACT_FALLBACKS = "router_settings.fallbacks"
+# The levels Artificial Analysis names in the suffix of a record, from the one that thinks least to
+# the one that thinks most: the level a router keeps for a model is the highest of these that fits.
+# "reasoning" stands alone in a family that has no named level, so where it sits does not matter.
+LEVEL_ORDER = ("non-reasoning", "minimal", "low", "medium", "reasoning", "high", "xhigh", "max")
+LEVEL_UNKNOWN = "unknown"
+LEVEL_NOT_APPLICABLE = "n/a"
+LEVEL_SUFFIX = re.compile(r"^(?P<base>.*)\((?P<level>[^()]*)\)\s*$")
+
+
+def seconds_figure(value):
+    """A time in seconds, or None: zero or less is no time of a model that answers, and is read as
+    not measured, as a speed of zero is."""
+    seconds = figure(value)
+    return seconds if seconds is not None and seconds > 0 else None
+
+
+def split_level(name):
+    """(family, level) of a record's name: "Gemini 4 Hydrogen (Low)" is ("Gemini 4 Hydrogen", "low").
+    A last parenthesis that is no level ("(Sep '25)", "(Low, Default Fallback)") is part of the
+    name, and the level is None."""
+    match = LEVEL_SUFFIX.match(name)
+    if match and match.group("level").strip().lower() in LEVEL_ORDER:
+        return match.group("base").strip(), match.group("level").strip().lower()
+    return name.strip(), None
+
+
+def level_rank(level):
+    return LEVEL_ORDER.index(level) if level in LEVEL_ORDER else -1
+
+
+def ranking_families(models):
+    """({slug: record}, {family: [records]}) of the ranking's models, a record being the model with
+    its "family" and "level". Two records under one slug make it no address, so it is left out."""
+    by_slug, twins, families = {}, set(), {}
+    for model in models:
+        if not model.get("slug"):
+            continue
+        family, level = split_level(model["name"])
+        record = dict(model, family=family, level=level)
+        if model["slug"] in by_slug:
+            twins.add(model["slug"])
+        by_slug[model["slug"]] = record
+        families.setdefault(family.lower(), []).append(record)
+    return {slug: record for slug, record in by_slug.items() if slug not in twins}, families
+
+
+def chosen_level(family, min_rate):
+    """The record of the level a router keeps for a model: walk up the levels that have an index from
+    the lowest, and climb to the next only while each extra second of the time to the first answer
+    token buys at least "min_rate" points of index, the first step that buys less being the last. A
+    step that buys no points is not taken, a step that is no slower and buys points always is, and a
+    step whose time is unknown on either level cannot be judged and is not taken. None when no level
+    has an index. A router that values time asks a higher rate, since each level costs time."""
+    ranked = sorted((record for record in family if record["intelligence"] is not None),
+                    key=lambda record: level_rank(record["level"]))
+    if not ranked:
+        return None
+    kept = ranked[0]
+    for record in ranked[1:]:
+        points = record["intelligence"] - kept["intelligence"]
+        before, after = kept["first_answer"], record["first_answer"]
+        if points <= 0 or before is None or after is None:
+            break
+        seconds = after - before
+        if seconds > 0 and points / seconds < min_rate:
+            break
+        kept = record
+    return kept
+
+
+def describe_entry(mapping, by_slug, families):
+    """What the ranking says of one mapped entry: "state" is "no_record" (the file says no record
+    describes it), "stale" (its slug is no longer in the ranking) or "resolved", and then "record" is
+    the one whose figures are the entry's, "family" its levels, and "unverified" says why those
+    figures cannot be taken for the called level: "unknown" (the level is not known and the family
+    has several) or "uncovered" (the ranking has the family at other levels only)."""
+    if "no_record" in mapping:
+        return {"state": "no_record", "why": mapping["no_record"]}
+    record = by_slug.get(mapping["slug"])
+    if record is None:
+        return {"state": "stale", "slug": mapping["slug"]}
+    family = families[record["family"].lower()]
+    level = mapping["level"]
+    found = {"state": "resolved", "record": record, "family": family, "called": level,
+             "unverified": None, "unstated": False}
+    if level == LEVEL_UNKNOWN:
+        if len(family) > 1:
+            found["unverified"] = "unknown"
+    elif level in LEVEL_ORDER:
+        at_level = next((other for other in family if other["level"] == level), None)
+        if at_level is not None:
+            found["record"] = at_level
+        elif len(family) == 1 and family[0]["level"] is None:
+            found["unstated"] = True
+        else:
+            found["unverified"] = "uncovered"
+    return found
+
+
+def floor_figure(value):
+    """A floor as the report writes it: one decimal at most, as the figures of the ranking are, since a
+    floor converted from the capabilities index has more digits than anything says."""
+    return "%g" % round(value, 1)
+
+
+def effective_intelligence(found, estimate):
+    """(figure, estimated) of an entry on the scale of the intelligence index: the index of the record
+    at the level the entry is called at when there is one and the entry is not "unverified", and
+    otherwise the "estimate" given (an index converted from the capabilities index) flagged as such,
+    or none."""
+    if found["state"] == "resolved" and not found["unverified"] and found["record"]["intelligence"] is not None:
+        return found["record"]["intelligence"], False
+    return (estimate, True) if estimate is not None else (None, False)
+
+
+def entry_verdict(found, floor, last_resort, tools, needs_time, needs_index=True, estimate=None):
+    """(kind, text) of one entry against its router's floor, the only bound there is: no time makes a
+    member ineligible. A member of the last resort is exempt from the floor; one under it is not
+    removed but goes to the last resort tier ("below_floor"). "tools" is what the entry's provider
+    declares of tool calls, given only to a router that requires them: "no" excludes the entry, and
+    "unknown" is said and excludes nothing. "needs_time" is given to a router ordered by time, where
+    a member with no time cannot be placed. "needs_index" is false for such a router that has no
+    floor, whose members need no index. "estimate" is the index the capabilities index gives the
+    entry, used only where the ranking has no figure for it at the level it is called at, and said."""
+    if found["state"] == "unmapped":
+        return "unmapped", "sans correspondance"
+    if tools == "no":
+        return "no_tools", "sans appels d'outils"
+    note = " ; appels d'outils inconnus" if tools == "unknown" else ""
+    value, estimated = effective_intelligence(found, estimate)
+    if value is None:
+        if found["state"] == "no_record":
+            return "no_record", "sans enregistrement" + note
+        if found["state"] == "stale":
+            return "stale", "correspondance périmée" + note
+        if found["unverified"]:
+            return "unverified", "variante non vérifiée" + note
+        if needs_index and not last_resort:
+            return "unrankable", "inclassable : pas d'indice" + note
+    if needs_time and found["record"]["first_answer"] is None:
+        return "unrankable", "inclassable : pas de délai" + note
+    if not last_resort and floor is not None and value is not None and value < floor:
+        return "below_floor", ("sous le plancher (%.1f%s contre %s) : dernier recours"
+                               % (value, " estimé" if estimated else "", floor_figure(floor))) + note
+    if last_resort:
+        return "conforming", "conforme (dernier recours)" + note
+    return "conforming", ("conforme (estimé)" if estimated else "conforme") + note
+
+
+def time_ties(rows, margin):
+    """The members in the order of their quality, those whose quality is less than "margin" points
+    under the best of their group being ordered by time instead, the shortest first, the current
+    order settling what is left. A group starts at the first member that is "margin" points or more
+    under the best of the one before; a member with no time comes last in its group."""
+    def by_time(row):
+        seconds = row["first_answer"]
+        return (seconds is None, seconds or 0, row["position"])
+
+    ordered, group = [], []
+    for row in rows:
+        if group and group[0]["intelligence"] - row["intelligence"] >= margin:
+            ordered += sorted(group, key=by_time)
+            group = []
+        group.append(row)
+    return ordered + sorted(group, key=by_time)
+
+
+def rank_with_ties(scores):
+    """{name: rank} for {name: score}: 1 is the highest score, and members with the same score share
+    the average of the places they take."""
+    ordered = sorted(scores.items(), key=lambda item: -item[1])
+    ranks, start = {}, 0
+    while start < len(ordered):
+        end = start
+        while end + 1 < len(ordered) and ordered[end + 1][1] == ordered[start][1]:
+            end += 1
+        for name, _ in ordered[start:end + 1]:
+            ranks[name] = (start + end) / 2 + 1
+        start = end + 1
+    return ranks
+
+
+def epoch_member_scores(mapping, epoch):
+    """{benchmark file: best score} of one entry in the files of the archive read: the best of the
+    model versions the entry lists for that file. A file the archive does not hold, or a version it
+    does not know, gives nothing."""
+    listed = mapping.get("epoch") if isinstance(mapping, dict) else None
+    found = {}
+    for key in EPOCH_KEYS:
+        scores = epoch["files"].get(key, {}).get("scores", {})
+        best = [scores[version] for version in listed.get(key, ()) if version in scores] \
+            if isinstance(listed, dict) else []
+        if best:
+            found[key] = max(best)
+    return found
+
+
+def code_quality(pool, mappings, epoch):
+    """The code quality of each member of "pool" (the names of a cascade), from the archive read:
+    {name: {"ranks": {file: (rank, members scored)}, "median", "why"}}. A benchmark file counts only
+    if EPOCH_MIN_MEMBERS members of the pool have a score in it, and ranks them (1 is the best, a tie
+    shares the average rank). The code quality of a member is the median of its ranks over the files
+    that count, and none ("median" is None, "why" says why) below EPOCH_MIN_FILES of them: it is
+    unrankable by code quality, which is not the same as a bad one."""
+    scores = {name: epoch_member_scores(mappings.get(name), epoch) for name in pool}
+    counting = {}
+    for key in EPOCH_KEYS:
+        scored = {name: found[key] for name, found in scores.items() if key in found}
+        if len(scored) >= EPOCH_MIN_MEMBERS:
+            counting[key] = (rank_with_ties(scored), len(scored))
+    quality = {}
+    for name in pool:
+        ranks = {key: (counting[key][0][name], counting[key][1]) for key in counting if name in counting[key][0]}
+        mapping = mappings.get(name)
+        listed = mapping.get("epoch") if isinstance(mapping, dict) else None
+        median = statistics.median(rank for rank, _ in ranks.values()) if len(ranks) >= EPOCH_MIN_FILES else None
+        why = None
+        if median is None:
+            why = ("no_ids" if not isinstance(listed, dict) else "no_scores" if not scores[name] else "few_files")
+        quality[name] = {"ranks": ranks, "median": median, "why": why, "scored": len(scores[name])}
+    return quality
+
+
+def outside_quality():
+    """The code quality of a member the ranking pool does not hold: none."""
+    return {"ranks": {}, "median": None, "why": "outside", "scored": 0}
+
+
+def router_quality(members, base_members, contract, mappings, epoch):
+    """The code quality of the members of a router's cascade, or None where the router is not ranked
+    on it or the archive was not read. A router that derives from another is ranked as that one is:
+    its members get the quality that the cascade of the other one gives them, so that the two orders
+    cannot disagree, and a member that cascade does not hold is unrankable ("outside")."""
+    if epoch is None or contract["ranking"]["criterion"] != "code_quality":
+        return None
+    quality = code_quality(list(base_members if base_members is not None else members), mappings, epoch)
+    return {name: quality.get(name) or outside_quality() for name in members}
+
+
+def quality_key(row):
+    """What orders members of the same code quality: the shorter time to the first answer token, a
+    member with none last, then the position the cascade has now."""
+    seconds = row["first_answer"]
+    return (row["quality"]["median"], seconds is None, seconds or 0, row["position"])
+
+
+def contract_order(rows, ranking):
+    """The order a router's contract would give: the members that conform, then the last resort tier
+    in the order it has now (the members the contract declares exempt and those under the floor). A
+    router ordered by time puts the shortest first; any other puts the best quality first, time
+    breaking a tie between members less than the router's margin apart. Code quality is the median
+    rank of the members the archive of Epoch AI ranks, best first, and the others (unrankable by it)
+    follow them in the order of the intelligence index that stands in for it; without the archive the
+    intelligence index orders them all. A member that cannot be judged is not placed."""
+    main = [row for row in rows if row["kind"] == "conforming" and not row["last_resort"]]
+    tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
+    if ranking["criterion"] == "first_answer":
+        return [row["name"] for row in sorted(
+            main, key=lambda row: (row["record"]["first_answer"], row["position"]))] + tail
+    ranked = []
+    if ranking["criterion"] == "code_quality" and any(row.get("quality") for row in rows):
+        ranked = sorted((row for row in main if row["quality"]["median"] is not None), key=quality_key)
+        main = [row for row in main if row["quality"]["median"] is None]
+    main.sort(key=lambda row: (-row["intelligence"], row["position"]))
+    return ([row["name"] for row in ranked] + [row["name"] for row in time_ties(main, ranking["tie_margin_points"])]
+            + tail)
+
+
+def effective_contract(routers, name):
+    """The contract a router is held to: its own, or for a router that derives from another, that
+    one's, with what the derived router requires."""
+    contract = routers[name]
+    if "derives_from" not in contract:
+        return contract
+    return dict(routers[contract["derives_from"]], derives_from=contract["derives_from"],
+                requires=contract["requires"], reason=contract["reason"])
+
+
+def eci_to_index(eci, points):
+    """The capabilities index "eci" on the scale of the intelligence index, by the piecewise linear
+    line through "points" ([capabilities index, intelligence index] pairs, going up). Beyond either end
+    the slope of the end segment goes on, since the calibration holds no model there and a constant
+    would make every model past the end of the points tie; it is clamped at 0, since an index is not
+    negative and the lowest segment runs down through it. None when there are fewer than two points.
+    Every figure it gives is an estimate, whatever the calibration."""
+    if len(points) < 2:
+        return None
+    first, last = points[0], points[-1]
+    if eci <= first[0]:
+        low, high = points[0], points[1]
+    elif eci >= last[0]:
+        low, high = points[-2], points[-1]
+    else:
+        low, high = next((low, high) for low, high in zip(points, points[1:]) if low[0] <= eci <= high[0])
+    return max(0.0, low[1] + (eci - low[0]) * (high[1] - low[1]) / (high[0] - low[0]))
+
+
+def eci_scale(epoch, contracts):
+    """{"eci": {display name: index}, "points": [...]}, what turns a capabilities index into an
+    estimated intelligence index, or None when the archive was not read, it holds no capabilities index,
+    or the contracts declare no calibration to convert it by."""
+    eci = epoch.get("eci") if epoch and epoch.get("status") == "read" else None
+    block = contracts.get("fallback_index")
+    points = block.get("points") if isinstance(block, dict) else None
+    if not eci or not isinstance(points, list) or len(points) < 2 or any(
+            not isinstance(point, list) or len(point) != 2 or any(figure(item) is None for item in point)
+            for point in points):
+        return None
+    return {"eci": eci, "points": [(float(low), float(high)) for low, high in points]}
+
+
+def anchor_floor(anchor, mappings, by_slug, families, scale=None):
+    """(value, text) of a floor anchor: the index of the record of the entry it names, or, with a
+    "level", the index of that level of the entry's family; or, for an anchor that names an "epoch"
+    model, its capabilities index converted to the scale of the index, and said estimated. (None, why)
+    when the entry has no mapping, its record or the level is not in the ranking, or the record has no
+    index, or the model is not in the capabilities index read, or it was not read: a floor that cannot
+    be read judges nothing, and the report says so."""
+    if "epoch" in anchor:
+        text = "%s (Epoch, estimé)" % safe_text(anchor["epoch"], 60)
+        if scale is None:
+            return None, "%s : indice de capacités non lu" % text
+        eci = scale["eci"].get(anchor["epoch"])
+        if eci is None:
+            return None, "%s : absent de l'indice de capacités" % text
+        return eci_to_index(eci, scale["points"]), text
+    entry = safe_text(anchor["entry"], 60)
+    mapping = mappings.get(anchor["entry"])
+    if not mapping or "slug" not in mapping:
+        return None, "%s : aucun enregistrement associé" % entry
+    record = by_slug.get(mapping["slug"])
+    if record is None:
+        return None, "%s : enregistrement introuvable" % entry
+    level = anchor.get("level")
+    if level:
+        record = next((item for item in families[record["family"].lower()] if item["level"] == level), None)
+        if record is None:
+            return None, "%s : pas de niveau %s" % (entry, safe_text(level, 20))
+    if record["intelligence"] is None:
+        return None, "%s : pas d'indice" % safe_text(record["name"], 80)
+    return record["intelligence"], safe_text(record["name"], 80)
+
+
+def resolved_contract(contract, mappings, by_slug, families, scale=None):
+    """The contract with the anchors of its floor read: the floor gets a "value" and a "text" (the
+    record it is the index of), and its "candidates" become the numbers of the anchors that could be
+    read, "candidate_texts" naming them. A floor that cannot be read has no value (None), and a router
+    that says it has no floor ("none") has no value, no text and no candidate."""
+    block = contract["intelligence_floor"]
+    if block.get("none"):
+        return dict(contract, intelligence_floor=dict(block, value=None, text=None, candidates=[], candidate_texts=[]))
+    value, text = anchor_floor(block["anchor"], mappings, by_slug, families, scale)
+    read = [anchor_floor(anchor, mappings, by_slug, families, scale) for anchor in block.get("candidates") or []]
+    return dict(contract, intelligence_floor=dict(
+        block, value=value, text=text,
+        candidates=[item[0] for item in read if item[0] is not None],
+        candidate_texts=[item[1] for item in read if item[0] is not None]))
+
+
+def floor_text(block):
+    """The floor of a resolved contract, as the report says it."""
+    if block.get("none"):
+        return "aucun"
+    if block["value"] is None:
+        return "introuvable (%s), aucun membre n'est jugé sous le plancher" % block["text"]
+    return "%s (%s)" % (floor_figure(block["value"]), block["text"])
+
+
+def router_rows(members, contract, mappings, by_slug, families, floor=None, quality=None, scale=None):
+    """One row per member of a cascade against its router's contract, at the floor given or the
+    contract's own. "quality" is the code quality of the members (see router_quality), or None. "scale"
+    is what converts a capabilities index (see eci_scale), or None: a member the ranking has no index
+    for at the level it is called at is then placed on the estimate its entry's "eci" gives, which a
+    router ordered by time never uses, since its time comes from the ranking."""
+    rate = contract["level_gain"]["min_points_per_second"]
+    block = contract["intelligence_floor"]
+    floor = block["value"] if floor is None else floor
+    needs_time = contract["ranking"]["criterion"] == "first_answer"
+    needs_index = not (needs_time and block.get("none"))
+    rows = []
+    for position, name in enumerate(members):
+        mapping = mappings.get(name)
+        found = describe_entry(mapping, by_slug, families) if mapping else {"state": "unmapped"}
+        last_resort = name in contract["last_resort"]["members"]
+        tools = mapping["tools"]["support"] if mapping else "unknown"
+        eci = scale["eci"].get(mapping.get("eci")) if scale and mapping and not needs_time else None
+        estimate = eci_to_index(eci, scale["points"]) if eci is not None else None
+        kind, text = entry_verdict(found, floor, last_resort,
+                                   tools if "tools" in contract.get("requires", ()) else None,
+                                   needs_time, needs_index, estimate)
+        value, estimated = effective_intelligence(found, estimate)
+        record = found.get("record")
+        rows.append({"name": name, "position": position, "found": found, "kind": kind,
+                     "verdict": text, "last_resort": last_resort, "tools": tools,
+                     "record": record, "quality": quality.get(name) if quality else None,
+                     "intelligence": value, "estimated": estimated,
+                     "first_answer": record["first_answer"] if record is not None and not estimated else None,
+                     "kept": chosen_level(found["family"], rate) if found["state"] == "resolved" else None})
+    return rows
+
+
+def floor_effects(members, contract, mappings, by_slug, families, quality=None, scale=None):
+    """What each floor the contract proposes to compare does to a cascade: who stays in front and who
+    goes to the last resort tier. Who is not placed at all does not depend on the floor."""
+    effects = []
+    block = contract["intelligence_floor"]
+    compared = list(zip(block.get("candidates") or [], block.get("candidate_texts") or []))
+    for floor, anchor_name in compared or ([(block["value"], block["text"])] if block["value"] is not None else []):
+        rows = router_rows(members, contract, mappings, by_slug, families, floor, quality, scale)
+        placed = contract_order(rows, contract["ranking"])
+        tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
+        effects.append({"floor": floor, "text": anchor_name, "main": [name for name in placed if name not in tail], "last": tail})
+    return effects
+
+
+def derivation_differences(base, derived, tools):
+    """How a derived cascade differs from the one it must be: the cascade it derives from without the
+    members whose tool support is refused, in the same order. "tools" is {name: "yes" | "no" |
+    "unknown"}. A member whose support is unknown is neither required nor refused, and is listed."""
+    kept = [name for name in base if tools.get(name, "unknown") != "no"]
+    common = [name for name in derived if name in base]
+    return {
+        "extra": [name for name in derived if name not in base],
+        "refused": [name for name in derived if tools.get(name, "unknown") == "no"],
+        "missing": [name for name in base if tools.get(name, "unknown") == "yes" and name not in derived],
+        "unordered": common != [name for name in kept if name in derived],
+        "unknown": [name for name in base if tools.get(name, "unknown") == "unknown"],
+    }
+
+
+def epoch_state(epoch):
+    """What the report says of the archive of Epoch AI: {"status": "read" | "error" | "unread", ...}.
+    "unread" is a run that did not try, and "error" one that failed, with the kind of failure."""
+    if not epoch:
+        return {"status": "unread"}
+    if epoch["status"] != "read":
+        return {"status": "error", "date": epoch["date"], "error": epoch["error"]}
+    return {"status": "read", "date": epoch["date"], "skipped": dict(epoch["skipped"]),
+            "eci": len(epoch.get("eci") or {}),
+            "files": {key: dict(rows=data["rows"], bad=data["bad"]) for key, data in epoch["files"].items()}}
+
+
+def stale_eci_names(contracts, scale):
+    """The capabilities index names the contracts keep and the archive read no longer holds, as
+    (entry, name), the entry being "" for a name only a floor anchor holds: information for a person to
+    correct, as for a name the template lost. Nothing is stale until the index was read."""
+    if scale is None:
+        return []
+    found = [(name, mapping["eci"]) for name, mapping in contracts["models"].items()
+             if isinstance(mapping, dict) and isinstance(mapping.get("eci"), str) and mapping["eci"] not in scale["eci"]]
+    anchors = {anchor["epoch"] for _, anchor in contract_anchors(contracts["routers"])
+               if isinstance(anchor, dict) and isinstance(anchor.get("epoch"), str)}
+    return found + [("", name) for name in sorted(anchors) if name not in scale["eci"]]
+
+
+def contracts_report(template, ranking, contracts, epoch=None):
+    """What the contracts say of the cascades as they stand, from the ranking as it was read, and from
+    the archive of Epoch AI where it was read ("epoch", see read_epoch):
+    {"status": "computed", "routers": [...], "unmapped": [...], ...}. A pure reading, it changes
+    nothing and judges nothing: every violation in it is information."""
+    archive = epoch if epoch and epoch["status"] == "read" else None
+    lists = fallback_lists(template["document"])
+    names = [entry["name"] for entry in template["active"] if isinstance(entry["name"], str)]
+    mappings = contracts["models"]
+    by_slug, families = ranking_families(ranking["models"])
+    tools = {name: mapping["tools"]["support"] for name, mapping in mappings.items()}
+    scale = eci_scale(archive, contracts)
+    routers = []
+    for router, _ in RANKING_ROUTERS:
+        members = lists.get((CONTRACT_FALLBACKS, router))
+        if members is None or router not in contracts["routers"]:
+            continue
+        contract = resolved_contract(effective_contract(contracts["routers"], router), mappings, by_slug, families, scale)
+        base = contract.get("derives_from")
+        quality = router_quality(members, lists.get((CONTRACT_FALLBACKS, base)) if base else None,
+                                 contract, mappings, archive)
+        rows = router_rows(members, contract, mappings, by_slug, families, quality=quality, scale=scale)
+        routers.append({
+            "name": router, "contract": contract, "rows": rows, "current": list(members),
+            "proposed": contract_order(rows, contract["ranking"]),
+            "floors": floor_effects(members, contract, mappings, by_slug, families, quality, scale),
+            "base": base, "quality": quality,
+            "differences": derivation_differences(lists.get((CONTRACT_FALLBACKS, base), []), members, tools)
+            if base else None})
+    described = {name: describe_entry(mappings[name], by_slug, families) for name in names
+                 if name in mappings}
+    version, wanted = ranking.get("index_version"), figure(contracts.get("index_version"))
+    return {
+        "status": "computed", "routers": routers, "date": ranking["date"], "epoch": epoch_state(epoch),
+        "unmapped": [name for name in names if name not in mappings],
+        "no_record": [name for name in names if described.get(name, {}).get("state") == "no_record"],
+        "stale": [(name, found["slug"]) for name, found in described.items() if found["state"] == "stale"],
+        "absent": absent_names(contracts, template),
+        "eci_stale": stale_eci_names(contracts, scale),
+        "uncovered": [(name, found) for name, found in described.items()
+                      if found["state"] == "resolved" and found["unverified"] == "uncovered"],
+        "provisional": contracts.get("status") != "validated",
+        "fallback": contracts.get("fallback_index"),
+        "version": version, "wanted_version": wanted,
+    }
+
+
+def contract_block_problems(block, where, problems):
+    """The block of a value and its reason, or None, adding what is wrong with it to "problems"."""
+    if not isinstance(block, dict):
+        problems.append('%s is missing or is not a mapping of a value and its "reason"' % where)
+        return None
+    reason = block.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        problems.append('%s has no "reason": every value says why it is what it is' % where)
+    return block
+
+
+def contracts_problems(contracts, template):
+    """The structural problems of a contracts document against the template it is read with: a router
+    that does not exist or has no contract, a number that is not a number, a value with no reason, a
+    mapping with fields that are wrong. Only the shape is judged, never a figure. A name that is no
+    entry of the template any more is no problem, since a deletion leaves it behind: see
+    absent_names."""
+    problems = []
+    if not isinstance(contracts, dict):
+        return ["the router contracts file is not a mapping"]
+    lists = fallback_lists(template["document"])
+    if contracts.get("status") not in CONTRACT_STATUSES:
+        problems.append('"status" must be one of %s' % ", ".join(CONTRACT_STATUSES))
+    if figure(contracts.get("index_version")) is None:
+        problems.append('"index_version" must be a number: the floors are on one version of the index')
+    routers = contracts.get("routers")
+    if not isinstance(routers, dict):
+        problems.append('"routers" is missing or is not a mapping')
+        routers = {}
+    for router in routers:
+        if (CONTRACT_FALLBACKS, router) not in lists:
+            problems.append('the contract of "%s" is that of no router: the template has no cascade of '
+                            "that name" % router)
+    for router, _ in RANKING_ROUTERS:
+        if router not in routers:
+            problems.append('the router "%s" has no contract' % router)
+    for router, contract in routers.items():
+        where = 'router "%s"' % router
+        if not isinstance(contract, dict):
+            problems.append("%s is not a mapping" % where)
+        elif "derives_from" in contract:
+            base = routers.get(contract["derives_from"])
+            if not isinstance(base, dict) or "derives_from" in base or contract["derives_from"] == router:
+                problems.append('%s derives from "%s", which is no router with a contract of its own'
+                                % (where, contract["derives_from"]))
+            requires = contract.get("requires")
+            if not isinstance(requires, list) or any(item not in CONTRACT_REQUIRES for item in requires):
+                problems.append('%s must list what it "requires" among: %s' % (where, ", ".join(CONTRACT_REQUIRES)))
+            contract_block_problems(contract, where, problems)
+        else:
+            full_contract_problems(contract, where, problems)
+    mappings = contracts.get("models")
+    if not isinstance(mappings, dict):
+        problems.append('"models" is missing or is not a mapping')
+        mappings = {}
+    for name, mapping in mappings.items():
+        mapping_problems(name, mapping, problems)
+    for where, anchor in contract_anchors(routers):
+        anchor_problems(anchor, where, problems)
+        if isinstance(anchor, dict) and isinstance(anchor.get("entry"), str) and anchor["entry"] not in mappings:
+            problems.append('%s names "%s", which "models" does not map' % (where, anchor["entry"]))
+    inputs = contracts.get("inputs")
+    if inputs is not None and not isinstance(inputs, dict):
+        problems.append('"inputs" is not a mapping')
+    if contracts.get("fallback_index") is not None:
+        fallback_problems(contracts["fallback_index"], problems)
+    elif any(isinstance(mapping, dict) and "eci" in mapping for mapping in mappings.values()) or any(
+            isinstance(anchor, dict) and "epoch" in anchor for _, anchor in contract_anchors(routers)):
+        problems.append('the capabilities index is used ("eci" in a mapping, or an "epoch" anchor) and the file '
+                        'declares no "fallback_index" calibration to convert it by')
+    return problems
+
+
+def fallback_problems(block, problems):
+    """The shape of the declared fallback for the general intelligence of a member with no index: where
+    it comes from, whether it is read, how it was calibrated and how uncertain it is, and the points of
+    the calibration, which only ever go up."""
+    if not isinstance(block, dict):
+        problems.append('"fallback_index" is not a mapping')
+        return
+    for key in ("source", "status", "method", "uncertainty"):
+        if not isinstance(block.get(key), str) or not block[key].strip():
+            problems.append('"fallback_index" has no "%s", in words' % key)
+    points = block.get("points")
+    if (not isinstance(points, list) or len(points) < 2
+            or any(not isinstance(point, list) or len(point) != 2 or any(figure(item) is None for item in point)
+                   for point in points)):
+        problems.append('"fallback_index" must list its calibration "points" as pairs of numbers, two at least')
+    elif any(later[0] <= earlier[0] or later[1] < earlier[1] for earlier, later in zip(points, points[1:])):
+        problems.append('"fallback_index" has calibration "points" that do not go up with the source figure')
+
+
+def anchor_problems(anchor, where, problems):
+    """The shape of a floor anchor: the "entry" it is read from, and optionally the "level" of that
+    entry's family to take, or an "epoch" model, named as the capabilities index names it, and then
+    no level. Exactly one of the two is named."""
+    if isinstance(anchor, dict) and "entry" in anchor and "epoch" in anchor:
+        problems.append('%s names both an "entry" and an "epoch" model: exactly one' % where)
+    elif isinstance(anchor, dict) and "epoch" in anchor:
+        if not isinstance(anchor["epoch"], str) or not anchor["epoch"].strip():
+            problems.append('%s has an "epoch" that is no model name of the capabilities index' % where)
+        elif "level" in anchor:
+            problems.append('%s names an "epoch" model, which has no "level"' % where)
+    elif not isinstance(anchor, dict) or not isinstance(anchor.get("entry"), str) or not anchor["entry"].strip():
+        problems.append('%s must be a mapping that names an "entry" or an "epoch" model' % where)
+    elif "level" in anchor and anchor["level"] not in LEVEL_ORDER:
+        problems.append('%s has a "level" that is none of: %s' % (where, ", ".join(LEVEL_ORDER)))
+
+
+def contract_anchors(routers):
+    """Every anchor of the contracts of "routers" (a mapping), as (where, anchor). A router with no
+    floor ("none") has none."""
+    found = []
+    for router, contract in routers.items():
+        block = contract.get("intelligence_floor") if isinstance(contract, dict) else None
+        if isinstance(block, dict) and not block.get("none"):
+            found.append(('router "%s", "intelligence_floor", "anchor"' % router, block.get("anchor")))
+            candidates = block.get("candidates")
+            for number, anchor in enumerate(candidates if isinstance(candidates, list) else []):
+                found.append(('router "%s", "intelligence_floor", candidate %d' % (router, number + 1), anchor))
+    return found
+
+
+def full_contract_problems(contract, where, problems):
+    block = contract_block_problems(contract.get("level_gain"), '%s, "level_gain",' % where, problems)
+    if block is not None:
+        value = figure(block.get("min_points_per_second"))
+        if value is None or value < 0:
+            problems.append('%s, "level_gain", has a "min_points_per_second" that is not a number from 0 up' % where)
+    block = contract_block_problems(contract.get("intelligence_floor"), '%s, "intelligence_floor",' % where, problems)
+    if block is not None and "none" in block:
+        if block["none"] is not True:
+            problems.append('%s, "intelligence_floor", has a "none" that is not true: a router with a floor says '
+                            "no such thing" % where)
+        elif "anchor" in block or "candidates" in block:
+            problems.append('%s, "intelligence_floor", says "none" and so names no "anchor" and no "candidates"' % where)
+    elif block is not None:
+        candidates = block.get("candidates")
+        if candidates is not None and not isinstance(candidates, list):
+            problems.append('%s, "intelligence_floor", must list its "candidates" as anchors' % where)
+    block = contract_block_problems(contract.get("ranking"), '%s, "ranking",' % where, problems)
+    if block is not None:
+        if block.get("criterion") not in CONTRACT_CRITERIA:
+            problems.append('%s, "ranking", must have a "criterion" among: %s'
+                            % (where, ", ".join(CONTRACT_CRITERIA)))
+        elif block["criterion"] != "first_answer" and (
+                figure(block.get("tie_margin_points")) is None or block["tie_margin_points"] < 0):
+            problems.append('%s, "ranking", must have a "tie_margin_points" that is a number from 0 up' % where)
+        elif block["criterion"] == "code_quality" and (
+                block.get("stand_in") not in CONTRACT_STAND_INS
+                or any(not isinstance(block.get(key), str) or not block[key].strip()
+                       for key in ("source", "source_status"))):
+            problems.append('%s, "ranking", on "code_quality" must say its "source", its "source_status" and '
+                            'a "stand_in" among: %s' % (where, ", ".join(CONTRACT_STAND_INS)))
+    block = contract_block_problems(contract.get("last_resort"), '%s, "last_resort",' % where, problems)
+    if block is not None:
+        members = block.get("members")
+        if not isinstance(members, list):
+            problems.append('%s, "last_resort", must list its "members"' % where)
+        else:
+            if any(not isinstance(name, str) for name in members):
+                problems.append('%s, "last_resort", must list its "members" by name' % where)
+
+
+def mapping_problems(name, mapping, problems):
+    where = 'the mapping of "%s"' % name
+    if not isinstance(mapping, dict):
+        problems.append("%s is not a mapping" % where)
+        return
+    tools = mapping.get("tools")
+    if (not isinstance(tools, dict) or tools.get("support") not in TOOLS_SUPPORT
+            or not isinstance(tools.get("source"), str) or not tools["source"].strip()):
+        problems.append('%s has no "tools" saying "yes", "no" or "unknown" and its source' % where)
+    epoch = mapping.get("epoch", "unknown")
+    if epoch != "unknown" and (not isinstance(epoch, dict) or not epoch or any(
+            not isinstance(ids, list) or not ids or any(not isinstance(item, str) or not item.strip()
+                                                        for item in ids) for ids in epoch.values())):
+        problems.append('%s has an "epoch" that is neither "unknown" nor benchmark files and their model ids'
+                        % where)
+    elif isinstance(epoch, dict) and any(key not in EPOCH_KEYS for key in epoch):
+        problems.append('%s has an "epoch" on a benchmark file that is not read: only %s are'
+                        % (where, ", ".join(EPOCH_KEYS)))
+    if "eci" in mapping and (not isinstance(mapping["eci"], str) or not mapping["eci"].strip()):
+        problems.append('%s has an "eci" that is no model name of the capabilities index: a display name, spelt as '
+                        "the index has it" % where)
+    if "no_record" in mapping:
+        if "slug" in mapping or not isinstance(mapping["no_record"], str) or not mapping["no_record"].strip():
+            problems.append('%s has "no_record" and so says why in it, in words, and names no "slug"' % where)
+        return
+    slug = mapping.get("slug")
+    if not isinstance(slug, str) or not SAFE_ID.fullmatch(slug):
+        problems.append('%s has no "slug" spelt like one' % where)
+    if mapping.get("level") not in LEVEL_ORDER + (LEVEL_UNKNOWN, LEVEL_NOT_APPLICABLE):
+        problems.append('%s has a "level" that is none of: %s' % (
+            where, ", ".join(LEVEL_ORDER + (LEVEL_UNKNOWN, LEVEL_NOT_APPLICABLE))))
+    source = mapping.get("level_source")
+    if not isinstance(source, str) or not source.strip():
+        problems.append('%s has no "level_source": the page that gives the level, or "unknown"' % where)
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    """A loader that refuses a key written twice in a mapping, which PyYAML would otherwise let the
+    second one silently replace."""
+
+    def construct_mapping(self, node, deep=False):
+        keys = [self.construct_object(key, deep=deep) for key, _ in node.value]
+        for key in keys:
+            if keys.count(key) > 1:
+                raise yaml.constructor.ConstructorError(None, None, "a key is written twice", node.start_mark)
+        return super().construct_mapping(node, deep=deep)
+
+
+def load_contracts(path):
+    """(document, problems): the contracts file parsed, or why it could not be."""
+    try:
+        return yaml.load(Path(path).read_text(encoding="utf-8"), Loader=UniqueKeyLoader), []
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as error:
+        return None, ["the router contracts file cannot be read (%s)" % error.__class__.__name__]
+
+
+def contracts_file_for(arguments):
+    """The contracts file this run reads: the one of the repository when the template read is the
+    repository's own, none for another template unless one is given, since a contract written for
+    one template means nothing against another."""
+    if arguments.contracts:
+        return Path(arguments.contracts)
+    return CONTRACTS if Path(arguments.config).resolve() == CONFIG.resolve() else None
+
+
+def absent_names(contracts, template):
+    """The names the contracts keep that are no active entry of the template any more, as (where,
+    name): "models" for a mapping, a router's name for a member of its last resort. A deletion
+    leaves them behind, and the plain run must stay green for it, so they are reported as stale and
+    never refused."""
+    active = {entry["name"] for entry in template["active"] if isinstance(entry["name"], str)}
+    found = [("models", name) for name in contracts["models"] if name not in active]
+    for router, contract in contracts["routers"].items():
+        found += [(router, name) for name in contract.get("last_resort", {}).get("members", [])
+                  if name not in active]
+    return found
+
+
+def offline_contract_notices(text, path):
+    """One line per stale name of the contracts file at "path" against the template in "text", for
+    the plain run to print: an information, never a failure. None while the file has a problem."""
+    template, _ = read_template(text)
+    if template is None:
+        return []
+    document, problems = load_contracts(path)
+    if problems or contracts_problems(document, template):
+        return []
+    return ['Router contracts: "%s" (%s) is no entry of the template any more: a stale mapping, its '
+            "row is to be removed from %s." % (name, "mapping" if where == "models" else "last resort of %s" % where,
+                                              Path(path).name) for where, name in absent_names(document, template)]
+
+
+def offline_contract_problems(text, path):
+    """The structural problems of the contracts file at "path", read against the template in
+    "text": what the offline run fails on, and all that it does."""
+    template, _ = read_template(text)
+    if template is None:
+        return []
+    document, problems = load_contracts(path)
+    return problems or contracts_problems(document, template)
+
+
+def router_contracts(text, result, path):
+    """The contracts' reading of the cascades for the issue, or None where there is nothing to say
+    (no path, or the ranking was not read). It never raises and never changes the run: a file that
+    is wrong says so in the issue, and so does a computation that failed, by the kind of error."""
+    ranking = result.get("rankings")
+    if path is None or not ranking or ranking["status"] != "read":
+        return None
+    try:
+        template, _ = read_template(text)
+        document, problems = load_contracts(path)
+        problems = problems or contracts_problems(document, template)
+        if problems:
+            return {"status": "invalid", "problems": problems}
+        return contracts_report(template, ranking, document, result.get("epoch"))
+    except Exception as error:
+        return {"status": "error", "kind": error.__class__.__name__}
+
+
+def level_text(record):
+    return record["level"] if record["level"] else "niveau unique"
+
+
+def contract_cells(row):
+    """The cells of a member's row in the issue: the record, the level called, its figures, the level
+    the router would keep, and the verdict."""
+    found, record = row["found"], row["record"]
+    name = "`%s`%s" % (safe_text(row["name"], 60), " (dernier recours)" if row["last_resort"] else "")
+    if record is None:
+        return [name, "—", "—", "%s (estimé)" % figure_text(row["intelligence"]) if row["estimated"] else "—",
+                "—", "—", "—", row["verdict"]]
+    kept = row["kept"]
+    if kept is None:
+        kept_text = "aucun niveau n'a d'indice"
+    else:
+        kept_text = "%s (indice %s%s)" % (
+            level_text(kept), figure_text(kept["intelligence"]),
+            "" if kept["first_answer"] is None else ", %s s" % figure_text(kept["first_answer"]))
+    called = found["called"] if found["called"] != LEVEL_NOT_APPLICABLE else "sans niveau"
+    return [name, safe_text(record["name"], 80), "inconnu" if called == LEVEL_UNKNOWN else called,
+            "%s (estimé)" % figure_text(row["intelligence"]) if row["estimated"] else figure_text(record["intelligence"]),
+            figure_text(record["first_answer"]), figure_text(record["speed"]), kept_text, row["verdict"]]
+
+
+def names_text(names):
+    return ", ".join("`%s`" % safe_text(name, 60) for name in names) or "—"
+
+
+def epoch_status_text(epoch):
+    """The state of the archive of Epoch AI in a sentence: what this run read, never what the
+    contracts file declares."""
+    if epoch["status"] == "read":
+        return "lue le %s" % epoch["date"]
+    return "non lue" + (" (%s)" % safe_text(epoch["error"], 120) if epoch["status"] == "error" else "")
+
+
+def ranking_text(contract, epoch):
+    ranking = contract["ranking"]
+    if ranking["criterion"] == "first_answer":
+        return "le délai le plus court"
+    margin = ", le délai départageant deux membres à moins de %g points d'écart" % ranking["tie_margin_points"]
+    if ranking["criterion"] != "code_quality":
+        return "l'indice d'intelligence" + margin
+    source = "source : %s, %s" % (safe_text(ranking["source"], 200), epoch_status_text(epoch))
+    if epoch["status"] == "read":
+        return ("la qualité de code (%s), la médiane des rangs sur les benchmarks, le délai départageant deux "
+                "membres à égalité ; les membres que cette source ne permet pas de classer suivent, ordonnés "
+                "sur l'indice d'intelligence%s" % (source, margin))
+    return ("la qualité de code (%s) ; Artificial Analysis n'a pas d'indice de code, l'indice d'intelligence "
+            "en tient lieu à titre provisoire%s" % (source, margin))
+
+
+def derivation_lines(router):
+    """What the derived router's cascade is, against the one it must be."""
+    base, differences = router["base"], router["differences"]
+    unknown = differences["unknown"]
+    out = []
+    for key, text in (("extra", "dans `%s` mais pas dans `%s`" % (router["name"], base)),
+                      ("refused", "sans appels d'outils déclarés, pourtant dans `%s`" % router["name"]),
+                      ("missing", "avec appels d'outils, dans `%s` mais pas dans `%s`" % (base, router["name"]))):
+        if differences[key]:
+            out.append("- %s : %s" % (text, names_text(differences[key])))
+    if differences["unordered"]:
+        out.append("- l'ordre des membres communs n'est pas celui de `%s`" % base)
+    if unknown:
+        out.append("- appels d'outils inconnus (ni exigés ni refusés, à vérifier) : %s" % names_text(unknown))
+    same = not (differences["extra"] or differences["refused"] or differences["missing"] or differences["unordered"])
+    return ["La cascade de `%s` %s la cascade de `%s` sans les membres sans outils, dans le même ordre."
+            % (router["name"], "est" if same else "n'est **pas**", base), ""] + out + ([""] if out else [])
+
+
+def rank_text(rank, of):
+    return "%g/%d" % (rank, of)
+
+
+def quality_lines(router, epoch):
+    """The code quality of a router's members, in French: the rank of each in each benchmark of the
+    archive of Epoch AI, the median, the position it gives, and which members are unrankable by it, why,
+    and that they follow the others on the intelligence index."""
+    quality = router["quality"]
+    if quality is None:
+        return []
+    base, by_name = router["base"], {row["name"]: row for row in router["rows"]}
+    kept = [name for name in router["proposed"] if by_name[name]["kind"] == "conforming"
+            and not by_name[name]["last_resort"] and quality[name]["median"] is not None]
+    out = ["Qualité de code, d'après %s (<%s>, archive lue le %s). Chaque benchmark classe les membres de la "
+           "cascade%s qui y ont un score (1 est le meilleur, les égalités partagent le rang moyen, « 2/5 » est le "
+           "deuxième de 5) et ne compte que si deux membres au moins y ont un score ; la qualité de code d'un "
+           "membre est la médiane de ses rangs, sur deux benchmarks au moins. WebDev Arena et toute arène de "
+           "design ou d'interface ne sont pas lues."
+           % (EPOCH_ATTRIBUTION, EPOCH_SITE, epoch["date"], " de `%s`" % base if base else ""), "",
+           "| Membre | %s | Médiane | Position |" % " | ".join(label for _, label, _ in EPOCH_FILES),
+           "| %s |" % " | ".join(["---"] * (len(EPOCH_FILES) + 3))]
+    for row in router["rows"]:
+        found = quality[row["name"]]
+        if row["name"] in kept:
+            position = str(kept.index(row["name"]) + 1)
+        elif row["kind"] == "conforming" and not row["last_resort"]:
+            position = "inclassable : indice d'intelligence"
+        elif row["last_resort"]:
+            position = "dernier recours"
+        else:
+            position = "sous le plancher" if row["kind"] == "below_floor" else row["verdict"]
+        out.append("| `%s` | %s | %s | %s |" % (
+            safe_text(row["name"], 60),
+            " | ".join(rank_text(*found["ranks"][key]) if key in found["ranks"] else "—" for key in EPOCH_KEYS),
+            "—" if found["median"] is None else "%g" % found["median"], position))
+    counting = {key for found in quality.values() for key in found["ranks"]}
+    useless = [label for key, label, _ in EPOCH_FILES if key in epoch["files"] and key not in counting]
+    unread = ["%s (`%s`)" % (label, safe_text(epoch["skipped"][key], 80))
+              for key, label, _ in EPOCH_FILES if key in epoch["skipped"]]
+    why = {"no_ids": "aucun identifiant Epoch connu", "no_scores": "aucun score dans l'archive pour ses identifiants",
+           "outside": "hors de la cascade de `%s`" % safe_text(base or "", 20)}
+    unranked = ["`%s` (%s)" % (safe_text(row["name"], 60), why.get(quality[row["name"]]["why"]) or
+                               "%d benchmark(s) comptant(s) pour lui, %d requis" % (
+                                   len(quality[row["name"]]["ranks"]), EPOCH_MIN_FILES))
+                for row in router["rows"] if row["kind"] == "conforming" and not row["last_resort"]
+                and quality[row["name"]]["median"] is None]
+    out.append("")
+    if useless:
+        out += ["Benchmarks sans effet sur cette cascade (moins de deux membres y ont un score) : %s." % ", ".join(useless), ""]
+    if unread:
+        out += ["Fichiers de l'archive non lus : %s." % ", ".join(unread), ""]
+    if unranked:
+        out += ["Inclassables par la qualité de code, placés après les membres classés et ordonnés sur l'indice "
+                "d'intelligence qui en tient lieu : %s." % ", ".join(unranked), ""]
+    return out
+
+
+def contracts_section(result):
+    """The section "Contrats par routeur" of the weekly issue, in French: one table per router, the
+    order the contract would give against the current one, the floors side by side, and what the
+    mapping does not cover. A report, whose every violation is information."""
+    report = result.get("contracts")
+    if not report:
+        return []
+    out = ["## Contrats par routeur", ""]
+    if report["status"] == "invalid":
+        out += ["Le fichier `.github/LiteLLM_router_contracts.yaml` n'a pas la forme attendue, rien n'est "
+                "calculé cette semaine :", ""]
+        return out + capped(["- " + " ".join(problem.split()) for problem in report["problems"]]) + [""]
+    if report["status"] == "error":
+        return out + ["Le calcul a échoué (%s) : rien n'est calculé cette semaine, et rien d'autre n'en "
+                      "dépend." % code_span(report["kind"]), ""]
+    fallback, epoch = report["fallback"], report["epoch"]
+    estimating = epoch["status"] == "read" and epoch["eci"] > 0
+    out += ["Les cascades lues contre `.github/LiteLLM_router_contracts.yaml`, d'après les chiffres "
+            "d'Artificial Analysis lus le %s (<%s>)%s. **C'est un rapport** : rien ne change une cascade, une "
+            "entrée ni une ligne `head`, et un écart n'est qu'une information : un membre dit inclassable ou "
+            "sous le plancher n'est retiré d'aucune cascade. Aucun délai ne rend un membre inéligible : la "
+            "seule borne est le plancher d'intelligence (et les appels d'outils pour `claude-code`), le délai "
+            "moyen avant le premier jeton de la réponse ne sert qu'à ordonner. Le niveau retenu pour un "
+            "modèle s'obtient en montant de niveau tant que chaque seconde de plus avant la première réponse "
+            "rapporte au moins le nombre de points d'indice que le routeur demande. Un membre sous le plancher "
+            "passe au dernier recours. L'échelle "
+            "d'intelligence est comprimée dans le bas, où deux points séparent des modèles qu'on ne mettrait "
+            "pas dans la même classe, et la plupart des enregistrements n'ont aucun indice : %s."
+            % (report["date"], RANKING_SITE,
+               "" if not report["provisional"] else " ; les contrats sont **provisoires** jusqu'à validation "
+               "du mainteneur",
+               "un membre qui n'en a pas au niveau où il est appelé est placé sur une estimation tirée de "
+               "l'indice de capacités d'Epoch AI quand celui-ci le couvre, et signalé inclassable sinon "
+               "(il reste alors où il est)" if estimating else
+               "ces membres restent où ils sont, signalés inclassables%s" % (
+                   "" if not fallback else ", tant que l'indice de repli (%s) n'est pas lu"
+                   % safe_text(fallback["source"], 80))), ""]
+    if estimating:
+        out += ["Indice de capacités d'Epoch AI (ECI), lu le %s dans la même archive : %s (<%s>). Il est converti à "
+                "l'échelle de l'indice d'intelligence par les points de calibration du fichier, une droite par "
+                "morceaux prolongée au-delà de ses extrémités par la pente du dernier segment et bornée à 0 : "
+                "tout chiffre ainsi obtenu est une **estimation**, marquée « estimé » partout où il sert, soit "
+                "pour un plancher qui nomme un modèle d'Epoch AI, soit pour placer un membre qui n'a pas d'indice "
+                "au niveau où il est appelé (le niveau retenu et le délai restent ceux d'Artificial Analysis)."
+                % (epoch["date"], EPOCH_ATTRIBUTION, EPOCH_SITE), ""]
+    else:
+        out += ["L'indice de capacités d'Epoch AI (ECI) n'est pas lu%s : un plancher qui s'y ancre est introuvable et "
+                "ne juge personne, et aucun membre n'est placé sur une estimation."
+                % (", l'archive étant %s" % epoch_status_text(epoch) if epoch["status"] != "read"
+                   else " (%s)" % safe_text(epoch["skipped"].get(EPOCH_ECI_KEY, "il ne contient aucun modèle"), 80)), ""]
+    if (report["version"] is not None and report["wanted_version"] is not None
+            and report["version"] != report["wanted_version"]):
+        out += ["**L'indice d'intelligence est maintenant en version %g, les planchers sont écrits pour la "
+                "version %g : à revoir avant de se fier à une ligne.**" % (report["version"],
+                                                                         report["wanted_version"]), ""]
+    for router in report["routers"]:
+        contract = router["contract"]
+        out += ["### `%s`" % router["name"], ""]
+        if router["base"]:
+            out += ["Dérivé de `%s` : mêmes plancher (%s), taux d'échange (%g points par seconde) et classement, et les "
+                    "modèles sans appels d'outils en sont exclus." % (
+                        router["base"], floor_text(contract["intelligence_floor"]),
+                        contract["level_gain"]["min_points_per_second"]), ""]
+        else:
+            out += ["%s, un niveau de plus tant qu'il rapporte au moins %g points d'indice par seconde de plus, classé par %s." % (
+                "Aucun plancher" if contract["intelligence_floor"].get("none")
+                else "Plancher %s" % floor_text(contract["intelligence_floor"]), contract["level_gain"]["min_points_per_second"],
+                ranking_text(contract, report["epoch"])), ""]
+        out += ["| Membre | Enregistrement | Appelé à | Indice | Délai (s) | Jetons/s | Niveau retenu | Verdict |",
+                "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+        out += ["| %s |" % " | ".join(contract_cells(row)) for row in router["rows"]]
+        out += ["", "Ordre actuel : %s." % " > ".join("`%s`" % safe_text(name, 60) for name in router["current"]),
+                "", "Ordre des contrats : %s." % (" > ".join("`%s`" % safe_text(name, 60)
+                                                           for name in router["proposed"]) or "aucun membre"), ""]
+        if report["epoch"]["status"] == "read":
+            out += quality_lines(router, report["epoch"])
+        if router["base"]:
+            out += derivation_lines(router)
+        if len(router["floors"]) > 1:
+            out += ["Effet de chaque plancher :", "", "| Plancher | En tête | Dernier recours |",
+                    "| --- | --- | --- |"]
+            out += ["| %s (%s)%s | %s | %s |" % (
+                floor_figure(effect["floor"]), effect["text"], " (proposé)" if effect["floor"] == contract["intelligence_floor"]["value"] else "",
+                names_text(effect["main"]), names_text(effect["last"])) for effect in router["floors"]]
+            out.append("")
+    for title, entries in (
+            ("Entrées sans correspondance (à ajouter au fichier des contrats)",
+             ["`%s`" % safe_text(name, 60) for name in report["unmapped"]]),
+            ("Entrées sans enregistrement chez Artificial Analysis",
+             ["`%s`" % safe_text(name, 60) for name in report["no_record"]]),
+            ("Correspondances sans entrée (l'entrée n'est plus au modèle, la ligne est à retirer du fichier des contrats)",
+             ["`%s` (%s)" % (safe_text(name, 60), "correspondance" if where == "models"
+                             else "dernier recours de `%s`" % safe_text(where, 20)) for where, name in report["absent"]]),
+            ("Noms absents de l'indice de capacités d'Epoch AI (le nom est à corriger dans le fichier des contrats)",
+             ["`%s` : `%s`" % (safe_text(entry, 60), safe_text(name, 60)) if entry
+              else "ancre d'un plancher : `%s`" % safe_text(name, 60) for entry, name in report["eci_stale"]]),
+            ("Correspondances périmées (l'enregistrement n'est plus au classement)",
+             ["`%s` : `%s`" % (safe_text(name, 60), safe_text(slug, 80)) for name, slug in report["stale"]]),
+            ("Appelées à un niveau que le classement ne couvre pas",
+             ["`%s` appelé à `%s`, classé à : %s" % (
+                 safe_text(name, 60), safe_text(found["called"], 20),
+                 ", ".join(sorted({level_text(other) for other in found["family"]}, key=level_rank)))
+              for name, found in report["uncovered"]])):
+        if entries:
+            out += ["%s :" % title, ""] + capped(["- " + entry for entry in entries]) + [""]
+    return out
 
 
 # ------------------------------------------------------------------------------------------------
@@ -2926,6 +4209,16 @@ def render_text(result, config_name):
                      "Analysis, %s" % (len(ranking["models"]), sum(1 for row in rows if row["model"]),
                                        len(rows), RANKING_SITE))
         out.append("%-11s %s" % ("rankings", state))
+    epoch = result.get("epoch")
+    if epoch:
+        if epoch["status"] == "error":
+            state = "ERROR, not read: %s" % epoch["error"]
+        else:
+            state = "read, %d of the %d benchmark file(s) and %d model(s) of the capabilities index%s; source: %s, %s" % (
+                len(epoch["files"]), len(EPOCH_FILES), len(epoch.get("eci") or {}),
+                "".join(" (%s: %s)" % (key, reason) for key, reason in epoch["skipped"].items()),
+                EPOCH_ATTRIBUTION, EPOCH_SITE)
+        out.append("%-11s %s" % ("epoch", state))
     out.append("")
 
     labels = {
@@ -3326,6 +4619,7 @@ def issue_body(result, config_name, link, snippets):
 
     out += proposals_section(result)
     out += ranking_section(result)
+    out += contracts_section(result)
 
     if result["rules"]:
         out += ["## Règles du fichier", "",
@@ -4646,8 +5940,15 @@ def canned_opener(answers, calls):
             return json.dumps({"id": identifier}).encode()
         raise http_error(404)
 
-    def opener(url, headers):
+    def opener(url, headers, limit=None):
         calls.append((url, dict(headers)))
+        if url == EPOCH_URL:
+            # The archive of Epoch AI, which a case serves in "answers" as bytes, and which nobody
+            # served is a 404.
+            answer = answers.get("epoch", http_error(404))
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
         for name, base in LOOKUPS.items():
             if url.startswith(base):
                 return lookup(name, urllib.parse.unquote(url[len(base):]))
@@ -8365,6 +9666,1534 @@ def run_pricing_page_cases():
     return failures
 
 
+# The router contracts, played on made-up records only: no figure of Artificial Analysis is held here.
+# A template of five cascades over entries named after the alphabet, a contract for each router, and
+# ranking records shaped to hit each verdict, each boundary and each way a mapping can go wrong.
+CONTRACT_TEMPLATE = """\
+model_list:
+""" + "".join("""  - model_name: %s
+    litellm_params:
+      model: groq/vendor/%s-model
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+""" % (name, name) for name in (
+    "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo",
+    "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra")) + """\
+router_settings:
+  fallbacks:
+    - pro: [alpha, charlie, delta, echo, india, juliet, foxtrot]
+    - flash: [bravo, kilo, lima, hotel, golf, mike, papa, romeo]
+    - flash-lite: [kilo, india, bravo, lima, quebec]
+    - code: [alpha, delta, november, oscar, sierra]
+    - claude-code: [alpha, echo, november, delta, quebec]
+  model_group_alias:
+    "pro": "alpha"
+    "flash": "bravo"
+    "flash-lite": "kilo"
+    "code": "alpha"
+    "claude-code": "alpha"
+"""
+
+
+def contract_router(anchor, rate, criterion="intelligence", last_resort=(), candidates=None):
+    ranking = {"criterion": criterion, "reason": "selftest"}
+    if criterion != "first_answer":
+        ranking["tie_margin_points"] = 2
+    if criterion == "code_quality":
+        ranking.update(source="Epoch AI selftest source", source_status="read", stand_in="intelligence")
+    contract = {"intelligence_floor": {"anchor": anchor, "reason": "selftest"},
+                "level_gain": {"min_points_per_second": rate, "reason": "selftest"},
+                "ranking": ranking, "last_resort": {"members": list(last_resort), "reason": "selftest"}}
+    if candidates:
+        contract["intelligence_floor"]["candidates"] = list(candidates)
+    return contract
+
+
+def contract_mapping(slug, level, tools="yes"):
+    return {"slug": slug, "level": level, "level_source": "selftest",
+            "tools": {"support": tools, "source": "selftest"}}
+
+
+def contract_document():
+    """The contracts the cases read: a fresh one at every call, since a case edits it."""
+    return {
+        "status": "provisional", "index_version": 5,
+        "fallback_index": {"source": "Epoch selftest", "status": "not read yet", "method": "selftest",
+                           "uncertainty": "selftest", "points": [[140, 4], [150, 20], [160, 20], [170, 50]]},
+        "routers": {
+            "pro": contract_router({"entry": "alpha", "level": "low"}, 0.2, last_resort=("juliet", "foxtrot"),
+                                   candidates=({"entry": "sierra"}, {"entry": "alpha", "level": "low"},
+                                               {"entry": "alpha", "level": "high"})),
+            "flash": contract_router({"entry": "mike"}, 0.5,
+                                     candidates=({"entry": "mike"}, {"entry": "charlie", "level": "non-reasoning"})),
+            "flash-lite": contract_router({"entry": "india"}, 1.5, criterion="first_answer"),
+            "code": contract_router({"entry": "alpha", "level": "low"}, 0.2, criterion="code_quality"),
+            "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
+        },
+        "models": {
+            "alpha": dict(contract_mapping("alpha-medium", "medium"), epoch={"deepswe_external": ["alpha_medium"]}),
+            "bravo": contract_mapping("bravo", "n/a"),
+            "charlie": contract_mapping("charlie", "unknown"),
+            "delta": contract_mapping("delta-high", "medium"),
+            "echo": contract_mapping("echo", "n/a"),
+            "foxtrot": {"no_record": "a router: no record describes it",
+                        "tools": {"support": "unknown", "source": "selftest"}},
+            "golf": contract_mapping("golf-gone", "high"),
+            "india": contract_mapping("india", "n/a"),
+            "juliet": contract_mapping("juliet", "unknown"),
+            "kilo": contract_mapping("kilo", "n/a"),
+            "lima": contract_mapping("lima-high", "high"),
+            "mike": contract_mapping("mike", "medium"),
+            "november": contract_mapping("twin", "high", tools="no"),
+            "oscar": contract_mapping("oscar", "high", tools="unknown"),
+            "papa": contract_mapping("papa", "n/a"),
+            "quebec": contract_mapping("quebec", "n/a", tools="unknown"),
+            "romeo": contract_mapping("romeo", "n/a"),
+            "sierra": contract_mapping("sierra", "n/a"),
+        },
+    }
+
+
+def timed_model(slug, name, intelligence=None, first_answer=None, speed=100.0):
+    model = ranking_model(slug, name, intelligence, None, speed)
+    model["performance_v3"]["mean_time_to_first_answer_token_seconds"] = first_answer
+    return model
+
+
+def contract_records():
+    """Ranking records for the contracts above: figures are (intelligence, seconds to the first answer
+    token), and a family is told by the suffix of its names, as the real ones are."""
+    return [
+        timed_model("alpha-low", "Alpha (Low)", 20, 5), timed_model("alpha-medium", "Alpha (Medium)", 30, 12),
+        timed_model("alpha-high", "Alpha (High)", 40, 25), timed_model("alpha", "Alpha (Xhigh)", 50, 60),
+        timed_model("bravo", "Bravo @bob <img src=x> | `x` ::error::", 12, 4),
+        timed_model("charlie", "Charlie (Reasoning)", 40, 20), timed_model("charlie-non", "Charlie (Non-reasoning)", 15, 2),
+        timed_model("delta-low", "Delta (Low)", 12, 3), timed_model("delta-high", "Delta (High)", 45, 40),
+        timed_model("echo", "Echo", None, 3), timed_model("india", "India", 8, 2),
+        timed_model("juliet", "Juliet", None, 50), timed_model("kilo", "Kilo", 13.5, 6),
+        timed_model("lima-high", "Lima (High)", 60, 90), timed_model("lima-low", "Lima (Low)", 15, 8),
+        timed_model("mike", "Mike", 10, 20),
+        timed_model("twin", "November One", 30, 5), timed_model("twin", "November Two", 31, 6),
+        timed_model("oscar", "Oscar (High)", 50, 99), timed_model("papa", "Papa", 12, 1), timed_model("romeo", "Romeo", 9, 20),
+        timed_model("quebec", "Quebec", 30, None), timed_model("sierra", "Sierra", 5, 50),
+    ]
+
+
+def contract_ranking(models=None, version=5.0):
+    page = ranking_page(*(contract_records() if models is None else models))
+    page["intelligence_index_version"] = version
+    return {"status": "read", "date": "2026-01-01", "index_version": version,
+            "models": read_ranking_models(page)}
+
+
+def contract_rows(report, router):
+    found = next(entry for entry in report["routers"] if entry["name"] == router)
+    return {row["name"]: row for row in found["rows"]}, found
+
+
+def run_contract_cases():
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    template, problems = read_template(CONTRACT_TEMPLATE)
+    if template is None or problems:
+        print("selftest: BROKEN CASE (the contracts' template) -- %r" % problems)
+        return failures + 1
+    document = contract_document()
+    judged("the baseline contracts have no structural problem",
+           first_wrong((contracts_problems(document, template) == [], "got %r" % contracts_problems(document, template))))
+
+    # Reading a record's level from its name.
+    judged("the level is the last parenthesis when it names one, and a name otherwise",
+           first_wrong(
+               (split_level("Gemini 4 Hydrogen (Low)") == ("Gemini 4 Hydrogen", "low"), "a plain level"),
+               (split_level("Qwen (Non-reasoning)") == ("Qwen", "non-reasoning"), "non-reasoning"),
+               (split_level("Model (Sep '25) (Reasoning)") == ("Model (Sep '25)", "reasoning"), "two parentheses"),
+               (split_level("Model (Low, Default Fallback)") == ("Model (Low, Default Fallback)", None), "a fallback"),
+               (split_level("Model (Xhigh)") == ("Model", "xhigh"), "xhigh"),
+               (split_level("Model (Max)") == ("Model", "max"), "max"),
+               (split_level("Model (Minimal)") == ("Model", "minimal"), "minimal"),
+               (split_level("Plain Model") == ("Plain Model", None), "no parenthesis"),
+               (split_level("Model  ( Low )") == ("Model", "low"), "blanks around a level"),
+               (split_level("  Plain Model  ") == ("Plain Model", None), "blanks around a name")))
+    judged("a time is a positive finite number of seconds, and anything else is none",
+           first_wrong(
+               (seconds_figure(1.5) == 1.5 and seconds_figure(3) == 3.0, "a time was refused"),
+               (seconds_figure(0) is None and seconds_figure(-2) is None, "zero or less was taken for a time"),
+               (seconds_figure("3") is None and seconds_figure(True) is None and seconds_figure(None) is None
+                and seconds_figure(float("nan")) is None, "a non-number was taken for a time")))
+
+    # The ranking keeps what the contracts need, and the rest as before.
+    models = read_ranking_models(ranking_page(
+        timed_model("some-slug", "Some Name", 33, 4.5, 80), timed_model("bad slug//", "Odd", 1, 0, 50),
+        timed_model("no-time", "Slow", 1, "fast", 50)))
+    judged("the ranking keeps the slug and the time to the first answer token beside its other figures",
+           first_wrong(
+               (models[0]["slug"] == "some-slug" and models[0]["first_answer"] == 4.5, "slug or time lost: %r" % models[0]),
+               (models[0]["intelligence"] == 33.0 and models[0]["speed"] == 80.0 and models[0]["name"] == "Some Name",
+                "a figure the other code reads was dropped"),
+               (models[1]["slug"] == "" and models[1]["first_answer"] is None, "an unsafe slug or a zero time was kept"),
+               (models[2]["first_answer"] is None, "a time that is no number was kept")))
+    answers = ranking_answers(ranking_model("m", "M", 1, 1, 1))
+    answers["rankings"]["intelligence_index_version"] = 5.0
+    result, _, _, _ = ranking_run(RANKING_KEYS, answers)
+    judged("the version of the index the ranking was read at is kept",
+           first_wrong((result["rankings"]["index_version"] == 5.0, "got %r" % result["rankings"].get("index_version"))))
+
+    # The level a router keeps: climb while the next level buys at least the router's gain.
+    family = ranking_families(read_ranking_models(ranking_page(*contract_records())))[1]["alpha"]
+    hydra = ranking_families(read_ranking_models(ranking_page(
+        timed_model("hy-xhigh", "Hy (Xhigh)", 53, 40), timed_model("hy-low", "Hy (Low)", 26, 8),
+        timed_model("hy-high", "Hy (High)", 50, 20), timed_model("hy-medium", "Hy (Medium)", 41, 12),
+        timed_model("sun-low", "Sun (Low)", 22.5, 5), timed_model("sun-medium", "Sun (Medium)", 30, 9),
+        timed_model("sun-high", "Sun (High)", 30.8, 15),
+        timed_model("zed-low", "Zed (Low)", None, 1), timed_model("zed-medium", "Zed (Medium)", 10, 2),
+        timed_model("zed-high", "Zed (High)", 30, 3), timed_model("nil-low", "Nil (Low)", None, 1),
+        timed_model("wil-low", "Wil (Low)", 10, None), timed_model("wil-medium", "Wil (Medium)", 30, 5),
+        timed_model("fast-low", "Fast (Low)", 10, 5), timed_model("fast-medium", "Fast (Medium)", 20, 5),
+        timed_model("fast-high", "Fast (High)", 25, 4),
+        timed_model("flat-low", "Flat (Low)", 20, 5), timed_model("flat-medium", "Flat (Medium)", 20, 9))))[1]
+
+    def kept(name, rate):
+        record = chosen_level(hydra[name], rate)
+        return record and record["level"]
+
+    judged("the level kept climbs while each extra second buys at least the rate asked, the first step that buys less being the last, whatever the order the records come in",
+           first_wrong(
+               # Hy: Low to Medium 3.75 points a second, Medium to High 1.125, High to Xhigh 0.15.
+               (kept("hy", 0.1) == "xhigh", "a rate of 0.1 does not climb Hy to the top: %r" % kept("hy", 0.1)),
+               (kept("hy", 0.2) == "high", "a rate of 0.2 does not stop Hy at High: %r" % kept("hy", 0.2)),
+               (kept("hy", 2) == "medium", "a rate of 2 does not stop Hy at Medium: %r" % kept("hy", 2)),
+               (kept("hy", 4) == "low", "a rate of 4 does not keep Hy at Low: %r" % kept("hy", 4)),
+               (kept("hy", 3.75) == "medium", "a step that buys exactly the rate asked is not taken"),
+               (kept("hy", 0) == "xhigh", "a rate of 0 does not climb to the top"),
+               (kept("sun", 0.2) == "medium" and kept("sun", 2) == "low", "Sun: %r, %r" % (kept("sun", 0.2), kept("sun", 2))),
+               (kept("zed", 5) == "high" and kept("zed", 25) == "medium", "a level with no index was climbed from or through: %r" % kept("zed", 5)),
+               (kept("nil", 0) is None, "a family with no index keeps a level"),
+               (kept("wil", 0) == "low", "a step whose time is unknown was taken: %r" % kept("wil", 0)),
+               (kept("fast", 1000) == "high", "a step that is no slower, or faster, and buys points was refused: %r" % kept("fast", 1000)),
+               (kept("flat", 0) == "low", "a step that buys no points was taken: %r" % kept("flat", 0)),
+               (chosen_level(family, 0.28)["level"] == "xhigh" and chosen_level(family, 0.3)["level"] == "high"
+                and chosen_level(family, 0.8)["level"] == "medium" and chosen_level(family, 1.5)["level"] == "low", "alpha"),
+               (chosen_level([], 1) is None, "an empty family keeps a level")))
+
+    def tie_rows(*figures):
+        return [{"position": number, "name": name, "intelligence": quality, "first_answer": seconds,
+                 "record": {"intelligence": quality, "first_answer": seconds}}
+                for number, (name, quality, seconds) in enumerate(figures)]
+
+    judged("members less than the margin apart in quality are ordered by time, the shortest first, one with no time last, and a gap of exactly the margin starts a new group",
+           first_wrong(
+               ([row["name"] for row in time_ties(tie_rows(("a", 30, 9), ("b", 29, 3), ("c", 28.5, None), ("d", 28.2, 1)), 2)]
+                == ["d", "b", "a", "c"], "a group of four"),
+               ([row["name"] for row in time_ties(tie_rows(("a", 30, 9), ("b", 28, 3)), 2)] == ["a", "b"], "a gap of exactly 2 joined the group"),
+               ([row["name"] for row in time_ties(tie_rows(("a", 30, 9), ("b", 29.9, 3), ("c", 27.5, 1)), 2)] == ["b", "a", "c"],
+                "the group of the next member is measured from the best of the previous one"),
+               ([row["name"] for row in time_ties(tie_rows(("a", 30, 5), ("b", 30, 5)), 2)] == ["a", "b"], "equal times left the current order"),
+               (time_ties([], 2) == [], "no member")))
+
+    report = contracts_report(template, contract_ranking(), document)
+    pro, pro_order = contract_rows(report, "pro")
+    flash, flash_order = contract_rows(report, "flash")
+    lite, lite_order = contract_rows(report, "flash-lite")
+    code, code_order = contract_rows(report, "code")
+    claude, claude_order = contract_rows(report, "claude-code")
+
+    judged("a member that reaches the floor conforms whatever its time, with its figures, the level it is called at and the level the router would keep",
+           first_wrong(
+               (pro["alpha"]["kind"] == "conforming" and pro["alpha"]["verdict"] == "conforme", "alpha: %r" % pro["alpha"]["verdict"]),
+               (pro["alpha"]["record"]["slug"] == "alpha-medium" and pro["alpha"]["record"]["intelligence"] == 30.0
+                and pro["alpha"]["record"]["first_answer"] == 12.0, "alpha's record is not the medium one"),
+               (pro["alpha"]["kept"]["slug"] == "alpha" and code["alpha"]["kept"]["slug"] == "alpha", "alpha is not kept at xhigh, 0.2 points a second"),
+               (flash["lima"]["kind"] == "conforming" and flash["lima"]["verdict"] == "conforme", "a slow member was refused: %r" % flash["lima"]["verdict"]),
+               (code["oscar"]["kind"] == "conforming" and code["oscar"]["verdict"] == "conforme", "oscar, at 99 s: %r" % code["oscar"]["verdict"]),
+               (flash["lima"]["kept"]["slug"] == "lima-high", "lima's level was not kept at high, 45 points for 82 s"),
+               (flash["bravo"]["kept"]["slug"] == "bravo", "a family of one has no level to keep")))
+    judged("a member exactly at the floor conforms, one under it goes to the last resort tier and is not refused",
+           first_wrong(
+               (flash["mike"]["kind"] == "conforming", "mike, at the floor of 10, is refused: %r" % flash["mike"]["verdict"]),
+               (pro["india"]["kind"] == "below_floor" and pro["india"]["verdict"] == "sous le plancher (8.0 contre 20) : dernier recours",
+                "india: %r" % pro["india"]["verdict"]),
+               (flash["romeo"]["kind"] == "below_floor" and flash["romeo"]["verdict"] == "sous le plancher (9.0 contre 10) : dernier recours",
+                "romeo: %r" % flash["romeo"]["verdict"]),
+               (code["sierra"]["kind"] == "below_floor" and code["sierra"]["verdict"] == "sous le plancher (5.0 contre 20) : dernier recours",
+                "sierra, slow and weak, is under the floor and nothing more: %r" % code["sierra"]["verdict"])))
+    judged("a model with no index cannot be ranked; one with no time cannot be placed only where the router is ordered by time",
+           first_wrong(
+               (pro["echo"]["kind"] == "unrankable" and pro["echo"]["verdict"] == "inclassable : pas d'indice",
+                "echo: %r" % pro["echo"]["verdict"]),
+               (lite["quebec"]["kind"] == "unrankable" and lite["quebec"]["verdict"] == "inclassable : pas de délai",
+                "quebec in flash-lite: %r" % lite["quebec"]["verdict"]),
+               (claude["quebec"]["kind"] == "conforming" and claude["quebec"]["verdict"] == "conforme ; appels d'outils inconnus",
+                "quebec in claude-code, whose order does not need its time: %r" % claude["quebec"]["verdict"]),
+               (claude["quebec"]["kept"]["slug"] == "quebec", "the level of a record with no time was lost")))
+    judged("the last resort is exempt from the floor",
+           first_wrong(
+               (pro["juliet"]["last_resort"] and pro["juliet"]["kind"] == "conforming"
+                and pro["juliet"]["verdict"] == "conforme (dernier recours)",
+                "juliet, with no index, in the last resort: %r" % pro["juliet"]["verdict"]),
+               (not pro["alpha"]["last_resort"], "a member was taken for the last resort")))
+    judged("an unknown level is unverified where the family has several levels, and no more where it has one; a called level the ranking lacks is unverified",
+           first_wrong(
+               (pro["charlie"]["verdict"] == "variante non vérifiée" and pro["charlie"]["found"]["unverified"] == "unknown",
+                "charlie: %r" % pro["charlie"]["verdict"]),
+               (pro["delta"]["verdict"] == "variante non vérifiée" and pro["delta"]["found"]["unverified"] == "uncovered",
+                "delta: %r" % pro["delta"]["verdict"]),
+               (lite["bravo"]["found"]["unverified"] is None and lite["bravo"]["kind"] == "conforming", "a level that does not apply is unverified"),
+               (flash["mike"]["found"]["unstated"] and flash["mike"]["found"]["unverified"] is None,
+                "a single record whose level is not stated was refused for the level called"),
+               (not pro["alpha"]["found"]["unstated"], "a record that states its level is said not to")))
+    judged("a record is the one at the level called, even when the mapping names another",
+           first_wrong(
+               (flash["lima"]["record"]["slug"] == "lima-high", "lima: %r" % flash["lima"]["record"]["slug"]),
+               (code["delta"]["record"]["slug"] == "delta-high", "an unverified entry lost its mapped record")))
+    by_slug, families = ranking_families(read_ranking_models(ranking_page(
+        *contract_records(), timed_model("foo", "Foo", 5, 1), timed_model("foo-low", "Foo (Low)", 6, 2))))
+    wrong_slug = describe_entry(contract_mapping("lima-low", "high"), by_slug, families)
+    alone = describe_entry(contract_mapping("oscar", "medium"), by_slug, families)
+    mixed = describe_entry(contract_mapping("foo", "medium"), by_slug, families)
+    judged("an entry is described by the record of the level it is called at whichever record its slug names; a family with one record that states its level, or with an unlabeled record among others, does not cover another level",
+           first_wrong(
+               (wrong_slug["record"]["slug"] == "lima-high" and wrong_slug["unverified"] is None, "the record of the slug was kept: %r" % wrong_slug["record"]["slug"]),
+               (alone["unverified"] == "uncovered" and not alone["unstated"], "a single record that states High covers medium"),
+               (mixed["unverified"] == "uncovered" and not mixed["unstated"], "an unlabeled record among others covers medium")))
+    fewer = contracts_report(read_template(CONTRACT_TEMPLATE.replace("    - claude-code: [alpha, echo, november, delta, quebec]\n", ""))[0],
+                             contract_ranking(), document)
+    without_lite = contract_document()
+    del without_lite["routers"]["flash-lite"]
+    judged("a router with no cascade in the template, or with no contract, is left out of the report",
+           first_wrong(
+               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
+               ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
+                == ["pro", "flash", "code", "claude-code"], "no contract")))
+
+    def derivation_text(**changes):
+        differences = {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}
+        differences.update(changes)
+        return derivation_lines({"name": "c", "base": "b", "differences": differences})
+
+    judged("a derived cascade is said to be the one it derives from only when no difference is left, a member of unknown tools being no difference",
+           first_wrong(
+               (derivation_text()[0].startswith("La cascade de `c` est la cascade de `b`"), "no difference, and not said so"),
+               (derivation_text(unknown=["u"])[0].startswith("La cascade de `c` est la cascade de `b`"), "a member of unknown tools is a difference"),
+               *[(derivation_text(**{key: value})[0].startswith("La cascade de `c` n'est **pas** la cascade de `b`"), "%s is no difference" % key)
+                 for key, value in (("extra", ["x"]), ("refused", ["x"]), ("missing", ["x"]), ("unordered", True))]))
+    judged("a name the file does not map, a slug the ranking lost, an ambiguous slug and a model with no record are each said",
+           first_wrong(
+               (flash["hotel"]["kind"] == "unmapped" and flash["hotel"]["verdict"] == "sans correspondance", "hotel: %r" % flash["hotel"]["verdict"]),
+               (flash["golf"]["kind"] == "stale" and flash["golf"]["verdict"] == "correspondance périmée", "golf: %r" % flash["golf"]["verdict"]),
+               (code["november"]["kind"] == "stale", "a slug two records share was believed"),
+               (pro["foxtrot"]["kind"] == "no_record" and pro["foxtrot"]["verdict"] == "sans enregistrement", "foxtrot: %r" % pro["foxtrot"]["verdict"]),
+               (report["unmapped"] == ["hotel"], "unmapped: %r" % report["unmapped"]),
+               (report["no_record"] == ["foxtrot"], "no record: %r" % report["no_record"]),
+               (report["stale"] == [("golf", "golf-gone"), ("november", "twin")], "stale: %r" % report["stale"]),
+               ([name for name, _ in report["uncovered"]] == ["delta"], "uncovered: %r" % report["uncovered"])))
+    judged("the order the contract gives puts the conforming first, by quality with the time deciding within the margin or by time alone for flash-lite, then the last resort tier, and leaves the rest out",
+           first_wrong(
+               (pro_order["proposed"] == ["alpha", "india", "juliet", "foxtrot"], "pro: %r" % pro_order["proposed"]),
+               (flash_order["proposed"] == ["lima", "papa", "bravo", "kilo", "mike", "romeo"], "flash: %r" % flash_order["proposed"]),
+               (lite_order["proposed"] == ["india", "bravo", "kilo", "lima"], "flash-lite goes by time: %r" % lite_order["proposed"]),
+               (code_order["proposed"] == ["oscar", "alpha", "sierra"], "code: %r" % code_order["proposed"]),
+               (claude_order["proposed"] == ["alpha", "quebec"], "claude-code: %r" % claude_order["proposed"]),
+               (flash_order["current"] == ["bravo", "kilo", "lima", "hotel", "golf", "mike", "papa", "romeo"], "the current order moved"),
+               (report["provisional"] and report["version"] == 5.0 and report["wanted_version"] == 5.0, "the header facts")))
+    def played(order):
+        return [{key: value for key, value in effect.items() if key != "text"} for effect in order["floors"]]
+
+    judged("each floor a contract proposes is played side by side, each named by the record it is the index of: who stays in front, who goes to the last resort tier",
+           first_wrong(
+               (played(pro_order) == [{"floor": 5, "main": ["alpha", "india"], "last": ["juliet", "foxtrot"]},
+                                      {"floor": 20, "main": ["alpha"], "last": ["india", "juliet", "foxtrot"]},
+                                      {"floor": 40, "main": [], "last": ["alpha", "india", "juliet", "foxtrot"]}],
+                "pro: %r" % played(pro_order)),
+               ([effect["text"] for effect in pro_order["floors"]] == ["Sierra", "Alpha (Low)", "Alpha (High)"],
+                "the anchors are not named: %r" % [effect["text"] for effect in pro_order["floors"]]),
+               (played(flash_order) == [{"floor": 10, "main": ["lima", "papa", "bravo", "kilo", "mike"], "last": ["romeo"]},
+                                        {"floor": 15, "main": ["lima"], "last": ["bravo", "kilo", "mike", "papa", "romeo"]}],
+                "flash: %r" % played(flash_order)),
+               (played(lite_order) == [{"floor": 8, "main": ["india", "bravo", "kilo", "lima"], "last": []}],
+                "a contract with no candidates is played at its own floor: %r" % played(lite_order))))
+    anchor_slugs, anchor_families = ranking_families(contract_ranking()["models"])
+
+    def anchored(entry, level=None):
+        return anchor_floor(dict({"entry": entry}, **({"level": level} if level else {})), document["models"], anchor_slugs, anchor_families)
+
+    judged("an anchor is read from the ranking: the record of the entry, or the level of its family that it names; one that cannot be read has no value and says why",
+           first_wrong(
+               (anchored("alpha") == (30.0, "Alpha (Medium)"), "the record of the entry: %r" % (anchored("alpha"),)),
+               (anchored("alpha", "high") == (40.0, "Alpha (High)"), "a level of the family: %r" % (anchored("alpha", "high"),)),
+               (anchored("alpha", "low") == (20.0, "Alpha (Low)"), "the lowest level: %r" % (anchored("alpha", "low"),)),
+               (anchored("echo") == (None, "Echo : pas d'indice"), "an entry whose record has no index: %r" % (anchored("echo"),)),
+               (anchored("alpha", "max")[0] is None and "pas de niveau max" in anchored("alpha", "max")[1], "a level the family lacks"),
+               (anchored("zulu")[0] is None and "aucun enregistrement associé" in anchored("zulu")[1], "an entry with no mapping"),
+               (anchored("golf")[0] is None and "enregistrement introuvable" in anchored("golf")[1], "an entry whose record left the ranking"),
+               (anchored("foxtrot")[0] is None, "an entry that is a router, with no record")))
+    unread = contract_document()
+    unread["routers"]["pro"]["intelligence_floor"]["anchor"] = {"entry": "echo"}
+    unread_report = contracts_report(template, contract_ranking(), unread)
+    unread_pro, unread_order = contract_rows(unread_report, "pro")
+    unread_section = "\n".join(contracts_section({"contracts": unread_report}))
+    judged("a floor whose anchor cannot be read judges nothing: no member is under it, the floor has no value, the candidates still readable are compared, and the issue says that the anchor is not found",
+           first_wrong(
+               (unread_order["contract"]["intelligence_floor"]["value"] is None, "a floor of an unreadable anchor has a value"),
+               (not any(row["kind"] == "below_floor" for row in unread_pro.values()), "a member was put under a floor that is not there"),
+               ([effect["text"] for effect in unread_order["floors"]] == ["Sierra", "Alpha (Low)", "Alpha (High)"],
+                "the candidates, which can still be read, were not compared: %r" % unread_order["floors"]),
+               ("Plancher introuvable (Echo : pas d'indice), aucun membre n'est jugé sous le plancher" in unread_section,
+                "the unreadable anchor is not said: %s" % unread_section[:600])))
+
+    judged("a router that derives from another is held to its contract, requires tools of its members, and is checked against its cascade",
+           first_wrong(
+               (claude_order["base"] == "code" and claude_order["contract"]["level_gain"]["min_points_per_second"] == 0.2
+                and claude_order["contract"]["ranking"]["criterion"] == "code_quality", "the contract was not inherited"),
+               (code_order["base"] is None and code_order["differences"] is None, "a router with a contract of its own was derived"),
+               (claude["november"]["kind"] == "no_tools" and claude["november"]["verdict"] == "sans appels d'outils",
+                "a member with no tool calls was kept: %r" % claude["november"]["verdict"]),
+               (code["alpha"]["verdict"] == "conforme" and claude["alpha"]["verdict"] == "conforme",
+                "a member whose tools are declared was refused, or a router that needs none said so"),
+               (claude_order["differences"] == {"extra": ["echo", "quebec"], "refused": ["november"], "missing": ["sierra"],
+                                                "unordered": True, "unknown": ["oscar"]},
+                "differences: %r" % claude_order["differences"])))
+    judged("a derived cascade is the cascade it derives from, without the members that have no tools, in the same order",
+           first_wrong(
+               (derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "no", "c": "yes"})
+                == {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}, "the same cascade differs"),
+               (derivation_differences(["a", "b", "c"], ["c", "a"], {"a": "yes", "b": "no", "c": "yes"})["unordered"], "another order is the same"),
+               (derivation_differences(["a", "b", "c"], ["a", "b", "c"], {"a": "yes", "b": "no", "c": "yes"})["refused"] == ["b"],
+                "a member without tools was allowed"),
+               (derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "yes", "c": "yes"})["missing"] == ["b"],
+                "a member with tools was allowed to be missing"),
+               (derivation_differences(["a", "b", "c"], ["a"], {})
+                == {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": ["a", "b", "c"]},
+                "a member whose tools are not known was required or refused"),
+               (derivation_differences(["a", "b"], ["a", "x"], {"a": "yes", "b": "unknown"})["extra"] == ["x"], "an extra member went unsaid"),
+               (not derivation_differences(["a", "b", "c"], ["a", "c"], {"a": "yes", "b": "unknown", "c": "yes"})["unordered"],
+                "a member of unknown tools, left out, was taken for a change of order")))
+    # The ranking that does not hold a family at all, and a contract that is validated.
+    bare = contracts_report(template, contract_ranking([timed_model("bravo", "Bravo", 12, 4)]), dict(document, status="validated"))
+    judged("a ranking without the mapped models makes every mapping stale and no row resolved, and a validated file is not provisional",
+           first_wrong(
+               (not bare["provisional"], "a validated file is provisional"),
+               (len(bare["stale"]) == 16 and bare["no_record"] == ["foxtrot"], "stale: %r" % bare["stale"]),
+               (contract_rows(bare, "flash")[0]["bravo"]["kind"] == "conforming", "the one record there is was lost")))
+
+    # Structural problems: what the plain run fails on, each said once and by what it is about.
+    def mutated(change):
+        mutant = contract_document()
+        change(mutant)
+        return contracts_problems(mutant, template)
+
+    def set_in(path, value):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+        return change
+
+    def drop(*path):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            del target[path[-1]]
+        return change
+
+    structural = (
+        ("a router that does not exist", set_in(("routers", "ghost"), contract_router({"entry": "alpha"}, 5)), "the contract of \"ghost\" is that of no router"),
+        ("a router with no contract", drop("routers", "flash-lite"), 'the router "flash-lite" has no contract'),
+        ("a last resort naming something that is no name", set_in(("routers", "pro", "last_resort", "members"), [3]), 'must list its "members" by name'),
+        ("a mapping of a name that is no entry, with fields that are wrong", set_in(("models", "zulu"), {"slug": "a b"}), 'the mapping of "zulu" has no "slug" spelt like one'),
+        ("a last resort that is no list", set_in(("routers", "pro", "last_resort", "members"), "alpha"), 'must list its "members"'),
+        ("a gain that is a string", set_in(("routers", "pro", "level_gain", "min_points_per_second"), "4"), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain that is a boolean", set_in(("routers", "pro", "level_gain", "min_points_per_second"), True), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain below zero", set_in(("routers", "pro", "level_gain", "min_points_per_second"), -1), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a gain that is none", set_in(("routers", "pro", "level_gain", "min_points_per_second"), None), 'has a "min_points_per_second" that is not a number from 0 up'),
+        ("a level gain that is missing", drop("routers", "pro", "level_gain"), 'router "pro", "level_gain", is missing or is not a mapping'),
+        ("a level gain with no reason", drop("routers", "pro", "level_gain", "reason"), '"level_gain", has no "reason"'),
+        ("a tie margin that is missing", drop("routers", "pro", "ranking", "tie_margin_points"), 'must have a "tie_margin_points" that is a number from 0 up'),
+        ("a tie margin that is a string", set_in(("routers", "pro", "ranking", "tie_margin_points"), "2"), 'must have a "tie_margin_points"'),
+        ("a tie margin below zero", set_in(("routers", "pro", "ranking", "tie_margin_points"), -1), 'must have a "tie_margin_points"'),
+        ("a tie margin on code quality that is missing", drop("routers", "code", "ranking", "tie_margin_points"), 'must have a "tie_margin_points"'),
+        ("a floor with no anchor", drop("routers", "pro", "intelligence_floor", "anchor"), '"anchor" must be a mapping that names an "entry"'),
+        ("a floor that is a number, not an anchor", set_in(("routers", "pro", "intelligence_floor", "anchor"), 22.5), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor with no entry", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"level": "low"}), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor with an entry of blanks", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": " "}), '"anchor" must be a mapping that names an "entry"'),
+        ("an anchor naming an entry no mapping has", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "zulu"}), 'names "zulu", which "models" does not map'),
+        ("an anchor with a level that is none", set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "alpha", "level": "loud"}), 'has a "level" that is none of'),
+        ("a fallback that is no mapping", set_in(("fallback_index",), "eci"), '"fallback_index" is not a mapping'),
+        ("a fallback with no source", drop("fallback_index", "source"), '"fallback_index" has no "source"'),
+        ("a fallback with no status", drop("fallback_index", "status"), '"fallback_index" has no "status"'),
+        ("a fallback with no method", drop("fallback_index", "method"), '"fallback_index" has no "method"'),
+        ("a fallback with no uncertainty", set_in(("fallback_index", "uncertainty"), " "), '"fallback_index" has no "uncertainty"'),
+        ("a fallback with no points", drop("fallback_index", "points"), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback with empty points", set_in(("fallback_index", "points"), []), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback with a point of three", set_in(("fallback_index", "points"), [[140, 4, 1]]), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback with a point that is no pair", set_in(("fallback_index", "points"), [140]), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback with one good point and one of one number", set_in(("fallback_index", "points"), [[140, 4], [150]]), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback with one good point and one that is no number", set_in(("fallback_index", "points"), [[140, 4], [150, "5"]]), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback whose second step goes down", set_in(("fallback_index", "points"), [[140, 4], [150, 5], [145, 6]]), "do not go up with the source figure"),
+        ("a fallback whose second step lowers the index", set_in(("fallback_index", "points"), [[140, 4], [150, 5], [160, 4]]), "do not go up with the source figure"),
+        ("a fallback with a point that is no number", set_in(("fallback_index", "points"), [[140, "4"]]), 'must list its calibration "points" as pairs of numbers'),
+        ("a fallback whose source figure does not go up", set_in(("fallback_index", "points"), [[140, 4], [140, 5]]), "do not go up with the source figure"),
+        ("a fallback whose source figure goes down", set_in(("fallback_index", "points"), [[150, 4], [140, 5]]), "do not go up with the source figure"),
+        ("a fallback whose index goes down", set_in(("fallback_index", "points"), [[140, 6], [150, 5]]), "do not go up with the source figure"),
+        ("floor candidates that are no list", set_in(("routers", "pro", "intelligence_floor", "candidates"), "alpha"), 'must list its "candidates" as anchors'),
+        ("a floor candidate that is no anchor", set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "alpha"}, 5]), 'candidate 2 must be a mapping that names an "entry"'),
+        ("a floor candidate naming an entry no mapping has", set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "zulu"}]), 'candidate 1 names "zulu", which "models" does not map'),
+        ("a reason of blanks", set_in(("routers", "pro", "intelligence_floor", "reason"), "  "), '"intelligence_floor", has no "reason"'),
+        ("a reason that is no text", set_in(("routers", "pro", "ranking", "reason"), 5), '"ranking", has no "reason"'),
+        ("a last resort with no reason", drop("routers", "pro", "last_resort", "reason"), '"last_resort", has no "reason"'),
+        ("a block that is missing", drop("routers", "pro", "intelligence_floor"), "is missing or is not a mapping"),
+        ("a criterion that is none of the three", set_in(("routers", "pro", "ranking", "criterion"), "speed"),
+         '"criterion" among: intelligence, first_answer, code_quality'),
+        ("code quality with no source", drop("routers", "code", "ranking", "source"), 'must say its "source", its "source_status"'),
+        ("code quality with a source of blanks", set_in(("routers", "code", "ranking", "source"), " "), 'must say its "source", its "source_status"'),
+        ("code quality with no source status", drop("routers", "code", "ranking", "source_status"), 'must say its "source", its "source_status"'),
+        ("code quality with no stand-in", drop("routers", "code", "ranking", "stand_in"), 'a "stand_in" among: intelligence'),
+        ("code quality with a stand-in nobody knows", set_in(("routers", "code", "ranking", "stand_in"), "vibes"), 'a "stand_in" among: intelligence'),
+        ("a router derived from one that does not exist", set_in(("routers", "claude-code", "derives_from"), "ghost"),
+         'derives from "ghost", which is no router with a contract of its own'),
+        ("a router derived from itself", set_in(("routers", "claude-code", "derives_from"), "claude-code"),
+         'derives from "claude-code", which is no router with a contract of its own'),
+        ("a router derived from a derived one", set_in(("routers", "code"), {"derives_from": "pro", "requires": [], "reason": "x"}),
+         'derives from "code", which is no router with a contract of its own'),
+        ("a derived router requiring what nobody knows", set_in(("routers", "claude-code", "requires"), ["telepathy"]),
+         'must list what it "requires" among: tools'),
+        ("a derived router whose requirements are no list", set_in(("routers", "claude-code", "requires"), "tools"),
+         'must list what it "requires" among: tools'),
+        ("a derived router requiring one thing known and one not", set_in(("routers", "claude-code", "requires"), ["tools", "telepathy"]),
+         'must list what it "requires" among: tools'),
+        ("a derived router with no reason", drop("routers", "claude-code", "reason"), 'router "claude-code" has no "reason"'),
+        ("a status that is neither", set_in(("status",), "draft"), '"status" must be one of provisional, validated'),
+        ("an index version that is no number", set_in(("index_version",), "5"), '"index_version" must be a number'),
+        ("a file that is not a mapping", None, "the router contracts file is not a mapping"),
+        ("routers that are no mapping", set_in(("routers",), ["pro"]), '"routers" is missing'),
+        ("a router that is no mapping", set_in(("routers", "pro"), "x"), 'router "pro" is not a mapping'),
+        ("models that are no mapping", set_in(("models",), []), '"models" is missing'),
+        ("inputs that are no mapping", set_in(("inputs",), []), '"inputs" is not a mapping'),
+        ("a mapping that is no mapping", set_in(("models", "alpha"), "x"), 'the mapping of "alpha" is not a mapping'),
+        ("a model with a record and none", set_in(("models", "alpha", "no_record"), "x"), '"no_record" and so says why'),
+        ("a no_record that says nothing", set_in(("models", "foxtrot", "no_record"), " "), '"no_record" and so says why'),
+        ("a slug that is missing", drop("models", "alpha", "slug"), 'has no "slug" spelt like one'),
+        ("a slug that is not spelt like one", set_in(("models", "alpha", "slug"), "a b"), 'has no "slug" spelt like one'),
+        ("a level nobody knows", set_in(("models", "alpha", "level"), "extreme"), 'has a "level" that is none of'),
+        ("a level source that is missing", drop("models", "alpha", "level_source"), 'has no "level_source"'),
+        ("a level source of blanks", set_in(("models", "alpha", "level_source"), " "), 'has no "level_source"'),
+        ("tools that are missing", drop("models", "alpha", "tools"), 'has no "tools" saying "yes", "no" or "unknown"'),
+        ("tools that are no mapping", set_in(("models", "alpha", "tools"), "yes"), 'has no "tools" saying'),
+        ("tools of a support nobody knows", set_in(("models", "alpha", "tools", "support"), "maybe"), 'has no "tools" saying'),
+        ("tools with no source", drop("models", "alpha", "tools", "source"), 'has no "tools" saying'),
+        ("tools with a source of blanks", set_in(("models", "alpha", "tools", "source"), " "), 'has no "tools" saying'),
+        ("a no_record entry with no tools", drop("models", "foxtrot", "tools"), 'has no "tools" saying'),
+        ("an epoch that is a word", set_in(("models", "alpha", "epoch"), "known"), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch that is empty", set_in(("models", "alpha", "epoch"), {}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with ids that are no list", set_in(("models", "alpha", "epoch"), {"f": "x"}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an empty list", set_in(("models", "alpha", "epoch"), {"f": []}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an id of blanks", set_in(("models", "alpha", "epoch"), {"f": [" "]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with an id that is no text", set_in(("models", "alpha", "epoch"), {"f": [3]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good file and one bad", set_in(("models", "alpha", "epoch"), {"f": ["a"], "g": []}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good id and one bad", set_in(("models", "alpha", "epoch"), {"f": ["a", 3]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch with one good id and a blank one", set_in(("models", "alpha", "epoch"), {"f": ["a", " "]}), 'has an "epoch" that is neither "unknown"'),
+        ("an epoch on an arena of web interfaces", set_in(("models", "alpha", "epoch"), {"webdev_arena_external": ["a"]}),
+         'has an "epoch" on a benchmark file that is not read: only deepswe_external, swe_bench_verified, cursorbench_external, terminalbench_external, ale_bench_external are'),
+        ("an epoch with a benchmark file that is read and one that is not", set_in(("models", "alpha", "epoch"), {"deepswe_external": ["a"], "design_arena": ["b"]}),
+         'has an "epoch" on a benchmark file that is not read'),
+    )
+    for purpose, change, needle in structural:
+        if change is None:
+            found = contracts_problems(["not", "a", "mapping"], template)
+        else:
+            found = mutated(change)
+        judged("structure: %s is refused" % purpose,
+               None if any(needle in problem for problem in found) else "expected %r, got %r" % (needle, found))
+    judged("structure: a name the template does not have any more is no problem, in a mapping or in a last resort",
+           first_wrong((mutated(set_in(("models", "zulu"), contract_mapping("zulu", "n/a"))) == [], "a mapping of a deleted entry was refused"),
+                       (mutated(set_in(("routers", "pro", "last_resort", "members"), ["juliet", "zulu"])) == [],
+                        "a last resort naming a deleted entry was refused")))
+    judged("structure: an anchor on a level, a rate of zero, a note, an epoch said unknown and a derived router are no problem",
+           first_wrong((mutated(set_in(("routers", "pro", "intelligence_floor", "anchor"), {"entry": "alpha", "level": "high"})) == [], "an anchor on a level was refused"),
+                       (mutated(set_in(("routers", "pro", "level_gain", "min_points_per_second"), 0)) == [], "a rate of 0 was refused"),
+                       (mutated(set_in(("routers", "pro", "ranking", "tie_margin_points"), 0)) == [], "a tie margin of 0 was refused"),
+                       (mutated(drop("fallback_index")) == [], "a file with no fallback was refused"),
+                       (mutated(set_in(("fallback_index", "points"), [[140, 4], [150, 4]])) == [], "calibration points that stay level were refused"),
+                       (mutated(set_in(("models", "alpha", "note"), "a note")) == [], "a note was refused"),
+                       (mutated(set_in(("models", "alpha", "epoch"), "unknown")) == [], "an epoch said unknown was refused"),
+                       (mutated(drop("models", "alpha", "epoch")) == [], "an entry with no epoch was refused"),
+                       (mutated(set_in(("models", "alpha", "epoch"), {key: ["a"] for key in EPOCH_KEYS})) == [], "the five benchmark files were refused"),
+                       (mutated(drop("routers", "pro", "intelligence_floor", "candidates")) == [], "a floor with no candidates was refused"),
+                       (mutated(set_in(("routers", "pro", "intelligence_floor", "candidates"), [{"entry": "alpha"}, {"entry": "sierra", "level": "low"}])) == [],
+                        "candidates that are anchors were refused")))
+
+    # The file itself: unreadable, or not YAML, says so; a good one is read.
+    with tempfile.TemporaryDirectory() as directory:
+        path = os.path.join(directory, "contracts.yaml")
+        missing = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_text("routers: [unclosed\n", encoding="utf-8")
+        broken = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_bytes(b"\xff\xfe")
+        binary = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
+        good = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        unreadable_template = offline_contract_problems("model_list: [unclosed\n", path)
+        judged("a contracts file that cannot be read, or is not YAML, is a problem of its own, and a good one passes",
+               first_wrong((len(missing) == 1 and "cannot be read (FileNotFoundError)" in missing[0], "missing: %r" % missing),
+                           (len(broken) == 1 and "cannot be read" in broken[0], "broken: %r" % broken),
+                           (len(binary) == 1 and "cannot be read" in binary[0], "binary: %r" % binary),
+                           (good == [], "good: %r" % good),
+                           (unreadable_template == [], "a template that cannot be read is another rule's to say")))
+
+        # The issue: the section from the command line, end to end, on a template and a contracts file.
+        config = os.path.join(directory, "config.yaml.j2")
+        Path(config).write_text(CONTRACT_TEMPLATE, encoding="utf-8")
+        issue = os.path.join(directory, "issue.md")
+        listing = answers_listing(CONTRACT_TEMPLATE)
+
+        def run(arguments, environment=RANKING_KEYS, version=5.0):
+            page = ranking_page(*contract_records())
+            page["intelligence_index_version"] = version
+            out = io.StringIO()
+            Path(issue).unlink(missing_ok=True)
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+                try:
+                    status = main(arguments, opener=canned_opener(dict(listing, rankings=page), []),
+                                  environment=environment)
+                except SystemExit as error:
+                    status = error.code
+            return status, out.getvalue(), Path(issue).read_text(encoding="utf-8") if os.path.exists(issue) else ""
+
+        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        status, out, body = run(online)
+        section = body.split("## Contrats par routeur")[1].split("\n## ")[0] if "## Contrats par routeur" in body else ""
+        judged("with the ranking read, the issue carries a section of contracts: a table per router, the two orders, the floors side by side and what the mapping does not cover, and nothing else changes",
+               first_wrong(
+                   (status == 0 and "Aucune dérive." in body, "the section changed the status or the drift: %d" % status),
+                   ("### `pro`" in section and "### `flash-lite`" in section and "### `claude-code`" in section, "a router has no table"),
+                   ("Plancher 20 (Alpha (Low)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence, "
+                    "le délai départageant deux membres à moins de 2 points d'écart." in section, "pro's contract is not said"),
+                   ("Plancher 8 (India), un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in section,
+                    "flash-lite's criterion is not said"),
+                   ("Plancher 20 (Alpha (Low)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par la qualité de code "
+                    "(source : Epoch AI selftest source, non lue (HTTP 404)) ; Artificial Analysis n'a pas d'indice de code, l'indice "
+                    "d'intelligence en tient lieu à titre provisoire, le délai départageant deux membres à moins de 2 points d'écart." in section,
+                    "code's ranking is not said as a stand-in"),
+                   ("Dérivé de `code` : mêmes plancher (20 (Alpha (Low))), taux d'échange (0.2 points par seconde) et classement, et les modèles sans appels d'outils "
+                    "en sont exclus." in section, "the derived router is not said"),
+                   ("| `alpha` | Alpha (Medium) | medium | 30.0 | 12.0 | 100.0 | xhigh (indice 50.0, 60.0 s) | conforme |" in section,
+                    "alpha's row is wrong: %s" % section[:1500]),
+                   ("| `india` | India | sans niveau | 8.0 | 2.0 | 100.0 | niveau unique (indice 8.0, 2.0 s) | "
+                    "sous le plancher (8.0 contre 20) : dernier recours |" in section, "india's row is wrong"),
+                   ("| `juliet` (dernier recours) | Juliet | inconnu | — | 50.0 | 100.0 | aucun niveau n'a d'indice | "
+                    "conforme (dernier recours) |" in section, "juliet's row is wrong"),
+                   ("| `foxtrot` (dernier recours) | — | — | — | — | — | — | sans enregistrement |" in section, "an entry with no record has no row"),
+                   ("| `november` | — | — | — | — | — | — | sans appels d'outils |" in section, "a member without tools has no row"),
+                   ("| `quebec` | Quebec | sans niveau | 30.0 | — | 100.0 | niveau unique (indice 30.0) | "
+                    "conforme ; appels d'outils inconnus |" in section, "quebec's row in claude-code is wrong"),
+                   ("| `quebec` | Quebec | sans niveau | 30.0 | — | 100.0 | niveau unique (indice 30.0) | "
+                    "inclassable : pas de délai |" in section, "quebec's row in flash-lite is wrong"),
+                   ("| `bravo` | Bravo" in section and "sans niveau" in section, "a level that does not apply is not said"),
+                   ("Ordre actuel : `bravo` > `kilo` > `lima` > `hotel` > `golf` > `mike` > `papa` > `romeo`." in section, "the current order is missing"),
+                   ("Ordre des contrats : `lima` > `papa` > `bravo` > `kilo` > `mike` > `romeo`." in section, "the contracts' order is missing"),
+                   ("Ordre des contrats : `alpha` > `india` > `juliet` > `foxtrot`." in section, "pro's order is missing"),
+                   ("| 5 (Sierra) | `alpha`, `india` | `juliet`, `foxtrot` |" in section
+                    and "| 20 (Alpha (Low)) (proposé) | `alpha` | `india`, `juliet`, `foxtrot` |" in section
+                    and "| 40 (Alpha (High)) | — | `alpha`, `india`, `juliet`, `foxtrot` |" in section, "the floors are not played side by side"),
+                   (section.count("Effet de chaque plancher :") == 2, "a table of floors for a contract that proposes one floor"),
+                   ("La cascade de `claude-code` n'est **pas** la cascade de `code` sans les membres sans outils, dans le même ordre." in section
+                    and "- dans `claude-code` mais pas dans `code` : `echo`, `quebec`" in section
+                    and "- sans appels d'outils déclarés, pourtant dans `claude-code` : `november`" in section
+                    and "- avec appels d'outils, dans `code` mais pas dans `claude-code` : `sierra`" in section
+                    and "- l'ordre des membres communs n'est pas celui de `code`" in section
+                    and "- appels d'outils inconnus (ni exigés ni refusés, à vérifier) : `oscar`" in section,
+                    "the derivation is not reported: %s" % section[-1800:]),
+                   ("Entrées sans correspondance (à ajouter au fichier des contrats) :\n\n- `hotel`\n" in section, "hotel is not listed unmapped"),
+                   ("- `golf` : `golf-gone`" in section, "the stale mapping is not listed"),
+                   ("- `delta` appelé à `medium`, classé à : low, high" in section, "the uncovered level is not listed"),
+                   ("**C'est un rapport**" in section and "**provisoires**" in section, "the report is not said to be one, or provisional, in bold"),
+                   ("provisoires" in section and "comprimée" in section and "n'est retiré d'aucune cascade" in section
+                    and "Aucun délai ne rend un membre inéligible" in section,
+                    "the provisional status, the compressed scale, the advisory status or the absence of a time bound is not said"),
+                   ("restent où ils sont, signalés inclassables, tant que l'indice de repli (Epoch selftest) n'est pas lu." in section,
+                    "the fallback is not said"),
+                   ("<https://artificialanalysis.ai/>" in section, "the source is not named"),
+                   ("version" not in section.split("### `pro`")[0], "a version warning without a version change")))
+        judged("what a record's name carries into the issue is cut to plain words",
+               first_wrong((hostile_lines(body) is None, str(hostile_lines(body))),
+                           ("@bob" not in body and "<img" not in body, "markup reached the issue")))
+        judged("the contracts are read from the file's text, once, and the same run's exit status is the one the drift gives",
+               first_wrong((run(["--online", "--config", config, "--contracts", path])[0] == status, "the status moved")))
+
+        # The ranking at another version of the index warns that the floors are on the other one.
+        warned = run(online, version=6.0)[2]
+        judged("an index that is not the version the floors were written for is said before any row",
+               first_wrong(("L'indice d'intelligence est maintenant en version 6, les planchers sont écrits pour la version 5"
+                            in warned.split("### `pro`")[0], "the version change is not said"),
+                           ("**L'indice d'intelligence est maintenant en version 6" in warned and "à revoir avant de se fier à une ligne.**" in warned,
+                            "the version change is not in bold"),
+                           ("version 6" not in body, "a version change was said where there is none")))
+
+        # No key, another template, a file that is wrong and a computation that fails: the run is the same.
+        status_none, _, body_none = run(online, environment=SELFTEST_KEYS)
+        status_other, _, body_other = run(["--online", "--config", config, "--issue-body", issue])
+        judged("without the ranking, or with another template and no contracts of its own, no section is written and the status is the same",
+               first_wrong(("## Contrats par routeur" not in body_none, "a section without the ranking"),
+                           ("## Contrats par routeur" not in body_other, "the repository's contracts were read against another template"),
+                           (status_none == status and status_other == status, "the status moved")))
+        broken_document = contract_document()
+        del broken_document["routers"]["pro"]["level_gain"]["reason"]
+        Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
+        status_bad, _, body_bad = run(online)
+        judged("a contracts file with a structural problem says so in the issue, computes nothing, and changes neither the status nor the rest",
+               first_wrong(("n'a pas la forme attendue" in body_bad and '"level_gain", has no "reason"' in body_bad, "the problem is not said"),
+                           ("### `pro`" not in body_bad, "a table was written from a file that is wrong"),
+                           (status_bad == status and "Aucune dérive." in body_bad, "the status or the drift moved")))
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
+        real = globals()["contracts_report"]
+
+        def exploding(*arguments):
+            raise RuntimeError("selftest: the computation failed with SECRET")
+
+        globals()["contracts_report"] = exploding
+        try:
+            status_boom, _, body_boom = run(online)
+        finally:
+            globals()["contracts_report"] = real
+        judged("a computation that fails says the kind of the error and nothing of its message, and never fails the run",
+               first_wrong(("Le calcul a échoué (`RuntimeError`)" in body_boom, "the failure is not said"),
+                           ("SECRET" not in body_boom, "the message of the error reached the issue"),
+                           (status_boom == status and "Aucune dérive." in body_boom, "the status moved")))
+
+        # A deleted entry leaves its row: reported as stale in the issue and as a notice in the plain run,
+        # and neither fails.
+        stale_document = contract_document()
+        stale_document["models"]["zulu"] = contract_mapping("zulu", "n/a")
+        stale_document["routers"]["code"]["last_resort"]["members"] = ["zulu"]
+        Path(path).write_text(yaml.safe_dump(stale_document), encoding="utf-8")
+        status_stale, _, body_stale = run(online)
+        status_notice, out_notice, _ = run(["--config", config, "--contracts", path])
+        absent = [("models", "zulu"), ("code", "zulu")]
+        judged("an entry deleted from the template leaves a stale row: the report lists it, the plain run says so and stays green, the weekly status does not move",
+               first_wrong(
+                   (absent_names(stale_document, template) == absent, "absent: %r" % absent_names(stale_document, template)),
+                   (contracts_report(template, contract_ranking(), stale_document)["absent"] == absent, "the report does not hold them"),
+                   ("Correspondances sans entrée (l'entrée n'est plus au modèle, la ligne est à retirer du fichier des contrats) :\n\n"
+                    "- `zulu` (correspondance)\n- `zulu` (dernier recours de `code`)\n" in body_stale, "the issue does not list them"),
+                   (status_stale == status and "Aucune dérive." in body_stale, "the status moved"),
+                   (status_notice == 0 and 'Router contracts: "zulu" (mapping) is no entry of the template any more: a stale mapping, '
+                    "its row is to be removed from contracts.yaml." in out_notice
+                    and 'Router contracts: "zulu" (last resort of code) is no entry' in out_notice, "the notice is missing: %s" % out_notice),
+                   (offline_contract_problems(CONTRACT_TEMPLATE, path) == [], "a stale row is a problem"),
+                   ("Correspondances sans entrée" not in body, "a stale section where there is none")))
+        Path(path).write_text(yaml.safe_dump(dict(broken_document, models=dict(
+            broken_document["models"], zulu=contract_mapping("zulu", "n/a")))), encoding="utf-8")
+        judged("a file with a problem prints no notice of stale rows",
+               first_wrong((offline_contract_notices(CONTRACT_TEMPLATE, path) == [], "a notice for a file that is wrong"),
+                           (offline_contract_notices("model_list: [unclosed\n", path) == [], "a notice for a template that cannot be read")))
+        Path(path).write_text("status: provisional\nstatus: validated\n", encoding="utf-8")
+        twice = offline_contract_problems(CONTRACT_TEMPLATE, path)
+        status_twice, out_twice, _ = run(["--config", config, "--contracts", path])
+        judged("a key written twice is a problem of the file, not a value silently replaced",
+               first_wrong((len(twice) == 1 and "cannot be read (ConstructorError)" in twice[0], "twice: %r" % twice),
+                           (status_twice == 1, "the plain run passed a file with a key written twice")))
+
+        # The plain run: the contracts file is read against the template it is given.
+        plain = ["--config", config, "--contracts", path]
+        Path(path).write_text(yaml.safe_dump(contract_document()), encoding="utf-8")
+        status_plain, out_plain, _ = run(plain)
+        Path(path).write_text(yaml.safe_dump(broken_document), encoding="utf-8")
+        status_wrong, out_wrong, _ = run(plain)
+        status_alone, out_alone, _ = run(["--config", config])
+        judged("the plain run fails only on the structure of the contracts, and reads none for a template that is not the repository's",
+               first_wrong((status_plain == 0 and "Router contracts: contracts.yaml holds a contract for each router" in out_plain,
+                            "a good file was refused: %s" % out_plain),
+                           (status_wrong == 1 and "Router contracts: 1 problem(s) in contracts.yaml." in out_wrong
+                            and '"level_gain", has no "reason"' in out_wrong, "a wrong file passed: %s" % out_wrong),
+                           (status_alone == 0 and "Router contracts" not in out_alone, "contracts were read for another template: %s" % out_alone)))
+    judged("the repository's own contracts file passes against the repository's template",
+           first_wrong((offline_contract_problems(CONFIG.read_text(encoding="utf-8"), CONTRACTS) == [],
+                        "%r" % offline_contract_problems(CONFIG.read_text(encoding="utf-8"), CONTRACTS))))
+    return failures
+
+
+# Code quality from Epoch AI's archive, played on made-up members only: archives built in memory, whose
+# members carry the allowed names and invented model versions, and no figure of the real data.
+EPOCH_TEMPLATE = """\
+model_list:
+""" + "".join("""  - model_name: %s
+    litellm_params:
+      model: groq/vendor/%s-model
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+""" % (name, name) for name in ("p", "q", "r", "s", "t", "u", "v", "w", "y", "z")) + """\
+router_settings:
+  fallbacks:
+    - code: [p, q, r, s, t, u, v, z]
+    - claude-code: [p, q, s, t, y]
+  model_group_alias:
+    "code": "p"
+    "claude-code": "p"
+"""
+
+# The scores of the made-up archive, by benchmark file. Some benchmark files count for the cascade of
+# "code" (two members or more have a score) and some do not (one member only), and v tops two of them
+# while being under the floor.
+EPOCH_SCORES = {
+    "deepswe_external": {"p_high": 0.5, "q_high": 0.6, "r_high": 0.6, "v_high": 0.9, "y_high": 0.99},
+    "swe_bench_verified": {"s_high": 0.9, "p_high": 0.7, "q_high": 0.5},
+    "cursorbench_external": {"q_high": 0.3},
+    "terminalbench_external": {"s_high": 0.8},
+    "ale_bench_external": {"v_high": 1500, "r_high": 1200, "p_high": 1000, "p_low": 900, "q_high": 900},
+}
+# Made-up capabilities indexes, by display name.
+EPOCH_ECI = {"Pee Model": 145.0, "Que Model": 165.0, "Floor Model": 155.0, "Low Model": 135.0, "High Model": 175.0}
+EPOCH_IDS = {
+    "p": {"deepswe_external": ["p_high"], "swe_bench_verified": ["p_high"], "ale_bench_external": ["p_low", "p_high"]},
+    "q": {"deepswe_external": ["q_high"], "swe_bench_verified": ["q_high"], "ale_bench_external": ["q_high"],
+          "cursorbench_external": ["q_high"]},
+    "r": {"deepswe_external": ["r_high"], "ale_bench_external": ["r_high"]},
+    "s": {"swe_bench_verified": ["s_high"], "terminalbench_external": ["s_high"]},
+    "t": "unknown",
+    "u": {"deepswe_external": ["u_nowhere"]},
+    "v": {"deepswe_external": ["v_high"], "ale_bench_external": ["v_high"]},
+    "y": {"deepswe_external": ["y_high"]},
+}
+
+
+def epoch_csv(column, scores, extra=""):
+    """A benchmark file as Epoch AI writes them: the model version first, other columns around the score."""
+    return ("Model version,Release date,%s,Notes\n" % column
+            + "".join("%s,2026-01-01,%s,\n" % item for item in scores.items()) + extra)
+
+
+def epoch_zip(members):
+    """An archive in memory: {member name: text or bytes}."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    return buffer.getvalue()
+
+
+def eci_csv(scores, extra=""):
+    """The capabilities index as Epoch AI writes it: the model, its display name and the index first."""
+    return ("Model,Display name,eci,eci_ci_low,date\n"
+            + "".join("%s,%s,%s,0,2026-01-01\n" % (name, name, score) for name, score in scores.items()) + extra)
+
+
+def epoch_members(scores=None, extra=None, eci=None):
+    """The members of the archive: the five benchmark files for "scores" (EPOCH_SCORES by default), the
+    capabilities index for "eci" (EPOCH_ECI by default), plus "extra" members."""
+    scores = EPOCH_SCORES if scores is None else scores
+    members = {epoch_member_name(key): epoch_csv(column, scores.get(key, {})) for key, _, column in EPOCH_FILES}
+    members[EPOCH_ECI_MEMBER] = eci_csv(EPOCH_ECI if eci is None else eci)
+    return dict(members, **(extra or {}))
+
+
+def epoch_read(content, **limits):
+    """read_epoch on an opener that serves "content" (bytes, or an exception to raise) for the archive's
+    address and nothing else, and the calls it made: (state, calls). "limits" patch the caps meanwhile."""
+    calls = []
+
+    def opener(url, headers, limit=None):
+        calls.append((url, dict(headers), limit))
+        if isinstance(content, Exception):
+            raise content
+        return content
+
+    saved = {name: globals()[name] for name in limits}
+    globals().update(limits)
+    try:
+        return read_epoch(opener, "2026-01-02"), calls
+    finally:
+        globals().update(saved)
+
+
+def epoch_archive(scores=None, eci=None):
+    """The state of an archive that was read, built from "scores" and "eci" without a zip: what
+    read_epoch gives."""
+    scores = EPOCH_SCORES if scores is None else scores
+    return {"status": "read", "date": "2026-01-02", "skipped": {}, "eci": dict(EPOCH_ECI if eci is None else eci),
+            "files": {key: {"scores": dict(found), "rows": len(found), "bad": 0} for key, found in scores.items()}}
+
+
+def epoch_document():
+    """The contracts of "code" and of "claude-code" over the cascades of EPOCH_TEMPLATE: an anchor at 10
+    points, z exempt from it, the made-up model versions of EPOCH_IDS."""
+    document = {"routers": {"code": contract_router({"entry": "w"}, 0.2, criterion="code_quality", last_resort=("z",)),
+                            "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"}},
+                "models": {name: contract_mapping(name, "n/a") for name in "pqrstuvwyz"},
+                "status": "provisional", "index_version": 5}
+    for name, ids in EPOCH_IDS.items():
+        document["models"][name]["epoch"] = ids
+    return document
+
+
+def epoch_ranking():
+    """What Artificial Analysis says of the made-up models: (intelligence, seconds to the first answer token)."""
+    return contract_ranking([
+        timed_model("p", "Pee", 30, 8), timed_model("q", "Que", 30, 4), timed_model("r", "Are", 25, 6),
+        timed_model("s", "Ess", 20, 3), timed_model("t", "Tee", 15, 2), timed_model("u", "You", 12, 5),
+        timed_model("v", "Vee", 5, 1), timed_model("w", "Double", 10, 9), timed_model("y", "Why", 14, 1),
+        timed_model("z", "Zed", 50, 1)])
+
+
+def contracts_runner(directory, document, template_text=CONTRACT_TEMPLATE):
+    """A template and a contracts file written into "directory", and (run, config, path, issue): run(arguments,
+    served, environment, opener) is the command line on them, with the ranking of contract_records() read and
+    "served" as the archive of Epoch AI (nothing served is a 404), and gives (status, output, the issue written,
+    the requests made for the archive)."""
+    config, path, issue = (os.path.join(directory, name) for name in ("config.yaml.j2", "contracts.yaml", "issue.md"))
+    Path(config).write_text(template_text, encoding="utf-8")
+    Path(path).write_text(yaml.safe_dump(document), encoding="utf-8")
+    listing = answers_listing(template_text)
+    page = ranking_page(*contract_records())
+    page["intelligence_index_version"] = 5.0
+
+    def run(arguments, served=None, environment=RANKING_KEYS, opener=None):
+        calls, out = [], io.StringIO()
+        Path(issue).unlink(missing_ok=True)
+        answers = dict(listing, rankings=page, **({} if served is None else {"epoch": served}))
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            status = main(arguments, opener=opener or canned_opener(answers, calls), environment=environment)
+        return (status, out.getvalue(), Path(issue).read_text(encoding="utf-8") if os.path.exists(issue) else "",
+                [url for url, _ in calls if url == EPOCH_URL])
+
+    return run, config, path, issue
+
+
+def run_epoch_cases():
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    # Reading the archive: from bytes in memory, by the exact names of five members, never extracted.
+    good, calls = epoch_read(epoch_zip(epoch_members(dict(
+        EPOCH_SCORES, terminalbench_external={"s_high": 0.4}), {"unrelated.csv": "a,b\n1,2\n"})))
+    judged("a good archive is read: five files, a score a version, and the request is keyless, capped and says who asks",
+           first_wrong(
+               (good["status"] == "read" and good["date"] == "2026-01-02" and good["skipped"] == {}, "state: %r" % good),
+               (sorted(good["files"]) == sorted(EPOCH_KEYS), "files: %r" % sorted(good["files"])),
+               (good["files"]["deepswe_external"]["scores"] == EPOCH_SCORES["deepswe_external"], "scores were not kept"),
+               (good["files"]["ale_bench_external"]["rows"] == 5 and good["files"]["ale_bench_external"]["bad"] == 0, "rows counted"),
+               (len(calls) == 1 and calls[0][0] == EPOCH_URL and calls[0][2] == EPOCH_MAX_ARCHIVE, "calls: %r" % calls),
+               (set(calls[0][1]) == {"User-Agent", "Accept"}, "the request carries more than it should: %r" % sorted(calls[0][1]))))
+    best, _ = epoch_read(epoch_zip(epoch_members({"terminalbench_external": {}}, {
+        "terminalbench_external.csv": "Model version,Agent,Accuracy mean\nm1,a,0.4\nm1,b,0.9\nm1,c,0.5\nm2,a,0.1\n"})))
+    judged("a model version listed once per agent keeps its best score",
+           first_wrong((best["files"]["terminalbench_external"]["scores"] == {"m1": 0.9, "m2": 0.1}, "%r" % best["files"]),
+                       (best["files"]["terminalbench_external"]["rows"] == 4, "four rows were read")))
+    absent, _ = epoch_read(epoch_zip({name: text for name, text in epoch_members().items()
+                                      if name != "swe_bench_verified.csv"}))
+    judged("a member the archive lacks is skipped and said, the others are read",
+           first_wrong((absent["status"] == "read" and sorted(absent["files"]) == sorted(set(EPOCH_KEYS) - {"swe_bench_verified"}),
+                        "files: %r" % sorted(absent["files"])),
+                       (absent["skipped"] == {"swe_bench_verified": "absent from the archive"}, "skipped: %r" % absent["skipped"])))
+    alone, _ = epoch_read(epoch_zip({"deepswe_external.csv": epoch_csv("Pass@1", EPOCH_SCORES["deepswe_external"])}))
+    judged("an archive with one benchmark file only is read as that one, and says it lacks the four others and the capabilities index",
+           first_wrong((alone["status"] == "read" and sorted(alone["files"]) == ["deepswe_external"], "files: %r" % sorted(alone["files"])),
+                       (sorted(alone["skipped"]) == sorted((set(EPOCH_KEYS) - {"deepswe_external"}) | {EPOCH_ECI_KEY}), "skipped: %r" % alone["skipped"])))
+    big, _ = epoch_read(epoch_zip(epoch_members(None, {"deepswe_external.csv": epoch_csv("Pass@1", EPOCH_SCORES["deepswe_external"], "x,1,0.1,\n" * 80)})),
+                        EPOCH_MAX_MEMBER=300)
+    judged("a member larger than the cap is skipped without being read, and the others are read",
+           first_wrong((big["status"] == "read" and "deepswe_external" not in big["files"], "files: %r" % sorted(big["files"])),
+                       (big["skipped"] == {"deepswe_external": "larger than 300 bytes"}, "skipped: %r" % big["skipped"]),
+                       ("swe_bench_verified" in big["files"], "a small member was refused with the big one")))
+    # Each of these would read as any of the five files, were its name taken for one of theirs.
+    wide = ("Model version,Display name," + ",".join(column for _, _, column in EPOCH_FILES) + ",eci\n"
+            "x,x,1,1,1,1,1,1\n")
+    hostile = {"webdev_arena_external.csv": wide, "sub/deepswe_external.csv": wide, "../deepswe_external.csv": wide,
+               "deepswe_external.csv/": "", "README.md": wide, "epoch_capabilities_index/edi_scores.csv": wide,
+               "x/epoch_capabilities_index/eci_scores.csv": wide, "eci_scores.csv": wide, "model_metadata.csv": wide}
+    outside, _ = epoch_read(epoch_zip(hostile))
+    judged("members outside the allow-list are never read: another arena, a path, a directory, and nothing is extracted",
+           first_wrong((outside["status"] == "error" and outside["error"] == "no benchmark file of the archive holds a usable row",
+                        "read: %r" % outside),
+                       (not os.path.exists("sub") and not os.path.exists("deepswe_external.csv"), "a member was extracted")))
+    mixed, _ = epoch_read(epoch_zip(dict(epoch_members(None, {
+        "deepswe_external.csv": ("Model version,Pass@1\n,0.5\nno-score,\nword,abc\nnan-one,nan\ninf-one,inf\nneg,-1e999\n"
+                                 "short\ngood,0.25\ngood,0.5\n  spaced  ,0.75\n" + "l" * 201 + ",0.9\n\"open,0.1\n"),
+        "swe_bench_verified.csv": "Model version,mean_score\nonly,\x00,\n",
+        "cursorbench_external.csv": "Model version,Other\nm,0.5\n",
+        "terminalbench_external.csv": b"\xff\xfe\x00\x01\x02",
+        "ale_bench_external.csv": "Model version,Performance\n"}))))
+    judged("bad rows are tolerated and counted: no version, no score, a score that is no finite number, a ragged row, a version too long; a file with the wrong columns, no rows or no text is skipped",
+           first_wrong((mixed["status"] == "read" and sorted(mixed["files"]) == ["deepswe_external"], "files: %r" % sorted(mixed["files"])),
+                       (mixed["files"]["deepswe_external"]["scores"] == {"good": 0.5, "spaced": 0.75}, "scores: %r" % mixed["files"]["deepswe_external"]["scores"]),
+                       (mixed["files"]["deepswe_external"]["rows"] == 3 and mixed["files"]["deepswe_external"]["bad"] >= 6, "rows: %r" % mixed["files"]["deepswe_external"]),
+                       (mixed["skipped"]["cursorbench_external"] == "it has not the columns expected", "%r" % mixed["skipped"]),
+                       (mixed["skipped"]["terminalbench_external"].startswith("it "), "%r" % mixed["skipped"]),
+                       (mixed["skipped"]["ale_bench_external"] == "it has no usable row", "%r" % mixed["skipped"]),
+                       (mixed["skipped"]["swe_bench_verified"] == "it has no usable row", "%r" % mixed["skipped"])))
+    judged("an archive with no usable row anywhere is not read",
+           first_wrong((epoch_read(epoch_zip(epoch_members({}, None, {})))[0]["error"] == "no benchmark file of the archive holds a usable row", "empty members")))
+
+    # What does not read at all: size, shape, status, network, and a failure of the reader itself.
+    bulky, _ = epoch_read(b"x" * 300, EPOCH_MAX_ARCHIVE=100)
+    leaky = urllib.error.HTTPError(EPOCH_URL, 403, "SECRET reason", None, io.BytesIO(b"SECRET body"))
+    failed = (("an answer larger than the cap", bulky, "the archive is larger than 100 bytes"),
+              ("an answer that is no archive", epoch_read(b"<html>not a zip</html>")[0], "the answer is not a zip archive"),
+              ("an empty answer", epoch_read(b"")[0], "the answer is not a zip archive"),
+              ("an HTTP status", epoch_read(leaky)[0], "HTTP 403"),
+              ("a redirect", epoch_read(urllib.error.HTTPError(EPOCH_URL, 302, "Found", None, io.BytesIO(b"")))[0], "HTTP 302"),
+              ("a network failure", epoch_read(urllib.error.URLError("no route"))[0], "network error: no route"),
+              ("a timeout", epoch_read(TimeoutError())[0], "network error: TimeoutError"),
+              ("a reader that crashes", epoch_read(RuntimeError("SECRET crash"))[0], "failed: RuntimeError"))
+    judged("an archive that cannot be read says the kind of failure and nothing of the body, the reason phrase or the message",
+           first_wrong(*[(state["status"] == "error" and state["error"] == text and "files" not in state, "%s: %r" % (purpose, state))
+                         for purpose, state, text in failed],
+                       ("SECRET" not in repr([state for _, state, _ in failed]), "a secret reached the state")))
+
+    # The rank of each member in each file: ties share the average, and the best score is rank 1.
+    judged("a rank is 1 for the best score, and members with the same score share the average of their places",
+           first_wrong((rank_with_ties({"a": 3, "b": 2, "c": 2, "d": 1}) == {"a": 1, "b": 2.5, "c": 2.5, "d": 4}, "a tie in the middle"),
+                       (rank_with_ties({"a": 5, "b": 5, "c": 5}) == {"a": 2, "b": 2, "c": 2}, "all equal"),
+                       (rank_with_ties({"a": 1, "b": 2, "c": 2, "d": 2}) == {"a": 4, "b": 2, "c": 2, "d": 2}, "a tie at the top is 2"),
+                       (rank_with_ties({"a": 7}) == {"a": 1}, "a single member"), (rank_with_ties({}) == {}, "no member"),
+                       (rank_with_ties({"a": 0.1, "b": 0.3}) == {"b": 1, "a": 2}, "fractions")))
+    archive = epoch_archive()
+    mappings = epoch_document()["models"]
+    judged("the score of an entry in a file is the best of the versions it lists there, and a version the file lacks, a file the archive lacks or an epoch that is unknown gives none",
+           first_wrong((epoch_member_scores(mappings["p"], archive) == {"deepswe_external": 0.5, "swe_bench_verified": 0.7, "ale_bench_external": 1000},
+                        "p: %r" % epoch_member_scores(mappings["p"], archive)),
+                       (epoch_member_scores(mappings["u"], archive) == {}, "a version the file lacks"),
+                       (epoch_member_scores(mappings["t"], archive) == {} and epoch_member_scores(None, archive) == {}, "unknown"),
+                       (epoch_member_scores(dict(mappings["p"], epoch={"webdev_arena_external": ["p_high"]}), archive) == {}, "another arena was read"),
+                       (epoch_member_scores(mappings["q"], epoch_archive({"deepswe_external": {"q_high": 0.1}})) == {"deepswe_external": 0.1},
+                        "a file the archive lacks was invented")))
+    quality = code_quality(["p", "q", "r", "s", "t", "u", "v", "z"], mappings, archive)
+
+    def ranks(name):
+        return {key: rank for key, (rank, _) in quality[name]["ranks"].items()}
+
+    judged("per benchmark file the members are ranked among those that have a score, and the code quality is the median of the ranks",
+           first_wrong((ranks("p") == {"deepswe_external": 4, "swe_bench_verified": 2, "ale_bench_external": 3} and quality["p"]["median"] == 3,
+                        "p: %r" % quality["p"]),
+                       (ranks("q") == {"deepswe_external": 2.5, "swe_bench_verified": 3, "ale_bench_external": 4} and quality["q"]["median"] == 3,
+                        "q, who is tied in DeepSWE: %r" % quality["q"]),
+                       (ranks("r") == {"deepswe_external": 2.5, "ale_bench_external": 2} and quality["r"]["median"] == 2.25,
+                        "r, ranked on two files: %r" % quality["r"]),
+                       (ranks("v") == {"deepswe_external": 1, "ale_bench_external": 1} and quality["v"]["median"] == 1, "v"),
+                       (quality["p"]["ranks"]["deepswe_external"] == (4, 4) and quality["p"]["ranks"]["swe_bench_verified"] == (2, 3),
+                        "the number of members scored is not kept: %r" % quality["p"]["ranks"])))
+    judged("a benchmark file with fewer than two members of the cascade scored does not count, and a member ranked on fewer than two files is unrankable and says why",
+           first_wrong(("cursorbench_external" not in ranks("q") and "terminalbench_external" not in ranks("s"), "a file with one member counted"),
+                       (quality["s"]["median"] is None and quality["s"]["why"] == "few_files" and ranks("s") == {"swe_bench_verified": 1}
+                        and quality["s"]["scored"] == 2, "s: %r" % quality["s"]),
+                       (quality["t"]["median"] is None and quality["t"]["why"] == "no_ids", "t: %r" % quality["t"]),
+                       (quality["u"]["median"] is None and quality["u"]["why"] == "no_scores", "u: %r" % quality["u"]),
+                       (quality["z"]["why"] == "no_ids", "a member with no mapping at all"),
+                       (all(found["why"] is None for name, found in quality.items() if found["median"] is not None), "a ranked member says why")))
+    judged("a pool of fewer than two members ranks nothing, and a file the pool makes count depends on the pool only",
+           first_wrong((all(found["median"] is None for found in code_quality(["p"], mappings, archive).values()), "a pool of one ranked someone"),
+                       (all(found["ranks"] == {} for found in code_quality(["p"], mappings, archive).values()), "a pool of one counted a file"),
+                       (set(code_quality(["p", "q"], mappings, archive)["p"]["ranks"]) == {"deepswe_external", "swe_bench_verified", "ale_bench_external"},
+                        "p and q alone rank three files"),
+                       (code_quality(["p", "q"], mappings, archive)["p"]["median"] == 1 and code_quality(["p", "q"], mappings, archive)["q"]["median"] == 2,
+                        "p and q alone: %r" % code_quality(["p", "q"], mappings, archive))))
+
+    # The order a router's contract gives: the members the archive ranks first by their median, then the
+    # others on the index that stands in, and the tail as before.
+    template, problems = read_template(EPOCH_TEMPLATE)
+    if template is None or problems:
+        print("selftest: BROKEN CASE (the template of the code quality) -- %r" % problems)
+        return failures + 1
+    document, ranking = epoch_document(), epoch_ranking()
+    report = contracts_report(template, ranking, document, archive)
+    code, code_order = contract_rows(report, "code")
+    claude, claude_order = contract_rows(report, "claude-code")
+    judged("code is ordered by code quality: the ranked members by median with the shorter time between equal ones, then the unrankable ones on the intelligence index, then the last resort and the members under the floor",
+           first_wrong((code_order["proposed"] == ["r", "q", "p", "s", "t", "u", "v", "z"], "code: %r" % code_order["proposed"]),
+                       (code["v"]["kind"] == "below_floor" and code["v"]["quality"]["median"] == 1, "v, first on code quality, is not under the floor"),
+                       (code["z"]["last_resort"] and code["z"]["quality"]["why"] == "no_ids", "z"),
+                       (code_order["current"] == ["p", "q", "r", "s", "t", "u", "v", "z"], "the current order moved")))
+    judged("claude-code is ranked as code is: the quality code gives its members, the same order for the members they share, and a member that code does not hold is unrankable and goes after the others on the index",
+           first_wrong((claude_order["proposed"] == ["q", "p", "s", "y", "t"], "claude-code: %r" % claude_order["proposed"]),
+                       (claude["y"]["quality"] == {"ranks": {}, "median": None, "why": "outside", "scored": 0},
+                        "y, whose scores the archive has, is ranked on a pool that is not code's: %r" % claude["y"]["quality"]),
+                       ([name for name in claude_order["proposed"] if name in code_order["proposed"]]
+                        == [name for name in code_order["proposed"] if name in claude_order["proposed"]], "the order of the common members differs"),
+                       (claude["p"]["quality"] == code["p"]["quality"] and claude["q"]["quality"] == code["q"]["quality"], "a member's quality differs")))
+    judged("the same members tied on code quality are told apart by their time and then by their position, and the members unrankable by it by the index with the time inside the margin",
+           first_wrong((report["routers"][0]["proposed"].index("q") < report["routers"][0]["proposed"].index("p"), "q is faster than p"),
+                       (claude_order["proposed"].index("y") < claude_order["proposed"].index("t"), "y is within 2 points of t and faster")))
+
+    def order_rows(*members):
+        return [{"name": name, "position": number, "kind": "conforming", "last_resort": False,
+                 "intelligence": index, "first_answer": seconds,
+                 "record": {"intelligence": index, "first_answer": seconds}, "quality": {"median": median}}
+                for number, (name, median, index, seconds) in enumerate(members)]
+
+    contract_ranking_block = {"criterion": "code_quality", "tie_margin_points": 2}
+    judged("equal medians are ordered by time, a member with no time after the others, then by position; the unrankable follow in the order of the index",
+           first_wrong((contract_order(order_rows(("a", 2, 9, 5), ("b", 2, 9, 3), ("c", 2, 9, None), ("d", 2, 9, 3)), contract_ranking_block)
+                        == ["b", "d", "a", "c"], "ties"),
+                       (contract_order(order_rows(("a", None, 10, 1), ("b", 5, 1, 9), ("c", None, 30, 9), ("d", 1.5, 2, 9)), contract_ranking_block)
+                        == ["d", "b", "c", "a"], "ranked first, whatever their index"),
+                       (contract_order(order_rows(("a", 1, 9, 5)) + [dict(order_rows(("z", 9, 9, 1))[0], last_resort=True)], contract_ranking_block)
+                        == ["a", "z"], "the last resort stays at the tail whatever its quality")))
+    judged("a router with no code quality read is ordered as before, on the intelligence index alone",
+           first_wrong((contract_order([dict(row, quality=None) for row in order_rows(("a", 1, 5, 1), ("b", 9, 30, 1))], contract_ranking_block)
+                        == ["b", "a"], "a member with a quality was ranked on it without the archive"),
+                       (contract_order([{key: value for key, value in row.items() if key != "quality"}
+                                        for row in order_rows(("a", 1, 5, 1), ("b", 9, 30, 1))], contract_ranking_block) == ["b", "a"],
+                        "rows with no quality at all")))
+    stand_in = contracts_report(template, ranking, document)
+    failed_read = contracts_report(template, ranking, document, {"status": "error", "date": "2026-01-02", "error": "HTTP 404"})
+    stand_code, stand_order = contract_rows(stand_in, "code")
+    judged("without the archive, read or failed, code and claude-code keep the intelligence index as their order, with no quality on any row",
+           first_wrong((stand_order["proposed"] == ["q", "p", "r", "s", "t", "u", "v", "z"], "code: %r" % stand_order["proposed"]),
+                       (contract_rows(stand_in, "claude-code")[1]["proposed"] == ["q", "p", "s", "y", "t"],
+                        "claude-code: %r" % contract_rows(stand_in, "claude-code")[1]["proposed"]),
+                       (all(row["quality"] is None for row in stand_code.values()) and stand_order["quality"] is None, "a quality without the archive"),
+                       ([entry["proposed"] for entry in failed_read["routers"]] == [entry["proposed"] for entry in stand_in["routers"]], "a failed read moved an order"),
+                       (stand_in["epoch"] == {"status": "unread"} and failed_read["epoch"] == {"status": "error", "date": "2026-01-02", "error": "HTTP 404"},
+                        "states: %r %r" % (stand_in["epoch"], failed_read["epoch"])),
+                       (report["epoch"]["status"] == "read" and report["epoch"]["date"] == "2026-01-02" and sorted(report["epoch"]["files"]) == sorted(EPOCH_KEYS),
+                        "state of a read: %r" % report["epoch"])))
+    other_routers = contracts_report(template, ranking, document, archive)
+    judged("a criterion other than code quality is not touched by the archive",
+           first_wrong((contracts_report(read_template(CONTRACT_TEMPLATE)[0], contract_ranking(), contract_document(), archive)["routers"][0]["proposed"]
+                        == contracts_report(read_template(CONTRACT_TEMPLATE)[0], contract_ranking(), contract_document())["routers"][0]["proposed"],
+                        "pro moved"),
+                       (all(entry["quality"] is None for entry in contracts_report(
+                           read_template(CONTRACT_TEMPLATE)[0], contract_ranking(), contract_document(), archive)["routers"]
+                            if entry["name"] in ("pro", "flash", "flash-lite")), "a router that is not on code quality got one"),
+                       (other_routers["routers"][0]["quality"] is not None, "code got none")))
+
+    # The same archive through the reader gives the same orders: the zip, the reader and the ranking agree.
+    through, _ = epoch_read(epoch_zip(epoch_members()))
+    judged("the archive read from its bytes orders the cascades as the archive built directly does",
+           first_wrong(([entry["proposed"] for entry in contracts_report(template, ranking, document, through)["routers"]]
+                        == [entry["proposed"] for entry in report["routers"]], "the orders differ")))
+
+    # The issue.
+    section = "\n".join(contracts_section({"contracts": report}))
+    code_block = section.split("### `code`")[1].split("### `claude-code`")[0]
+    claude_block = section.split("### `claude-code`")[1]
+    judged("the issue says, for code and claude-code, each member's rank in each benchmark, the median, the position, who is unrankable and why, and that they are ordered on the intelligence index, with the attribution and the day of the reading",
+           first_wrong(
+               ("Qualité de code, d'après Epoch AI, benchmark data, CC BY 4.0 (<https://epoch.ai/benchmarks>, archive lue le 2026-01-02)." in code_block
+                and "Qualité de code, d'après Epoch AI, benchmark data, CC BY 4.0" in claude_block, "the attribution or the day is missing"),
+               ("| Membre | DeepSWE | SWE-bench Verified | CursorBench | Terminal-Bench | ALE-Bench | Médiane | Position |" in code_block, "the table"),
+               ("| `r` | 2.5/4 | — | — | — | 2/4 | 2.25 | 1 |" in code_block, "r: %s" % code_block[:2500]),
+               ("| `q` | 2.5/4 | 3/3 | — | — | 4/4 | 3 | 2 |" in code_block and "| `p` | 4/4 | 2/3 | — | — | 3/4 | 3 | 3 |" in code_block,
+                "q and p"),
+               ("| `s` | — | 1/3 | — | — | — | — | inclassable : indice d'intelligence |" in code_block, "s"),
+               ("| `v` | 1/4 | — | — | — | 1/4 | 1 | sous le plancher |" in code_block, "v is ranked and under the floor"),
+               ("| `z` | — | — | — | — | — | — | dernier recours |" in code_block, "z"),
+               ("Benchmarks sans effet sur cette cascade (moins de deux membres y ont un score) : CursorBench, Terminal-Bench." in code_block, "files that do not count"),
+               ("Inclassables par la qualité de code, placés après les membres classés et ordonnés sur l'indice d'intelligence qui en tient lieu : "
+                "`s` (1 benchmark(s) comptant(s) pour lui, 2 requis), `t` (aucun identifiant Epoch connu), "
+                "`u` (aucun score dans l'archive pour ses identifiants)." in code_block, "the unrankable: %s" % code_block[-900:]),
+               ("de la cascade de `code` qui y ont" in claude_block and "hors de la cascade de `code`" in claude_block, "claude-code's pool is not said"),
+               ("| `y` | — | — | — | — | — | — | inclassable : indice d'intelligence |" in claude_block, "y"),
+               ("Ordre des contrats : `r` > `q` > `p` > `s` > `t` > `u` > `v` > `z`." in code_block, "the order"),
+               ("WebDev Arena et toute arène de design ou d'interface ne sont pas lues." in code_block, "the exclusion is not said"),
+               ("(source : Epoch AI selftest source, lue le 2026-01-02), la médiane des rangs sur les benchmarks" in code_block
+                and "ordonnés sur l'indice d'intelligence, le délai départageant deux membres à moins de 2 points d'écart" in code_block,
+                "the ranking is not said: %s" % code_block[:700]),
+               ("non lue" not in section, "an archive that was read is said not to be")))
+    skipped = dict(archive, skipped={"swe_bench_verified": "absent from the archive"})
+    skipped["files"] = {key: found for key, found in archive["files"].items() if key != "swe_bench_verified"}
+    skipped_section = "\n".join(contracts_section({"contracts": contracts_report(template, ranking, document, skipped)}))
+    judged("a file of the archive that was not read is said, and its figures are not used",
+           first_wrong(("Fichiers de l'archive non lus : SWE-bench Verified (`absent from the archive`)." in skipped_section, "the skipped file is not said"),
+                       ("| `s` | — | — | — | — | — | — |" in skipped_section, "s was ranked on a file that was not read")))
+    unread_section = "\n".join(contracts_section({"contracts": stand_in}))
+    failed_section = "\n".join(contracts_section({"contracts": failed_read}))
+    judged("an archive that was not read leaves the stand-in, and the issue says that the source is not read: no quality block, no rank",
+           first_wrong(("(source : Epoch AI selftest source, non lue) ; Artificial Analysis n'a pas d'indice de code, l'indice d'intelligence en tient lieu à titre provisoire"
+                        in unread_section, "unread: %s" % unread_section[:500]),
+                       ("(source : Epoch AI selftest source, non lue (HTTP 404)) ; Artificial Analysis n'a pas d'indice de code" in failed_section,
+                        "failed: %s" % failed_section[:500]),
+                       ("Qualité de code, d'après" not in unread_section and "Qualité de code, d'après" not in failed_section, "a quality block without the archive"),
+                       ("Ordre des contrats : `q` > `p` > `r` > `s` > `t` > `u` > `v` > `z`." in unread_section, "the order moved without the archive"),
+                       ("CC BY" not in unread_section and "CC BY" not in failed_section, "an attribution for a source that was not read")))
+    judged("what the archive carries into the issue is cut to plain words",
+           first_wrong((hostile_lines("\n".join(contracts_section({"contracts": contracts_report(template, ranking, document, dict(
+               archive, skipped={"deepswe_external": "@bob <img src=x> ::error:: `x`"}))}))) is None, "markup from a reason reached the issue")))
+
+    # The run: the archive is read by the online run that has the contracts, after the ranking, and by no other.
+    with tempfile.TemporaryDirectory() as directory:
+        run_document = contract_document()
+        run_document["models"]["alpha"]["epoch"] = {"deepswe_external": ["alpha_medium"], "swe_bench_verified": ["alpha_medium"]}
+        run_document["models"]["oscar"]["epoch"] = {"deepswe_external": ["oscar_high"], "swe_bench_verified": ["oscar_high"]}
+        run, config, path, issue = contracts_runner(directory, run_document)
+        run_archive = epoch_zip(epoch_members({"deepswe_external": {"alpha_medium": 0.4, "oscar_high": 0.8},
+                                               "swe_bench_verified": {"alpha_medium": 0.9, "oscar_high": 0.5}}))
+        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        status, out, body, asked = run(online, run_archive)
+        status_none, out_none, body_none, asked_none = run(online)
+        section = body.split("## Contrats par routeur")[1].split("\n## ")[0]
+        none_section = body_none.split("## Contrats par routeur")[1].split("\n## ")[0]
+        judged("the online run that has the contracts reads the archive once, and the issue orders code on it",
+               first_wrong((asked == [EPOCH_URL], "asked: %r" % asked),
+                           ("Ordre des contrats : `alpha` > `oscar` > `sierra`." in section, "the order of code: %s" % section[:200]),
+                           ("(source : Epoch AI selftest source, lue le " in section and "Epoch AI, benchmark data, CC BY 4.0" in section, "the source"),
+                           ("| `alpha` | 2/2 | 1/2 | — | — | — | 1.5 | 1 |" in section and "| `oscar` | 1/2 | 2/2 | — | — | — | 1.5 | 2 |" in section,
+                            "the ranks of the two: %s" % section),
+                           ("epoch " in out and "read, 2 of the 5 benchmark file(s)" in out and "Epoch AI, benchmark data, CC BY 4.0" in out, "the log: %s" % out)))
+        judged("an archive nobody serves is a read that failed: the issue and the log say so, the order is the stand-in's, and nothing else of the run moves",
+               first_wrong((asked_none == [EPOCH_URL], "asked: %r" % asked_none),
+                           ("Ordre des contrats : `oscar` > `alpha` > `sierra`." in none_section, "the stand-in order: %s" % none_section[:200]),
+                           ("non lue (HTTP 404)" in none_section and "Qualité de code, d'après" not in none_section, "the failure is not said"),
+                           ("ERROR, not read: HTTP 404" in out_none, "the log: %s" % out_none),
+                           (status_none == status and "Aucune dérive." in body_none and "Aucune dérive." in body, "the status or the drift moved"),
+                           (body.split("## Contrats par routeur")[0] == body_none.split("## Contrats par routeur")[0], "the rest of the issue moved")))
+        status_bad, _, body_bad, _ = run(online, b"not an archive")
+        status_boom, _, body_boom, _ = run(online, RuntimeError("selftest: SECRET"))
+        judged("an answer that is no archive, or a reader that fails, is a read that failed and never the run's failure",
+               first_wrong(("non lue (the answer is not a zip archive)" in body_bad, "not an archive: %s" % body_bad[-600:]),
+                           ("non lue (failed: RuntimeError)" in body_boom and "SECRET" not in body_boom, "a failing opener"),
+                           (status_bad == status and status_boom == status, "the status moved")))
+        status_off, _, body_off, asked_off = run(online, run_archive, environment=SELFTEST_KEYS)
+        status_other, _, body_other, asked_other = run(["--online", "--config", config, "--issue-body", issue], run_archive)
+        judged("the archive is not read where there is no section to use it: without the ranking, or with another template and no contracts",
+               first_wrong((asked_off == [] and asked_other == [], "asked: %r %r" % (asked_off, asked_other)),
+                           ("## Contrats par routeur" not in body_off and "## Contrats par routeur" not in body_other, "a section without its inputs")))
+
+        def refusing(url, headers, limit=None):
+            raise AssertionError("the plain run reached the network: %s" % url)
+
+        status_plain, out_plain, _, _ = run(["--config", config, "--contracts", path], opener=refusing)
+        judged("the plain run stays offline: it reads the contracts, never the archive",
+               first_wrong((status_plain == 0 and "holds a contract for each router" in out_plain, "the plain run: %s" % out_plain)))
+    judged("the repository's contracts name only benchmark files the reader reads",
+           first_wrong((offline_contract_problems(CONFIG.read_text(encoding="utf-8"), CONTRACTS) == [], "a problem of the real file")))
+    return failures
+
+
+def run_eci_cases():
+    """The capabilities index of Epoch AI: read from the same archive, converted to the scale of the
+    intelligence index, and used for the floors that name a model of it and for the members the ranking
+    has no figure for. Made-up archives and members only."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    # Reading: the member of the archive is found by its exact name, and its absence or its rows change nothing else.
+    good, _ = epoch_read(epoch_zip(epoch_members()))
+    judged("the capabilities index is read from its member of the same archive: a figure by display name, nothing else of that folder",
+           first_wrong((good["status"] == "read" and good["eci"] == EPOCH_ECI and good["skipped"] == {}, "state: %r" % good),
+                       (sorted(good["files"]) == sorted(EPOCH_KEYS), "the benchmark files moved")))
+    missing, _ = epoch_read(epoch_zip({name: text for name, text in epoch_members().items() if name != EPOCH_ECI_MEMBER}))
+    judged("a capabilities index that the archive lacks is skipped and said, and the benchmark files are read as before",
+           first_wrong((missing["status"] == "read" and missing["eci"] == {}, "state: %r" % missing),
+                       (missing["skipped"] == {EPOCH_ECI_KEY: "absent from the archive"}, "skipped: %r" % missing["skipped"]),
+                       (sorted(missing["files"]) == sorted(EPOCH_KEYS), "the benchmark files were lost with it")))
+    rough_rows = "x,,151,0,d\nx,Nobody,abc,0,d\nx,Nan,nan,0,d\nx,Inf,inf,0,d\nx,Blank,,0,d\nx,Short\nx,  Spaced  ,141,0,d\nx,Dup,145,0,d\n"
+    rough, _ = epoch_read(epoch_zip(dict(epoch_members(None, None, {}), **{EPOCH_ECI_MEMBER: eci_csv({"Good": 150, "Dup": 140}, rough_rows)})))
+    judged("bad rows of the capabilities index are tolerated: no name, no figure, a figure that is no finite number, a ragged row; a name listed twice keeps its best figure",
+           first_wrong((rough["status"] == "read", "state: %r" % rough),
+                       (rough["eci"] == {"Good": 150.0, "Spaced": 141.0, "Dup": 145.0}, "eci: %r" % rough["eci"]),
+                       (EPOCH_ECI_KEY not in rough["skipped"], "skipped: %r" % rough["skipped"])))
+    wrong, _ = epoch_read(epoch_zip(dict(epoch_members(), **{EPOCH_ECI_MEMBER: "Model,Name,score\nA,A,150\n"})))
+    empty, _ = epoch_read(epoch_zip(dict(epoch_members(), **{EPOCH_ECI_MEMBER: "Model,Display name,eci\n"})))
+    big, _ = epoch_read(epoch_zip(dict(epoch_members(), **{EPOCH_ECI_MEMBER: eci_csv({"Model %d" % number: 150 for number in range(80)})})),
+                        EPOCH_MAX_MEMBER=800)
+    judged("a capabilities index with the wrong columns, no row or more than the cap is skipped and said, and leaves everything else read",
+           first_wrong((wrong["eci"] == {} and wrong["skipped"] == {EPOCH_ECI_KEY: "it has not the columns expected"}, "wrong: %r" % wrong["skipped"]),
+                       (empty["eci"] == {} and empty["skipped"] == {EPOCH_ECI_KEY: "it has no usable row"}, "empty: %r" % empty["skipped"]),
+                       (big["eci"] == {} and big["skipped"] == {EPOCH_ECI_KEY: "larger than 800 bytes"}, "big: %r" % big["skipped"]),
+                       (all(state["status"] == "read" and sorted(state["files"]) == sorted(EPOCH_KEYS) for state in (wrong, empty, big)),
+                        "a benchmark file was lost")))
+    only, _ = epoch_read(epoch_zip({EPOCH_ECI_MEMBER: eci_csv(EPOCH_ECI)}))
+    judged("an archive whose only usable member is the capabilities index is read, and one with nothing usable is not",
+           first_wrong((only["status"] == "read" and only["files"] == {} and only["eci"] == EPOCH_ECI, "state: %r" % only),
+                       (sorted(only["skipped"]) == sorted(EPOCH_KEYS), "skipped: %r" % only["skipped"]),
+                       (epoch_read(epoch_zip({EPOCH_ECI_MEMBER: "Model,Name\n"}))[0]["status"] == "error", "nothing usable was read")))
+
+    # The conversion: a line through the points, the slope of an end segment going on beyond it, never below 0.
+    points = [(140.0, 4.0), (150.0, 20.0), (160.0, 20.0), (170.0, 50.0)]
+
+    def converted(value, calibration=points):
+        found = eci_to_index(value, calibration)
+        return None if found is None else round(found, 9)
+
+    judged("a capabilities index is turned into an index by the line through the points, the slope of the end segments going on beyond them, and never below 0",
+           first_wrong((converted(140) == 4 and converted(150) == 20 and converted(160) == 20 and converted(170) == 50, "a point is not itself"),
+                       (converted(145) == 12 and converted(165) == 35, "inside a sloping segment"),
+                       (converted(155) == 20, "inside a flat segment"),
+                       (converted(138) == 0.8 and converted(135) == 0 and converted(100) == 0, "below the first point: slope on, then 0"),
+                       (converted(175) == 65 and converted(180) == 80, "above the last point: slope on"),
+                       (converted(150.0001) > 20 - 1e-9, "a point is not continuous"),
+                       (converted(150, [(140.0, 4.0), (150.0, 4.0)]) == 4 and converted(139, [(140.0, 4.0), (150.0, 4.0)]) == 4, "a flat line"),
+                       (converted(150, [(140.0, 4.0)]) is None and converted(150, []) is None, "a calibration of fewer than two points converted")))
+    scale = eci_scale(epoch_archive(), contract_document())
+    judged("a scale needs the archive read, a capabilities index in it and the calibration of the contracts, and is none otherwise",
+           first_wrong((scale is not None and scale["eci"] == EPOCH_ECI and scale["points"] == [tuple(map(float, point)) for point in contract_document()["fallback_index"]["points"]],
+                        "scale: %r" % scale),
+                       (eci_scale(None, contract_document()) is None, "an archive that was not read gave a scale"),
+                       (eci_scale({"status": "error"}, contract_document()) is None, "a failed read gave a scale"),
+                       (eci_scale(epoch_archive(eci={}), contract_document()) is None, "an empty index gave a scale"),
+                       (eci_scale(epoch_archive(), {}) is None, "no calibration gave a scale"),
+                       (eci_scale(epoch_archive(), {"fallback_index": {"points": [[140, 4]]}}) is None, "one point gave a scale"),
+                       (eci_scale(epoch_archive(), {"fallback_index": {"points": [[140, "4"], [150, 5]]}}) is None, "a bad point gave a scale")))
+
+    # Anchors and floors on the capabilities index, on the cascades of CONTRACT_TEMPLATE.
+    template = read_template(CONTRACT_TEMPLATE)[0]
+    ranking = contract_ranking()
+    archive = epoch_archive({}, EPOCH_ECI)
+
+    def eci_document():
+        document = contract_document()
+        document["routers"]["pro"]["intelligence_floor"] = {
+            "anchor": {"epoch": "Floor Model"}, "reason": "selftest",
+            "candidates": [{"epoch": "Floor Model"}, {"entry": "alpha", "level": "high"}, {"epoch": "Pee Model"}]}
+        document["models"]["echo"]["eci"] = "Que Model"
+        document["models"]["charlie"]["eci"] = "Floor Model"
+        document["models"]["delta"]["eci"] = "Pee Model"
+        document["models"]["alpha"]["eci"] = "High Model"
+        document["models"]["juliet"]["eci"] = "Low Model"
+        return document
+
+    document = eci_document()
+    report = contracts_report(template, ranking, document, archive)
+    pro, pro_order = contract_rows(report, "pro")
+    floor = pro_order["contract"]["intelligence_floor"]
+    judged("an anchor that names a model of the capabilities index has its index converted, and said estimated; the candidates are read the same way",
+           first_wrong((floor["value"] == 20 and floor["text"] == "Floor Model (Epoch, estimé)", "floor: %r %r" % (floor["value"], floor["text"])),
+                       (floor["candidates"] == [20, 40, 12] and floor["candidate_texts"] == ["Floor Model (Epoch, estimé)", "Alpha (High)", "Pee Model (Epoch, estimé)"],
+                        "candidates: %r %r" % (floor["candidates"], floor["candidate_texts"])),
+                       ([effect["floor"] for effect in pro_order["floors"]] == [20, 40, 12], "floors side by side: %r" % pro_order["floors"])))
+
+    def anchored(anchor, given=scale):
+        return anchor_floor(anchor, document["models"], {}, {}, given)
+
+    judged("an anchor on the capabilities index that cannot be read has no value and says why: the archive not read, the index empty, or the model not in it",
+           first_wrong((anchored({"epoch": "Pee Model"}) == (12, "Pee Model (Epoch, estimé)"), "found: %r" % (anchored({"epoch": "Pee Model"}),)),
+                       (anchored({"epoch": "Low Model"}) == (0, "Low Model (Epoch, estimé)"), "a figure converted to 0 is a floor of 0"),
+                       (anchored({"epoch": "Nobody"}) == (None, "Nobody (Epoch, estimé) : absent de l'indice de capacités"), "%r" % (anchored({"epoch": "Nobody"}),)),
+                       (anchored({"epoch": "Pee Model"}, None) == (None, "Pee Model (Epoch, estimé) : indice de capacités non lu"),
+                        "%r" % (anchored({"epoch": "Pee Model"}, None),))))
+    unread = contracts_report(template, ranking, document)
+    unread_pro, unread_order = contract_rows(unread, "pro")
+    unread_section = "\n".join(contracts_section({"contracts": unread}))
+    judged("with the archive not read, an anchor on the capabilities index has no value, nothing is judged against it and the issue says introuvable and why, as for an entry that cannot be read",
+           first_wrong((unread_order["contract"]["intelligence_floor"]["value"] is None, "a floor with a value"),
+                       (unread_order["contract"]["intelligence_floor"]["candidates"] == [40], "the candidates that can be read are not compared: %r" % unread_order["contract"]["intelligence_floor"]["candidates"]),
+                       (not any(row["kind"] == "below_floor" for row in unread_pro.values()), "a member was put under a floor that is not there"),
+                       (unread_pro["echo"]["kind"] == "unrankable" and unread_pro["echo"]["verdict"] == "inclassable : pas d'indice"
+                        and unread_pro["delta"]["kind"] == "unverified" and unread_pro["charlie"]["kind"] == "unverified",
+                        "a member was placed on an estimate nobody read"),
+                       ("Plancher introuvable (Floor Model (Epoch, estimé) : indice de capacités non lu), aucun membre n'est jugé sous le plancher" in unread_section,
+                        "the floor is not said: %s" % unread_section[:900]),
+                       ("n'est pas lu, l'archive étant non lue" in unread_section, "the index is not said unread"),
+                       (unread_order["proposed"] == ["alpha", "india", "juliet", "foxtrot"], "pro: %r" % unread_order["proposed"])))
+
+    # A member the ranking has no figure for at the level it is called at is placed on the estimate of its entry.
+    judged("a member with no index at the level it is called at is placed on the estimate its capabilities index gives, a member the ranking has an index for never is, and the tail keeps its order",
+           first_wrong((pro["echo"]["intelligence"] == 35 and pro["echo"]["estimated"] and pro["echo"]["kind"] == "conforming", "echo: %r" % pro["echo"]["verdict"]),
+                       (pro["charlie"]["intelligence"] == 20 and pro["charlie"]["estimated"] and pro["charlie"]["kind"] == "conforming",
+                        "charlie, unverified, at the floor exactly: %r" % pro["charlie"]["verdict"]),
+                       (pro["delta"]["intelligence"] == 12 and pro["delta"]["kind"] == "below_floor", "delta, unverified, under the floor: %r" % pro["delta"]["verdict"]),
+                       (pro["alpha"]["intelligence"] == 30 and not pro["alpha"]["estimated"] and pro["alpha"]["verdict"] == "conforme",
+                        "alpha has an index at its level and was given its estimate: %r" % pro["alpha"]["verdict"]),
+                       (pro["india"]["intelligence"] == 8 and not pro["india"]["estimated"] and pro["india"]["kind"] == "below_floor", "india"),
+                       (pro["juliet"]["last_resort"] and pro["juliet"]["verdict"] == "conforme (dernier recours)", "a member of the last resort keeps its words"),
+                       (pro_order["proposed"] == ["echo", "alpha", "charlie", "delta", "india", "juliet", "foxtrot"], "pro: %r" % pro_order["proposed"])))
+    judged("the verdict of a member placed on an estimate says so, and so does a member under the floor on one",
+           first_wrong((pro["echo"]["verdict"] == "conforme (estimé)", "echo: %r" % pro["echo"]["verdict"]),
+                       (pro["delta"]["verdict"] == "sous le plancher (12.0 estimé contre 20) : dernier recours", "delta: %r" % pro["delta"]["verdict"]),
+                       (pro["india"]["verdict"] == "sous le plancher (8.0 contre 20) : dernier recours", "india, whose figure is the ranking's: %r" % pro["india"]["verdict"])))
+    lost = contracts_report(template, ranking, document, dict(archive, eci={}, skipped={EPOCH_ECI_KEY: "absent from the archive"}))
+    judged("an archive read without its capabilities index gives no estimate and no floor on it, and says why in the issue",
+           first_wrong((contract_rows(lost, "pro")[1]["contract"]["intelligence_floor"]["value"] is None, "a floor from nothing"),
+                       (contract_rows(lost, "pro")[0]["echo"]["estimated"] is False and contract_rows(lost, "pro")[0]["echo"]["intelligence"] is None, "an estimate from nothing"),
+                       ("n'est pas lu (absent from the archive)" in "\n".join(contracts_section({"contracts": lost})), "the missing member is not said"),
+                       (lost["eci_stale"] == [], "a name was called stale before the index was read")))
+    section = "\n".join(contracts_section({"contracts": report}))
+    pro_block = section.split("### `pro`")[1].split("### `flash`")[0]
+    judged("the issue says the capabilities index was read from the same archive, with the attribution and the day, shows each estimate as estimated and each floor with its anchor named, the candidates side by side",
+           first_wrong(("Indice de capacités d'Epoch AI (ECI), lu le 2026-01-02 dans la même archive : Epoch AI, benchmark data, CC BY 4.0 (<https://epoch.ai/benchmarks>)." in section
+                        and "tout chiffre ainsi obtenu est une **estimation**, marquée « estimé »" in section, "the capabilities index is not said: %s" % section[:1700]),
+                       ("Plancher 20 (Floor Model (Epoch, estimé)), un niveau de plus tant qu'il rapporte au moins 0.2 points d'indice par seconde de plus, classé par l'indice d'intelligence"
+                        in pro_block, "the floor is not said: %s" % pro_block[:500]),
+                       ("| `echo` | Echo | sans niveau | 35.0 (estimé) |" in pro_block and "conforme (estimé) |" in pro_block, "the estimate is not in the table: %s" % pro_block),
+                       ("| `delta` | Delta (High) | medium | 12.0 (estimé) |" in pro_block
+                        and "sous le plancher (12.0 estimé contre 20) : dernier recours |" in pro_block, "delta"),
+                       ("| `alpha` | Alpha (Medium) | medium | 30.0 | 12.0 |" in pro_block, "an index of the ranking was flagged"),
+                       ("| 20 (Floor Model (Epoch, estimé)) (proposé) |" in pro_block and "| 40 (Alpha (High)) |" in pro_block
+                        and "| 12 (Pee Model (Epoch, estimé)) |" in pro_block, "the floors side by side: %s" % pro_block[-900:]),
+                       ("Ordre des contrats : `echo` > `alpha` > `charlie` > `delta` > `india` > `juliet` > `foxtrot`." in pro_block, "the order"),
+                       ("n'est pas lu" not in section.split("### `pro`")[0], "the index is said unread though it was read")))
+
+    # A name the contracts keep that the index no longer holds is information, and nothing before the index is read.
+    thin = contracts_report(template, ranking, document, epoch_archive({}, {"Que Model": 165.0}))
+    thin_section = "\n".join(contracts_section({"contracts": thin}))
+    judged("a name the capabilities index no longer holds is listed as stale, in a mapping or in an anchor, once it was read, and is no failure",
+           first_wrong((sorted(thin["eci_stale"]) == sorted([("charlie", "Floor Model"), ("delta", "Pee Model"), ("alpha", "High Model"),
+                                                              ("juliet", "Low Model"), ("", "Floor Model"), ("", "Pee Model")]),
+                        "stale: %r" % thin["eci_stale"]),
+                       ("Noms absents de l'indice de capacités d'Epoch AI (le nom est à corriger dans le fichier des contrats) :\n\n- `" in thin_section
+                        and "- `charlie` : `Floor Model`\n" in thin_section
+                        and "- ancre d'un plancher : `Floor Model`\n" in thin_section, "the issue does not list them: %s" % thin_section[-1500:]),
+                       (report["eci_stale"] == [] and unread["eci_stale"] == [], "a name was stale in an index that holds it, or before it was read"),
+                       (contract_rows(thin, "pro")[0]["charlie"]["estimated"] is False, "a stale name gave an estimate")))
+
+    # No floor.
+    template_lite = read_template(CONTRACT_TEMPLATE.replace("    - flash-lite: [kilo, india, bravo, lima, quebec]\n",
+                                                            "    - flash-lite: [kilo, india, bravo, lima, quebec, echo, sierra]\n"))[0]
+    lite_document = contract_document()
+    lite_document["routers"]["flash-lite"]["intelligence_floor"] = {"none": True, "reason": "selftest"}
+    lite_document["models"]["echo"]["eci"] = "Que Model"
+    with_floor = contracts_report(template_lite, ranking, contract_document(), archive)
+    no_floor = contracts_report(template_lite, ranking, lite_document, archive)
+    held, held_order = contract_rows(with_floor, "flash-lite")
+    free, free_order = contract_rows(no_floor, "flash-lite")
+    free_section = "\n".join(contracts_section({"contracts": no_floor}))
+    judged("a router with no floor has every member that is not otherwise excluded conform, a member with no index included, and nothing goes under the floor",
+           first_wrong((held["echo"]["kind"] == "unrankable" and held["sierra"]["kind"] == "below_floor", "with a floor: %r %r" % (held["echo"]["kind"], held["sierra"]["kind"])),
+                       (held_order["proposed"] == ["india", "bravo", "kilo", "lima", "sierra"], "with a floor: %r" % held_order["proposed"]),
+                       (free["echo"]["kind"] == "conforming" and free["echo"]["verdict"] == "conforme" and not free["echo"]["estimated"],
+                        "echo, with no index, in a router that needs none: %r" % free["echo"]["verdict"]),
+                       (free["sierra"]["kind"] == "conforming", "sierra, under the old floor: %r" % free["sierra"]["verdict"]),
+                       (not any(row["kind"] == "below_floor" for row in free.values()), "a member went under a floor that does not exist"),
+                       (free["quebec"]["kind"] == "unrankable" and free["quebec"]["verdict"] == "inclassable : pas de délai", "a member with no time was placed"),
+                       (free_order["proposed"] == ["india", "echo", "bravo", "kilo", "sierra", "lima"], "ordered by time alone: %r" % free_order["proposed"]),
+                       (free_order["contract"]["intelligence_floor"]["value"] is None and free_order["contract"]["intelligence_floor"]["candidates"] == []
+                        and free_order["floors"] == [], "the floor has a value or candidates: %r" % free_order["floors"])))
+    judged("the issue says that a router has no floor, in its sentence and not as a floor that could not be found",
+           first_wrong(("Aucun plancher, un niveau de plus tant qu'il rapporte au moins 1.5 points d'indice par seconde de plus, classé par le délai le plus court." in free_section,
+                        "the sentence: %s" % free_section[:3000]),
+                       ("introuvable" not in free_section.split("### `flash-lite`")[1].split("### `code`")[0], "no floor was said not found"),
+                       ("Effet de chaque plancher" not in free_section.split("### `flash-lite`")[1].split("### `code`")[0], "a table of floors for no floor")))
+    lite_floored = contract_document()
+    lite_floored["models"]["echo"]["eci"] = "Que Model"
+    floored, _ = contract_rows(contracts_report(template_lite, ranking, lite_floored, archive), "flash-lite")
+    judged("a router ordered by time takes no estimate from the capabilities index, with a floor or without: its time comes from the ranking",
+           first_wrong((floored["echo"]["estimated"] is False and floored["echo"]["intelligence"] is None and floored["echo"]["kind"] == "unrankable",
+                        "echo was estimated in flash-lite: %r" % floored["echo"]["verdict"]),
+                       (free["echo"]["estimated"] is False and free["echo"]["intelligence"] is None, "echo was estimated with no floor")))
+
+    # claude-code follows code, estimates included.
+    estimates = contracts_report(template, ranking, document, archive)
+    code, code_order = contract_rows(estimates, "code")
+    claude, claude_order = contract_rows(estimates, "claude-code")
+    judged("claude-code is ordered as code is on the estimates too: the same floor, the same figures, the same order for the members they share",
+           first_wrong((code_order["proposed"] == ["oscar", "alpha", "delta", "sierra"], "code: %r" % code_order["proposed"]),
+                       (claude_order["proposed"] == ["echo", "alpha", "quebec", "delta"], "claude-code: %r" % claude_order["proposed"]),
+                       (claude["echo"]["estimated"] and claude["echo"]["verdict"] == "conforme (estimé)", "echo: %r" % claude["echo"]["verdict"]),
+                       (claude["delta"]["verdict"] == "sous le plancher (12.0 estimé contre 20) : dernier recours"
+                        and code["delta"]["verdict"] == claude["delta"]["verdict"], "delta"),
+                       (claude["november"]["kind"] == "no_tools", "a member with no tools was placed on an estimate"),
+                       (code_order["contract"]["intelligence_floor"]["value"] == claude_order["contract"]["intelligence_floor"]["value"] == 20, "the floor"),
+                       ([name for name in claude_order["proposed"] if name in code_order["proposed"]]
+                        == [name for name in code_order["proposed"] if name in claude_order["proposed"]], "the order of the shared members differs")))
+
+    # Structure.
+    problems_template = read_template(CONTRACT_TEMPLATE)[0]
+
+    def mutated(change):
+        mutant = eci_document()
+        change(mutant)
+        return contracts_problems(mutant, problems_template)
+
+    def set_in(path, value):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+        return change
+
+    def drop(*path):
+        def change(mutant):
+            target = mutant
+            for key in path[:-1]:
+                target = target[key]
+            del target[path[-1]]
+        return change
+
+    floor_path = ("routers", "pro", "intelligence_floor")
+    structural = (
+        ("an anchor on the capabilities index", set_in(floor_path + ("anchor",), {"epoch": "Pee Model"}), None),
+        ("a router with no floor", set_in(floor_path, {"none": True, "reason": "x"}), None),
+        ("a router with no floor and an anchor", set_in(floor_path, {"none": True, "reason": "x", "anchor": {"epoch": "Pee Model"}}), 'says "none" and so names no "anchor" and no "candidates"'),
+        ("a router with no floor and candidates", set_in(floor_path, {"none": True, "reason": "x", "candidates": []}), 'says "none" and so names no "anchor" and no "candidates"'),
+        ("a router with no floor and no reason", set_in(floor_path, {"none": True}), '"intelligence_floor", has no "reason"'),
+        ("a no-floor that is false", set_in(floor_path, {"none": False, "reason": "x"}), 'has a "none" that is not true'),
+        ("a no-floor that is a word", set_in(floor_path, {"none": "yes", "reason": "x"}), 'has a "none" that is not true'),
+        ("an anchor naming an entry and a model", set_in(floor_path + ("anchor",), {"entry": "alpha", "epoch": "Pee Model"}), 'names both an "entry" and an "epoch" model: exactly one'),
+        ("an anchor with a blank model", set_in(floor_path + ("anchor",), {"epoch": " "}), 'has an "epoch" that is no model name'),
+        ("an anchor with a model that is no text", set_in(floor_path + ("anchor",), {"epoch": 5}), 'has an "epoch" that is no model name'),
+        ("an anchor on a model with a level", set_in(floor_path + ("anchor",), {"epoch": "Pee Model", "level": "low"}), 'names an "epoch" model, which has no "level"'),
+        ("an anchor naming nothing", set_in(floor_path + ("anchor",), {"level": "low"}), 'must be a mapping that names an "entry" or an "epoch" model'),
+        ("a candidate naming a model that is no text", set_in(floor_path + ("candidates",), [{"epoch": ["x"]}]), 'candidate 1 has an "epoch" that is no model name'),
+        ("a mapping with an eci that is blank", set_in(("models", "echo", "eci"), " "), 'has an "eci" that is no model name of the capabilities index'),
+        ("a mapping with an eci that is no text", set_in(("models", "echo", "eci"), 150), 'has an "eci" that is no model name of the capabilities index'),
+        ("the capabilities index used with no calibration", drop("fallback_index"), 'declares no "fallback_index" calibration'),
+        ("a calibration of one point", set_in(("fallback_index", "points"), [[140, 4]]), 'must list its calibration "points" as pairs of numbers, two at least'),
+    )
+    for purpose, change, needle in structural:
+        found = mutated(change)
+        judged("structure: %s is %s" % (purpose, "no problem" if needle is None else "refused"),
+               (None if found == [] else "got %r" % found) if needle is None
+               else None if any(needle in problem for problem in found) else "expected %r, got %r" % (needle, found))
+    judged("structure: no calibration is no problem where nothing uses the capabilities index",
+           first_wrong((contracts_problems({key: value for key, value in contract_document().items() if key != "fallback_index"}, problems_template) == [],
+                        "a file that uses no index was refused")))
+
+    # The run: the same archive gives the index, and the plain run reads nothing.
+    with tempfile.TemporaryDirectory() as directory:
+        run_document = eci_document()
+        run, config, path, issue = contracts_runner(directory, run_document)
+        online = ["--online", "--config", config, "--issue-body", issue, "--contracts", path]
+        served = epoch_zip(epoch_members({}, None, EPOCH_ECI))
+        status, out, body, asked = run(online, served)
+        status_down, out_down, body_down, _ = run(online)
+        section = body.split("## Contrats par routeur")[1].split("\n## ")[0]
+        down = body_down.split("## Contrats par routeur")[1].split("\n## ")[0]
+        judged("the online run reads the capabilities index in the archive it already reads, once, and orders the cascades on it",
+               first_wrong((asked == [EPOCH_URL], "asked: %r" % asked),
+                           ("Ordre des contrats : `echo` > `alpha` > `charlie` > `delta` > `india` > `juliet` > `foxtrot`." in section, "the order of pro: %s" % section[:300]),
+                           ("read, 0 of the 5 benchmark file(s) and 5 model(s) of the capabilities index" in out, "the log: %s" % out),
+                           ("Indice de capacités d'Epoch AI (ECI), lu le" in section, "the capabilities index is not said read")))
+        judged("a run that cannot read the archive judges nothing on the capabilities index and says so, and nothing else of the run moves",
+               first_wrong(("Plancher introuvable (Floor Model (Epoch, estimé) : indice de capacités non lu)" in down, "the floor: %s" % down[:600]),
+                           (status == status_down and "Aucune dérive." in body and "Aucune dérive." in body_down, "the status moved"),
+                           ("conforme (estimé)" not in down, "an estimate without the index")))
+        refusing_calls = []
+
+        def refusing(url, headers, limit=None):
+            refusing_calls.append(url)
+            raise AssertionError("the plain run reached the network: %s" % url)
+
+        status_plain, out_plain, _, _ = run(["--config", config, "--contracts", path], opener=refusing)
+        judged("the plain run stays offline with floors and mappings on the capabilities index: it reads the shape of the contracts and nothing else",
+               first_wrong((status_plain == 0 and "holds a contract for each router" in out_plain, "the plain run: %s" % out_plain),
+                           (refusing_calls == [], "the network was reached")))
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -8416,6 +11245,9 @@ def run_selftest_cases():
     failures += run_head_cases()
     failures += run_pricing_page_cases()
     failures += run_ranking_cases()
+    failures += run_contract_cases()
+    failures += run_epoch_cases()
+    failures += run_eci_cases()
     failures += run_verify_cases()
     failures += run_safety_net_case()
     failures += run_online_apply_cases()
@@ -8475,6 +11307,9 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "status, less the NEW models a pull request of --proposals carries")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
+    parser.add_argument("--contracts", metavar="PATH",
+                        help="the router contracts to read, by default the repository's own when "
+                             "--config is the repository's template, and none for another one")
     arguments = parser.parse_args(argv)
 
     if arguments.selftest:
@@ -8513,10 +11348,28 @@ def main(argv=None, opener=urllib_opener, environment=None):
               "%d commented-out entries, every cascade and alias names an active one, no name "
               "twice, every commented-out entry gives its reason."
               % (shown, len(template["active"]), len(template["commented"])))
+        contracts_file = contracts_file_for(arguments)
+        if contracts_file:
+            problems = offline_contract_problems(text, contracts_file)
+            if problems:
+                print("\nRouter contracts: %d problem(s) in %s.\n" % (len(problems), contracts_file.name))
+                for problem in problems:
+                    print(problem + "\n")
+                return 1
+            for notice in offline_contract_notices(text, contracts_file):
+                print(notice)
+            print("Router contracts: %s holds a contract for each router, and its mappings are well formed."
+                  % contracts_file.name)
         return 0
 
     today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     result = run_online(text, environment, opener, today)
+    contracts_file = contracts_file_for(arguments)
+    # The archive of Epoch AI is read only where the contracts are, and after the ranking they stand on:
+    # a run that has no section of contracts has no use for it.
+    if contracts_file is not None and (result.get("rankings") or {}).get("status") == "read":
+        result["epoch"] = read_epoch(opener, today)
+    result["contracts"] = router_contracts(text, result, contracts_file)
     if arguments.apply and not result["unreadable"]:
         new_text = apply_to_result(text, result)
         if new_text != text:

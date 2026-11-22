@@ -1,0 +1,519 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# What each LiteLLM router is held to, and which Artificial Analysis record describes each entry of
+# "templates/LiteLLM_config.yaml.j2". Read by "check_LiteLLM_model_drift.py", which reports how the
+# cascades stand against it in the weekly issue ("Contrats par routeur"). It is a REPORT: nothing
+# here changes a cascade, an entry or a row of the "head" table, no member is removed from a cascade
+# by it, and a model that breaks a contract is information, never a failure. The one thing that
+# fails the plain run is the file's own shape (a router that does not exist, a number that is not a
+# number, a value with no reason, a malformed row or file, a key written twice). A name kept here
+# that is no entry of the template any more is not a failure, since a deletion leaves it: the plain
+# run prints a notice and the weekly issue lists it as a stale row, to be removed by a person.
+#
+# PROVISIONAL. Every number and every choice below is a proposal, derived from the figures cited in
+# its own reason line, until the maintainer validates it and sets "status" to "validated". The
+# criteria a router is held to and the measures behind them are still to be defined with him: what
+# is here is what the data of 2026-11-21 allows, not the final list.
+#
+# NO TIME BUDGET. The goal is to use as many free models as possible, so a slow model is never
+# disqualified for being slow. A member is eligible for a router if it reaches the router's
+# intelligence floor (and, for "claude-code", takes tool calls), and for nothing else. Time is an
+# ordering key: "flash-lite" puts the shortest time to the first answer token first; the other
+# routers put the best quality first, and the time decides only between two members whose quality
+# differs by less than the router's "tie_margin_points". The report keeps showing each member's time.
+#
+# The unit of routing is "model + reasoning level". Artificial Analysis publishes one record per
+# level, told apart by the suffix of the name ("(Low)", "(High)", "(Non-reasoning)"...), and speed in
+# tokens per second is almost flat across levels while the time to the first answer token grows with
+# them. The level a router keeps for a model is found by walking up its levels from the lowest and
+# climbing to the next only while each extra second of the time to the first answer token buys at
+# least the router's "min_points_per_second" points of index. A router that values time asks more
+# points per second. The time of one request depends on the request, but what is compared is a model
+# against itself, level against level, on the same requests: the rate measures the levels against
+# each other and is no prediction for a given request. A step that is no slower and buys points is
+# taken, a step that buys no points is not, and neither is one whose time is unknown. On Gemini 4
+# Hydrogen (Low 26.9 in 7.6 s, Medium 41.2 in 13.0 s, High 50.8 in 21.5 s, Xhigh 53.9 in 47.4 s) the
+# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 stops at High, 1.5 at Medium, 3 at Low. On Gemini
+# 3.8 Flash (Low 22.5 in 5.1 s, Medium 30.1 in 14.5 s, High 30.8 in 28.1 s) they buy 0.81 and 0.05:
+# 0.2 stops at Medium, 1.5 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
+#
+# How the figures are read. The time is the mean time to the first ANSWER token ("performance_v3"
+# of the free API: the time the model spends thinking is part of it), the intelligence is the
+# Artificial Analysis Intelligence Index on the version below, and both are the published figures, as
+# the terms of that API ask the issue to cite them.
+#
+# Floors. A member under its router's floor is not removed: it goes to the router's last resort
+# tier, after the members that conform. A floor is an ANCHOR, never a number: "at least as good as
+# that model", whose figure the report reads at every run. Nothing is copied here, so nothing goes
+# stale when a source revises a figure, and an anchor that can no longer be read is said in the weekly
+# issue instead of leaving a figure nobody checks: the router is then judged against nothing until a
+# person names another anchor. An anchor names either an entry of the template ("entry", and where it
+# has several levels, "level"), whose index the report reads from the Artificial Analysis ranking, or
+# a model of Epoch AI's capabilities index ("epoch", its display name as the index spells it), read
+# from the archive the online run already reads and converted to the scale of the intelligence index
+# by the calibration below, which makes it an estimate, shown "estimé". The floors are on the
+# capabilities index because it measures nearly every model that Artificial Analysis has no index for
+# and measures the older Gemini models the floors are drawn from: "pro" is at least as good as
+# Gemini 3 Pro, and "flash", "code" and "claude-code" at least as good as Gemini 2.5 Flash (the
+# measurement of June 2025). "code" and "claude-code" are NOT held to the floor of "pro": coding is done
+# well by models that are not the most capable ones. "flash-lite" has NO floor: it is ordered by the
+# shortest time to the first answer token, and every member that answers conforms. Each router lists,
+# as "candidates", other anchors worth comparing, and the report shows the outcome of each side by side
+# so that the choice is made on what each one does to the cascade.
+#
+# "claude-code" exists for one reason, tool calls, so it is "code" without the models that cannot take
+# them: it derives from "code", is ranked exactly as "code" is, and its cascade is the cascade of
+# "code" with the members that do not support tools taken out, in the same order. The report checks
+# that on the template and lists the differences.
+#
+# "code" (and so "claude-code") is ranked on code quality, read from Epoch AI's benchmark data
+# (benchmark_data.zip of epoch.ai/benchmarks, free, no key, CC BY 4.0 with attribution, updated daily) by
+# the weekly online run, which cites it with the day it was read. Artificial Analysis publishes no coding
+# or agentic index on any tier any more. The method: for each of five benchmark files (DeepSWE,
+# SWE-bench Verified, CursorBench, Terminal-Bench external, ALE-Bench), the score of a member is the
+# best score among the Epoch AI model ids its entry lists in "models" below for that file; the file
+# counts only if at least two members of the cascade have a score in it, and ranks them (1 is the best,
+# a tie shares the average rank); the code quality of a member is the median of its ranks, and a member
+# that fewer than two files rank is unrankable by code quality and is listed as such. The router puts
+# its ranked members first, best code quality first, the shorter time deciding between equal ones. An
+# unrankable member is not removed: it follows the ranked ones in the main tier, ordered on the
+# intelligence index, and the report says it is ranked on that stand-in. A member of the last resort or
+# under the floor goes to the tail as for every other router. WebDev Arena, and any design or UI arena,
+# is never read: web interface quality is design, not code. Its known weaknesses: the harnesses differ
+# from one benchmark to the next, efforts are mixed, the sets of models differ per benchmark, and the
+# effort of some entries is not stated in the file. When the archive cannot be read, the weekly issue
+# says so and the intelligence index orders the whole cascade, as a stand-in and nothing more. Each
+# entry of "models" below records the Epoch AI model ids it was found under, effort suffix included, or
+# "unknown".
+#
+# A member the ranking has no index for at the level it is called at is placed on an estimate where the
+# capabilities index covers it: its entry's "eci" names the model, and the index, converted by the
+# calibration below, stands in for the Artificial Analysis one, flagged "estimé" in its verdict. The
+# index of the ranking always wins where it exists; the level kept, the exchange rate and the time are
+# still the ranking's, and a router ordered by time uses no estimate. A member with no index and no
+# capabilities index is "unrankable", not removed: it stays where it is in its cascade, flagged. 607
+# of 764 records have no index on 2026-11-21 (the Gemini 3.6 Flash, Gemini 3.5 Flash and Gemini 2.5
+# Pro among them): without the capabilities index a model with no index cannot be ranked, whatever it
+# is worth.
+#
+# The intelligence scale is COMPRESSED at its low end. Of the 157 records that have an index on
+# 2026-11-21, 37 sit below 15 and 24 below 10, where two points separate models nobody would put in
+# the same class, while the top of the scale spreads from 40 to 65. A floor of 5 or 10 is therefore a
+# coarse line.
+#
+# Quota and availability are declared inputs, not constraints: a rate limit or an error on a member
+# sends the request to the next member at no cost. "inputs" records the limits the providers publish
+# and leaves room for the error rate observed on the gateway, which is not measured yet; nothing in
+# the report reads it.
+
+status: provisional
+index_version: 5
+source: "Artificial Analysis free API (artificialanalysis.ai), figures read 2026-11-21"
+
+# The calibration of Epoch AI's capabilities index (ECI) on the intelligence index, read by the online
+# run from the archive it reads for code quality, which covers many models that have no index. It turns
+# the index of a model into the scale of the floors, by the line through the points below (extended
+# past its ends by the slope of its end segment, and never below 0), and every figure it gives is
+# "estimé" wherever it is shown. The points are read off the 41 models that have both an index (the
+# median over their levels) and an ECI, whose rank correlation is 0.94, on 2026-11-21.
+fallback_index:
+  source: "Epoch AI Capabilities Index (ECI, benchmark_data.zip of epoch.ai/benchmarks, CC BY 4.0)"
+  status: "read"
+  flag: "estimated"
+  method: "A monotone calibration of the Artificial Analysis index on the ECI, over the models that have both: the median index across a model's levels against its ECI. Used for a floor anchored on an Epoch AI model and for a member with no index at the level it is called at, and flagged estimated wherever it is used. Read by the online run, from the same archive as code quality."
+  uncertainty: "ECI is one figure per model whereas the index has one per level, so at an ECI of 150 to 165 the index of one model spans about 10 points across its levels, and the points below are a middle line, not a measure."
+  points: [[140, 4], [147, 12], [152, 21], [159, 31], [167, 50]]
+
+inputs:
+  quota:
+    gemini: "unknown: no limit is stated in this repository"
+    groq: "Free plan, 30 requests and 8K tokens per minute for these models, per console.groq.com/docs/rate-limits as the template quotes it (checked 2026-09-27)"
+    mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
+    deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
+    openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
+    omniroute: "No quota: local and keyless"
+  observed_error_rate: "not measured yet: a future input from the gateway"
+
+routers:
+  pro:
+    intelligence_floor:
+      anchor: {epoch: "Gemini 3 Pro"}
+      candidates:
+        - {epoch: "Gemini 2.5 Flash (Jun 2025)"}
+        - {epoch: "Gemini 3 Pro"}
+        - {epoch: "Gemini 3.1 Pro"}
+      reason: "At least as good as Gemini 3 Pro on Epoch AI's capabilities index, which covers nearly every model that Artificial Analysis has no index for (read 2026-11-21), so a reasoning router is not anchored on the one Gemini Flash that has an index at its lowest level. Gemini 2.5 Flash and Gemini 3.1 Pro are shown to compare."
+    level_gain:
+      min_points_per_second: 0.2
+      reason: "pro asks little of an extra second, since nothing here is bounded by time: 0.2 points a second stops Gemini 4 Hydrogen at High (the step to Xhigh buys 3.1 points in 25.9 s, 0.12 a second) and keeps Gemini 3.8 Flash at Medium (High buys 0.7 in 13.6 s, 0.05), on the figures of 2026-11-21."
+    ranking:
+      criterion: intelligence
+      tie_margin_points: 2
+      reason: "The template ranks pro by capability and the index is the one general figure the free API gives; under 2 points two members are not told apart (Gemini 3.8 Flash at Medium and High differ by 0.7), so the shorter time decides."
+    last_resort:
+      members: [deepseek-v4-pro-direct, omniroute-free-reasoning]
+      reason: "The template places the paid DeepSeek and the keyless local entry after every free one on purpose, and the local entry has no record to be judged on."
+  flash:
+    intelligence_floor:
+      anchor: {epoch: "Gemini 2.5 Flash (Jun 2025)"}
+      candidates:
+        - {epoch: "Gemini 2.5 Flash-Lite (Jun 2025)"}
+        - {epoch: "Gemini 2.5 Flash (Jun 2025)"}
+        - {entry: gemini-3-5-flash-lite}
+        - {entry: gemini-3-1-flash-lite}
+        - {epoch: "Gemini 3 Pro"}
+      reason: "At least as good as Gemini 2.5 Flash, as Epoch AI's capabilities index measured it in June 2025: a Flash of the generation before the current ones is the least a daily driver is asked to be, and the index measures the models that Artificial Analysis has no figure for. Gemini 2.5 Flash-Lite, the two Gemini Flash-Lite that the template serves and Gemini 3 Pro, the floor of pro, are shown to compare."
+    level_gain:
+      min_points_per_second: 1.5
+      reason: "A daily driver that values time asks more of each extra second: 1.5 points a second stops Gemini 4 Hydrogen at Medium (High buys 9.6 points in 8.4 s, 1.1 a second) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
+    ranking:
+      criterion: intelligence
+      tie_margin_points: 2
+      reason: "The template ranks flash by capability; under 2 points two members are not told apart, so the shorter time decides."
+    last_resort:
+      members: [deepseek-flash-direct, omniroute-free-auto, openrouter-auto-free]
+      reason: "The paid DeepSeek, the keyless local entry and OpenRouter's free router, which has no record, close the cascade by design."
+  flash-lite:
+    intelligence_floor:
+      none: true
+      reason: "The router exists for speed and takes every model that answers: a floor would only remove the models that answer fast and think little, which are what it is for, so the shortest time to the first answer token orders it and nothing goes under a floor."
+    level_gain:
+      min_points_per_second: 3
+      reason: "The router that values time most asks the most of each extra second: 3 points a second keeps Gemini 4 Hydrogen at Low (Medium buys 14.3 points in 5.4 s, 2.6 a second) and Gemini 3.8 Flash at Low (Medium buys 0.81), on the figures of 2026-11-21."
+    ranking:
+      criterion: first_answer
+      reason: "The template makes speed the point of this router, so the time to the first answer token orders it, shortest first."
+    last_resort:
+      members: []
+      reason: "No keyless local entry is in this cascade, so nothing is exempt from the floor."
+  code:
+    intelligence_floor:
+      anchor: {epoch: "Gemini 2.5 Flash (Jun 2025)"}
+      candidates:
+        - {epoch: "Gemini 2.5 Flash-Lite (Jun 2025)"}
+        - {epoch: "Gemini 2.5 Flash (Jun 2025)"}
+        - {entry: gemini-3-5-flash-lite}
+        - {entry: gemini-3-1-flash-lite}
+        - {epoch: "Gemini 3 Pro"}
+      reason: "At the floor of flash, on Epoch AI's capabilities index, where Gemini 2.5 Flash is measured: coding is not reserved to the most capable models, which a floor at the level of pro would do. The ranking on code quality is a separate matter and stays as it is. Gemini 2.5 Flash-Lite, the two Gemini Flash-Lite that the template serves and Gemini 3 Pro, the floor of pro, are shown to compare."
+    level_gain:
+      min_points_per_second: 0.2
+      reason: "Like pro, since code is not bounded by time either: 0.2 points a second stops Gemini 4 Hydrogen at High and keeps Gemini 3.8 Flash at Medium, on the figures of 2026-11-21."
+    ranking:
+      criterion: code_quality
+      source: "Epoch AI benchmark data (CC BY 4.0), median rank over DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench and ALE-Bench, at least two benchmarks, WebDev Arena excluded"
+      # What the file declares: the weekly online run reads this source. The issue says what each run
+      # actually read, and the plain run reads nothing.
+      source_status: "read"
+      stand_in: intelligence
+      tie_margin_points: 2
+      reason: "Artificial Analysis publishes no coding index, so the median rank over Epoch AI's code benchmarks orders the members it can rank, the shorter time deciding between equal medians. The intelligence index stands in for the members it cannot rank and for the whole cascade when the data is not read; under 2 points two of those are not told apart, so the shorter time decides."
+    last_resort:
+      members: [deepseek-v4-pro-direct, omniroute-free-code]
+      reason: "The paid DeepSeek and the keyless local entry close the cascade by design, and the local entry has no record."
+  claude-code:
+    derives_from: code
+    requires: [tools]
+    reason: "The router exists for tool calls: it is code without the models that cannot take them, ranked as code is, in the same order."
+
+# One row per entry of the template's model_list. "tools" says whether the entry takes tool calls
+# as its provider or LiteLLM declares it ("yes", "no", or "unknown" where nothing is declared, never
+# guessed). "slug" is the Artificial Analysis record that
+# describes the entry at the level it is CALLED at ("level" names the record's level: minimal, low,
+# medium, high, xhigh, max, reasoning, non-reasoning); the template sets no "reasoning_effort"
+# anywhere, so the level is the provider's default, and "level_source" gives the provider's page and
+# the day it was read, or says "unknown". An entry with no record at all says why in "no_record".
+# "eci" names the model of Epoch AI's capabilities index (its display name, spelt as the index has it)
+# that describes the entry, for the floors and for a member the ranking has no index for; an entry
+# whose model the index does not hold says nothing.
+# "epoch" lists, per benchmark file of Epoch AI's data kept for code quality (not WebDev Arena, which
+# is refused), the model ids the entry was found under (effort suffix included), or says "unknown".
+# Where Artificial Analysis has no record at the called level, "slug" is the nearest record it has,
+# and the report says the level is not ranked. Where the level is unknown, "slug" is the record of
+# the highest level the model could be called at by default.
+models:
+  gemini-4-hydrogen:
+    slug: gemini-4-hydrogen-high
+    level: high
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level high for gemini-4-hydrogen"
+    eci: "Gemini 4 Hydrogen"
+    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
+    epoch:
+      cursorbench_external: [gemini-4-hydrogen_high, gemini-4-hydrogen_low, gemini-4-hydrogen_medium, gemini-4-hydrogen_xhigh]
+      ale_bench_external: [gemini-4-hydrogen_xhigh]
+  gemini-3-8-flash:
+    slug: gemini-3-8-flash-medium
+    level: medium
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level medium for gemini-3.8-flash"
+    eci: "Gemini 3.8 Flash"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      deepswe_external: [gemini-3.8-flash_high, gemini-3.8-flash_medium]
+      ale_bench_external: [gemini-3.8-flash_high]
+  gemini-3-7-flash:
+    slug: gemini-3-7-flash
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, has no row for gemini-3.7-flash"
+    eci: "Gemini 3.7 Flash"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      deepswe_external: [gemini-3.7-flash_high, gemini-3.7-flash_low, gemini-3.7-flash_medium]
+      ale_bench_external: [gemini-3.7-flash_high]
+  gemini-3-6-flash:
+    slug: gemini-3-6-flash
+    level: medium
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level medium for gemini-3.6-flash"
+    eci: "Gemini 3.6 Flash"
+    note: "Artificial Analysis ranks it at High only"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      deepswe_external: [gemini-3.6-flash_high]
+      ale_bench_external: [gemini-3.6-flash_high]
+  gemini-3-5-flash:
+    slug: gemini-3-5-flash
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, has a row for gemini-3.5-flash-lite only"
+    eci: "Gemini 3.5 Flash"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      deepswe_external: [gemini-3.5-flash_high, gemini-3.5-flash_medium]
+      swe_bench_verified: [gemini-3.5-flash_high]
+      ale_bench_external: [gemini-3.5-flash_high]
+  gemini-3-5-flash-lite:
+    slug: gemini-3-5-flash-lite
+    level: minimal
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level minimal for gemini-3.5-flash-lite"
+    eci: "Gemini 3.5 Flash-Lite"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [gemini-3.5-flash-lite_high]
+  gemini-3-1-flash-lite:
+    slug: gemini-3-1-flash-lite-preview
+    level: minimal
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level minimal for gemini-3.1-flash-lite"
+    eci: "Gemini 3.1 Flash-Lite"
+    note: "Artificial Analysis publishes one record, its slug carries the retired preview's name and its level is not stated"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [gemini-3.1-flash-lite]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemini-3-flash-preview:
+    slug: gemini-3-flash-reasoning
+    level: reasoning
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level high for gemini-3-flash-preview"
+    eci: "Gemini 3 Flash"
+    note: "Artificial Analysis splits this model into Reasoning and Non-reasoning only, so high maps to Reasoning"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      swe_bench_verified: [gemini-3-flash-preview]
+      terminalbench_external: [gemini-3-flash-preview]
+      ale_bench_external: [gemini-3-flash-preview]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemini-2-5-pro:
+    slug: gemini-2-5-pro
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, gives gemini-2.5-pro thinking on with no level"
+    eci: "Gemini 2.5 Pro (Jun 2025)"
+    note: "A thinking budget, not a level: the one record Artificial Analysis has is the nearest"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      swe_bench_verified: [gemini-2.5-pro]
+      terminalbench_external: [gemini-2.5-pro]
+      ale_bench_external: [gemini-2.5-pro_32K]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemini-2-5-flash:
+    slug: gemini-2-5-flash-reasoning
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, gives gemini-2.5-flash thinking on with no level"
+    eci: "Gemini 2.5 Flash (Jun 2025)"
+    note: "A thinking budget, not a level: the Reasoning record is the nearest"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      terminalbench_external: [gemini-2.5-flash]
+      ale_bench_external: [gemini-2.5-flash]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemini-2-5-flash-lite:
+    slug: gemini-2-5-flash-lite
+    level: non-reasoning
+    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: gemini-2.5-flash-lite has thinking off by default"
+    eci: "Gemini 2.5 Flash-Lite (Jun 2025)"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  gemma-4-31b-gemini:
+    slug: gemma-4-31b
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemma/docs/capabilities/thinking, read 2026-11-21, states no default for the Gemini API"
+    eci: "Gemma 4 31B IT"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [gemma-4-31b-it]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-4-26b-gemini:
+    slug: gemma-4-26b-a4b
+    level: unknown
+    level_source: "unknown: ai.google.dev/gemma/docs/capabilities/thinking, read 2026-11-21, states no default for the Gemini API"
+    eci: "Gemma 4 26B A4B"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [gemma-4-26b-a4b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-4-31b-free:
+    slug: gemma-4-31b
+    level: unknown
+    level_source: "unknown: openrouter.ai/google/gemma-4-31b-it:free, read 2026-11-21, says nothing of a reasoning default"
+    eci: "Gemma 4 31B IT"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch:
+      ale_bench_external: [gemma-4-31b-it]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-4-26b-free:
+    slug: gemma-4-26b-a4b
+    level: unknown
+    level_source: "unknown: openrouter.ai/google/gemma-4-26b-a4b-it:free, read 2026-11-21, says nothing of a reasoning default"
+    eci: "Gemma 4 26B A4B"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch:
+      ale_bench_external: [gemma-4-26b-a4b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  codestral:
+    no_record: "Artificial Analysis lists no Codestral on 2026-11-21"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  codestral-2508:
+    no_record: "Artificial Analysis lists no Codestral on 2026-11-21"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [codestral-2508]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  mistral-medium:
+    slug: mistral-medium-3-5
+    level: unknown
+    level_source: "unknown: docs.mistral.ai/capabilities/reasoning/adjustable, read 2026-11-21, gives no default for Mistral Medium 3.5"
+    eci: "Mistral Medium 3.5"
+    note: "Artificial Analysis publishes one record"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  mistral-small:
+    slug: mistral-small-4
+    level: unknown
+    level_source: "unknown: docs.mistral.ai/capabilities/reasoning/adjustable, read 2026-11-21, gives no default for Mistral Small 4"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [mistral-small-2603]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  ministral-14b:
+    slug: ministral-3-14b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  ministral-8b:
+    slug: ministral-3-8b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  ministral-3b:
+    slug: ministral-3-3b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  gpt-oss-120b-groq:
+    slug: gpt-oss-120b
+    level: medium
+    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-120b"
+    eci: "gpt-oss-120b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
+      ale_bench_external: [gpt-oss-120b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gpt-oss-20b-groq:
+    slug: gpt-oss-20b
+    level: medium
+    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-20b"
+    eci: "gpt-oss-20b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]
+      ale_bench_external: [gpt-oss-20b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-8-27b-groq:
+    slug: qwen3-8-27b-non-reasoning
+    level: non-reasoning
+    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: the default reasoning_effort of qwen/qwen3.8-27b is none"
+    eci: "Qwen 3.8 27B"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  deepseek-v4-pro-direct:
+    slug: deepseek-v4-pro-high
+    level: high
+    level_source: "api-docs.deepseek.com/guides/thinking_mode, read 2026-11-21: thinking mode is on by default, with the default effort high; api-docs.deepseek.com/quick_start/pricing names the 0813 snapshot"
+    eci: "DeepSeek V4 Pro 0813"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      swe_bench_verified: [deepseek-v4-pro_max]
+      ale_bench_external: [deepseek-v4-pro-0813_max, deepseek-v4-pro_high, deepseek-v4-pro_none]
+  deepseek-flash-direct:
+    slug: deepseek-v4-1-flash-1017-high
+    level: high
+    level_source: "api-docs.deepseek.com/guides/thinking_mode, read 2026-11-21: thinking mode is on by default, with the default effort high; api-docs.deepseek.com/quick_start/pricing names the 1017 snapshot"
+    eci: "DeepSeek V4.1 Flash 1017"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [deepseek-v4.1-flash-1017_max, deepseek-v4.1-flash_max]
+  nemotron-ultra-free:
+    slug: nvidia-nemotron-3-ultra-550b-a55b
+    level: unknown
+    level_source: "unknown: openrouter.ai/nvidia/nemotron-3-ultra-550b-a55b:free, read 2026-11-21, says nothing of a reasoning default"
+    eci: "Nemotron 3 Ultra"
+    note: "Artificial Analysis publishes one record, named Reasoning"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  nemotron-reasoning-free:
+    slug: nemotron-3-nano-omni-30b-a3b
+    level: unknown
+    level_source: "unknown: openrouter.ai, read 2026-11-21, says nothing of a reasoning default for the nano omni model"
+    note: "Artificial Analysis publishes one record and no figure for it"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  nemotron-lightning-free:
+    slug: nemotron-3-5-lightning
+    level: unknown
+    level_source: "unknown: openrouter.ai/nvidia/nemotron-3.5-lightning:free, read 2026-11-21, says nothing of a reasoning default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  nemotron-super-vl-free:
+    slug: nemotron-3-5-super-vl
+    level: unknown
+    level_source: "unknown: openrouter.ai, read 2026-11-21, says nothing of a reasoning default for the super vl model"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  openrouter-auto-free:
+    no_record: "A router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  omniroute-free-auto:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-free-code:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-free-reasoning:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
