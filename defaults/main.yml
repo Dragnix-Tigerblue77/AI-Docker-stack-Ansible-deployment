@@ -299,6 +299,16 @@ Artificial_Intelligence_LiteLLM_OpenRouter_API_key: ""
 # a different route to a different catalogue, unaffected either way -- GitHub Models itself has since
 # been retired (#109), so that route is gone too, not merely unaffected.
 Artificial_Intelligence_LiteLLM_DeepSeek_API_key: ""
+# Cloudflare Workers AI is free up to a daily allowance of 10,000 "neurons", the unit it meters every model
+# in, shared by all the Cloudflare models of the account together. The API token goes in this variable and
+# the account's identifier in the next one, which LiteLLM reads from the environment as
+# "CLOUDFLARE_ACCOUNT_ID" to build the address of the endpoint: "tasks/main.yml" refuses one given without
+# the other. ONE account only: its Self-Serve Subscription Agreement ("www.cloudflare.com/terms/", read
+# 2026-11-22) forbids using the service "in a manner that violates or is intended to circumvent
+# Service-specific usage limits, quotas", and a second account opened to double the allowance is that, so
+# a second Cloudflare account never gets keys of its own here.
+Artificial_Intelligence_LiteLLM_Cloudflare_API_key: ""
+Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: ""
 # Z AI (Zhipu) serves its GLM-4.7-Flash free of charge on its general API endpoint, which is the one LiteLLM's
 # "zai/" provider calls on its own: the coding-plan endpoint, which Z AI limits to its officially supported
 # tools, is never used. Its limits are published nowhere but the account's console, so the role states none.
@@ -416,10 +426,11 @@ Artificial_Intelligence_Claude_code_model: "claude-code"
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
 # above, which stays what the container asks for when nobody chooses. They go into the key's allow-list
 # and nowhere else: the container's own model variables are untouched. These are the other four routers
-# of "LiteLLM_config.yaml.j2", all backed by the default account's models, so the agent reaches no
-# quota it does not already reach through the alias. A router with no provider key is absent from the
-# gateway and a name that nothing serves is refused there, not here; "check_compose_template.py" keeps
-# this list level with the template's routers. The role creates the key and does not reconcile an
+# of "LiteLLM_config.yaml.j2", backed by the default account's models and by the keyless ones of OmniRoute
+# and Kilo Gateway, so the agent reaches no other account's quota, but Kilo's anonymous one, which the alias
+# does not serve. A router none of whose members has a key or needs none is absent from the gateway and a
+# name that nothing serves is refused there, not here; "check_compose_template.py" keeps this list level
+# with the template's routers. The role creates the key and does not reconcile an
 # existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
 Artificial_Intelligence_Claude_code_additional_models:
   - "pro"

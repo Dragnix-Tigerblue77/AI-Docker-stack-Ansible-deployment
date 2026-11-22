@@ -89,6 +89,11 @@
         Artificial_Intelligence_LiteLLM_OpenRouter_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_OpenRouter_API_key }}"
         # DeepSeek is PAID, like Mistral above: leave a paid provider's key out not to use it.
         Artificial_Intelligence_LiteLLM_DeepSeek_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_DeepSeek_API_key }}"
+        # Cloudflare Workers AI is free within a daily allowance, and takes two values given together or not
+        # at all: its API token, and the identifier of its account. One account only: opening a second to
+        # double the allowance is what its terms forbid.
+        Artificial_Intelligence_LiteLLM_Cloudflare_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_API_key }}"
+        Artificial_Intelligence_LiteLLM_Cloudflare_account_ID: "{{ vault_Artificial_Intelligence_LiteLLM_Cloudflare_account_ID }}"
         # Z AI serves GLM-4.7-Flash free of charge: one key, the account's own.
         Artificial_Intelligence_LiteLLM_Zai_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Zai_API_key }}"
 
