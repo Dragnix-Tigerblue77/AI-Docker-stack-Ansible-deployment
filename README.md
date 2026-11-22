@@ -30,7 +30,7 @@ handlers/, vars/, meta/                       ses variables, sa configuration Li
 
 Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
 mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
-`Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
+`Docker/deploy_Docker_compose_stack` d'un dépôt privé du mainteneur la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
@@ -339,9 +339,9 @@ le rôle de déploiement est désigné par une variable, donc son contenu est in
 vérifications tournent.
 
 Ce n'est pas théorique. `Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du
-dépôt `Homelab_Ansible_deployment` remplissent tous les deux les trois obligations ci-dessus **sans
+dépôt privé du mainteneur remplissent tous les deux les trois obligations ci-dessus **sans
 modification** — mais tous les deux lisent aussi `APT_cache_lifetime`, qui n'a de défaut ni dans l'un ni
-dans l'autre. Elle vit dans les `vars:` du `playbook.CHSONP.yaml` de ce dépôt, donc elle est en portée
+dans l'autre. Elle vit dans les `vars:` du playbook de ce dépôt, donc elle est en portée
 quand c'est lui qui appelle, et **absente partout ailleurs**. Un appelant qui ne la déclare pas échoue au
 déploiement, sur une variable non définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui
 n'apparaît nulle part dans l'appel qu'il a écrit.

@@ -25,7 +25,7 @@ the control one wants to have over this category of value.
 
 WHAT IT DOES NOT DO
 -------------------
-* It does not see a host name WITHOUT a dot ("chsonvdsw01"), which #22 nonetheless names first. No
+* It does not see a host name WITHOUT a dot ("myhost01"), which the rule nonetheless names first. No
   mechanical rule tells such a name from an ordinary word; that one is a human read-through.
 * It does not read the issues. Neither does gitleaks, and GitHub's secret scanning would want a
   plan the organisation does not have. The content of the issues remains a human vigilance.
