@@ -409,10 +409,11 @@ Artificial_Intelligence_Claude_code_model: "claude-code"
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
 # above, which stays what the container asks for when nobody chooses. They go into the key's allow-list
 # and nowhere else: the container's own model variables are untouched. These are the other four routers
-# of "LiteLLM_config.yaml.j2", all backed by the default account's models, so the agent reaches no
-# quota it does not already reach through the alias. A router with no provider key is absent from the
-# gateway and a name that nothing serves is refused there, not here; "check_compose_template.py" keeps
-# this list level with the template's routers. The role creates the key and does not reconcile an
+# of "LiteLLM_config.yaml.j2", backed by the default account's models and by the keyless ones of OmniRoute
+# and Kilo Gateway, so the agent reaches no other account's quota, but Kilo's anonymous one, which the alias
+# does not serve. A router none of whose members has a key or needs none is absent from the gateway and a
+# name that nothing serves is refused there, not here; "check_compose_template.py" keeps this list level
+# with the template's routers. The role creates the key and does not reconcile an
 # existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
 Artificial_Intelligence_Claude_code_additional_models:
   - "pro"

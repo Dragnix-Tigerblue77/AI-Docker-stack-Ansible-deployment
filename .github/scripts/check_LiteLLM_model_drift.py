@@ -144,7 +144,8 @@ HOW EACH PROVIDER IS READ
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
-below -- OmniRoute, local and keyless -- is left out, and the report says how many.
+below -- OmniRoute, local and keyless, and the ones served through Kilo Gateway, keyless too -- is left
+out, and the report says how many.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -9446,7 +9447,9 @@ def real_scenarios(layout):
     the list together; and the pairs of neighbours, one in REAL_PAIR_STEP."""
     keys = [entry["key"] for entry in sorted(layout["entries"], key=lambda entry: entry["start"])
             if entry["key"]]
-    runs = [[layout["commented"][index]["key"] for index in run] for run in layout["runs"]]
+    # A commented-out entry of no catalogue here (a keyless provider's) has no key and nothing to delete.
+    runs = [[key for key in (layout["commented"][index]["key"] for index in run) if key]
+            for run in layout["runs"]]
     found = [{key} for key in keys] + [set(run) for run in runs]
     found += [set(run) - {key} for run in runs for key in run]
     found += [{key for key in keys if key[0] == provider} for provider in sorted({k[0] for k in keys})]

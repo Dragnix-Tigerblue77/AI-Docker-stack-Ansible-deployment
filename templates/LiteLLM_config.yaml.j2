@@ -14,7 +14,8 @@
 # variable, never from a name written into this template.
 # #296: only the providers whose key the caller gives are rendered. A provider without a key has no
 # entry below and no slot in any cascade: a model listed that cannot answer would be tried, fail, and
-# only then hand the request on.
+# only then hand the request on. The two providers that need no key, OmniRoute and Kilo Gateway, are the
+# exception and are always rendered.
 {% set has = {
   'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
   'Mistral': Artificial_Intelligence_LiteLLM_Mistral_API_key is string and Artificial_Intelligence_LiteLLM_Mistral_API_key | length > 0,
@@ -23,15 +24,17 @@
   'DeepSeek': Artificial_Intelligence_LiteLLM_DeepSeek_API_key is string and Artificial_Intelligence_LiteLLM_DeepSeek_API_key | length > 0
 } %}
 # The five routers below are aliases, whatever the keys: each stands for the first model of its own cascade
-# that has a key, so that the order of a cascade alone decides and no provider is placed first by the way
-# the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a router
-# that exists as a cascade alone would be refused). A router is left out when no model of its cascade has
-# a key. "check_compose_template.py" renders every non-empty set of keys and holds each alias to the first
-# member of its cascade.
+# that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
+# by the way the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a
+# router that exists as a cascade alone would be refused). A router is left out when no model of its cascade
+# has a key or needs none, which only "claude-code" can come to. "check_compose_template.py" renders every
+# non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
+# the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
+# heads one of the three: the table below stops at Kilo.
 {% set head = {
-  'pro': 'gemini-4-hydrogen' if has.Gemini else 'nemotron-ultra-free' if has.OpenRouter else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-reasoning',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
-  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
+  'pro': 'gemini-4-hydrogen' if has.Gemini else 'beam-kilo',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'particle-1-kilo',
+  'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
@@ -508,6 +511,152 @@ model_list:
 
 {% endif %}
   # ============================================================================
+  # Kilo Gateway -- anonymous, keyless, free models only (see the note at the top of this file).
+  #
+  # Read 2026-11-22. The "Authentication" page of the Kilo gateway documentation says "The gateway allows
+  # unauthenticated access for free models only" and that anonymous requests "are identified by IP address
+  # and are subject to rate limiting (200 requests per hour per IP)"; its "Models and providers" page says the
+  # free models' "availability changes" and that "Auto Free may route your requests to providers that log
+  # prompts and outputs and use them to improve their services", and of NVIDIA's free endpoints, "Trial use
+  # only - do not submit personal or confidential data". The catalogue the gateway serves without a key flags
+  # each model below as one that "mayTrainOnYourPrompts". Logging and training are accepted here, as for every
+  # free model of this file. The 200 are counted per IP address, so they are one pool for the whole host,
+  # shared by every entry of this section and by nothing else here: a slot is a second quota next to
+  # OpenRouter's only as long as the pool and each free model last. The "Terms" page, last updated
+  # 2026-11-02, was read and not cleared: it allows one account per entity (none is used) and forbids
+  # scrapers and circumventing access controls, which a gateway calling the documented API is taken not to
+  # be. No entry reads a key, so none belongs to an account: like OmniRoute's, the "api_key" is a literal
+  # marker.
+  #
+  # The marker is not what the gateway sees. LiteLLM's "openai/" provider sends "Authorization: Bearer
+  # <api_key>", and the gateway answered 401 "INVALID_TOKEN" to this very marker sent that way (tried by hand
+  # the same day), while it serves a call whose header is empty or absent. Each entry therefore blanks the
+  # header with "extra_headers", and the proxy then sends an empty one, which the gateway answers 200.
+  # "check_compose_template.py" holds every entry on the gateway's base to that, since the 401 would
+  # otherwise only show up at run time. "openai/" is cut once by LiteLLM, so the id after it, slash and
+  # ":free" included, reaches the gateway whole.
+  #
+  # Second sources, each right behind its twin, of the OpenRouter entries above for the same ids: that they
+  # are the same weights behind both gateways rests on the ids alone. Tried by hand on 2026-11-22 with a tool
+  # request each: every entry below answered with a well formed tool call, "ernie-5-5-flash-kilo" four times
+  # out of five, the other being a 429 "Provider returned error".
+  # Not added: "openrouter/free" and "kilo-auto/free", which pick a model per request ("Auto Free" rotates
+  # through the free ones); the first is routed through OpenRouter's own key above.
+  # ============================================================================
+  - model_name: nemotron-ultra-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-reasoning-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-lightning-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-lightning:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron-super-vl-kilo
+    litellm_params:
+      model: openai/nvidia/nemotron-3.5-super-vl:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: particle-1-kilo
+    litellm_params:
+      model: openai/particle-ai/particle-1:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: ernie-5-5-flash-kilo
+    litellm_params:
+      model: openai/baidu/ernie-5.5-flash-preview:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: lfm-3-1-7b-kilo
+    litellm_params:
+      model: openai/liquid/lfm-3-1.7b:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Without a twin: "Beam 1.0" of Reflection. The catalogue, read 2026-11-22, calls it "Reflection's reasoning
+  # model for coding and agentic workflows", free, with a 1,048,576-token context and "tools" and "tool_choice"
+  # among its supported parameters. Artificial Analysis gives "Beam 1.0" an intelligence index of 17.7 and 10.8 s
+  # to the first answer token (matched by its name, to be checked, read 2026-11-21), and Epoch AI's capabilities
+  # index gives it 150.84 (same day): over the floor of "flash", under that of "pro", where the Nemotron
+  # entries are under it too, and ahead of each of them on both figures. It therefore leads the free entries of
+  # "pro" and sits in "flash" ahead of "nemotron-super-vl-free", behind "particle-1-free" and
+  # "ernie-5-5-flash-free", which were placed there first. It is not in "flash-lite", whose point is speed and
+  # which 10.8 s does not serve, nor in "code" and "claude-code": Epoch AI scores it on one of the five
+  # benchmarks "code" is ranked on, too few to place it, and "claude-code" holds keyed providers only.
+  - model_name: beam-kilo
+    litellm_params:
+      model: openai/reflection/beam-free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Added 2026-11-22, with no figure to place it by: neither Artificial Analysis nor Epoch AI lists it (read
+  # 2026-11-21), so it sits at the end of the free entries of "flash" and in no other cascade. The catalogue
+  # says it is "an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out
+  # of 40B total", built "for coding agents", and lists a 262,144-token context and "tools" among its
+  # supported parameters, "tool_choice" not. It is the ":free" id that the catalogue flags free: the id
+  # without the suffix is priced at zero but not flagged free.
+  - model_name: flint-kilo
+    litellm_params:
+      model: openai/recursive/flint-v1.0:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Added 2026-11-22, placed as "flint-kilo" is, behind it. The catalogue describes it as "an anonymous
+  # reasoning model in early access" whose "prompts and outputs will be retained by the provider", with a
+  # 256,000-token context and "tools" and "tool_choice" among its supported parameters. Nothing says who
+  # makes it or for how long it stays, so it can leave the free list without notice.
+  - model_name: glyph-cluster-kilo
+    litellm_params:
+      model: openai/stealth/glyph-cluster
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Served, but not routed to: it answered none of the seven requests made by hand on 2026-11-22, each refused
+  # with a 429 "Provider returned error", where the other entries of this section answered. The same model
+  # through OpenRouter was set aside above the day before for the same reason. The catalogue lists it free,
+  # with a 1,048,576-token context and "tools" and "tool_choice" among its supported parameters. Uncommenting
+  # it, behind "glyph-cluster-kilo", is all that putting it back takes.
+  # - model_name: ling-3-2-flash-kilo
+  #   litellm_params:
+  #     model: openai/inclusionai/ling-3.2-flash:free
+  #     api_base: "https://ai-gateway.kilo.ai/api/v1"
+  #     api_key: "kilo-no-key-needed"
+  #     extra_headers:
+  #       Authorization: ""
+
+  # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
   # ============================================================================
@@ -584,22 +733,29 @@ router_settings:
 
     # 1. PRO -- pure reasoning, multi-step logic, architecture.
     # Priority: Google -> OpenRouter heavy -> DeepSeek direct (paid -- last resort before the fully
-    # free OmniRoute) -> OmniRoute.
+    # free OmniRoute) -> OmniRoute. Kilo's entries sit right behind their OpenRouter twins, ahead of the paid
+    # ones; "beam-kilo" has no twin and is ahead of both Nemotron entries, for the reason given with it.
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
 {% endif %}
+        - beam-kilo
 {% if has.OpenRouter %}
         - nemotron-ultra-free
 {% endif %}
+        - nemotron-ultra-kilo
 {% if has.Mistral %}
 {% endif %}
 {% if has.OpenRouter %}
         - nemotron-reasoning-free
+{% endif %}
+        - nemotron-reasoning-kilo
+{% if has.OpenRouter %}
         - nemotron-super-vl-free
 {% endif %}
+        - nemotron-super-vl-kilo
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
@@ -616,6 +772,9 @@ router_settings:
     # "gemma-4-31b-free" -- the same model through a second quota, ranked where the model ranks, and
     # the OpenRouter one second because its quota is the daily count all ":free" entries share.
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
+    # Kilo's entries sit right behind their OpenRouter twins, ahead of the paid ones. The two of its own with no
+    # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
+    # which has no record either and closes the free ones.
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
@@ -634,8 +793,20 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-31b-free
         - particle-1-free
+{% endif %}
+        - particle-1-kilo
+{% if has.OpenRouter %}
         - ernie-5-5-flash-free
+{% endif %}
+        - ernie-5-5-flash-kilo
+        - beam-kilo
+{% if has.OpenRouter %}
         - nemotron-super-vl-free
+{% endif %}
+        - nemotron-super-vl-kilo
+        - flint-kilo
+        - glyph-cluster-kilo
+{% if has.OpenRouter %}
         - openrouter-auto-free
 {% endif %}
 {% if has.Mistral %}
@@ -657,7 +828,8 @@ router_settings:
     # Groq in September 2026 and deleted from the model_list; "qwen3-8-27b-groq", Groq's designated
     # successor to the latter, holds its slot -- where the POC ranked its predecessor, until the test
     # bench (#85) measures whether its latency earns it a higher or a lower one. "gemma-4-26b-gemini"
-    # sits right ahead of its OpenRouter twin, for the reason given under FLASH.
+    # sits right ahead of its OpenRouter twin, for the reason given under FLASH, and Kilo's entries right
+    # behind their OpenRouter twins.
 {% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
@@ -677,8 +849,12 @@ router_settings:
 {% if has.OpenRouter %}
         - gemma-4-26b-free
         - nemotron-lightning-free
+{% endif %}
+        - nemotron-lightning-kilo
+{% if has.OpenRouter %}
         - lfm-3-1-7b-free
 {% endif %}
+        - lfm-3-1-7b-kilo
 {% if has.Mistral %}
         - ministral-3b
 {% endif %}

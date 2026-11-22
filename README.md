@@ -568,7 +568,7 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`) et OmniRoute en dernier recours -- repris de son
+travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway (sans clé) et OmniRoute en dernier recours -- repris de son
 propre POC fonctionnel plutôt que ré-inventé. DeepSeek (#101) s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
@@ -623,8 +623,8 @@ aucun fournisseur : un nom qui n'est ni une entrée ni un alias est refusé par 
 `fallbacks` (mesuré sur LiteLLM 1.100.0), et le routeur est donc, quelles que soient les clés, l'**alias** du premier
 modèle de sa cascade dont la clé est donnée. Aucun fournisseur n'est premier par la façon dont les noms sont
 construits : l'ordre de la cascade, qui suit l'intelligence et la vitesse des modèles, décide seul. Le routeur garde sa
-cascade ; quand aucun modèle de sa cascade n'a de clé, il disparaît avec ses alias (`auto-flash-lite` pour
-`flash-lite`, par exemple). LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
+cascade ; quand aucun modèle de sa cascade n'a de clé ni n'en demande, il disparaît avec ses alias : `claude-code`
+seul peut s'y trouver, depuis que les entrées sans clé de Kilo Gateway et d'OmniRoute servent les quatre autres. LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
 donc LibreChat les propose toujours. À connaître :
 
 - La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au moins
@@ -915,6 +915,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
 | Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
+| Kilo Gateway | Modèles gratuits sans clé ni compte : le catalogue du service, lisible sans authentification, marque chacun comme gratuit ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 200 requêtes par heure et par IP, pour tous ces modèles ensemble ; les modèles gratuits changent, et le catalogue marque chacun comme pouvant être entraîné sur les prompts | Routé sans clé, derrière son jumeau OpenRouter quand il en a un. Aucun compte n'est utilisé, donc la clause « un compte par entité » ne joue pas ; prompts journalisés et utilisés pour l'entraînement, accepté ; conditions lues, non validées |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
 | SambaNova | Le plan gratuit de la console demande d'ajouter un moyen de paiement et d'acheter des crédits ; la documentation décrit un palier de 20 requêtes par jour et par modèle, en conflit avec la console | Deux sources en conflit, la console fait foi | Examiné, non routé (la console fait foi) |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
@@ -926,6 +927,7 @@ Pages officielles lues :
 - Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
 - Mistral : [Pricing](https://mistral.ai/pricing)
 - OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
+- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Authentication](https://kilo.ai/docs/gateway/authentication), [Terms](https://kilo.ai/terms)
 - Cerebras : [Rate limits](https://inference-docs.cerebras.ai/support/rate-limits)
 - SambaNova : [Plans](https://cloud.sambanova.ai/plans)
 - DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
@@ -946,7 +948,6 @@ Pages officielles lues :
 
 | Fournisseur | Ce qui est offert | Raison de l'écart |
 | --- | --- | --- |
-| Kilo Gateway | Gratuit sans compte, 200 requêtes par heure et par IP | Conditions mises à jour le 2026-11-02 : un compte par entité et licence perpétuelle sur les données client pour améliorer le service ; les modèles gratuits journalisent les prompts |
 | NVIDIA build | Clé d'API d'essai | Conditions d'essai : « limited trial purposes only and without use ... in production » ; contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris ; clé après vérification par SMS, d'après les forums seulement |
 | Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
 | OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle | Trop étroit ; avec une clé, une carte est exigée |
@@ -966,7 +967,6 @@ Pages officielles lues :
 
 Pages officielles lues :
 
-- Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Terms](https://kilo.ai/terms)
 - NVIDIA build : [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
 - Cohere : [Rate limits](https://docs.cohere.com/docs/rate-limits)
 - Cohere : [Terms of use](https://www.cohere.com/terms-of-use)
@@ -996,6 +996,17 @@ Pages officielles lues :
 
 - Together AI : [Pricing](https://www.together.ai/pricing)
 - Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
+
+### Kilo Gateway : des modèles gratuits sans clé, une limite par adresse IP
+
+`LiteLLM_config.yaml.j2` route aussi des modèles gratuits de Kilo Gateway, **sans clé et sans compte**. Comme celles d'OmniRoute, ses entrées sont toujours rendues, portent un `api_key` littéral et n'appartiennent à personne : `check_LiteLLM_account_isolation.py` les exempte pour la même raison. Aucune variable n'est ajoutée au rôle. Les pages citées ci-dessous sont celles du registre plus haut, lues le 2026-11-22.
+
+- **Une limite par adresse IP, pour toute la machine.** La page « Authentication » de la documentation du service réserve l'accès anonyme aux modèles gratuits et le limite à 200 requêtes par heure et par adresse IP. C'est un seul compteur, partagé par toutes les entrées Kilo de toutes les cascades : un second quota à côté des 50 requêtes par jour d'OpenRouter, tant que le compteur et chaque modèle gratuit durent. La page « Models and providers » dit que la disponibilité des modèles gratuits change.
+- **Les prompts sont journalisés et peuvent servir à l'entraînement.** Le catalogue marque chaque modèle gratuit comme pouvant être entraîné sur les prompts, la page « Models and providers » le dit de « Auto Free », et elle dit des points d'accès gratuits de NVIDIA : « Trial use only - do not submit personal or confidential data ». C'est accepté ici comme pour les autres modèles gratuits, et aucune voie n'est réservée aux données sensibles.
+- **Les conditions sont lues, pas validées.** La page « Terms », mise à jour le 2026-11-02, limite un compte à une entité (aucun n'est utilisé) et interdit les outils d'aspiration automatique et le contournement des contrôles d'accès, ce qu'une passerelle qui appelle l'API documentée est tenue de ne pas être. Sa clause sur la licence des données n'a été lue que dans un résumé : **non vérifiée**.
+- **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
+- **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
+- **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue de Kilo : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût.
 
 ### Un compte par personne, pas une paire figée (#103)
 
@@ -1179,10 +1190,11 @@ réel, donc ce que Claude Code affiche quand une requête est refusée reste non
 routeur, on le nomme : `/model flash` en session, ou `claude --model flash` au lancement. Claude Code envoie alors ce
 nom tel quel (mesuré avec `--model` sur la version 2.1.316 ; la saisie `/model` n'a pas été mesurée), et la passerelle
 l'accepte parce que la clé de l'agent l'autorise : `pro`, `flash`, `flash-lite` et `code` par défaut
-(`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, tous adossés aux modèles
-du compte par défaut -- l'agent n'atteint donc aucun quota qu'il n'atteignait pas déjà par `claude-code`. Un nom hors de
+(`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, adossés aux modèles
+du compte par défaut et à ceux, sans compte, d'OmniRoute et de Kilo Gateway -- l'agent n'atteint donc le quota d'aucun
+autre compte, mais celui, anonyme et par adresse IP, de Kilo, que `claude-code` ne sert pas. Un nom hors de
 la liste, celui d'un modèle d'un autre compte compris, reste refusé. Les paliers du CLI (`opus`, `sonnet`, `haiku`) ne
-choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur sans clé fournisseur n'existe pas dans la
+choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur dont aucun membre n'a de clé ni n'en demande n'existe pas dans la
 passerelle, et le demander est refusé par elle, pas par le rôle ; LiteLLM 1.100.0 n'examine pas les noms de `models`
 d'une clé sans équipe ni projet à sa création (lu dans son code), si bien qu'un routeur absent peut figurer dans la
 liste sans erreur. **Un agent déjà déployé ne reçoit pas la nouvelle liste** : supprimez sa clé depuis `/ui` avant de

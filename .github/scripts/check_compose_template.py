@@ -66,7 +66,10 @@ can only fail, and a cascade naming a model that is not listed makes LiteLLM ref
 the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
-cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
+cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for. An entry
+on Kilo Gateway's base is held to the one shape that keyless provider answers to: its gateway answered a 401
+to the placeholder sent as a bearer token and serves a call whose header is empty or absent, so each such
+entry must blank the "Authorization" header LiteLLM would otherwise fill from its placeholder "api_key".
 
 What it deliberately does NOT flag
 ----------------------------------
@@ -1599,13 +1602,17 @@ LITELLM_PROVIDERS = {
     "DeepSeek": "DEEPSEEK_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
-# of the cascade has a key. None is an entry of the model list: no provider is first by construction.
+# of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
+# construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
 LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek"})
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
+# The base of the keyless provider whose gateway answered 401 to the placeholder sent as a bearer token and
+# serves a call whose header is empty or absent: an entry on it sends the header empty.
+LITELLM_KILO_BASE = "https://ai-gateway.kilo.ai/api/v1"
 
 
 def litellm_key_sets():
@@ -1652,6 +1659,25 @@ def check_litellm_config(document, keys, failures):
     for provider, variable in LITELLM_PROVIDERS.items():
         if variable in given and variable not in read:
             failures.append(f"[{state}] the {provider} key was given and no entry reads {variable}")
+
+    for entry in entries:
+        parameters = mapping(entry, "litellm_params")
+        if parameters.get("api_base") != LITELLM_KILO_BASE:
+            continue
+        reference = parameters.get("api_key")
+        if not isinstance(reference, str) or not reference or reference.startswith("os.environ/"):
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not carry "
+                "a literal marker as its api_key: it reads no key, so it belongs to no account"
+            )
+        headers = mapping(parameters, "extra_headers")
+        if headers.get("Authorization") != "":
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless Kilo gateway and does not blank "
+                "its Authorization header (extra_headers: {Authorization: \"\"}): LiteLLM would send its placeholder "
+                "api_key as a bearer token, which the gateway answered 401 INVALID_TOKEN, where a call whose "
+                "header is empty or absent is served"
+            )
 
     cascades = {}
     for item in router_settings.get("fallbacks") or []:
@@ -1742,6 +1768,22 @@ def _litellm_document(entries, cascades, aliases):
     }
 
 
+def _kilo_document(**overrides):
+    """One Kilo entry as the template writes it, with `overrides` replacing parts of its litellm_params; a
+    value of None drops the key."""
+    parameters = {"model": "openai/vendor/model:free", "api_base": LITELLM_KILO_BASE, "api_key": "kilo-no-key-needed",
+                  "extra_headers": {"Authorization": ""}}
+    for key, value in overrides.items():
+        if value is None:
+            parameters.pop(key, None)
+        else:
+            parameters[key] = value
+    return {
+        "model_list": [{"model_name": "a-kilo", "litellm_params": parameters}],
+        "router_settings": {"fallbacks": [{"flash": ["a-kilo"]}], "model_group_alias": {"flash": "a-kilo"}},
+    }
+
+
 _MISTRAL_ONLY = _litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
     [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
@@ -1825,6 +1867,18 @@ LITELLM_CONFIG_CASES = [
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
                        {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
      {"Gemini"}, None),
+    ("a Kilo entry as the template writes it", _kilo_document(), set(), None),
+    ("a Kilo entry that does not blank the header", _kilo_document(extra_headers=None), set(),
+     "does not blank its Authorization header"),
+    ("a Kilo entry whose header is blanked to a token", _kilo_document(extra_headers={"Authorization": "Bearer x"}),
+     set(), "does not blank its Authorization header"),
+    ("a Kilo entry blanking another header", _kilo_document(extra_headers={"X-Other": ""}), set(),
+     "does not blank its Authorization header"),
+    ("a Kilo entry reading a key", _kilo_document(api_key="os.environ/KILO_API_KEY"), set(),
+     "does not carry a literal marker"),
+    ("a Kilo entry with no api_key", _kilo_document(api_key=None), set(), "does not carry a literal marker"),
+    ("an entry on another base is not held to the Kilo shape",
+     _kilo_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a router written as an entry of the model list",
      _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
