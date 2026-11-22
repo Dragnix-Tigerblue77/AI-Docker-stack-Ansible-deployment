@@ -55,7 +55,8 @@ in the same change.
   rendering it. Rendering every other set of keys and holding each alias to the first member of its
   cascade is "check_compose_template.py"'s job.
 * A template that does not render -- a Jinja syntax error, a variable that is none of the provider
-  keys, however the template reads it -- is a finding that names the problem, and ends the run with
+  keys or of the configuration's switches (TEMPLATE_SWITCHES, rendered at their default), however the
+  template reads it -- is a finding that names the problem, and ends the run with
   status 2 like a file that is not YAML. Only Jinja2's own filters and tests exist here (the weekly
   job installs no ansible-core), so a template that uses one that only Ansible provides, "to_json"
   for instance, is reported as unreadable even though Ansible would render it; such a template has
@@ -662,11 +663,15 @@ DRIFT_IGNORE_START = re.compile(r"^\s*drift-ignore\s*:")
 DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<reason>\S.*?)\s*$")
 
 # The variables "templates/LiteLLM_config.yaml.j2" reads: a provider's block is written when its
-# variable is a non-empty string, and the template reads nothing else.
+# variable is a non-empty string, and the template reads nothing else but the switches below.
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA")
 )
+# What the template reads besides the keys: switches of the configuration itself, which have no say in its model
+# list. They are given here at their default, which is the state every deployment starts in, so that reading one is
+# no finding; any other name is still one, since an unknown name would be "not given" without a word.
+TEMPLATE_SWITCHES = {"Artificial_Intelligence_LiteLLM_disable_env_credential_login": False}
 JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
 JINJA_COMMENT = re.compile(r"\{#.*?#\}", re.DOTALL)
@@ -793,12 +798,13 @@ def render_with_keys(text, given):
     # A name the template assigns itself is not an input, whatever branch the assignment sits in:
     # Jinja counts a "set" inside an "if" as undeclared.
     assigned = {name.name for name in tree.find_all(nodes.Name) if name.ctx == "store"}
-    unknown = sorted(read - assigned - set(PROVIDER_KEY_VARIABLES))
+    unknown = sorted(read - assigned - set(PROVIDER_KEY_VARIABLES) - set(TEMPLATE_SWITCHES))
     if unknown:
-        raise RenderError("the file reads %s, which is none of the provider keys"
-                          % ", ".join(unknown))
+        raise RenderError("the file reads %s, which is none of the provider keys and no switch of the "
+                          "configuration" % ", ".join(unknown))
     context = {variable: "placeholder" if given is None or variable in given else ""
                for variable in PROVIDER_KEY_VARIABLES}
+    context.update(TEMPLATE_SWITCHES)
     try:
         return environment.from_string(text).render(context)
     except jinja2.TemplateSyntaxError as error:  # which an unknown filter outside an "if" is too
@@ -5913,6 +5919,10 @@ JINJA_CASES = (
      ("{% endif %}\n  - model_name: local", "  - model_name: local"),
      "the block opened at template line %d is never closed"
      % (SELFTEST_JINJA_TEMPLATE.split("\n").index("{% if has.OpenRouter %}") + 1)),
+    ("a switch of the configuration is read at its default and is no finding",
+     ("router_settings:\n",
+      "general_settings:\n{% if Artificial_Intelligence_LiteLLM_disable_env_credential_login %}\n"
+      "  disable_env_credential_login: true\n{% endif %}\nrouter_settings:\n"), None),
     ("a variable that is none of the provider keys is a finding",
      ("\"auto\": \"{{ to['flash'] }}\"",
       '"auto": "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key }}"'), "none of the provider keys"),
@@ -9523,8 +9533,9 @@ def quick_rendering():
     rendered, compiled, parsed = {}, {}, {}
 
     def quick(text, given):
-        return compiled[text].render({name: "" if given is not None and name not in given
-                                      else "placeholder" for name in PROVIDER_KEY_VARIABLES})
+        return compiled[text].render({**{name: "" if given is not None and name not in given
+                                         else "placeholder" for name in PROVIDER_KEY_VARIABLES},
+                                      **TEMPLATE_SWITCHES})
 
     def render(text, given):
         key = (text, None if given is None else frozenset(given))
