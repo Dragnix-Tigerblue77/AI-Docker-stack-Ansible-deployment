@@ -33,7 +33,7 @@
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'gpt-oss-120b-groq' if has.Groq else 'gemma-4-31b-free' if has.OpenRouter else 'mistral-small' if has.Mistral else 'deepseek-flash-direct' if has.DeepSeek else 'omniroute-free-auto',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gpt-oss-20b-groq' if has.Groq else 'gemma-4-26b-free' if has.OpenRouter else 'ministral-3b' if has.Mistral else false,
   'code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
-  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
+  'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'qwen3-8-27b-groq' if has.Groq else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false
 } %}
 # Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
 # looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
@@ -723,8 +723,12 @@ router_settings:
 {% endfor %}
 {% endif %}
 
-    # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). Excludes
-    # models with no structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
+    # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). It is the "code"
+    # cascade, member for member and in the same order, without the members that cannot meet that:
+    # "omniroute-free-code" routes to whichever free model OmniRoute picks, and OmniRoute's own reference
+    # says a free provider may emulate tool calls from the prompt or drop them, so nothing guarantees
+    # either. "check_compose_template.py" holds the two cascades to this. Excludes models with no
+    # structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
     # models support tool calls, but it is the only paid provider in this cascade. This is what #13's
     # Claude Code agent asks for, and whatever it resolves to must never be an Anthropic model backed
     # by a subscription (see its compliance note).
@@ -733,10 +737,16 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
+{% endif %}
+{% if has.Groq %}
+        - qwen3-8-27b-groq
+{% endif %}
+{% if has.Gemini %}
         - gemini-3-6-flash
 {% endif %}
 {% if has.Mistral %}
         - codestral
+        - codestral-2508
 {% endif %}
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
