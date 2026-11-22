@@ -947,9 +947,9 @@ Pages officielles lues :
 | Fournisseur | Ce qui est offert | Raison de l'écart |
 | --- | --- | --- |
 | Kilo Gateway | Gratuit sans compte, 200 requêtes par heure et par IP | Conditions mises à jour le 2026-11-02 : un compte par entité et licence perpétuelle sur les données client pour améliorer le service ; les modèles gratuits journalisent les prompts |
-| NVIDIA build | Clé d'API d'essai | Conditions d'essai : « limited trial purposes only and without use ... in production » ; contenu utilisé pour améliorer les produits NVIDIA, modèles d'IA compris ; clé après vérification par SMS, d'après les forums seulement |
+| NVIDIA build | Clé d'API d'essai ; modèles « Free inference » sur sa page d'accueil (Nemotron 3 Ultra, Nemotron 3.5 Lightning et Super VL, Kimi K3.1 Pro) ; limite par minute **non publiée** (environ 40 d'après des forums, non vérifié) | Conditions d'essai relues le 2026-11-22 : accès « for limited trial purposes only and without use of the API Service or Generated Content in production », et sans abonnement, usage « for internal testing and evaluation purposes, not in production » ; le contenu d'entrée et de sortie sert à améliorer les produits NVIDIA, modèles d'IA compris (accepté par le mainteneur quand il ne se désactive pas) ; il est interdit d'y envoyer des données personnelles, confidentielles ou sensibles ; le droit d'usage prend fin « automatically without notice » en cas de manquement. Un usage quotidien d'agent n'est pas de l'évaluation : clé révocable sans préavis. Écarté, à l'arbitrage du mainteneur s'il accepte une clé jetable |
 | Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
-| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle | Trop étroit ; avec une clé, une carte est exigée |
+| OVHcloud AI Endpoints | Sans clé : 2 requêtes par minute, par IP et par modèle ; avec une clé : 400 requêtes par minute, par projet et par modèle, mais la clé exige un moyen de paiement sur un projet Public Cloud (une clé d'un projet en mode Discovery ne peut pas appeler le service) | Trop étroit en gratuit (pages relues le 2026-11-22). Hébergé dans l'Union européenne, « Your data is never used to train our models », rétention zéro hormis la facturation ; modèles dont gpt-oss-120b, Llama 3.3 70B, Mistral Small 3.2, Qwen3.8 27B, BGE-M3 et Whisper large v3 turbo, appels d'outils pris en charge ; fournisseur `ovhcloud/` de LiteLLM. Aucune condition sur la passerelle ou les comptes multiples n'a été trouvée. Écarté en gratuit ; c'est le meilleur candidat payant, quelques centimes, si un chemin « données sensibles » est voulu |
 | GitHub Models | Fermé le 2026-07-30 | Plus de service |
 | Hugging Face Inference Providers | Aucun crédit mensuel pour les comptes gratuits | Pas d'offre gratuite |
 | Chutes | Aucune : « We do not offer a free tier at this time » | Pas d'offre gratuite |
@@ -963,6 +963,9 @@ Pages officielles lues :
 | AI21 | Crédit de 10 $ pour un compte neuf, sans carte : 7 jours d'après la page des tarifs, trois mois d'après la documentation (pages lues le 2026-11-22) | Jamba Large et Jamba Mini : 200 requêtes par minute | Crédit unique ; pas de point d'accès compatible OpenAI ni de fournisseur LiteLLM nommé ; la revente est interdite. Ne s'entraîne pas sur les entrées et sorties |
 | Nebius Token Factory | Aucune ; des codes promotionnels ponctuels et, pour des startups financées, jusqu'à 50 000 $ de crédits (pages lues le 2026-11-22) | Limites dynamiques, valeurs par défaut non publiées | Pas de palier gratuit, et une carte bancaire est exigée pour finir l'inscription. Ne s'entraîne pas sur le contenu, mais garde les entrées et sorties sauf si la rétention zéro est activée |
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
+| Aion Labs | Palier gratuit à l'inscription, sans carte : 15 requêtes par minute, 20 000 jetons par minute et **20 000 jetons par jour** ; « a courtesy that we may change or withdraw at any time » (conditions du 2026-10-17, pages relues le 2026-11-22) | Modèles Aion seuls, présentés pour le jeu de rôle et la narration ; 20 000 jetons par jour font quelques requêtes ; un seul compte, partage de clé interdit ; ne s'entraîne pas sur le contenu et ne le stocke pas ; société polonaise | Écarté : quota trop petit pour une cascade, modèles hors sujet |
+| Fireworks | Un crédit de 1 $ une seule fois ; sans moyen de paiement, 10 requêtes par minute puis « Your account will be suspended until you add a payment method » ; aucun modèle serverless gratuit listé (pages relues le 2026-11-22) | Ne journalise pas les prompts des modèles ouverts sans accord explicite | Crédit unique, carte exigée pour continuer ; fournisseur `fireworks_ai/` de LiteLLM |
+| Together AI | « doesn't currently offer free trials » : au moins 15 $ de crédits à acheter avant de créer une clé ; un seul modèle gratuit affiché, un « Ternary Bonsai 27B » dont le contexte et les outils ne sont pas lus (pages relues le 2026-11-22) | Garde par défaut les prompts et les réponses et peut s'en servir pour améliorer ses produits ; la rétention zéro se règle dans les paramètres de l'organisation | Pas de palier gratuit, achat préalable ; fournisseur `together_ai/` de LiteLLM |
 
 Pages officielles lues :
 
@@ -983,14 +986,16 @@ Pages officielles lues :
 - Novita AI : pages « Rate limits » et « FAQ » de sa documentation
 - AI21 : page « Pricing », page « Usage and cost » de sa documentation et ses conditions d'utilisation
 - Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
+- Aion Labs : pages « Pricing », « Rate limits », « Terms » et « Privacy »
+- Fireworks : pages « Pricing », « Account quotas », « What happens when I finish my $1 credit » et « Data handling » de sa documentation
+- Together AI : pages « Pricing », « Billing and credits » et « Privacy and security » de sa documentation
 
 **Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
 
 | Fournisseur | Ce qui a été vu | Ce qui manque |
 | --- | --- | --- |
-| Together AI | Un « Ternary Bonsai 27B » gratuit affiché sur la page des tarifs | Rien ne confirme qu'il s'appelle sans paiement |
-| Fireworks | 10 requêtes par minute sans moyen de paiement ni crédit | Accès serverless sans paiement non confirmé |
-| LLM7, Pollinations, ModelScope, Aion Labs, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| LLM7, Pollinations, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
+| ModelScope (Alibaba) | Les pages officielles de l'inférence par API se rendent vides (interface JavaScript) ; des sources tierces donnent 2 000 appels par jour au total et environ 500 par modèle, remis à zéro à minuit à Pékin, point d'accès compatible OpenAI (lu le 2026-11-22, non vérifié) | Les chiffres, l'inscription (téléphone ? pièce d'identité ?), les conditions sur la passerelle, et le lieu de traitement des données, probablement en Chine |
 
 Pages officielles lues :
 
