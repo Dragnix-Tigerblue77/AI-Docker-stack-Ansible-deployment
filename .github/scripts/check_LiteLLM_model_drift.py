@@ -144,7 +144,7 @@ HOW EACH PROVIDER IS READ
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
-below -- OmniRoute, local and keyless, the ones served through Kilo Gateway, keyless too, the
+below -- OmniRoute, local and keyless, the ones served through Kilo Gateway and OVHcloud AI Endpoints, keyless too, the
 "cloudflare/<id>" and "zai/<id>" ones, whose providers this check does not read, the "openai/<id>"
 ones served through Requesty, whose provider it does not read either, and the "nvidia_nim/<id>" ones,
 whose provider it does not read any more than the others -- is left out, and the report says how many:

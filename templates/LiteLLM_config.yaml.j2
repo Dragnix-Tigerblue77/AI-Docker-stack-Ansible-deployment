@@ -14,7 +14,7 @@
 # variable, never from a name written into this template.
 # #296: only the providers whose key the caller gives are rendered. A provider without a key has no
 # entry below and no slot in any cascade: a model listed that cannot answer would be tried, fail, and
-# only then hand the request on. The two providers that need no key, OmniRoute and Kilo Gateway, are the
+# only then hand the request on. The three providers that need no key, OmniRoute, Kilo Gateway and OVHcloud AI Endpoints, are the
 # exception and are always rendered.
 {% set has = {
   'Gemini': Artificial_Intelligence_LiteLLM_Gemini_API_key is string and Artificial_Intelligence_LiteLLM_Gemini_API_key | length > 0,
@@ -34,13 +34,15 @@
 # has a key or needs none, which "claude-code" and the two audio routers can come to. "check_compose_template.py" renders every
 # non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
 # the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
-# heads one of the three: the table below stops at Kilo. Requesty's members sit right ahead of Kilo's in
+# heads one of the three: the table below stops at Kilo. OVHcloud's sit behind every other free member of "pro",
+# "flash", "flash-lite" and "code", ahead of the paid ones, so they head "code" when no keyed free provider
+# does. Requesty's members sit right ahead of Kilo's in
 # "flash" and "flash-lite", so Requesty heads those two when no earlier provider has a key.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
   'flash-lite': 'gemini-3-1-flash-lite' if has.Gemini else 'gemma-3-4b-nvidia' if has.NVIDIA else 'gpt-oss-20b-groq' if has.Groq else 'gpt-oss-20b-cloudflare' if has.Cloudflare else 'gemma-4-26b-free' if has.OpenRouter else 'nemotron-lightning-requesty' if has.Requesty else 'nemotron-lightning-kilo',
-  'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else 'omniroute-free-code',
+  'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'deepseek-v4-1-flash-ovh',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
   'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
@@ -899,6 +901,134 @@ model_list:
   #     extra_headers:
   #       Authorization: ""
 
+  # ============================================================================
+  # OVHcloud AI Endpoints -- anonymous, keyless, rate limited per model (see the note at the top of this file).
+  #
+  # Read 2026-11-22. The models list the endpoint serves without a key, and the public catalogue page, give each
+  # model below as a chat model with "Function Calling" on its card; the card also says what is left out, see
+  # the README. The limit is 2 requests per minute per IP address and per model, observed from the
+  # maintainer's network (a second call within the minute answered 429) and written on no page read: each
+  # entry has a pool of its own, and each pool is one for the whole house, being counted per IP address. That makes the section a last resort, behind every free entry of the cascades that hold it
+  # and ahead of the paid ones. The "Confidentiality" lines of the AI Endpoints page say the service is
+  # "hosted and run in the European Union", that "your data is never used to train our models" and that
+  # OVHcloud keeps "only the data required for billing"; that page describes the paid service, and that the
+  # anonymous one is held to the same is UNVERIFIED. No entry reads a key, so none belongs to an account.
+  #
+  # The "api_key" is a literal marker and the entries blank the Authorization header, the shape Kilo's
+  # gateway needed against its 401 to a placeholder bearer token. Whether OVHcloud refuses a placeholder
+  # token is UNTRIED against its real endpoint: the empty header is the form known to work elsewhere, and
+  # "check_compose_template.py" holds every entry on a keyless base to it. "openai/" is cut once by LiteLLM,
+  # so the id after it reaches the endpoint whole.
+  #
+  # Not routed: the models the catalogue marks "Being retired" (Qwen3.6-27B, Llama 3.3 70B, end of life
+  # 2027-02-10), the task-specific Olala summarise and translate models, the Qwen3-VL vision model, the guard
+  # models and every embedding, speech and image model, none of which suits these routers as a chat model with
+  # tool calls.
+  # ============================================================================
+  - model_name: deepseek-v4-1-flash-ovh
+    litellm_params:
+      model: openai/DeepSeek-V4.1-Flash-1017
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: qwen3-5-397b-ovh
+    litellm_params:
+      model: openai/Qwen3.5-397B-A17B
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: gpt-oss-120b-ovh
+    litellm_params:
+      model: openai/gpt-oss-120b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: qwen3-8-27b-ovh
+    litellm_params:
+      model: openai/Qwen3.8-27B
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: qwen3-6-35b-ovh
+    litellm_params:
+      model: openai/qwen3.6-35b-a3b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron3-omni-30b-ovh
+    litellm_params:
+      model: openai/nemotron3-omni-30b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: mistral-small-3-2-ovh
+    litellm_params:
+      model: openai/Mistral-Small-3.2-24B-Instruct-2506
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: gpt-oss-20b-ovh
+    litellm_params:
+      model: openai/gpt-oss-20b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: gemma-4-26b-ovh
+    litellm_params:
+      model: openai/gemma-4-26b-a4b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: nemotron3-nano-30b-ovh
+    litellm_params:
+      model: openai/nemotron3-nano-30b
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: qwen3-5-9b-ovh
+    litellm_params:
+      model: openai/Qwen3.5-9B
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: olala-mini-ovh
+    litellm_params:
+      model: openai/Olala-v1.0-mini-7A1B
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: laguna-xs-2-1-ovh
+    litellm_params:
+      model: openai/laguna-xs-2.1
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
 {% if has.Requesty %}
   # ============================================================================
   # Requesty ("openai/" through its OpenAI-compatible endpoint, free models only)
@@ -1174,7 +1304,7 @@ router_settings:
     # free OmniRoute) -> OmniRoute. NVIDIA's entries sit among the Google ones by their index, except its three
     # Nemotron entries, each right behind the last of its keyed twins. Kilo's entries sit behind their keyed
     # twins, ahead of the paid ones; "beam-kilo" has no twin and is ahead of the Nemotron entries, for the
-    # reason given with it.
+    # reason given with it. OVHcloud's three heaviest entries close the free ones, ahead of the paid ones.
 {% if head['pro'] %}
     - pro: &pro_cascade
 {% if has.Gemini %}
@@ -1222,6 +1352,9 @@ router_settings:
         - nemotron-super-vl-nvidia
 {% endif %}
         - nemotron-super-vl-kilo
+        - deepseek-v4-1-flash-ovh
+        - qwen3-5-397b-ovh
+        - gpt-oss-120b-ovh
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
@@ -1243,7 +1376,8 @@ router_settings:
     # Requesty's "gemma-4-31b-requesty" sits right behind its OpenRouter twin, a pool of its own.
     # Kilo's entries sit behind their keyed twins, ahead of the paid ones. The two of its own with no
     # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
-    # which has no record either and closes the free ones.
+    # which has no record either and closes the free ones. OVHcloud's entries follow that router, behind the
+    # last free member and ahead of the paid ones, heaviest first.
     # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
     # allowance of its own.
 {% if head['flash'] %}
@@ -1310,6 +1444,13 @@ router_settings:
 {% if has.OpenRouter %}
         - openrouter-auto-free
 {% endif %}
+        - deepseek-v4-1-flash-ovh
+        - qwen3-5-397b-ovh
+        - gpt-oss-120b-ovh
+        - qwen3-8-27b-ovh
+        - qwen3-6-35b-ovh
+        - nemotron3-omni-30b-ovh
+        - mistral-small-3-2-ovh
 {% if has.Mistral %}
         - mistral-small
         - ministral-14b
@@ -1335,7 +1476,7 @@ router_settings:
     # Gemma 3 entries are placed by the time Artificial Analysis gives them, which the router orders by, and
     # "nemotron-bolt-e4b-nvidia", which has no figure, closes its free members. "llama-3-3-70b-cloudflare" is new
     # to the gateway and closes the free members: no index of Artificial Analysis measures it, and Epoch AI's
-    # capabilities index puts it under all of them.
+    # capabilities index puts it under all of them. OVHcloud's entries close the free members, behind that one.
 {% if head['flash-lite'] %}
     - flash-lite: &flash_lite_cascade
 {% if has.Gemini %}
@@ -1387,6 +1528,11 @@ router_settings:
 {% if has.Cloudflare %}
         - llama-3-3-70b-cloudflare
 {% endif %}
+        - gpt-oss-20b-ovh
+        - gemma-4-26b-ovh
+        - nemotron3-nano-30b-ovh
+        - qwen3-5-9b-ovh
+        - olala-mini-ovh
 {% if has.Mistral %}
         - ministral-3b
 {% endif %}
@@ -1406,7 +1552,8 @@ router_settings:
     # resort before the fully free OmniRoute) -> OmniRoute. NVIDIA's entries follow Gemini 3.8 Flash, where the
     # figures read 2026-11-21 put them, and "laguna-xs-2-1-nvidia", which no figure places, closes its free
     # members. "glm-4-7-flash-cloudflare" and "glm-4-7-flash-zai" close the free members, behind it and ahead
-    # of the paid ones: none of the figures this ranking reads measures them.
+    # of the paid ones: none of the figures this ranking reads measures them. OVHcloud's entries follow, heaviest
+    # first and with Laguna last, ahead of the paid ones.
 {% if head['code'] %}
     - code: &code_cascade
 {% if has.Gemini %}
@@ -1436,6 +1583,12 @@ router_settings:
 {% if has.Zai %}
         - glm-4-7-flash-zai
 {% endif %}
+        - deepseek-v4-1-flash-ovh
+        - qwen3-5-397b-ovh
+        - gpt-oss-120b-ovh
+        - qwen3-8-27b-ovh
+        - qwen3-6-35b-ovh
+        - laguna-xs-2-1-ovh
 {% if has.Mistral %}
         - codestral
         - codestral-2508
@@ -1455,7 +1608,8 @@ router_settings:
     # cascade, member for member and in the same order, without the members that cannot meet that:
     # "omniroute-free-code" routes to whichever free model OmniRoute picks, and OmniRoute's own reference
     # says a free provider may emulate tool calls from the prompt or drop them, so nothing guarantees
-    # either. "check_compose_template.py" holds the two cascades to this. Excludes models with no
+    # either, and nor do OVHcloud's keyless entries, whose two requests per minute are no footing for an agent: the
+    # router is reserved for keyed providers. "check_compose_template.py" holds the two cascades to this. Excludes models with no
     # structured tool support (e.g. mistral-vibe-cli). DeepSeek direct is last: its
     # models support tool calls, but it is the only paid provider in this cascade. This is what #13's
     # Claude Code agent asks for, and whatever it resolves to must never be an Anthropic model backed
