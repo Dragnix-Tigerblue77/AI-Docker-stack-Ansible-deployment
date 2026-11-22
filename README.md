@@ -1601,6 +1601,15 @@ parce que l'adresse sur laquelle la personne atteint la passerelle est celle de 
 - **Noms et courriels distincts** de ceux de `Artificial_Intelligence_LiteLLM_internal_users`, dont les entrées passent par le même
   appel : un 409 sur un identifiant déjà pris par l'autre liste ferait ignorer l'entrée sans un mot, donc `tasks/main.yml` refuse la
   collision (courriels comparés sans tenir compte de la casse) avant tout déploiement.
+- **L'identité de la clé maîtresse existe avant la première invitation.** LiteLLM enregistre l'auteur d'une invitation comme clé
+  étrangère vers sa table des utilisateurs, avec l'identité de l'appelant : `default_user_id` pour la clé maîtresse, une ligne qu'il ne
+  crée que lorsque quelqu'un se connecte à `/ui` avec l'identifiant d'environnement. Quand celui-ci est coupé dès le premier
+  déploiement, personne ne le fait, et l'invitation est refusée d'un 400 « User id does not exist ». Le rôle crée donc cette
+  ligne (`proxy_admin`, sans clé ni courriel, comme le ferait cette connexion) juste avant d'inviter, seulement quand une invitation
+  va avoir lieu, et un 409 la laisse telle quelle. C'est un contournement de ce comportement de LiteLLM, pas la cause.
+- **Une invitation refusée fait échouer le run avec ce que LiteLLM a répondu** (le statut et son message, qui n'ont rien de secret),
+  et non plus avec un « 400 Bad Request » sans corps. Le compte existe alors sans mot de passe et un nouveau run ne l'invite pas :
+  le message dit comment l'inviter depuis *Internal Users*.
 - **Avec `--check`**, ces tâches sont sautées, comme celles des comptes internes : il n'y a pas de passerelle à interroger.
 - **Les administrateurs n'ont pas de clé virtuelle** : l'invitation est tout ce que le rôle leur donne.
 
