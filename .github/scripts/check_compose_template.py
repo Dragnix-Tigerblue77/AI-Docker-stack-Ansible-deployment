@@ -1724,6 +1724,32 @@ def check_litellm_config(document, keys, failures):
                 "under the name that was asked for, so a request made under it would not fall back at all (#300)"
             )
 
+    # An embedding model is reached by its own name alone: the vectors of two models are not comparable, and
+    # LiteLLM does walk fallbacks for an embedding call, so one in a cascade, or one an alias resolves to
+    # whichever keys were given, would change the vector space of a filled collection without a word.
+    embeddings = {
+        entry.get("model_name") for entry in entries if mapping(entry, "model_info").get("mode") == "embedding"
+    }
+    for name, members in cascades.items():
+        if name in embeddings:
+            failures.append(
+                f"[{state}] the embedding model {name!r} has a cascade of its own: its vectors are comparable "
+                "with no other model's, so nothing can stand in for it when it fails"
+            )
+        for member in members:
+            if member in embeddings:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} holds the embedding model {member!r}: a fallback to "
+                    "another vector space silently corrupts a collection, so an embedding model is in no cascade"
+                )
+    for alias, target in aliases.items():
+        if alias in embeddings or target in embeddings:
+            failures.append(
+                f"[{state}] the alias {alias!r} involves the embedding model "
+                f"{alias if alias in embeddings else target!r}: an alias follows the keys given, and with it "
+                "the vector space of a collection, so an embedding model is addressed by its own name only"
+            )
+
     for router in LITELLM_ROUTERS + tuple(LITELLM_MEDIA_ROUTERS):
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
         if is_entry:
@@ -1829,7 +1855,9 @@ LITELLM_VARIABLE_CASES = [
 def _litellm_document(entries, cascades, aliases):
     return {
         "model_list": [
-            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key}} for name, key in entries
+            {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
+             **({"model_info": {"mode": mode[0]}} if mode else {})}
+            for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
     }
@@ -2038,6 +2066,32 @@ LITELLM_CONFIG_CASES = [
                        [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
                        {"claude-code": "gemini-3-8-flash"}),
      {"Gemini"}, "'pro' is a model_list entry"),
+    ("an embedding model served by its own name alone",
+     _with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                                  ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                                 [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                 {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}), "GEMINI_API_KEY"),
+     {"Gemini"}, None),
+    ("an embedding model in a cascade",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash", "gemini-embedding-2"]), ("claude-code", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, "holds the embedding model 'gemini-embedding-2'"),
+    ("an embedding model with a cascade of its own",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"]),
+                        ("gemini-embedding-2", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+     {"Gemini"}, "has a cascade of its own"),
+    ("an alias that resolves to an embedding model",
+     _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                        ("gemini-embedding-2", "os.environ/GEMINI_API_KEY", "embedding")],
+                       [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"]),
+                        ("embed", ["gemini-3-8-flash"])],
+                       {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash", "embed": "gemini-embedding-2"}),
+     {"Gemini"}, "involves the embedding model 'gemini-embedding-2'"),
 ]
 
 

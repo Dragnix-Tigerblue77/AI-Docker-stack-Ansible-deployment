@@ -219,6 +219,26 @@ model_list:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # An embedding model, added 2026-11-22, in no cascade and behind no alias, reached by its own name
+  # alone: the vectors of two models are not comparable, so a fallback or an alias that followed the
+  # keys given would silently change the vector space of a collection that is already filled.
+  # "check_compose_template.py" refuses an embedding entry in any cascade or alias. The caller chooses
+  # "dimensions" (LiteLLM sends it to Google as "outputDimensionality"). "ai.google.dev/gemini-api/docs/
+  # embeddings", read that day, gives "Flexible, supports: 128 - 3072, Recommended: 768, 1536, 3072",
+  # an input limit of 8,192 tokens, no "task_type" for this model (the task goes in the prompt) and
+  # truncated vectors renormalised by Google, and says the spaces of "gemini-embedding-001" and
+  # "gemini-embedding-2" are incompatible, so a switch re-embeds everything.
+  # The free tier is the wrong place for private documents: its terms, known from a summary of the
+  # pricing page and not read verbatim, let Google use the content to improve its products and forbid
+  # personal or confidential data, and the corpus this estate routes includes third-party legal
+  # documents. Embed those through a paid key, or not through this entry.
+  - model_name: gemini-embedding-2
+    litellm_params:
+      model: gemini/gemini-embedding-2
+      api_key: "os.environ/GEMINI_API_KEY"
+    model_info:
+      mode: embedding
+
   # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
   # and each line says why.
   # drift-ignore: gemini/gemini-3.1-flash-lite-preview -- shut down on 2026-05-25 per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), which says to use gemini-3.1-flash-lite, routed above; the catalogue still listed it that day
@@ -301,6 +321,19 @@ model_list:
     litellm_params:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
+
+  # An embedding model, added 2026-11-22, in no cascade and behind no alias, for the reason given at
+  # "gemini-embedding-2" above. Paid like the rest of this section: $0.10 per million tokens in
+  # LiteLLM's price map, read that day. Its vector size is not stated by any page read, and LiteLLM's
+  # map gives none: with "drop_params" below a "dimensions" sent to it is dropped and the full vector
+  # comes back, where LiteLLM without that setting refuses the call (run 2026-11-22). Create a
+  # collection from the length of a first answer, not from a number written here.
+  - model_name: mistral-embed
+    litellm_params:
+      model: mistral/mistral-embed
+      api_key: "os.environ/MISTRAL_API_KEY"
+    model_info:
+      mode: embedding
 
   # Speech to text, the last slot of the "stt" cascade: the one paid member of it, as everything of this
   # section is. "docs.mistral.ai" lists French among the languages its Voxtral transcription supports
