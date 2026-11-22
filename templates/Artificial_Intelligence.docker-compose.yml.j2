@@ -406,9 +406,13 @@ services:
   # exactly this reason.
   # ------------------------------------------------------------------------------------------------
   omniroute:
-    # Floating, with no tag at all (no tag IS "latest"), and never the "-web" variant: a desktop/PWA
-    # build this deployment has no use for, consumed as a plain OpenAI-compatible API by LiteLLM.
-    image: diegosouzapw/omniroute
+    # Floating, on the "-web" variant, which is the lean image plus Chromium and Playwright (the
+    # "runner-web" stage of upstream's Dockerfile). The lean one cannot run "cfp", the Cloudflare
+    # Playground provider, which is anonymous but drives a browser: its calls fail with "needs Playwright
+    # and its Chromium browser" and every "auto" combo that reaches it answers nothing. Measured
+    # 2026-11-22 on a throwaway container: the lean image answered none of the combos tried and this one
+    # answered every one of them. The tag floats like "latest" does.
+    image: diegosouzapw/omniroute:latest-web
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
