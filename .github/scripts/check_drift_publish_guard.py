@@ -28,6 +28,9 @@ provider, an id and a name per model, between the "BEGIN/END additions builder" 
 is played on the real template and on a miniature one: what it must build -- every provider, active
 and commented-out anchors, a run shared by two providers -- has to be, character for character, what
 the drift script's own build_additions() builds, and has to read back as the file plus those entries;
+a keyless gateway's entry, written with its literal marker and the header that blanks Authorization,
+active or commented out; the tables of the issue step and of the builder naming exactly the providers the
+script reads, as text, since a table missing one fails only on the day it is needed;
 what it must refuse -- an id or a name of another spelling (a newline, a quote, Jinja, a trailing
 colon), a name that is a word of the file, a provider that is no key of its table ("__proto__"
 included), an item of another shape, an id already an entry or set aside, an entry with a literal key
@@ -497,13 +500,17 @@ def item(provider, identifier, name):
     return {"provider": provider, "id": identifier, "name": name}
 
 
+# Kilo's free ids are flagged by its catalogue, and some are spelt without ":free": both are written.
 READY_ITEMS = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
-            item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free")]
+            item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free"),
+            item("kilo", "vendor/fresh-three:free", "fresh-three-kilo"),
+            item("kilo", "vendor/fresh-four", "fresh-four-kilo")]
 TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
              item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
              item("cerebras", "zai-glm-9", "zai-glm-9-cerebras"),
              item("sambanova", "DeepSeek-V9", "deepseek-v9-sambanova"),
-             item("cloudflare", "@cf/vendor/model-9", "model-9-cloudflare")]
+             item("cloudflare", "@cf/vendor/model-9", "model-9-cloudflare"),
+             item("kilo", "vendor/fresh-five:free", "fresh-five-kilo")]
 
 
 
@@ -525,6 +532,22 @@ def builder_scenarios(real, drift):
         [item("sambanova", "sn-two", "sn-two-sambanova")], base=miniature, kind="to_verify")
     add("miniature: a provider with both follows its last active entry",
         [item("gemini", "gem-two", "gem-two")], base=miniature, kind="to_verify")
+    add("miniature: a keyless gateway's entries follow its last one, with the literal marker and the blanked header",
+        [item("kilo", "vendor/gw-two:free", "gw-two-kilo"), item("kilo", "vendor/gw-three", "gw-three-kilo")],
+        base=miniature)
+    kilo_commented = miniature.replace(
+        "  - model_name: gw-one\n    litellm_params:\n      model: openai/vendor/gw-one:free\n"
+        '      api_base: "https://ai-gateway.kilo.ai/api/v1"\n      api_key: "gw-no-key"\n'
+        '      extra_headers:\n        Authorization: ""\n',
+        "  # Served, but not routed to: a test.\n  # - model_name: gw-one\n  #   litellm_params:\n"
+        '  #     model: openai/vendor/gw-one:free\n  #     api_base: "https://ai-gateway.kilo.ai/api/v1"\n'
+        '  #     api_key: "gw-no-key"\n  #     extra_headers:\n  #       Authorization: ""\n')
+    assert kilo_commented != miniature
+    add("miniature: a keyless gateway with a commented-out entry only is followed commented out, header and all",
+        [item("kilo", "vendor/gw-two:free", "gw-two-kilo")], base=kilo_commented, kind="to_verify")
+    add("a keyless gateway's entry modelled on a key read from the environment is refused",
+        [item("kilo", "vendor/gw-two:free", "gw-two-kilo")], "is not a plain marker",
+        base=miniature.replace('api_key: "gw-no-key"', 'api_key: "os.environ/KILO_API_KEY"'))
     add("miniature: two models of one provider follow each other",
         [item("openrouter", "vendor/a:free", "a-free"), item("openrouter", "vendor/b:free", "b-free")],
         base=miniature)
@@ -574,6 +597,10 @@ def builder_scenarios(real, drift):
         'does not end in ":free"', kind="to_verify")
     add("an id already an entry is refused", [item("openrouter", "google/gemma-4-31b-it:free", "fresh-free")],
         "is already an entry")
+    add("a Kilo id already an entry is refused", [item("kilo", "nvidia/nemotron-3-ultra-550b-a55b:free", "fresh-kilo")],
+        "is already an entry")
+    add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "kilo-auto/free", "auto-kilo")],
+        "set aside by a drift-ignore line")
     add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
         "is already an entry", base=miniature, kind="to_verify")
     add("an id set aside by drift-ignore is refused", [item("openrouter", "vendor/set-aside:free", "fresh-free")],
@@ -908,6 +935,28 @@ def judge_step(cases, results):
     return wrong
 
 
+# The tables of the workflow that name the providers, and how to read the names off each: a provider the
+# script reads and a table lacks only fails on the day it is needed, an unreadable catalogue or an addition.
+PROVIDER_TABLES = {
+    "issue": (r"const PROVIDERS = \{(.*?)\};", r"\b([a-z]+):\s*'"),
+    "additions": (r"const ADDITION_PROVIDERS = \{(.*?)\n\};", r"^\s+([a-z]+): \{"),
+}
+
+
+def table_problem(script, which, drift):
+    """Why the table of "which" ("issue" or "additions") in the step's "script" does not name exactly the
+    providers the drift script reads, or None."""
+    block, name = PROVIDER_TABLES[which]
+    found = re.search(block, script, re.S)
+    if not found:
+        return "the table of providers of the %s step is not where this reads it" % which
+    named = re.findall(name, found.group(1), re.M)
+    if sorted(named) != sorted(drift.PROVIDER_NAMES):
+        return "the %s step names %s, and the drift script reads %s" % (
+            which, ", ".join(sorted(named)), ", ".join(sorted(drift.PROVIDER_NAMES)))
+    return None
+
+
 def additions_cases():
     real = TEMPLATE.read_text(encoding="utf-8")
     drift = drift_module()
@@ -941,6 +990,9 @@ def additions_wrong(script=None, builder=None):
     if script is None:
         script = step_document()[1]["with"]["script"]
     wrong = judge_builder(cases, play_builder(builder, cases), drift)
+    problem = table_problem(script, "additions", drift)
+    if problem:
+        wrong.append(("the providers of the additions are the ones the script reads", problem))
     with tempfile.TemporaryDirectory() as folder:
         steps = step_scenarios(real, drift, folder)
         wrong += judge_step(steps, play_step(script, real, steps))
@@ -961,11 +1013,17 @@ ADDITION_MUTATIONS = [
     ("keep a ready addition to a provider whose API states its free tier", "if (kind === 'ready' && spec.free === undefined)",
      "if (false)"),
     ("keep a ready addition active", "if (kind === 'ready' && anchor.commented)", "if (false)"),
-    ("ask an id of such a provider for its \":free\"", "spec.free !== undefined && !id.endsWith(':free')", "false"),
+    ("ask an id of such a provider for its suffix, where it has one", "spec.freeSuffix !== undefined && !id.endsWith(spec.freeSuffix)", "false"),
     ("refuse an item of another shape", "Object.keys(item).sort().join(',') !== 'id,name,provider'", "false"),
     ("refuse an id already an entry", "if (known.has(spec.prefix + id))", "if (false)"),
     ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),
     ("model an entry on a key read from the environment", "!ADDITION_KEY.test(key)", "false"),
+    ("model a keyless gateway's entry on a plain marker", "!ADDITION_MARKER.test(key)", "false"),
+    ("blank the Authorization header of a keyless gateway's entry", "if (spec.keyless) block.push(", "if (false) block.push("),
+    ("attribute the entries served through Kilo's gateway to it", "apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';",
+     "apiBase.includes('ai-gateway.kilo.ai')) return null;"),
+    ("name every provider the script reads in the table of additions",
+     "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
     ("follow the last active entry first", "find((entry) => !entry.commented)", "find(() => false)"),
     ("follow a commented-out entry after its run", "while (commented && at < end", "while (false && at < end"),
@@ -1353,6 +1411,9 @@ def attempts_wrong(gate=None, issue=None):
         issue = named_step("publish", ISSUE_STEP)[1]["with"]["script"]
     gates, issues = gate_scenarios(), issue_scenarios()
     wrong = judge_step(gates, play_actions(gate, gates)) + judge_step(issues, play_actions(issue, issues))
+    problem = table_problem(issue, "issue", drift_module())
+    if problem:
+        wrong.append(("the providers of the issue are the ones the script reads", problem))
     problem = schedule_problem(named_step("gate", GATE_STEP)[0])
     if problem:
         wrong.append(("the gate numbers the attempts as on.schedule lists them", problem))
@@ -1384,6 +1445,8 @@ ATTEMPT_MUTATIONS = [
      "const titles = [title];"),
     ("issue", "take over an issue with the marker only", "(issue.body ?? '').includes(marker))", "true)"),
     ("issue", "refuse a provider it does not know", "!Object.hasOwn(PROVIDERS, match[1]) ||", ""),
+    ("issue", "name every provider the script reads in the issue's table", "cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',",
+     "cloudflare: 'Cloudflare',"),
     ("issue", "refuse a class it does not know", "!Object.hasOwn(CLASSES, match[2]) ||", ""),
     ("issue", "refuse a provider named twice", "unread.some((each) => each.provider === match[1])", "false"),
     ("issue", "read a word whole", "/^([a-z]+):([0-9a-z]+)$/", "/([a-z]+):([0-9a-z]+)/"),

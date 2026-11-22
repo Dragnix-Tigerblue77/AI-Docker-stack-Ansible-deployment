@@ -40,7 +40,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import check_LiteLLM_model_drift as drift  # noqa: E402
 from check_LiteLLM_model_drift import (
-    ADDITION_ID, ADDITION_NAME, ADDITION_NAME_LIMIT, CLOUDFLARE_PER_PAGE, NAME_SUFFIXES, SAFE_MODEL_ID, BANNER_RULE, CONFIG, CONTRACTS, CRASH_STATUS,
+    ADDITION_ID, DEFAULT_BASES, FREE_READINGS, FREE_SUFFIX, KEYLESS_GATEWAYS, OPENAI_COMPATIBLE,
+    PROVIDER_LABELS, addition_anchor, addition_entries, provider_basis, snippet, ADDITION_NAME,
+    ADDITION_NAME_LIMIT, CLOUDFLARE_PER_PAGE, NAME_SUFFIXES, SAFE_MODEL_ID, BANNER_RULE, CONFIG,
+    CONTRACTS, CRASH_STATUS,
     DRIFT_IGNORE_START, EPOCH_ECI_KEY, EPOCH_ECI_MEMBER, EPOCH_FILES, EPOCH_KEYS,
     EPOCH_MAX_ARCHIVE, EPOCH_URL, FREE_CATALOGUES, FREE_READABLE, FREE_TIER_CHECKS, FetchError,
     JINJA_PLACEHOLDER, LOOKUPS, LOOKUP_LIMIT, MAX_PAGES, PRICING_PAGES, PROPOSAL_LIMIT,
@@ -94,6 +97,14 @@ model_list:
     litellm_params:
       model: deepseek/deepseek-v9
       api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+
+  - model_name: kilo-one
+    litellm_params:
+      model: openai/vendor/kilo-one:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-selftest-marker"
+      extra_headers:
+        Authorization: ""
 
   # Served, but not routed to: paid only.
   # - model_name: paid-one
@@ -341,6 +352,11 @@ def openrouter_model(identifier, price="0", outputs=("text",), expiration=None):
             "expiration_date": expiration}
 
 
+def kilo_model(identifier, free=True, outputs=("text",), expiration=None):
+    return {"id": identifier, "name": identifier, "isFree": free, "mayTrainOnYourPrompts": free,
+            "architecture": {"output_modalities": list(outputs)}, "expiration_date": expiration}
+
+
 def selftest_answers():
     """Canned catalogues matching SELFTEST_TEMPLATE exactly: no drift at all."""
     return {
@@ -373,6 +389,12 @@ def selftest_answers():
             {"id": "mistral-embed", "capabilities": {"completion_chat": False}},
         ]},
         "deepseek": {"data": [{"id": "deepseek-v9"}]},
+        "kilo": {"data": [
+            kilo_model("vendor/kilo-one:free"),
+            kilo_model("vendor/kilo-paid", free=False),
+            kilo_model("vendor/kilo-painter:free", outputs=("image",)),
+            kilo_model("vendor/kilo-voice-tts:free"),
+        ]},
         # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
         "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
                         "success": True}],
@@ -405,6 +427,7 @@ def answers_listing(text, without=()):
         "mistral": {"data": [{"id": i, "capabilities": {"completion_chat": True}}
                              for i in sorted(ids["mistral"])]},
         "deepseek": {"data": [{"id": i} for i in sorted(ids["deepseek"])]},
+        "kilo": {"data": [kilo_model(i) for i in sorted(ids["kilo"])]},
         "cloudflare": [{"result": [{"name": i, "task": {"name": "Text Generation"}}
                                    for i in sorted(ids["cloudflare"])], "success": True}],
     }
@@ -518,6 +541,41 @@ def online_cases():
     def openrouter_with(*extra, without=()):
         data = [model for model in base["openrouter"]["data"] if model["id"] not in without]
         return {"data": data + list(extra)}
+
+    def kilo_with(*extra, without=(), replacing=()):
+        data = [model for model in base["kilo"]["data"] if model["id"] not in without
+                and model["id"] not in [each["id"] for each in replacing]]
+        return {"data": data + list(replacing) + list(extra)}
+
+    def kilo_asked_without_a_key(result, calls, report, body):
+        asked = [headers for url, headers in calls if "ai-gateway.kilo.ai" in url]
+        if not asked:
+            return "the Kilo catalogue was never read"
+        if any("authorization" in key.lower() or "key" in key.lower() for headers in asked for key in headers):
+            return "a keyless catalogue was asked with a credential"
+        if len(asked) != 1:
+            return "Kilo was asked %d times, where its list is all a deletion rests on" % len(asked)
+        return None
+
+    def kilo_notice(wanted_report, wanted_body):
+        def check(result, calls, report, body):
+            if wanted_report not in report:
+                return "the report lacks %r" % wanted_report
+            if wanted_body not in body:
+                return "the summary lacks %r" % wanted_body
+            return None
+        return check
+
+    real = CONFIG.read_text(encoding="utf-8")
+    listing = answers_listing(real)
+
+    def kilo_of_the_real_list(result, calls, report, body):
+        kilo = next(each for each in result["providers"] if each["name"] == "kilo")
+        if kilo["active"] < 5 or kilo["status"] != "read":
+            return "the Kilo entries of the real list are not attributed to Kilo: %r" % kilo
+        if any(each["findings"] for each in result["providers"]):
+            return "a catalogue that lists what the real file holds reports a finding"
+        return None
 
     def examine_section(body):
         return body.split("## Nouveaux modèles à examiner")[1].split("\n## ")[0] \
@@ -671,6 +729,42 @@ def online_cases():
              {"name": "models/gemini-10-flash-tts",
               "supportedGenerationMethods": ["generateContent"]}]}]),
          [("new", "gemini-10-pro")], 1, second_page_read),
+        ("every Kilo entry of the real model list is attributed to Kilo, and a catalogue that lists them reports "
+         "nothing, the virtual models the file sets aside included",
+         real, SELFTEST_KEYS, dict(listing, kilo={"data": listing["kilo"]["data"] + [
+             kilo_model("kilo-auto/free"), kilo_model("openrouter/free")]}), no_drift, 0, kilo_of_the_real_list),
+        ("an active Kilo id the catalogue no longer lists is RETIRED, read without a key",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("kilo", kilo_with(without=("vendor/kilo-one:free",))),
+         [("retired", "vendor/kilo-one:free")], 1, kilo_asked_without_a_key),
+        ("an active Kilo id that is still listed but no longer free is a NOTICE, and no retirement",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("kilo", kilo_with(replacing=(kilo_model("vendor/kilo-one:free", free=False),))),
+         [("notice", "vendor/kilo-one:free")], 1,
+         kilo_notice("openai/vendor/kilo-one:free on Kilo Gateway (kilo-one): no longer flagged free",
+                     "`openai/vendor/kilo-one:free` chez Kilo Gateway (`kilo-one`) : n'est plus gratuit")),
+        ("an expiration date on an active Kilo id that is free is a NOTICE",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("kilo", kilo_with(replacing=(kilo_model("vendor/kilo-one:free", expiration="2026-12-11"),))),
+         [("notice", "vendor/kilo-one:free")], 1,
+         kilo_notice("expires on 2026-12-11", "expiration annoncée (`2026-12-11`)")),
+        ("a new free Kilo text model is NEW and free; a paid one, an image one and a speech one are not",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("kilo", kilo_with(kilo_model("vendor/kilo-fresh:free"), kilo_model("vendor/kilo-fresh-paid", free=False),
+                                   kilo_model("vendor/kilo-fresh-painter:free", outputs=("text", "image")))),
+         [("new", "vendor/kilo-fresh:free")], 1,
+         lambda result, calls, report, body: (
+             "a free model of Kilo was listed as one to examine" if "## Nouveaux modèles à examiner" in body
+             else None if "openai/vendor/kilo-fresh:free on Kilo Gateway: free" in report
+             else "the report does not list the new Kilo model as free")),
+        ("a Kilo answer that flags no model as free or paid is an error, and no notice on every entry",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("kilo", {"data": [{"id": "vendor/kilo-one:free"}, {"id": "vendor/kilo-other"}]}), no_drift, 2,
+         lambda result, calls, report, body: (
+             None if 'the answer lists no "isFree" flag' in report and "NOTICE" not in report
+             else "the report does not say that the Kilo answer could not be read")),
+        ("a Kilo catalogue that is down is an error, not a catalogue of zero models",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("kilo", urllib.error.URLError("selftest: no route")), no_drift, 2,
+         None),
         ("a Groq model listed as inactive is a NOTICE",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("groq", {"data": [{"id": "vendor/fast", "active": False}]}),
@@ -2030,7 +2124,7 @@ def run_ranking_cases():
            first_wrong((section.count("\n| `openrouter/") == RANKING_LISTED, "the table holds %d rows" % section.count("\n| `openrouter/")),
                        ("inconnu de la source" not in section, "an unmatched row came before a matched one"),
                        ("… et 55 autre(s) nouveau(x) modèle(s) sans chiffres ici" in section, "the rest was not counted"),
-                       (len(body) < 40000, "the body is %d characters long" % len(body))))
+                       (len(body) < 41000, "the body is %d characters long" % len(body))))
 
     # Figures that are not figures are none, and the matching takes the spelling it can trust.
     junk = ranking_model("fresh-model", "Fresh Model", "NaN", True, float("inf"), "1.5")
@@ -3243,7 +3337,8 @@ def run_confirmation_cases():
 
 # Every shape build_additions() reads: a provider with active entries only, one with commented-out ones
 # only, in a run it shares with another provider under one reason, one with both, an entry whose key is
-# a literal and one whose base is no https address, which no proposal may be modelled on.
+# a literal and one whose base is no https address, which no proposal may be modelled on, and a keyless
+# gateway's, whose literal key is a marker and which blanks the Authorization header.
 # "check_drift_publish_guard.py" plays the workflow's builder on it too.
 ADDITIONS_TEMPLATE = """\
 {% set has = {
@@ -3287,6 +3382,14 @@ model_list:
       model: openrouter/vendor/one:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 {% endif %}
+  - model_name: gw-one
+    litellm_params:
+      model: openai/vendor/gw-one:free
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "gw-no-key"
+      extra_headers:
+        Authorization: ""
+
   - model_name: literal-key
     litellm_params:
       model: groq/vendor/literal
@@ -3311,7 +3414,8 @@ def proposal_answers(text=SELFTEST_TEMPLATE):
     OpenRouter -- one the ranking matches for certain, one it matches onto an entry whose name marks
     a variant, one it does not know --, Cerebras' with no entry of its provider to model one on, and
     one per provider of a spelling the pull requests do not write (it starts with "~", or ends with
-    "-"). The ranking also knows the Gemini one for certain, which does not make its free tier known."""
+    "-"). The ranking also knows the Gemini one for certain, which does not make its free tier known. Kilo has
+    two free ones, one the ranking matches for certain and one it does not know."""
     answers = answers_listing(text)
     fresh = openrouter_model("vendor/fresh:free")
     fresh["name"] = "Vendor: Fresh @bob <img src=x> `x` ::error:: (free)"
@@ -3320,7 +3424,8 @@ def proposal_answers(text=SELFTEST_TEMPLATE):
                                       openrouter_model("vendor/unmeasured:free")]
     answers["rankings"] = ranking_page(ranking_model("fresh", "Fresh", 40, 30, 200, 0.0),
                                        ranking_model("rough.cut", "Rough Cut (Reasoning)", 35, 25, 150, 0.0),
-                                       ranking_model("gemini-10-pro", "Gemini 10 Pro", 60, 50, 100, 1.0))
+                                       ranking_model("gemini-10-pro", "Gemini 10 Pro", 60, 50, 100, 1.0),
+                                       ranking_model("gateway-fresh", "Gateway Fresh", 45, 35, 110, 0.0))
     answers["gemini"][0]["models"] += [
         {"name": "models/gemini-10-pro", "displayName": "Gemini 10 Pro",
          "supportedGenerationMethods": ["generateContent"]},
@@ -3330,6 +3435,7 @@ def proposal_answers(text=SELFTEST_TEMPLATE):
     answers["deepseek"]["data"].append({"id": "deepseek-v10"})
     answers["sambanova"]["data"].append({"id": "SN-Two"})
     answers["cerebras"]["data"].append({"id": "cb-new"})
+    answers["kilo"]["data"] += [kilo_model("vendor/gateway-fresh:free"), kilo_model("vendor/gateway-plain")]
     return answers
 
 
@@ -3366,20 +3472,25 @@ def run_proposal_cases():
                for report in result["providers"] for finding in report["findings"] if finding["kind"] == "new"}
     judged("a model the run knows everything of is ready; one with a fact missing, whatever its provider, is to verify",
            first_wrong(
-               (ids(ready) == [("openrouter", "vendor/fresh:free")], "ready: %r" % ids(ready)),
+               (ids(ready) == [("openrouter", "vendor/fresh:free"), ("kilo", "vendor/gateway-fresh:free")],
+                "ready: %r" % ids(ready)),
                (ids(to_verify) == [("openrouter", "vendor/rough-cut:free"), ("openrouter", "vendor/unmeasured:free"),
                                    ("sambanova", "SN-Two"), ("gemini", "gemini-10-pro"), ("groq", "vendor/quick"),
-                                   ("mistral", "magistral-9"), ("deepseek", "deepseek-v10")],
+                                   ("mistral", "magistral-9"), ("deepseek", "deepseek-v10"),
+                                   ("kilo", "vendor/gateway-plain")],
                 "to verify: %r" % ids(to_verify)),
                ([item["name"] for item in to_verify["items"]] == [
                    "rough-cut-free", "unmeasured-free", "sn-two-sambanova", "gemini-10-pro", "quick-groq",
-                   "magistral-9", "deepseek-v10-direct"],
+                   "magistral-9", "deepseek-v10-direct", "gateway-plain-kilo"],
                 "the names are %r" % [item["name"] for item in to_verify["items"]]),
                (missing[("openrouter", "vendor/fresh:free")] == [], "the ready model misses %r"
                 % missing[("openrouter", "vendor/fresh:free")]),
                (missing[("openrouter", "vendor/rough-cut:free")] == ["match"], "an approximate match is not said"),
                (missing[("openrouter", "vendor/unmeasured:free")] == ["ranking"], "an unmeasured model is not said"),
                (missing[("gemini", "gemini-10-pro")] == ["free"], "a certain match made a free tier known"),
+               (missing[("kilo", "vendor/gateway-fresh:free")] == [], "the ready Kilo model misses %r"
+                % missing[("kilo", "vendor/gateway-fresh:free")]),
+               (missing[("kilo", "vendor/gateway-plain")] == ["ranking"], "an unmeasured Kilo model is not said"),
                (ready["complete"] and to_verify["complete"], "a kind is said incomplete")))
     judged("a model of a provider with no entry, or of a spelling the file is not written with, is left to the summary",
            first_wrong(
@@ -3389,10 +3500,11 @@ def run_proposal_cases():
                ("forme" in (unproposed.get(("gemini", "gemini-odd-")) or ""), "the odd Gemini id was proposed"),
                ("`cerebras/cb-new`" in summary and "pas proposé par pull request" in summary,
                 "the summary does not list what is not proposed"),
-               ("vendor/fresh:free" not in summary and "gemini-10-pro" not in summary and "rough-cut" not in summary,
+               ("vendor/fresh:free" not in summary and "gemini-10-pro" not in summary and "rough-cut" not in summary
+                and "gateway-fresh" not in summary and "gateway-plain" not in summary,
                 "the summary still lists a proposed model"),
-               ("## Ajouts proposés par pull request" in summary and ": 1 modèle." in summary
-                and "comment l'obtenir : 7 modèles." in summary, "the summary does not point at the pull requests"),
+               ("## Ajouts proposés par pull request" in summary and ": 2 modèles." in summary
+                and "comment l'obtenir : 8 modèles." in summary, "the summary does not point at the pull requests"),
                (exit_status(result) == 1 and left_outside_pull_requests(result), "the status moved, or what no "
                 "pull request carries is not said to be left outside them")))
     added = [line for line in difflib.ndiff(SELFTEST_TEMPLATE.split("\n"), to_verify["text"].split("\n"))
@@ -3406,6 +3518,15 @@ def run_proposal_cases():
                 '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
+               ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the weekly drift run on 2026-01-01: '
+                'listed free by "ai-gateway.kilo.ai/api/v1/models" that day.\n  - model_name: gateway-fresh-kilo\n'
+                '    litellm_params:\n      model: openai/vendor/gateway-fresh:free\n'
+                '      api_base: "https://ai-gateway.kilo.ai/api/v1"\n      api_key: "kilo-selftest-marker"\n'
+                '      extra_headers:\n        Authorization: ""\n' in ready["text"],
+                "the Kilo entry is not after kilo-one, with its marker and the header that blanks Authorization"),
+               ("  - model_name: gateway-plain-kilo\n" in to_verify["text"]
+                and to_verify["text"].count('Authorization: ""') == 2,
+                "the Kilo entry to verify is wrong, or another entry lost its header"),
                ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
                 'weekly drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
                 '  # - model_name: sn-two-sambanova\n  #   litellm_params:\n  #     model: openai/SN-Two\n'
@@ -3490,9 +3611,11 @@ def run_proposal_cases():
     judged("a model merged, or set aside by drift-ignore, is never proposed again",
            first_wrong(
                (ids(again_proposals["to_verify"]) == [], "merged models came back: %r" % ids(again_proposals["to_verify"])),
-               (ids(again_proposals["ready"]) == [("openrouter", "vendor/fresh:free")], "the other kind moved"),
-               (ids(aside_proposals["ready"]) == [], "a model set aside came back"),
-               (len(aside_proposals["to_verify"]["items"]) == 7, "the other kind moved")))
+               (ids(again_proposals["ready"]) == [("openrouter", "vendor/fresh:free"),
+                                                  ("kilo", "vendor/gateway-fresh:free")], "the other kind moved"),
+               (ids(aside_proposals["ready"]) == [("kilo", "vendor/gateway-fresh:free")],
+                "a model set aside came back, or the other one of its kind moved"),
+               (len(aside_proposals["to_verify"]["items"]) == 8, "the other kind moved")))
 
     # Partial, and unreadable.
     partial, partial_proposals = proposal_run(SELFTEST_TEMPLATE, proposal_answers(),
@@ -3756,6 +3879,48 @@ def run_proposal_cases():
            None if commented_only != ADDITIONS_TEMPLATE and problem and "follows an active entry" in problem
            else "refused for %r" % problem)
 
+    # A keyless gateway's entry: the literal marker copied from its last entry, the header that blanks
+    # Authorization written after it, whatever the spelling of the id, and the name of the gateway.
+    kilo_items = [{"provider": "kilo", "id": "vendor/gw-two:free", "name": "gw-two-kilo"},
+                  {"provider": "kilo", "id": "vendor/gw-three", "name": "gw-three-kilo"}]
+    kilo_text, kilo_problem = build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", kilo_items)
+    kilo_entry = ('      api_base: "https://ai-gateway.kilo.ai/api/v1"\n      api_key: "gw-no-key"\n'
+                  '      extra_headers:\n        Authorization: ""\n')
+    judged("a keyless gateway's entries are written with the literal marker and the header that blanks Authorization",
+           first_wrong(
+               (kilo_problem is None and kilo_text, "refused for %r" % kilo_problem),
+               (("  - model_name: gw-two-kilo\n    litellm_params:\n      model: openai/vendor/gw-two:free\n"
+                 + kilo_entry) in kilo_text, "the entry with a :free id is wrong"),
+               (("  - model_name: gw-three-kilo\n    litellm_params:\n      model: openai/vendor/gw-three\n"
+                 + kilo_entry) in kilo_text, "the entry without :free is wrong, or was refused for it"),
+               (addition_problem(ADDITIONS_TEMPLATE, kilo_text, kilo_items) is None, "the file does not read back")))
+    head = "  - model_name: gw-two-kilo\n    litellm_params:\n      model: openai/vendor/gw-two:free\n"
+    unblanked = kilo_text.replace(head + kilo_entry, head + kilo_entry.split("      extra_headers")[0])
+    judged("a file whose entry of a keyless gateway does not blank the Authorization header is refused",
+           None if unblanked != kilo_text and "does not blank the Authorization header" in (
+               addition_problem(ADDITIONS_TEMPLATE, unblanked, kilo_items) or "")
+           else "an entry that the gateway answers 401 to was let through")
+    environment_key = ADDITIONS_TEMPLATE.replace('api_key: "gw-no-key"', 'api_key: "os.environ/KILO_API_KEY"')
+    problem = build_additions(environment_key, "2026-01-01", "ready", kilo_items[:1])[1]
+    judged("a keyless gateway's entry is not modelled on one that reads a key from the environment",
+           None if problem and "is not a plain marker" in problem else "refused for %r" % problem)
+    entries = addition_entries(ADDITIONS_TEMPLATE.split("\n"))
+    basis = provider_basis(read_template(ADDITIONS_TEMPLATE)[0]["active"], "kilo")
+    taken = set(WORD.findall(ADDITIONS_TEMPLATE)) | {"gw-one-kilo"}
+    snippet_lines = snippet("kilo", "vendor/gw-four:free", basis, "gw-four-kilo")
+    judged("the names and the snippets of a keyless gateway are the file's",
+           first_wrong(
+               ([addition_name("kilo", identifier, set()) for identifier in (
+                   "reflection/beam-free", "stealth/glyph-cluster", "particle-ai/particle-1:free",
+                   "nvidia/nemotron-3.5-lightning:free")]
+                == ["beam-kilo", "glyph-cluster-kilo", "particle-1-kilo", "nemotron-3-5-lightning-kilo"],
+                "the names of Kilo's ids are not the file's"),
+               (addition_name("kilo", "vendor/gw-one:free", taken) == "gw-one-kilo-kilo",
+                "a name that is taken did not get another"),
+               (snippet_lines[-3:] == ['      api_key: "gw-no-key"', "      extra_headers:", '        Authorization: ""'],
+                "the snippet of a keyless gateway is not the entry's shape: %r" % snippet_lines),
+               (entries and addition_anchor(entries, "kilo")["name"] == "gw-one", "the entry of Kilo is not found")))
+
     # The tables the bodies read, against the providers they serve.
     commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
                 for name in PROVIDER_NAMES]
@@ -3763,6 +3928,13 @@ def run_proposal_cases():
            first_wrong(
                (set(FREE_TIER_CHECKS) == set(PRICING_PAGES), "FREE_TIER_CHECKS and PRICING_PAGES differ"),
                (set(FREE_CATALOGUES) == FREE_READABLE, "FREE_CATALOGUES and FREE_READABLE differ"),
+               (set(FREE_READINGS) == set(FREE_CATALOGUES), "FREE_READINGS and FREE_CATALOGUES differ"),
+               (set(FREE_SUFFIX) <= set(FREE_CATALOGUES), "FREE_SUFFIX names a provider that states no free tier"),
+               (set(PROVIDER_LABELS) == set(NAME_SUFFIXES) == set(PROVIDER_NAMES),
+                "PROVIDER_LABELS, NAME_SUFFIXES and PROVIDERS differ"),
+               (set(OPENAI_COMPATIBLE) | set(DEFAULT_BASES) | KEYLESS_GATEWAYS <= set(PROVIDER_NAMES)
+                and not any(keyed(name) for name in KEYLESS_GATEWAYS),
+                "OPENAI_COMPATIBLE, DEFAULT_BASES or KEYLESS_GATEWAYS name a provider that is not read, or a keyed one"),
                (all(command.count("'") == 2 for command in commands), "a command holds a quote of its own"),
                (all(("docker exec" in command) == keyed(name) for name, command in zip(PROVIDER_NAMES, commands)),
                 "a keyed command does not run in the container, or a keyless one does")))
@@ -3807,7 +3979,9 @@ def run_carried_cases():
         listing = [openrouter_model("vendor/one:free", expiration="2026-02-01") if model["id"] == "vendor/one:free"
                    else model for model in answers["openrouter"]["data"]
                    if fresh or model["id"] != "vendor/fresh:free"]
-        return dict(answers, openrouter={"data": listing + [openrouter_model("vendor/paid-one:free")]})
+        kilo = [model for model in answers["kilo"]["data"] if fresh or model["id"] != "vendor/gateway-fresh:free"]
+        return dict(answers, openrouter={"data": listing + [openrouter_model("vendor/paid-one:free")]},
+                    kilo={"data": kilo})
 
     retiring = proposal_answers()
     retiring["groq"] = {"data": [model for model in retiring["groq"]["data"] if model["id"] != "vendor/fast"]}
@@ -3922,7 +4096,8 @@ def run_proposal_command_line_cases():
                                          "to_verify_template.j2"]
              and sorted(data) == ["date", "ready", "to_verify"]
              and data["ready"] == {"complete": True, "items": [
-                 {"provider": "openrouter", "id": "vendor/fresh:free", "name": "fresh-free"}]}
+                 {"provider": "openrouter", "id": "vendor/fresh:free", "name": "fresh-free"},
+                 {"provider": "kilo", "id": "vendor/gateway-fresh:free", "name": "gateway-fresh-kilo"}]}
              and Path(config).read_text(encoding="utf-8") == SELFTEST_TEMPLATE),
             ("--unreadable is an empty file when every catalogue was read, whatever drifted", unread() == ""),
         ]
