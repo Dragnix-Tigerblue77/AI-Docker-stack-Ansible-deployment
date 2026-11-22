@@ -30,7 +30,7 @@ should have to do by hand, is its third mode.
 HOW THE FILE IS READ
 --------------------
 The file is a Jinja template: a provider's block is written only when its key is given, and the
-cascades and the aliases follow. This check reads it RENDERED, with all five provider keys given --
+cascades and the aliases follow. This check reads it RENDERED, with every provider key given --
 a placeholder for each of the variables "Artificial_Intelligence_LiteLLM_<Provider>_API_key" -- in
 a sandboxed environment with "trim_blocks" on and an undefined variable an error, as Ansible's
 "template" module sets one up. What it holds the file to is therefore the union of every case: each
@@ -51,10 +51,10 @@ in the same change.
   reason and its entry takes nothing away from the reason.
 * The branch written only when a key is MISSING -- the aliases of the routers that have no entry of
   their own without Gemini -- is not rendered, so nothing that would only fail there is seen; the
-  names it reads are still held to the five keys, since that check reads the template without
+  names it reads are still held to the provider keys, since that check reads the template without
   rendering it. Rendering every other set of keys and holding each alias to the first member of its
   cascade is "check_compose_template.py"'s job.
-* A template that does not render -- a Jinja syntax error, a variable that is none of the five
+* A template that does not render -- a Jinja syntax error, a variable that is none of the provider
   keys, however the template reads it -- is a finding that names the problem, and ends the run with
   status 2 like a file that is not YAML. Only Jinja2's own filters and tests exist here (the weekly
   job installs no ansible-core), so a template that uses one that only Ansible provides, "to_json"
@@ -144,7 +144,9 @@ HOW EACH PROVIDER IS READ
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
-below -- OmniRoute, local and keyless -- is left out, and the report says how many.
+below -- OmniRoute, local and keyless, and the "cloudflare/<id>" ones, whose provider this check does
+not read -- is left out, and the report says how many: it is never RETIRED, never reported as unknown,
+and a "drift-ignore:" line cannot name Cloudflare.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -660,7 +662,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 # variable is a non-empty string, and the template reads nothing else.
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
-    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek")
+    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare")
 )
 JINJA_EXPRESSION = re.compile(r"\{\{.*?\}\}", re.DOTALL)
 JINJA_STATEMENT = re.compile(r"\{%.*?%\}", re.DOTALL)
@@ -755,7 +757,7 @@ def jinja_syntax_finding(environment, text, error):
 
 
 def render_every_key(text):
-    """The file as this check's plain Jinja2 sandbox renders it with all five keys given."""
+    """The file as this check's plain Jinja2 sandbox renders it with every provider key given."""
     return render_with_keys(text, None)
 
 
@@ -790,7 +792,7 @@ def render_with_keys(text, given):
     assigned = {name.name for name in tree.find_all(nodes.Name) if name.ctx == "store"}
     unknown = sorted(read - assigned - set(PROVIDER_KEY_VARIABLES))
     if unknown:
-        raise RenderError("the file reads %s, which is none of the five provider keys"
+        raise RenderError("the file reads %s, which is none of the provider keys"
                           % ", ".join(unknown))
     context = {variable: "placeholder" if given is None or variable in given else ""
                for variable in PROVIDER_KEY_VARIABLES}
@@ -924,7 +926,7 @@ def keyset_documents(text):
     """[(given, parsed document)] of the file rendered for each non-empty set of the provider keys
     it reads, "given" being a tuple of the names of the keys given; the document is None for a set
     that does not render. A file that reads no key renders once. The rest of this check reads the
-    file with all five keys given, and a cascade that holds only the members of one provider is empty
+    file with every key given, and a cascade that holds only the members of one provider is empty
     for the sets that leave that provider out: what is judged here is each of them."""
     try:
         import jinja2
@@ -5908,17 +5910,17 @@ JINJA_CASES = (
      ("{% endif %}\n  - model_name: local", "  - model_name: local"),
      "the block opened at template line %d is never closed"
      % (SELFTEST_JINJA_TEMPLATE.split("\n").index("{% if has.OpenRouter %}") + 1)),
-    ("a variable that is none of the five keys is a finding",
+    ("a variable that is none of the provider keys is a finding",
      ("\"auto\": \"{{ to['flash'] }}\"",
-      '"auto": "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key }}"'), "none of the five"),
-    ("a sixth key read the way the template reads the five is a finding too, though \"is string\" "
-     "would take it for a key that is not given",
+      '"auto": "{{ Artificial_Intelligence_LiteLLM_Cerebras_API_key }}"'), "none of the provider keys"),
+    ("a key beyond those the template reads, read the way it reads them, is a finding too, though "
+     "\"is string\" would take it for a key that is not given",
      ("  'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and "
       "Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0\n} %}",
       "  'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string and "
       "Artificial_Intelligence_LiteLLM_OpenRouter_API_key | length > 0,\n"
       "  'Cerebras': Artificial_Intelligence_LiteLLM_Cerebras_API_key is string and "
-      "Artificial_Intelligence_LiteLLM_Cerebras_API_key | length > 0\n} %}"), "none of the five"),
+      "Artificial_Intelligence_LiteLLM_Cerebras_API_key | length > 0\n} %}"), "none of the provider keys"),
     ("a filter only Ansible provides, outside any conditional, is refused as a limit of this "
      "check's plain Jinja2, and the message says so",
      ("router_settings:\n", "router_settings:\n  # {{ 1 | to_json }}\n"),
@@ -7874,8 +7876,8 @@ def run_keyset_cases():
         else:
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
-    # The reading behind that rule, called on its own: a result that is the same file with all five
-    # keys given and another for the set that gives one provider alone is refused.
+    # The reading behind that rule, called on its own: a result that is the same file with every
+    # key given and another for the set that gives one provider alone is refused.
     good, _ = apply_removals(text, [("mistral", "vendor/three", "retired")])
     guard = "{% if @@ is string and @@ | length > 0 %}\n        - only-mistral\n"
 

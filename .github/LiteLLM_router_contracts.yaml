@@ -165,6 +165,7 @@ inputs:
     mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
     openrouter: "20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)"
+    cloudflare: "10,000 neurons a day for the whole account, shared by all its models, and 300 requests per minute for text generation, per developers.cloudflare.com/workers-ai/platform/pricing/ and .../platform/limits/ (read 2026-11-22); the models routed are deduced free from the pricing page's list of paid ones, and confirmed on no account"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -530,6 +531,52 @@ models:
   openrouter-auto-free:
     no_record: "A router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  gpt-oss-120b-cloudflare:
+    slug: gpt-oss-120b
+    level: medium
+    level_source: "developers.cloudflare.com/workers-ai/models/gpt-oss-120b/, read 2026-11-22: reasoning 'medium' is the default"
+    eci: "gpt-oss-120b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
+      ale_bench_external: [gpt-oss-120b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gpt-oss-20b-cloudflare:
+    slug: gpt-oss-20b
+    level: medium
+    level_source: "developers.cloudflare.com/workers-ai/models/gpt-oss-20b/, read 2026-11-22: reasoning 'medium' is the default"
+    eci: "gpt-oss-20b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]
+      ale_bench_external: [gpt-oss-20b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemma-4-26b-cloudflare:
+    slug: gemma-4-26b-a4b
+    level: unknown
+    level_source: "unknown: developers.cloudflare.com/workers-ai/models/gemma-4-26b-a4b-it/, read 2026-11-22, says reasoning is supported and gives no default level"
+    eci: "Gemma 4 26B A4B"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch:
+      ale_bench_external: [gemma-4-26b-a4b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  llama-3-3-70b-cloudflare:
+    slug: llama-3-3-instruct-70b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    eci: "Llama 3.3 70B"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  glm-4-7-flash-cloudflare:
+    slug: glm-4-7-flash
+    level: unknown
+    level_source: "unknown: developers.cloudflare.com/workers-ai/models/glm-4.7-flash/, read 2026-11-22, says reasoning is supported and gives no level"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index, and the capabilities index has no figure for it"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"

@@ -59,11 +59,11 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
-It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the five
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the
 provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
 whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
-the thirty-one renders is held to the rules in "check_litellm_config", among them that an alias of a
+the renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
 cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for.
@@ -1597,19 +1597,20 @@ LITELLM_PROVIDERS = {
     "Groq": "GROQ_API_KEY",
     "OpenRouter": "OPENROUTER_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "Cloudflare": "CLOUDFLARE_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key. None is an entry of the model list: no provider is first by construction.
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
-LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek"})
+LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare"})
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
 
 
 def litellm_key_sets():
-    """Every non-empty set of the five provider keys, in a stable order."""
+    """Every non-empty set of the provider keys, in a stable order."""
     names = list(LITELLM_PROVIDERS)
     return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
 
@@ -1618,7 +1619,7 @@ def render_litellm_config(keys):
     """The routing configuration as Ansible's "template" module writes it, for the providers in `keys`."""
     environment = template_environment(
         loader=FileSystemLoader(str(ROLE / "templates")),
-        undefined=jinja2.StrictUndefined,  # the file reads these five variables and nothing else
+        undefined=jinja2.StrictUndefined,  # the file reads the provider keys' variables and nothing else
         trim_blocks=True,  # the "template" module's default, which the compose render does not need
         keep_trailing_newline=True,
     )
@@ -1719,8 +1720,27 @@ def check_litellm_config(document, keys, failures):
             )
 
 
+LITELLM_KEY_VARIABLE = re.compile(r"Artificial_Intelligence_LiteLLM_[A-Za-z0-9]+_API_key")
+
+
+def litellm_unsupplied_variables(source, providers):
+    """The provider keys' variables the template reads that this check does not render it with. The
+    template tests each key with "is string", which is false on a name nobody supplies instead of raising:
+    a provider missing from LITELLM_PROVIDERS would be left out of every set of keys, and every rule of
+    "check_litellm_config" would pass on a file whose entries and cascade slots were never rendered."""
+    read = jinja2.meta.find_undeclared_variables(Environment().parse(source))
+    supplied = {f"Artificial_Intelligence_LiteLLM_{provider}_API_key" for provider in providers}
+    return sorted(name for name in read if LITELLM_KEY_VARIABLE.fullmatch(name) and name not in supplied)
+
+
 def check_litellm_configs(failures):
     """Render the routing configuration for every non-empty set of provider keys and judge each one."""
+    source = (ROLE / "templates" / LITELLM_CONFIG_TEMPLATE).read_text(encoding="utf-8")
+    for name in litellm_unsupplied_variables(source, LITELLM_PROVIDERS):
+        failures.append(
+            f"[LiteLLM config] the template reads {name}, which no set of keys here gives: add its provider to "
+            "LITELLM_PROVIDERS, or its entries and cascade slots are never rendered and so never judged"
+        )
     rendered = 0
     for keys in litellm_key_sets():
         try:
@@ -1731,6 +1751,17 @@ def check_litellm_configs(failures):
         check_litellm_config(document, keys, failures)
         rendered += 1
     return rendered
+
+
+# What the template reads, as source text: a name in the table passes, a name outside it is found, and a
+# variable that is no provider key is none of this check's business.
+LITELLM_VARIABLE_CASES = [
+    ("a key the table renders", "{{ Artificial_Intelligence_LiteLLM_Groq_API_key }}", {"Groq"}, []),
+    ("a key the table lacks, read the way the template reads them",
+     "{% set has = {'X': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string} %}", {"Groq"},
+     ["Artificial_Intelligence_LiteLLM_Cloudflare_API_key"]),
+    ("a variable that is no provider key", "{{ Artificial_Intelligence_LiteLLM_config_Docker_name }}", {"Groq"}, []),
+]
 
 
 def _litellm_document(entries, cascades, aliases):
@@ -1797,6 +1828,12 @@ LITELLM_CONFIG_CASES = [
     ("claude-code served by a Groq key",
      _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])], {"claude-code": "qwen"}),
      {"Groq"}, None),
+    ("claude-code served by a Cloudflare key",
+     _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
+     {"Cloudflare"}, None),
+    ("claude-code missing although Cloudflare has a key",
+     _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [], {}),
+     {"Cloudflare"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
      _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
                         ("omniroute-free-code", "os.environ/OMNI")],
@@ -1860,6 +1897,11 @@ def selftest():
         for key, value in (values or {}).items():
             if resolved.get(key) != value:
                 problems.append(f"{name!r}: {key} resolved to {resolved.get(key)!r}, expected {value!r}")
+
+    for name, source, providers, expected in LITELLM_VARIABLE_CASES:
+        found = litellm_unsupplied_variables(source, providers)
+        if found != expected:
+            problems.append(f"{name!r}: found {found!r}, expected {expected!r}")
 
     for name, document, keys, expected in LITELLM_CONFIG_CASES:
         failures = []
@@ -2028,7 +2070,8 @@ def selftest():
         f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
-        f"case(s) and {len(LITELLM_CONFIG_CASES)} LiteLLM routing case(s) all judged as expected."
+        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s) and {len(LITELLM_CONFIG_CASES)} "
+        "LiteLLM routing case(s) all judged as expected."
     )
     return 0
 
