@@ -121,7 +121,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_config_checksum` · `Artificial_Intelligence_LibreChat_config_checksum` | `false` | **Pas des réglages.** Le SHA-1 de chaque configuration montée, tel que le run vient de l'écrire : `tasks/main.yml` le passe lui-même au rôle de déploiement, et ce paramètre l'emporte sur tout sauf une *extra var*. Le nom de la config Docker qui porte chaque fichier en est dérivé (`..._config_Docker_name`). Voir « Une configuration modifiée recrée le conteneur qui la lit » plus bas (#161). |
 | `Artificial_Intelligence_LiteLLM_UI_username` | `admin` | Le compte de connexion à `/ui`, dont le port est publié -- voir plus bas. |
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
-| `Artificial_Intelligence_LiteLLM_disable_env_credential_login` | `false` | Fait refuser à `/ui` la connexion par `UI_USERNAME`/`UI_PASSWORD` et par la clé maîtresse, que LiteLLM signale comme critique (#389). **À ne passer à `true` qu'une fois un `proxy_admin` à mot de passe propre créé dans `/ui`** : sans lui, plus personne ne se connecte, et on revient en la remettant à `false`. Un booléen, jamais une chaîne (`tasks/main.yml` la refuse). Voir « La connexion par identifiants d'environnement (#389) ». |
+| `Artificial_Intelligence_LiteLLM_disable_env_credential_login` | `false` | Fait refuser à `/ui` la connexion par `UI_USERNAME`/`UI_PASSWORD` et par la clé maîtresse, que LiteLLM signale comme critique. **À ne passer à `true` qu'une fois un `proxy_admin` à mot de passe propre créé dans `/ui`** : sans lui, plus personne ne se connecte, et on revient en la remettant à `false`. Un booléen, jamais une chaîne (`tasks/main.yml` la refuse). Voir « La connexion par identifiants d'environnement ». |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
 
@@ -399,7 +399,7 @@ fournisseur restent donc des entrées du `model_list` gérées par l'administrat
 maîtresse et les clés fournisseur des deux comptes. Un reverse proxy devant `/ui` reste la suite logique,
 pas une clause de style.
 
-**La connexion par identifiants d'environnement (#389) : l'alerte critique de LiteLLM et comment la lever.** Sur un
+**La connexion par identifiants d'environnement : l'alerte critique de LiteLLM et comment la lever.** Sur un
 déploiement neuf, `UI_USERNAME`/`UI_PASSWORD` est la seule porte de `/ui`, et le tableau de bord de LiteLLM la signale
 dans *Deployment health* comme critique : un secret partagé, permanent, en clair dans l'environnement du conteneur,
 qu'on ne peut pas révoquer par personne et qui ne dit pas qui a fait quoi
@@ -412,7 +412,7 @@ l'ordre :
 2. Créer un utilisateur `proxy_admin` : *Internal Users*, *+ Invite User*, rôle `proxy_admin`, puis ouvrir le lien
    d'invitation pour y choisir son mot de passe. Par l'API, `POST /user/new` accepte `user_role: proxy_admin` et
    `auto_create_key: false` mais pas de mot de passe, qui se pose par `POST /user/update`, soumis à la politique de
-   LiteLLM (12 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et, depuis la v1.104.0, à changer
+   LiteLLM (12 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et, sur les versions récentes de LiteLLM, à changer
    à la première connexion.
 3. **Tester cette connexion avant d'aller plus loin** : se déconnecter, se reconnecter avec ce compte.
 4. Passer la variable à `true` et redéployer. La configuration change, donc le conteneur de la passerelle est recréé
