@@ -150,13 +150,13 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-and SambaNova as "openai/<id>" with an "api_base" on "api.sambanova.ai". An entry of no provider
-below -- OmniRoute, local and keyless, the ones served through Kilo Gateway and OVHcloud AI Endpoints, keyless too, the
-"cloudflare/<id>" and "zai/<id>" ones, whose providers this check does not read, the "openai/<id>"
-ones served through Requesty, whose provider it does not read either, and the "nvidia_nim/<id>" ones,
-whose provider it does not read any more than the others -- is left out, and the report says how many:
-it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot name Cloudflare,
-Z AI, Requesty or NVIDIA.
+"cloudflare/<id>" (whose id starts with "@cf/") and SambaNova as "openai/<id>" with an "api_base" on
+"api.sambanova.ai". An entry of no provider below -- OmniRoute, local and keyless, the ones served through
+Kilo Gateway and OVHcloud AI Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does
+not read, the "openai/<id>" ones served through Requesty, whose provider it does not read either, and the
+"nvidia_nim/<id>" ones, whose provider it does not read any more than the others -- is left out, and the
+report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
+name Z AI, Requesty or NVIDIA.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -170,6 +170,9 @@ Z AI, Requesty or NVIDIA.
   mistral     api.mistral.ai/v1/models -- Bearer       "completion_chat", no "deprecation",
                                                        no "ft:" (a fine-tune)
   deepseek    api.deepseek.com/models -- Bearer        every model
+  cloudflare  api.cloudflare.com/client/v4/accounts/   task "Text Generation", not marked
+              {account}/ai/models/search, paginated    for removal
+              -- Bearer
 
 On top of each provider's own filter, an id naming a non-chat use (NON_CHAT_MARKERS: "tts",
 "whisper", "embed", "guard"...) is never a NEW candidate: Gemini's "generateContent" alone lets its
@@ -185,10 +188,38 @@ supportedGenerationMethods, temperature, thinking), and "omni" is not a marker t
 vendors' "omni" models are chat models, one of them routed in the file this check reads.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
-MODEL_DRIFT_MISTRAL_API_KEY and MODEL_DRIFT_DEEPSEEK_API_KEY. An unset or empty one leaves its
-provider "not covered (no key)", which the report says every time rather than skipping it. Gemini's
+MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
+with MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID beside it. An unset or empty one leaves its
+provider "not covered (no key)", which the report says every time rather than skipping it, and says
+which of the two Cloudflare lacks. Gemini's
 goes in the "x-goog-api-key" header rather than the "?key=" parameter its examples use, so that no
 URL this script builds, prints or reports ever carries a key.
+
+Cloudflare Workers AI is the one catalogue whose address carries a second secret: the account's
+identifier is in its path. It is read from MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID, held to 32 hexadecimal
+characters before it goes into an address (a secret with anything else in it is that provider's error,
+named by its variable and never by its value), put into the address at the last moment and replaced like a
+key by "***" in every message, and the address kept in PROVIDERS, in the report and in the summary has the
+placeholder "{account_id}" where it goes. What its answer holds is NOT documented: the API reference types
+each model "unknown", so the shape is the one that the documentation's own model catalogue and Cloudflare's
+command line tool read -- a "result" list, the model's "name" being the "@cf/..." id LiteLLM calls it by, its
+"task" and a "properties" list -- and no run has read the live answer, which needs a token this repository's
+sessions do not hold. Anything that shape does not have is skipped or is that provider's error, never a
+retirement: a list that repeats a model across its pages, one that ends on a full page after as many
+pages as MAX_PAGES allows, or one with no "result" list. The list is asked for with
+"include_deprecated=true", which keeps a model whose date has passed for three months, so that it is
+retired when it has left the list and is a NOTICE until then. A NOTICE is a model with a
+"planned_deprecation_date" property, which is the date the model pages show, or a "deprecated" flag.
+The API has no route that answers for one model by its id that this reads, so Cloudflare's models are
+deleted from the list alone, as OpenRouter's are, under the same refusals (an empty list, more than half
+the file's models missing).
+
+Whether a Cloudflare model is free is not read, and no check for it is made up: the pricing page names, in
+a note of prose, the models that need a paid billing method, and every other model draws on the
+10,000 neurons a day of the whole account. The models' own records carry a "require_workers_paid" property
+for the first, which says nothing of the others, so it is not read either. A NEW Cloudflare model is
+therefore listed to examine, linked to the pricing page, and proposed only in the pull request of models to
+verify.
 
 WHAT IS REPORTED
 ----------------
@@ -197,7 +228,7 @@ GONE       a commented-out entry whose id the catalogue no longer lists: delete 
            keeps no commented-out corpse of a retired model.
 NOTICE     an active entry the provider marks for removal: OpenRouter's "expiration_date",
            Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated" flag of
-           Cerebras and SambaNova, Groq's "active": false.
+           Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date".
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -205,7 +236,7 @@ BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twi
 NEW        an id the file does not know. Known ids are those of the active and the commented-out
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
-           <provider> is one of the seven names above: "sambanova/<id>" for SambaNova, where the
+           <provider> is one of the names above: "sambanova/<id>" for SambaNova, where the
            entry itself reads "openai/<id>". A Mistral id is known when one of its "aliases" is.
 
 Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a price of "0". Every
@@ -556,10 +587,11 @@ UNTRUSTED TEXT
 --------------
 What a catalogue says -- an id, a name, a date -- ends up in the log, in a summary, in a pull request
 and in a snippet someone pastes, and is read as untrusted. An id is offered as NEW only when it is
-spelt the way ids are (letters, digits and "._:/+~-", no "::", no "//", so that no address and no
-workflow command can be one); any other piece of an answer that is shown is cut to plain words, in
-which no newline, backtick, "@", angle bracket, square bracket or "::" survives, and is shown in a
-code span. The catalogue's members are never filtered, since an id is retired by not being among
+spelt the way ids are (letters, digits and "._:/+~-", with the "@cf/" Cloudflare puts in front of its
+own as the one "@" allowed, no "::", no "//", so that no address and no workflow command can be one);
+any other piece of an answer that is shown is cut to plain words, in which no newline, backtick, "@"
+(bar that "@cf/"), angle bracket, square bracket or "::" survives, and is shown in a code span. The
+catalogue's members are never filtered, since an id is retired by not being among
 ALL of them. No key and no response body is ever printed: a failed read says its HTTP status and
 nothing else (the reason phrase can carry a key as the body can, and HTTP/2 has none), whatever
 else of an error is shown has every key of the run replaced by "***", and the summary shows it in a
@@ -891,7 +923,7 @@ def attribute(model, api_base):
     if not isinstance(model, str) or "/" not in model:
         return None
     prefix, identifier = model.split("/", 1)
-    if prefix in ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter"):
+    if prefix in ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare"):
         return prefix, identifier
     if prefix == "openai" and isinstance(api_base, str) and "api.sambanova.ai" in api_base:
         return "sambanova", identifier
@@ -1204,7 +1236,9 @@ def fetch_raw(opener, url, headers, *limit):
         # either, and the status says all a person needs to know (HTTP/2 has no phrase at all).
         raise FetchError("HTTP %d" % error.code, error.code) from None
     except urllib.error.URLError as error:
-        raise FetchError("network error: %s" % safe_text(error.reason)) from None
+        # Cut after the secrets are replaced (shown_error), not before: a cut through the middle of one
+        # leaves the half that no replacement can find.
+        raise FetchError("network error: %s" % safe_text(error.reason, ERROR_READ)) from None
     except (OSError, ValueError, http.client.HTTPException) as error:
         raise FetchError("network error: %s" % error.__class__.__name__) from None
 
@@ -1219,10 +1253,20 @@ def fetch_json(opener, url, headers):
         raise FetchError("the answer is nested too deeply to read") from None
 
 
+ERROR_READ = 400
+ERROR_SHOWN = 95  # the "network error: " and the 80 characters of a reason that a message always had
+
+
+def shown_error(error, environment):
+    """What a failed read says, with every secret replaced and then cut to a line."""
+    return scrub(str(error), environment)[:ERROR_SHOWN]
+
+
 def scrub(text, environment):
     """"text" with every key of the run replaced by "***". No message here is meant to carry one,
     and this is what stands between a surprise and the log, the summary and the pull request."""
-    for variable in [provider[2] for provider in PROVIDERS if provider[2]] + [RANKING_KEY]:
+    for variable in ([provider[2] for provider in PROVIDERS if provider[2]] + [RANKING_KEY]
+                     + list(ACCOUNT_VARIABLES.values())):
         key = (environment.get(variable) or "").strip()
         if key:
             text = text.replace(key, "***")
@@ -1252,11 +1296,15 @@ def listed(payload, key="data"):
 # request and a YAML snippet someone pastes. An id is therefore offered as NEW only when it is spelt
 # the way ids are (SAFE_ID), and every other piece of the answer that is shown -- a name, a date, a
 # replacement, a reason phrase -- is cut down to plain words by safe_text(): no newline, no
-# backtick, no "@", no angle bracket, so that it can neither start a workflow command at the head
+# backtick, no "@" (bar the "@cf/" that opens a Cloudflare id, as a whole text or after a slash), no
+# angle bracket, so that it can neither start a workflow command at the head
 # of a log line, nor mention somebody, nor close a code span and write markup of its own. The
 # catalogue's "members" are never filtered: an id is retired by not being among ALL of them.
 SAFE_ID = re.compile(r"(?!.*(?:::|//))[A-Za-z0-9~][A-Za-z0-9._:/+~-]{0,199}")
-UNSAFE_TEXT = re.compile(r"[^\w .,:;+()/'-]")
+# A model id is spelt like that, or with the "@cf/" Cloudflare puts in front of every one of its own: the one
+# "@" a catalogue's id may carry, and nowhere else in it, so that no mention can be one.
+SAFE_MODEL_ID = re.compile(r"(?!.*(?:::|//))(?:@cf/)?[A-Za-z0-9~][A-Za-z0-9._:/+~-]{0,199}")
+UNSAFE_TEXT = re.compile(r"(?!(?<![^/])@cf/)[^\w .,:;+()/'-]")
 
 
 def safe_text(value, limit=80):
@@ -1271,7 +1319,7 @@ def new_catalogue():
 
 def offer(catalogue, identifier, label=""):
     """Put "identifier" up as a NEW candidate, unless it is not spelt like an id."""
-    if SAFE_ID.fullmatch(identifier):
+    if SAFE_MODEL_ID.fullmatch(identifier):
         catalogue["candidates"][identifier] = safe_text(label)
     else:
         catalogue["unsafe"] += 1
@@ -1376,6 +1424,65 @@ def read_plain(pages):
     return catalogue
 
 
+# Cloudflare Workers AI answers "GET /accounts/{account_id}/ai/models/search" with the API's usual envelope,
+# a "result" list of one object per model, and its own reference types each of them "unknown", so the
+# shape read here is the one its documentation's model catalogue and its command line tool read: the id
+# LiteLLM calls the model by ("@cf/<vendor>/<model>") is the "name", "task" says what it is for, and the
+# "properties" list holds {"property_id", "value"} pairs, one of which, "planned_deprecation_date", is the
+# announced retirement the model pages show. A flag "deprecated" is read too, where there is one. Pages are
+# asked for the way that tool asks them, "per_page" and "page" until one comes back short.
+CLOUDFLARE_PER_PAGE = 50
+CLOUDFLARE_TEXT_TASK = "Text Generation"
+
+
+def cloudflare_property(model, property_id):
+    properties = model.get("properties")
+    for each in properties if isinstance(properties, list) else []:
+        if isinstance(each, dict) and each.get("property_id") == property_id:
+            return each.get("value")
+    return None
+
+
+def read_cloudflare(pages):
+    catalogue = new_catalogue()
+    for page in pages:
+        items = page.get("result") if isinstance(page, dict) else None
+        if not isinstance(items, list) or page.get("success") is False:
+            raise FetchError('the answer holds no "result" list')
+        for model in items:
+            name = model.get("name") if isinstance(model, dict) else None
+            if not isinstance(name, str):
+                continue
+            if name in catalogue["members"]:
+                # The same model on two pages is a server that ignored the page asked for.
+                raise FetchError("the pages of the answer repeat a model")
+            catalogue["members"].add(name)
+            planned = cloudflare_property(model, "planned_deprecation_date")
+            if model.get("deprecated") is True or (isinstance(planned, str) and planned):
+                catalogue["notices"][name] = {"what": "deprecation"}
+                if isinstance(planned, str) and planned:
+                    catalogue["notices"][name]["date"] = safe_text(planned)
+                continue
+            task = model.get("task")
+            if (isinstance(task, dict) and task.get("name") == CLOUDFLARE_TEXT_TASK
+                    and chat_like(name)):
+                offer(catalogue, name)
+    # A last page that is full is not the end of the list: the pages this check reads ran out first, and
+    # a list read in part would call the models of the rest retired.
+    last = pages[-1].get("result") if isinstance(pages[-1], dict) else None
+    if isinstance(last, list) and len(last) >= CLOUDFLARE_PER_PAGE:
+        raise FetchError("the list goes on past the last page this check reads")
+    return catalogue
+
+
+def cloudflare_next(url, page):
+    items = page.get("result") if isinstance(page, dict) else None
+    if not isinstance(items, list) or len(items) < CLOUDFLARE_PER_PAGE:
+        return None
+    head, _, number = url.rpartition("page=")
+    return "%spage=%d" % (head, int(number) + 1)
+
+
 def gemini_next(url, page):
     token = page.get("nextPageToken") if isinstance(page, dict) else None
     if not (isinstance(token, str) and token):
@@ -1405,8 +1512,19 @@ PROVIDERS = (
      read_mistral, None),
     ("deepseek", "https://api.deepseek.com/models", "MODEL_DRIFT_DEEPSEEK_API_KEY", bearer,
      read_plain, None),
+    # Deprecated models are asked for, which the API lists for three months after their date: a model is
+    # then retired when it has left that list, not on the day its date passes.
+    ("cloudflare", "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search"
+                   "?include_deprecated=true&per_page=%d&page=1" % CLOUDFLARE_PER_PAGE,
+     "MODEL_DRIFT_CLOUDFLARE_API_KEY", bearer, read_cloudflare, cloudflare_next),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
+# What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
+# its path, which the secret gives and nothing that is printed may. The address in PROVIDERS keeps the
+# placeholder, the identifier is put in at the last moment and is replaced like a key wherever a message
+# could carry it.
+ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
+ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
 FREE_READABLE = {"openrouter"}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
@@ -1414,6 +1532,7 @@ FREE_READABLE = {"openrouter"}
 # linked on their rate-limits page, the one that states their free tier (Groq's "/pricing" leads to
 # its home page); every page was opened when the entry was written.
 PRICING_PAGES = {
+    "cloudflare": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
     "cerebras": "https://inference-docs.cerebras.ai/support/rate-limits",
     "sambanova": "https://cloud.sambanova.ai/plans",
     "gemini": "https://ai.google.dev/gemini-api/docs/pricing",
@@ -1698,7 +1817,7 @@ def read_rankings(opener, environment, today):
     except FetchError as error:
         ranking["status"] = "error"
         ranking["models"] = []
-        ranking["error"] = scrub(str(error), environment)
+        ranking["error"] = shown_error(error, environment)
     return ranking
 
 
@@ -1807,15 +1926,27 @@ def run_online(text, environment, opener, today):
         headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
         if key_variable:
             key = (environment.get(key_variable) or "").strip()
-            if not key:
+            account_variable = ACCOUNT_VARIABLES.get(name)
+            account = (environment.get(account_variable) or "").strip() if account_variable else ""
+            report["unset"] = [variable for variable, value in ((key_variable, key), (account_variable, account))
+                               if variable and not value]
+            if report["unset"]:
                 report["status"] = "no key"
                 continue
             headers.update(send_key(key))
+            if account_variable:
+                if not ACCOUNT_ID.fullmatch(account):
+                    # It goes into the path of the address, so it is held to its spelling, and never shown.
+                    report["status"] = "error"
+                    report["error"] = "%s is not an account identifier of 32 hexadecimal characters" % account_variable
+                    report["error_class"] = "answer"
+                    continue
+                url = url.replace("{account_id}", account)
         try:
             catalogue = read_catalogue(opener, url, headers, reader, next_page)
         except FetchError as error:
             report["status"] = "error"
-            report["error"] = scrub(str(error), environment)
+            report["error"] = shown_error(error, environment)
             report["error_class"] = error_class(error)
             continue
         report["members"] = len(catalogue["members"])
@@ -4279,6 +4410,7 @@ KINDS = ("retired", "gone", "notice", "back", "new")
 PROVIDER_LABELS = {
     "openrouter": "OpenRouter", "cerebras": "Cerebras", "sambanova": "SambaNova",
     "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
+    "cloudflare": "Cloudflare",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -4331,7 +4463,8 @@ def render_text(result, config_name):
     for report in result["providers"]:
         known = "%d active, %d commented-out id(s) here" % (report["active"], report["commented"])
         if report["status"] == "no key":
-            state = "not covered (no key): %s is unset" % report["key"]
+            unset = report["unset"]
+            state = "not covered (no key): %s %s unset" % (" and ".join(unset), "are" if len(unset) > 1 else "is")
         elif report["status"] == "error":
             state = "ERROR, not read: %s" % report["error"]
         else:
@@ -4466,7 +4599,8 @@ def capped(lines):
 # could hold is copied: a snippet is something a person pastes, and the file is trusted more than
 # a catalogue.
 NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
-                 "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct"}
+                 "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
+                 "cloudflare": "-cloudflare"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1"}
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
@@ -4805,7 +4939,9 @@ def summary_body(result, config_name, link, snippets):
             "| --- | --- | --- | --- | --- |"]
     for report in result["providers"]:
         if report["status"] == "no key":
-            state = "non couvert (pas de clé : secret `%s`)" % report["key"]
+            state = "non couvert (pas de clé : %s %s)" % (
+                "secrets" if len(report["unset"]) > 1 else "secret",
+                " et ".join("`%s`" % variable for variable in report["unset"]))
             members = "—"
         elif report["status"] == "error":
             state = "erreur"
@@ -5108,7 +5244,7 @@ PROPOSAL_BRANCHES = {"ready": "ADDITIONS_BRANCH", "to_verify": "ADDITIONS_TO_VER
 # What the job that writes accepts, and so all this proposes: an id that ends in a letter or a digit
 # (a trailing ":" would make a YAML key of it), a name in the file's own spelling, a key read from
 # the environment, an "https" base.
-ADDITION_ID = re.compile(r"(?!.*(?:::|//))[A-Za-z0-9][A-Za-z0-9._:/+~-]{0,198}[A-Za-z0-9]")
+ADDITION_ID = re.compile(r"(?!.*(?:::|//))(?:@cf/)?[A-Za-z0-9][A-Za-z0-9._:/+~-]{0,198}[A-Za-z0-9]")
 ADDITION_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ADDITION_NAME_LIMIT = 80
 ADDITION_KEY = re.compile(r"os\.environ/[A-Z][A-Z0-9_]*")
@@ -5144,6 +5280,11 @@ FREE_TIER_CHECKS = {
     "sambanova": "l'offre « Free » : tant qu'elle demande « Add a payment method and purchase "
                  "credits to run your first requests », le modèle reste commenté, comme les autres "
                  "entrées SambaNova",
+    "cloudflare": "la note qui nomme les modèles demandant un moyen de facturation payant : un modèle qui "
+                  "n'y est pas est gratuit dans la limite des 10 000 neurons par jour de tout le compte, "
+                  "mais la page ne le dit pas, et rien dans l'API ne le dit : c'est une déduction, que "
+                  "chaque entrée Cloudflare du fichier dit « Free status unconfirmed » tant que le compte "
+                  "ne l'a pas confirmée",
 }
 
 # The bodies the workflow writes are signed like everything posted from a session here, with the
@@ -5529,16 +5670,23 @@ def catalogue_command(provider, identifier, key):
     "key" an ADDITION_KEY, so neither can end a quoted string of the shell or of Python."""
     pick = "answer"
     if provider in LOOKUPS:
-        url = LOOKUPS[provider] + urllib.parse.quote(identifier, safe="/")
+        url = '"%s"' % (LOOKUPS[provider] + urllib.parse.quote(identifier, safe="/"))
+    elif provider in ACCOUNT_VARIABLES:
+        # The account's identifier is read where the key is, in the container, and never written here.
+        head, tail = catalogue_url(provider).split("{account_id}")
+        url = '"%s" + os.environ["CLOUDFLARE_ACCOUNT_ID"] + "%s&search=%s"' % (
+            head, tail.split("?")[0] + "?per_page=%d" % CLOUDFLARE_PER_PAGE,
+            urllib.parse.quote(identifier.rsplit("/", 1)[-1], safe=""))
+        pick = '[model for model in answer.get("result", []) if model.get("name") == "%s"]' % identifier
     else:
-        url = catalogue_url(provider)
+        url = '"%s"' % catalogue_url(provider)
         pick = '[model for model in answer.get("data", []) if model.get("id") == "%s"]' % identifier
     headers = '"User-Agent": "%s"' % USER_AGENT
     if keyed(provider):
         variable = key.split("/", 1)[1]
         headers += (', "x-goog-api-key": os.environ["%s"]' % variable if provider == "gemini"
                     else ', "Authorization": "Bearer " + os.environ["%s"]' % variable)
-    program = ('import json, os, urllib.request; request = urllib.request.Request("%s", headers={%s}); '
+    program = ('import json, os, urllib.request; request = urllib.request.Request(%s, headers={%s}); '
                "answer = json.load(urllib.request.urlopen(request, timeout=30)); "
                "print(json.dumps(%s, indent=1))" % (url, headers, pick))
     if keyed(provider):

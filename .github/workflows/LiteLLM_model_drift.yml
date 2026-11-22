@@ -79,7 +79,7 @@ name: LiteLLM model drift
 #              lines deleted, and rows of its "head" table written again in the one form that names
 #              only models and providers the file has, and for each pull request of additions a list
 #              of a provider, an id and a name per model, from which it writes the template itself)
-#              and calls the API. It builds the issue's text itself, from a provider among seven, a
+#              and calls the API. It builds the issue's text itself, from a provider of its table, a
 #              class among five and the times the gate read from GitHub.
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
@@ -89,7 +89,7 @@ name: LiteLLM model drift
 # a pull request that deletes lines of the template and re-points a router among models and
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
 # template's own (a key name and an address it already has, an id and a name of a narrow spelling),
-# which nothing but a person merges, and open an issue that names providers of the seven -- not push
+# which nothing but a person merges, and open an issue that names providers of its table -- not push
 # to main, which "contents: write" next to such code would allow on a repository whose main no
 # ruleset can protect (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
 # itself is for "dependabot-auto-merge.yml" to say.
@@ -106,7 +106,7 @@ name: LiteLLM model drift
 # shows (an id spelt unusually is not offered, a name is cut to plain words) and writes files, and
 # the steps below read those files and take every other value from the environment. The branch has
 # a fixed name, the title a fixed text, and an entry of the additions is written by "publish" from
-# pieces it has validated, a provider among seven, an id and a name each of a narrow spelling, never
+# pieces it has validated, a provider of its table, an id and a name each of a narrow spelling, never
 # from text it was handed. No key reaches the output either: a failed read is reported
 # with its HTTP status and nothing else, a key found in an error is replaced, and a redirect is not
 # followed, since the keys travel in the headers.
@@ -119,6 +119,17 @@ name: LiteLLM model drift
 #   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
 #   MODEL_DRIFT_MISTRAL_API_KEY   Mistral -- "mistral/" entries
 #   MODEL_DRIFT_DEEPSEEK_API_KEY  DeepSeek, direct API -- "deepseek/" entries
+#   MODEL_DRIFT_CLOUDFLARE_API_KEY
+#   MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID
+#                                 Cloudflare Workers AI -- "cloudflare/" entries. The only provider
+#                                 that takes two, and the two are given together or the provider is
+#                                 "not covered": the token, an API token of the account whose one
+#                                 permission is Account > Workers AI > Read (the API reference also
+#                                 lists "Workers AI Metadata Read" as enough), and the 32 characters
+#                                 of the account's identifier, which its address carries and which
+#                                 is replaced by "***" wherever a message could show it, like a key.
+#                                 The identifier is no credential, and a secret all the same: it is the
+#                                 account's, which no file of this repository names.
 #
 # One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
 # Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).
@@ -402,6 +413,8 @@ jobs:
           MODEL_DRIFT_GROQ_API_KEY: ${{ secrets.MODEL_DRIFT_GROQ_API_KEY }}
           MODEL_DRIFT_MISTRAL_API_KEY: ${{ secrets.MODEL_DRIFT_MISTRAL_API_KEY }}
           MODEL_DRIFT_DEEPSEEK_API_KEY: ${{ secrets.MODEL_DRIFT_DEEPSEEK_API_KEY }}
+          MODEL_DRIFT_CLOUDFLARE_API_KEY: ${{ secrets.MODEL_DRIFT_CLOUDFLARE_API_KEY }}
+          MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID }}
           MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY: ${{ secrets.MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY }}
         run: |
           out="$RUNNER_TEMP/drift"
@@ -552,7 +565,7 @@ jobs:
             // BEGIN issue
             // Opened or updated for one thing only, a catalogue still unreadable at the day's last
             // scheduled attempt, and closed by the first run that reads every catalogue. Its text is
-            // made here, from what is checked first: a provider of the seven, a class of the five, the
+            // made here, from what is checked first: a provider of the table, a class of the five, the
             // times the gate read from GitHub. "check_drift_publish_guard.py" plays this code against
             // made-up issues; keep the markers.
             const { owner, repo } = context.repo;
@@ -564,7 +577,7 @@ jobs:
             const assignee = 'tigerblue77';
             const PROVIDERS = {
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
-              groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek',
+              groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
@@ -820,10 +833,11 @@ jobs:
               groq: { prefix: 'groq/', label: 'Groq' },
               mistral: { prefix: 'mistral/', label: 'Mistral' },
               deepseek: { prefix: 'deepseek/', label: 'DeepSeek' },
+              cloudflare: { prefix: 'cloudflare/', label: 'Cloudflare' },
             };
             const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
-            const ADDITION_ID = /^(?!.*(?:::|\/\/))[A-Za-z0-9][A-Za-z0-9._:\/+~-]{0,198}[A-Za-z0-9]$/;
+            const ADDITION_ID = /^(?!.*(?:::|\/\/))(?:@cf\/)?[A-Za-z0-9][A-Za-z0-9._:\/+~-]{0,198}[A-Za-z0-9]$/;
             const ADDITION_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
             const ADDITION_KEY = /^os\.environ\/[A-Z][A-Z0-9_]*$/;
             const ADDITION_BASE = /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[A-Za-z0-9._-]+)*\/?$/;
@@ -833,7 +847,7 @@ jobs:
             const providerOf = (model, apiBase) => {
               if (typeof model !== 'string' || !model.includes('/')) return null;
               const prefix = model.slice(0, model.indexOf('/'));
-              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter'].includes(prefix)) return prefix;
+              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare'].includes(prefix)) return prefix;
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               return null;
             };

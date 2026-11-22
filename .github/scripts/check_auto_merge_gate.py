@@ -419,6 +419,17 @@ def scenarios():
     for name in names[:5]:
         five |= set(block_of(base, name))
     add("deletion: five whole entries", "merged", removals(deletion(base, five)[0]))
+    # A Cloudflare entry reads "cloudflare/@cf/<vendor>/<model>": an "@" and slashes in the model line, which
+    # no other provider's has, and a key of its own.
+    at = base.index("  - model_name: m1")
+    cloudflare = list(base)
+    cloudflare[at + 2] = "      model: cloudflare/@cf/vendor/m1"
+    cloudflare[at + 3] = '      api_key: "os.environ/CLOUDFLARE_API_KEY"'
+    add("deletion: a whole Cloudflare entry, whose model starts with \"@cf/\"", "merged",
+        removals(deletion(cloudflare, set(block_of(cloudflare, "m1")))[0]))
+    add("deletion: a Cloudflare entry and the model line of one that stays", "not merged",
+        removals(deletion(cloudflare, set(block_of(cloudflare, "m1")) | {cloudflare.index("      model: provider/m2")})[0]),
+        needle="starts inside an entry")
     six = set(five) | set(block_of(base, names[5]))
     add("deletion: six whole entries", "not merged", removals(deletion(base, six)[0]), needle="only 1 to")
     with_slot = set(block_of(base, "m6")) | set(slot_of(base, "m6"))
