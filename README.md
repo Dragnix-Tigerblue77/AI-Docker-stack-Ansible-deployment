@@ -215,6 +215,12 @@ reconnaît une entrée dont la clé est une chaîne littérale -- jamais `os.env
 délibérément partagée entre tous les comptes, précisément parce qu'il n'y a aucun quota derrière elle à
 protéger.
 
+**L'image est la variante `latest-web`, et c'est nécessaire.** L'image légère n'embarque pas de navigateur : le
+fournisseur anonyme `cfp` (Cloudflare Playground) en pilote un et échoue sans, ce qui laissait les combos `auto/*`
+sans réponse. La variante `-web` ajoute Chromium et Playwright, et le tag flotte comme `latest`. Les appels d'outils
+des fournisseurs sans clé d'OmniRoute sont émulés depuis le prompt ou ignorés, ce qui est la raison pour laquelle
+`claude-code` n'a pas `omniroute-free-code`.
+
 **Le mot de passe du tableau de bord est obligatoire, sans défaut.** L'image démarre avec `CHANGEME` si
 rien n'est fourni -- documenté en amont comme volontairement faible pour forcer un changement. Traité
 comme le mot de passe `/ui` de LiteLLM (#1) : vaulté, jamais laissé à son défaut.
