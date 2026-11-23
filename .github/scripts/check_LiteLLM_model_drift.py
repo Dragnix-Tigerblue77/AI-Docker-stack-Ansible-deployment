@@ -977,6 +977,8 @@ ROUTER_PUBLIC_NAMES = {
     "claude-code": "Auto-Claude-Code",
     "stt": "Auto-STT",
     "tts": "Auto-TTS",
+    "decision": "Auto-Decision",
+    "extraction": "Auto-Extraction",
 }
 ROUTER_OF_PUBLIC_NAME = {public: router for router, public in ROUTER_PUBLIC_NAMES.items()}
 

@@ -402,8 +402,8 @@ per request (the Gemini entries Artificial Analysis measures), and an entry per 
 `<entry>-<level>`, the unsuffixed name carrying the level `Auto-Pro` keeps.
 
 **A router is published under one name, the one a client types: `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`,
-`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`.** It is the key of its cascade and of its alias in
-`templates/LiteLLM_config.yaml.j2`, in the agent's defaults, in `ROUTAGE.md`'s headings and in LibreChat's
+`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`.** It is the key of
+its cascade and of its alias in `templates/LiteLLM_config.yaml.j2`, in the agent's defaults, in `ROUTAGE.md`'s headings and in LibreChat's
 list, and no second name stands beside it: two names for one router are two cascades to keep level, and a
 client choosing between them chooses by luck. The short ids (`pro`, `flash`...) stay the vocabulary of the
 `head` table, of the contracts and of the checks, which translate at the one place each reads a cascade's

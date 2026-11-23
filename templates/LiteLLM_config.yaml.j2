@@ -49,17 +49,20 @@
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'deepseek-v4-1-flash-ovh',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
-  'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
+  'tts': 'gemini-3-8-flash-tts' if has.Gemini else false,
+  'decision': 'clef-cloudflare' if has.Cloudflare else false,
+  'extraction': 'clairic-cloudflare' if has.Cloudflare else false
 } %}
 # A router is published under one name only, the one a client types: "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite",
-# "Auto-Code", "Auto-Claude-Code", "Auto-STT" and "Auto-TTS". It has, under that name, the router's cascade:
+# "Auto-Code", "Auto-Claude-Code", "Auto-STT", "Auto-TTS", "Auto-Decision" and "Auto-Extraction". It has, under that name, the router's cascade:
 # LiteLLM looks for fallbacks under the name that was ASKED for, so a name that is an alias and has no cascade
 # of its own would not fall back at all. The name of this file's own variable ("head") is the
 # short one the checks and the routing document use, and the checks translate between the two. There is no
 # alias for the names the Claude Code CLI sends by default: a CLI that should use one of these routers is told
 # its name through its own model variables.
 # Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
-# transcription, "TTS" for speech and "Embeddings" for vectors. A virtual key limited to a group in "/ui" reaches
+# transcription, "TTS" for speech, "Embeddings" for vectors, "Decisions" for Clef's decisions ("evaluation") and
+# "Extraction" for Clairic's extraction. A virtual key limited to a group in "/ui" reaches
 # the entries of that type, and the routers with them, since a router is an alias of its head and LiteLLM lets a
 # key call an alias when the entry it resolves to is allowed. "check_compose_template.py" holds each entry to it.
 model_list:
@@ -862,15 +865,61 @@ model_list:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/cloudflare/clairic -- not a chat model: Cloudflare's own extraction and estimation model, called with a state and typed fields rather than messages, in preview (read 2026-11-22)
+  # Cloudflare's own models that are not chat models, each called on a route of its own rather than on
+  # "/chat/completions", which LiteLLM gives them since it learnt them: Clef on "/v1/systemone" (a "state" and
+  # typed questions, answered with a probability for every allowed option), Clairic on "/v1/extraction" (a
+  # "state" and typed fields, answered with values and their confidence). Their pages and the pricing page
+  # (developers.cloudflare.com/workers-ai/, read 2026-11-23) bill input tokens only and name none of them among
+  # the models that need a paid billing method, so they draw on the account's daily allowance like the rest.
+  # LiteLLM's model map gives Clef the mode "evaluation", which its decisions route accepts, and Clairic the
+  # mode "extraction"; each mode puts its entries in an access group of their own. Clairic is in preview, its
+  # Flash in early research preview. They make up "Auto-Decision" and "Auto-Extraction" below.
+  # Clef: 27B, 65,536 tokens, text and images.
+  - model_name: clef-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/cloudflare/clairic-flash -- not a chat model: the same extraction model in early research preview (read 2026-11-22)
+  # Clef Omni: a 30B mixture of experts, 64,000 tokens, text, images, audio (four clips of five minutes at most)
+  # and video (two clips of a minute at most), the one member that takes audio and video.
+  - model_name: clef-omni-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef-omni
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/cloudflare/clef -- not a chat model: a decision model that answers typed questions with probabilities, LiteLLM's model map lists it as mode "evaluation" (read 2026-11-22)
+  # Clef Flash: 9B, 24,576 tokens, text and images.
+  - model_name: clef-flash-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/cloudflare/clef-flash -- not a chat model: the 9B decision model of the same family (read 2026-11-22)
+  # Clairic: 65,536 tokens, text, images and PDFs; its promotional price lasts until 2026-12-01, after which
+  # the same allowance reads fewer tokens.
+  - model_name: clairic-cloudflare
+    model_info:
+      mode: extraction
+      access_groups: ["Extraction"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clairic
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/cloudflare/clef-omni -- not a chat model: the multimodal decision model of the same family (read 2026-11-22)
+  # Clairic Flash: the same schema in early research preview, 65,536 tokens.
+  - model_name: clairic-flash-cloudflare
+    model_info:
+      mode: extraction
+      access_groups: ["Extraction"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clairic-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
   # drift-ignore: cloudflare/@cf/daily-co/phonellm-mini-alpha-2 -- an alpha tuned for voice agents with thinking disabled, which no figure of Artificial Analysis or Epoch AI measures (read 2026-11-22); a release out of alpha comes under another name and is proposed again
 
@@ -2091,7 +2140,26 @@ router_settings:
         - gemini-3-8-flash-lite-tts
 {% endif %}
 
-    # 8. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
+    # 8. DECISION -- Clef's typed decisions, for "/v1/systemone" and "/v1/decisions". Not ranked by a leaderboard
+    # and with no contract, so the order is set by hand: the 27B model first, Clef Omni next, which reads the
+    # same questions with a larger backbone, and the 9B Flash last, whose context is the smallest. A request
+    # that carries audio or video asks for "clef-omni-cloudflare" by name, the only member that reads them.
+{% if head['decision'] %}
+    - Auto-Decision:
+        - clef-cloudflare
+        - clef-omni-cloudflare
+        - clef-flash-cloudflare
+{% endif %}
+
+    # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above:
+    # Clairic first, its Flash, in an earlier preview, behind it.
+{% if head['extraction'] %}
+    - Auto-Extraction:
+        - clairic-cloudflare
+        - clairic-flash-cloudflare
+{% endif %}
+
+    # 10. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
     # is slower than the router's own wait allows (see its entry), so when it fails or is given up the request
     # goes to the same model at the level the routers keep, and no further: whoever asked for that effort
     # wants that model.
@@ -2124,6 +2192,12 @@ router_settings:
 {% endif %}
 {% if head['tts'] %}
     "Auto-TTS": "{{ head['tts'] }}"
+{% endif %}
+{% if head['decision'] %}
+    "Auto-Decision": "{{ head['decision'] }}"
+{% endif %}
+{% if head['extraction'] %}
+    "Auto-Extraction": "{{ head['extraction'] }}"
 {% endif %}
 
 general_settings:
