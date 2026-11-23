@@ -759,6 +759,14 @@ model_list:
       model: openrouter/liquid/lfm-3-1.7b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
+  # Proposed by the weekly drift run on 2026-11-23: listed free by "openrouter.ai/api/v1/models" that day.
+  - model_name: dots-3-note-preview-free
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openrouter/dots-studio/dots-3-note-preview:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
   # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
   # so there are no figures to place them by. Remove a line to have its id reported again.
@@ -1011,6 +1019,30 @@ model_list:
       model: cloudflare/@cf/qwen/qwen3.8-27b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
+  # Proposed by the weekly drift run on 2026-11-23: its free tier on Cloudflare is not verified yet.
+  - model_name: inkling-2-small-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/thinkingmachines/inkling-2-small
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Proposed by the weekly drift run on 2026-11-23: its free tier on Cloudflare is not verified yet.
+  - model_name: eurollm-9b-it-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/utter-project/eurollm-9b-it
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Proposed by the weekly drift run on 2026-11-23: its free tier on Cloudflare is not verified yet.
+  - model_name: glm-5-3-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/zai-org/glm-5.3
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
   # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5
 
 {% endif %}
@@ -1198,6 +1230,17 @@ model_list:
       access_groups: ["LLM"]
     litellm_params:
       model: openai/stealth/glyph-cluster
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Proposed by the weekly drift run on 2026-11-23: listed free by "ai-gateway.kilo.ai/api/v1/models" that day.
+  - model_name: dots-3-note-preview-kilo
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openai/dots-studio/dots-3-note-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
       api_key: "kilo-no-key-needed"
       extra_headers:
