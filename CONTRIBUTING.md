@@ -28,10 +28,8 @@ Il faut aussi que `gitleaks` soit installé — depuis
 [ses releases](https://github.com/gitleaks/gitleaks/releases), à la version que la CI épingle, ou
 en déposant le binaire à la racine du dépôt sous le nom `gitleaks`. Le hook accepte les deux.
 
-**Ce hook est le seul garde-fou de ce dépôt qui refuse réellement quelque chose.** L'organisation
-est sur un plan qui n'autorise ni *ruleset* ni protection de branche sur un dépôt privé
-(`GET /repos/.../rulesets` répond `403 « Upgrade to GitHub Pro or make this repository public »`),
-donc aucun contrôle de CI ne peut être rendu obligatoire avant fusion : la CI *constate*, elle ne
+**Ce hook est le seul garde-fou de ce dépôt qui refuse réellement quelque chose.** Aucun *ruleset*
+n'est importé, donc aucun contrôle de CI n'est obligatoire avant fusion : la CI *constate*, elle ne
 garde pas la porte. Le hook, lui, refuse le commit.
 
 Les seules fusions que la CI décide, ce sont celles des mises à jour de Dependabot et de la pull

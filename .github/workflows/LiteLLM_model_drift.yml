@@ -29,8 +29,8 @@ name: LiteLLM model drift
 # Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
 # announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
 # the run sees the model gone within a week: a cascade one entry shorter for that week, since a
-# refused call only moves the request on. Weekly and not daily because every run costs included
-# minutes on a private repository; once the repository is public, a daily run is wanted. Saturday
+# refused call only moves the request on. Weekly for now: a daily run is wanted, but it would
+# need the Saturday retry schedule reshaped. Saturday
 # 06:47 UTC -- 7:47 in Paris in winter, 8:47 in summer -- off the top of the hour, when every scheduled
 # workflow on GitHub starts at once. Saturday, because providers release from Monday to Thursday
 # (about 90 % of the releases since November 2025, by the release dates of Artificial Analysis and
@@ -141,9 +141,10 @@ name: LiteLLM model drift
 # summary and the pull requests of additions do, with the day the figures were read.
 #
 # Cost: three jobs of under a minute each, once a week, and three gates of a few seconds, each job
-# billed as a whole minute -- six minutes a week, about twenty-six of the included minutes a month on
-# this private repository -- plus, when something is deleted or proposed, the checks of the pull
-# requests, and two minutes more per retry that runs, in a week a catalogue fails.
+# billed as a whole minute -- six minutes a week, about twenty-six a month, which hosted
+# runners do not charge on a public repository -- plus, when something is deleted or proposed, the
+# checks of the pull requests, and two minutes more per retry that runs, in a week a catalogue
+# fails.
 #
 # The issue is found by a hidden marker in its body, among the issues this workflow's own token
 # opened, under its title or the one it had while it reported every drift, so that one still open
@@ -207,7 +208,8 @@ name: LiteLLM model drift
 # the slug or name of one entry of the ranking and no other once case and punctuation are dropped,
 # with no variant marker such as "(Reasoning)" on that entry. The second, opened as a draft, holds any
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
-# on a private repository of GitHub's free plan, which has no drafts, it is opened ready for review
+# where GitHub refuses a draft, as it does on a private repository of its free plan, it is opened
+# ready for review
 # and its body alone says to wait. Neither puts a model in a cascade: the places are suggestions in
 # the body, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
 # the deletions alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
@@ -223,11 +225,9 @@ name: LiteLLM model drift
 # formed: a status among three that agrees with the unreadable catalogues it names. That step runs
 # whether or not it then writes anything, and the pull requests are closed only after it succeeded.
 #
-# Every job takes its runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
-# says what it may name). The keys and the write token may reach a self-hosted runner that way,
-# which is safe only for one thrown away after each job: a persistent pool that also serves
-# "ansible-ci.yml" has run a pull request's code before them, and what that code left behind would
-# run next to the keys or the token.
+# Every job runs on GitHub's hosted runners, each thrown away after the job, so nothing a pull
+# request's code left behind can run next to the keys or the token. The header of "ansible-ci.yml"
+# says why hosted runners only.
 
 on:
   # The first attempt, then the three retries; the gate numbers them in this order, from its
@@ -252,7 +252,7 @@ jobs:
   gate:
     name: decide whether this attempt runs
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # The runs of this workflow and their artifacts' names, and nothing else: no key, no checkout.
     permissions:
@@ -348,7 +348,7 @@ jobs:
     name: read the providers' catalogues
     needs: gate
     if: ${{ github.ref == 'refs/heads/main' && needs.gate.outputs.run == 'true' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     # The keys, and no write. Checking out needs to read.
     permissions:
@@ -383,8 +383,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # See the "yamllint" job of "ansible-ci.yml".
-          check-latest: true
 
       # PyYAML and Jinja2 alone, each at the version requirements.txt pins, rather than the whole
       # file: the script reads the model list with the first and renders it with the second, needs
@@ -523,7 +521,7 @@ jobs:
     name: publish the issue and the pull requests
     needs: [gate, read]
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     # The token that writes, and none of the providers' keys; the App's private key, when there is
     # one, reaches this job alone. This job checks nothing out, installs nothing and runs no script
@@ -551,7 +549,7 @@ jobs:
           path: ${{ runner.temp }}/drift
 
       # github-script rather than gh, for the reason "dependabot-auto-merge.yml" gives: the runner's
-      # own Node is the one thing every runner is guaranteed to have, hosted or self-hosted.
+      # own Node is the one thing every runner is guaranteed to have.
       - name: Open, update or close the issue of the unreadable catalogues
         id: issue
         uses: actions/github-script@v9
@@ -1069,8 +1067,8 @@ jobs:
                 try {
                   ({ data: created } = await github.rest.pulls.create({ owner, repo, title, head: branch, base: baseBranch, body, draft }));
                 } catch (error) {
-                  // A private repository on GitHub's free plan has no draft pull requests: the body
-                  // says to wait, and the run says why it is not a draft.
+                  // Where GitHub refuses a draft pull request, as on a private repository of its
+                  // free plan, the body says to wait, and the run says why it is not a draft.
                   if (!draft || error.status !== 422 || !/draft/i.test(error.message)) throw error;
                   core.warning(`GitHub refused a draft pull request (${error.message}): ${branch} is opened ready for review, and its body alone says to wait.`);
                   ({ data: created } = await github.rest.pulls.create({ owner, repo, title, head: branch, base: baseBranch, body, draft: false }));

@@ -6,11 +6,10 @@ name: Quality checks
 # The quality checks, on every pull request. Secret detection lives in its own workflow
 # ("gitleaks.yml") because it has neither the same tooling nor the same reason to exist.
 #
-# ! None of these jobs can be made REQUIRED before a human merges: the organisation is on a plan
-#   that allows neither a ruleset nor a branch protection on a private repository
-#   ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
-#   public"). For a human's merge they inform the reviewer; they do not guard the door. That is a
-#   limit of the plan, not of the configuration.
+# ! None of these jobs is REQUIRED before a human merges: no ruleset is imported, because
+#   ".github/rulesets/main.json" requires "sign-off", which never starts on the weekly
+#   model-deletion pull request when GITHUB_TOKEN opens it, so importing it as it stands would block
+#   that pull request's automatic merge. For a human's merge they inform the reviewer; they do not guard the door.
 #
 #   Two kinds of pull request are the exception, and the one place these jobs do gate something:
 #   Dependabot's updates and the weekly model-deletion pull request of "LiteLLM_model_drift.yml".
@@ -23,24 +22,9 @@ name: Quality checks
 #   it is load-bearing too. So is every job's "name:" being a plain string, never rendered from a
 #   matrix: the two "role run" jobs below say why.
 #
-# Every job below takes its runner from the CI_RUNNER repository variable, and falls back to
-# "ubuntu-latest" when it is unset. It is the whole of the switch to a self-hosted pool on the day
-# the organisation's included minutes run out (#162). #32 and #141 had left it out as an indirection
-# no variable would ever fill in; that reason went the day the switch was planned. The pool it would
-# name is prepared, switched off, outside this repository.
-#
-# ! Set CI_RUNNER to "self-hosted" only on the day the included minutes run out, and only once a
-#   pool serves the organisation and its runners show "Idle" under the organisation's Settings ->
-#   Actions -> Runners. A label no runner answers to does not fail: the job queues for 24 hours
-#   and is then cancelled, with no error anywhere.
-#
-# The "|| 'ubuntu-latest'" is what stops an unset variable from leaving "runs-on" empty. It leans
-# on "||" returning its first truthy operand rather than a boolean, which every workflow relies
-# on but GitHub's operators table does not state -- it says only "Or" -- and it leans on it just
-# the same once CI_RUNNER is set, since the expression is the same in both states.
-#
-# Repository scope only. "runs-on" is resolved before the job starts, so an environment variable is
-# never read there, and GitHub Free exposes no organisation variable to a private repository.
+# Every job below runs on GitHub's hosted runners. The repository is public, so their minutes cost
+# nothing, and GitHub advises against self-hosted runners on a public repository, where a pull
+# request from a fork could run its code on them.
 
 on:
   push:
@@ -65,7 +49,7 @@ concurrency:
 jobs:
   yamllint:
     name: yamllint
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check the repository out
@@ -75,14 +59,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # Next to nothing on GitHub's hosted runners, and needed on a self-hosted pool CI_RUNNER
-          # can name: a self-hosted runner can keep its tool cache between jobs, and left at its
-          # "false" default setup-python looks in that cache FIRST and only asks the versions
-          # manifest when it misses -- so the first patch the cache ever holds
-          # would be the one every later job gets, for ever. "true" resolves the newest patch from
-          # the manifest before looking in the cache: one small HTTPS GET per job, and one download
-          # on the day the patch changes.
-          check-latest: true
           cache: "pip"
 
       - name: Install the tooling
@@ -93,12 +69,7 @@ jobs:
 
   reuse:
     name: REUSE compliance
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # 15 and not 5, for the self-hosted pool CI_RUNNER can name: on such a pool, setting the job up
-    # can use up a 5-minute limit before "reuse lint", which takes a second or two, even starts. A
-    # job over its "timeout-minutes" concludes "cancelled", which "dependabot-auto-merge.yml"
-    # rightly refuses, so on that pool every Dependabot update would sit waiting for a human with
-    # nothing red to say why.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       # Symlinks are checked out as symlinks, which matters here: "LICENSE" is one, pointing at
@@ -111,8 +82,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # See the "yamllint" job above.
-          check-latest: true
           cache: "pip"
 
       # From requirements.txt rather than a bare "pip install reuse", so the version stays pinned in
@@ -129,7 +98,7 @@ jobs:
 
   ansible-lint:
     name: ansible-lint
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Check the repository out
@@ -143,7 +112,7 @@ jobs:
 
   syntax-check:
     name: ansible-playbook --syntax-check
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check the repository out
@@ -208,13 +177,10 @@ jobs:
   #   fail on GitHub. What tells the two jobs apart is their own ROLE_RUN_CLAUDE_CODE_AGENT, and the
   #   last step refuses any value but "off" or "on" rather than quietly running the default twice.
   #
-  # Their runner comes from CI_RUNNER, like every other job's (see the header), and whatever pool that
-  # names needs what GitHub's hosted runners already have for these two: a Docker daemon and Compose
-  # v2. Without them the stand-in deployer's "docker compose config" fails, so the jobs go red rather
-  # than wait -- the loud way, and the one "dependabot-auto-merge.yml" reads correctly.
+  # These two need a Docker daemon and Compose v2, which GitHub's hosted image carries.
   role-run-agent-off:
     name: role run (Claude Code agent off)
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       ROLE_RUN_CLAUDE_CODE_AGENT: "off"
@@ -248,7 +214,7 @@ jobs:
 
   role-run-agent-on:
     name: role run (Claude Code agent on)
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       ROLE_RUN_CLAUDE_CODE_AGENT: "on"
@@ -256,10 +222,9 @@ jobs:
 
   LiteLLM-drift-selftest:
     name: "LiteLLM drift check: verification cases"
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     # The cases take minutes on their own, which is why they run beside the other checks and not in
-    # their job: they would be the longest step of it. 45, for the setup time of a self-hosted pool on
-    # top of that (see the "REUSE compliance" job above), and because the real-list cases render the
+    # their job: they would be the longest step of it. 45, because the real-list cases render the
     # model list for each deletion they try, a time that grows with every entry and every provider.
     timeout-minutes: 45
     steps:
@@ -270,8 +235,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # See the "yamllint" job above.
-          check-latest: true
           cache: "pip"
 
       # PyYAML and Jinja2, which the cases render the model list with, come from requirements.txt.
@@ -284,8 +247,7 @@ jobs:
 
   repository-rules:
     name: Repository rules
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # 15 and not 5: see the "REUSE compliance" job above.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
     # one up to the minute: three scripts each running in a second would cost three minutes, and
@@ -313,8 +275,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # See the "yamllint" job above.
-          check-latest: true
           cache: "pip"
 
       - name: Install the tooling
