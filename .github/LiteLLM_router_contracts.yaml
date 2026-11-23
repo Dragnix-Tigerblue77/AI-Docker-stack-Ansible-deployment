@@ -56,9 +56,9 @@
 # each other and is no prediction for a given request. A step that is no slower and buys points is
 # taken, a step that buys no points is not, and neither is one whose time is unknown. On Gemini 4
 # Hydrogen (Low 26.9 in 7.6 s, Medium 41.2 in 13.0 s, High 50.8 in 21.5 s, Xhigh 53.9 in 47.4 s) the
-# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 stops at High, 1.5 at Medium, 3 at Low. On Gemini
+# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 and 1 stop at High, 3 at Low. On Gemini
 # 3.8 Flash (Low 22.5 in 5.1 s, Medium 30.1 in 14.5 s, High 30.8 in 28.1 s) they buy 0.81 and 0.05:
-# 0.2 stops at Medium, 1.5 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
+# 0.2 stops at Medium, 1 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
 #
 # The kept levels are realised only where the level can be set and its effect is verified: on the Gemini
 # entries whose levels Artificial Analysis measures, one entry per level a router needs, named
@@ -239,8 +239,8 @@ routers:
         - {epoch: "Gemini 3 Pro"}
       reason: "At least as good as Gemini 2.5 Flash, as Epoch AI's capabilities index measured it in June 2025: a Flash of the generation before the current ones is the least a daily driver is asked to be, and the index measures the models that Artificial Analysis has no figure for. Gemini 2.5 Flash-Lite, the two Gemini Flash-Lite that the template serves and Gemini 3 Pro, the floor of pro, are shown to compare. The margin of 2 points is the one of pro, for the same reason: the capabilities index gives one figure per model, with an interval of about two points of its own scale, so a model within the margin of the floor is not told apart from it."
     level_gain:
-      min_points_per_second: 1.5
-      reason: "A daily driver that values time asks more of each extra second: 1.5 points a second stops Gemini 4 Hydrogen at Medium (High buys 9.6 points in 8.4 s, 1.1 a second) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
+      min_points_per_second: 1
+      reason: "A daily driver asks more of each extra second than pro does: 1 point a second takes Gemini 4 Hydrogen to High, Google's default for the model that replaces the Flash line (High buys 9.6 points over Medium in 8.4 s, 1.1 a second; Xhigh buys 0.12), which gives flash the same head as pro, and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
     ranking:
       criterion: intelligence
       tie_margin_points: 2
@@ -331,14 +331,6 @@ models:
     epoch:
       cursorbench_external: [gemini-4-hydrogen_high, gemini-4-hydrogen_low, gemini-4-hydrogen_medium, gemini-4-hydrogen_xhigh]
       ale_bench_external: [gemini-4-hydrogen_xhigh]
-  gemini-4-hydrogen-medium:
-    slug: gemini-4-hydrogen-medium
-    level: medium
-    level_source: "static reasoning_effort medium in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); the level the exchange rate of flash keeps"
-    eci: "Gemini 4 Hydrogen"
-    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
-    epoch:
-      cursorbench_external: [gemini-4-hydrogen_medium]
   gemini-4-hydrogen-low:
     slug: gemini-4-hydrogen-low
     level: low

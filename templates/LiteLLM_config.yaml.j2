@@ -44,7 +44,7 @@
 # router, so it heads none.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
-  'flash': 'gemini-4-hydrogen-medium' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
   'flash-lite': 'gemini-3-5-flash-lite' if has.Gemini else 'lfm-3-1-7b-free' if has.OpenRouter else 'lfm-3-1-7b-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'deepseek-v4-1-flash-ovh',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
@@ -92,10 +92,11 @@ model_list:
   # ("ai.google.dev/gemini-api/docs/rate-limits", read 2026-11-22): 20 requests a day for this model on the
   # gateway's project, 500 for each Flash-Lite, which the "inputs" of the router contracts give in full.
   #
-  # The three entries of this model that follow, and "gemini-3-8-flash" and "gemini-3-8-flash-low" below, set
-  # a static "reasoning_effort", which LiteLLM sends to Google as the thinking level. One entry per level a
-  # router keeps, named "<entry>-<level>", the unsuffixed name carrying the level "pro", "code" and
-  # "claude-code" keep: High here. A static level is only a DEFAULT, a client that sends an effort replaces
+  # The entries of this model, and "gemini-3-8-flash" and "gemini-3-8-flash-low" below, set a static
+  # "reasoning_effort", which LiteLLM sends to Google as the thinking level. One entry per level a router
+  # keeps, named "<entry>-<level>", the unsuffixed name carrying the level "pro", "code" and "claude-code"
+  # keep: High here, which "flash" keeps too, since High buys 9.6 points over Medium for 8.4 s, 1.1 a second,
+  # above the 1 it asks (Artificial Analysis, read 2026-11-21). A static level is only a DEFAULT, a client that sends an effort replaces
   # it, and Claude Code always sends one, so it steers LibreChat and n8n and not the Claude Code agent. The
   # entries of one model draw on the same quota, which is why "flash-lite", whose members should not spend
   # the quota "pro" and "flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
@@ -104,14 +105,6 @@ model_list:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
       reasoning_effort: high
-
-  # The level "flash" keeps: Medium buys 14.3 points of the index over Low for 5.4 s, and High buys 9.6 more
-  # for 8.4 s, below the 1.5 points a second "flash" asks (Artificial Analysis, read 2026-11-21).
-  - model_name: gemini-4-hydrogen-medium
-    litellm_params:
-      model: gemini/gemini-4-hydrogen
-      api_key: "os.environ/GEMINI_API_KEY"
-      reasoning_effort: medium
 
   # The level "flash-lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
   # lowest level Hydrogen has (it cannot be turned off).
@@ -145,7 +138,7 @@ model_list:
       reasoning_effort: medium
 
   # The level "flash" and "flash-lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
-  # the 1.5 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
+  # the 1 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
   - model_name: gemini-3-8-flash-low
     litellm_params:
       model: gemini/gemini-3.8-flash
@@ -1476,7 +1469,7 @@ router_settings:
 {% if head['flash'] %}
     - flash: &flash_cascade
 {% if has.Gemini %}
-        - gemini-4-hydrogen-medium
+        - gemini-4-hydrogen
 {% endif %}
 {% if has.NVIDIA %}
         - kimi-k3-1-pro-nvidia

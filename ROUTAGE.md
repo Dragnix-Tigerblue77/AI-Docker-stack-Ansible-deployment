@@ -13,7 +13,7 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 
 **Une entrée est un modèle à un niveau de réflexion.** Plus le niveau est haut, plus le modèle réfléchit avant de répondre : le score monte, l'attente aussi. Artificial Analysis mesure un score (l'indice d'intelligence) et une attente (le délai moyen avant le premier mot de la réponse) pour chaque niveau d'un même modèle.
 
-**Le niveau gardé par un routeur.** On part du niveau le plus bas et on monte d'un cran tant que chaque seconde d'attente en plus rapporte au moins un certain nombre de points de score. `pro` en demande 0,2 par seconde (il a le temps), `flash` 1,5, `flash-lite` 3 (il est fait pour aller vite). Exemple avec Gemini 4 Hydrogen, dont le niveau bas donne 26,9 points en 7,6 s, le moyen 41,2 en 13,0 s, le haut 50,8 en 21,5 s et le très haut 53,9 en 47,4 s : du bas au moyen, 14,3 points pour 5,4 s de plus font 2,6 points par seconde ; du moyen au haut, 1,1 ; du haut au très haut, 0,12. Donc `pro` garde le haut, `flash` le moyen et `flash-lite` le bas. Gemini 3.8 Flash donne 22,5 points en 5,1 s (bas), 30,1 en 14,5 s (moyen) et 30,8 en 28,1 s (haut) : du bas au moyen 0,81 point par seconde, du moyen au haut 0,05. `pro` garde le moyen, `flash` et `flash-lite` le bas.
+**Le niveau gardé par un routeur.** On part du niveau le plus bas et on monte d'un cran tant que chaque seconde d'attente en plus rapporte au moins un certain nombre de points de score. `pro` en demande 0,2 par seconde (il a le temps), `flash` 1, `flash-lite` 3 (il est fait pour aller vite). Exemple avec Gemini 4 Hydrogen, dont le niveau bas donne 26,9 points en 7,6 s, le moyen 41,2 en 13,0 s, le haut 50,8 en 21,5 s et le très haut 53,9 en 47,4 s : du bas au moyen, 14,3 points pour 5,4 s de plus font 2,6 points par seconde ; du moyen au haut, 1,1 ; du haut au très haut, 0,12. Donc `pro` et `flash` gardent le haut, le niveau par défaut de Google pour ce modèle qui remplace la lignée Flash, et `flash-lite` le bas. Gemini 3.8 Flash donne 22,5 points en 5,1 s (bas), 30,1 en 14,5 s (moyen) et 30,8 en 28,1 s (haut) : du bas au moyen 0,81 point par seconde, du moyen au haut 0,05. `pro` garde le moyen, `flash` et `flash-lite` le bas.
 
 **`pro`, `flash`, `code` et `claude-code` : le meilleur score d'abord.** Deux membres à moins de 2 points l'un de l'autre ne sont pas départagés par le score : le plus rapide passe devant. Pour `code` et `claude-code`, le score est la position de code mesurée par Epoch AI. L'ordre de `pro` et de `flash` est celui du gabarit, écrit à la main : les contrats le comparent à leur propre ordre et le rapportent, sans rien changer.
 
@@ -32,9 +32,9 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 - chez OpenRouter, NVIDIA, OVHcloud, Kilo et Requesty (facturés à la requête), on ne sait pas si le fournisseur tient compte du niveau que LiteLLM lui envoie : « non fixé : non vérifié chez ce fournisseur » ;
 - chez Groq, Cloudflare, DeepSeek en direct et Mistral (facturés au jeton, au neurone ou sur un solde prépayé), réfléchir plus coûterait de l'argent ou du quota : on n'y touche pas, c'est « défaut du fournisseur ».
 
-| Modèle | `pro`, `code`, `claude-code` (0,2) | `flash` (1,5) | `flash-lite` (3) |
+| Modèle | `pro`, `code`, `claude-code` (0,2) | `flash` (1) | `flash-lite` (3) |
 | --- | --- | --- | --- |
-| Gemini 4 Hydrogen | `high` : `gemini-4-hydrogen` | `medium` : `gemini-4-hydrogen-medium` | `low` : `gemini-4-hydrogen-low` |
+| Gemini 4 Hydrogen | `high` : `gemini-4-hydrogen` | `high` : `gemini-4-hydrogen` | `low` : `gemini-4-hydrogen-low` |
 | Gemini 3.8 Flash | `medium` : `gemini-3-8-flash` | `low` : `gemini-3-8-flash-low` | `low` : `gemini-3-8-flash-low` |
 
 ## Les limites gratuites de Google
@@ -54,7 +54,7 @@ Page des limites de débit de Google AI Studio du projet de la passerelle, nivea
 
 Gemini 3.7 Flash ne figure pas du tout dans la liste de cette page.
 
-Ce que ça change, en clair : les têtes de `pro` et de `flash` n'ont que 20 requêtes par jour. Ces 20 requêtes sont partagées par toutes les entrées du même modèle : `gemini-4-hydrogen`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `pro` et de `flash`. Quand les 20 sont épuisées, la cascade passe au membre suivant. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `flash-lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
+Ce que ça change, en clair : les têtes de `pro` et de `flash` n'ont que 20 requêtes par jour. Ces 20 requêtes sont partagées par toutes les entrées du même modèle : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `pro` et de `flash`. Quand les 20 sont épuisées, la cascade passe au membre suivant. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `flash-lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
 
 ## Les routeurs
 
@@ -94,13 +94,13 @@ Tête : `gemini-4-hydrogen`, au niveau `high`. Raisonnement long, le temps n'est
 
 ### `flash`
 
-Tête : `gemini-4-hydrogen-medium`. L'assistant de tous les jours : bon score, attente raisonnable.
+Tête : `gemini-4-hydrogen`, au niveau `high`, comme `pro`. L'assistant de tous les jours : le meilleur score, au prix d'une attente plus longue.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen-medium` | Google AI Studio | à la requête, quota par modèle | `medium` | 41,2 | 13,0 s | niveau gardé par `flash` : `medium`, car passer à `high` rapporte 1,1 point par seconde, moins que les 1,5 demandés |
-| 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 155,1 s | deuxième place gardée du gabarit : à 1,5 point par seconde il serait bien plus bas, et 155 s dépassent les 90 s de patience : point ouvert |
-| 3 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `flash` : `low`, car `medium` rapporte 0,81 point par seconde, moins que les 1,5 demandés |
+| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 21,5 s | niveau gardé par `flash` : `high`, car passer de `medium` à `high` rapporte 1,1 point par seconde, plus que le 1 demandé, et `xhigh` 0,12 ; même entrée que la tête de `pro` |
+| 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 155,1 s | deuxième place gardée du gabarit : à 1 point par seconde il serait bien plus bas, et 155 s dépassent les 90 s de patience : point ouvert |
+| 3 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `flash` : `low`, car `medium` rapporte 0,81 point par seconde, moins que le 1 demandé |
 | 4 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
 | 5 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
 | 6 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
