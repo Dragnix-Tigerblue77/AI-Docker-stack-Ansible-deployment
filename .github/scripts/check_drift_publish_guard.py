@@ -516,7 +516,8 @@ TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendo
              item("ovhcloud", "Fresh-Eight.1", "fresh-eight-1-ovh"),
              item("requesty", "vendor/fresh-nine", "fresh-nine-requesty"),
              item("zai", "glm-9-flash", "glm-9-flash-zai"),
-             item("centai", "hy9-flash:free", "hy9-flash-cent-ai")]
+             item("centai", "hy9-flash:free", "hy9-flash-cent-ai"),
+             item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs")]
 
 
 
@@ -1058,6 +1059,9 @@ ADDITION_MUTATIONS = [
     ("blank the Authorization header of OVHcloud's entries", "label: 'OVHcloud', keyless: true", "label: 'OVHcloud'"),
     ("state Requesty's free tier from its catalogue", "label: 'Requesty', free: 'router.eu.requesty.ai/v1/models'",
      "label: 'Requesty'"),
+    ("attribute the entries served through Aion Labs' endpoint to it", "apiBase.includes('api.aionlabs.ai')) return 'aionlabs';",
+     "apiBase.includes('api.aionlabs.ai')) return null;"),
+    ("write the entry of a provider kept out of LLM in the group of its own", "[\"${spec.group ?? 'LLM'}\"]", "[\"LLM\"]"),
     ("name every provider the script reads in the table of additions",
      "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),

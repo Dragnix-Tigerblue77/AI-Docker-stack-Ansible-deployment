@@ -587,7 +587,7 @@ jobs:
             const PROVIDERS = {
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
               groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',
-              nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI',
+              nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI', aionlabs: 'Aion Labs',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
@@ -835,7 +835,8 @@ jobs:
             // fixed text, in no cascade. A provider with "free" states its free tier in that catalogue,
             // and only its models can be ready, those of one with a "freeSuffix" only when their id ends
             // in it. A "keyless" provider's key is a literal marker, copied, and its entry always blanks
-            // the Authorization header, which the gateway refuses a bearer marker for. Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
+            // the Authorization header, which the gateway refuses a bearer marker for. A provider with a "group" is
+            // one whose models are kept out of "LLM" on purpose, and its entry is written in that group. Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
             // them to the script's own build_additions; keep the markers.
             const ADDITION_PROVIDERS = {
               openrouter: { prefix: 'openrouter/', label: 'OpenRouter', free: 'openrouter.ai/api/v1/models', freeSuffix: ':free' },
@@ -852,6 +853,7 @@ jobs:
               requesty: { prefix: 'openai/', label: 'Requesty', free: 'router.eu.requesty.ai/v1/models' },
               zai: { prefix: 'zai/', label: 'Z AI' },
               centai: { prefix: 'openai/', label: 'Cent AI' },
+              aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction' },
             };
             const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
@@ -873,6 +875,7 @@ jobs:
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('requesty.ai')) return 'requesty';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.cent-ai.dev')) return 'centai';
+              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.aionlabs.ai')) return 'aionlabs';
               return null;
             };
             const additionEntries = (lines) => {
@@ -943,7 +946,7 @@ jobs:
                 if (anchor.commented) note = `Not routed to: proposed by the drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
                 else if (spec.free !== undefined) note = `Proposed by the drift run on ${date}: listed free by "${spec.free}" that day.`;
                 else note = `Proposed by the drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
-                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["LLM"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
+                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["${spec.group ?? 'LLM'}"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
                 if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);

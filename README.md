@@ -132,19 +132,20 @@ autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des dix clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des onze clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI, Aion Labs), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des onze clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des dix clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
-| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des dix clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des onze clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des onze clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des onze clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des onze clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
 | `Artificial_Intelligence_LiteLLM_Cloudflare_account_ID` | `""` | L'identifiant du compte Cloudflare, que LiteLLM lit dans l'environnement du conteneur (`CLOUDFLARE_ACCOUNT_ID`) pour construire l'adresse du point d'accès : aucune entrée du `model_list` ne le nomme. **Un seul compte** : les conditions de Cloudflare interdisent d'en ouvrir un second pour doubler le quota. Voir « Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
-| `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API du catalogue hébergé de NVIDIA, que le conteneur reçoit comme `NVIDIA_NIM_API_KEY`. Vide : aucune entrée NVIDIA. **Un service d'essai** dont les conditions interdisent la production et les données personnelles. Voir « NVIDIA : un service d'essai, des limites inconnues » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Cent_AI_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API de Cent AI, que le conteneur reçoit comme `CENT_AI_API_KEY`. Vide : aucune entrée Cent AI. Un seul modèle gratuit, « jusqu'au 30 novembre » et sans suite annoncée : **donner à la clé une limite de dépense**, réglage de la page des clés de Cent AI, pour qu'un appel facturé échoue au lieu de coûter. Un seul compte. Voir « Cent AI : un modèle gratuit jusqu'au 30 novembre » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des onze clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des onze clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
+| `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` | `""` | Une des onze clés fournisseurs : la clé d'API du catalogue hébergé de NVIDIA, que le conteneur reçoit comme `NVIDIA_NIM_API_KEY`. Vide : aucune entrée NVIDIA. **Un service d'essai** dont les conditions interdisent la production et les données personnelles. Voir « NVIDIA : un service d'essai, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Cent_AI_API_key` | `""` | Une des onze clés fournisseurs : la clé d'API de Cent AI, que le conteneur reçoit comme `CENT_AI_API_KEY`. Vide : aucune entrée Cent AI. Un seul modèle gratuit, « jusqu'au 30 novembre » et sans suite annoncée : **donner à la clé une limite de dépense**, réglage de la page des clés de Cent AI, pour qu'un appel facturé échoue au lieu de coûter. Un seul compte. Voir « Cent AI : un modèle gratuit jusqu'au 30 novembre » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Aion_Labs_API_key` | `""` | Une des onze clés fournisseurs : la clé d'API d'Aion Labs, que le conteneur reçoit comme `AION_LABS_API_KEY`. Vide : aucune entrée Aion Labs ni routeur `Auto-Fiction`. Ses modèles, réglés pour le jeu de rôle et la narration et non modérés, sont dans le groupe d'accès `Fiction` et dans le seul routeur `Auto-Fiction` : aucune clé qui a `LLM` ni aucun autre routeur ne les atteint. Palier gratuit du compte : 20 000 jetons par jour, tous les modèles ensemble, « a courtesy that we may change or withdraw at any time » ; n'ajouter aucun crédit au compte. Un seul compte. Voir « Les modèles de jeu de rôle : le routeur `Auto-Fiction` et le groupe `Fiction` » plus bas. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -196,7 +197,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | `LibreChat_uploads` · `MongoDB_LibreChat_data` | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. `gateway_key: true` (booléen, `false` si absent) donne au compte une clé de la passerelle à lui, faite et rangée par le rôle : voir « Une clé de la passerelle par compte LibreChat ». Voir plus bas. |
-| `Artificial_Intelligence_LibreChat_gateway_key_models` | `[LLM, Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Ce que la clé de la passerelle d'un compte LibreChat peut appeler, et donc ce que LibreChat liste pour ce compte : LiteLLM répond à `/v1/models` par la liste de la clé, un groupe d'accès étant remplacé par ses membres. `LLM` est le groupe des modèles de texte (ni transcription, ni voix, ni vecteurs), et un routeur n'étant dans aucun groupe, ceux qu'un chat doit proposer sont nommés ; `Auto-Claude-Code` est laissé à l'agent. Une liste non vide de chaînes non vides ; `check_compose_template.py` tient le défaut aux groupes et aux routeurs du template. Le rôle l'applique à **chaque** passage, à la clé qu'un compte a déjà comme à une nouvelle : changer la liste atteint donc une clé déployée sans la supprimer. |
+| `Artificial_Intelligence_LibreChat_gateway_key_models` | `[LLM, Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Ce que la clé de la passerelle d'un compte LibreChat peut appeler, et donc ce que LibreChat liste pour ce compte : LiteLLM répond à `/v1/models` par la liste de la clé, un groupe d'accès étant remplacé par ses membres. `LLM` est le groupe des modèles de texte (ni transcription, ni voix, ni vecteurs), et un routeur n'étant dans aucun groupe, ceux qu'un chat doit proposer sont nommés ; `Auto-Claude-Code` est laissé à l'agent, et `Fiction` comme `Auto-Fiction` (les modèles de jeu de rôle d'Aion Labs) n'y sont pas : pour qu'un compte les atteigne, ajouter `Fiction` ou `Auto-Fiction` à cette liste, qui vaut pour la clé de chaque compte LibreChat. Une liste non vide de chaînes non vides ; `check_compose_template.py` tient le défaut aux groupes et aux routeurs du template. Le rôle l'applique à **chaque** passage, à la clé qu'un compte a déjà comme à une nouvelle : changer la liste atteint donc une clé déployée sans la supprimer. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
 (#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
@@ -603,7 +604,7 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway et OVHcloud AI Endpoints (sans clé), Cloudflare Workers AI, Z AI, NVIDIA, Cent AI et OmniRoute en
+travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway et OVHcloud AI Endpoints (sans clé), Cloudflare Workers AI, Z AI, NVIDIA, Cent AI, Aion Labs (à part, voir plus bas) et OmniRoute en
 dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
@@ -649,24 +650,25 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les groupes d'accès : limiter une clé à un type de modèles
 
-Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans son `model_info.access_groups` d'après son `model_info.mode` :
+Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans son `model_info.access_groups` d'après son `model_info.mode`, à une exception près, voulue : les modèles de texte d'Aion Labs ont un groupe à eux, pour qu'aucune clé qui a `LLM` ne les atteigne.
 
 | Groupe | Entrées |
 | --- | --- |
 | `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code` et `Auto-Claude-Code` placent en tête |
+| `Fiction` | les six modèles d'Aion Labs, réglés pour le jeu de rôle et la narration, qu'atteint le routeur `Auto-Fiction` et aucun autre (voir « Les modèles de jeu de rôle ») ; **jamais** dans `LLM` |
 | `STT` | les modèles de transcription (`audio_transcription`) |
 | `TTS` | les modèles de synthèse vocale (`audio_speech`) |
 | `Embeddings` | les modèles de vecteurs (`embedding`) |
 | `Decisions` | les modèles de décision de Cloudflare, Clef (`evaluation`), qu'atteint le routeur `Auto-Decision` |
 | `Extraction` | les modèles d'extraction de Cloudflare, Clairic (`extraction`), qu'atteint le routeur `Auto-Extraction` |
 
-En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à son groupe, et le script de la veille de modèles écrit les entrées qu'il propose dans le groupe `LLM`.
+En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à son groupe, et le script de la veille de modèles écrit les entrées qu'il propose dans le groupe de leur fournisseur : `LLM`, ou `Fiction` pour Aion Labs.
 
 La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `LLM` et aux routeurs de texte (`Artificial_Intelligence_LibreChat_gateway_key_models`), si bien que LibreChat ne liste pour ce compte que ce qu'il peut appeler : ni transcription, ni voix, ni vecteurs. Les routeurs sont nommés à côté du groupe parce que LiteLLM remplace un groupe par ses membres seulement (lu dans son code) : un routeur est l'alias de la tête de sa cascade et n'est dans aucun groupe, donc une clé limitée à `LLM` seul ne les listerait pas, tout en pouvant les appeler.
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des clés de fournisseurs (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), et échoue en les
+Le rôle exige **au moins une** des clés de fournisseurs (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI, Aion Labs), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
@@ -819,7 +821,7 @@ l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
 cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
 rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
-compte pour « au moins une des dix clés » et pour l'agent Claude Code, dont la cascade `Auto-Claude-Code` a un membre
+compte pour « au moins une des onze clés » et pour l'agent Claude Code, dont la cascade `Auto-Claude-Code` a un membre
 Cloudflare.
 
 **Un seul compte, et ce n'est pas un réglage.** Les conditions de Cloudflare (*Self-Serve Subscription Agreement*, lues
@@ -1203,8 +1205,9 @@ choisies par la machine elle-même et listées par aucun catalogue) en sont exem
 | Requesty | `router.eu.requesty.ai/v1/models` | aucun | `input_price` et `output_price` à 0 |
 | Z AI | `api.z.ai/api/paas/v4/models` | `MODEL_DRIFT_ZAI_API_KEY` | rien |
 | Cent AI | `api.cent-ai.dev/v1/models` | `MODEL_DRIFT_CENT_AI_API_KEY` | rien |
+| Aion Labs | `api.aionlabs.ai/v1/models` | aucun | rien : l'allocation gratuite est celle du compte, et le catalogue donne un prix à chaque modèle |
 
-Dans une ligne `drift-ignore`, le fournisseur s'écrit `openrouter`, `cerebras`, `sambanova`, `gemini`, `groq`, `mistral`, `deepseek`, `cloudflare`, `kilo`, `nvidia`, `ovhcloud`, `requesty`, `zai` ou `centai`, et l'identifiant est celui du catalogue, pas celui du `model:` de l'entrée (`nvidia/<id>` pour une entrée `nvidia_nim/<id>`).
+Dans une ligne `drift-ignore`, le fournisseur s'écrit `openrouter`, `cerebras`, `sambanova`, `gemini`, `groq`, `mistral`, `deepseek`, `cloudflare`, `kilo`, `nvidia`, `ovhcloud`, `requesty`, `zai`, `centai` ou `aionlabs`, et l'identifiant est celui du catalogue, pas celui du `model:` de l'entrée (`nvidia/<id>` pour une entrée `nvidia_nim/<id>`).
 
 Pour couvrir ceux qui demandent un secret, créer dans *Settings → Secrets and variables → Actions* ceux du tableau, dont
 **deux** pour Cloudflare Workers AI : `MODEL_DRIFT_CLOUDFLARE_API_KEY`, un jeton d'API du compte dont la seule
@@ -1273,6 +1276,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter. Lu par le contrôle de dérive, dont le catalogue est public et donne le prix d'entrée et de sortie de chaque modèle : un modèle qui n'est plus à 0 est signalé, jamais supprimé |
 | Cent AI (modèle gratuit) | Revendeur ; un modèle gratuit, `hy4-flash:free`, annoncé « Free until Nov 30 · no daily limit » (page d'accueil lue le 2026-11-22) ; point d'accès compatible OpenAI, pas de fournisseur LiteLLM de ce nom | Aucune limite annoncée ; rien n'est dit de la suite du 30 novembre, où le modèle sera probablement facturé à son tarif (non vérifié). Le modèle gratuit « événement » du jour, tiré au hasard sous un identifiant qui change chaque jour, n'est pas routable | Routé, en queue des gratuits de `Auto-Pro`, `Auto-Flash` et `Auto-Flash-Lite`, à revoir le 1er décembre. Opérateur particulier aux conditions en brouillon, requêtes relayées vers des fournisseurs non nommés : le mainteneur accepte ces risques. Une limite de dépense sur la clé fait échouer un appel facturé au lieu de le payer. Lu par le contrôle de dérive (secret `MODEL_DRIFT_CENT_AI_API_KEY`) : un modèle qui a quitté le catalogue est supprimé |
+| Aion Labs (modèles de jeu de rôle) | Palier gratuit à l'inscription : l'allocation du compte, et non le prix d'un modèle (le catalogue en donne un à chacun) ; les clés d'API s'activent en vérifiant une carte bancaire, jamais débitée, une carte par compte gratuit (page « Rate limits » lue le 2026-11-23) ; point d'accès compatible OpenAI, aucun fournisseur LiteLLM de ce nom | 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour pour tout le compte, tous les modèles ensemble, soit quelques requêtes avec des modèles qui raisonnent ; « free use before any purchase is a courtesy that we may change or withdraw at any time » (conditions du 2026-10-17, lues le 2026-11-23), un retrait de modèle ou de limite annoncé 14 jours avant « where we are able to give it » | Routé **à part** : dans le groupe d'accès `Fiction` et dans le seul routeur `Auto-Fiction`, jamais dans `LLM` ni dans une autre cascade, parce que ces modèles sont réglés pour le jeu de rôle et la narration, thèmes adultes et sombres compris, et ne sont pas modérés (voir « Les modèles de jeu de rôle »). Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé. Un seul compte, partage de la clé interdit et passerelle permise (conditions, section 4) ; la carte n'est jamais débitée d'après la page, et le compte reste sans crédit. Ne stocke pas le contenu des requêtes et ne s'en sert pas pour entraîner des modèles (politique de confidentialité) ; société polonaise. **Lu par le contrôle de dérive** : catalogue public sans clé |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
 #### Gemini : conditions et quotas du palier gratuit
@@ -1312,6 +1316,7 @@ Pages officielles lues :
 - Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
 - NVIDIA API Catalog : page d'accueil du catalogue, fiches de ses modèles et [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
 - Cent AI : page d'accueil du service, lue le 2026-11-22
+- Aion Labs : [Rate limits](https://www.aionlabs.ai/docs/rate-limits/), [Pricing](https://www.aionlabs.ai/pricing/), [Terms](https://www.aionlabs.ai/terms/) et [Privacy](https://www.aionlabs.ai/privacy/), lues le 2026-11-23, et son [catalogue](https://api.aionlabs.ai/v1/models)
 - Mistral : [Pricing](https://mistral.ai/pricing)
 - OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
 - Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Authentication](https://kilo.ai/docs/gateway/authentication), [Terms](https://kilo.ai/terms)
@@ -1321,11 +1326,7 @@ Pages officielles lues :
 - DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
 - Requesty : pages « Free models », « Billing », « Quickstart » et « Data privacy » de sa documentation, relues le 2026-11-22
 
-**Groupe 2 -- à ajouter, par ordre de préférence.**
-
-| Fournisseur | Offre gratuite | Limites | Verdict |
-| --- | --- | --- | --- |
-| Aion Labs | Palier gratuit à l'inscription, sans carte : 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour, « a courtesy that we may change or withdraw at any time » (conditions du 2026-10-17) | Modèles Aion, variantes de DeepSeek V3.2 et de la famille GLM d'après sa page ; 20 000 jetons par jour font quelques requêtes ; point d'accès compatible OpenAI, aucun fournisseur LiteLLM nommé | À ajouter en dernier : un seul compte, partage de clé interdit, passerelle autorisée. Ne s'entraîne pas sur le contenu et ne le stocke pas ; société polonaise |
+**Groupe 2 -- à ajouter, par ordre de préférence.** Aucun pour l'instant.
 
 **Groupe 3 -- écartés, avec la raison.**
 
@@ -1365,7 +1366,6 @@ Pages officielles lues :
 - Novita AI : pages « Rate limits » et « FAQ » de sa documentation
 - AI21 : page « Pricing », page « Usage and cost » de sa documentation et ses conditions d'utilisation
 - Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
-- Aion Labs : pages « Pricing », « Rate limits », « Terms » et « Privacy »
 - Fireworks : pages « Pricing », « Account quotas », « What happens when I finish my $1 credit » et « Data handling » de sa documentation
 - Together AI : pages « Pricing », « Billing and credits » et « Privacy and security » de sa documentation
 
@@ -1587,6 +1587,30 @@ curl -s "$GATEWAY/v1/systemone" -H "Authorization: Bearer $KEY" -H "Content-Type
 **Ce qu'ils coûtent** : les jetons d'entrée seulement, sur les 10 000 neurons par jour du compte Cloudflare, partagés avec ses modèles de texte. Au prix lu le 2026-11-23, cela fait au plus environ 460 000 jetons par jour pour Clef, 730 000 pour Clef Omni, 2,9 millions pour Clef Flash, 1,1 million pour Clairic et Clairic Flash (460 000 pour Clairic après le 2026-12-01, quand son prix promotionnel s'arrête).
 
 **Ce qui n'est pas vérifié** : ces routes n'ont pas été appelées depuis une passerelle réelle. Qu'un routeur à replis s'applique à `/v1/systemone` et à `/v1/extraction` comme au chat est ce que dit la documentation de LiteLLM, lue le 2026-11-23, et les routes demandent une version récente de LiteLLM (l'image n'est pas épinglée). Clairic est en préversion, Clairic Flash en préversion de recherche.
+
+### Les modèles de jeu de rôle : le routeur `Auto-Fiction` et le groupe `Fiction`
+
+Aion Labs sert six modèles de texte que son catalogue public, lu le 2026-11-23, décrit comme réglés pour le jeu de rôle et la narration immersifs, avec des « thèmes adultes et sombres » traités avec nuance, et qu'il ne modère pas (`is_moderated` est faux pour les six). Ils sont donc gardés à part : un groupe d'accès à eux, `Fiction`, au lieu de `LLM`, et un routeur à eux, `Auto-Fiction`, qui ne tient qu'eux. Aucun autre routeur n'en tient un, aucun de ces modèles n'est dans une autre cascade, et `check_compose_template.py` refuse un template où l'un des deux se produirait.
+
+| Entrée | Modèle | Famille | Contexte |
+| --- | --- | --- | --- |
+| `aion-3-5-aion-labs` | `aion-labs/aion-3.5` | GLM, système de plusieurs modèles | 262 144 |
+| `aion-3-5-mini-aion-labs` | `aion-labs/aion-3.5-mini` | GLM | 262 144 |
+| `aion-3-0-aion-labs` | `aion-labs/aion-3.0` | GLM | 131 072 |
+| `aion-3-0-mini-aion-labs` | `aion-labs/aion-3.0-mini` | DeepSeek | 131 072 |
+| `aion-2-0-aion-labs` | `aion-labs/aion-2.0` | variante de DeepSeek V3.2 | 131 072 |
+| `aion-rp-llama-3-1-8b-aion-labs` | `aion-labs/aion-rp-llama-3.1-8b` | variante de Llama 3.1 8B | 32 768 |
+
+La cascade de `Auto-Fiction` est dans cet ordre, le plus récent et le plus grand d'abord : aucun chiffre n'est lu pour ces modèles (le classement d'Artificial Analysis n'en publie aucun d'après le mainteneur, ce que cette session n'a pas pu vérifier faute de clé de lecture du classement), l'ordre est donc écrit à la main, et les contrats de routeur les rangent « sans enregistrement ». Le routeur n'existe que si la clé d'Aion Labs est donnée. Les entrées s'écrivent `openai/aion-labs/<modèle>` avec `api_base: https://api.aionlabs.ai/v1`, LiteLLM n'ayant pas de fournisseur de ce nom ; la clé arrive au conteneur comme `AION_LABS_API_KEY`. Aucun appel n'a été fait depuis la session qui a écrit ce qui précède, faute de clé : la forme est celle du guide de démarrage du fournisseur.
+
+**Qui les atteint : personne par défaut.** `Fiction` et `Auto-Fiction` ne sont pas dans `Artificial_Intelligence_LibreChat_gateway_key_models`, et `check_compose_template.py` refuse un défaut qui les contiendrait. Pour les essayer :
+
+- avec LibreChat, ajouter `Fiction` (les six modèles) ou `Auto-Fiction` (le routeur) à cette liste : elle vaut pour la clé de chaque compte LibreChat, qui les atteindra tous ;
+- pour une seule clé, la créer dans `/ui` limitée au groupe `Fiction` ou au modèle `Auto-Fiction`.
+
+**Le palier gratuit est celui du compte, pas celui d'un modèle.** La page « Rate limits » de sa documentation (lue le 2026-11-23) donne au palier gratuit 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour, tous les modèles ensemble, ce qui tient en quelques requêtes avec des modèles qui raisonnent. Les clés d'API s'activent en vérifiant une carte bancaire, jamais débitée, une carte par compte gratuit. Ses conditions (du 2026-10-17) disent que l'usage gratuit « is a courtesy that we may change or withdraw at any time », et qu'un modèle ou une limite se retire avec 14 jours de préavis « where we are able to give it ». Le catalogue donne un prix à chaque modèle, et tout achat de crédit fait passer le compte au palier 1, sans limite quotidienne de jetons, où les appels sont facturés à ces prix : **n'ajouter aucun crédit au compte**, de façon que la limite quotidienne reste la fin de l'allocation.
+
+**Le contrôle de dérive lit ce catalogue**, public et sans secret. Un modèle qu'il ne liste plus est une entrée à supprimer, comme chez les autres fournisseurs, et la pull request qui la supprime est relue par une personne, le groupe `Fiction` n'étant pas `LLM`. Un modèle nouveau n'est jamais prêt : aucun indicateur de gratuité par modèle n'existe, il est proposé dans la pull request des modèles à vérifier, avec une entrée écrite dans le groupe `Fiction`, à placer à la main dans `Auto-Fiction`.
 
 ### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
 

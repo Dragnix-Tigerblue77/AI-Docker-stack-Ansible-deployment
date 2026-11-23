@@ -106,6 +106,12 @@ model_list:
       extra_headers:
         Authorization: ""
 
+  - model_name: aion-one
+    litellm_params:
+      model: openai/aion-labs/aion-one
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY_SELFTEST"
+
   # Served, but not routed to: paid only.
   # - model_name: paid-one
   #   litellm_params:
@@ -395,6 +401,13 @@ def requesty_model(identifier, prices=(0, 0), retires=None):
     return model
 
 
+def aion_model(identifier, modality="text->text", expires=None, replacement=None):
+    """A model of Aion Labs' public catalogue: every model has a price and none is flagged free."""
+    return {"id": identifier, "name": identifier, "architecture": {"modality": modality},
+            "pricing": {"prompt": "0.0000008000", "completion": "0.0000016000"},
+            "expires_at": expires, "replacement_model_id": replacement}
+
+
 def selftest_answers():
     """Canned catalogues matching SELFTEST_TEMPLATE exactly: no drift at all."""
     return {
@@ -433,6 +446,7 @@ def selftest_answers():
             kilo_model("vendor/kilo-painter:free", outputs=("image",)),
             kilo_model("vendor/kilo-voice-tts:free"),
         ]},
+        "aionlabs": {"object": "list", "data": [aion_model("aion-labs/aion-one")], "models": []},
         # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
         "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
                         "success": True}],
@@ -473,6 +487,7 @@ def answers_listing(text, without=()):
                              for i in sorted(ids["mistral"])]},
         "deepseek": {"data": [{"id": i} for i in sorted(ids["deepseek"])]},
         "kilo": {"data": [kilo_model(i) for i in sorted(ids["kilo"])]},
+        "aionlabs": {"data": [aion_model(i) for i in sorted(ids["aionlabs"])]},
         "cloudflare": [{"result": [{"name": i, "task": {"name": "Text Generation"}}
                                    for i in sorted(ids["cloudflare"])], "success": True}],
         "nvidia": {"data": [{"id": i} for i in sorted(ids["nvidia"])]},
@@ -598,6 +613,31 @@ def online_cases():
         data = [model for model in base["kilo"]["data"] if model["id"] not in without
                 and model["id"] not in [each["id"] for each in replacing]]
         return {"data": data + list(replacing) + list(extra)}
+
+    def aion_with(*extra, without=(), replacing=()):
+        data = [model for model in base["aionlabs"]["data"] if model["id"] not in without
+                and model["id"] not in [each["id"] for each in replacing]]
+        return {"data": data + list(replacing) + list(extra)}
+
+    def aion_asked_without_a_key(result, calls, report, body):
+        asked = [headers for url, headers in calls if "api.aionlabs.ai" in url]
+        if not asked:
+            return "the Aion Labs catalogue was never read"
+        if any("Authorization" in headers or "authorization" in headers for headers in asked):
+            return "a key was sent to Aion Labs, whose catalogue is public"
+        if len(asked) != 1:
+            return "Aion Labs was asked %d times, where its list is all a deletion rests on" % len(asked)
+        return None
+
+    def aion_new_to_examine(result, calls, report, body):
+        line = next((line for line in report.splitlines() if "aion-three" in line), "")
+        if "openai/aion-labs/aion-three on Aion Labs: to examine, its free tier is not machine-readable" not in line:
+            return "the report does not list the new Aion Labs model as one to examine, with no claim that it is free"
+        if 'access_groups: ["Fiction"]' not in body:
+            return "the entry to paste is not in the group of the models kept apart"
+        if "## Nouveaux modèles à examiner" not in body or "aionlabs.ai/docs/rate-limits" not in body:
+            return "the summary does not list the new Aion Labs model to examine, with the page that states its free tier"
+        return None
 
     def kilo_asked_without_a_key(result, calls, report, body):
         asked = [headers for url, headers in calls if "ai-gateway.kilo.ai" in url]
@@ -828,6 +868,33 @@ def online_cases():
         ("a Kilo catalogue that is down is an error, not a catalogue of zero models",
          SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("kilo", urllib.error.URLError("selftest: no route")), no_drift, 2,
          None),
+        ("an active Aion Labs id the catalogue no longer lists is RETIRED, read without a key",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("aionlabs", aion_with(without=("aion-labs/aion-one",))),
+         [("retired", "aion-labs/aion-one")], 1, aion_asked_without_a_key),
+        ("an active Aion Labs id the catalogue still lists is kept, and the catalogue is read once without a key",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, base, no_drift, 0, aion_asked_without_a_key),
+        ("a new Aion Labs model is NEW and never free, since no model of its catalogue is flagged so",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("aionlabs", aion_with(aion_model("aion-labs/aion-three"))),
+         [("new", "aion-labs/aion-three")], 1, aion_new_to_examine),
+        ("an expiration date on an active Aion Labs id is a NOTICE with its replacement",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("aionlabs", aion_with(replacing=(aion_model("aion-labs/aion-one", expires="2026-12-20",
+                                                              replacement="aion-labs/aion-two"),))),
+         [("notice", "aion-labs/aion-one")], 1,
+         lambda result, calls, report, body: (
+             None if "expires on 2026-12-20, replacement: aion-labs/aion-two" in report
+             and "remplaçant désigné : `aion-labs/aion-two`" in body
+             else "the notice does not say the date and the replacement")),
+        ("an image model of Aion Labs is NEW with its usage",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS,
+         changed("aionlabs", aion_with(aion_model("aion-labs/aion-painter", modality="text->image"))),
+         [("new", "aion-labs/aion-painter")], 1,
+         lambda result, calls, report, body: (
+             None if "openai/aion-labs/aion-painter on Aion Labs" in report and "usage: image" in report
+             else "the report does not give the usage of the Aion Labs image model")),
+        ("an Aion Labs catalogue that is down is an error, not a catalogue of zero models",
+         SELFTEST_TEMPLATE, SELFTEST_KEYS, changed("aionlabs", urllib.error.URLError("selftest: no route")),
+         no_drift, 2, None),
         ("a Groq model listed as inactive is a NOTICE",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("groq", {"data": [{"id": "vendor/fast", "active": False}]}),
@@ -2808,6 +2875,20 @@ def online_apply_cases():
             return "the commit subject is %r" % commit.splitlines()[0]
         return None
 
+    aion_without_one = {"data": [aion_model("aion-labs/aion-other")]}
+
+    def deletes_aion_one(result, new_text, report, summary, pr, commit):
+        if "aion-labs/aion-one" in new_text or "model_name: aion-one\n" in new_text:
+            return "the retired entry is still in the file"
+        if undeleted_count(result) != 0:
+            return "a model that was deleted is counted as left to a person"
+        for name, needle in (("pr", "`openai/aion-labs/aion-one` chez Aion Labs"),
+                             ("pr", "<https://api.aionlabs.ai/v1/models>, lu le 2026-01-01"),
+                             ("commit", "found 1 id it no longer lists, from Aion Labs (1)")):
+            if needle not in " ".join({"pr": pr, "commit": commit}[name].split()):
+                return "the %s lacks %r" % (name, needle)
+        return None
+
     def nothing_to_read(result, new_text, report, summary, pr, commit):
         # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no
         # "À relire" section: this is the case where it has none.
@@ -3102,6 +3183,10 @@ def online_apply_cases():
          SELFTEST_TEMPLATE,
          changed(groq=groq_without_fast),
          deletes_fast, 1),
+        ("a retired entry of Aion Labs is deleted on its public catalogue alone, and the pull request names it",
+         SELFTEST_TEMPLATE,
+         changed(aionlabs=aion_without_one),
+         deletes_aion_one, 1),
         ("a deletion that leaves nothing for a person to read has no section asking for it",
          SELFTEST_TEMPLATE,
          changed(groq=groq_without_fast),
@@ -3465,6 +3550,12 @@ model_list:
       api_key: "gw-no-key"
       extra_headers:
         Authorization: ""
+
+  - model_name: aion-one
+    litellm_params:
+      model: openai/aion-labs/aion-one
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
 
   - model_name: literal-key
     litellm_params:
@@ -3987,6 +4078,20 @@ def run_proposal_cases():
     problem = build_additions(environment_key, "2026-01-01", "ready", kilo_items[:1])[1]
     judged("a keyless gateway's entry is not modelled on one that reads a key from the environment",
            None if problem and "is not a plain marker" in problem else "refused for %r" % problem)
+    # An entry of a provider whose models are kept out of "LLM": modelled on its last entry like any other, and
+    # written in the group of its own.
+    aion_items = [{"provider": "aionlabs", "id": "aion-labs/aion-two", "name": "aion-two-aion-labs"}]
+    aion_text, aion_problem = build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "to_verify", aion_items)
+    judged("an entry of the models kept apart is written in the group of its own, with the key and the base of the provider's",
+           first_wrong(
+               (aion_problem is None and aion_text, "refused for %r" % aion_problem),
+               (("  - model_name: aion-two-aion-labs\n    model_info:\n      access_groups: [\"Fiction\"]\n"
+                 "    litellm_params:\n      model: openai/aion-labs/aion-two\n"
+                 '      api_base: "https://api.aionlabs.ai/v1"\n      api_key: "os.environ/AION_LABS_API_KEY"\n')
+                in aion_text, "the entry is not in the group Fiction, or lost the key or the base of its provider's"),
+               (addition_problem(ADDITIONS_TEMPLATE, aion_text, aion_items) is None, "the file does not read back"),
+               ("free tier, and only" in (build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", aion_items)[1] or ""),
+                "a ready addition of a provider whose catalogue flags no model free was let through")))
     entries = addition_entries(ADDITIONS_TEMPLATE.split("\n"))
     basis = provider_basis(read_template(ADDITIONS_TEMPLATE)[0]["active"], "kilo")
     taken = set(WORD.findall(ADDITIONS_TEMPLATE)) | {"gw-one-kilo"}
@@ -4749,7 +4854,8 @@ def run_pricing_page_cases():
                    "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "mistral.ai",
                    "deepseek": "api-docs.deepseek.com", "cloudflare": "developers.cloudflare.com",
                    "nvidia": "build.nvidia.com", "ovhcloud": "www.ovhcloud.com", "zai": "docs.z.ai",
-                   "centai": "cent-ai.dev"}
+                   "centai": "cent-ai.dev",
+                   "aionlabs": "www.aionlabs.ai"}
 
     def foreign(table):
         return ["%s -> %s" % (name, urllib.parse.urlparse(url).hostname)
@@ -4825,12 +4931,14 @@ router_settings:
     - flash-lite: [kilo, india, bravo, lima, quebec]
     - code: [alpha, delta, november, oscar, sierra]
     - claude-code: [alpha, echo, november, delta, quebec]
+    - fiction: [papa, romeo]
   model_group_alias:
     "pro": "alpha"
     "flash": "bravo"
     "flash-lite": "kilo"
     "code": "alpha"
     "claude-code": "alpha"
+    "fiction": "papa"
 """
 
 
@@ -4879,6 +4987,10 @@ def contract_document():
             "code": contract_router(code_anchor("Alpha code", deepswe_external=["alpha_medium"],
                                                 swe_bench_verified=["alpha_medium"]), 0.2, criterion="code_quality"),
             "claude-code": {"derives_from": "code", "requires": ["tools"], "reason": "selftest"},
+            "fiction": {"intelligence_floor": {"none": True, "reason": "selftest"},
+                        "level_gain": {"min_points_per_second": 0, "reason": "selftest"},
+                        "ranking": {"criterion": "intelligence", "tie_margin_points": 0, "reason": "selftest"},
+                        "last_resort": {"members": [], "reason": "selftest"}},
         },
         "models": {
             "alpha": dict(contract_mapping("alpha-medium", "medium"), epoch={"deepswe_external": ["alpha_medium"]}),
@@ -5123,9 +5235,9 @@ def run_contract_cases():
     del without_lite["routers"]["flash-lite"]
     judged("a router with no cascade in the template, or with no contract, is left out of the report",
            first_wrong(
-               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
+               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code", "fiction"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
                ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
-                == ["pro", "flash", "code", "claude-code"], "no contract")))
+                == ["pro", "flash", "code", "claude-code", "fiction"], "no contract")))
 
     def derivation_text(**changes):
         differences = {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}
