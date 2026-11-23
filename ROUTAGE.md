@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Routage des modèles
 
-Ce document dit quel modèle est où, à quel niveau de réflexion et pourquoi. Il est tenu à la main, et `.github/scripts/check_routing_document.py` fait échouer la CI s'il dit autre chose que le gabarit `templates/LiteLLM_config.yaml.j2` sur deux points : l'ordre des membres de chaque routeur et le niveau fixé d'une entrée. Les chiffres et les raisons, eux, sont du texte qu'une personne relit. Les contrats (`.github/LiteLLM_router_contracts.yaml`) restent la source des chiffres, relus chaque semaine : ceux d'ici sont ceux d'Artificial Analysis (indice d'intelligence et délai moyen avant le premier mot de la réponse) et d'Epoch AI lus le 2026-11-21, et ceux des limites de Google lus le 2026-11-22.
+Ce document dit quel modèle est où, à quel niveau de réflexion et pourquoi. Il est tenu à la main, et `.github/scripts/check_routing_document.py` fait échouer la CI s'il dit autre chose que le gabarit `templates/LiteLLM_config.yaml.j2` sur deux points : l'ordre des membres de chaque routeur et le niveau fixé d'une entrée. Les chiffres et les raisons, eux, sont du texte qu'une personne relit. Les contrats (`.github/LiteLLM_router_contracts.yaml`) restent la source des chiffres, relus chaque semaine : ceux d'ici sont ceux d'Artificial Analysis (indice d'intelligence et délai moyen avant le premier mot de la réponse) et d'Epoch AI lus le 2026-11-21, et ceux des limites gratuites aux dates que donne le registre des fournisseurs du README.
 
 Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fournisseurs. Sans la clé d'un fournisseur, ses entrées disparaissent et l'ordre des autres ne change pas.
 
@@ -25,7 +25,7 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 4. les membres qui partagent le quota d'un membre de `Auto-Pro` ou de `Auto-Flash` (voir ci-dessous), dans le même ordre ;
 5. le payant, tout à la fin.
 
-**Un membre de `Auto-Flash-Lite` ne mange pas le quota de `Auto-Pro` ou de `Auto-Flash`.** Le quota gratuit de Google est compté par modèle et par projet, pas par clé. Un membre de `Auto-Flash-Lite` qui est le même modèle chez le même fournisseur (même identifiant de modèle, même adresse) qu'un membre de `Auto-Pro` ou de `Auto-Flash` dépense donc le même compteur : il passe après tous les membres de `Auto-Flash-Lite` qui ont un quota à eux. Le rapport de contrat trouve ces membres tout seul dans le gabarit, il n'y en a pas de liste tenue à la main.
+**Un membre de `Auto-Flash-Lite` ne mange pas le quota de `Auto-Pro` ou de `Auto-Flash`.** Chez un fournisseur dont le quota gratuit est compté par modèle (voir « Les limites gratuites des fournisseurs » plus bas), un membre de `Auto-Flash-Lite` qui est le même modèle chez le même fournisseur (même identifiant de modèle, même adresse) qu'un membre de `Auto-Pro` ou de `Auto-Flash` dépense le même compteur : il passe après tous les membres de `Auto-Flash-Lite` qui ont un quota à eux. Le rapport de contrat trouve ces membres tout seul dans le gabarit, il n'y en a pas de liste tenue à la main.
 
 **Les niveaux fixés.** Seules les entrées Gemini dont Artificial Analysis mesure les niveaux (Gemini 4 Hydrogen et Gemini 3.8 Flash) ont un niveau fixé, avec une entrée par niveau dont un routeur a besoin, nommée `<entrée>-<niveau>` (le nom sans suffixe porte le niveau que garde `Auto-Pro`). Ce niveau n'est qu'une valeur par défaut : si un client envoie son propre niveau, c'est le sien qui compte. Claude Code en envoie toujours un, donc `Auto-Claude-Code` n'est pas piloté par ces niveaux ; LibreChat et n8n n'en envoient pas, ils reçoivent le niveau fixé. Les autres entrées n'ont pas de niveau fixé :
 
@@ -37,24 +37,40 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 | Gemini 4 Hydrogen | `high` : `gemini-4-hydrogen` | `high` : `gemini-4-hydrogen` | `low` : `gemini-4-hydrogen-low` |
 | Gemini 3.8 Flash | `medium` : `gemini-3-8-flash` | `low` : `gemini-3-8-flash-low` | `low` : `gemini-3-8-flash-low` |
 
-## Les limites gratuites de Google
+## Les limites gratuites des fournisseurs
 
-Page des limites de débit de Google AI Studio du projet de la passerelle, niveau sans frais, lue le 2026-11-22. Les quotas sont comptés par projet et par modèle, et les quotas du jour repartent à zéro à minuit, heure du Pacifique.
+Un seul tableau pour tous les fournisseurs que la passerelle appelle et pour tous les types de modèles. La colonne « Comptée par » dit ce qui partage un même compteur : un modèle (ses entrées seules), un compte (toutes les entrées du fournisseur ensemble) ou une adresse IP. Les chiffres viennent du registre des fournisseurs du README, qui donne la page lue et sa date pour chacun ; ceux de Google sont ceux de la page des limites de Google AI Studio du projet de la passerelle, niveau sans frais, lue le 2026-11-22.
 
-| Modèle | Requêtes par minute | Jetons par minute | Requêtes par jour |
-| --- | --- | --- | --- |
-| Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash, Gemini 2.5 Flash | 5 | 250 000 | 20 |
-| Gemini 3.5 Flash-Lite, Gemini 3.1 Flash-Lite | 15 | 250 000 | 500 |
-| Gemini 2.5 Flash-Lite | 10 | 250 000 | 20 |
-| Gemma 4 31B, Gemma 4 26B | 30 | 16 000 | 14 400 |
-| Gemini Embedding 1 et 2 | 100 | 30 000 | 1 000 |
-| Modèles de synthèse vocale (3.8 Flash TTS, 3.8 Flash Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS) | 3 | 10 000 | 10 |
-| Gemini 3.5 Transcribe | 3 | 10 000 | 25 |
-| Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon et Carbon | 0 | 0 | 0 (pas servis en gratuit) |
+| Fournisseur | Modèles | Limite gratuite | Comptée par | Remise à zéro |
+| --- | --- | --- | --- | --- |
+| Google Gemini | Gemini 4 Hydrogen, Gemini 3.8 Flash, 3.6 Flash, 3 Flash, 2.5 Flash | 5 requêtes par minute, 250 000 jetons par minute, 20 requêtes par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemini 3.5 Flash-Lite, 3.1 Flash-Lite | 15 par minute, 250 000 jetons par minute, 500 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemini 2.5 Flash-Lite | 10 par minute, 250 000 jetons par minute, 20 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemma 4 31B, Gemma 4 26B | 30 par minute, 16 000 jetons par minute, 14 400 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemini Embedding 1 et 2 | 100 par minute, 30 000 jetons par minute, 1 000 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Synthèse vocale : 3.8 Flash TTS, 3.8 Flash Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS | 3 par minute, 10 000 jetons par minute, 10 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemini 3.5 Transcribe | 3 par minute, 10 000 jetons par minute, 25 par jour | modèle et projet | minuit, heure du Pacifique |
+| Google Gemini | Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon et Carbon | aucune : pas servis en gratuit | — | — |
+| Groq | gpt-oss, qwen3.8-27b | 30 requêtes par minute, 8 000 jetons par minute ; par jour : non relevé | modèle et organisation | non relevé |
+| Groq | whisper-large-v3, whisper-large-v3-turbo | 20 requêtes par minute, 7 200 secondes d'audio par heure (plan non établi), 25 Mo par fichier | modèle et organisation | non relevé |
+| Cloudflare Workers AI | tous | 10 000 « neurons » par jour ; texte : 300 requêtes par minute | compte | 00:00 UTC |
+| NVIDIA API Catalog | tous | 40 requêtes par minute ; plafond quotidien inconnu | compte | — |
+| OpenRouter | modèles `:free` | 20 requêtes par minute, 50 par jour (1 000 une fois 10 crédits achetés) | compte | non relevé |
+| Requesty | modèles gratuits | 20 requêtes par minute, 200 par jour | organisation | non relevé |
+| Kilo Gateway | modèles gratuits, sans clé | 200 requêtes par heure | adresse IP | — |
+| OVHcloud AI Endpoints | modèles sans clé | 2 requêtes par minute, observées, écrites sur aucune page | adresse IP et modèle | — |
+| Z AI | GLM-4.7-Flash | non publiées hors de la console du compte : inconnues | — | — |
+| Cent AI | `hy4-flash:free` | aucune annoncée ; gratuit jusqu'au 30 novembre, la suite est inconnue | — | — |
+| Mistral | tous | aucune : payant, sur un solde prépayé | — | — |
+| DeepSeek | tous | aucune : payant, sur un solde prépayé | — | — |
+| OmniRoute | tous | agrégateur local, aucun quota | — | — |
 
-Gemini 3.7 Flash ne figure pas du tout dans la liste de cette page.
+Gemini 3.7 Flash ne figure pas du tout dans la liste de la page de Google.
 
-Ce que ça change, en clair : les têtes de `Auto-Pro` et de `Auto-Flash` n'ont que 20 requêtes par jour. Ces 20 requêtes sont partagées par toutes les entrées du même modèle : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `Auto-Pro` et de `Auto-Flash`. Quand les 20 sont épuisées, la cascade passe au membre suivant. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `Auto-Flash-Lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
+Ce que ça change, en clair :
+
+- **Quand le compteur est celui d'un modèle**, toutes les entrées de ce modèle chez ce fournisseur le partagent, quel que soit leur niveau de réflexion. Par exemple, les têtes de `Auto-Pro` et de `Auto-Flash` n'ont que 20 requêtes par jour : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `Auto-Pro` et de `Auto-Flash`. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `Auto-Flash-Lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
+- **Quand le compteur est celui d'un compte ou d'une adresse IP**, toutes les entrées du fournisseur le partagent, quel que soit le modèle : une fois épuisé, chacune répond par un refus, et la cascade passe au membre suivant.
 
 ## Les routeurs
 
