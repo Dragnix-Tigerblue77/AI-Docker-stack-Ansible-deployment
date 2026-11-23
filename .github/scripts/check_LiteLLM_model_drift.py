@@ -4795,6 +4795,8 @@ def propose_name(provider, identifier, taken):
 
 def snippet(provider, identifier, basis, name):
     lines = ["  - model_name: %s" % name,
+             "    model_info:",
+             '      access_groups: ["LLM"]',
              "    litellm_params:",
              "      model: %s" % litellm_id(provider, identifier)[0]]
     if basis["api_base"]:
@@ -5527,7 +5529,8 @@ def addition_block(kind, date, item, anchor):
     """The lines a proposed entry adds after its anchor: a blank line, its comment, the entry."""
     lead = "  # " if anchor["commented"] else "  "
     block = ["", "  # " + addition_note(kind, date, item["provider"], anchor["commented"]),
-             "%s- model_name: %s" % (lead, item["name"]), "%s  litellm_params:" % lead,
+             "%s- model_name: %s" % (lead, item["name"]), "%s  model_info:" % lead,
+             '%s    access_groups: ["LLM"]' % lead, "%s  litellm_params:" % lead,
              "%s    model: %s" % (lead, litellm_id(item["provider"], item["id"])[0])]
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))

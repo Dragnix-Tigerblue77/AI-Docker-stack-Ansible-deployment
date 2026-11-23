@@ -924,7 +924,7 @@ jobs:
                 if (anchor.commented) note = `Not routed to: proposed by the weekly drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
                 else if (spec.free !== undefined) note = `Proposed by the weekly drift run on ${date}: listed free by "${spec.free}" that day.`;
                 else note = `Proposed by the weekly drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
-                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
+                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["LLM"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
                 if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);

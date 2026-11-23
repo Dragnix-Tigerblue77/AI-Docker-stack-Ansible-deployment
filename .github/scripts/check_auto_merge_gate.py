@@ -180,8 +180,8 @@ async function play(scenario) {
 # ---------------------------------------------------------------------------------------------------
 
 def entry(name, address=False, key="GEMINI", header=None):
-    lines = ["  - model_name: %s" % name, "    litellm_params:", "      model: provider/%s" % name,
-             '      api_key: "os.environ/%s_API_KEY"' % key]
+    lines = ["  - model_name: %s" % name, "    model_info:", '      access_groups: ["LLM"]', "    litellm_params:",
+             "      model: provider/%s" % name, '      api_key: "os.environ/%s_API_KEY"' % key]
     if address:
         lines.append("      api_base: http://gateway.invalid:1234/v1")
     if header is not None:
@@ -427,8 +427,8 @@ def scenarios():
     # no other provider's has, and a key of its own.
     at = base.index("  - model_name: m1")
     cloudflare = list(base)
-    cloudflare[at + 2] = "      model: cloudflare/@cf/vendor/m1"
-    cloudflare[at + 3] = '      api_key: "os.environ/CLOUDFLARE_API_KEY"'
+    cloudflare[at + 4] = "      model: cloudflare/@cf/vendor/m1"
+    cloudflare[at + 5] = '      api_key: "os.environ/CLOUDFLARE_API_KEY"'
     add("deletion: a whole Cloudflare entry, whose model starts with \"@cf/\"", "merged",
         removals(deletion(cloudflare, set(block_of(cloudflare, "m1")))[0]))
     add("deletion: a Cloudflare entry and the model line of one that stays", "not merged",
@@ -461,6 +461,9 @@ def scenarios():
     valued = [line.replace('Authorization: ""', 'Authorization: "Bearer x"') for line in base]
     add("deletion: an entry of a keyless gateway whose header carries a value", "not merged",
         removals(deletion(valued, set(block_of(valued, "m7")))[0]), needle="is not a model entry")
+    other_group = [line.replace('access_groups: ["LLM"]', 'access_groups: ["STT"]') for line in base]
+    add("deletion: an entry in an access group other than LLM", "not merged",
+        removals(deletion(other_group, set(block_of(other_group, "m1")))[0]), needle="is not a model entry")
     add("deletion: an entry, and a setting that carries a comment", "not merged",
         removals(deletion(base, whole | {base.index(SETTING)})[0]), needle="is not a model entry")
     add("deletion: an entry, and the heading of a section", "not merged",
