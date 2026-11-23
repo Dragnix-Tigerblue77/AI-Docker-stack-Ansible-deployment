@@ -175,6 +175,8 @@ CLAUDE_CODE_TOKEN_ENVIRONMENT = ("GH_TOKEN", "GITHUB_TOKEN")
 CLAUDE_CODE_MODEL_VARIABLE = "Artificial_Intelligence_Claude_code_model"
 # The routers the agent's key allows besides that alias (#307): the key's allow-list, which no render reads.
 CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE = "Artificial_Intelligence_Claude_code_additional_models"
+# What the gateway key of a LibreChat account allows: access groups and routers, which LiteLLM lists under that key.
+LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE = "Artificial_Intelligence_LibreChat_gateway_key_models"
 CLAUDE_CODE_MODEL_ENVIRONMENT = (
     "ANTHROPIC_MODEL",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
@@ -764,40 +766,64 @@ def check_agent_token_default(defaults, failures):
         )
 
 
-def check_agent_additional_models_default(defaults, failures):
-    """Hold the agent's additional models to being the template's routers, the alias it asks for left out.
+def check_key_allow_list_default(defaults, name, known, required, failures, reference, unknown_effect, missing_effect):
+    """Hold the default of a key's allow-list to names the template serves, and to holding the ones it must.
 
-    The list is the allow-list of the agent's key (#307), which no render reads: a router missing from it
-    is one the agent cannot be told to use, and the gateway refuses it the same way it refuses a name that
-    does not exist, so nothing says it was forgotten. A name in it that is no router is a model the key
-    lets the agent ask for and nobody meant. The routers are LITELLM_ROUTERS, under their public names, which
-    the LiteLLM render is already held to serving; the alias is left out because the key carries it from its
-    own variable.
-    """
-    name = CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE
+    Such a list is the "models" of a key, which no render reads: a name missing from it is one the key cannot
+    call, which the gateway refuses the way it refuses a name that does not exist, so nothing says it was
+    forgotten, and a name in it that nothing serves is one the key lets its holder ask for and nobody meant.
+    `known` is every name the list may hold, `required` the ones its default must, and `reference` a trailer for the
+    shape message."""
     value = defaults.get(name)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         failures.append(
-            f"{name} must default to a list of strings, the key's allow-list (#307), not "
+            f"{name} must default to a list of strings, the key's allow-list{reference}, not "
             f"{type(value).__name__ if name in defaults else 'nothing: it has no default'}"
         )
         return
-    alias = defaults.get(CLAUDE_CODE_MODEL_VARIABLE)
-    routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
-    unknown = sorted(set(value) - routers)
-    missing = sorted(routers - {alias} - set(value))
+    unknown = sorted(set(value) - known)
+    missing = sorted(required - set(value))
     if unknown:
-        failures.append(
-            f"{name} lists {', '.join(map(repr, unknown))}, which is no router of LiteLLM_config.yaml.j2: the "
-            "key would let the agent ask for a name nobody meant it to (#307)"
-        )
+        failures.append(f"{name} lists {', '.join(map(repr, unknown))}, which {unknown_effect}")
     if missing:
-        failures.append(
-            f"{name} leaves out the router(s) {', '.join(map(repr, missing))}: the agent could not be told "
-            "to use them, and the gateway would only say that the key does not allow them (#307)"
-        )
+        failures.append(f"{name} leaves out {', '.join(map(repr, missing))}: {missing_effect}")
     if len(set(value)) != len(value):
         failures.append(f"{name} lists a name twice")
+
+
+def check_agent_additional_models_default(defaults, failures):
+    """Hold the agent's additional models to being the template's routers, the alias it asks for left out.
+
+    The list is the allow-list of the agent's key (#307). The routers are LITELLM_ROUTERS, under their public
+    names, which the LiteLLM render is already held to serving; the alias is left out because the key carries
+    it from its own variable.
+    """
+    routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
+    check_key_allow_list_default(
+        defaults, CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE, routers, routers - {defaults.get(CLAUDE_CODE_MODEL_VARIABLE)},
+        failures, " (#307)",
+        unknown_effect="is no router of LiteLLM_config.yaml.j2: the key would let the agent ask for a name nobody meant "
+                       "it to (#307)",
+        missing_effect="the agent could not be told to use it, and the gateway would only say that the key does not "
+                       "allow it (#307)",
+    )
+
+
+def check_librechat_gateway_key_models_default(defaults, failures):
+    """Hold the models of a LibreChat account's gateway key to the template's access groups and routers.
+
+    LibreChat lists what LiteLLM answers for the key, so the list is also the menu of the account: the group of
+    the text models, and the routers that group does not hold, since a router is in no group. The router of the
+    agent is left out of what the default must hold, and may be named."""
+    routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
+    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"}
+    check_key_allow_list_default(
+        defaults, LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE, routers | groups,
+        {"LLM"} | (routers - {LITELLM_ROUTER_PUBLIC_NAMES["claude-code"]}), failures, "",
+        unknown_effect="is neither an access group nor a router of LiteLLM_config.yaml.j2: the key would list a name "
+                       "that nothing serves",
+        missing_effect="a LibreChat account could not pick it, and LiteLLM would only say that its key does not allow it",
+    )
 
 
 def dollar_sample(name, quotes=True):
@@ -1526,7 +1552,7 @@ AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
       CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["Auto-Claude-Code"] + _ROUTERS_BESIDES_THE_ALIAS}, None),
     ("a router forgotten",
      {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["Auto-Pro", "Auto-Flash", "Auto-Code"]},
-     "leaves out the router(s) 'Auto-Flash-Lite'"),
+     "leaves out 'Auto-Flash-Lite'"),
     ("a name that is no router",
      {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
       CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["auto"]},
@@ -1542,6 +1568,31 @@ AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
      {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: "Auto-Pro"},
      "must default to a list of strings, the key's allow-list (#307), not str"),
     ("no default at all", {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code"}, "it has no default"),
+]
+
+# (name, the parsed defaults, expected substring or None), for the models a LibreChat account's gateway key may call.
+_LIBRECHAT_KEY_DEFAULT = ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]
+LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
+    ("the group of text models and the four routers", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT}, None),
+    ("the router of the agent too is accepted",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Auto-Claude-Code"]}, None),
+    ("another group too is accepted",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Embeddings"]}, None),
+    ("the group forgotten",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: ["Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]},
+     "leaves out 'LLM'"),
+    ("a router forgotten",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Code"]}, "leaves out 'Auto-Flash-Lite'"),
+    ("a router written by its short id, which no client types",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["flash"]},
+     "lists 'flash', which is neither an access group nor a router"),
+    ("a group that does not exist",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["llm"]},
+     "lists 'llm', which is neither an access group nor a router"),
+    ("a name twice", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["LLM"]}, "lists a name twice"),
+    ("a bare string, which Ansible would read as characters", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: "LLM"},
+     "must default to a list of strings, the key's allow-list, not str"),
+    ("no default at all", {}, "it has no default"),
 ]
 
 VOLUME_NAME_DEFAULT_CASES = [
@@ -2594,6 +2645,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, defaults, expected in LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES:
+        failures = []
+        try:
+            check_librechat_gateway_key_models_default(defaults, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, alias, expected in AGENT_MODEL_CASES:
         failures = []
         try:
@@ -2664,6 +2724,7 @@ def selftest():
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
         f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
+        f"case(s), {len(LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES)} LibreChat gateway key models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
@@ -2735,6 +2796,7 @@ def main():
 
     check_agent_token_default(defaults, failures)
     check_agent_additional_models_default(defaults, failures)
+    check_librechat_gateway_key_models_default(defaults, failures)
     check_volume_name_defaults(defaults, failures)
     if CLAUDE_CODE_STATE in documents and CLAUDE_CODE_TOKEN_STATE in documents:
         check_agent_token(

@@ -14,9 +14,8 @@ remember it.
 
 WHAT IT CAN AND CANNOT STOP
 ---------------------------
-It reports and stops nothing by itself. The organisation's plan lets no check be required before a
-merge on a private repository, so a red job informs the reviewer, whose review is the only gate on a
-human's merge. The one merge it decides is Dependabot's, because dependabot-auto-merge.yml reads it
+It reports and stops nothing by itself. No ruleset is imported, so no check is required before a
+merge, and a red job informs the reviewer, whose review is the only gate on a human's merge. The one merge it decides is Dependabot's, because dependabot-auto-merge.yml reads it
 among the contexts of ".github/rulesets/main.json". Nothing in .githooks reads a sign-off either.
 
 ON THE PULL REQUEST, AND ONLY THERE

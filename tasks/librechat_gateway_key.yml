@@ -14,6 +14,12 @@
 # LiteLLM already holds the alias (the run stopped between the two calls, or the key was deleted from LibreChat),
 # the call is refused, and the message below says to delete that key from "/ui" and deploy again.
 #
+# The key may call what "Artificial_Intelligence_LibreChat_gateway_key_models" says, which is also what LibreChat lists
+# under it. That list is brought to the key an account already has as well, through LiteLLM's own key update, found by
+# the alias: the key's value is held by LibreChat alone and is never read back, but LiteLLM answers for the hash of
+# each key it holds. A key the role has just made carries the list from the start, so the update is made only for a
+# key that was there before and differs, and a run that finds it level changes nothing.
+#
 # The name LibreChat stores a custom endpoint's key under is the endpoint's name, read from the file the container
 # mounts so that it is written once.
 #
@@ -48,6 +54,45 @@
       no_log: true
       changed_when: false
 
+    - name: "Look up the LiteLLM virtual key of {{ Artificial_Intelligence_LibreChat_account.username }}"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/list?return_full_object=true&key_alias=librechat-{{ Artificial_Intelligence_LibreChat_account.username | urlencode }}"
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        status_code: [200]
+      register: Artificial_Intelligence_LibreChat_key_list
+      no_log: true
+      changed_when: false
+
+    # "['keys']" and not ".keys": a dictionary's own method answers to the second. The alias is held to be exactly
+    # the account's, whatever the filter of the version that answered matched.
+    - name: "Read the LiteLLM virtual key of {{ Artificial_Intelligence_LibreChat_account.username }} the alias names"
+      ansible.builtin.set_fact:
+        Artificial_Intelligence_LibreChat_account_held_keys: >-
+          {{ Artificial_Intelligence_LibreChat_key_list.json['keys'] | default([])
+          | selectattr('key_alias', 'defined')
+          | selectattr('key_alias', 'equalto', 'librechat-' ~ Artificial_Intelligence_LibreChat_account.username) | list }}
+      no_log: true
+
+    - name: "Bring the models of the LiteLLM virtual key of {{ Artificial_Intelligence_LibreChat_account.username }} to the list"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/update"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        body_format: json
+        body:
+          key: "{{ Artificial_Intelligence_LibreChat_account_held_keys[0].token }}"
+          models: "{{ Artificial_Intelligence_LibreChat_gateway_key_models | unique | list }}"
+        status_code: [200]
+      no_log: true
+      changed_when: true
+      when:
+        - Artificial_Intelligence_LibreChat_account_held_keys | length == 1
+        - >-
+          (Artificial_Intelligence_LibreChat_account_held_keys[0].models | default([]) | sort)
+          != (Artificial_Intelligence_LibreChat_gateway_key_models | unique | sort)
+
     - name: "Make the LiteLLM virtual key of {{ Artificial_Intelligence_LibreChat_account.username }}"
       ansible.builtin.uri:
         url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
@@ -57,6 +102,7 @@
         body_format: json
         body:
           key_alias: "librechat-{{ Artificial_Intelligence_LibreChat_account.username }}"
+          models: "{{ Artificial_Intelligence_LibreChat_gateway_key_models | unique | list }}"
         status_code: [200]
       register: Artificial_Intelligence_LibreChat_account_key
       no_log: true
@@ -86,5 +132,6 @@
           Either LibreChat refused the account's login (its password in the call is not the one it holds, two-factor
           sign-in is on for it, or there were too many logins), or LiteLLM refused a second key with the alias
           "librechat-{{ Artificial_Intelligence_LibreChat_account.username }}": if that key already exists, delete
-          it from "/ui" and deploy again. Or remove "gateway_key" from the account and enter a key by hand
-          through the gear beside the endpoint's name in LibreChat.
+          it from "/ui" and deploy again. Or LiteLLM refused to list the keys or to update this one. Or remove
+          "gateway_key" from the account and enter a key by hand through the gear beside the endpoint's name in
+          LibreChat.
