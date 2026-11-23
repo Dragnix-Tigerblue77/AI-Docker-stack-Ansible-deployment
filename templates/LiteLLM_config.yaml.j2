@@ -845,7 +845,19 @@ model_list:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/qwen/qwen3.8-27b -- looked at and not routed on 2026-11-22: not in LiteLLM's model map, cannot be steered and answered a hard question in 81-109 s with reasoning every time; Groq and OVHcloud serve the same model above
+  # Qwen3.8 27B, the model Groq and OVHcloud serve above, with 262,144 tokens of context and function calling
+  # (its model page, read 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method. It is absent from LiteLLM's model map, and its default reasoning level is Xhigh, which nothing
+  # here lowers: Artificial Analysis times that level at 135 s to the first answer token (read 2026-11-22),
+  # over the routers' patience, and its output costs more neurons than any other Cloudflare entry. So it
+  # sits right behind its twins in "flash" and "code", one more fallback for when they fail, where "code"'s
+  # order puts it in "claude-code", and out of "flash-lite", whose Groq twin is there for answering
+  # without a thinking phase.
+  - model_name: qwen3-8-27b-cloudflare
+    litellm_params:
+      model: cloudflare/@cf/qwen/qwen3.8-27b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
 
   # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5
 
@@ -1624,6 +1636,9 @@ router_settings:
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
         - qwen3-8-27b-ovh
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
+{% endif %}
         - qwen3-6-35b-ovh
         - nemotron3-omni-30b-ovh
         - mistral-small-3-2-ovh
@@ -1786,6 +1801,9 @@ router_settings:
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
         - qwen3-8-27b-ovh
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
+{% endif %}
         - qwen3-6-35b-ovh
         - laguna-xs-2-1-ovh
 {% if has.Mistral %}
@@ -1841,6 +1859,9 @@ router_settings:
 {% endif %}
 {% if has.Zai %}
         - glm-4-7-flash-zai
+{% endif %}
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
 {% endif %}
 {% if has.Mistral %}
         - codestral

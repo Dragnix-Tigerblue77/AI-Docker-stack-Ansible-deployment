@@ -827,6 +827,7 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
 | `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
 | `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `qwen3-8-27b-cloudflare` | environ 244 000 | environ 34 000 | `flash`, `code` et `claude-code`, derrière ses jumeaux de Groq et d'OVHcloud ; réfléchit en Xhigh par défaut, ce qui use vite la sortie |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,

@@ -696,6 +696,13 @@ models:
       terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
       ale_bench_external: [gpt-oss-120b]
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-8-27b-cloudflare:
+    slug: qwen3-8-27b
+    level: xhigh
+    level_source: "its model page on developers.cloudflare.com, read 2026-11-22: reasoning low, medium or xhigh, xhigh by default, and the template sets none"
+    eci: "Qwen 3.8 27B"
+    tools: {support: "yes", source: "its model page on developers.cloudflare.com, read 2026-11-22: function calling"}
+    epoch: unknown
   qwen3-8-27b-ovh:
     no_record: "No Artificial Analysis record was matched to Qwen3.8-27B at the level the endpoint calls it at on 2026-11-22"
     eci: "Qwen 3.8 27B"
