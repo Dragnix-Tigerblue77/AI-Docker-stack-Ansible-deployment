@@ -362,7 +362,7 @@ active entry, and a commented-out one says it is "not routed" and why -- and rea
 catalogues, writing what drifted to the run's summary and to the pull requests it concerns.
 Every provider the model list routes to has its catalogue read by that run, a provider that needs a
 key included, and the offline run fails on an active entry of a provider no reader covers, naming the entry
-(OmniRoute's virtual routes, which no catalogue lists, apart): a provider added to the template gets its
+(OmniRoute's virtual routes and the `Auto` router, which no catalogue lists, apart): a provider added to the template gets its
 reader in the script, and the tables that name the providers, in the same change. A
 model its provider no longer lists is deleted by that script, not by a model, in a pull request the
 same workflow opens, wherever it can read the result back as the original minus the deletion; what it
@@ -417,6 +417,16 @@ client choosing between them chooses by luck. The short ids (`pro`, `flash`...) 
 `head` table, of the contracts and of the checks, which translate at the one place each reads a cascade's
 key; `check_compose_template.py` refuses a router published under a short id or under a retired `auto*`
 name. A new router is added to the public-name table of each of those scripts in the same change.
+
+**`Auto` is the one name that is no router of that kind.** It is a model_list entry in the `LLM` group, built on
+LiteLLM's complexity router in its heuristic mode, whose tiers name `Auto-Flash-Lite`, `Auto-Flash` and `Auto-Pro` and
+never a head model: a request falls back under the name the tier gave, so each router keeps its own cascade, and a
+tier naming a model would lose it. It has no cascade, no alias, no key and no row in the contracts, and it is
+rendered exactly when the three routers are, since LiteLLM does not check a tier's name at load and fails the
+request that lands on a name nobody serves. Its configuration sets the tiers and turns off two defaults (the
+caller's output limit replaced by the head's ceiling, a conversation summarised by a model) and nothing else:
+scoring tuning is what LiteLLM's licence limits, and every other classifier calls a model or an embedding per
+request. `check_compose_template.py` and `check_LiteLLM_account_isolation.py` hold all of it.
 
 **Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a

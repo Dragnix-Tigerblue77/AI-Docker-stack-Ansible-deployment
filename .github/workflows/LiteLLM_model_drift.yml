@@ -109,8 +109,8 @@ name: LiteLLM model drift
 # followed, since the keys travel in the headers.
 #
 # Every provider the model list routes to has its catalogue read here, one that needs a key included, and
-# the offline run fails on an active entry of a provider no reader covers (OmniRoute's virtual routes, which
-# no catalogue lists, apart).
+# the offline run fails on an active entry of a provider no reader covers (OmniRoute's virtual routes and the
+# Auto router, which no catalogue lists, apart).
 #
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
 # at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud

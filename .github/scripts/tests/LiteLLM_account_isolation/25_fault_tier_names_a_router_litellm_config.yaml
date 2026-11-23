@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: names the complexity router "auto-two"
+---
+# A router over a router: the first one's tier names the second, which names the first back. Every name is
+# declared, so rule 6's undeclared-name branch is silent and only the router-over-router branch fires, once, on
+# the first router -- the second names a model.
+model_list:
+  - model_name: fast-model
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: strong-model
+    litellm_params:
+      model: provider/other-identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: auto-one
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: fast-model
+          COMPLEX: auto-two
+
+  - model_name: auto-two
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: fast-model
+          COMPLEX: strong-model

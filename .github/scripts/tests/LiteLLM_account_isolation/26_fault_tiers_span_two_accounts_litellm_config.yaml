@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: belong to several accounts
+---
+# One router, one name, a tier on each person's group: a request made under it by one account can land on the
+# other's quota, which no fallback line says and rules 1 and 4 therefore cannot see. The second tier goes through
+# an alias, which must resolve to its target's account.
+model_list:
+  - model_name: chat-team-a
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TEAM_A
+
+  - model_name: chat-team-b
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_TEAM_B
+
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: chat-team-a
+          COMPLEX: router-b
+
+router_settings:
+  model_group_alias:
+    "router-b": "chat-team-b"

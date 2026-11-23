@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: names no tier
+---
+# A complexity router with no tier is not an empty router: LiteLLM fills the tiers with its own default models,
+# which this file declares nowhere.
+model_list:
+  - model_name: fast-model
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: strong-model
+    litellm_params:
+      model: provider/other-identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        context_compaction: false
