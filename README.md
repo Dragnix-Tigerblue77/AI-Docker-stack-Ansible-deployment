@@ -998,6 +998,18 @@ redevenu gratuit rouvre une raison que quelqu'un a écrite -- et la règle veut 
 de la liste cite la page du fournisseur et la date de la vérification. Un modèle examiné et écarté
 cesse d'être signalé par une ligne `# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
 
+**Les nouveaux modèles de tous les usages sont signalés, chacun avec son usage.** Aucun filtre n'écarte un
+modèle parce qu'il sert à autre chose que le chat : un nouveau modèle de transcription, de synthèse
+vocale, d'embeddings, d'image ou de modération est listé comme les autres, dans les mêmes sections
+(« Nouveaux modèles gratuits » ou « à examiner », selon que l'API du fournisseur dit la gratuité ou non), et
+sa ligne dit son usage. L'usage vient du catalogue quand il le dit (la tâche chez Cloudflare, les
+modalités de sortie chez OpenRouter et Kilo Gateway, les méthodes chez Gemini, `completion_chat` chez
+Mistral) et de l'identifiant sinon (`USAGE_MARKERS` dans `check_LiteLLM_model_drift.py`) ; un modèle
+que ni l'un ni l'autre ne classe est dit « unclassified ». Seul un modèle de chat va plus loin : le
+classement d'Artificial Analysis, les pull requests d'ajout et l'entrée à coller ne portent que lui.
+L'entrée des autres usages s'écrit à la main, et la ligne donne le `model_info.mode` qu'elle demande
+quand le fichier en a un (`audio_transcription`, `audio_speech`, `embedding`).
+
 **Les ajouts arrivent en deux pull requests, qu'aucune fusion automatique ne prend.** Le workflow les
 tient à jour comme celle des suppressions (`main` plus un commit du bot Actions, refaite à chaque
 exécution, écrite avec le jeton de l'App quand il y en a une, assignée à tigerblue77), chacune sur sa
@@ -1007,7 +1019,7 @@ les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur
 
 - **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
   informations qu'un ajout demande -- une gratuité que l'API du fournisseur dit elle-même (aujourd'hui
-  les modèles `:free` d'OpenRouter à 0 $, en sortie texte seulement) et un chiffre du classement
+  les modèles `:free` d'OpenRouter à 0 $ et les modèles `isFree` de Kilo Gateway) et un chiffre du classement
   d'Artificial Analysis rapproché de façon sûre : la fin de l'identifiant, sans `:free`, s'écrit à la
   casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte
   aucune marque de variante entre parenthèses (« (Reasoning) », « (Xhigh) »...). Un fournisseur dont la

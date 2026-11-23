@@ -159,36 +159,53 @@ ones served through Requesty or through Cent AI, whose providers it does not rea
 report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
 name Z AI, Requesty, NVIDIA or Cent AI.
 
-  provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
-  openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
-              ?output_modalities=all -- no key         only output modality
+  provider    catalogue, and how its key is sent       what the provider's own filter keeps, for NEW
+  openrouter  openrouter.ai/api/v1/models              ":free" and both prices "0"
+              ?output_modalities=all -- no key
   cerebras    api.cerebras.ai/public/v1/models         not "deprecated"
               -- no key
   sambanova   api.sambanova.ai/v1/models -- no key     not "deprecated"
-  gemini      generativelanguage.googleapis.com/       "generateContent" among its
-              v1beta/models, paginated -- header       "supportedGenerationMethods"
+  gemini      generativelanguage.googleapis.com/       every model
+              v1beta/models, paginated -- header
   groq        api.groq.com/openai/v1/models -- Bearer  "active" not false
-  mistral     api.mistral.ai/v1/models -- Bearer       "completion_chat", no "deprecation",
-                                                       no "ft:" (a fine-tune)
+  mistral     api.mistral.ai/v1/models -- Bearer       no "deprecation", no "ft:" (a fine-tune)
   deepseek    api.deepseek.com/models -- Bearer        every model
-  cloudflare  api.cloudflare.com/client/v4/accounts/   task "Text Generation", not marked
-              {account}/ai/models/search, paginated    for removal
+  cloudflare  api.cloudflare.com/client/v4/accounts/   not marked for removal
+              {account}/ai/models/search, paginated
               -- Bearer
-  kilo        ai-gateway.kilo.ai/api/v1/models         "isFree" true, and text its only
-              -- no key                                 output modality
+  kilo        ai-gateway.kilo.ai/api/v1/models         "isFree" true
+              -- no key
 
-On top of each provider's own filter, an id naming a non-chat use (NON_CHAT_MARKERS: "tts",
-"whisper", "embed", "guard"...) is never a NEW candidate: Gemini's "generateContent" alone lets its
-speech and image models through, and Groq, SambaNova and DeepSeek say nothing about capability at
-all. The filter narrows NEW only. Whether a model is RETIRED is decided against everything the
-provider lists, so that no filter can ever make a served model look retired -- which is also why
-OpenRouter is read with "output_modalities=all", its default being "text" only.
+No filter drops a model for what it is for: every provider and every kind of model is on the same
+footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
+What a NEW finding says of its kind is its "usage", read from the catalogue where it says so and from
+the id where it does not (USAGE_MARKERS: "tts", "whisper", "embed", "guard"...):
 
-A video generation model served through "generateContent" (Gemini's "omni" one is) is therefore
-still offered as NEW, and is turned down with a "drift-ignore:" line. Gemini's model listing has no
-field that would tell it apart (name, version, displayName, description, token limits,
-supportedGenerationMethods, temperature, thinking), and "omni" is not a marker to add: other
-vendors' "omni" models are chat models, one of them routed in the file this check reads.
+  openrouter, kilo  "output_modalities": text only -> the id decides; "image" among them -> image;
+                    "audio" -> speech; "video" -> video; "embeddings" -> embeddings
+  gemini            "embedContent" with no "generateContent" -> embeddings; the id decides otherwise,
+                    and a model with neither of the two methods the id does not name is unclassified
+  mistral           "completion_chat" true -> the id decides, a chat model if it names nothing;
+                    false -> the id decides, unclassified if it names nothing
+  cloudflare        the "task": "Automatic Speech Recognition" -> transcription, "Text-to-Speech" ->
+                    speech, "Text Embeddings" -> embeddings, "Text-to-Image" -> image, "Text
+                    Generation" -> the id decides, any other task its own name
+  the others        the id decides, a chat model if it names nothing
+
+Only a chat model goes on to what assumes one: the ranking (THE RANKINGS), the pull requests of
+additions (PROPOSING WHAT IS NEW) and the entry to paste. A NEW model of another usage is listed in the
+same sections as the rest, with its usage and the "model_info.mode" its entry would need when it is
+known (USAGE_MODES), and its entry is written by hand: the template's chat entries carry no mode, and
+the routers of the other usages have their own rules (check_compose_template.py). The filters narrow
+NEW only. Whether a model is RETIRED is decided against everything the provider lists, so that no
+filter can ever make a served model look retired -- which is also why OpenRouter is read with
+"output_modalities=all", its default being "text" only.
+
+A video generation model served through "generateContent" (Gemini's "omni" one is) is read as a chat
+model, and is turned down with a "drift-ignore:" line. Gemini's model listing has no field that would
+tell it apart (name, version, displayName, description, token limits, supportedGenerationMethods,
+temperature, thinking), and "omni" is not a marker to add: other vendors' "omni" models are chat
+models, one of them routed in the file this check reads.
 
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
@@ -252,7 +269,7 @@ NEW        an id the file does not know. Known ids are those of the active and t
            how a model examined and turned down stops being reported without an entry of its own.
            <provider> is one of the names above: "sambanova/<id>" for SambaNova and "kilo/<id>" for
            Kilo Gateway, where the entry itself reads "openai/<id>". A Mistral id is known when one
-           of its "aliases" is.
+           of its "aliases" is. Each carries its usage (see above), shown on its line.
 
 Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", and on Kilo
 Gateway, as "isFree". Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
@@ -260,8 +277,8 @@ to examine, never claimed free, and the summary links the page of each provider 
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
 
-A NEW id that neither pull request of additions carries (see "PROPOSING WHAT IS NEW" below), or
-every NEW id when the run proposes nothing, is listed in the summary, and in the body of the pull
+A NEW id of a chat model that neither pull request of additions carries (see "PROPOSING WHAT IS NEW"
+below), or every such id when the run proposes nothing, is listed in the summary, and in the body of the pull
 request of the models to verify when there is one, with an entry to complete, ready to paste: the
 "model:" with its
 provider prefix, a model_name proposed the way the file's own names are made (the id with its dots
@@ -391,13 +408,13 @@ providers the template declares ("check_drift_publish_guard.py" plays that rule)
 
 THE RANKINGS
 ------------
-Where a NEW model would go in a cascade is a question of figures, which someone used to look up by
+Where a NEW chat model would go in a cascade is a question of figures, which someone used to look up by
 hand: the pull requests of additions now carry them, and the summary for a NEW model neither carries.
 With MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY set, the run reads
 Artificial Analysis's free API (GET https://artificialanalysis.ai/api/v2/language/models/free, the key
 in the "x-api-key" header, 100 requests per 24 hours, one made per page of the answer and at most
 MAX_PAGES per run) and the summary gains a table of each
-NEW model's intelligence index, coding index, output speed and blended price, then a suggested place
+NEW chat model's intelligence index, coding index, output speed and blended price, then a suggested place
 per router: before the first member of that router's cascade the ranking scores lower on the figure
 that decides it (intelligence for "pro", "flash" and "claude-code", coding for "code", speed for
 "flash-lite"), or after the last one. The source is named in the summary with its day, as the terms of
@@ -441,13 +458,14 @@ use of that API ask, and the figures are shown as published.
 
 PROPOSING WHAT IS NEW
 --------------------
-"--proposals DIR" proposes the NEW models in two pull requests of their own, which the workflow keeps
-and which only a person merges. They are split by how much the
-run knows of each model, never by its provider:
+"--proposals DIR" proposes the NEW chat models in two pull requests of their own, which the workflow keeps
+and which only a person merges. They are split by how much the run knows of each model, never by its
+provider. A NEW model of another usage is proposed in neither: it is listed with its usage and its
+"model_info.mode", and its entry is written by hand.
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
   tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
-  "0", text the only output, and Kilo's "isFree", text the only output), and a figure of the
+  "0", and Kilo's "isFree"), and a figure of the
   ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
   slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
   with everything but letters and digits removed, and that entry's name carries no variant marker
@@ -742,12 +760,26 @@ JINJA_TAG = re.compile(r"\{%-?\s*(end)?(\w+)(.*?)-?%\}", re.DOTALL)
 # The Jinja statements that open a block and the "end..." that closes it.
 JINJA_BLOCKS = ("if", "for", "macro", "call", "filter", "block", "with", "raw", "autoescape")
 
-# Substrings of an id that name a use other than chat. They narrow NEW only, never RETIRED.
-NON_CHAT_MARKERS = (
-    "antigravity", "audio", "banana", "computer-use", "deep-research", "embed", "guard", "image",
-    "imagen", "lyria", "moderation", "ocr", "orpheus", "playai", "rerank", "robotics", "speech",
-    "transcribe", "tts", "veo", "voxtral", "whisper",
+# Substrings of an id that name a use other than chat, each with that use. The first that an id holds
+# decides, so a marker precedes the more general one it contains ("transcribe" before "voxtral"). They
+# name a NEW model's usage only, and never touch RETIRED.
+USAGE_MARKERS = (
+    ("whisper", "transcription"), ("transcribe", "transcription"),
+    ("tts", "speech"), ("speech", "speech"), ("orpheus", "speech"), ("playai", "speech"),
+    ("embed", "embeddings"), ("rerank", "rerank"),
+    ("imagen", "image"), ("banana", "image"), ("image", "image"),
+    ("veo", "video"), ("lyria", "music"),
+    ("guard", "moderation"), ("moderation", "moderation"),
+    ("ocr", "ocr"),
+    ("audio", "audio"), ("voxtral", "audio"),
+    ("antigravity", "agent"), ("computer-use", "agent"), ("deep-research", "agent"),
+    ("robotics", "agent"),
 )
+CHAT = "chat"
+UNCLASSIFIED = "unclassified"
+# The "model_info.mode" an entry of a usage needs where the file has one: an entry of no mode is a text
+# model, and only these modes have an access group of their own.
+USAGE_MODES = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding"}
 
 # The title of the section of the pull request body that lists what a person has to read.
 # "dependabot-auto-merge.yml" lets the pull request merge itself only when the body has no section
@@ -1331,9 +1363,10 @@ def is_zero(price):
         return False
 
 
-def chat_like(identifier):
+def usage_of_id(identifier, default=CHAT):
+    """What an id says it is for, or "default" when it names no use but its own."""
     lowered = identifier.lower()
-    return not any(marker in lowered for marker in NON_CHAT_MARKERS)
+    return next((usage for marker, usage in USAGE_MARKERS if marker in lowered), default)
 
 
 def listed(payload, key="data"):
@@ -1365,15 +1398,34 @@ def safe_text(value, limit=80):
 
 
 def new_catalogue():
-    return {"members": set(), "candidates": {}, "notices": {}, "aliases": {}, "unsafe": 0}
+    return {"members": set(), "candidates": {}, "usages": {}, "notices": {}, "aliases": {}, "unsafe": 0}
 
 
-def offer(catalogue, identifier, label=""):
-    """Put "identifier" up as a NEW candidate, unless it is not spelt like an id."""
+def offer(catalogue, identifier, label="", usage=CHAT):
+    """Put "identifier" up as a NEW candidate for the "usage" its catalogue or its id gives it, unless
+    it is not spelt like an id."""
     if SAFE_MODEL_ID.fullmatch(identifier):
         catalogue["candidates"][identifier] = safe_text(label)
+        catalogue["usages"][identifier] = safe_text(usage, 40)
     else:
         catalogue["unsafe"] += 1
+
+
+# What a model that is not text-only is, by an output modality it lists: the first of these it holds.
+MODALITY_USAGES = (("image", "image"), ("audio", "speech"), ("video", "video"), ("embeddings", "embeddings"))
+
+
+def modalities_usage(model, identifier):
+    """The usage of an OpenRouter or Kilo model: by its output modalities when they are no text alone,
+    by its id when they are, and unclassified when it lists none."""
+    architecture = model.get("architecture")
+    modalities = architecture.get("output_modalities") if isinstance(architecture, dict) else None
+    if not isinstance(modalities, list) or not modalities:
+        return usage_of_id(identifier, UNCLASSIFIED)
+    if modalities == ["text"]:
+        return usage_of_id(identifier)
+    return next((usage for modality, usage in MODALITY_USAGES if modality in modalities),
+                usage_of_id(identifier, UNCLASSIFIED))
 
 
 def read_openrouter(pages):
@@ -1385,19 +1437,15 @@ def read_openrouter(pages):
             catalogue["notices"][identifier] = {"what": "expiration",
                                                 "date": safe_text(model["expiration_date"])}
         pricing = model.get("pricing") if isinstance(model.get("pricing"), dict) else {}
-        architecture = model.get("architecture")
-        architecture = architecture if isinstance(architecture, dict) else {}
         if (identifier.endswith(":free")
-                and is_zero(pricing.get("prompt")) and is_zero(pricing.get("completion"))
-                and architecture.get("output_modalities") == ["text"]
-                and chat_like(identifier)):
-            offer(catalogue, identifier, model.get("name") or "")
+                and is_zero(pricing.get("prompt")) and is_zero(pricing.get("completion"))):
+            offer(catalogue, identifier, model.get("name") or "", modalities_usage(model, identifier))
     return catalogue
 
 
 def read_kilo(pages):
     """Kilo Gateway: every model it lists, paid ones too, with "isFree" saying which ones the keyless
-    entries can call. Only a free text model is offered as NEW. One that is listed and no longer free
+    entries can call. Only a free model is offered as NEW. One that is listed and no longer free
     is a NOTICE and never a retirement: it still answers, to a caller with an account."""
     catalogue = new_catalogue()
     models = listed(pages[0])
@@ -1413,10 +1461,7 @@ def read_kilo(pages):
         if model.get("expiration_date"):
             catalogue["notices"][identifier] = {"what": "expiration",
                                                 "date": safe_text(model["expiration_date"])}
-        architecture = model.get("architecture")
-        architecture = architecture if isinstance(architecture, dict) else {}
-        if architecture.get("output_modalities") == ["text"] and chat_like(identifier):
-            offer(catalogue, identifier, model.get("name") or "")
+        offer(catalogue, identifier, model.get("name") or "", modalities_usage(model, identifier))
     return catalogue
 
 
@@ -1428,8 +1473,8 @@ def read_flagged(pages):
         catalogue["members"].add(identifier)
         if model.get("deprecated") is True:
             catalogue["notices"][identifier] = {"what": "deprecation"}
-        elif chat_like(identifier):
-            offer(catalogue, identifier, model.get("name") or "")
+        else:
+            offer(catalogue, identifier, model.get("name") or "", usage_of_id(identifier))
     return catalogue
 
 
@@ -1447,8 +1492,13 @@ def read_gemini(pages):
             catalogue["members"].add(identifier)
             methods = model.get("supportedGenerationMethods")
             methods = methods if isinstance(methods, list) else []
-            if "generateContent" in methods and chat_like(identifier):
-                offer(catalogue, identifier, model.get("displayName") or "")
+            if "generateContent" in methods:
+                usage = usage_of_id(identifier)
+            elif "embedContent" in methods:
+                usage = "embeddings"
+            else:
+                usage = usage_of_id(identifier, UNCLASSIFIED)
+            offer(catalogue, identifier, model.get("displayName") or "", usage)
     return catalogue
 
 
@@ -1459,8 +1509,8 @@ def read_groq(pages):
         catalogue["members"].add(identifier)
         if model.get("active") is False:
             catalogue["notices"][identifier] = {"what": "inactive"}
-        elif chat_like(identifier):
-            offer(catalogue, identifier, model.get("owned_by") or "")
+        else:
+            offer(catalogue, identifier, model.get("owned_by") or "", usage_of_id(identifier))
     return catalogue
 
 
@@ -1484,9 +1534,10 @@ def read_mistral(pages):
             continue
         capabilities = model.get("capabilities")
         capabilities = capabilities if isinstance(capabilities, dict) else {}
-        if (capabilities.get("completion_chat") is True and not identifier.startswith("ft:")
-                and chat_like(identifier)):
-            offer(catalogue, identifier, model.get("name") or "")
+        if not identifier.startswith("ft:"):
+            chat = capabilities.get("completion_chat") is True
+            offer(catalogue, identifier, model.get("name") or "",
+                  usage_of_id(identifier, CHAT if chat else UNCLASSIFIED))
     return catalogue
 
 
@@ -1495,8 +1546,7 @@ def read_plain(pages):
     catalogue = new_catalogue()
     for model in listed(pages[0]):
         catalogue["members"].add(model["id"])
-        if chat_like(model["id"]):
-            offer(catalogue, model["id"])
+        offer(catalogue, model["id"], usage=usage_of_id(model["id"]))
     return catalogue
 
 
@@ -1508,7 +1558,10 @@ def read_plain(pages):
 # announced retirement the model pages show. A flag "deprecated" is read too, where there is one. Pages are
 # asked for the way that tool asks them, "per_page" and "page" until one comes back short.
 CLOUDFLARE_PER_PAGE = 50
+# The usage a Cloudflare task names; "Text Generation" is every kind of text model, so the id decides.
 CLOUDFLARE_TEXT_TASK = "Text Generation"
+CLOUDFLARE_TASK_USAGES = {"Automatic Speech Recognition": "transcription", "Text-to-Speech": "speech",
+                          "Text Embeddings": "embeddings", "Text-to-Image": "image"}
 
 
 def cloudflare_property(model, property_id):
@@ -1540,9 +1593,12 @@ def read_cloudflare(pages):
                     catalogue["notices"][name]["date"] = safe_text(planned)
                 continue
             task = model.get("task")
-            if (isinstance(task, dict) and task.get("name") == CLOUDFLARE_TEXT_TASK
-                    and chat_like(name)):
-                offer(catalogue, name)
+            task = task.get("name") if isinstance(task, dict) else None
+            if task == CLOUDFLARE_TEXT_TASK or not isinstance(task, str) or not task:
+                usage = usage_of_id(name, CHAT if task == CLOUDFLARE_TEXT_TASK else UNCLASSIFIED)
+            else:
+                usage = CLOUDFLARE_TASK_USAGES.get(task) or " ".join(task.lower().split())
+            offer(catalogue, name, usage=usage)
     # A last page that is full is not the end of the list: the pages this check reads ran out first, and
     # a list read in part would call the models of the rest retired.
     last = pages[-1].get("result") if isinstance(pages[-1], dict) else None
@@ -1771,6 +1827,7 @@ def diff(provider, catalogue, active, commented, ignored):
         if catalogue["aliases"].get(identifier, set()) & known:
             continue
         findings.append({"kind": "new", "id": identifier, "label": label,
+                         "usage": catalogue.get("usages", {}).get(identifier, CHAT),
                          "free": provider in FREE_READABLE})
     return findings
 
@@ -1962,14 +2019,15 @@ def suggest_places(model, template, models):
 
 
 def rank_new_models(result, template):
-    """One row per NEW finding: what the ranking source says of it and where it would go."""
+    """One row per NEW chat model: what the ranking source says of it and where it would go. A model of
+    another usage is no language model, so the ranking of language models has nothing to say of it."""
     ranking = result["rankings"]
     rows = []
     if ranking["status"] != "read":
         return rows
     for report in result["providers"]:
         for finding in report["findings"]:
-            if finding["kind"] != "new":
+            if finding["kind"] != "new" or finding["usage"] != CHAT:
                 continue
             model, how = match_ranking(report["name"], finding["id"], finding.get("label", ""),
                                        ranking["models"])
@@ -4601,6 +4659,19 @@ def litellm_id(provider, identifier):
     return "%s/%s" % (provider, identifier), ""
 
 
+def by_hand_text(usage):
+    """What a NEW model of a usage other than chat needs of a person, in English."""
+    mode = USAGE_MODES.get(usage)
+    return "its entry is written by hand" + (", with model_info.mode %s" % mode if mode else "")
+
+
+def by_hand_reason(usage):
+    """The same, in French, as the reason no pull request of additions carries such a model."""
+    mode = USAGE_MODES.get(usage)
+    return ("l'usage `%s` n'est pas le chat : aucune pull request n'en écrit l'entrée, qui s'écrit à la main%s"
+            % (usage, ", avec `model_info.mode: %s`" % mode if mode else ""))
+
+
 def removals_of(result, status):
     """[(report, finding)] of the RETIRED and GONE findings a run deleted, or left to a person."""
     return [(report, finding) for report in result["providers"] for finding in report["findings"]
@@ -4621,8 +4692,7 @@ def render_text(result, config_name):
         elif report["status"] == "error":
             state = "ERROR, not read: %s" % report["error"]
         else:
-            state = "read, %d model(s), %d chat candidate(s)" % (report["members"],
-                                                                  report["candidates"])
+            state = "read, %d model(s), %d candidate(s)" % (report["members"], report["candidates"])
             if report.get("unsafe"):
                 state += ", %d id(s) of an unusual spelling left out" % report["unsafe"]
         out.append("%-11s %s; %s" % (report["name"], state, known))
@@ -4639,7 +4709,7 @@ def render_text(result, config_name):
             state = "ERROR, not read: %s" % ranking["error"]
         else:
             rows = result.get("ranked") or []
-            state = ("read, %d model(s), %d of the %d NEW model(s) matched; source: Artificial "
+            state = ("read, %d model(s), %d of the %d NEW chat model(s) matched; source: Artificial "
                      "Analysis, %s" % (len(ranking["models"]), sum(1 for row in rows if row["model"]),
                                        len(rows), RANKING_SITE))
         out.append("%-11s %s" % ("rankings", state))
@@ -4677,6 +4747,9 @@ def render_text(result, config_name):
                 if kind == "new":
                     line += (": free" if finding["free"]
                              else ": to examine, its free tier is not machine-readable")
+                    line += " -- usage: " + finding["usage"]
+                    if finding["usage"] != CHAT:
+                        line += ", " + by_hand_text(finding["usage"])
                 removal = finding.get("removal")
                 if removal and removal["status"] == "applied":
                     line += " -- DELETED from the file"
@@ -4980,13 +5053,14 @@ def summary_body(result, config_name, link, snippets):
 
     pulls = pulls_link()
     branch = os.environ.get("REMOVALS_BRANCH")
-    help_text = ("Chaque identifiant vient avec une entrée à compléter : le nom de modèle est une "
-                 "proposition, la clé et l'`api_base` sont ceux de la plupart des entrées "
-                 "existantes du même fournisseur. La coller telle quelle l'active ; pour la "
+    help_text = ("Chaque identifiant d'un modèle de chat vient avec une entrée à compléter : le nom de "
+                 "modèle est une proposition, la clé et l'`api_base` sont ceux de la plupart des "
+                 "entrées existantes du même fournisseur. La coller telle quelle l'active ; pour la "
                  "laisser inactive, insérer `# ` après les deux espaces d'indentation de chaque "
                  "ligne (`  # - model_name: ...`, comme les autres entrées commentées du "
                  "fichier) et écrire au-dessus « Served, but not routed to: <raison> », avec la "
-                 "page du fournisseur et la date de la vérification.")
+                 "page du fournisseur et la date de la vérification. L'entrée d'un modèle d'un autre "
+                 "usage que le chat s'écrit à la main.")
     mixed = sorted(report["name"] for report in result["providers"]
                    if report["basis"].get("mixed") and any(
                        finding["kind"] == "new" for finding in report["findings"]))
@@ -5027,7 +5101,7 @@ def summary_body(result, config_name, link, snippets):
                  "à vérifier."),
         "new_free": ("Nouveaux modèles gratuits",
                      "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
-                     "`isFree`), sortie texte uniquement. À ajouter, ou à commenter avec "
+                     "`isFree`), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -5166,13 +5240,15 @@ def finding_line(report, finding):
 def new_model_line(report, finding, snippets, taken):
     """A NEW model no pull request of additions carries, as a list item in French: its label, why it is
     not proposed, and, with "snippets", the entry to complete, ready to paste. The summary and the pull
-    request of the models to verify both list them this way."""
+    request of the models to verify both list them this way. Every line says the model's usage; only a chat
+    model gets an entry to paste."""
     line = finding_line(report, finding)
     if finding.get("label"):
         line += " : `%s`" % finding["label"]
+    line += " : usage `%s`" % finding["usage"]
     if finding.get("unproposed"):
         line += " : **pas proposé par pull request** : " + finding["unproposed"]
-    if snippets:
+    if snippets and finding["usage"] == CHAT:
         name = propose_name(report["name"], finding["id"], taken)
         block = snippet(report["name"], finding["id"], report["basis"], name)
         line += "\n" + "\n".join(["  ```yaml"] + ["  " + code for code in block] + ["  ```"])
@@ -5738,7 +5814,9 @@ def propose_additions(text, result, link=None):
                 continue
             anchor = addition_anchor(entries, report["name"])
             name = None
-            if not ADDITION_ID.fullmatch(finding["id"]):
+            if finding["usage"] != CHAT:
+                finding["unproposed"] = by_hand_reason(finding["usage"])
+            elif not ADDITION_ID.fullmatch(finding["id"]):
                 finding["unproposed"] = "son identifiant n'a pas une forme que le workflow écrit dans le fichier"
             elif anchor is None:
                 finding["unproposed"] = "le fichier n'a aucune entrée de ce fournisseur sur laquelle modeler la sienne"
@@ -5813,8 +5891,9 @@ def carried_sections(result, kind, back, snippets):
         taken = set(result.get("names", ()))
         out += [UNCARRIED_HEADING, "",
                 "Le fichier ne les connaît pas, mais le workflow ne sait pas écrire leur entrée, pour la "
-                "raison donnée à chacun : ils sont listés ici avec l'entrée à compléter, à ajouter dans "
-                "un commit sur cette branche, à commenter avec sa raison, ou à écarter par une ligne "
+                "raison donnée à chacun : ils sont listés ici, avec l'entrée à compléter quand c'est "
+                "un modèle de chat, à ajouter dans un commit sur cette branche, à commenter avec sa "
+                "raison, ou à écarter par une ligne "
                 "`# drift-ignore: <fournisseur>/<id> -- <raison>`." + (
                     " Coller l'entrée telle quelle l'active ; la clé et l'`api_base` sont ceux de la "
                     "plupart des entrées existantes du même fournisseur." if snippets else ""), ""]
