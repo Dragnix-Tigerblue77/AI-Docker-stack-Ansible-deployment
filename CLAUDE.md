@@ -424,6 +424,15 @@ whether that is worth its price. Whether a provider cuts a key one day is not an
 sensitive data is refused: nearly everything the gateway handles carries a name or two. The README's
 registry says which provider was read, what it offers and why it is in or out.
 
+**Every provider and every kind of model stands on an equal footing in what is written here.** The
+gateway serves transcription, speech and vectors as much as chat, and a provider with generous quotas earns
+a better place in a cascade, not a status of its own. A document that sorts them into camps -- one
+provider and "the others", chat and "the rest" -- tells the next reader that one side is the norm and the
+other the exception, and the exception is what stops being kept up to date. So a table that covers several
+providers or several kinds of model is one table for all of them, with a column for what tells them apart,
+or one table per provider, never a table for one of them and another for the rest; the same goes for
+sections, lists and the weekly report. The maintainer asked for it on 2026-11-23.
+
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
 exists today, it factors them -- a loop, an included task file, a Jinja macro -- instead of copying
