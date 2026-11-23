@@ -1618,6 +1618,17 @@ LITELLM_PROVIDERS = {
 LITELLM_ROUTERS = ("pro", "flash", "flash-lite", "code", "claude-code")
 # The only providers whose models "claude-code" routes to, and so the ones its existence depends on.
 LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSeek", "Cloudflare", "Zai", "NVIDIA"})
+# The access group each entry of the model list is in, which is what lets a virtual key be limited to a type of
+# models in "/ui": by "model_info.mode" -- an entry with none is a text model. A router is an alias of its head, and
+# LiteLLM lets a key call an alias when the entry it resolves to is in an allowed group, so the routers follow their
+# heads without a group of their own.
+LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings"}
+
+
+def litellm_access_group(mode):
+    return LITELLM_ACCESS_GROUPS.get(mode, "LLM")
+
+
 # The routers of an endpoint that is not chat, each with the providers whose models it routes to and the
 # "model_info.mode" its members carry, which no member of a text cascade may carry. They are aliases of their
 # cascade's head like the five above, but are kept apart from LITELLM_ROUTERS: that tuple is also the set of
@@ -1668,6 +1679,16 @@ def check_litellm_config(document, keys, failures):
     declared = {entry.get("model_name") for entry in entries}
     aliases = mapping(router_settings, "model_group_alias")
     given = {LITELLM_PROVIDERS[provider] for provider in keys}
+
+    for entry in entries:
+        info = mapping(entry, "model_info")
+        wanted = litellm_access_group(info.get("mode"))
+        if info.get("access_groups") != [wanted]:
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
+                f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry: a key limited to a "
+                "type of models reaches the entries of that type and no other, so each entry is in exactly one group"
+            )
 
     read = set()
     for entry in entries:
@@ -1924,7 +1945,8 @@ def _litellm_document(entries, cascades, aliases):
     return {
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
-             **({"model_info": {"mode": mode[0]}} if mode else {})}
+             "model_info": {**({"mode": mode[0]} if mode else {}),
+                            "access_groups": [litellm_access_group(mode[0] if mode else None)]}}
             for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
@@ -1942,7 +1964,8 @@ def _keyless_document(gateway="Kilo", **overrides):
         else:
             parameters[key] = value
     return {
-        "model_list": [{"model_name": "a-keyless", "litellm_params": parameters}],
+        "model_list": [{"model_name": "a-keyless", "litellm_params": parameters,
+                        "model_info": {"access_groups": ["LLM"]}}],
         "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"}},
     }
 
@@ -1963,7 +1986,8 @@ def _with_media(document, router="stt", variable="GROQ_API_KEY", entries=("whisp
     """The same rendering with a media router added over entries read from `variable`, carrying its mode."""
     document["model_list"] += [
         {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": "os.environ/" + variable},
-         "model_info": {"mode": LITELLM_MEDIA_ROUTERS[router][1]}}
+         "model_info": {"mode": LITELLM_MEDIA_ROUTERS[router][1],
+                        "access_groups": [litellm_access_group(LITELLM_MEDIA_ROUTERS[router][1])]}}
         for name in entries
     ]
     if cascade:
@@ -2007,7 +2031,20 @@ def _stt_alias_off_head():
 def _stt_entry():
     document = _stt_document()
     document["model_list"].append({"model_name": "stt", "litellm_params": {"api_key": "os.environ/GROQ_API_KEY"},
-                                   "model_info": {"mode": "audio_transcription"}})
+                                   "model_info": {"mode": "audio_transcription", "access_groups": ["STT"]}})
+    return document
+
+
+def _entry_without_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
+    del document["model_list"][0]["model_info"]["access_groups"]
+    return document
+
+
+def _entry_in_the_wrong_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY"), ("vectors", "os.environ/GEMINI_API_KEY", "embedding")],
+                                 [("claude-code", ["a"])], {"claude-code": "a"})
+    document["model_list"][1]["model_info"]["access_groups"] = ["LLM"]
     return document
 
 
@@ -2041,7 +2078,8 @@ def _tts_fault(fault):
     router_settings = document["router_settings"]
     cascades = {name: members for item in router_settings["fallbacks"] for name, members in item.items()}
     if fault == "entry":
-        document["model_list"].append({"model_name": "tts", "model_info": {"mode": "audio_speech"},
+        document["model_list"].append({"model_name": "tts",
+                                       "model_info": {"mode": "audio_speech", "access_groups": ["TTS"]},
                                        "litellm_params": {"api_key": "os.environ/GEMINI_API_KEY"}})
     elif fault == "off-head":
         router_settings["model_group_alias"].update({"tts": "b-tts", "auto-tts": "b-tts"})
@@ -2193,6 +2231,8 @@ LITELLM_CONFIG_CASES = [
     ("a transcription router written as an entry of the model list", _stt_entry(), {"Groq"},
      "'stt' is a model_list entry"),
     ("a transcription cascade holding a chat model", _stt_chat_member(), {"Groq"}, "model_info.mode is None"),
+    ("a model entry in no access group", _entry_without_group(), {"Gemini"}, "is in the access groups None"),
+    ("an embedding entry in the text group", _entry_in_the_wrong_group(), {"Gemini"}, "makes it a 'Embeddings' entry"),
     ("a chat cascade holding an audio model", _stt_in_chat_cascade(), {"Groq"}, "a member of a non-chat router"),
     ("a router written as an entry of the model list",
      _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],

@@ -64,6 +64,10 @@
   'stt': [],
   'tts': ['auto-tts']
 } %}
+# Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
+# transcription, "TTS" for speech and "Embeddings" for vectors. A virtual key limited to a group in "/ui" reaches
+# the entries of that type, and the routers with them, since a router is an alias of its head and LiteLLM lets a
+# key call an alias when the entry it resolves to is allowed. "check_compose_template.py" holds each entry to it.
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -101,6 +105,8 @@ model_list:
   # entries of one model draw on the same quota, which is why "flash-lite", whose members should not spend
   # the quota "pro" and "flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
   - model_name: gemini-4-hydrogen
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -109,6 +115,8 @@ model_list:
   # The level "flash-lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
   # lowest level Hydrogen has (it cannot be turned off).
   - model_name: gemini-4-hydrogen-low
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -120,6 +128,8 @@ model_list:
   # "stream_timeout" of its own, longer than the router's, and gives way to "gemini-4-hydrogen" when it fails.
   # It draws on the 20 requests a day of the entries above.
   - model_name: gemini-4-hydrogen-xhigh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -132,6 +142,8 @@ model_list:
   # enterprise workflows." Free of charge on the Standard tier per "ai.google.dev/gemini-api/docs/
   # pricing" -- verified directly against both pages, not assumed from the naming pattern alone.
   - model_name: gemini-3-8-flash
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -140,17 +152,23 @@ model_list:
   # The level "flash" and "flash-lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
   # the 1 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
   - model_name: gemini-3-8-flash-low
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
       reasoning_effort: low
 
   - model_name: gemini-3-7-flash
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-6-flash
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.6-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -165,6 +183,8 @@ model_list:
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-5-flash-lite
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
@@ -193,11 +213,15 @@ model_list:
   #     api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-1-flash-lite
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemini-3-flash-preview
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-3-flash-preview
       api_key: "os.environ/GEMINI_API_KEY"
@@ -227,6 +251,8 @@ model_list:
   # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It goes when Google
   # shuts it down.
   - model_name: gemini-2-5-flash
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -234,6 +260,8 @@ model_list:
   # The same page, read 2026-11-22, says "gemini-2.5-flash-lite" is not deprecated and "remains
   # available through the API until further notice".
   - model_name: gemini-2-5-flash-lite
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemini-2.5-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
@@ -258,11 +286,15 @@ model_list:
   # them in the cascades for that reason: this pair spends the Gemini key's own quota, OpenRouter's
   # spends the one daily counter every ":free" model of that account shares (see its header).
   - model_name: gemma-4-31b-gemini
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemma-4-31b-it
       api_key: "os.environ/GEMINI_API_KEY"
 
   - model_name: gemma-4-26b-gemini
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
@@ -286,6 +318,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: embedding
+      access_groups: ["Embeddings"]
 
   # Text to speech, for the "tts" router and for it alone (its cascade says why these two and in this
   # order). Added 2026-11-22. The speech page of the Gemini API documentation, read that day, lists
@@ -302,6 +335,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_speech
+      access_groups: ["TTS"]
 
   - model_name: gemini-3-8-flash-lite-tts
     litellm_params:
@@ -309,6 +343,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_speech
+      access_groups: ["TTS"]
 
   # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
   # and each line says why.
@@ -337,6 +372,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_transcription
+      access_groups: ["STT"]
 
 {% endif %}
 {% if has.Mistral %}
@@ -354,21 +390,29 @@ model_list:
   # under "Admin Panel > API > Limits"), so this file cannot state them.
   # ============================================================================
   - model_name: codestral
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/codestral-latest
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: codestral-2508
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-medium
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/mistral-medium-latest
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: mistral-small
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/mistral-small-latest
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -379,16 +423,22 @@ model_list:
   # names the Ministral generation, not the id) -- confirmed by fetching each model's own page rather
   # than trusting the "ministral-3-<size>-25-12" URL slug pattern, which does not match the id.
   - model_name: ministral-14b
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/ministral-14b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: ministral-8b
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/ministral-8b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
 
   - model_name: ministral-3b
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -405,6 +455,7 @@ model_list:
       api_key: "os.environ/MISTRAL_API_KEY"
     model_info:
       mode: embedding
+      access_groups: ["Embeddings"]
 
   # Speech to text, the last slot of the "stt" cascade: the one paid member of it, as everything of this
   # section is. "docs.mistral.ai" lists French among the languages its Voxtral transcription supports
@@ -416,6 +467,7 @@ model_list:
       api_key: "os.environ/MISTRAL_API_KEY"
     model_info:
       mode: audio_transcription
+      access_groups: ["STT"]
 
   # Served, but not routed to: Voxtral text to speech, whose id "docs.mistral.ai/models/voxtral-mini-tts-3-0"
   # gives (read 2026-11-22). LiteLLM's own source, read the same day, maps six OpenAI voice names
@@ -460,11 +512,15 @@ model_list:
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY"
 
   - model_name: gpt-oss-20b-groq
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY"
@@ -478,6 +534,8 @@ model_list:
   # which "may be discontinued at short notice": the first entry of this block to recheck at the next
   # audit.
   - model_name: qwen3-8-27b-groq
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
@@ -499,6 +557,7 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
     model_info:
       mode: audio_transcription
+      access_groups: ["STT"]
 
   - model_name: whisper-large-v3-turbo-groq
     litellm_params:
@@ -506,6 +565,7 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
     model_info:
       mode: audio_transcription
+      access_groups: ["STT"]
 
   # Looked at on 2026-11-02 and turned down (#305).
   # drift-ignore: groq/allam-2-7b -- a 7B Arabic and English model with a 4,096-token context window and its pricing still "Pending" on "console.groq.com/docs/model/allam-2-7b" (read 2026-11-02): no free tier is stated, and no cascade is for Arabic
@@ -564,11 +624,15 @@ model_list:
   # necessarily the ones a search turns up. No extinction announced for either as of this date;
   # DeepSeek has committed to keep serving "deepseek-v4-pro" past 2026-09-14.
   - model_name: deepseek-v4-pro-direct
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: deepseek/deepseek-v4-pro
       api_key: "os.environ/DEEPSEEK_API_KEY"
 
   - model_name: deepseek-flash-direct
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: deepseek/deepseek-flash
       api_key: "os.environ/DEEPSEEK_API_KEY"
@@ -586,16 +650,22 @@ model_list:
   # own provider's key is listed ahead of its OpenRouter twin in the cascades.
   # ============================================================================
   - model_name: nemotron-ultra-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: nemotron-reasoning-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: nemotron-lightning-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -608,21 +678,29 @@ model_list:
   # coding benchmarks and the index has none for it (null); "claude-code" holds no OpenRouter entry; and
   # nothing shows it meets the sub-300 ms profile of "flash-lite".
   - model_name: nemotron-super-vl-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-super-vl:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: gemma-4-31b-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: gemma-4-26b-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
   - model_name: openrouter-auto-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/openrouter/free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -647,6 +725,8 @@ model_list:
   # other was refused with a 429 by the shared upstream), the first answer token came in about 0.5 s, and
   # the tool call was well formed. The probes were easy and rank nothing.
   - model_name: particle-1-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/particle-ai/particle-1:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -660,6 +740,8 @@ model_list:
   # all but one answered (the other was refused with a 429 by the shared upstream), the first answer
   # token came in about 1.5 s, and the tool call was well formed. The probes were easy and rank nothing.
   - model_name: ernie-5-5-flash-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/baidu/ernie-5.5-flash-preview:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -673,6 +755,8 @@ model_list:
   # only, as the last of its OpenRouter members: a hair under the Gemini 3.1 Flash-Lite that heads that
   # cascade (6.2), and the slowest to answer in it.
   - model_name: lfm-3-1-7b-free
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openrouter/liquid/lfm-3-1.7b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -722,6 +806,8 @@ model_list:
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
   # (read 2026-11-22), with reasoning at "medium" by default as on Groq. Free status unconfirmed.
   - model_name: gpt-oss-120b-cloudflare
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -729,6 +815,8 @@ model_list:
   # Second source of "gpt-oss-20b-groq", right behind it in "flash-lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
   - model_name: gpt-oss-20b-cloudflare
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -737,6 +825,8 @@ model_list:
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
   # 2026-11-22). Free status unconfirmed.
   - model_name: gemma-4-26b-cloudflare
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -747,6 +837,8 @@ model_list:
   # member of that cascade that it measures, hence the place. Its context is far under the 128,000 tokens
   # "claude-code" asks, so "code" has no place for it either. Free status unconfirmed.
   - model_name: llama-3-3-70b-cloudflare
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -758,6 +850,8 @@ model_list:
   # nothing ranks it against the members before it: the end of the free ones is where an unmeasured model
   # goes. Free status unconfirmed, and tool calls through this endpoint not tried.
   - model_name: glm-4-7-flash-cloudflare
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -893,6 +987,8 @@ model_list:
   # answers, which Artificial Analysis timed at about 25 seconds to the first answer token for its
   # reasoning record (read 2026-11-21). Tool calls through this endpoint were not tried.
   - model_name: glm-4-7-flash-zai
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: zai/glm-4.7-flash
       api_key: "os.environ/ZAI_API_KEY"
@@ -930,6 +1026,8 @@ model_list:
   # out of five, the other being a 429 "Provider returned error".
   # ============================================================================
   - model_name: nemotron-ultra-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -938,6 +1036,8 @@ model_list:
         Authorization: ""
 
   - model_name: nemotron-reasoning-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -946,6 +1046,8 @@ model_list:
         Authorization: ""
 
   - model_name: nemotron-lightning-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3.5-lightning:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -954,6 +1056,8 @@ model_list:
         Authorization: ""
 
   - model_name: nemotron-super-vl-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3.5-super-vl:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -962,6 +1066,8 @@ model_list:
         Authorization: ""
 
   - model_name: particle-1-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/particle-ai/particle-1:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -970,6 +1076,8 @@ model_list:
         Authorization: ""
 
   - model_name: ernie-5-5-flash-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/baidu/ernie-5.5-flash-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -978,6 +1086,8 @@ model_list:
         Authorization: ""
 
   - model_name: lfm-3-1-7b-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/liquid/lfm-3-1.7b:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -996,6 +1106,8 @@ model_list:
   # which 10.8 s does not serve, nor in "code" and "claude-code": Epoch AI scores it on one of the five
   # benchmarks "code" is ranked on, too few to place it, and "claude-code" holds keyed providers only.
   - model_name: beam-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/reflection/beam-free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1010,6 +1122,8 @@ model_list:
   # supported parameters, "tool_choice" not. It is the ":free" id that the catalogue flags free: the id
   # without the suffix is priced at zero but not flagged free.
   - model_name: flint-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/recursive/flint-v1.0:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1022,6 +1136,8 @@ model_list:
   # 256,000-token context and "tools" and "tool_choice" among its supported parameters. Nothing says who
   # makes it or for how long it stays, so it can leave the free list without notice.
   - model_name: glyph-cluster-kilo
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/stealth/glyph-cluster
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1073,6 +1189,8 @@ model_list:
   # tool calls.
   # ============================================================================
   - model_name: deepseek-v4-1-flash-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/DeepSeek-V4.1-Flash-1017
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1081,6 +1199,8 @@ model_list:
         Authorization: ""
 
   - model_name: qwen3-5-397b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/Qwen3.5-397B-A17B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1089,6 +1209,8 @@ model_list:
         Authorization: ""
 
   - model_name: gpt-oss-120b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/gpt-oss-120b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1097,6 +1219,8 @@ model_list:
         Authorization: ""
 
   - model_name: qwen3-8-27b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/Qwen3.8-27B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1105,6 +1229,8 @@ model_list:
         Authorization: ""
 
   - model_name: qwen3-6-35b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/qwen3.6-35b-a3b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1113,6 +1239,8 @@ model_list:
         Authorization: ""
 
   - model_name: nemotron3-omni-30b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nemotron3-omni-30b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1121,6 +1249,8 @@ model_list:
         Authorization: ""
 
   - model_name: mistral-small-3-2-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/Mistral-Small-3.2-24B-Instruct-2506
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1129,6 +1259,8 @@ model_list:
         Authorization: ""
 
   - model_name: gpt-oss-20b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/gpt-oss-20b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1137,6 +1269,8 @@ model_list:
         Authorization: ""
 
   - model_name: gemma-4-26b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/gemma-4-26b-a4b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1145,6 +1279,8 @@ model_list:
         Authorization: ""
 
   - model_name: nemotron3-nano-30b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nemotron3-nano-30b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1153,6 +1289,8 @@ model_list:
         Authorization: ""
 
   - model_name: qwen3-5-9b-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/Qwen3.5-9B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1161,6 +1299,8 @@ model_list:
         Authorization: ""
 
   - model_name: olala-mini-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/Olala-v1.0-mini-7A1B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1169,6 +1309,8 @@ model_list:
         Authorization: ""
 
   - model_name: laguna-xs-2-1-ovh
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/laguna-xs-2.1
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1206,24 +1348,32 @@ model_list:
   # these entries are untried: LiteLLM forwards them, and no page read says each model takes them.
   # ============================================================================
   - model_name: nemotron-ultra-requesty
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
 
   - model_name: nemotron-reasoning-requesty
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
 
   - model_name: nemotron-lightning-requesty
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/nvidia/nemotron-3.5-lightning-30b-a3b
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
 
   - model_name: gemma-4-31b-requesty
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
@@ -1265,6 +1415,8 @@ model_list:
   # is 155 s, longer than the "stream_timeout" below: at the effort those probes used, the router may give it up
   # before it answers.
   - model_name: kimi-k3-1-pro-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/moonshotai/kimi-k3.1-pro
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1273,30 +1425,40 @@ model_list:
   # taken. Index 26.1 at the high effort its card gives as the vendor's default, which the endpoint was not
   # confirmed to use; 71 s to the first answer token.
   - model_name: mistral-large-4-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/mistralai/mistral-large-4-1t-a52b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # The same model as "nemotron-ultra-free", through NVIDIA's own pool. 1,048,576-token context.
   - model_name: nemotron-ultra-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # The same model as "nemotron-reasoning-free". 262,144-token context.
   - model_name: nemotron-reasoning-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # The same model as "nemotron-lightning-free". 1,048,576-token context.
   - model_name: nemotron-lightning-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # The same model as "nemotron-super-vl-free". 262,144-token context.
   - model_name: nemotron-super-vl-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1305,6 +1467,8 @@ model_list:
   # 4GB build, with neither an index nor a timing: no figure places it, so it closes the free members of
   # "flash-lite" and is in no other router.
   - model_name: nemotron-bolt-e4b-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-bolt-e4b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1313,6 +1477,8 @@ model_list:
   # file scores it at. Index 27.8, 87 s to the first answer token on Artificial Analysis's probes, close to the
   # "stream_timeout" below.
   - model_name: glm-5-3-flash-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/z-ai/glm-5.3-flash
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1321,6 +1487,8 @@ model_list:
   # taken. Index 29.1, 52 s to the first answer token. Epoch AI scores no model of this name, only MiniMax-M3,
   # which is another model, so nothing places it by coding.
   - model_name: minimax-m3-1-flash-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/minimaxai/minimax-m3.1-flash
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1328,6 +1496,8 @@ model_list:
   # A 1,048,576-token context. Index 28.5, 38 s to the first answer token. Epoch AI scores no model of this
   # name.
   - model_name: step-5-preview-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/stepfun-ai/step-5-preview
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1336,6 +1506,8 @@ model_list:
   # lists it (read 2026-11-21), so no figure places it: it closes the free members of "code" and "claude-code",
   # the two routers its purpose fits, and is in no other.
   - model_name: laguna-xs-2-1-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/poolside/laguna-xs-2.1
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1344,12 +1516,16 @@ model_list:
   # level of its one Artificial Analysis record, low enough to sit behind the other NVIDIA entries that have a
   # figure.
   - model_name: muse-glimmer-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/meta/muse-glimmer-30b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # The same model as "gemma-4-31b-gemini" and "gemma-4-31b-free", through a pool of its own. 262,144-token context.
   - model_name: gemma-4-31b-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/google/gemma-4-31b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1358,6 +1534,8 @@ model_list:
   # support and its context are unknown. In "flash-lite" only, where Artificial Analysis's timing (3.1 s to the
   # first answer token) places it; that router has no floor.
   - model_name: gemma-3-12b-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-12b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1365,6 +1543,8 @@ model_list:
   # As "gemma-3-12b-nvidia": no card was found, so tools and context are unknown. 1.9 s to the first answer
   # token on Artificial Analysis's probes.
   - model_name: gemma-3-4b-nvidia
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-4b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1397,6 +1577,8 @@ model_list:
   # and ahead of OVHcloud's, and is in no other router, its tool calls being untried. It REASONS before it answers, so no "max_tokens" is set on it
   # and a caller must not cap it low: with 20 the answer was cut, with a finish reason of "length".
   - model_name: hy4-flash-cent-ai
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/hy4-flash:free
       api_base: "https://api.cent-ai.dev/v1"
@@ -1408,18 +1590,24 @@ model_list:
   # Reachable by every account: there is no quota behind it to isolate.
   # ============================================================================
   - model_name: omniroute-free-auto
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/auto/best-free
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
   - model_name: omniroute-free-code
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/auto/best-coding
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
   - model_name: omniroute-free-reasoning
+    model_info:
+      access_groups: ["LLM"]
     litellm_params:
       model: openai/auto/best-reasoning
       api_base: "http://omniroute:20128/v1"

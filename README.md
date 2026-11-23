@@ -646,6 +646,21 @@ une valeur littérale ne peut être qu'un marqueur pour un service qui n'a besoi
 d'authentification, jamais un oubli. `check_LiteLLM_account_isolation.py` reconnaît maintenant cette
 forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, donc aucun à protéger.
 
+### Les groupes d'accès : limiter une clé à un type de modèles
+
+Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans son `model_info.access_groups` d'après son `model_info.mode` :
+
+| Groupe | Entrées |
+| --- | --- |
+| `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `pro`, `flash`, `flash-lite`, `code` et `claude-code` placent en tête |
+| `STT` | les modèles de transcription (`audio_transcription`) |
+| `TTS` | les modèles de synthèse vocale (`audio_speech`) |
+| `Embeddings` | les modèles de vecteurs (`embedding`) |
+
+En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à son groupe, et le script de la veille de modèles écrit les entrées qu'il propose dans le groupe `LLM`.
+
+La clé qu'un compte LibreChat reçoit de `gateway_key` n'a **pas** de liste de modèles : tant qu'on ne sait pas si LibreChat liste bien les routeurs avec une clé limitée à un groupe, elle reste ouverte, et on la limite à la main dans `/ui` si on le veut.
+
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
 Le rôle exige **au moins une** des neuf clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), et échoue en les
