@@ -258,9 +258,10 @@ jobs:
     name: "LiteLLM drift check: verification cases"
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # The cases take minutes on their own, which is why they run beside the other checks and not in
-    # their job: they would be the longest step of it. 25 and not 15, for the setup time of a
-    # self-hosted pool on top of that (see the "REUSE compliance" job above).
-    timeout-minutes: 25
+    # their job: they would be the longest step of it. 45, for the setup time of a self-hosted pool on
+    # top of that (see the "REUSE compliance" job above), and because the real-list cases render the
+    # model list for every set of provider keys, which doubles with each provider the template gains.
+    timeout-minutes: 45
     steps:
       - name: Check the repository out
         uses: actions/checkout@v7
