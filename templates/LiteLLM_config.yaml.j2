@@ -794,6 +794,12 @@ model_list:
   # content processed and does not retain it for a standard inference, and each model page below lists
   # zero data retention.
   #
+  # Every text model below states the length of its answer: a request that names none is cut at the default
+  # its model page gives, 256 tokens on most of them (read 2026-11-23), which empties the answer of a model
+  # that reasons first. 32,768 where the context reaches 128,000 tokens, 8,192 under it, so that the request
+  # keeps most of the context; a client that sends its own limit replaces it.
+  # "check_compose_template.py" refuses a text entry of Cloudflare without one.
+  #
   # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
   # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
   # Qwen 3.8 27B, whose page gives a 262,144-token context and function calling but which LiteLLM's model
@@ -812,6 +818,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
@@ -821,6 +828,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
@@ -843,6 +851,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 8192
 
   # New to the gateway, and in "Auto-Code" and "Auto-Claude-Code" only, as the last of their free members, ahead of
   # the paid ones: 131,072 tokens and function calling in LiteLLM's model map and on its page (read
@@ -868,6 +877,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Cloudflare's own models that are not chat models, each called on a route of its own rather than on
   # "/chat/completions", which LiteLLM gives them since it learnt them: Clef on "/v1/systemone" (a "state" and
@@ -941,6 +951,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/ibm-granite/granite-4.0-h-micro
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Meta's Llama 3.2 11B with vision, with 128,000 tokens of context (its model page, read 2026-11-22).
   # Not among the models the pricing page
@@ -956,6 +967,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.2-11b-vision-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Meta's Llama 4 Scout, a mixture of experts with 17B active parameters, 131,000 tokens of context and
   # function calling (its model page, read 2026-11-22). Not among the models the pricing page
@@ -969,6 +981,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora -- a LoRA base model with a 15,000-token context, under the 24,000 that "Auto-Flash-Lite" takes, and no figure measures v0.2 (read 2026-11-22)
 
@@ -983,6 +996,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Qwen2.5 Coder 32B, with 32,768 tokens of context and no function calling listed (its model page, read
   # 2026-11-22). Not among the models the pricing page
@@ -997,6 +1011,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 8192
 
   # Qwen3.8 27B, the model Groq and OVHcloud serve above, with 262,144 tokens of context and function calling
   # (its model page, read 2026-11-22). Not among the models the pricing page

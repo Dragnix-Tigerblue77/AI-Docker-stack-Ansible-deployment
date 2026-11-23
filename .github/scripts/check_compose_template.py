@@ -72,6 +72,8 @@ provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a 
 call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
 otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
 endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
+A text entry of Cloudflare states the length of its answer, as "max_tokens" or "max_completion_tokens":
+Cloudflare cuts an answer that names no limit at the default its model page gives, 256 tokens on most of them.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1735,6 +1737,10 @@ LITELLM_KEYLESS_BASES = {
     "Kilo": "https://ai-gateway.kilo.ai/api/v1",
     "OVHcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
 }
+# The model prefixes of the providers that cut an answer short when the request names no limit: Cloudflare's model
+# pages give 256 tokens as the default of most of its text models, which empties the answer of one that reasons
+# first. A text entry of theirs states its own limit, as "max_tokens" or "max_completion_tokens".
+LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES = ("cloudflare/",)
 
 
 def litellm_key_sets():
@@ -1820,6 +1826,20 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
                 f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry: a key limited to a "
                 "type of models reaches the entries of that type and no other, so each entry is in exactly one group"
+            )
+
+    for entry in entries:
+        parameters = mapping(entry, "litellm_params")
+        model = parameters.get("model")
+        if mapping(entry, "model_info").get("mode") or not (
+                isinstance(model, str) and model.startswith(LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES)):
+            continue
+        limits = [parameters.get(key) for key in ("max_tokens", "max_completion_tokens")]
+        if not any(isinstance(limit, int) and not isinstance(limit, bool) and limit > 0 for limit in limits):
+            failures.append(
+                f"[{state}] the text entry {entry.get('model_name')!r} ({model}) sets no positive max_tokens nor "
+                "max_completion_tokens: its provider cuts an answer that names no limit at a default its model page "
+                "gives, 256 tokens on most of them, which empties the answer of a model that reasons first"
             )
 
     read = set()
@@ -2095,6 +2115,25 @@ def _keyless_document(gateway="Kilo", **overrides):
     }
 
 
+def _short_answer_document(mode=None, **overrides):
+    """One text entry of Cloudflare as the template writes it, with `overrides` replacing parts of its
+    litellm_params; a value of None drops the key."""
+    parameters = {"model": "cloudflare/@cf/vendor/model", "api_key": "os.environ/ANY_API_KEY", "max_tokens": 32768}
+    for key, value in overrides.items():
+        if value is None:
+            parameters.pop(key, None)
+        else:
+            parameters[key] = value
+    return {
+        "model_list": [{"model_name": "a-cloudflare", "litellm_params": parameters,
+                        "model_info": {**({"mode": mode} if mode else {}),
+                                       "access_groups": [litellm_access_group(mode)]}}],
+        # An entry that is no text model belongs in no text cascade, which another rule holds.
+        "router_settings": {} if mode else {"fallbacks": [{"flash": ["a-cloudflare"]}],
+                                            "model_group_alias": {"flash": "a-cloudflare"}},
+    }
+
+
 def _keyless_member_document(gateway, left_out):
     """A keyed member and a keyless one, both in "code", and "claude-code" with or without the keyless one."""
     document = _litellm_document(
@@ -2356,6 +2395,21 @@ LITELLM_CONFIG_CASES = [
         (f"claude-code holding a member of {gateway} that code holds", _keyless_member_document(gateway, False),
          {"Mistral"}, "have drifted apart"),
     )],
+    ("a text entry of Cloudflare as the template writes it", _short_answer_document(), set(), None),
+    ("a text entry of Cloudflare limited by max_completion_tokens",
+     _short_answer_document(max_tokens=None, max_completion_tokens=32768), set(), None),
+    ("a text entry of Cloudflare with no limit", _short_answer_document(max_tokens=None), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare limited to zero", _short_answer_document(max_tokens=0), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare whose limit is a string", _short_answer_document(max_tokens="32768"), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare whose limit is a boolean", _short_answer_document(max_tokens=True), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("an entry of Cloudflare that is no text model needs no limit",
+     _short_answer_document(mode="evaluation", max_tokens=None), set(), None),
+    ("a text entry of another provider needs no limit",
+     _short_answer_document(model="groq/vendor/model", max_tokens=None), set(), None),
     ("an entry on another base is not held to the keyless shape",
      _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a transcription router served by its cascade's head",
