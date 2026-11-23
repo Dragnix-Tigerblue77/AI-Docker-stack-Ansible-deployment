@@ -39,7 +39,7 @@ caller labelled <ACCOUNT>. It is the key that spends the quota; the "model_name"
 
 This script knows no list of accounts, and the role's interface names no person: the account is the
 segment that follows "_API_KEY_" in the variable's name, whatever the caller chose to call it, and
-the absence of a segment is the default account. A second account, or #2's "SCI" billed project,
+the absence of a segment is the default account. A second account, or a billed project kept apart,
 work without one line here changing; only the label is the caller's to pick, and it names an
 account, never a person. An entry whose key does NOT allow a conclusion (a Jinja variable, a variable
 name outside the convention, or no "api_key" at all) is not silently ignored: it is reported,

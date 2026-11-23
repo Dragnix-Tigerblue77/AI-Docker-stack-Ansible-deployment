@@ -9,8 +9,8 @@
 # being hardcoded into an authorization label than into a hostname, and there is only one account
 # to isolate from so far
 # anyway. What #2 asks beyond this -- "access_groups"-backed teams and virtual keys created by
-# idempotent Ansible tasks against LiteLLM's admin API, per-key rpm/tpm limits, the "sci-*" / "gen-*"
-# sensitivity split, and the executable cross-account negative test -- is real and still open, and
+# idempotent Ansible tasks against LiteLLM's admin API, per-key rpm/tpm limits, a split of the entries
+# by the sensitivity of their data, and the executable cross-account negative test -- is real and still open, and
 # deliberately NOT attempted here; when it lands, an account's identity has to come from a role
 # variable, never from a name written into this template.
 # #296: only the providers whose key the caller gives are rendered. A provider without a key has no
