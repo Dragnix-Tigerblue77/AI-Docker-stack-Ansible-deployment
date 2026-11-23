@@ -8,19 +8,18 @@ name: Dependabot auto-merge
 # makes, by a different mechanism, because this repository cannot use wader/postfix-relay's.
 #
 # There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
-# Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
-# repository ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
-# public"), and "Allow auto-merge" needs the same upgrade. So this workflow does the waiting itself.
+# Here, no ruleset is imported, so "--auto" would have nothing to wait for. So this workflow does
+# the waiting itself.
 # It never asks GitHub to merge later; it merges now, and only after reading, for the exact commit
 # it is about to merge, every check the ruleset file lists. Before it, every Dependabot pull request
 # here waited for a human however green it was -- the defect this workflow exists to remove.
 #
 # That file is the one gate and it is read from main, never from the pull request: a pull request
 # that edits the list of checks it has to pass must not be the one deciding what that list is. It is
-# in GitHub's ruleset export format so that the day this repository can enforce a ruleset -- made
-# public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
-# swapped for wader/postfix-relay's "--auto" one without anyone re-deriving which checks gate a
-# merge.
+# in GitHub's ruleset export format so that importing it is what swapping this workflow for
+# wader/postfix-relay's "--auto" one needs, without anyone re-deriving which checks gate a merge.
+# The "sign-off" that never starts on the weekly model-deletion pull request when GITHUB_TOKEN opens
+# it has to be settled first: imported as it stands, the file would block that pull request's merge.
 #
 # The file names every job of "Quality checks", "Secret scan" and "Commit sign-off" one by one rather
 # than a single aggregate job. The step below already refuses a check that is missing, still running,

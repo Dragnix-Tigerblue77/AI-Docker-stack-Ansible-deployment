@@ -876,8 +876,8 @@ commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'aut
 lundi au jeudi (environ 90 % des sorties depuis novembre 2025, d'après les dates de sortie
 d'Artificial Analysis et d'Epoch AI), le vendredi pour environ 10 % et le week-end pour 2 % : le run a
 la semaine derrière lui, et ce qu'il propose est prêt avant l'usage du week-end. Une fois par semaine
-seulement, parce que chaque run coûte des minutes incluses sur un dépôt privé : un run quotidien est
-voulu une fois le dépôt public.
+pour l'instant : un run quotidien est voulu, mais il faudrait remodeler le calendrier de reprise du
+samedi.
 
 Le rapport entier, section « Contrats par routeur » comprise, va dans le **résumé du run** (l'onglet
 *Summary* de l'exécution), qui ne notifie personne. Ce qu'une personne doit lire va dans le corps de la
@@ -1003,8 +1003,8 @@ les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur
   chercher, une commande qui lit le modèle dans le catalogue du fournisseur sans rien afficher de
   secret (celles qui demandent une clé se lancent en root sur la machine qui fait tourner la pile, et
   lisent la clé dans le conteneur LiteLLM), le commentaire daté à écrire au-dessus de l'entrée, et la
-  ligne `drift-ignore` toute prête si la réponse est non. Un dépôt privé du plan gratuit de GitHub n'a
-  pas de brouillons : elle y est ouverte prête à relire, et son corps seul dit d'attendre.
+  ligne `drift-ignore` toute prête si la réponse est non. Là où GitHub refuse un brouillon, comme sur
+  un dépôt privé de son plan gratuit, elle est ouverte prête à relire, et son corps seul dit d'attendre.
 
 Le commit ajoute chaque entrée après la dernière entrée de son fournisseur (la dernière active, sinon la
 dernière commentée), dont elle reprend la clé et l'`api_base`, sous un commentaire qui dit d'où elle

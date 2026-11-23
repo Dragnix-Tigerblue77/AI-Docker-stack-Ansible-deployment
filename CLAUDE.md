@@ -471,8 +471,8 @@ local session commits as the person at the keyboard, who signs off with `-s`.
 
 **Dependabot's minor and patch updates merge themselves once CI is green.** *(shared)* A Dependabot
 pull request sitting open with every check green is a defect in that process, not a task for a
-human. GitHub Free enforces no ruleset on a private repository, so here `dependabot-auto-merge.yml`
-reads the required checks from `.github/rulesets/` and does the checking itself before merging
+human. No ruleset is imported here, so `dependabot-auto-merge.yml` reads the required checks from
+`.github/rulesets/` and does the checking itself before merging
 (invariant 9). What gets through is decided by CI rather than by a guess about which ecosystem is
 risky: majors wait for a human, and so does anything red.
 
@@ -498,7 +498,7 @@ Dependabot's own pull requests to Dependabot: a rebase pushed by anyone else str
 starts no workflow, so it starts no wait either, and the pull requests it leaves behind wait for the
 next push made any other way. One it cannot update because it conflicts gets a single comment saying
 so, deleted once the conflict is gone, and written by the GitHub App rather than the personal access
-token, since GitHub emails nobody about their own activity (#214). This repository, being private,
+token, since GitHub emails nobody about their own activity (#214). This repository
 carries it switched off behind the `PULL_REQUESTS_UPDATE_ENABLED` repository variable, so that a
 workflow which runs nothing here is deliberate and not dead code, and switching it on is setting
 that variable and a credential (#145).
@@ -616,10 +616,11 @@ tells you.
 
 ## What blocks a pull request
 
-**For a human's merge, nothing does, and that is worth knowing rather than discovering.** The
-organisation is on a plan that allows neither a ruleset nor a branch protection on a private
-repository, so no CI check can be made required before merging: the workflows **inform** the
-reviewer, they do not guard the door.
+**For a human's merge, nothing does, and that is worth knowing rather than discovering.** No
+ruleset is imported: `.github/rulesets/main.json` requires `sign-off`, which never starts on the
+weekly model-deletion pull request when `GITHUB_TOKEN` opens it, so importing the file as it stands
+would block that pull request's merge (#423 tracks it). No CI check is therefore required before
+merging: the workflows **inform** the reviewer, they do not guard the door.
 
 **Dependabot's updates are the exception.** `dependabot-auto-merge.yml` merges a minor or patch one
 only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
@@ -700,8 +701,8 @@ the role.
    example playbook. Nothing else in this repository needs it: every other job lints or reads the
    role's own files directly, at their own path, with no role resolution involved.
 9. **`dependabot-auto-merge.yml` merges directly, and does its own checking first.** `gh pr merge
-   --auto` needs a ruleset GitHub enforces, and the organisation's plan enforces none on a private
-   repository. So the workflow reads `.github/rulesets/main.json` from `main`, checks that every
+   --auto` needs a ruleset GitHub enforces, and none is imported here (see *What blocks a pull
+   request*). So the workflow reads `.github/rulesets/main.json` from `main`, checks that every
    context in it concluded `success` on the pull request's exact head commit, and merges pinned to
    that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
    ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
@@ -719,8 +720,8 @@ the role.
    matrix or has an expression in its `name:`: GitHub renders such a name per run, so `main.json`
    could only list the unrendered one, which the check accepts and no check run ever reports --
    every update would then wait for ever. That is why the role run is two jobs sharing one anchored
-   `steps:` list rather than a matrix. The workflow's header also says what replaces it the day the
-   repository can enforce a ruleset.
+   `steps:` list rather than a matrix. The workflow's header also says what replaces it the day a
+   ruleset is imported.
 
    The weekly model-drift workflow keeps the same rule with two jobs, and a third, its gate, that
    holds neither keys nor a token that writes: the one that holds the providers' keys installs PyYAML

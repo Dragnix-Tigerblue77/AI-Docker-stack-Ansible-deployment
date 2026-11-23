@@ -6,11 +6,10 @@ name: Quality checks
 # The quality checks, on every pull request. Secret detection lives in its own workflow
 # ("gitleaks.yml") because it has neither the same tooling nor the same reason to exist.
 #
-# ! None of these jobs can be made REQUIRED before a human merges: the organisation is on a plan
-#   that allows neither a ruleset nor a branch protection on a private repository
-#   ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
-#   public"). For a human's merge they inform the reviewer; they do not guard the door. That is a
-#   limit of the plan, not of the configuration.
+# ! None of these jobs is REQUIRED before a human merges: no ruleset is imported, because
+#   ".github/rulesets/main.json" requires "sign-off", which never starts on the weekly
+#   model-deletion pull request when GITHUB_TOKEN opens it, so importing it as it stands would block
+#   that pull request's automatic merge. For a human's merge they inform the reviewer; they do not guard the door.
 #
 #   Two kinds of pull request are the exception, and the one place these jobs do gate something:
 #   Dependabot's updates and the weekly model-deletion pull request of "LiteLLM_model_drift.yml".

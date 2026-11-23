@@ -46,11 +46,10 @@ name: Auto-update pull request branches
 #    failed workflows" setting leaves them out.
 #
 # It is best effort, and main does not require it: GitHub enforces nothing
-# before a merge here, because the organisation is on a plan that allows
-# neither a ruleset nor a branch protection on a private repository (the header
-# of "ansible-ci.yml" has the measurement). So "Require branches to be up to
-# date before merging" is off, and it has to stay off should the plan ever allow
-# it: a pull request this cannot reach -- one that conflicts, one from a fork, a
+# before a merge here, because no ruleset is imported (the header of
+# "ansible-ci.yml" says why). So "Require branches to be up to date before
+# merging" is off, and it has to stay off should a ruleset ever be imported:
+# a pull request this cannot reach -- one that conflicts, one from a fork, a
 # draft, or any of them between a merge made in GITHUB_TOKEN's name and the next
 # push to main -- would be blocked by that setting rather than merely behind.
 # So would Dependabot's own, which this leaves to Dependabot on purpose (the
@@ -59,8 +58,7 @@ name: Auto-update pull request branches
 # GitHub's own answer to this problem is the merge queue, which tests and merges
 # pull requests against an up-to-date main without anyone updating anything.
 # It is not an option here either: it is switched on by a branch protection
-# rule or a ruleset, which is exactly what this plan does not allow on a private
-# repository.
+# rule or a ruleset, and none is imported here.
 #
 # The update is done by rebase, which is why it goes through the GraphQL
 # mutation rather than the REST "update a pull request branch" endpoint: that

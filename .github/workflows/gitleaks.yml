@@ -6,10 +6,9 @@ name: Secret scan
 # Secret detection on every pull request. Nothing in this repository is a known secret waiting for
 # rotation, so there is no ".gitleaksignore": every finding is a finding.
 #
-# ! This workflow REPORTS, it does not block a human's merge. The organisation is on a plan that
-#   allows neither a ruleset nor a branch protection on a private repository
-#   ("GET /repos/.../rulesets" -> 403 "Upgrade to GitHub Pro or make this repository public"), so
-#   no CI check can be made required before merging. The guard that really refuses is
+# ! This workflow REPORTS, it does not block a human's merge. No ruleset is
+#   imported (the header of "ansible-ci.yml" says why), so no CI check is required before
+#   merging. The guard that really refuses is
 #   ".githooks/pre-commit".
 #
 #   The exceptions are Dependabot's own updates and the weekly model-deletion pull request:

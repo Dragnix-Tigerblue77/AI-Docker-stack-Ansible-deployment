@@ -29,8 +29,8 @@ name: LiteLLM model drift
 # Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
 # announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
 # the run sees the model gone within a week: a cascade one entry shorter for that week, since a
-# refused call only moves the request on. Weekly and not daily because every run costs included
-# minutes on a private repository; once the repository is public, a daily run is wanted. Saturday
+# refused call only moves the request on. Weekly for now: a daily run is wanted, but it would
+# need the Saturday retry schedule reshaped. Saturday
 # 06:47 UTC -- 7:47 in Paris in winter, 8:47 in summer -- off the top of the hour, when every scheduled
 # workflow on GitHub starts at once. Saturday, because providers release from Monday to Thursday
 # (about 90 % of the releases since November 2025, by the release dates of Artificial Analysis and
@@ -141,9 +141,10 @@ name: LiteLLM model drift
 # summary and the pull requests of additions do, with the day the figures were read.
 #
 # Cost: three jobs of under a minute each, once a week, and three gates of a few seconds, each job
-# billed as a whole minute -- six minutes a week, about twenty-six of the included minutes a month on
-# this private repository -- plus, when something is deleted or proposed, the checks of the pull
-# requests, and two minutes more per retry that runs, in a week a catalogue fails.
+# billed as a whole minute -- six minutes a week, about twenty-six a month, which hosted
+# runners do not charge on a public repository -- plus, when something is deleted or proposed, the
+# checks of the pull requests, and two minutes more per retry that runs, in a week a catalogue
+# fails.
 #
 # The issue is found by a hidden marker in its body, among the issues this workflow's own token
 # opened, under its title or the one it had while it reported every drift, so that one still open
@@ -207,7 +208,8 @@ name: LiteLLM model drift
 # the slug or name of one entry of the ranking and no other once case and punctuation are dropped,
 # with no variant marker such as "(Reasoning)" on that entry. The second, opened as a draft, holds any
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
-# on a private repository of GitHub's free plan, which has no drafts, it is opened ready for review
+# where GitHub refuses a draft, as it does on a private repository of its free plan, it is opened
+# ready for review
 # and its body alone says to wait. Neither puts a model in a cascade: the places are suggestions in
 # the body, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
 # the deletions alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
@@ -1065,8 +1067,8 @@ jobs:
                 try {
                   ({ data: created } = await github.rest.pulls.create({ owner, repo, title, head: branch, base: baseBranch, body, draft }));
                 } catch (error) {
-                  // A private repository on GitHub's free plan has no draft pull requests: the body
-                  // says to wait, and the run says why it is not a draft.
+                  // Where GitHub refuses a draft pull request, as on a private repository of its
+                  // free plan, the body says to wait, and the run says why it is not a draft.
                   if (!draft || error.status !== 422 || !/draft/i.test(error.message)) throw error;
                   core.warning(`GitHub refused a draft pull request (${error.message}): ${branch} is opened ready for review, and its body alone says to wait.`);
                   ({ data: created } = await github.rest.pulls.create({ owner, repo, title, head: branch, base: baseBranch, body, draft: false }));

@@ -4,9 +4,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Refuse a commit that carries a secret. This is the ONLY guard in this repository that really
-# refuses anything: CI does no more than report after the fact, and the account is on a plan that
-# allows neither a ruleset nor a branch protection on a private repository, so no CI check can be
-# made blocking ("GET /repos/.../rulesets" -> 403 "Upgrade to GitHub Pro").
+# refuses anything: CI does no more than report after the fact, since no ruleset is imported and no
+# CI check is therefore required before a merge.
 #
 # Installation, once per clone -- a hook is not versioned, the DIRECTORY is:
 #
