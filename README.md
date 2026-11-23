@@ -625,9 +625,11 @@ partagent une seule limite pour tout le compte : 20 requêtes par minute et 50 p
 autre compte y arriveront comme des entrées à lui, portant ses propres clés sous une étiquette que
 l'appelant choisit (#107). Pas depuis sa propre connexion `/ui` : LiteLLM réserve l'ajout d'un modèle
 (`/model/new`) à l'administrateur du proxy -- ou à un admin d'équipe, sur sa seule édition payante.
-Aucune entrée ne porte de `model_info.access_groups` : un nom de compte figé dans une étiquette
-d'autorisation romprait la réutilisabilité de ce rôle pour qui l'installe. Par défaut, **toute clé voit
-tous les modèles**, y compris celles créées pour les comptes de la liste plus bas (#114).
+Aucun groupe d'accès ne désigne un compte : chaque entrée porte celui de son type de modèle (voir « Les
+groupes d'accès » plus bas), car un nom de compte figé dans une étiquette d'autorisation romprait la
+réutilisabilité de ce rôle pour qui l'installe. Une clé sans restriction voit donc **tous les modèles**,
+y compris celles créées pour les comptes de la liste plus bas ; seule la clé d'un compte LibreChat est
+limitée, aux modèles de texte.
 #2 demande encore davantage : `rpm_limit` / `tpm_limit` par clé, la segmentation `sci-*` / `gen-*`, le
 test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici, et quand il
 arrivera l'identité d'un compte viendra d'une variable du rôle, jamais d'un nom écrit dans ce fichier.
@@ -664,7 +666,7 @@ La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des neuf clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), et échoue en les
+Le rôle exige **au moins une** des clés de fournisseurs (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
