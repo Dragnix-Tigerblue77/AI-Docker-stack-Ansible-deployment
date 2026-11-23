@@ -356,6 +356,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_model_drift.py
 
+      # "ROUTAGE.md" is kept by hand and records where each model sits in each router and at which level. This
+      # holds its router order and its static levels to the template rendered the way the check above renders
+      # it, so it reads PyYAML and Jinja2 too.
+      - name: "Routing document: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_routing_document.py --selftest
+
+      - name: "Routing document: hold ROUTAGE.md to the template"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_routing_document.py
+
       - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py --selftest

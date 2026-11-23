@@ -820,7 +820,7 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `gpt-oss-120b-cloudflare` | environ 314 000 | environ 147 000 | `flash`, derrière `gpt-oss-120b-groq` |
 | `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `flash-lite`, derrière `gpt-oss-20b-groq` |
 | `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `flash-lite`, derrière les deux autres sources |
-| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, dernier membre gratuit |
+| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, placé par son délai |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
@@ -1048,6 +1048,12 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
+**Où chaque modèle est placé, à quel niveau de réflexion et pourquoi** : `ROUTAGE.md`, à la racine, écrit à la main. Il dit les
+règles en mots simples (le niveau que garde chaque routeur, le classement de `flash-lite` par indice moins délai pondéré, la
+règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
+chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
+`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
+
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
 écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié
 dans le fichier), sur l'une de deux échelles, ou aucun plancher. Sur l'indice d'intelligence (plus il est grand,
@@ -1062,9 +1068,11 @@ plancher à dessein (le « dernier recours »), et, pour chaque entrée du modè
 d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
 ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
 un modèle lent n'est donc jamais écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils
-pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` met le
-plus court en tête, les autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère
-de moins de la marge du routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
+pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` classe ses
+membres par leur indice moins `min_points_per_second` fois ce délai (les membres sans indice après ceux qui ont les deux,
+le plus rapide d'abord, et ceux qui partagent leur quota avec un membre de `pro` ou de `flash` après tous les autres), les
+autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère de moins de la marge du
+routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
 d'un modèle depuis le plus bas, et on passe au suivant tant qu'il apporte au moins `min_points_per_second` points
 d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `claude-code` dérive de `code` (même
 classement, sa cascade est celle de `code` sans les membres qui ne prennent pas d'outils). `code` se classe sur la
@@ -1093,9 +1101,9 @@ partout. Les planchers de `pro` et de `flash` y sont ancrés : `pro` doit être 
 `flash` que Gemini 2.5 Flash, avec une marge de 2 points, parce que l'indice ne donne qu'un chiffre par modèle, avec un
 intervalle d'environ deux points, si bien qu'un modèle à moins de cette marge du plancher ne s'en distingue pas. `code`
 et `claude-code` ont pour plancher la position de code de Gemini 2.5 Flash, sans marge, et `flash-lite` n'a aucun
-plancher (le plus court délai avant le premier jeton ordonne, tout membre qui répond est admis). Un membre pour lequel
+plancher (tout membre qui répond est admis, et l'indice moins le délai pondéré ordonne). Un membre pour lequel
 le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
-(`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur ordonné par le délai n'utilise aucune
+(`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur qui tient au temps n'utilise aucune
 estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et le résumé
 le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Le mainteneur a
 **validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent

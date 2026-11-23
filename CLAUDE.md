@@ -30,6 +30,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Why a lint rule is waived, and which ones | `.ansible-lint`, `.yamllint` (comments) |
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
+| Which model sits where in each router, at which reasoning level, and why; what a static level means and does not | `ROUTAGE.md`, kept by hand, its router order and static levels held to the template by `.github/scripts/check_routing_document.py` |
 | What the weekly model-drift run, its pull requests and its issue of unreadable catalogues are, when it runs and retries, which secrets feed it, what repository setting it needs, and why it never runs on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
 | How to set a clone up, what to run before pushing, what submitting a contribution grants, and what signing a commit off means | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
@@ -391,6 +392,15 @@ deleted model is listed in that pull request for a person to read. A claim about
 keeps the date it was checked and is true of that day for good; a claim that is a count is true of no
 day after the next deletion.
 
+**Where a model sits, and at which level, is recorded in `ROUTAGE.md`**, in French and kept by hand: the rules
+in plain words, a table per router in cascade order, and the open points. A change to the order of a cascade or
+to an entry's static `reasoning_effort` edits it in the same pull request, and `check_routing_document.py`
+fails the pull request otherwise; its figures and reasons are prose that a person reads. A static level is a
+default that any effort a client sends replaces, so it steers the clients that send none and not the Claude
+Code agent. It is set only where the provider's honouring is verified and a higher level costs nothing more
+per request (the Gemini entries Artificial Analysis measures), and an entry per level a router keeps is named
+`<entry>-<level>`, the unsuffixed name carrying the level `pro` keeps.
+
 **Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a
 different model is worth having on its own: a provider is never dropped for being "no better" than the
@@ -579,6 +589,8 @@ python3 .github/scripts/check_LiteLLM_model_drift_selftest.py   # the same cases
 python3 .github/scripts/check_LiteLLM_model_drift.py       # offline; --online reads the providers' catalogues
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
+python3 .github/scripts/check_routing_document.py --selftest
+python3 .github/scripts/check_routing_document.py
 python3 .github/scripts/check_sign_off.py --selftest
 python3 .github/scripts/check_sign_off.py origin/main HEAD  # a pull request's range: exits 1 until the branch holds a commit
 python3 .github/scripts/check_required_checks.py --selftest

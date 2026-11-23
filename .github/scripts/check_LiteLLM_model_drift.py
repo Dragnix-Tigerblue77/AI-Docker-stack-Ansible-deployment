@@ -2209,7 +2209,7 @@ def read_epoch(opener, today):
 
 CONTRACTS = ROOT / ".github" / "LiteLLM_router_contracts.yaml"
 CONTRACT_STATUSES = ("provisional", "validated")
-CONTRACT_CRITERIA = ("intelligence", "first_answer", "code_quality")
+CONTRACT_CRITERIA = ("intelligence", "intelligence_for_time", "code_quality")
 CONTRACT_STAND_INS = ("intelligence",)
 CONTRACT_REQUIRES = ("tools",)
 TOOLS_SUPPORT = ("yes", "no", "unknown")
@@ -2482,18 +2482,35 @@ def code_figure(quality, intelligence, points):
     return None, False
 
 
+def time_worth(intelligence, seconds, rate):
+    """What a member is worth to a router that values time: its intelligence index less the router's
+    exchange rate times its mean time to the first answer token, the same rate the router asks of one
+    model's levels. None when either figure is missing: the worth of a member is never estimated."""
+    if intelligence is None or seconds is None:
+        return None
+    return intelligence - rate * seconds
+
+
 def contract_order(rows, ranking):
     """The order a router's contract would give: the members that conform, then the last resort tier
     in the order it has now (the members the contract declares exempt and those under the floor). A
-    router ordered by time puts the shortest first; any other puts the best quality first, time
-    breaking a tie between members less than the router's margin apart. Code quality is the code
-    position, measured or estimated, the smallest first; without the archive the intelligence index
-    orders them all, as a stand-in. A member that cannot be judged is not placed."""
+    router that values time puts the members that have a worth first, the greatest first (see
+    time_worth), then those that have a time and no index, the shortest first, the current order
+    settling a tie, then the members whose quota is shared with a member of the routers it
+    names (see "shared_quota_with"), ordered the same way, so that they come after every member that
+    has a quota of its own, and then the last resort tier as for any router; any other router puts the best quality first, time breaking a tie between
+    members less than the router's margin apart. Code quality is the code position, measured or
+    estimated, the smallest first; without the archive the intelligence index orders them all, as a
+    stand-in. A member that cannot be judged is not placed."""
     main = [row for row in rows if row["kind"] == "conforming" and not row["last_resort"]]
     tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
-    if ranking["criterion"] == "first_answer":
-        return [row["name"] for row in sorted(
-            main, key=lambda row: (row["record"]["first_answer"], row["position"]))] + tail
+    if ranking["criterion"] == "intelligence_for_time":
+        def by_worth(row):
+            return (row["worth"] is None, -(row["worth"] or 0), row["record"]["first_answer"], row["position"])
+
+        own = sorted((row for row in main if not row["shared_quota"]), key=by_worth)
+        shared = sorted((row for row in main if row["shared_quota"]), key=by_worth)
+        return [row["name"] for row in own + shared] + tail
     if ranking["criterion"] == "code_quality" and any(row.get("quality") for row in rows):
         main.sort(key=lambda row: (row["code_position"], row["position"]))
         return [row["name"] for row in time_ties(main, ranking["tie_margin_points"],
@@ -2622,18 +2639,21 @@ def floor_text(block):
                           ", marge %g" % block["margin"] if block.get("margin") else "")
 
 
-def router_rows(members, contract, mappings, by_slug, families, floor=None, quality=None, scale=None, points=None):
+def router_rows(members, contract, mappings, by_slug, families, floor=None, quality=None, scale=None, points=None,
+                shared=frozenset()):
     """One row per member of a cascade against its router's contract, at the floor given or the
     contract's own. "quality" is the code quality of the members (see router_quality), or None: the
     members are then judged and ordered on the intelligence index, and otherwise on their code position,
     measured or, for a member that has none, estimated from its index by "points" (see code_points) and
     said so. "scale" is what converts a capabilities index (see eci_scale), or None: a member the
     ranking has no index for at the level it is called at is then placed on the estimate its entry's
-    "eci" gives, which a router ordered by time never uses, since its time comes from the ranking."""
+    "eci" gives, which a router that values time never uses, since its time comes from the ranking.
+    "shared" is the names of the members whose quota is shared with a member of the routers the contract
+    names (see shared_quota_names)."""
     rate = contract["level_gain"]["min_points_per_second"]
     block = contract["intelligence_floor"]
     floor = block["value"] if floor is None else floor
-    needs_time = contract["ranking"]["criterion"] == "first_answer"
+    needs_time = contract["ranking"]["criterion"] == "intelligence_for_time"
     needs_index = not (needs_time and block.get("none"))
     code = quality is not None
     rows = []
@@ -2651,24 +2671,46 @@ def router_rows(members, contract, mappings, by_slug, families, floor=None, qual
                                    needs_time, needs_index, block.get("margin", 0), code)
         record = found.get("record")
         timed = record is not None and not (place_estimated if code else estimated)
+        seconds = record["first_answer"] if timed else None
+        sharing = name in shared and kind == "conforming" and not last_resort
         rows.append({"name": name, "position": position, "found": found, "kind": kind,
-                     "verdict": text, "last_resort": last_resort, "tools": tools,
+                     "verdict": text + (" ; quota partagé : en dernier" if sharing else ""),
+                     "last_resort": last_resort, "tools": tools, "shared_quota": sharing,
                      "record": record, "quality": quality[name] if code else None,
                      "intelligence": value, "estimated": estimated,
                      "code_position": place, "code_estimated": place_estimated,
-                     "first_answer": record["first_answer"] if timed else None,
+                     "first_answer": seconds,
+                     "worth": time_worth(None if estimated else value, seconds, rate) if needs_time else None,
                      "kept": chosen_level(found["family"], rate) if found["state"] == "resolved" else None})
     return rows
 
 
-def floor_effects(members, contract, mappings, by_slug, families, quality=None, scale=None, points=None):
+def quota_identity(entry):
+    """What a quota is counted on, as far as the template tells: the provider's model id and its base
+    address. Two entries with the same identity draw on the same quota of the same account, whatever
+    their names and levels; None for an entry that names no model."""
+    return (entry["model"], entry["api_base"]) if isinstance(entry.get("model"), str) else None
+
+
+def shared_quota_names(members, ranking, lists, entries):
+    """The members of a cascade that are the same model of the same provider (see quota_identity) as a
+    member of one of the routers its ranking names in "shared_quota_with", read off the template and not
+    kept by hand: a free quota is counted per model, so such a member spends the quota of the router it
+    must not eat. "entries" is {name: entry} of the template's active entries."""
+    wanted = {quota_identity(entries[name]) for router in ranking.get("shared_quota_with") or ()
+              for name in lists.get((CONTRACT_FALLBACKS, router), ()) if name in entries} - {None}
+    return frozenset(name for name in members if name in entries and quota_identity(entries[name]) in wanted)
+
+
+def floor_effects(members, contract, mappings, by_slug, families, quality=None, scale=None, points=None,
+                  shared=frozenset()):
     """What each floor the contract proposes to compare does to a cascade: who stays in front and who
     goes to the last resort tier. Who is not placed at all does not depend on the floor."""
     effects = []
     block = contract["intelligence_floor"]
     compared = list(zip(block.get("candidates") or [], block.get("candidate_texts") or []))
     for floor, anchor_name in compared or ([(block["value"], block["text"])] if block["value"] is not None else []):
-        rows = router_rows(members, contract, mappings, by_slug, families, floor, quality, scale, points)
+        rows = router_rows(members, contract, mappings, by_slug, families, floor, quality, scale, points, shared)
         placed = contract_order(rows, contract["ranking"])
         tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
         effects.append({"floor": floor, "text": anchor_name, "main": [name for name in placed if name not in tail], "last": tail})
@@ -2727,6 +2769,7 @@ def contracts_report(template, ranking, contracts, epoch=None):
     by_slug, families = ranking_families(ranking["models"])
     tools = {name: mapping["tools"]["support"] for name, mapping in mappings.items()}
     scale, points = eci_scale(archive, contracts), code_points(contracts)
+    entries = {entry["name"]: entry for entry in template["active"] if isinstance(entry["name"], str)}
     routers = []
     for router, _ in RANKING_ROUTERS:
         members = lists.get((CONTRACT_FALLBACKS, router))
@@ -2736,11 +2779,13 @@ def contracts_report(template, ranking, contracts, epoch=None):
                                      scale, archive)
         base = contract.get("derives_from")
         quality = router_quality(members, contract, mappings, archive)
-        rows = router_rows(members, contract, mappings, by_slug, families, quality=quality, scale=scale, points=points)
+        shared = shared_quota_names(members, contract["ranking"], lists, entries)
+        rows = router_rows(members, contract, mappings, by_slug, families, quality=quality, scale=scale, points=points,
+                           shared=shared)
         routers.append({
             "name": router, "contract": contract, "rows": rows, "current": list(members),
             "proposed": contract_order(rows, contract["ranking"]),
-            "floors": floor_effects(members, contract, mappings, by_slug, families, quality, scale, points),
+            "floors": floor_effects(members, contract, mappings, by_slug, families, quality, scale, points, shared),
             "base": base, "quality": quality,
             "differences": derivation_differences(lists.get((CONTRACT_FALLBACKS, base), []), members, tools)
             if base else None})
@@ -2813,6 +2858,7 @@ def contracts_problems(contracts, template):
             contract_block_problems(contract, where, problems)
         else:
             full_contract_problems(contract, where, problems)
+            shared_quota_problems(router, contract, routers, problems)
     mappings = contracts.get("models")
     if not isinstance(mappings, dict):
         problems.append('"models" is missing or is not a mapping')
@@ -2908,6 +2954,24 @@ def contract_anchors(routers):
     return found
 
 
+def shared_quota_problems(router, contract, routers, problems):
+    """The "shared_quota_with" of a ranking, which only a router that values time has: the routers whose
+    members' quota it must not eat, each a router with a contract of its own and not the router itself."""
+    ranking = contract.get("ranking")
+    if not isinstance(ranking, dict) or "shared_quota_with" not in ranking:
+        return
+    where = 'router "%s", "ranking",' % router
+    names = ranking["shared_quota_with"]
+    if ranking.get("criterion") != "intelligence_for_time":
+        problems.append('%s has a "shared_quota_with" and is not ranked on "intelligence_for_time", the only '
+                        "criterion that reads it" % where)
+    elif (not isinstance(names, list) or not names or any(not isinstance(name, str) for name in names)
+          or any(name == router or not isinstance(routers.get(name), dict) or "derives_from" in routers[name]
+                 for name in names)):
+        problems.append('%s has a "shared_quota_with" that is not a list of other routers that have a contract of '
+                        "their own" % where)
+
+
 def full_contract_problems(contract, where, problems):
     block = contract_block_problems(contract.get("level_gain"), '%s, "level_gain",' % where, problems)
     if block is not None:
@@ -2940,7 +3004,7 @@ def full_contract_problems(contract, where, problems):
         if block.get("criterion") not in CONTRACT_CRITERIA:
             problems.append('%s, "ranking", must have a "criterion" among: %s'
                             % (where, ", ".join(CONTRACT_CRITERIA)))
-        elif block["criterion"] != "first_answer" and (
+        elif block["criterion"] != "intelligence_for_time" and (
                 figure(block.get("tie_margin_points")) is None or block["tie_margin_points"] < 0):
             problems.append('%s, "ranking", must have a "tie_margin_points" that is a number from 0 up' % where)
         elif block["criterion"] == "code_quality" and (
@@ -3118,8 +3182,15 @@ def epoch_status_text(epoch):
 
 def ranking_text(contract, epoch):
     ranking = contract["ranking"]
-    if ranking["criterion"] == "first_answer":
-        return "le délai le plus court"
+    if ranking["criterion"] == "intelligence_for_time":
+        shared = ranking.get("shared_quota_with") or []
+        return ("l'indice d'intelligence moins %g points par seconde de délai moyen avant le premier jeton de la "
+                "réponse, le plus grand en tête ; un membre qui a un délai et pas d'indice vient après ceux qui "
+                "ont les deux, le plus rapide d'abord%s"
+                % (contract["level_gain"]["min_points_per_second"],
+                   " ; un membre qui est le même modèle chez le même fournisseur qu'un membre de %s, donc sur le "
+                   "même quota, passe après tous les autres, dans le même ordre"
+                   % " ou ".join("`%s`" % safe_text(name, 20) for name in shared) if shared else ""))
     margin = ", le délai départageant deux membres à moins de %g points d'écart" % ranking["tie_margin_points"]
     if ranking["criterion"] != "code_quality":
         return "l'indice d'intelligence" + margin
