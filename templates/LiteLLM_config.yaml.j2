@@ -580,6 +580,9 @@ model_list:
   # "docs.sambanova.ai/docs/en/models/rate-limits" still describes a Free Tier "Applied when there is
   # no payment method linked with your account", at 20 requests per day per model. The console is
   # the one a new account actually meets, so it is the one followed here.
+  # A call measured on 2026-11-23, after the daily reset, with a card linked and no credit bought, still
+  # answered HTTP 402 "CREDITS_EXHAUSTED" ("You have run out of credits"), and without a card the answer is a
+  # missing payment method: neither state is served the Free tier, so the account is a prepaid balance.
   # ============================================================================
   # - model_name: gemma-4-31b-sambanova
   #   litellm_params:
