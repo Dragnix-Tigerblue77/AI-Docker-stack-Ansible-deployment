@@ -90,13 +90,11 @@ Artificial_Intelligence_LibreChat_publish_in_host_mode: false
 # The role that actually deploys the stack, named by the caller. MANDATORY, no default.
 #
 # This is what keeps #31's promise: "the role presupposes neither machine, nor domain, nor account,
-# nor orchestrator". A default pointing at the homelab repository's Swarm role would be exactly the
+# nor orchestrator". A default pointing at any particular deployment role would be exactly the
 # presupposition the issue forbids, and it would fail on a caller that does not have it -- on a role
 # name appearing nowhere in the call they wrote.
 #
 # The contract that role has to meet is in the README, under "Le contrat du rôle de déploiement".
-# Both "Docker/deploy_Docker_swarm_stack" and "Docker/deploy_Docker_compose_stack" of the homelab
-# repository meet it.
 # Artificial_Intelligence_Docker_stack_deployment_role_name:
 
 # --------------------------------------------------------------------------------------------------
