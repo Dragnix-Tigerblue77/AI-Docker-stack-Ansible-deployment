@@ -478,7 +478,7 @@ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Claude_code_w
 # subscription may ever sit behind it. Every model variable of the agent's container carries it (#287):
 # the key allows this alias and the routers below, so a request under any other model name would be
 # refused.
-Artificial_Intelligence_Claude_code_model: "claude-code"
+Artificial_Intelligence_Claude_code_model: "Auto-Claude-Code"
 
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
 # above, which stays what the container asks for when nobody chooses. They go into the key's allow-list
@@ -490,10 +490,10 @@ Artificial_Intelligence_Claude_code_model: "claude-code"
 # with the template's routers. The role creates the key and does not reconcile an
 # existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
 Artificial_Intelligence_Claude_code_additional_models:
-  - "pro"
-  - "flash"
-  - "flash-lite"
-  - "code"
+  - "Auto-Pro"
+  - "Auto-Flash"
+  - "Auto-Flash-Lite"
+  - "Auto-Code"
 
 # Unlimited by default (for example "2g").
 Artificial_Intelligence_Claude_code_memory_limit: false

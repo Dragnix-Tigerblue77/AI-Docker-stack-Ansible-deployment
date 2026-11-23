@@ -133,7 +133,7 @@
       strings: the endpoint LiteLLM calls is built from the account's identifier, and it is the token that
       authorises the call. Leave both empty not to use Cloudflare Workers AI.
 
-# The agent asks for "claude-code" by default, a router whose cascade is held to strict tool calls and a
+# The agent asks for "Auto-Claude-Code" by default, a router whose cascade is held to strict tool calls and a
 # 128k context (see its comment in "LiteLLM_config.yaml.j2") and holds, today, models of Gemini, Groq,
 # Mistral, DeepSeek, Cloudflare, Z AI and NVIDIA only. Without one of those keys the router does not exist
 # and the agent's every request would be refused.
@@ -152,7 +152,7 @@
         ] | select('string') | map('length') | select('gt', 0) | list | length > 0
     quiet: true
     fail_msg: >-
-      The Claude Code agent asks for the model "claude-code", whose cascade routes to Gemini, Groq, Mistral,
+      The Claude Code agent asks for the model "Auto-Claude-Code", whose cascade routes to Gemini, Groq, Mistral,
       DeepSeek, Cloudflare, Z AI and NVIDIA only: it needs at least one of
       "Artificial_Intelligence_LiteLLM_Gemini_API_key", "Artificial_Intelligence_LiteLLM_Groq_API_key",
       "Artificial_Intelligence_LiteLLM_Mistral_API_key", "Artificial_Intelligence_LiteLLM_DeepSeek_API_key",
@@ -162,7 +162,7 @@
       have do serve, or set "Artificial_Intelligence_Claude_code_enabled" to false.
   when:
     - Artificial_Intelligence_Claude_code_enabled
-    - Artificial_Intelligence_Claude_code_model == "claude-code"
+    - Artificial_Intelligence_Claude_code_model == "Auto-Claude-Code"
 
 - name: "Check the Redis password is provided"
   ansible.builtin.assert:
@@ -633,7 +633,7 @@
 # to carry "models: [access_group:<username>]", which is not a LiteLLM syntax: an access group is
 # named BARE in a key's "models", and the prefixed string was taken as the name of a model nobody
 # declares. Measured on LiteLLM 1.100.0, the key could reach nothing -- "/v1/models" listed only
-# "access_group:<username>", and a call to "flash" came back 403 "key not allowed to access model"
+# "access_group:<username>", and a call to "Auto-Flash" came back 403 "key not allowed to access model"
 # -- so the account it was minted for could not use LibreChat at all. When #2 lands, an account's
 # scope comes back from a role variable, on the key AND on the user, never from a spelling guessed
 # here.

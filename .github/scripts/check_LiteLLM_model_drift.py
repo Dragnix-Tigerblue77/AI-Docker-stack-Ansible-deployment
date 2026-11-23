@@ -965,9 +965,31 @@ def entry_of(item):
     }
 
 
+# The name each router is published under, which is the key of its cascade and of its alias in the template. The
+# contracts, the "head" table, the document of the routes and everything below call a router by its short id, so
+# the one place a cascade's key is read, "fallback_lists", gives it by that id: a name that is no router's is
+# left alone.
+ROUTER_PUBLIC_NAMES = {
+    "pro": "Auto-Pro",
+    "flash": "Auto-Flash",
+    "flash-lite": "Auto-Flash-Lite",
+    "code": "Auto-Code",
+    "claude-code": "Auto-Claude-Code",
+    "stt": "Auto-STT",
+    "tts": "Auto-TTS",
+}
+ROUTER_OF_PUBLIC_NAME = {public: router for router, public in ROUTER_PUBLIC_NAMES.items()}
+
+
+def router_id(name):
+    """The short id of the router published under "name", or "name" when none is."""
+    return ROUTER_OF_PUBLIC_NAME.get(name, name)
+
+
 def fallback_lists(document):
     """{(section.key, source): [targets]} of every fallback list of a parsed file, "source" being
-    None for "default_fallbacks". A cascade with nothing under it is an empty list."""
+    None for "default_fallbacks" and a router's short id for a router. A cascade with nothing under it is
+    an empty list."""
     found = {}
     if not isinstance(document, dict):
         return found
@@ -988,7 +1010,7 @@ def fallback_lists(document):
                 if not isinstance(mapping, dict):
                     continue
                 for source, targets in mapping.items():
-                    found[(where, source)] = [name for name in (
+                    found[(where, router_id(source))] = [name for name in (
                         targets if isinstance(targets, list) else [targets]) if isinstance(name, str)]
     return found
 
@@ -3726,7 +3748,7 @@ def repoint_aliases(document, gone):
         if not isinstance(aliases, dict):
             continue
         for alias, target in list(aliases.items()):
-            members = lists.get(("%s.fallbacks" % section_name, alias))
+            members = lists.get(("%s.fallbacks" % section_name, router_id(alias)))
             if isinstance(target, str) and target in gone and members:
                 aliases[alias] = members[0]
     return fixed
@@ -3743,7 +3765,7 @@ def alias_drift(document):
         section = document.get(section_name)
         aliases = section.get("model_group_alias") if isinstance(section, dict) else None
         for alias, target in (aliases.items() if isinstance(aliases, dict) else []):
-            members = lists.get(("%s.fallbacks" % section_name, alias))
+            members = lists.get(("%s.fallbacks" % section_name, router_id(alias)))
             if members and target != members[0]:
                 drifted[alias] = (target, members[0])
     return drifted

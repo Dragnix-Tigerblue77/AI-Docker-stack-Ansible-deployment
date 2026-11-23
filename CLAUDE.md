@@ -399,7 +399,16 @@ fails the pull request otherwise; its figures and reasons are prose that a perso
 default that any effort a client sends replaces, so it steers the clients that send none and not the Claude
 Code agent. It is set only where the provider's honouring is verified and a higher level costs nothing more
 per request (the Gemini entries Artificial Analysis measures), and an entry per level a router keeps is named
-`<entry>-<level>`, the unsuffixed name carrying the level `pro` keeps.
+`<entry>-<level>`, the unsuffixed name carrying the level `Auto-Pro` keeps.
+
+**A router is published under one name, the one a client types: `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`,
+`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`.** It is the key of its cascade and of its alias in
+`templates/LiteLLM_config.yaml.j2`, in the agent's defaults, in `ROUTAGE.md`'s headings and in LibreChat's
+list, and no second name stands beside it: two names for one router are two cascades to keep level, and a
+client choosing between them chooses by luck. The short ids (`pro`, `flash`...) stay the vocabulary of the
+`head` table, of the contracts and of the checks, which translate at the one place each reads a cascade's
+key; `check_compose_template.py` refuses a router published under a short id or under a retired `auto*`
+name. A new router is added to the public-name table of each of those scripts in the same change.
 
 **Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a

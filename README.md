@@ -182,8 +182,8 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_GitHub_token` | `false` | **Facultatif** (#245) ; `false` veut dire « non fourni ». Jeton personnel, posé dans le conteneur en `GH_TOKEN` et `GITHUB_TOKEN` s'il est fourni, et absent de son environnement sinon. Claude Code les lit lui-même, sans `gh`, pour interroger l'API GitHub, dont son pied de page d'état de la PR de la branche ; sans jeton, ce pied de page n'a pas de repli dans l'image (voir « L'agent Claude Code »). Fourni, il doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle. |
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
-| `Artificial_Intelligence_Claude_code_model` | `claude-code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
-| `Artificial_Intelligence_Claude_code_additional_models` | `[pro, flash, flash-lite, code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model flash`, #307), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le rôle ne réconcilie pas une clé qui existe : un changement n'atteint un agent déjà déployé qu'une fois sa clé supprimée depuis `/ui` (voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_model` | `Auto-Claude-Code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`, #307), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le rôle ne réconcilie pas une clé qui existe : un changement n'atteint un agent déjà déployé qu'une fois sa clé supprimée depuis `/ui` (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -229,7 +229,7 @@ protéger.
 fournisseur anonyme `cfp` (Cloudflare Playground) en pilote un et échoue sans, ce qui laissait les combos `auto/*`
 sans réponse. La variante `-web` ajoute Chromium et Playwright, et le tag flotte comme `latest`. Les appels d'outils
 des fournisseurs sans clé d'OmniRoute sont émulés depuis le prompt ou ignorés, ce qui est la raison pour laquelle
-`claude-code` n'a pas `omniroute-free-code`.
+`Auto-Claude-Code` n'a pas `omniroute-free-code`.
 
 **Le mot de passe du tableau de bord est obligatoire, sans défaut.** L'image démarre avec `CHANGEME` si
 rien n'est fourni -- documenté en amont comme volontairement faible pour forcer un changement. Traité
@@ -652,7 +652,7 @@ Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans
 
 | Groupe | Entrées |
 | --- | --- |
-| `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `pro`, `flash`, `flash-lite`, `code` et `claude-code` placent en tête |
+| `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code` et `Auto-Claude-Code` placent en tête |
 | `STT` | les modèles de transcription (`audio_transcription`) |
 | `TTS` | les modèles de synthèse vocale (`audio_speech`) |
 | `Embeddings` | les modèles de vecteurs (`embedding`) |
@@ -669,17 +669,17 @@ Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
 requête qui le traverse, avant de passer le relais, et s'afficherait dans LibreChat sans jamais répondre.
 
-Les cinq routeurs (`pro`, `flash`, `flash-lite`, `code`, `claude-code`) ne sont des entrées du `model_list` pour
+Les cinq routeurs (`Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code`) ne sont des entrées du `model_list` pour
 aucun fournisseur : un nom qui n'est ni une entrée ni un alias est refusé par le proxy même s'il a une cascade dans
 `fallbacks` (mesuré sur LiteLLM 1.100.0), et le routeur est donc, quelles que soient les clés, l'**alias** du premier
 modèle de sa cascade dont la clé est donnée. Aucun fournisseur n'est premier par la façon dont les noms sont
 construits : l'ordre de la cascade, qui suit l'intelligence et la vitesse des modèles, décide seul. Le routeur garde sa
-cascade ; quand aucun modèle de sa cascade n'a de clé ni n'en demande, il disparaît avec ses alias : `claude-code`
+cascade ; quand aucun modèle de sa cascade n'a de clé ni n'en demande, il disparaît : `Auto-Claude-Code`
 seul peut s'y trouver, depuis que les entrées sans clé de Kilo Gateway, d'OVHcloud et d'OmniRoute servent les quatre autres. LiteLLM liste les alias parmi les noms de modèles (`get_model_names`, lu dans son code),
 donc LibreChat les propose toujours. À connaître :
 
-- La cascade de `claude-code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au moins
-  (le commentaire de la cascade, dans le template, le dit). C'est la cascade de `code`, membre pour membre et dans le
+- La cascade de `Auto-Claude-Code` n'admet que des modèles à appels d'outils stricts et à 128 000 jetons de contexte au moins
+  (le commentaire de la cascade, dans le template, le dit). C'est la cascade de `Auto-Code`, membre pour membre et dans le
   même ordre, moins `omniroute-free-code` : OmniRoute choisit lui-même un modèle gratuit parmi ses fournisseurs, et sa
   documentation dit qu'un fournisseur gratuit peut émuler les appels d'outils depuis le prompt ou les ignorer, donc rien
   ne garantit ni les outils ni le contexte. `check_compose_template.py` tient les deux listes à cette égalité. Elle ne
@@ -690,7 +690,7 @@ donc LibreChat les propose toujours. À connaître :
   (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
-- Chaque alias d'un routeur (`auto*`) a, sous **son propre nom**, la cascade du routeur (#300) : LiteLLM cherche les replis sous le nom qui a été demandé, donc un alias sans cascade ne retombait sur rien quand la tête échouait.
+- Un routeur n'a qu'**un nom**, celui que tape un client (`Auto-Pro`, `Auto-Flash`...), et sa cascade est écrite sous ce nom : LiteLLM cherche les replis sous le nom qui a été demandé, donc un nom sans cascade ne retomberait sur rien quand la tête échoue. Deux noms pour un routeur seraient deux cascades à tenir au même niveau et un client qui choisit au hasard entre les deux : les anciens noms (`pro`, `flash`, `auto`, `auto-fast`, `auto-pro`...) n'existent plus, et `check_compose_template.py` refuse un routeur publié sous un autre nom que le sien.
 - `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
   Il tient aussi le fichier compose à la même table : le conteneur de la passerelle doit recevoir chaque clé sous le
@@ -739,26 +739,26 @@ le point d'accès, et que chaque modèle réponde réellement à un appel d'outi
 
 | Modèle (entrée) | Contexte | Indice d'Artificial Analysis | Où |
 | --- | --- | --- | --- |
-| Kimi K3.1 Pro (`kimi-k3-1-pro-nvidia`) | 1 048 576 | 46,5 | `pro`, `flash`, `code`, `claude-code` |
-| Step 5 Preview (`step-5-preview-nvidia`) | 1 048 576 | 28,5 | `pro`, `flash`, `code`, `claude-code` |
-| MiniMax-M3.1-Flash (`minimax-m3-1-flash-nvidia`) | 262 144 | 29,1 | `pro`, `flash`, `code`, `claude-code` |
-| GLM-5.3-Flash (`glm-5-3-flash-nvidia`) | 1 048 576 | 27,8 | `pro`, `flash`, `code`, `claude-code` |
-| Mistral Large 4 (`mistral-large-4-nvidia`) | 262 144 | 26,1 | `pro`, `flash`, `code`, `claude-code` |
-| Muse Glimmer (`muse-glimmer-nvidia`) | 131 072 | 6,3 | `flash`, `code`, `claude-code` |
-| Laguna XS 2.1 (`laguna-xs-2-1-nvidia`) | 262 144 | aucun enregistrement | `code`, `claude-code`, en fin des gratuits |
-| Nemotron 3 Ultra (`nemotron-ultra-nvidia`) | 1 048 576 | 11,8 | `pro`, derrière son jumeau OpenRouter |
-| Nemotron 3 Nano Omni (`nemotron-reasoning-nvidia`) | 262 144 | aucun indice | `pro`, derrière son jumeau OpenRouter |
-| Nemotron 3.5 Super VL (`nemotron-super-vl-nvidia`) | 262 144 | 13,6 | `pro` et `flash`, derrière son jumeau OpenRouter |
-| Gemma 4 31B (`gemma-4-31b-nvidia`) | 262 144 | estimé, aucun indice au niveau appelé | `flash`, derrière ses deux jumeaux |
-| Nemotron 3.5 Lightning (`nemotron-lightning-nvidia`) | 1 048 576 | 5,5 | `flash-lite`, derrière son jumeau OpenRouter |
-| Nemotron 3.5 Bolt E4B (`nemotron-bolt-e4b-nvidia`) | 65 536 | aucun indice | `flash-lite`, en fin des gratuits |
-| Gemma 3 12B et Gemma 3 4B (`gemma-3-12b-nvidia`, `gemma-3-4b-nvidia`) | inconnu | aucun indice, délais de 3,1 s et 1,9 s | `flash-lite`, placés par leur délai |
+| Kimi K3.1 Pro (`kimi-k3-1-pro-nvidia`) | 1 048 576 | 46,5 | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| Step 5 Preview (`step-5-preview-nvidia`) | 1 048 576 | 28,5 | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| MiniMax-M3.1-Flash (`minimax-m3-1-flash-nvidia`) | 262 144 | 29,1 | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| GLM-5.3-Flash (`glm-5-3-flash-nvidia`) | 1 048 576 | 27,8 | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| Mistral Large 4 (`mistral-large-4-nvidia`) | 262 144 | 26,1 | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| Muse Glimmer (`muse-glimmer-nvidia`) | 131 072 | 6,3 | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` |
+| Laguna XS 2.1 (`laguna-xs-2-1-nvidia`) | 262 144 | aucun enregistrement | `Auto-Code`, `Auto-Claude-Code`, en fin des gratuits |
+| Nemotron 3 Ultra (`nemotron-ultra-nvidia`) | 1 048 576 | 11,8 | `Auto-Pro`, derrière son jumeau OpenRouter |
+| Nemotron 3 Nano Omni (`nemotron-reasoning-nvidia`) | 262 144 | aucun indice | `Auto-Pro`, derrière son jumeau OpenRouter |
+| Nemotron 3.5 Super VL (`nemotron-super-vl-nvidia`) | 262 144 | 13,6 | `Auto-Pro` et `Auto-Flash`, derrière son jumeau OpenRouter |
+| Gemma 4 31B (`gemma-4-31b-nvidia`) | 262 144 | estimé, aucun indice au niveau appelé | `Auto-Flash`, derrière ses deux jumeaux |
+| Nemotron 3.5 Lightning (`nemotron-lightning-nvidia`) | 1 048 576 | 5,5 | `Auto-Flash-Lite`, derrière son jumeau OpenRouter |
+| Nemotron 3.5 Bolt E4B (`nemotron-bolt-e4b-nvidia`) | 65 536 | aucun indice | `Auto-Flash-Lite`, en fin des gratuits |
+| Gemma 3 12B et Gemma 3 4B (`gemma-3-12b-nvidia`, `gemma-3-4b-nvidia`) | inconnu | aucun indice, délais de 3,1 s et 1,9 s | `Auto-Flash-Lite`, placés par leur délai |
 
 Chaque modèle est placé par les chiffres que les autres entrées suivent : l'indice d'Artificial Analysis (lu le
-2026-11-21) pour `pro` et `flash`, les benchmarks de code d'Epoch AI là où ils existent pour `code` et `claude-code`,
-le délai avant le premier jeton pour `flash-lite`. Les modèles d'une famille que le fichier sert déjà (Nemotron,
+2026-11-21) pour `Auto-Pro` et `Auto-Flash`, les benchmarks de code d'Epoch AI là où ils existent pour `Auto-Code` et `Auto-Claude-Code`,
+le délai avant le premier jeton pour `Auto-Flash-Lite`. Les modèles d'une famille que le fichier sert déjà (Nemotron,
 Gemma) sont des sources de plus, chacune juste derrière son jumeau ; un modèle sans aucun chiffre ferme les gratuits
-de ses cascades. Les planchers admettent chacun des modèles ci-dessus dans les routeurs où il est ; `claude-code` demande
+de ses cascades. Les planchers admettent chacun des modèles ci-dessus dans les routeurs où il est ; `Auto-Claude-Code` demande
 des appels d'outils déclarés et 128 000 jetons de contexte au moins, d'où l'absence de Nemotron 3.5 Bolt E4B et des deux
 Gemma 3 (le contexte de Muse Glimmer est tout juste suffisant). Les noms des entrées portent le suffixe `-nvidia`.
 
@@ -799,13 +799,13 @@ passerelle sert toutes les applications du homelab. Un seul compte.
 **Ce modèle raisonne avant de répondre : ne pas plafonner `max_tokens` bas.** Avec 20, la réponse a été coupée
 (`finish_reason` à `length`). Aucune entrée ne règle `max_tokens`, et un appel doit en laisser au moins 200.
 
-**Où il est placé : en queue des gratuits de `pro`, `flash` et `flash-lite`, faute de chiffre.** C'est le Hy4 Flash de
+**Où il est placé : en queue des gratuits de `Auto-Pro`, `Auto-Flash` et `Auto-Flash-Lite`, faute de chiffre.** C'est le Hy4 Flash de
 Tencent d'après son nom seulement. Artificial Analysis n'a aucun enregistrement de ce nom (son seul enregistrement récent
 de Tencent, « Tencent Hy4 », est un autre modèle), et ni l'indice de capacités ni les benchmarks de code d'Epoch AI ne le
 contiennent (lus le 2026-11-21) : aucun chiffre ne le place, et les contrats de routeur le rangent « sans
 enregistrement », comme `flint-kilo` ou `nemotron-bolt-e4b-nvidia`. Il ferme donc les gratuits à clé, derrière ceux qui
-ont un chiffre ou un jumeau et devant ceux d'OVHcloud, sans en déplacer aucun. Il n'est ni dans `code` ni dans
-`claude-code` : ses appels d'outils ne sont pas essayés, et `claude-code` n'admet que des appels d'outils déclarés. Le
+ont un chiffre ou un jumeau et devant ceux d'OVHcloud, sans en déplacer aucun. Il n'est ni dans `Auto-Code` ni dans
+`Auto-Claude-Code` : ses appels d'outils ne sont pas essayés, et `Auto-Claude-Code` n'admet que des appels d'outils déclarés. Le
 contrôle de dérive hebdomadaire ne lit pas son catalogue : un modèle qui change de nom ou de prix ne s'y voit pas.
 
 #### Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons
@@ -816,7 +816,7 @@ l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
 cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
 rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
-compte pour « au moins une des dix clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
+compte pour « au moins une des dix clés » et pour l'agent Claude Code, dont la cascade `Auto-Claude-Code` a un membre
 Cloudflare.
 
 **Un seul compte, et ce n'est pas un réglage.** Les conditions de Cloudflare (*Self-Serve Subscription Agreement*, lues
@@ -832,18 +832,18 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 
 | Modèle routé | Jetons d'entrée par jour au plus | Jetons de sortie par jour au plus | Cascades |
 | --- | --- | --- | --- |
-| `gpt-oss-120b-cloudflare` | environ 314 000 | environ 147 000 | `flash`, derrière `gpt-oss-120b-groq` |
-| `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `flash-lite`, derrière `gpt-oss-20b-groq` |
-| `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `flash-lite`, derrière les deux autres sources |
-| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, placé par son délai |
-| `llama-4-scout-17b-16e-instruct-cloudflare` | environ 407 000 | environ 129 000 | `flash-lite`, placé par son délai |
-| `qwen2-5-coder-32b-instruct-cloudflare` | environ 167 000 | environ 110 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
-| `gemma-sea-lion-v4-27b-it-cloudflare` | environ 314 000 | environ 198 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
-| `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
-| `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
-| `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
-| `qwen3-8-27b-cloudflare` | environ 244 000 | environ 34 000 | `flash`, `code` et `claude-code`, derrière ses jumeaux de Groq et d'OVHcloud ; réfléchit en Xhigh par défaut, ce qui use vite la sortie |
-| `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
+| `gpt-oss-120b-cloudflare` | environ 314 000 | environ 147 000 | `Auto-Flash`, derrière `gpt-oss-120b-groq` |
+| `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `Auto-Flash-Lite`, derrière `gpt-oss-20b-groq` |
+| `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `Auto-Flash-Lite`, derrière les deux autres sources |
+| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `Auto-Flash-Lite`, placé par son délai |
+| `llama-4-scout-17b-16e-instruct-cloudflare` | environ 407 000 | environ 129 000 | `Auto-Flash-Lite`, placé par son délai |
+| `qwen2-5-coder-32b-instruct-cloudflare` | environ 167 000 | environ 110 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `gemma-sea-lion-v4-27b-it-cloudflare` | environ 314 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
+| `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `qwen3-8-27b-cloudflare` | environ 244 000 | environ 34 000 | `Auto-Flash`, `Auto-Code` et `Auto-Claude-Code`, derrière ses jumeaux de Groq et d'OVHcloud ; réfléchit en Xhigh par défaut, ce qui use vite la sortie |
+| `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `Auto-Code` et `Auto-Claude-Code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
 le quota d'une journée fait environ 36 requêtes de `glm-4-7-flash-cloudflare` et 6 de `gpt-oss-120b-cloudflare`, sorties
@@ -853,7 +853,7 @@ autres ont échoué. Les raisonneurs (`gpt-oss`, `glm-4-7-flash`) dépensent en 
 Les modèles placés sont **déduits gratuits** (la page des tarifs nomme ceux qui exigent un moyen de paiement, et ils
 n'en font pas partie) et **à confirmer sur le compte** : le tableau de bord Cloudflare montre les neurons consommés.
 
-#### Z AI : une clé, des limites inconnues, et la fin des cascades `code` et `claude-code`
+#### Z AI : une clé, des limites inconnues, et la fin des cascades `Auto-Code` et `Auto-Claude-Code`
 
 Z AI (Zhipu) est un fournisseur natif de LiteLLM (préfixe `zai/`) : la clé
 (`Artificial_Intelligence_LiteLLM_Zai_API_key`) arrive aux entrées comme `os.environ/ZAI_API_KEY`, et aucune entrée
@@ -862,11 +862,11 @@ l'autre, celui du « coding plan », que la page « Introduction » de sa docume
 pris en charge, n'est donc jamais atteint par ce fichier. Laquelle des deux adresses sert les modèles gratuits n'est
 dite par aucune page lue, et la clé n'a pas été essayée contre elle : **à confirmer au premier appel**.
 
-Un seul modèle est routé : `glm-4-7-flash-zai` (`zai/glm-4.7-flash`), en queue des membres gratuits de `code` et de
-`claude-code`, devant les payants. La table de modèles de LiteLLM lui donne 200 000 jetons de contexte, les appels
+Un seul modèle est routé : `glm-4-7-flash-zai` (`zai/glm-4.7-flash`), en queue des membres gratuits de `Auto-Code` et de
+`Auto-Claude-Code`, devant les payants. La table de modèles de LiteLLM lui donne 200 000 jetons de contexte, les appels
 d'outils et le choix d'outil, et un prix nul ; la page « GLM-4.7 » de la documentation de Z AI donne le même contexte et
 liste les appels de fonction pour toute la famille, sans le dire par modèle. Il remplit donc les deux conditions de
-`claude-code` (appels d'outils, 128 000 jetons au moins) **d'après ces deux sources, sans essai réel**. Ni Artificial
+`Auto-Claude-Code` (appels d'outils, 128 000 jetons au moins) **d'après ces deux sources, sans essai réel**. Ni Artificial
 Analysis ni Epoch AI ne lui donnent de chiffre (lu le 2026-11-21) : rien ne le classe face aux membres qui le précèdent,
 et la fin des gratuits est la place d'un modèle non mesuré. C'est un modèle qui raisonne : Artificial Analysis mesure
 environ 25 secondes avant le premier jeton de réponse pour sa fiche « Reasoning », d'où cette place.
@@ -979,7 +979,7 @@ cette forme, et seulement avec des noms d'entrées du fichier et des fournisseur
 Ce que le workflow ne supprime pas est listé, avec la raison, dans la pull request des suppressions et
 dans le résumé du run, et la liste complète en est
 dans la docstring de `check_LiteLLM_model_drift.py` (« DELETING WHAT A PROVIDER HAS RETIRED ») : un
-routeur virtuel (`pro`, `flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade (pour chaque jeu de clés de fournisseur,
+routeur virtuel (`Auto-Pro`, `Auto-Flash`...), un modèle qu'un alias désigne, la dernière cible d'une cascade (pour chaque jeu de clés de fournisseur,
 pas sur leur union), un modèle que le modèle de configuration nomme dans une instruction Jinja (rien ici ne sait
 modifier ce qu'une instruction calcule, hors les lignes de la table `head`, qui dit quel modèle un routeur désigne et
 que l'outil réécrit à partir des cascades quand elles redonnent exactement la table telle qu'elle est), un fichier dont la lecture sans rendu ne donne pas les mêmes entrées que son
@@ -1056,13 +1056,13 @@ modèle son indice d'intelligence, son indice de code, sa vitesse de sortie et s
 gratuite d'Artificial Analysis (<https://artificialanalysis.ai/>, la source est citée avec le jour de la lecture,
 comme ses conditions d'utilisation le demandent), puis
 une **place suggérée** par routeur : avant le premier membre de la cascade que le classement note plus bas sur le
-chiffre qui compte (intelligence pour `pro`, `flash` et `claude-code`, code pour `code`, vitesse pour
-`flash-lite`), sinon après le dernier. Pour `flash` et `flash-lite`, dont la cascade est choisie pour sa
+chiffre qui compte (intelligence pour `Auto-Pro`, `Auto-Flash` et `Auto-Claude-Code`, code pour `Auto-Code`, vitesse pour
+`Auto-Flash-Lite`), sinon après le dernier. Pour `Auto-Flash` et `Auto-Flash-Lite`, dont la cascade est choisie pour sa
 rapidité, un modèle plus lent que le plus lent des membres dont la vitesse est connue n'a pas de place
 suggérée, et un modèle dont la vitesse est inconnue est dit « pas évalué » ; une vitesse de 0 est lue comme
 non mesurée (déduit des réponses observées : l'API ne documente pas ce qu'elle envoie dans ce cas). Ce n'est
 qu'une suggestion, que rien n'applique : elle ne juge pas le reste de l'éligibilité (appels d'outils et contexte
-pour `claude-code`, gratuité, variante d'effort de raisonnement sur laquelle un rapprochement peut tomber),
+pour `Auto-Claude-Code`, gratuité, variante d'effort de raisonnement sur laquelle un rapprochement peut tomber),
 ni le regroupement par fournisseur que la cascade garde aussi. Le rapprochement entre l'identifiant du fournisseur et le nom du classement est une
 **supposition** -- l'identifiant, puis le nom du fournisseur, doivent s'écrire comme exactement une entrée du
 classement, à la casse et à la ponctuation près, au moins quatre caractères -- et chaque ligne est marquée
@@ -1071,7 +1071,7 @@ une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qu
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
 **Où chaque modèle est placé, à quel niveau de réflexion et pourquoi** : `ROUTAGE.md`, à la racine, écrit à la main. Il dit les
-règles en mots simples (le niveau que garde chaque routeur, le classement de `flash-lite` par indice moins délai pondéré, la
+règles en mots simples (le niveau que garde chaque routeur, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
 règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
 chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
 `check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
@@ -1081,7 +1081,7 @@ chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux 
 dans le fichier), sur l'une de deux échelles, ou aucun plancher. Sur l'indice d'intelligence (plus il est grand,
 meilleur c'est), l'ancre nomme soit une entrée du modèle de configuration, lue dans le classement d'Artificial Analysis,
 soit un modèle de l'indice de capacités d'Epoch AI. Sur l'échelle de code (plus la position est petite, meilleur c'est),
-qui est celle de `code` et de `claude-code`, l'ancre nomme les versions de modèle des benchmarks d'Epoch AI qui
+qui est celle de `Auto-Code` et de `Auto-Claude-Code`, l'ancre nomme les versions de modèle des benchmarks d'Epoch AI qui
 représentent un modèle (`code_epoch`). Un plancher sur l'indice peut porter une `margin`, en points d'indice (0 si elle
 est omise) : un membre est conforme tant que son chiffre n'est pas plus de la marge sous le plancher, et le rapport dit
 la marge partout où il dit le plancher. Le fichier dit aussi le gain d'indice qu'un niveau de raisonnement de plus doit
@@ -1090,14 +1090,14 @@ plancher à dessein (le « dernier recours »), et, pour chaque entrée du modè
 d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
 ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
 un modèle lent n'est donc jamais écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils
-pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` classe ses
+pour `Auto-Claude-Code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `Auto-Flash-Lite` classe ses
 membres par leur indice moins `min_points_per_second` fois ce délai (les membres sans indice après ceux qui ont les deux,
-le plus rapide d'abord, et ceux qui partagent leur quota avec un membre de `pro` ou de `flash` après tous les autres), les
+le plus rapide d'abord, et ceux qui partagent leur quota avec un membre de `Auto-Pro` ou de `Auto-Flash` après tous les autres), les
 autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère de moins de la marge du
 routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
 d'un modèle depuis le plus bas, et on passe au suivant tant qu'il apporte au moins `min_points_per_second` points
-d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `claude-code` dérive de `code` (même
-classement, sa cascade est celle de `code` sans les membres qui ne prennent pas d'outils). `code` se classe sur la
+d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `Auto-Claude-Code` dérive de `Auto-Code` (même
+classement, sa cascade est celle de `Auto-Code` sans les membres qui ne prennent pas d'outils). `Auto-Code` se classe sur la
 **position de code**, lue par l'exécution en ligne dans les données d'Epoch AI (`benchmark_data.zip`,
 <https://epoch.ai/benchmarks>, CC BY 4.0, citées dans le résumé avec le jour de la lecture), sans WebDev Arena : la
 qualité d'une interface web est du design, pas du code. Dans chacun de cinq benchmarks (DeepSWE, SWE-bench Verified,
@@ -1113,16 +1113,16 @@ comme les autres et sans délai propre ; un membre qui n'a ni l'un ni l'autre re
 membres qui ont une position viennent en premier, la plus petite en tête, le délai départageant deux membres dont les
 positions diffèrent de moins de `tie_margin_points` (un membre estimé n'a pas de délai et passe après), et le dernier
 recours et les membres sous le plancher restent en queue. Une lecture qui échoue est signalée « non lue » dans la
-section : le plancher de `code` est alors introuvable et ne juge personne, et l'indice d'intelligence ordonne toute la
+section : le plancher de `Auto-Code` est alors introuvable et ne juge personne, et l'indice d'intelligence ordonne toute la
 cascade ; l'exécution hors ligne ne lit rien. L'**indice de capacités** d'Epoch AI (ECI) est lu dans la même archive (le
 membre `epoch_capabilities_index/eci_scores.csv`, mêmes plafonds, même liste de noms permis, même citation) : il couvre
 presque tous les modèles qu'Artificial Analysis n'a pas notés, et le fichier dit comment le ramener à l'échelle de
 l'indice d'intelligence (des points de calibration reliés par une droite, prolongée au-delà de ses extrémités par la
 pente du dernier segment et jamais sous 0). Tout chiffre ainsi obtenu est une **estimation**, marquée « estimé »
-partout. Les planchers de `pro` et de `flash` y sont ancrés : `pro` doit être au moins aussi bon que Gemini 3 Pro et
-`flash` que Gemini 2.5 Flash, avec une marge de 2 points, parce que l'indice ne donne qu'un chiffre par modèle, avec un
-intervalle d'environ deux points, si bien qu'un modèle à moins de cette marge du plancher ne s'en distingue pas. `code`
-et `claude-code` ont pour plancher la position de code de Gemini 2.5 Flash, sans marge, et `flash-lite` n'a aucun
+partout. Les planchers de `Auto-Pro` et de `Auto-Flash` y sont ancrés : `Auto-Pro` doit être au moins aussi bon que Gemini 3 Pro et
+`Auto-Flash` que Gemini 2.5 Flash, avec une marge de 2 points, parce que l'indice ne donne qu'un chiffre par modèle, avec un
+intervalle d'environ deux points, si bien qu'un modèle à moins de cette marge du plancher ne s'en distingue pas. `Auto-Code`
+et `Auto-Claude-Code` ont pour plancher la position de code de Gemini 2.5 Flash, sans marge, et `Auto-Flash-Lite` n'a aucun
 plancher (tout membre qui répond est admis, et l'indice moins le délai pondéré ordonne). Un membre pour lequel
 le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
 (`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur qui tient au temps n'utilise aucune
@@ -1131,7 +1131,7 @@ le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans ja
 **validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent
 déclarés sans rien imposer. Le résumé de chaque run porte une section « Contrats par routeur » : par routeur, un tableau
 des membres (chiffres, niveau appelé, niveau retenu, verdict), l'ordre que le contrat donnerait comparé à l'ordre
-actuel, pour `code` et `claude-code` la position de chaque membre dans chaque benchmark et sa position de code (« 18 %
+actuel, pour `Auto-Code` et `Auto-Claude-Code` la position de chaque membre dans chaque benchmark et sa position de code (« 18 %
 », ou « 56 % (estimé) »), l'effet de chaque plancher proposé (un membre sous le plancher passe au dernier recours, il
 n'est pas retiré), puis les entrées sans correspondance, celles sans enregistrement, les correspondances dont
 l'enregistrement a disparu et celles appelées à un niveau que le classement ne couvre pas. C'est un rapport : il ne
@@ -1223,18 +1223,18 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | --- | --- | --- | --- |
 | Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
 | Groq | Palier gratuit | 30 requêtes par minute, 8K jetons par minute (gpt-oss, qwen3.8-27b) ; qwen3.8-27b est en préversion | Routé |
-| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, pour tout le compte, remis à zéro à 00:00 UTC ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. La page des tarifs nomme les modèles qui exigent un moyen de paiement (Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling) : aucun n'est routé. Les cinq routés (gpt-oss-120b, gpt-oss-20b, gemma-4-26b, llama-3.3-70b, glm-4.7-flash) n'y figurent pas et seraient donc gratuits : **déduction, à confirmer sur le compte**. Écartés : nemotron-3-120b (sa page dit « Deprecated 11/20/2026 »), qwen3.8-27b (absent de la table de modèles de LiteLLM le 2026-11-22, et non réglable : sur une question difficile, `reasoning_effort` bas ou très haut et `enable_thinking` désactivé donnent tous 1 770 à 2 616 jetons et 81 à 109 s, avec un champ de raisonnement à chaque fois) | Routé (page relue le 2026-11-22) : deuxième source derrière Groq pour gpt-oss, troisième pour gemma-4-26b, en queue des membres gratuits pour llama-3.3-70b (`flash-lite`) et glm-4.7-flash (`code`, `claude-code`). Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas. **Non lu par le contrôle de dérive hebdomadaire** (aucun secret `MODEL_DRIFT_*` pour lui, aucun catalogue lu) : ses entrées n'y sont ni retirées ni inconnues, elles sont listées comme « d'aucun catalogue lu ici », et rien ne vérifie qu'un modèle Cloudflare existe encore |
-| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits d'après la page « Pricing » (lue le 2026-11-22) ; fournisseur natif de LiteLLM (préfixe `zai/`) | Non publiées hors de la console du compte : **inconnues ici** (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**). Seul GLM-4.7-Flash est routé ; GLM-4.5-Flash (même compte, même limite, aucun classement) et GLM-4.6V-Flash (vision, absent de la table de LiteLLM) sont écartés | Routé (pages relues le 2026-11-22) : fin des cascades `code` et `claude-code`, devant les payants, modèle non mesuré. Les conditions interdisent de partager les clés, et n'ont rien donné sur les passerelles ni sur les comptes multiples ; contenu des clients de l'API non utilisé pour améliorer les services sans accord, non stocké d'après l'accord de traitement, traitement généralement à Singapour. Carte ou téléphone à l'inscription, date d'arrêt des modèles gratuits : aucune page lue n'en parle. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, pour tout le compte, remis à zéro à 00:00 UTC ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. La page des tarifs nomme les modèles qui exigent un moyen de paiement (Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling) : aucun n'est routé. Les cinq routés (gpt-oss-120b, gpt-oss-20b, gemma-4-26b, llama-3.3-70b, glm-4.7-flash) n'y figurent pas et seraient donc gratuits : **déduction, à confirmer sur le compte**. Écartés : nemotron-3-120b (sa page dit « Deprecated 11/20/2026 »), qwen3.8-27b (absent de la table de modèles de LiteLLM le 2026-11-22, et non réglable : sur une question difficile, `reasoning_effort` bas ou très haut et `enable_thinking` désactivé donnent tous 1 770 à 2 616 jetons et 81 à 109 s, avec un champ de raisonnement à chaque fois) | Routé (page relue le 2026-11-22) : deuxième source derrière Groq pour gpt-oss, troisième pour gemma-4-26b, en queue des membres gratuits pour llama-3.3-70b (`Auto-Flash-Lite`) et glm-4.7-flash (`Auto-Code`, `Auto-Claude-Code`). Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas. **Non lu par le contrôle de dérive hebdomadaire** (aucun secret `MODEL_DRIFT_*` pour lui, aucun catalogue lu) : ses entrées n'y sont ni retirées ni inconnues, elles sont listées comme « d'aucun catalogue lu ici », et rien ne vérifie qu'un modèle Cloudflare existe encore |
+| Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits d'après la page « Pricing » (lue le 2026-11-22) ; fournisseur natif de LiteLLM (préfixe `zai/`) | Non publiées hors de la console du compte : **inconnues ici** (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**). Seul GLM-4.7-Flash est routé ; GLM-4.5-Flash (même compte, même limite, aucun classement) et GLM-4.6V-Flash (vision, absent de la table de LiteLLM) sont écartés | Routé (pages relues le 2026-11-22) : fin des cascades `Auto-Code` et `Auto-Claude-Code`, devant les payants, modèle non mesuré. Les conditions interdisent de partager les clés, et n'ont rien donné sur les passerelles ni sur les comptes multiples ; contenu des clients de l'API non utilisé pour améliorer les services sans accord, non stocké d'après l'accord de traitement, traitement généralement à Singapour. Carte ou téléphone à l'inscription, date d'arrêt des modèles gratuits : aucune page lue n'en parle. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
 | NVIDIA API Catalog (build) | Inférence « gratuite » d'essai sur les modèles du catalogue, annoncée pour le service et non modèle par modèle ; fournisseur natif de LiteLLM (préfixe `nvidia_nim/`) | 40 requêtes par minute, affichées sur la page du compte (lue le 2026-11-22) ; aucun crédit, plafond quotidien ni date de fin sur une page lue : **inconnus ici** | Routé (pages lues le 2026-11-22), un compte à créer. Conditions d'un service d'essai : « limited trial purposes only and without use ... in production », contenu collecté pour améliorer les produits NVIDIA, modèles d'IA compris, données personnelles interdites. Le mainteneur choisit de s'en servir malgré tout et accepte le risque d'une clé coupée. Clé après vérification par SMS, d'après les forums seulement. **Non lu par le contrôle de dérive hebdomadaire** : ses entrées n'y sont ni retirées ni inconnues |
 | Mistral La Plateforme | Aucune pour l'API : le mode « Free » ne couvre que Vibe et Studio, et une clé d'API exige la facturation activée et le paiement à l'usage (documentation lue le 2026-11-21) | Solde prépayé ; limites par modèle visibles seulement dans la console du compte | Routé en queue, après tous les gratuits, clé facultative, comme DeepSeek |
 | OpenRouter (modèles `:free`) | Modèles `:free` du catalogue | 20 requêtes par minute et 50 par jour pour tout le compte, 1000 par jour une fois 10 crédits achetés | Routé, après le fournisseur d'origine du même modèle |
 | Kilo Gateway | Modèles gratuits sans clé ni compte : le catalogue du service, lisible sans authentification, marque chacun comme gratuit ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 200 requêtes par heure et par IP, pour tous ces modèles ensemble ; les modèles gratuits changent, et le catalogue marque chacun comme pouvant être entraîné sur les prompts | Routé sans clé, derrière son jumeau OpenRouter quand il en a un. Aucun compte n'est utilisé, donc la clause « un compte par entité » ne joue pas ; prompts journalisés et utilisés pour l'entraînement, accepté ; conditions lues, non validées |
-| OVHcloud AI Endpoints | Modèles de texte sans clé ni compte, dont les fiches annoncent les appels d'outils ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 2 requêtes par minute, par IP et par modèle, observées depuis le réseau du mainteneur et écrites sur aucune page lue ; avec une clé, 400 par minute, mais un moyen de paiement sur un projet Public Cloud est exigé et aucun plafond de dépense n'existe | Routé sans clé, en queue des listes gratuites, derrière Kilo et devant les fournisseurs payants, jamais dans `claude-code`. Hébergé dans l'UE, « Your data is never used to train our models », rétention zéro d'après la page du service payant : que l'accès anonyme y soit tenu n'est pas vérifié. Essayé le 2026-11-22 : un appel anonyme à gpt-oss-120b a répondu depuis le réseau du mainteneur, un second dans la minute a reçu un 429 |
+| OVHcloud AI Endpoints | Modèles de texte sans clé ni compte, dont les fiches annoncent les appels d'outils ; point d'accès compatible OpenAI (pages lues le 2026-11-22) | 2 requêtes par minute, par IP et par modèle, observées depuis le réseau du mainteneur et écrites sur aucune page lue ; avec une clé, 400 par minute, mais un moyen de paiement sur un projet Public Cloud est exigé et aucun plafond de dépense n'existe | Routé sans clé, en queue des listes gratuites, derrière Kilo et devant les fournisseurs payants, jamais dans `Auto-Claude-Code`. Hébergé dans l'UE, « Your data is never used to train our models », rétention zéro d'après la page du service payant : que l'accès anonyme y soit tenu n'est pas vérifié. Essayé le 2026-11-22 : un appel anonyme à gpt-oss-120b a répondu depuis le réseau du mainteneur, un second dans la minute a reçu un 429 |
 | Cerebras | 5 $ de crédit après ajout d'un moyen de paiement, expirés au bout de 30 jours ; pas de palier gratuit permanent | Carte exigée | Examiné, non routé (entrées commentées) |
 | SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Plus tard le même jour, cinq appels de gpt-oss-120b espacés de 70 secondes répondent tous par l'erreur de crédits épuisés (code `CREDITS_EXHAUSTED`, solde de 0 unité) : ce n'est pas une limite de débit, et le compte n'a jamais reçu de crédit, aucun n'ayant été acheté. L'explication la plus simple est le quota gratuit de la page des limites (20 requêtes par jour et par modèle), que l'API énoncerait en « crédits épuisés » ; les appels de la journée n'ont pas été comptés, c'est donc une hypothèse, qu'un seul appel après la remise à zéro quotidienne tranchera. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Non tranché, non routé : un appel après la remise à zéro quotidienne dira si une carte liée sans achat ouvre un quota qui se renouvelle (palier récurrent, à prendre) ou un solde qui s'épuise ; les pages ne disent ni le minimum d'achat ni l'expiration des crédits, et un dépôt n'achèterait que des jetons (voir les dépôts jusqu'à 10 € plus bas) |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
-| Cent AI (modèle gratuit) | Revendeur ; un modèle gratuit, `hy4-flash:free`, annoncé « Free until Nov 30 · no daily limit » (page d'accueil lue le 2026-11-22) ; point d'accès compatible OpenAI, pas de fournisseur LiteLLM de ce nom | Aucune limite annoncée ; rien n'est dit de la suite du 30 novembre, où le modèle sera probablement facturé à son tarif (non vérifié). Le modèle gratuit « événement » du jour, tiré au hasard sous un identifiant qui change chaque jour, n'est pas routable | Routé, en queue des gratuits de `pro`, `flash` et `flash-lite`, à revoir le 1er décembre. Opérateur particulier aux conditions en brouillon, requêtes relayées vers des fournisseurs non nommés : le mainteneur accepte ces risques. Une limite de dépense sur la clé fait échouer un appel facturé au lieu de le payer. **Non lu par le contrôle de dérive hebdomadaire** |
+| Cent AI (modèle gratuit) | Revendeur ; un modèle gratuit, `hy4-flash:free`, annoncé « Free until Nov 30 · no daily limit » (page d'accueil lue le 2026-11-22) ; point d'accès compatible OpenAI, pas de fournisseur LiteLLM de ce nom | Aucune limite annoncée ; rien n'est dit de la suite du 30 novembre, où le modèle sera probablement facturé à son tarif (non vérifié). Le modèle gratuit « événement » du jour, tiré au hasard sous un identifiant qui change chaque jour, n'est pas routable | Routé, en queue des gratuits de `Auto-Pro`, `Auto-Flash` et `Auto-Flash-Lite`, à revoir le 1er décembre. Opérateur particulier aux conditions en brouillon, requêtes relayées vers des fournisseurs non nommés : le mainteneur accepte ces risques. Une limite de dépense sur la clé fait échouer un appel facturé au lieu de le payer. **Non lu par le contrôle de dérive hebdomadaire** |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
 
 #### Gemini : conditions et quotas du palier gratuit
@@ -1351,7 +1351,7 @@ Pages officielles lues :
 - **Les prompts sont journalisés et peuvent servir à l'entraînement.** Le catalogue marque chaque modèle gratuit comme pouvant être entraîné sur les prompts, la page « Models and providers » le dit de « Auto Free », et elle dit des points d'accès gratuits de NVIDIA : « Trial use only - do not submit personal or confidential data ». C'est accepté ici comme pour les autres modèles gratuits, et aucune voie n'est réservée aux données sensibles.
 - **Les conditions sont lues, pas validées.** La page « Terms », mise à jour le 2026-11-02, limite un compte à une entité (aucun n'est utilisé) et interdit les outils d'aspiration automatique et le contournement des contrôles d'accès, ce qu'une passerelle qui appelle l'API documentée est tenue de ne pas être. Sa clause sur la licence des données n'a été lue que dans un résumé : **non vérifiée**.
 - **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
-- **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
+- **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `Auto-Pro` et devant `nemotron-super-vl-free` dans `Auto-Flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `Auto-Flash`. `Auto-Code` et `Auto-Claude-Code` n'ont aucune entrée Kilo : `Auto-Claude-Code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `Auto-Code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
 - **Le contrôle hebdomadaire lit cette liste.** Le catalogue de Kilo se lit sans clé et marque chaque modèle gratuit (`isFree`) : un modèle qu'il ne liste plus est supprimé par la pull request des suppressions, comme chez OpenRouter, sur sa seule liste, car Kilo ne documente aucune route pour interroger un modèle seul ; un modèle encore listé mais plus gratuit est signalé dans les retraits annoncés, et jamais supprimé ; un nouveau modèle gratuit est proposé par l'une des deux pull requests d'ajouts, avec son `api_key` littéral et l'en-tête `Authorization` vidé. `kilo-auto/free` et `openrouter/free`, qui choisissent un modèle à chaque requête, sont écartés par une ligne `drift-ignore` du template.
 
 ### OVHcloud AI Endpoints : des modèles gratuits sans clé, deux requêtes par minute et par modèle
@@ -1363,8 +1363,8 @@ Pages officielles lues :
 - **Les données.** La page du service dit qu'il est « hosted and run in the European Union », que « your data is never used to train our models » et qu'OVHcloud ne garde que ce qui sert à la facturation (« zero data retention »). Cette page décrit le service payant : qu'elle vaille pour l'accès anonyme **n'est pas vérifié**, et les conditions d'usage de l'accès anonyme n'ont pas été lues.
 - **L'en-tête `Authorization` est vidé, par précaution.** Chez Kilo, un jeton factice envoyé en `Bearer` a été refusé par un `401`. Que OVHcloud refuse aussi un jeton factice **n'a pas été essayé** contre son vrai point d'accès (l'adresse de la session est partagée et reçoit des `429`) : la forme sûre, l'en-tête vide, est donc celle de Kilo, et `check_compose_template.py` y tient toute entrée posée sur un point d'accès sans clé, Kilo et OVHcloud ensemble.
 - **Quels modèles.** Seuls ceux dont la fiche du catalogue public annonce « Function Calling » et qui sont des modèles de conversation : DeepSeek V4.1 Flash, Qwen3.5 397B, gpt-oss-120b et gpt-oss-20b, Qwen3.8 27B, Qwen3.6 35B A3B, Qwen3.5 9B, Nemotron 3 Omni 30B et Nano 30B, Mistral Small 3.2, Gemma 4 26B A4B, Olala mini et Laguna XS 2.1. Que l'appel d'outils fonctionne réellement sur chacun n'a **pas été essayé** : la fiche l'annonce, rien d'autre. Laissés de côté : Llama 3.3 70B et Qwen3.6 27B, marqués « Being retired » (fin de vie le 2027-02-10, à remplacer le jour venu) ; Olala summarise et translate, spécialisés ; Qwen3-VL 30B, un modèle de vision à 32K de contexte ; Qwen2.5-VL 72B, retiré et sans appels d'outils ; les modèles de garde, d'embeddings, de parole et d'image.
-- **Où chaque modèle est placé.** En queue des listes gratuites de `pro`, `flash`, `flash-lite` et `code`, derrière tous les membres gratuits, Kilo compris, et devant les fournisseurs payants : 2 requêtes par minute en font le dernier recours gratuit, et la règle déjà suivie pour Kilo et OmniRoute est de mettre les gratuits avant les payants. Dans `pro`, les trois plus gros (DeepSeek V4.1 Flash, Qwen3.5 397B, gpt-oss-120b) ; dans `flash`, ces trois puis Qwen3.8 27B, Qwen3.6 35B, Nemotron 3 Omni et Mistral Small 3.2, après le routeur gratuit d'OpenRouter ; dans `flash-lite`, gpt-oss-20b, Gemma 4 26B, Nemotron 3 Nano, Qwen3.5 9B et Olala mini, après les entrées gratuites de Cloudflare ; dans `code`, les cinq plus capables puis Laguna XS 2.1, après les entrées gratuites de Z AI. Les rangs suivent la taille des modèles : aucun chiffre d'Artificial Analysis ni d'Epoch AI n'a été relu pour eux, et le rapport hebdomadaire des contrats par routeur dira, plancher par plancher, ce qui s'écarte. Comme aucun membre gratuit à clé ne les précède quand `code` n'a que la clé de Mistral ou de DeepSeek, DeepSeek V4.1 Flash d'OVHcloud devient la tête de `code` : la table `head` du template le dit.
-- **Jamais dans `claude-code`.** Ce routeur ne tient que des fournisseurs à clé, et deux requêtes par minute ne portent pas un agent : `check_compose_template.py` refuse tout membre d'une entrée sans clé dans `claude-code`.
+- **Où chaque modèle est placé.** En queue des listes gratuites de `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite` et `Auto-Code`, derrière tous les membres gratuits, Kilo compris, et devant les fournisseurs payants : 2 requêtes par minute en font le dernier recours gratuit, et la règle déjà suivie pour Kilo et OmniRoute est de mettre les gratuits avant les payants. Dans `Auto-Pro`, les trois plus gros (DeepSeek V4.1 Flash, Qwen3.5 397B, gpt-oss-120b) ; dans `Auto-Flash`, ces trois puis Qwen3.8 27B, Qwen3.6 35B, Nemotron 3 Omni et Mistral Small 3.2, après le routeur gratuit d'OpenRouter ; dans `Auto-Flash-Lite`, gpt-oss-20b, Gemma 4 26B, Nemotron 3 Nano, Qwen3.5 9B et Olala mini, après les entrées gratuites de Cloudflare ; dans `Auto-Code`, les cinq plus capables puis Laguna XS 2.1, après les entrées gratuites de Z AI. Les rangs suivent la taille des modèles : aucun chiffre d'Artificial Analysis ni d'Epoch AI n'a été relu pour eux, et le rapport hebdomadaire des contrats par routeur dira, plancher par plancher, ce qui s'écarte. Comme aucun membre gratuit à clé ne les précède quand `Auto-Code` n'a que la clé de Mistral ou de DeepSeek, DeepSeek V4.1 Flash d'OVHcloud devient la tête de `Auto-Code` : la table `head` du template le dit.
+- **Jamais dans `Auto-Claude-Code`.** Ce routeur ne tient que des fournisseurs à clé, et deux requêtes par minute ne portent pas un agent : `check_compose_template.py` refuse tout membre d'une entrée sans clé dans `Auto-Claude-Code`.
 - **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue d'OVHcloud : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût. Les fins de vie annoncées (le 2027-02-10 pour deux modèles) sont à suivre à la main.
 
 **Les dépôts jusqu'à 10 €, relus le 2026-11-22.** Taux supposé : 1 € = 1,15 $. Un crédit qui expire dans un an ou deux n'est pas « à vie » : il sort de la règle. « Environ N jours » veut dire un million de jetons par jour (quatre d'entrée pour un de sortie, sans remise de cache) au prix de la page citée : un ordre de grandeur. Les lignes marquées « résumé » viennent d'un résumé de page et non de la page elle-même.
@@ -1394,7 +1394,7 @@ Pages officielles lues :
 
 Requesty est une passerelle : elle relaie chaque requête vers le fournisseur du modèle. LiteLLM n'a pas de fournisseur de ce nom, donc chaque entrée est écrite `openai/<fournisseur>/<modèle>` avec un `api_base`, comme celles d'OmniRoute : LiteLLM ne retire que le préfixe `openai/`, et le reste, barre oblique comprise, part chez Requesty comme identifiant de modèle, que sa documentation demande sous la forme `fournisseur/modèle`. Cette lecture a été vérifiée dans le code de LiteLLM, appels de fonctions (`tools`) compris ; si chaque modèle les accepte chez Requesty, aucune page lue ne le dit.
 
-Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRouter, chacune juste derrière son jumeau OpenRouter dans les cascades où il a une place : Nemotron 3 Ultra et Nemotron 3 Nano Omni (raisonnement) dans `pro`, Gemma 4 31B dans `flash`, Nemotron 3.5 Lightning dans `flash-lite`. Que ce soient les mêmes poids des deux côtés ne repose que sur les noms. Les autres modèles gratuits de la page « Free models » ne sont pas routés : aucun n'est un modèle que le `model_list` sert déjà. Aucune entrée n'entre dans `code` ni `claude-code`, et la présence d'une clé Requesty seule ne fait donc pas exister `claude-code`.
+Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRouter, chacune juste derrière son jumeau OpenRouter dans les cascades où il a une place : Nemotron 3 Ultra et Nemotron 3 Nano Omni (raisonnement) dans `Auto-Pro`, Gemma 4 31B dans `Auto-Flash`, Nemotron 3.5 Lightning dans `Auto-Flash-Lite`. Que ce soient les mêmes poids des deux côtés ne repose que sur les noms. Les autres modèles gratuits de la page « Free models » ne sont pas routés : aucun n'est un modèle que le `model_list` sert déjà. Aucune entrée n'entre dans `Auto-Code` ni `Auto-Claude-Code`, et la présence d'une clé Requesty seule ne fait donc pas exister `Auto-Claude-Code`.
 
 | Point | Ce que les pages lues disent (relues le 2026-11-22) |
 | --- | --- |
@@ -1405,9 +1405,9 @@ Des entrées pour les seuls modèles que le `model_list` sert déjà par OpenRou
 | Données | Les requêtes et réponses ne sont pas stockées sauf si la journalisation est activée, et Requesty n'entraîne pas de modèle dessus ; ce que le fournisseur en amont conserve dépend de lui |
 | Compte | Un seul. Les conditions d'utilisation n'ont **pas** été lues par la session qui a écrit ceci (la page n'a rendu aucun texte) : rien n'est établi sur plusieurs comptes, le contournement des limites, les passerelles ou la revente |
 
-### La transcription de la parole : le routeur `stt`
+### La transcription de la parole : le routeur `Auto-STT`
 
-Un client qui envoie de l'audio à `/v1/audio/transcriptions` demande le modèle `stt`, qui est un alias comme `pro` ou `flash` : celui de la tête de sa cascade dont le fournisseur a une clé, et rien du tout quand aucun membre n'a de clé. La cascade est `whisper-large-v3-groq`, puis `whisper-large-v3-turbo-groq`, puis `gemini-3-5-transcribe`, puis `voxtral-mini-mistral` en dernier recours payant. Ses entrées portent `model_info.mode: audio_transcription`, et `check_compose_template.py` refuse une cascade `stt` qui contient un modèle d'un autre mode, une cascade de texte qui contient un modèle audio, un `stt` servi sans clé de Groq, de Gemini ni de Mistral et un alias qui n'est pas la tête de sa cascade. Aucune variable n'est ajoutée : les clés sont celles de Groq, de Gemini et de Mistral.
+Un client qui envoie de l'audio à `/v1/audio/transcriptions` demande le modèle `Auto-STT`, qui est un alias comme `Auto-Pro` ou `Auto-Flash` : celui de la tête de sa cascade dont le fournisseur a une clé, et rien du tout quand aucun membre n'a de clé. La cascade est `whisper-large-v3-groq`, puis `whisper-large-v3-turbo-groq`, puis `gemini-3-5-transcribe`, puis `voxtral-mini-mistral` en dernier recours payant. Ses entrées portent `model_info.mode: audio_transcription`, et `check_compose_template.py` refuse une cascade `Auto-STT` qui contient un modèle d'un autre mode, une cascade de texte qui contient un modèle audio, un `Auto-STT` servi sans clé de Groq, de Gemini ni de Mistral et un alias qui n'est pas la tête de sa cascade. Aucune variable n'est ajoutée : les clés sont celles de Groq, de Gemini et de Mistral.
 
 L'ordre n'est classé par aucun script et ne répond à aucun contrat : il est décidé à la main, par le taux d'erreur sur les mots que Groq publie sur sa page « Speech to Text » (10,3 % pour `whisper-large-v3`, 12 % pour `whisper-large-v3-turbo`, relue le 2026-11-22), le modèle payant passant après les trois gratuits, et celui de Google après ceux de Groq à cause de ce que son palier gratuit fait de l'audio (voir le groupe 1). Les deux modèles de Groq sont deux entrées pour que chacun ait son propre quota. Le code de LiteLLM a été lu pour s'assurer que le routeur applique les cascades de repli et les alias de groupe aux appels de transcription comme à ceux de chat : la route `/audio/transcriptions` appelle `atranscription`, qui passe par la même marche de repli que `aembedding` et `aspeech`, sous le nom demandé.
 
@@ -1418,7 +1418,7 @@ L'ordre n'est classé par aucun script et ne répond à aucun contrat : il est d
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Groq (`whisper-large-v3`, `whisper-large-v3-turbo`) | Palier gratuit, route compatible OpenAI, `groq/whisper-large-v3` dans LiteLLM | 25 Mo par fichier en gratuit, 100 Mo en payant, durée minimale facturée de 10 secondes ; limites par organisation. Ne conserve pas les données d'inférence par défaut, journaux jusqu'à 30 jours pour la fiabilité et les abus ; entraînement : non indiqué | Routé, têtes de la cascade, `whisper-large-v3` d'abord |
-| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | 3 requêtes par minute, 10 K jetons par minute et 25 requêtes par jour (voir « Gemini : conditions et quotas du palier gratuit »). **Hors de l'EEE, de la Suisse et du Royaume-Uni, le palier gratuit sert à améliorer les produits de Google et des relecteurs humains peuvent lire les entrées et sorties, ce qu'un enregistrement portant la voix de tiers ne supporte pas** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `stt` |
+| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | 3 requêtes par minute, 10 K jetons par minute et 25 requêtes par jour (voir « Gemini : conditions et quotas du palier gratuit »). **Hors de l'EEE, de la Suisse et du Royaume-Uni, le palier gratuit sert à améliorer les produits de Google et des relecteurs humains peuvent lire les entrées et sorties, ce qu'un enregistrement portant la voix de tiers ne supporte pas** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `Auto-STT` |
 | Mistral (Voxtral) | Aucune pour l'API (voir le groupe 1 du registre ci-dessus) ; `mistral/voxtral-mini-latest` dans LiteLLM ; le français figure parmi les langues de la documentation | Prix par minute et politique sur les données de l'API : non trouvés | Routé en dernier, payant, comme Mistral dans les cascades de texte |
 
 **Groupe 2 -- à ajouter.**
@@ -1447,13 +1447,13 @@ Pages officielles lues le 2026-11-22 :
 - Cloudflare Workers AI : sa page « Pricing » et la page de sa documentation sur les points d'accès compatibles OpenAI
 - Azure AI Speech : page « Pricing » ; ElevenLabs : page « Pricing » ; Deepgram : page « Pricing »
 
-### La synthèse vocale : le routeur `tts`
+### La synthèse vocale : le routeur `Auto-TTS`
 
-`tts` est un routeur comme `pro` ou `flash` -- un alias du premier membre de sa cascade dont la clé est donnée, avec ses alias (`auto-tts`) et sa cascade sous chaque nom -- mais pour `/v1/audio/speech` : le client envoie le texte et un nom de voix, la réponse est un fichier audio. Il n'ajoute aucune variable : il existe dès que la clé Gemini est donnée, et n'existe pas sans elle. Il n'est ni classé ni soumis à un contrat de `.github/LiteLLM_router_contracts.yaml` (aucun classement de modèles vocaux n'a été lu ici) : l'ordre de sa cascade est décidé à la main, et `check_compose_template.py` tient le routeur aux mêmes règles que les cinq autres, plus une : un modèle vocal (`model_info.mode: audio_speech`) n'entre dans aucune cascade de texte, et un modèle de texte dans aucune cascade vocale.
+`Auto-TTS` est un routeur comme `Auto-Pro` ou `Auto-Flash` -- un alias du premier membre de sa cascade dont la clé est donnée, avec sa cascade sous ce nom -- mais pour `/v1/audio/speech` : le client envoie le texte et un nom de voix, la réponse est un fichier audio. Il n'ajoute aucune variable : il existe dès que la clé Gemini est donnée, et n'existe pas sans elle. Il n'est ni classé ni soumis à un contrat de `.github/LiteLLM_router_contracts.yaml` (aucun classement de modèles vocaux n'a été lu ici) : l'ordre de sa cascade est décidé à la main, et `check_compose_template.py` tient le routeur aux mêmes règles que les cinq autres, plus une : un modèle vocal (`model_info.mode: audio_speech`) n'entre dans aucune cascade de texte, et un modèle de texte dans aucune cascade vocale.
 
-**Ce qui a été lu dans le code de LiteLLM** (le 2026-11-22), parce que la documentation ne le dit pas : le routeur applique `fallbacks` et `model_group_alias` à `/audio/speech` comme au chat, et un essai contre un faux serveur Google l'a confirmé (une réponse 429 de la tête de cascade fait répondre le membre suivant, et l'alias `auto-tts` résout comme `tts`). Les deux modèles Gemini sont servis par le fournisseur `gemini/` de LiteLLM, qui traduit les noms de voix d'OpenAI vers les voix de Gemini.
+**Ce qui a été lu dans le code de LiteLLM** (le 2026-11-22), parce que la documentation ne le dit pas : le routeur applique `fallbacks` et `model_group_alias` à `/audio/speech` comme au chat, et un essai contre un faux serveur Google l'a confirmé (une réponse 429 de la tête de cascade fait répondre le membre suivant). Les deux modèles Gemini sont servis par le fournisseur `gemini/` de LiteLLM, qui traduit les noms de voix d'OpenAI vers les voix de Gemini.
 
-| Cascade `tts` | Modèle | Pourquoi là |
+| Cascade `Auto-TTS` | Modèle | Pourquoi là |
 | --- | --- | --- |
 | 1 | `gemini-3.8-flash-tts` | Le modèle complet ; le français est listé comme pris en charge par la page « Speech » de la documentation de l'API Gemini |
 | 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota : Google compte le quota par modèle, 10 requêtes par jour chacun au palier gratuit |
@@ -1468,7 +1468,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 **Mistral Voxtral est servi mais n'est pas dans la cascade.** LiteLLM traduit six noms d'OpenAI vers des voix **anglaises** de Mistral et transmet les autres tels quels comme identifiants de voix Mistral, et la langue se règle par la voix, non par un paramètre : un appelant qui demande `alloy` pour du texte français serait lu par une voix anglaise. Ses voix françaises (quatre, toutes féminines : Marie, Manon, Lea, Camille) se demandent par leur propre identifiant, ce qu'une cascade partagée avec Gemini ne permet pas. L'entrée est laissée en commentaire dans `LiteLLM_config.yaml.j2`, avec cette raison.
 
-**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : hors de l'EEE, de la Suisse et du Royaume-Uni, le contenu sert à améliorer les produits de Google (voir « Gemini : conditions et quotas du palier gratuit »). Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts` avec une clé du palier gratuit. Le quota de ces deux modèles est de 10 requêtes par jour chacun.
+**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : hors de l'EEE, de la Suisse et du Royaume-Uni, le contenu sert à améliorer les produits de Google (voir « Gemini : conditions et quotas du palier gratuit »). Un texte qu'on ne veut pas voir réutilisé ne passe pas par `Auto-TTS` avec une clé du palier gratuit. Le quota de ces deux modèles est de 10 requêtes par jour chacun.
 
 **Le registre des fournisseurs de synthèse vocale**, lu le 2026-11-22, dans le même ordre que celui des fournisseurs de texte. Les pages de LiteLLM listent comme fournisseurs de `/audio/speech` OpenAI, Azure OpenAI, Azure AI Speech, AWS Polly, Vertex AI, Gemini, ElevenLabs, MiniMax et Mistral : Groq, Cloudflare, Together, Deepgram, Cartesia et Edge n'y sont pas.
 
@@ -1591,7 +1591,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 ### Les modèles d'embeddings, et pourquoi il n'y a ni routeur ni repli pour eux
 
-Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini) et `mistral-embed` (rendue avec la clé Mistral). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `flash` ou `code`.
+Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini) et `mistral-embed` (rendue avec la clé Mistral). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `Auto-Flash` ou `Auto-Code`.
 
 **Pourquoi.** Les vecteurs de deux modèles ne sont pas comparables entre eux, même à dimensions égales. Un repli d'un modèle vers un autre, ou un alias qui désignerait un modèle différent selon les clés données, ferait changer silencieusement d'espace vectoriel : les nouvelles requêtes seraient comparées à une collection remplie par l'ancien modèle, et rien n'échouerait pour le dire. LiteLLM applique bien les replis à un appel d'embeddings (lu dans son code le 2026-11-22), donc le seul moyen sûr est de n'en déclarer aucun. `check_compose_template.py` le tient : dans chaque rendu, une entrée `mode: embedding` n'est ni membre d'une cascade, ni clé d'une cascade, ni cible ou nom d'un alias.
 
@@ -1860,7 +1860,7 @@ plutôt que d'être ignorée en silence. `false`, sa valeur par défaut, veut di
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`, #1), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
-l'alias `claude-code` que #2 résout dans LiteLLM. C'est le point de conformité de #13 : quoi que cet
+l'alias `Auto-Claude-Code` que #2 résout dans LiteLLM. C'est le point de conformité de #13 : quoi que cet
 alias résolve, ce ne doit jamais être un modèle Anthropic adossé à un abonnement.
 
 **Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
@@ -1881,13 +1881,13 @@ et `CLAUDE_CODE_AUTO_MODE_MODEL` (le classificateur du mode automatique) : ni l'
 déploiement emprunte tel quel, et leur effet derrière la passerelle n'est pas mesuré. Rien de tout cela n'a été exécuté : ni LiteLLM réel, ni Claude Code
 réel, donc ce que Claude Code affiche quand une requête est refusée reste non mesuré.
 
-**Choisir son routeur depuis Claude Code (#307).** Sans rien faire, le conteneur demande `claude-code`. Pour un autre
-routeur, on le nomme : `/model flash` en session, ou `claude --model flash` au lancement. Claude Code envoie alors ce
+**Choisir son routeur depuis Claude Code (#307).** Sans rien faire, le conteneur demande `Auto-Claude-Code`. Pour un autre
+routeur, on le nomme : `/model Auto-Flash` en session, ou `claude --model Auto-Flash` au lancement. Claude Code envoie alors ce
 nom tel quel (mesuré avec `--model` sur la version 2.1.316 ; la saisie `/model` n'a pas été mesurée), et la passerelle
-l'accepte parce que la clé de l'agent l'autorise : `pro`, `flash`, `flash-lite` et `code` par défaut
+l'accepte parce que la clé de l'agent l'autorise : `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite` et `Auto-Code` par défaut
 (`Artificial_Intelligence_Claude_code_additional_models`), les autres routeurs du `model_list`, adossés aux modèles
 du compte par défaut et à ceux, sans compte, d'OmniRoute, de Kilo Gateway et d'OVHcloud -- l'agent n'atteint donc le quota d'aucun
-autre compte, mais ceux, anonymes et par adresse IP, de Kilo et d'OVHcloud, que `claude-code` ne sert pas. Un nom hors de
+autre compte, mais ceux, anonymes et par adresse IP, de Kilo et d'OVHcloud, que `Auto-Claude-Code` ne sert pas. Un nom hors de
 la liste, celui d'un modèle d'un autre compte compris, reste refusé. Les paliers du CLI (`opus`, `sonnet`, `haiku`) ne
 choisissent pas de routeur : leurs variables restent sur l'alias. Un routeur dont aucun membre n'a de clé ni n'en demande n'existe pas dans la
 passerelle, et le demander est refusé par elle, pas par le rôle ; LiteLLM 1.100.0 n'examine pas les noms de `models`
