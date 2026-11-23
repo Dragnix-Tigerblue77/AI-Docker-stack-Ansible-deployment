@@ -628,7 +628,7 @@ groupes d'accès » plus bas), car un nom de compte figé dans une étiquette d'
 réutilisabilité de ce rôle pour qui l'installe. Une clé sans restriction voit donc **tous les modèles**,
 y compris celles créées pour les comptes de la liste plus bas ; seule la clé d'un compte LibreChat est
 limitée, aux modèles de texte.
-#2 demande encore davantage : `rpm_limit` / `tpm_limit` par clé, la segmentation `sci-*` / `gen-*`, le
+Il reste davantage à faire : `rpm_limit` / `tpm_limit` par clé, une séparation des entrées selon la sensibilité des données, le
 test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément pas tenté ici, et quand il
 arrivera l'identité d'un compte viendra d'une variable du rôle, jamais d'un nom écrit dans ce fichier.
 
