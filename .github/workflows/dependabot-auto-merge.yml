@@ -4,22 +4,19 @@
 name: Dependabot auto-merge
 
 # Merges Dependabot's minor and patch updates once every check .github/rulesets/main.json names is
-# green on the pull request's head commit. It keeps the promise wader/postfix-relay's workflow
-# makes, by a different mechanism, because this repository cannot use wader/postfix-relay's.
+# green on the pull request's head commit.
 #
-# There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
-# Here, no ruleset is imported, so "--auto" would have nothing to wait for. So this workflow does
-# the waiting itself.
-# It never asks GitHub to merge later; it merges now, and only after reading, for the exact commit
-# it is about to merge, every check the ruleset file lists. Before it, every Dependabot pull request
-# here waited for a human however green it was -- the defect this workflow exists to remove.
+# That file is imported as the repository's ruleset, so GitHub itself refuses any merge, a human's
+# included, before every check it names is green. This workflow still merges directly rather than
+# with "gh pr merge --auto", and does its own checking first, because "--auto" merges whatever head
+# the branch holds when the checks finish: a push to the model-deletion branch after the guards
+# below were read would merge unread. The direct merge is pinned to the commit those guards read,
+# and GitHub answers 409 if the branch moved since. It never asks GitHub to merge later; it merges
+# now, and only after reading, for the exact commit it is about to merge, every check the ruleset
+# file lists.
 #
 # That file is the one gate and it is read from main, never from the pull request: a pull request
-# that edits the list of checks it has to pass must not be the one deciding what that list is. It is
-# in GitHub's ruleset export format so that importing it is what swapping this workflow for
-# wader/postfix-relay's "--auto" one needs, without anyone re-deriving which checks gate a merge.
-# The "sign-off" that never starts on the weekly model-deletion pull request when GITHUB_TOKEN opens
-# it has to be settled first: imported as it stands, the file would block that pull request's merge.
+# that edits the list of checks it has to pass must not be the one deciding what that list is.
 #
 # The file names every job of "Quality checks", "Secret scan" and "Commit sign-off" one by one rather
 # than a single aggregate job. The step below already refuses a check that is missing, still running,
@@ -71,10 +68,10 @@ name: Dependabot auto-merge
 #   * its head contains all of main. The checks ran on that head, and what lands is that head merged
 #     into main as it is when the merge happens: only a head that is not behind makes the two the
 #     same tree, and a head that is behind is rebuilt by the next weekly run;
-#   * every check the ruleset names is green on its head, "sign-off" excepted when it never started.
-#     That check reads the commits of a pull request, which GitHub never starts for one opened with
-#     GITHUB_TOKEN (it does for one opened with the App), and certifies the right to submit what a
-#     commit adds: this one adds nothing. One that did start is judged like the others.
+#   * every check the ruleset names is green on its head, "sign-off" included. That check reads the
+#     commits of a pull request, which GitHub never starts for one opened with GITHUB_TOKEN and does
+#     for one opened with the App; without the App it never starts, and the ruleset then keeps that
+#     pull request from merging at all, a human's included.
 #
 # "check_auto_merge_gate.py" runs the step below against made-up pull requests -- those that must
 # merge and, one by one, the shapes that must not -- and breaks its script and its environment a
@@ -169,10 +166,9 @@ jobs:
           REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
-          # The checks the ruleset names that never start for this pull request, and the title of
-          # the section of its body that asks a person to read. "check_auto_merge_gate.py" reads
-          # the ruleset and the script that writes that section, and fails if either stops fitting.
-          REMOVALS_NOT_APPLICABLE: sign-off
+          # The title of the section of its body that asks a person to read.
+          # "check_auto_merge_gate.py" reads the script that writes that section, and fails if it
+          # stops fitting.
           REMOVALS_REVIEW_HEADING: '## À relire'
         with:
           script: |
@@ -334,8 +330,6 @@ jobs:
             const commits = await github.paginate(github.rest.pulls.listCommits, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });
-            // Checks the ruleset names that do not apply to this kind of pull request.
-            const notApplicable = new Set();
             if (dependabot) {
               const updateTypes = [];
               for (const commit of commits) {
@@ -411,9 +405,6 @@ jobs:
                 core.notice(`${label} is ${comparison.behind_by} commit(s) behind ${defaultBranch}, so the checks did not run on the tree that would land. The next weekly run rebuilds it.`);
                 return;
               }
-              for (const context of process.env.REMOVALS_NOT_APPLICABLE.split(/\s+/).filter(Boolean)) {
-                notApplicable.add(context);
-              }
             }
 
             const checkRuns = await github.paginate(github.rest.checks.listForRef, {
@@ -426,9 +417,6 @@ jobs:
                 .filter((run) => run.name === context && run.app?.slug === 'github-actions')
                 .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''));
               if (runs.length === 0) {
-                // An excused check that never started is the expected state; one that did start
-                // is judged like the others.
-                if (notApplicable.has(context)) continue;
                 core.notice(`${label}: "${context}" has not reported on ${headSha} yet. The run that completes it will try again.`);
                 return;
               }
@@ -457,7 +445,7 @@ jobs:
               }
               throw error;
             }
-            core.notice(`${label} merged: ${required.filter((context) => !notApplicable.has(context)).map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);
+            core.notice(`${label} merged: ${required.map((context) => `"${context}"`).join(', ')} green on ${headSha}.`);
             core.setOutput('merged', 'true');
 
   # The merge above is a push to main made with GITHUB_TOKEN, which starts no workflow: this job is

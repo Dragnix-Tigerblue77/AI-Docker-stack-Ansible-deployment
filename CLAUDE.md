@@ -499,10 +499,10 @@ local session commits as the person at the keyboard, who signs off with `-s`.
 
 **Dependabot's minor and patch updates merge themselves once CI is green.** *(shared)* A Dependabot
 pull request sitting open with every check green is a defect in that process, not a task for a
-human. No ruleset is imported here, so `dependabot-auto-merge.yml` reads the required checks from
-`.github/rulesets/` and does the checking itself before merging
-(invariant 9). What gets through is decided by CI rather than by a guess about which ecosystem is
-risky: majors wait for a human, and so does anything red.
+human. `dependabot-auto-merge.yml` reads the required checks from `.github/rulesets/` and does the
+checking itself before merging, directly and pinned to the commit it checked (invariant 9). What
+gets through is decided by CI rather than by a guess about which ecosystem is risky: majors wait
+for a human, and so does anything red.
 
 **A post ends with the signature and a last line `<!--`, to hide the platform's own footer.** The
 platform appends a footer of its own after whatever a session writes, and writes it again on every
@@ -647,30 +647,37 @@ tells you.
 
 ## What blocks a pull request
 
-**For a human's merge, nothing does, and that is worth knowing rather than discovering.** No
-ruleset is imported: `.github/rulesets/main.json` requires `sign-off`, which never starts on the
-weekly model-deletion pull request when `GITHUB_TOKEN` opens it, so importing the file as it stands
-would block that pull request's merge (#423 tracks it). No CI check is therefore required before
-merging: the workflows **inform** the reviewer, they do not guard the door.
+**Every check of `.github/rulesets/main.json` is required before any merge, a human's included.**
+The file is imported as the repository's ruleset, with no bypass actor, so GitHub refuses a merge or
+a push to `main` while one of its checks has not succeeded: every job of `ansible-ci.yml`,
+`gitleaks.yml` and `sign-off.yml`, by display name.
 
-**Dependabot's updates are the exception.** `dependabot-auto-merge.yml` merges a minor or patch one
-only once every check `.github/rulesets/main.json` names has succeeded on its head commit -- every
-job of `ansible-ci.yml`, `gitleaks.yml` and `sign-off.yml`, by display name (invariant 9). Renaming
-a job or adding one therefore changes what gates those merges, and `check_required_checks.py` fails
-CI until the file follows; renaming a workflow does the same to the `workflows:` list of
-`dependabot-auto-merge.yml`, which matches on the workflow's `name:` and not on its file. So is the
-pull request the weekly model-drift run opens to delete the models their provider has retired: the
-same workflow merges it, but only a diff that adds no line to `templates/LiteLLM_config.yaml.j2`,
-deletes at most five entries and leaves nothing for a person to read (the workflow's header lists
-the conditions). That pull request is opened with a GitHub App's
-token where the repository configures one, so that GitHub starts its checks itself and the gate
-hears of them; without one the workflow dispatches the checks itself and the gate never hears of the
-pull request, which a person then merges (the header of the drift workflow names the variables).
+**The file is a record; the live ruleset is what GitHub enforces, and the two only agree after the
+maintainer imports the file again.** Renaming a required job therefore blocks the pull request that
+renames it: the live ruleset keeps waiting for the old name, which no run reports. A new job is not
+required until then either. A change to `main.json`, a rename or an addition of a job included, ends
+with the maintainer's re-import, and its pull request body says so. `check_required_checks.py` fails
+CI until the file follows the workflows; it cannot see what is imported.
 
-The one thing that actually refuses a human's change is `.githooks/pre-commit`, and only in a clone
-where `git config core.hooksPath .githooks` has been run. The session-start hook does it for a web
-session, and only when `gitleaks` is installed -- the pre-commit hook refuses every commit without
-it, deliberately.
+**Dependabot's updates and the model-deletion pull request are merged by CI.**
+`dependabot-auto-merge.yml` merges a minor or patch one only once every check
+`.github/rulesets/main.json` names has succeeded on its head commit (invariant 9), so the gate and the
+ruleset ask the same. Renaming a job or adding one therefore changes what gates those merges, and
+`check_required_checks.py` fails CI until the file follows; renaming a workflow does the same to the
+`workflows:` list of `dependabot-auto-merge.yml`, which matches on the workflow's `name:` and not on
+its file. So is the pull request the model-drift run opens to delete the models their provider has
+retired: the same workflow merges it, but only a diff that adds no line to
+`templates/LiteLLM_config.yaml.j2`, deletes at most five entries and leaves nothing for a person to
+read (the workflow's header lists the conditions), `sign-off` among the checks. That pull request is
+opened with a GitHub App's token where the repository configures one, so that GitHub starts its
+checks itself, `sign-off` included, and the gate hears of them. Without one the workflow dispatches
+the checks itself, nothing starts `sign-off` on that pull request, and the ruleset keeps anybody
+from merging it: the App is what lets it merge (the header of the drift workflow names the
+variables).
+
+`.githooks/pre-commit` refuses a commit earlier and locally, and only in a clone where `git config
+core.hooksPath .githooks` has been run. The session-start hook does it for a web session, and only
+when `gitleaks` is installed -- the pre-commit hook refuses every commit without it, deliberately.
 
 ## The deployment target
 
@@ -731,13 +738,16 @@ the role.
    `~/.ansible/roles/deploy_Artificial_Intelligence_Docker_stack` for exactly this reason, before anything reads the
    example playbook. Nothing else in this repository needs it: every other job lints or reads the
    role's own files directly, at their own path, with no role resolution involved.
-9. **`dependabot-auto-merge.yml` merges directly, and does its own checking first.** `gh pr merge
-   --auto` needs a ruleset GitHub enforces, and none is imported here (see *What blocks a pull
-   request*). So the workflow reads `.github/rulesets/main.json` from `main`, checks that every
-   context in it concluded `success` on the pull request's exact head commit, and merges pinned to
-   that SHA. Two "simplifications" undo it. Going back to `--auto` makes it inert: nothing would
-   ever merge, and Dependabot's pull requests would pile up green again. A direct merge without the
-   checking lands updates nothing checked: nothing else here would stop it. It runs on
+9. **`dependabot-auto-merge.yml` merges directly, and does its own checking first.** The ruleset is
+   imported (see *What blocks a pull request*), and the direct merge is kept all the same, for one
+   reason: `gh pr merge --auto` makes GitHub merge, later, whatever head the branch holds then, so a
+   push to the model-deletion branch after the gate read its guards would merge unread. The workflow
+   reads `.github/rulesets/main.json` from `main`, checks that every context in it concluded
+   `success` on the pull request's exact head commit, and merges pinned to that SHA, which GitHub
+   refuses with a 409 if the branch moved. Two "simplifications" undo it. Going to `--auto` would
+   merge a later head nobody read. A direct merge without the checking would still be refused by
+   GitHub while a required check is red, but it would drop the guards on what the deletion pull
+   request may change, which are this workflow's and no ruleset's. It runs on
    `workflow_run`, from `main`'s definition, and checks nothing out, because its jobs hold a write
    token and no job may both hold one and run code from a pull request -- a freshly bumped
    dependency is exactly that code. The gate's merge, a push made with `GITHUB_TOKEN`, starts no
@@ -751,8 +761,7 @@ the role.
    matrix or has an expression in its `name:`: GitHub renders such a name per run, so `main.json`
    could only list the unrendered one, which the check accepts and no check run ever reports --
    every update would then wait for ever. That is why the role run is two jobs sharing one anchored
-   `steps:` list rather than a matrix. The workflow's header also says what replaces it the day a
-   ruleset is imported.
+   `steps:` list rather than a matrix.
 
    The weekly model-drift workflow keeps the same rule with two jobs, and a third, its gate, that
    holds neither keys nor a token that writes: the one that holds the providers' keys installs PyYAML
@@ -763,7 +772,7 @@ the role.
    the text the workflow wrote into it, bar the one section of the body that says a person has to
    read: no line added, one file, five entries and two hundred lines at most, every deleted line a
    whole entry, a cascade slot of one deleted in the same diff, a comment or a blank line, a head
-   that contains all of `main`, the same checks bar a `sign-off` that never started. Loosen any of
+   that contains all of `main`, and every check the ruleset names, `sign-off` included. Loosen any of
    them and a compromised `read` job gets more of the file deleted: counting lines alone would let it
    delete settings. `check_auto_merge_gate.py` plays the step against made-up pull requests and breaks
    its script a guard at a time, so a guard that stops guarding fails CI instead of going unseen.

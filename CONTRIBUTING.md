@@ -28,20 +28,27 @@ Il faut aussi que `gitleaks` soit installé — depuis
 [ses releases](https://github.com/gitleaks/gitleaks/releases), à la version que la CI épingle, ou
 en déposant le binaire à la racine du dépôt sous le nom `gitleaks`. Le hook accepte les deux.
 
-**Ce hook est le seul garde-fou de ce dépôt qui refuse réellement quelque chose.** Aucun *ruleset*
-n'est importé, donc aucun contrôle de CI n'est obligatoire avant fusion : la CI *constate*, elle ne
-garde pas la porte. Le hook, lui, refuse le commit.
+**Ce hook refuse le commit, et le dépôt refuse ensuite la fusion.** Le *ruleset* de
+`.github/rulesets/main.json` est importé, sans acteur autorisé à le contourner : GitHub refuse toute
+fusion, y compris celle du mainteneur, tant que chaque contrôle qu'il nomme n'a pas réussi sur la
+pull request -- tous les jobs de `ansible-ci.yml`, de `gitleaks.yml` et de `sign-off.yml`, par leur
+`name:`. Le hook, lui, refuse plus tôt, au commit, et il est local.
 
-Les seules fusions que la CI décide, ce sont celles des mises à jour de Dependabot et de la pull
-request hebdomadaire qui supprime les modèles retirés :
+`.github/rulesets/main.json` n'est qu'un enregistrement : ce que GitHub applique est le ruleset
+importé. Renommer ou ajouter un job, c'est donc modifier ce fichier dans la même pull request
+(`check_required_checks.py` échoue tant que ce n'est pas fait), puis le faire réimporter par le
+mainteneur. Tant qu'il ne l'a pas fait, la pull request qui renomme un job reste bloquée, le
+ruleset en vigueur attendant toujours l'ancien nom, qu'aucun run ne rapporte, et un job ajouté n'est
+pas encore exigé : une pull request qui touche ce fichier le dit dans sa description.
+
+Deux fusions sont décidées par la CI elle-même : celles des mises à jour de Dependabot et de la
+pull request qui supprime les modèles retirés.
 `.github/workflows/dependabot-auto-merge.yml` fusionne une mise à jour mineure ou corrective une
-fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle — tous les jobs
-de `ansible-ci.yml`, de `gitleaks.yml` et de `sign-off.yml`, par leur `name:` (hors `sign-off` pour
-la seconde, qui ne le démarre jamais). Renommer ou ajouter
-un job, c'est donc modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue
-tant que ce n'est pas fait. Ajouter un job laisse aussi chaque pull request de Dependabot déjà ouverte
-attendre un contrôle qu'elle n'a jamais lancé, et rien ne la réveille : `@dependabot rebase` sur
-chacune relance tous les workflows.
+fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle, `sign-off`
+compris. La pull request de suppression ne le voit démarrer que si la GitHub App du workflow
+l'ouvre, et sans elle le ruleset la laisse non fusionnée. Ajouter un job laisse aussi chaque pull
+request de Dependabot déjà ouverte attendre un contrôle qu'elle n'a jamais lancé, et rien ne la
+réveille : `@dependabot rebase` sur chacune relance tous les workflows.
 
 Cette fusion-là ne lance d'elle-même aucun workflow sur `main` : GitHub n'en démarre aucun pour un
 push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Quality checks` et `Secret scan` sur
@@ -273,10 +280,10 @@ Oublié sur le dernier commit ? `git commit --amend -s`. Sur plusieurs ? `git re
 
 Le job **sign-off** (`.github/workflows/sign-off.yml`) lit les commits de chaque pull request et
 passe au rouge sur celle où l'un d'eux n'a pas de sign-off exploitable. Comme tous les contrôles de
-ce dépôt, il informe la relecture et n'empêche aucune fusion de la main du mainteneur : le hook
-ci-dessus ne lit pas les sign-offs, la relecture est donc la seule barrière, et seules les mises à
-jour de Dependabot attendent ce job. Les règles exactes, et pourquoi elles sont ce qu'elles sont,
-sont dans la docstring de `.github/scripts/check_sign_off.py` ; ce qu'il faut en savoir :
+ce dépôt, il est exigé par le ruleset importé : tant qu'il n'a pas réussi, GitHub refuse la
+fusion, celle du mainteneur comprise. Le hook ci-dessus, lui, ne lit pas les sign-offs. Les règles
+exactes, et pourquoi elles sont ce qu'elles sont, sont dans la docstring de
+`.github/scripts/check_sign_off.py` ; ce qu'il faut en savoir :
 
 * il lit un *trailer* au sens de git, de la forme `Signed-off-by: Nom <adresse>` : une ligne citée au
   milieu d'un message n'en est pas un, et une ligne vide ou sans adresse ne certifie personne ;
