@@ -197,6 +197,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | `LibreChat_uploads` · `MongoDB_LibreChat_data` | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
 | `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. `gateway_key: true` (booléen, `false` si absent) donne au compte une clé de la passerelle à lui, faite et rangée par le rôle : voir « Une clé de la passerelle par compte LibreChat ». Voir plus bas. |
+| `Artificial_Intelligence_LibreChat_gateway_key_models` | `[LLM, Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Ce que la clé de la passerelle d'un compte LibreChat peut appeler, et donc ce que LibreChat liste pour ce compte : LiteLLM répond à `/v1/models` par la liste de la clé, un groupe d'accès étant remplacé par ses membres. `LLM` est le groupe des modèles de texte (ni transcription, ni voix, ni vecteurs), et un routeur n'étant dans aucun groupe, ceux qu'un chat doit proposer sont nommés ; `Auto-Claude-Code` est laissé à l'agent. Une liste non vide de chaînes non vides ; `check_compose_template.py` tient le défaut aux groupes et aux routeurs du template. Le rôle l'applique à **chaque** passage, à la clé qu'un compte a déjà comme à une nouvelle : changer la liste atteint donc une clé déployée sans la supprimer. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
 (#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
@@ -659,7 +660,7 @@ Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans
 
 En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à son groupe, et le script de la veille de modèles écrit les entrées qu'il propose dans le groupe `LLM`.
 
-La clé qu'un compte LibreChat reçoit de `gateway_key` n'a **pas** de liste de modèles : tant qu'on ne sait pas si LibreChat liste bien les routeurs avec une clé limitée à un groupe, elle reste ouverte, et on la limite à la main dans `/ui` si on le veut.
+La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `LLM` et aux routeurs de texte (`Artificial_Intelligence_LibreChat_gateway_key_models`), si bien que LibreChat ne liste pour ce compte que ce qu'il peut appeler : ni transcription, ni voix, ni vecteurs. Les routeurs sont nommés à côté du groupe parce que LiteLLM remplace un groupe par ses membres seulement (lu dans son code) : un routeur est l'alias de la tête de sa cascade et n'est dans aucun groupe, donc une clé limitée à `LLM` seul ne les listerait pas, tout en pouvant les appeler.
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
@@ -1722,12 +1723,14 @@ n'était pas satisfait).
 
 **Une clé de la passerelle par compte LibreChat, faite et rangée par le rôle.** Pour un compte qui porte `gateway_key: true`
 dans `Artificial_Intelligence_LibreChat_users`, plus de saisie à la main : le rôle se connecte à LibreChat **avec le mot de
-passe de ce compte**, qu'il détient puisqu'il l'a créé, demande à LiteLLM une clé d'alias `librechat-<username>` sans liste
-de modèles, puis la range par la route de LibreChat que l'engrenage appelle, `PUT /api/keys`, sous le nom de l'endpoint. La clé
+passe de ce compte**, qu'il détient puisqu'il l'a créé, demande à LiteLLM une clé d'alias `librechat-<username>` limitée à
+`Artificial_Intelligence_LibreChat_gateway_key_models`, puis la range par la route de LibreChat que l'engrenage appelle, `PUT /api/keys`, sous le nom de l'endpoint. La clé
 n'est rangée que dans ce compte, qu'aucun autre ne partage, n'est écrite nulle part dans l'inventaire, et LibreChat la chiffre
 et la stocke lui-même : le rôle ne touche pas à sa base de données. Un compte sans `gateway_key` saisit sa clé à la main, comme
 avant. Elle est faite une fois : le rôle regarde d'abord, par `GET /api/keys`, si LibreChat a déjà une clé pour ce compte, et ne
-fait rien dans ce cas, donc un second passage ne change rien.
+fait rien dans ce cas, donc un second passage ne change rien. À chaque passage, le rôle cherche aussi à LiteLLM la clé de l'alias
+`librechat-<username>` et, si sa liste de modèles n'est pas celle de la variable, la met à jour (`POST /key/update`) : une clé faite avant
+cette limite, ou avant un changement de la liste, la reçoit sans être supprimée.
 
 Ce que ça ne fait pas : **multiplier les quotas gratuits.** Ils sont comptés par les fournisseurs, sur les clés de fournisseur de la
 passerelle, et partagés par toutes les clés virtuelles ; une clé par compte sépare le suivi et la révocation, et permet des

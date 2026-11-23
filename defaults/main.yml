@@ -570,8 +570,8 @@ Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~
 # "gateway_key: true" (a boolean, false when omitted) gives that account a LiteLLM virtual key of its own, made
 # and stored by the role: the account is logged in to LibreChat with its own password, so that the key lands in
 # THAT account's store through LibreChat's own API, the one behind the gear beside the endpoint's name, and in no
-# other account's. It is minted once, by LiteLLM, with the alias "librechat-<username>" and no allow-list, and is
-# shown nowhere: an account without "gateway_key" enters its own key by hand, as before. One key per account is
+# other account's. It is minted once, by LiteLLM, with the alias "librechat-<username>" and the allow-list below,
+# and is shown nowhere: an account without "gateway_key" enters its own key by hand, as before. One key per account is
 # what lets the gateway tell the accounts apart; the free quotas themselves are counted by the providers, on the
 # gateway's provider keys, and shared by every key.
 # Artificial_Intelligence_LibreChat_users:
@@ -582,6 +582,20 @@ Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~
 #     admin: true
 #     gateway_key: true
 Artificial_Intelligence_LibreChat_users: []
+
+# What the gateway key of a LibreChat account may call, and so what LibreChat lists under it: LiteLLM answers
+# "/v1/models" with the key's own list, an access group expanded into its members. "LLM" is the access group of
+# the text models, which leaves out transcription, speech and vectors a chat has no use for, and a router is in
+# no group (it is an alias of the head of its cascade), so the ones a chat should offer are named. "Auto-Claude-Code"
+# is left out: its cascade is held to strict tool calls and belongs to the agent. The role applies the list at every
+# run, to the key an account already has as to a new one, so a change here reaches a deployed key by itself.
+# "check_compose_template.py" holds the names to the template's groups and routers.
+Artificial_Intelligence_LibreChat_gateway_key_models:
+  - "LLM"
+  - "Auto-Pro"
+  - "Auto-Flash"
+  - "Auto-Flash-Lite"
+  - "Auto-Code"
 
 # NOT a setting: where the role's "uri" tasks reach LibreChat's own API, on the node that runs them, to give an
 # account its gateway key. Derived from the port LibreChat is published on, so that one place names it.
