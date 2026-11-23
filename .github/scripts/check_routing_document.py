@@ -23,7 +23,7 @@ section headed "### `Auto-Pro`" (the router's published name) with a table whose
 1. Every router of the template has its section and its table, and no table is written twice.
 2. The entries of the table are the members of the cascade, the same entries in the same order. A
    missing member, an extra one, a member out of place and a member written twice are each refused, and
-   the message says which. A row for an entry the template no longer has is NOT refused: the weekly
+   the message says which. A row for an entry the template no longer has is NOT refused: the
    deletion pull request removes retired entries from the template alone and must stay green to merge
    itself, so the check says such a row in a notice, to be removed by a person, and compares the others.
 3. The "Niveau" cell of an entry says what the template sets. A cell that starts with a level between

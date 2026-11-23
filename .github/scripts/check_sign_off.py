@@ -221,7 +221,7 @@ CONTRIBUTOR = ("Random J Developer", "random@example.invalid")
 SOMEBODY_ELSE = ("Somebody Else", "somebody@example.invalid")
 LOOK_ALIKE = ("Claude Code", "claude@example.invalid")
 DEPENDABOT = ("dependabot[bot]", "support@github.com")
-# The author and the sign-off of the commit the weekly model-drift workflow makes through the API.
+# The author and the sign-off of the commit the model-drift workflow makes through the API.
 ACTIONS_BOT = ("github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com")
 
 

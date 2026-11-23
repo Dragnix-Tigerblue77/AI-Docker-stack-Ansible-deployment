@@ -24,7 +24,7 @@ providers publish them. Every part of that rule decays in silence:
 * A new model is, by definition, one nobody here has heard of yet.
 
 Nothing else in this CI can see any of that: the file is valid YAML either way. This check, and
-the weekly report and pull requests it feeds, exist to see it; the deletion of what a provider has
+the report and pull requests it feeds, exist to see it; the deletion of what a provider has
 retired, which nobody should have to do by hand, is its third mode.
 
 HOW THE FILE IS READ
@@ -40,10 +40,10 @@ library.
 
 That environment is plain Jinja2, not Ansible's: only Jinja's own filters and tests exist in it.
 One that only Ansible provides ("to_json", "regex_replace", "ternary", the "match", "search" and
-"version" tests) makes this check exit 2 although Ansible renders the file. The weekly job installs
+"version" tests) makes this check exit 2 although Ansible renders the file. The job installs
 PyYAML and Jinja2 alone, so the check cannot lean on ansible-core. The day the template needs such
 a filter, add it to this check explicitly, as "check_compose_template.py" does for "to_json", keep
-the pull-request and the weekly environments identical, and install ansible-core in the weekly job
+the pull-request and the job's environments identical, and install ansible-core in that job
 in the same change.
 
 * The YAML parse AND the comment scan (reasons, "drift-ignore:" lines) both run on the rendering,
@@ -57,7 +57,7 @@ in the same change.
 * A template that does not render -- a Jinja syntax error, a variable that is none of the provider
   keys or of the configuration's switches (TEMPLATE_SWITCHES, rendered at their default), however the
   template reads it -- is a finding that names the problem, and ends the run with
-  status 2 like a file that is not YAML. Only Jinja2's own filters and tests exist here (the weekly
+  status 2 like a file that is not YAML. Only Jinja2's own filters and tests exist here (the
   job installs no ansible-core), so a template that uses one that only Ansible provides, "to_json"
   for instance, is reported as unreadable even though Ansible would render it; such a template has
   to be handled deliberately, either by not using the filter in this file or by teaching this check
@@ -113,7 +113,7 @@ drift, since it means the report is incomplete), 70 a crash: the script's own bu
 answer it could not read at all, which prints the kind of error and where and never its message.
 An uncaught exception would exit 1 and be read as drift, which is why a crash has a status of its
 own. The offline rules are applied in this mode too: nothing blocks a human's merge here, so a red
-pull request can still land on main, and the weekly run is the next place it shows.
+pull request can still land on main, and the next run is the next place it shows.
 "--coverage PATH" writes "complete" or "partial" to PATH: "partial" when a provider was not read
 (no key, or an error), whatever the exit status says, since a provider that is not covered yields
 no finding and a run can exit 0 having seen only some of the catalogues. "--undeleted PATH" writes
@@ -382,7 +382,7 @@ for that model (all of its entries or none):
 * every id of a provider whose catalogue omits more than half of the ids the file holds for it,
   once that is three or more: a short but valid answer (a key that sees another tier, a truncated
   page, a provider in an incident) is what a mass retirement looks like too, and a deletion pull
-  request of a hundred lines rewritten every week on its word is not worth the risk. The summary
+  request of a hundred lines rewritten at every run on its word is not worth the risk. The summary
   lists them, and a person decides.
 
 THE HEAD TABLE
@@ -512,7 +512,7 @@ notifies the people it is assigned to: a commented-out model free again on OpenR
 (on the one to verify when no ready one is opened), the NEW models no pull request proposes on the
 one to verify, and an announced retirement (NOTICE) on the deletion pull request, under a heading that
 does not hold its merge. A section that would take a body past the size GitHub accepts loses its
-entries, then itself. Whatever has no pull request to ride on that week is in the summary only.
+entries, then itself. Whatever has no pull request to ride on that run is in the summary only.
 
 THE ROUTER CONTRACTS
 --------------------
@@ -615,7 +615,7 @@ conversion of the index into a code position that does not go the way it should,
 read, a key written twice. It reads it only
 against the repository's template (or the file given by "--contracts"), since a contract written for one
 template means nothing against another. A name the file keeps that is no entry of the template any more,
-in a mapping or in a last resort, is NOT a failure: the weekly deletion pull request is merged by a gate
+in a mapping or in a last resort, is NOT a failure: the deletion pull request is merged by a gate
 that wants CI green, and a deletion leaves exactly that behind. The plain run prints one notice line for
 each such stale row and exits 0, and the summary lists them under "Correspondances sans entrée", for a
 person to remove from the file.
@@ -658,7 +658,7 @@ WHAT IT DELIBERATELY DOES NOT DO
 * It does not read OpenRouter's "/api/v1/models/<id>/endpoints". A removed slug answers there with
   200 and "endpoints": [] -- and so does "openrouter/free", the free router "flash" falls back on,
   measured 2026-09-27. The route cannot tell the two apart; the catalogue can.
-* It does not report a commented-out entry's deprecation: nothing routes to it. The week it is
+* It does not report a commented-out entry's deprecation: nothing routes to it. Once it is
   actually retired, it comes back as GONE.
 * It does not cover what a key cannot see. A keyed provider's catalogue is the one of the account
   behind the key, so a model reserved to another tier or region is invisible to it.
@@ -874,7 +874,7 @@ def render_with_keys(text, given):
         sys.stderr.write("Jinja2 is required by this check (see requirements.txt): "
                          "pip install -r requirements.txt\n")
         raise SystemExit(2)
-    # Ansible's own environment is a sandbox, and the weekly run holds the providers' keys.
+    # Ansible's own environment is a sandbox, and the drift run holds the providers' keys.
     environment = SandboxedEnvironment(undefined=jinja2.StrictUndefined, trim_blocks=True,
                                        keep_trailing_newline=True)
     # A variable the template reads and this check does not supply would be "not given" without a
@@ -3379,10 +3379,10 @@ def contracts_section(result):
     out = ["## Contrats par routeur", ""]
     if report["status"] == "invalid":
         out += ["Le fichier `.github/LiteLLM_router_contracts.yaml` n'a pas la forme attendue, rien n'est "
-                "calculé cette semaine :", ""]
+                "calculé dans cette exécution :", ""]
         return out + capped(["- " + " ".join(problem.split()) for problem in report["problems"]]) + [""]
     if report["status"] == "error":
-        return out + ["Le calcul a échoué (%s) : rien n'est calculé cette semaine, et rien d'autre n'en "
+        return out + ["Le calcul a échoué (%s) : rien n'est calculé dans cette exécution, et rien d'autre n'en "
                       "dépend." % code_span(report["kind"]), ""]
     fallback, epoch = report["fallback"], report["epoch"]
     estimating = epoch["status"] == "read" and epoch["eci"] > 0
@@ -4559,7 +4559,7 @@ def apply_removals(text, wanted):
 # A catalogue that omits MORE than this share of the ids the file holds for its provider, and at
 # least this many of them, is not believed either: a key that sees another tier, a truncated page or
 # a provider in the middle of an incident all answer 200 with a short list, and a short list is
-# exactly what a mass retirement looks like. Such a week is a person's to read, in the summary.
+# exactly what a mass retirement looks like. Such a run is a person's to read, in the summary.
 IMPLAUSIBLE_SHARE = 0.5
 IMPLAUSIBLE_FLOOR = 3
 
@@ -5023,8 +5023,7 @@ def summary_body(result, config_name, link, snippets):
         "notification. Les retraits annoncés sont aussi dans la pull request des suppressions, et les "
         "modèles redevenus gratuits et les nouveaux modèles qu'aucun ajout ne peut porter dans les "
         "pull requests d'ajout, quand cette exécution les ouvre ou les met à jour. Une issue n'est "
-        "ouverte que pour un catalogue de fournisseur encore illisible à la dernière tentative du "
-        "samedi." % config_name
+        "ouverte que pour un catalogue de fournisseur encore illisible à la dernière tentative du jour." % config_name
     )
     out.append("")
     if applying:
@@ -5174,7 +5173,7 @@ def summary_body(result, config_name, link, snippets):
         out += ["## Erreurs", "",
                 "Catalogues qui n'ont pas pu être lus : leurs modèles ne sont ni confirmés ni "
                 "déclarés retirés. Un `401` ou un `403` désigne en général une clé invalide, "
-                "expirée ou révoquée, et Gemini répond `400` à une clé invalide. Le samedi, le "
+                "expirée ou révoquée, et Gemini répond `400` à une clé invalide. Le "
                 "workflow refait l'exécution deux heures plus tard, trois fois au plus, tant qu'un "
                 "catalogue reste illisible, et n'ouvre son issue que si la dernière tentative ne le "
                 "lit toujours pas.", ""]
@@ -5184,8 +5183,8 @@ def summary_body(result, config_name, link, snippets):
     ranking = result.get("rankings")
     if ranking and ranking["status"] == "error":
         out += ["## Classements non lus", "",
-                "La source des classements n'a pas pu être lue : aucune place n'est suggérée cette "
-                "semaine pour les nouveaux modèles. Rien d'autre n'en dépend, ni les suppressions ni "
+                "La source des classements n'a pas pu être lue : aucune place n'est suggérée "
+                "dans cette exécution pour les nouveaux modèles. Rien d'autre n'en dépend, ni les suppressions ni "
                 "l'issue du workflow.", "", "- Artificial Analysis : %s"
                 % code_span(ranking["error"]), ""]
 
@@ -5312,7 +5311,7 @@ def render_pr_body(result, link=None):
         "que sa branche ne porte que des commits du workflow ou des commits de fusion (celui du "
         "bouton « Update branch » en est un). Un commit ajouté par quelqu'un d'autre la fige : le "
         "workflow n'y touche plus, même s'il n'y a plus rien à supprimer, et son exécution "
-        "échoue chaque semaine pour le dire, jusqu'à ce que la branche soit supprimée. "
+        "échoue chaque jour pour le dire, jusqu'à ce que la branche soit supprimée. "
         "Fermée sans être fusionnée, elle est remplacée par une nouvelle à l'exécution suivante si "
         "les fournisseurs ne listent toujours pas ces modèles ; fusionnée, ces modèles "
         "disparaissent du rapport à l'exécution d'après.",
@@ -5419,7 +5418,7 @@ def render_pr_body(result, link=None):
                 "Le fournisseur marque ces entrées actives pour retrait sans les avoir encore "
                 "retirées : cette pull request ne les supprime pas, et ne s'en fusionne pas moins "
                 "seule. Prévoir leur remplacement dans les cascades ; elles viendront ici, supprimées, "
-                "la semaine où leur catalogue ne les listera plus.", ""]
+                "l'exécution où leur catalogue ne les listera plus.", ""]
         out += capped([finding_line(report, finding) for report, finding in notices]) + [""]
 
     unread = [report["name"] for report in result["providers"] if report["status"] != "read"]
@@ -5459,7 +5458,7 @@ def render_commit_message(result):
         "keys.")) if heads else ""
     return (
         "Delete the models their provider has retired from the LiteLLM model list (#243)\n\n"
-        + wrapped("The weekly drift check read each provider's own model catalogue on %s "
+        + wrapped("The drift check read each provider's own model catalogue on %s "
                   "and found %s it no longer lists, from %s. The pull request that carries this "
                   "commit names each of them and the catalogue it was missing from."
                   % (result["date"], count_phrase(len(applied), "id", "ids"), by_provider))
@@ -5486,7 +5485,7 @@ def render_commit_message(result):
 # ------------------------------------------------------------------------------------------------
 # Proposing the NEW models: two pull requests, which only a person merges
 # ------------------------------------------------------------------------------------------------
-# "--proposals DIR" writes what the weekly workflow needs to keep two pull requests of additions,
+# "--proposals DIR" writes what the drift workflow needs to keep two pull requests of additions,
 # split by how much the run knows of each model, never by provider: "ready" for a model of which it
 # holds every fact a person would need (a free tier the provider's own API states, and a figure of the
 # ranking matched for certain), "to_verify", opened as a draft, for any model one fact of which is
@@ -5616,12 +5615,12 @@ def addition_note(kind, date, provider, commented):
     what the offline rule asks of its reason."""
     label = PROVIDER_LABELS[provider]
     if commented:
-        return ("Not routed to: proposed by the weekly drift run on %s, its free tier on %s not "
+        return ("Not routed to: proposed by the drift run on %s, its free tier on %s not "
                 "verified yet." % (date, label))
     if provider in FREE_CATALOGUES:
-        return 'Proposed by the weekly drift run on %s: listed free by "%s" that day.' % (
+        return 'Proposed by the drift run on %s: listed free by "%s" that day.' % (
             date, FREE_CATALOGUES[provider])
-    return "Proposed by the weekly drift run on %s: its free tier on %s is not verified yet." % (
+    return "Proposed by the drift run on %s: its free tier on %s is not verified yet." % (
         date, label)
 
 
@@ -6194,13 +6193,13 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     out += ["## Comment elle évolue", "",
             "Elle est refaite à chaque exécution depuis `main` : sa branche est `main` plus un commit du "
             "workflow, et son titre et son corps sont réécrits (une case cochée reste cochée tant que sa "
-            "ligne ne change pas). Une semaine qui ne change que les dates des commentaires ne pousse rien : "
+            "ligne ne change pas). Une exécution qui ne change que les dates des commentaires ne pousse rien : "
             "chaque entrée garde le jour où elle a été proposée. Un modèle fusionné, ou écarté par sa ligne "
             "`drift-ignore`, n'y revient plus ; un modèle à qui il manquait une information passe dans la "
-            "pull request des modèles prêts la semaine où l'exécution l'a. Un commit d'une personne sur la "
+            "pull request des modèles prêts à l'exécution qui l'a. Un commit d'une personne sur la "
             "branche la fige : tant que la pull request est ouverte, le workflow n'y touche plus, ni pour "
             "l'enrichir ni pour la fermer ; une fois qu'elle est fermée sans être fusionnée, son exécution "
-            "échoue chaque semaine jusqu'à ce que la branche soit supprimée. Elle se ferme quand plus rien "
+            "échoue chaque jour jusqu'à ce que la branche soit supprimée. Elle se ferme quand plus rien "
             "n'est à proposer, à condition que l'exécution ait lu chacune des sources dont elle dépend%s." % (
                 "" if ready else " et qu'elle reste en brouillon tant qu'une personne ne la passe pas "
                 "« Ready for review » (là où le dépôt refuse les brouillons, elle est ouverte prête à "
@@ -6214,8 +6213,8 @@ def render_additions_commit(result, kind, chosen):
     identifiers = ", ".join(litellm_id(report["name"], finding["id"])[0] for report, finding, _ in chosen)
     count = count_phrase(len(chosen), "model", "models")
     if kind == "ready":
-        subject = "Propose the new LiteLLM models the weekly drift check knows everything of (#346)"
-        found = ("The weekly drift check found on %s %s the model list does not know and of which it holds "
+        subject = "Propose the new LiteLLM models the drift check knows everything of (#346)"
+        found = ("The drift check found on %s %s the model list does not know and of which it holds "
                  "every fact an addition needs: a free tier its provider's API states, and a figure of the "
                  "Artificial Analysis ranking matched for certain: %s. Each is added after the last "
                  "entry of its provider, modelled on it, under a comment citing the catalogue and the day, "
@@ -6223,7 +6222,7 @@ def render_additions_commit(result, kind, chosen):
                  "under revision." % (result["date"], count, identifiers))
     else:
         subject = "Propose the new LiteLLM models a person has to check before adding (#346)"
-        found = ("The weekly drift check found on %s %s the model list does not know and of which at least "
+        found = ("The drift check found on %s %s the model list does not know and of which at least "
                  "one fact an addition needs is missing (a free tier the provider's API does not state, a "
                  "figure of the ranking, a certain match with it): %s. Each is added after the last "
                  "entry of its provider, modelled on it, in no cascade, and the draft pull request says what "

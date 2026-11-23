@@ -31,7 +31,7 @@ deliberately do not overlap -- a second copy of a document drifts away from the 
 | Why a check exists, and what it deliberately does not flag | the docstring of the script in `.github/scripts/` |
 | Which checks a Dependabot update must pass before it merges itself, and why that list has that shape | `.github/rulesets/main.json`, and the header of `.github/workflows/dependabot-auto-merge.yml` |
 | Which model sits where in each router, at which reasoning level, and why; what a static level means and does not | `ROUTAGE.md`, kept by hand, its router order and static levels held to the template by `.github/scripts/check_routing_document.py` |
-| What the weekly model-drift run, its pull requests and its issue of unreadable catalogues are, when it runs and retries, which secrets feed it, what repository setting it needs, and why it never runs on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
+| What the model-drift run, its pull requests and its issue of unreadable catalogues are, when it runs and retries, which secrets feed it, what repository setting it needs, and why it never runs on a pull request | the header of `.github/workflows/LiteLLM_model_drift.yml` |
 | How to set a clone up, what to run before pushing, what submitting a contribution grants, and what signing a commit off means | `CONTRIBUTING.md` |
 | What the commercial arm covers, and who actually needs one | `LICENSE-COMMERCIAL.md` |
 | Who holds the copyright, and what in a checkout is not covered by the grant | `NOTICE` |
@@ -359,7 +359,7 @@ than the day it was written. Each claim cites the provider's own page and the da
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
-catalogues weekly, writing what drifted to the run's summary and to the pull requests it concerns. A
+catalogues, writing what drifted to the run's summary and to the pull requests it concerns. A
 model its provider no longer lists is deleted by that script, not by a model, in a pull request the
 same workflow opens, wherever it can read the result back as the original minus the deletion; what it
 refuses to delete stays a person's, from that pull request and the summary. An addition stays a
@@ -370,7 +370,7 @@ draft where the plan allows, for those one fact of which is missing, saying whic
 and nothing merges either. An announced retirement stays a person's, from the body of the deletion
 pull request, and a model free again or a new model no addition can carry from the body of an
 addition pull request. An issue is opened for one thing only, a provider's catalogue still unreadable
-after the Saturday's three retries. What the workflow needs and what it refuses to delete are in its
+after the day's three retries. What the workflow needs and what it refuses to delete are in its
 header and in the docstring of the script.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
@@ -379,11 +379,11 @@ extra reasoning level must buy, how its members are ordered and the members exem
 purpose, plus the explicit mapping from each entry to the Artificial Analysis record, and the reasoning
 level, that describes it. **No router has a time budget**: a slow free model is never ineligible, time only
 orders. Their `status` says whether the maintainer has validated them, and they are **reported, not
-enforced**: the weekly run's summary says how the cascades stand against them, a member under a floor goes to the
+enforced**: the run's summary says how the cascades stand against them, a member under a floor goes to the
 router's last resort tier rather than out of it, a member with no index stays where it is, flagged, and
 nothing in them changes a cascade, an entry or a `head` row. Only the shape of the file fails the plain run.
-A row for an entry the template no longer has does not fail it, since the weekly deletion pull request must
-stay green to merge itself: the plain run prints a notice, the weekly summary lists it as a stale row, and an entry
+A row for an entry the template no longer has does not fail it, since the deletion pull request must
+stay green to merge itself: the plain run prints a notice, the summary lists it as a stale row, and an entry
 added or renamed gets its row in the same change.
 
 A comment about entries therefore **names them and counts nothing**: "both", "the pair", "all seven"
@@ -431,7 +431,7 @@ provider and "the others", chat and "the rest" -- tells the next reader that one
 other the exception, and the exception is what stops being kept up to date. So a table that covers several
 providers or several kinds of model is one table for all of them, with a column for what tells them apart,
 or one table per provider, never a table for one of them and another for the rest; the same goes for
-sections, lists and the weekly report. The maintainer asked for it on 2026-11-23.
+sections, lists and the report. The maintainer asked for it on 2026-11-23.
 
 **Duplicated code is factored in the pull request that would duplicate it, without being asked.**
 Where a change would write the same tasks, template shape or filter chain in a second place that
@@ -611,7 +611,7 @@ Every other line above reads the role; the last one runs it, and it exists becau
 enough: v1.0 shipped with a task that failed on every run and an example that failed the role's own
 asserts, and every check above was green on both.
 
-The weekly workflow also runs `check_LiteLLM_model_drift.py --online --apply`, on a checkout it
+The drift workflow also runs `check_LiteLLM_model_drift.py --online --apply`, on a checkout it
 throws away. That is not part of this suite and is not run on a working tree: it rewrites
 `templates/LiteLLM_config.yaml.j2` in place, and reads the catalogues of the providers whose keys
 are set. Its docstring says how.
@@ -763,7 +763,7 @@ the role.
    every update would then wait for ever. That is why the role run is two jobs sharing one anchored
    `steps:` list rather than a matrix.
 
-   The weekly model-drift workflow keeps the same rule with two jobs, and a third, its gate, that
+   The model-drift workflow keeps the same rule with two jobs, and a third, its gate, that
    holds neither keys nor a token that writes: the one that holds the providers' keys installs PyYAML
    and Jinja2 and runs the script with a read-only token, the one that writes runs none of it. That bounds the token that writes, not the keys, which share a job
    with PyYAML and Jinja2 and are dedicated and revocable for that reason; its header says so, and

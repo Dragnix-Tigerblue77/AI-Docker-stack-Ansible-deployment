@@ -3,7 +3,7 @@
 ---
 name: LiteLLM model drift
 
-# Once a week, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
+# Every day, compares "templates/LiteLLM_config.yaml.j2" on main with what each provider's own API
 # lists, writes the whole report to the run's summary, opens ONE pull request that deletes the models
 # a provider no longer lists, and TWO that propose the models it does not know yet. Deletions are the
 # only thing that may merge without a person, because they need no judgment: CLAUDE.md ("The model
@@ -23,27 +23,23 @@ name: LiteLLM model drift
 # neither can carry -- an id spelt otherwise, a provider with no entry yet, past the cap, a body too
 # long -- with its entry and why, in the body of the one to verify. The summary of the "read" job has
 # all of it, the router contracts included, and is the only place of what has no pull request that
-# week to ride on. It notifies nobody, and that is the point: the issue is kept for the one finding no
+# day to ride on. It notifies nobody, and that is the point: the issue is kept for the one finding no
 # pull request can carry, a catalogue that could not be read (below).
 #
-# Weekly, because providers announce a retirement weeks ahead (Groq gave four weeks for Compound,
-# announced 2026-08-24 and shut 2026-09-21) and, where their API does not carry the announcement,
-# the run sees the model gone within a week: a cascade one entry shorter for that week, since a
-# refused call only moves the request on. Weekly for now: a daily run is wanted, but it would
-# need the Saturday retry schedule reshaped. Saturday
-# 06:47 UTC -- 7:47 in Paris in winter, 8:47 in summer -- off the top of the hour, when every scheduled
-# workflow on GitHub starts at once. Saturday, because providers release from Monday to Thursday
-# (about 90 % of the releases since November 2025, by the release dates of Artificial Analysis and
-# Epoch AI), on Friday about 10 %, at the weekend about 2 %: a Saturday run has the whole week behind
-# it. And in the morning, because the stack is used from 17:00 to 22:00 on weekdays and from 10:00 to
-# 22:00 at weekends and on holidays: what the run proposes is ready before the weekend's use begins.
+# Every day, because a model a provider releases or retires then waits at most a day before a pull
+# request proposes or deletes it. A retirement is announced weeks ahead (Groq gave four weeks for
+# Compound, announced 2026-08-24 and shut 2026-09-21) but not always where an API carries it, and the
+# run sees a model gone within a day: a cascade one entry shorter for that day, since a refused call
+# only moves the request on. At 07:17 UTC -- 8:17 in Paris in winter, 9:17 in summer -- off the top
+# of the hour, when every scheduled workflow on GitHub starts at once, and ready before the stack is
+# used, from 17:00 to 22:00 on weekdays and from 10:00 to 22:00 at weekends and on holidays.
 #
-# Three retries, the same Saturday at 08:47, 10:47 and 12:47 UTC, for a catalogue that could not be
+# Three retries, the same day at 09:17, 11:17 and 13:17 UTC, for a catalogue that could not be
 # read: a provider's incident, a network error or a rate limit usually passes within hours, and an
 # issue for every one of them would teach a person to ignore the issue. A retry runs the whole
 # pipeline only when the attempt before it ended with a catalogue it could not read (a request that
 # failed, the catalogue of a provider with a key that did not answer); otherwise its "gate" job ends
-# within seconds having done nothing, so a healthy week costs one run and three of a few seconds. The
+# within seconds having done nothing, so a healthy day costs one run and three of a few seconds. The
 # issue is opened, or updated, only by the fourth attempt, when a catalogue is still unreadable: it
 # names the providers, the class of each one's HTTP status (never a key, never an answer) and the
 # times of the three attempts before. It is closed by the first run that reads every catalogue. A run
@@ -84,7 +80,7 @@ name: LiteLLM model drift
 #
 # The split bounds the token that writes, not the keys: "read" holds them next to those two
 # libraries, so a bad release could send them anywhere. That is accepted: they open a list of models
-# (one list request per provider per week, no model called), they are dedicated to this workflow and
+# (one list request per provider per run, no model called), they are dedicated to this workflow and
 # revocable without touching LiteLLM's own. What a compromised "read" can make "publish" do is open
 # a pull request that deletes lines of the template and re-points a router among models and
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
@@ -113,7 +109,7 @@ name: LiteLLM model drift
 # followed, since the keys travel in the headers.
 #
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
-# every week, rather than skipped in silence; OpenRouter, Cerebras, SambaNova and Kilo Gateway need none. A missing
+# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova and Kilo Gateway need none. A missing
 # key is no failed read: it opens no issue and starts no retry.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
@@ -141,11 +137,12 @@ name: LiteLLM model drift
 # "read" job alone: "publish" never has it. Their terms ask for the source to be cited, which the
 # summary and the pull requests of additions do, with the day the figures were read.
 #
-# Cost: three jobs of under a minute each, once a week, and three gates of a few seconds, each job
-# billed as a whole minute -- six minutes a week, about twenty-six a month, which hosted
-# runners do not charge on a public repository -- plus, when something is deleted or proposed, the
-# checks of the pull requests, and two minutes more per retry that runs, in a week a catalogue
-# fails.
+# Cost: three jobs of under a minute each, every day, and three gates of a few seconds, each job
+# billed as a whole minute, which hosted runners do not charge on a public repository -- plus, when
+# something is deleted or proposed, the checks of the pull requests, and two minutes more per retry
+# that runs, on a day a catalogue fails. The providers' limits hold at that pace: the run makes one
+# list request per provider, OpenRouter's is read without a key, and Artificial Analysis allows a
+# thousand requests a day.
 #
 # The issue is found by a hidden marker in its body, among the issues this workflow's own token
 # opened, under its title or the one it had while it reported every drift, so that one still open
@@ -160,13 +157,13 @@ name: LiteLLM model drift
 # edit made to either by hand is lost at the next run. A run that finds nothing leaves the branch
 # alone and closes an open pull request with a comment -- unless a provider could not be read or has
 # no key, or a retired model was refused (UNDELETED), since "nothing to delete" would then only mean
-# "nothing seen". A pull request closed by a person is replaced the following week while the
+# "nothing seen". A pull request closed by a person is replaced the next day while the
 # providers still do not list the models. Whether it merges by itself is
 # "dependabot-auto-merge.yml"'s to say; if it does not, tigerblue77 merges it or closes it.
 #
-# A person's commit on the branch freezes it, and the run FAILS to say so, every week, until the
+# A person's commit on the branch freezes it, and the run FAILS to say so, every day, until the
 # branch is deleted (the deletions are then made again from main): force-pushing over somebody's
-# work, or closing what they are working on, is what a weekly job must not do. The workflow's own
+# work, or closing what they are working on, is what a scheduled job must not do. The workflow's own
 # commits are told by their author, "github-actions[bot]"; a merge commit is not somebody's work
 # (the "Update branch" button and the merge fallback of "auto_update_pull_request_branches.yml" add
 # one, and the next run rebuilds the branch without it). A person's commit that a squash or rebase
@@ -220,7 +217,7 @@ name: LiteLLM model drift
 # failure; a person's commit on a branch whose pull request is no longer open fails the run until the
 # branch is deleted. A box ticked in a body stays ticked while its line does not change, and a
 # branch that differs from the new build only by the days its comments were proposed on is kept, so
-# that a week with nothing new pushes nothing and starts no check. Each closes,
+# that a run with nothing new pushes nothing and starts no check. Each closes,
 # with a comment, when nothing is left to propose -- unless a source it draws on (a catalogue, and the
 # ranking for the ready one) could not be read, or the report was not trusted.
 #
@@ -236,10 +233,10 @@ on:
   # The first attempt, then the three retries; the gate numbers them in this order, from its
   # SCHEDULES, which "check_drift_publish_guard.py" holds equal to this list.
   schedule:
-    - cron: "47 6 * * 6"
-    - cron: "47 8 * * 6"
-    - cron: "47 10 * * 6"
-    - cron: "47 12 * * 6"
+    - cron: "17 7 * * *"
+    - cron: "17 9 * * *"
+    - cron: "17 11 * * *"
+    - cron: "17 13 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -276,10 +273,10 @@ jobs:
         env:
           # The crons of "on.schedule", in their order: the place of the one that fired is the attempt.
           SCHEDULES: |
-            47 6 * * 6
-            47 8 * * 6
-            47 10 * * 6
-            47 12 * * 6
+            17 7 * * *
+            17 9 * * *
+            17 11 * * *
+            17 13 * * *
           # The "read" job names the artifact it uploads this, followed by "read" or "unreadable".
           OUTCOME_PREFIX: LiteLLM-model-drift-outcome-
         with:
@@ -319,7 +316,7 @@ jobs:
               owner, repo, workflow_id: current.workflow_id, event: 'schedule', created: `>=${day}`, per_page: 100,
             });
             // The day's earlier scheduled runs, the latest first. A run started by hand is no attempt
-            // of the chain, and a run of another day belongs to another week.
+            // of the chain, and a run of another day belongs to another chain.
             const before = listed.workflow_runs
               .filter((run) => run.event === 'schedule' &&
                 run.created_at.slice(0, 10) === day && run.created_at < current.created_at)
@@ -432,7 +429,7 @@ jobs:
           if [ -f "$out/summary.md" ]; then
             {
               if [ "$EVENT" = schedule ]; then
-                echo "Tentative $ATTEMPT sur 4 du samedi, état de sortie $status."
+                echo "Tentative $ATTEMPT sur 4 du jour, état de sortie $status."
               else
                 echo "Exécution lancée à la main, une seule tentative, état de sortie $status."
               fi
@@ -625,7 +622,7 @@ jobs:
               if (existing && existing.state === 'open') {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: existing.number,
-                  body: `Fermée par le workflow : l'exécution du ${day} (${link}) a lu le catalogue de chaque fournisseur. Elle se rouvrira si une prochaine exécution du samedi ne peut toujours pas en lire un à sa dernière tentative.`,
+                  body: `Fermée par le workflow : l'exécution du ${day} (${link}) a lu le catalogue de chaque fournisseur. Elle se rouvrira si une prochaine exécution ne peut toujours pas en lire un à sa dernière tentative.`,
                 });
                 await github.rest.issues.update({
                   owner, repo, issue_number: existing.number, state: 'closed', state_reason: 'completed',
@@ -647,7 +644,7 @@ jobs:
             const body = [
               marker,
               '',
-              `Le workflow \`.github/workflows/LiteLLM_model_drift.yml\` n'a pas pu lire le catalogue de ces fournisseurs à la dernière tentative du samedi, l'[exécution du ${day}](${link}) :`,
+              `Le workflow \`.github/workflows/LiteLLM_model_drift.yml\` n'a pas pu lire le catalogue de ces fournisseurs à la dernière tentative du jour, l'[exécution du ${day}](${link}) :`,
               '',
               '| Fournisseur | Échec |',
               '| --- | --- |',
@@ -657,9 +654,9 @@ jobs:
                 ? `Les tentatives précédentes du jour n'avaient pas pu lire un catalogue non plus ; elles ont démarré à ${earlier.map((time) => `\`${time}\``).join(', ')} (UTC).`
                 : 'Aucune tentative précédente du jour n\'a laissé de résultat.',
               '',
-              'Tant qu\'un catalogue n\'est pas lu, rien n\'est supprimé pour son fournisseur, et les pull requests qui en dépendent restent ouvertes ; le reste de l\'exécution se fait comme les autres semaines, et son résumé donne le rapport entier. Une clé qui manque n\'ouvre pas cette issue : le résumé la dit « non couverte ».',
+              'Tant qu\'un catalogue n\'est pas lu, rien n\'est supprimé pour son fournisseur, et les pull requests qui en dépendent restent ouvertes ; le reste de l\'exécution se fait comme les autres exécutions, et son résumé donne le rapport entier. Une clé qui manque n\'ouvre pas cette issue : le résumé la dit « non couverte ».',
               '',
-              'Ce texte est réécrit chaque samedi où la dernière tentative échoue encore, et l\'issue se ferme d\'elle-même à la première exécution qui lit le catalogue de chaque fournisseur.',
+              'Ce texte est réécrit chaque jour où la dernière tentative échoue encore, et l\'issue se ferme d\'elle-même à la première exécution qui lit le catalogue de chaque fournisseur.',
               '',
             ].join('\n');
             if (existing) {
@@ -922,9 +919,9 @@ jobs:
                 if (kind === 'ready' && anchor.commented) return { problem: 'a ready addition follows an active entry' };
                 const lead = anchor.commented ? '  # ' : '  ';
                 let note;
-                if (anchor.commented) note = `Not routed to: proposed by the weekly drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
-                else if (spec.free !== undefined) note = `Proposed by the weekly drift run on ${date}: listed free by "${spec.free}" that day.`;
-                else note = `Proposed by the weekly drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
+                if (anchor.commented) note = `Not routed to: proposed by the drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
+                else if (spec.free !== undefined) note = `Proposed by the drift run on ${date}: listed free by "${spec.free}" that day.`;
+                else note = `Proposed by the drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
                 const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["LLM"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
@@ -1012,11 +1009,11 @@ jobs:
 
             // The comment above a proposed entry carries the day it was proposed. A branch whose
             // template differs from the new build only by those days, on the lines the build wrote
-            // them on, is kept as it is: a week with nothing new then pushes nothing and starts no
+            // them on, is kept as it is: a run with nothing new then pushes nothing and starts no
             // check, and each entry keeps the day it was first proposed. The lines are the builder's
             // own account, not the ones the base lacks: the comment does not name its model, so an
             // entry merged from an earlier proposal of the same day and source holds the same line.
-            const undated = (line) => line.replace(/^(  # (?:Proposed|Not routed to: proposed) by the weekly drift run on )[0-9]{4}-[0-9]{2}-[0-9]{2}/, '$1');
+            const undated = (line) => line.replace(/^(  # (?:Proposed|Not routed to: proposed) by the drift run on )[0-9]{4}-[0-9]{2}-[0-9]{2}/, '$1');
             const onlyDaysDiffer = (kept, built) => {
               const keptLines = kept.split('\n');
               const builtLines = built.text.split('\n');
@@ -1158,7 +1155,7 @@ jobs:
               }
 
               // A person's commit is never overwritten, and the pull request it belongs to is neither
-              // updated nor closed: the step fails so that somebody knows, every week, until the
+              // updated nor closed: the step fails so that somebody knows, every day, until the
               // branch is deleted.
               const { head, foreign } = await branchState(branch);
               if (foreign) {

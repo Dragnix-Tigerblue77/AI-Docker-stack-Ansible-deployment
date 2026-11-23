@@ -310,7 +310,7 @@ jobs:
 
       # The offline half of the drift check: cascades and aliases name active entries, no name twice, every
       # commented-out entry gives its reason. The online half reads the providers' catalogues with
-      # their keys, and so never runs on a pull request -- "LiteLLM_model_drift.yml" runs it weekly.
+      # their keys, and so never runs on a pull request -- "LiteLLM_model_drift.yml" runs it.
       # The check's own verification cases are the job "LiteLLM drift check: verification cases".
       - name: "LiteLLM model list: hold it to its rule"
         if: ${{ !cancelled() }}
@@ -364,7 +364,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_auto_merge_gate.py
 
-      # The step of "LiteLLM_model_drift.yml" that pushes the weekly pull request holds a write token
+      # The step of "LiteLLM_model_drift.yml" that pushes the deletion pull request holds a write token
       # and accepts a template only in one shape: main's with lines deleted and rows of its "head"
       # table written again. That rule is JavaScript in a YAML string too, and runs with the same Node.
       - name: "Drift pull request guard: check the check itself"
