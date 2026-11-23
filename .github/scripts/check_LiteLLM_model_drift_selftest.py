@@ -4248,6 +4248,43 @@ def run_command_line_cases():
 
 REAL_PAIR_STEP = 4  # bound: one pair of neighbours in four, since a deletion costs what an entry does
 REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
+# A statement of the file that reads one provider's key and no other: the only kind of condition the
+# bounded sets of keys below can stand in for every set of.
+ONE_KEY_CONDITION = re.compile(r"\{%-?\s*(?:el)?if\s+(?:not\s+)?has\.\w+\s*-?%\}")
+
+
+def bounded_keyset_documents(text):
+    """keyset_documents over each key alone, every key, and every key but one, rather than every set of
+    them: 2n + 1 renderings for n keys where every set is 2^n - 1, which doubled with each provider. A
+    condition of the file that reads one key decides the same way whatever the other keys are, and a
+    head of the "head" table is the value of the first provider given along its chain, so a cascade left
+    empty, a slot or an alias left naming nothing, show with a key alone or a key missing. A file with
+    any other condition, two keys read at once say, gets every set, as the weekly run always does."""
+    import jinja2.meta
+    from jinja2.sandbox import SandboxedEnvironment
+    tree = SandboxedEnvironment().parse(text)
+    read = jinja2.meta.find_undeclared_variables(tree) & set(PROVIDER_KEY_VARIABLES)
+    names = [variable for variable in PROVIDER_KEY_VARIABLES if variable in read]
+    conditions = re.findall(r"\{%-?\s*(?:el)?if\b.*?%\}", text, re.DOTALL)
+    if len(names) < 3 or not all(ONE_KEY_CONDITION.fullmatch(condition) or "has." not in condition
+                                 and not any(name in condition for name in names)
+                                 for condition in conditions):
+        return keyset_documents(text)
+    sets = [(name,) for name in names] + [tuple(names)] + [
+        tuple(other for other in names if other != name) for name in names]
+    return [(given, drift.render_keyset(text, given)) for given in sets]
+
+
+@contextlib.contextmanager
+def bounded_key_sets():
+    """keyset_documents bounded as bounded_keyset_documents says, for the script and for this module,
+    while the real model list is deleted from: each deletion renders the file for its sets of keys."""
+    plain = vars(drift)["keyset_documents"]
+    vars(drift)["keyset_documents"] = globals()["keyset_documents"] = bounded_keyset_documents
+    try:
+        yield
+    finally:
+        vars(drift)["keyset_documents"] = globals()["keyset_documents"] = plain
 
 
 @contextlib.contextmanager
@@ -4421,11 +4458,32 @@ def real_failure(text, keys, new_text, outcomes, layout, known):
     return next(iter(sorted(dangling(new_text) - known)), None)
 
 
+def run_bounded_key_set_cases():
+    """bounded_keyset_documents renders 2n + 1 sets for a file whose conditions each read one key, and
+    every set for one with a condition that reads two: four keys, where the two counts differ."""
+    keys = PROVIDER_KEY_VARIABLES[:4]
+    head = "{%% set has = {%s} %%}\n" % ", ".join("'%s': %s" % pair for pair in zip("ABCD", keys))
+    one = head + "{% if has.A %}a: 1\n{% endif %}{% if not has.B %}b: 1\n{% endif %}" \
+                 "{% if has.C %}c: 1\n{% endif %}{% if has.D %}d: 1\n{% endif %}"
+    two = head + "{% if has.A and has.B %}a: 1\n{% endif %}{% if has.C %}c: 1\n{% endif %}" \
+                 "{% if has.D %}d: 1\n{% endif %}"
+    failures = 0
+    for text, wanted, what in ((one, 2 * 4 + 1, "one key per condition"), (two, 2 ** 4 - 1, "a condition on two keys")):
+        got = len(bounded_keyset_documents(text))
+        if got != wanted:
+            failures += 1
+            print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted" % (what, got, wanted))
+        else:
+            print("selftest: ok -- the bounded sets of keys of a file with %s are %d" % (what, wanted))
+    return failures
+
+
 def run_real_list_cases():
     """Each scenario of real_scenarios deleted from the real file (each key asked for twice, which is
-    one deletion) and read back by real_failure; then the first of them with CRLF line endings."""
+    one deletion) and read back by real_failure; then the first of them with CRLF line endings. Each is
+    rendered for the bounded sets of keys of bounded_keyset_documents."""
     failures = 0
-    with quick_rendering() as (keep_what_is_cached, forget_the_rest):
+    with quick_rendering() as (keep_what_is_cached, forget_the_rest), bounded_key_sets():
         for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
             text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
             template, problems = read_template(text)
@@ -6775,6 +6833,7 @@ def run_selftest_cases():
     failures += run_proposal_cases()
     failures += run_carried_cases()
     failures += run_proposal_command_line_cases()
+    failures += run_bounded_key_set_cases()
     failures += run_real_list_cases()
     return 1 if failures else 0
 
