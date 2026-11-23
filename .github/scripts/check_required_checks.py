@@ -8,8 +8,7 @@ WHY THIS CHECK EXISTS
 ---------------------
 ".github/rulesets/main.json" is the list of checks a Dependabot update, or the weekly model-deletion
 pull request, has to pass before ".github/workflows/dependabot-auto-merge.yml" merges it. Nothing on GitHub's side reads that file:
-the organisation's plan enforces no ruleset on a private repository, so the merge workflow reads it
-itself. That makes it a file nothing else keeps honest, and it can go wrong in two directions, both
+no ruleset is imported from it, so the merge workflow reads it itself. That makes it a file nothing else keeps honest, and it can go wrong in two directions, both
 of them silent:
 
 * A context names a job no workflow reports. GitHub matches a check by the job's display "name:" --

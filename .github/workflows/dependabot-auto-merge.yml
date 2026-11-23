@@ -8,19 +8,18 @@ name: Dependabot auto-merge
 # makes, by a different mechanism, because this repository cannot use wader/postfix-relay's.
 #
 # There, "gh pr merge --auto" hands the waiting to GitHub, and a ruleset is what makes GitHub wait.
-# Here, neither exists: the organisation is on a plan that enforces no ruleset on a private
-# repository ("GET /repos/.../rulesets" answers 403 "Upgrade to GitHub Pro or make this repository
-# public"), and "Allow auto-merge" needs the same upgrade. So this workflow does the waiting itself.
+# Here, no ruleset is imported, so "--auto" would have nothing to wait for. So this workflow does
+# the waiting itself.
 # It never asks GitHub to merge later; it merges now, and only after reading, for the exact commit
 # it is about to merge, every check the ruleset file lists. Before it, every Dependabot pull request
 # here waited for a human however green it was -- the defect this workflow exists to remove.
 #
 # That file is the one gate and it is read from main, never from the pull request: a pull request
 # that edits the list of checks it has to pass must not be the one deciding what that list is. It is
-# in GitHub's ruleset export format so that the day this repository can enforce a ruleset -- made
-# public, or moved to a paid plan -- importing it is the whole migration, and this workflow can be
-# swapped for wader/postfix-relay's "--auto" one without anyone re-deriving which checks gate a
-# merge.
+# in GitHub's ruleset export format so that importing it is what swapping this workflow for
+# wader/postfix-relay's "--auto" one needs, without anyone re-deriving which checks gate a merge.
+# The "sign-off" that never starts on the weekly model-deletion pull request when GITHUB_TOKEN opens
+# it has to be settled first: imported as it stands, the file would block that pull request's merge.
 #
 # The file names every job of "Quality checks", "Secret scan" and "Commit sign-off" one by one rather
 # than a single aggregate job. The step below already refuses a check that is missing, still running,
@@ -42,12 +41,9 @@ name: Dependabot auto-merge
 #     write and run code nobody has reviewed yet -- a freshly bumped dependency included, since
 #     that is exactly what a Dependabot branch carries.
 #
-# Both jobs take their runner from CI_RUNNER like every other job here, although they hold
-# a write token. The second point above is what allows it: nothing from a pull request is checked
-# out or executed, so a self-hosted runner never holds both a write token and code nobody has
-# reviewed. Left on the hosted runners, "merge" would also be the job that stops merging
-# Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml" says
-# what the variable may name, and when.
+# The second point above is what allows these jobs to hold a write token: nothing from a pull
+# request is checked out or executed, so no job both holds a write token and runs code nobody has
+# reviewed. The header of "ansible-ci.yml" says why every job runs on hosted runners only.
 #
 # The same step also merges the pull request that "LiteLLM_model_drift.yml" opens every week to
 # delete the models their provider has retired, and nothing else that workflow's tokens open. It
@@ -137,7 +133,7 @@ concurrency:
 jobs:
   merge:
     name: Merge a green Dependabot update or weekly model deletion
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
     # runner. It decides nothing: the step below checks the author, the commits and the checks
@@ -156,7 +152,7 @@ jobs:
       merged: ${{ steps.merge.outputs.merged }}
     steps:
       # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
-      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries.
+      # guaranteed to have, whatever else the image it runs in carries.
       - name: Merge the pull request if every required check passed on its head
         id: merge
         uses: actions/github-script@v9
@@ -480,7 +476,7 @@ jobs:
     name: Run the checks on main after the merge
     needs: merge
     if: needs.merge.outputs.merged == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       # Creating a "workflow_dispatch" event, and nothing else.

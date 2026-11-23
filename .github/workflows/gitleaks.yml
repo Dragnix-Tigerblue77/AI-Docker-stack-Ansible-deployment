@@ -6,10 +6,9 @@ name: Secret scan
 # Secret detection on every pull request. Nothing in this repository is a known secret waiting for
 # rotation, so there is no ".gitleaksignore": every finding is a finding.
 #
-# ! This workflow REPORTS, it does not block a human's merge. The organisation is on a plan that
-#   allows neither a ruleset nor a branch protection on a private repository
-#   ("GET /repos/.../rulesets" -> 403 "Upgrade to GitHub Pro or make this repository public"), so
-#   no CI check can be made required before merging. The guard that really refuses is
+# ! This workflow REPORTS, it does not block a human's merge. No ruleset is
+#   imported (the header of "ansible-ci.yml" says why), so no CI check is required before
+#   merging. The guard that really refuses is
 #   ".githooks/pre-commit".
 #
 #   The exceptions are Dependabot's own updates and the weekly model-deletion pull request:
@@ -17,10 +16,8 @@ name: Secret scan
 #   their display names from ".github/rulesets/main.json" and listening for this workflow by its
 #   "name:" above. See the header of "ansible-ci.yml".
 #
-# Both jobs take their runner from CI_RUNNER, like every job of "ansible-ci.yml", whose header says
-# what the variable may name and when. The "sudo install" below needs a runner whose user has sudo
-# without a password: GitHub's hosted image has it, and so does a self-hosted runner built on
-# myoung34/github-runner.
+# The "sudo install" below needs a runner whose user has sudo without a password, which GitHub's
+# hosted image gives. The header of "ansible-ci.yml" says why every job runs on hosted runners only.
 
 on:
   push:
@@ -40,7 +37,7 @@ concurrency:
 jobs:
   gitleaks:
     name: gitleaks
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       # To be bumped by hand from https://github.com/gitleaks/gitleaks/releases: Dependabot has no
@@ -76,7 +73,7 @@ jobs:
 
   hook:
     name: Pre-commit hook blocks a secret
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       GITLEAKS_VERSION: "8.30.1"
