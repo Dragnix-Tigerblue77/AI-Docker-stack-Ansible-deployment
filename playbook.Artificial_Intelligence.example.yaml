@@ -21,7 +21,7 @@
         # ITS OWN CALLER's "templates/" -- that is, from the Artificial Intelligence role's -- and read the three other
         # variables "tasks/main.yml" hands it. The README spells the contract out.
         #
-        # Here: the Swarm role of the "Homelab_Ansible_deployment" repository, which meets it as-is.
+        # Here: the Swarm role of a private repository of this repository's owner, which meets it as-is.
         # "Docker/deploy_Docker_compose_stack", from the same repository, meets it too -- that is what
         # serves on the test bench until the target is Swarm.
         Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
@@ -102,6 +102,9 @@
         # NVIDIA's hosted API is a free TRIAL service: its terms allow it for testing and evaluation only, not
         # in production, let NVIDIA collect the content to improve its models, and forbid personal data.
         Artificial_Intelligence_LiteLLM_NVIDIA_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_NVIDIA_API_key }}"
+        # Cent AI serves one model free until the end of November and has not said what follows: give a key
+        # that carries a spending limit, so that a billed call fails instead of costing anything.
+        Artificial_Intelligence_LiteLLM_Cent_AI_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Cent_AI_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

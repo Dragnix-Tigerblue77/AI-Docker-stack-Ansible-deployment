@@ -12,16 +12,38 @@
 # plain run prints a notice and the weekly summary lists it as a stale row, to be removed by a person.
 #
 # VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
-# and the curve that estimates it. Every number still derives from the figures cited in its own reason
-# line, and none is final: a source revises its figures, so each is read again at every run. What stays
-# declared and imposes nothing is the quota and the availability of the providers ("inputs" below).
+# and the curve that estimates it, and the rules of the ranking below. Two of those rules were changed
+# by the maintainer the same day, after a first validation: the ranking of "flash-lite" (it was the
+# shortest time to the first answer token alone, and is now the intelligence index less the exchange
+# rate times that time) and the rule that a member sharing its quota with a member of "pro" or
+# "flash" comes last in "flash-lite". Every number still derives from the figures cited in its own
+# reason line, and none is final: a source revises its figures, so each is read again at every run.
+# What stays declared and imposes nothing is the quota and the availability of the providers ("inputs"
+# below).
 #
 # NO TIME BUDGET. The goal is to use as many free models as possible, so a slow model is never
 # disqualified for being slow. A member is eligible for a router if it reaches the router's
 # floor (and, for "claude-code", takes tool calls), and for nothing else. Time is an
-# ordering key: "flash-lite" puts the shortest time to the first answer token first; the other
-# routers put the best quality first, and the time decides only between two members whose quality
-# differs by less than the router's "tie_margin_points". The report keeps showing each member's time.
+# ordering key: "pro", "flash" and "code" put the best quality first, and the time decides only between
+# two members whose quality differs by less than the router's "tie_margin_points"; "flash-lite" values
+# time, and orders its members by what they are worth for the time they take (below). The report keeps
+# showing each member's time.
+#
+# The ranking of "flash-lite", which serves simple, short asks, keeps the time to the FIRST answer token
+# as its measure, but between two models that answer about as fast the smarter one goes first. A member
+# is worth its intelligence index less the router's exchange rate (its "min_points_per_second", 3, the
+# one that also decides between the levels of one model) times its mean time to the first answer token,
+# and the members that have both figures come by decreasing worth, the current order settling a tie.
+# After them come the members that have a time and no index, the shortest time first; the figures are
+# the published ones at the level the entry is called at, and never an estimate. A member with no time
+# is not placed: it stays where it is in the cascade, flagged, behind those. Last come the members that
+# draw on a quota another router needs: a member that is the same model of the same provider (same model
+# id and same base address in the template) as a member of "pro" or "flash" has the quota of that
+# member, which a free tier counts per model, so it ends the cascade, after every member that has a
+# quota of its own, in the same order as above, and the last resort tier closes the cascade as it does
+# every router. The report finds the members that share a quota by itself in the template; no list of
+# them is kept here, and the routers whose members it must not eat are named in the "shared_quota_with"
+# of the ranking.
 #
 # The unit of routing is "model + reasoning level". Artificial Analysis publishes one record per
 # level, told apart by the suffix of the name ("(Low)", "(High)", "(Non-reasoning)"...), and speed in
@@ -34,9 +56,19 @@
 # each other and is no prediction for a given request. A step that is no slower and buys points is
 # taken, a step that buys no points is not, and neither is one whose time is unknown. On Gemini 4
 # Hydrogen (Low 26.9 in 7.6 s, Medium 41.2 in 13.0 s, High 50.8 in 21.5 s, Xhigh 53.9 in 47.4 s) the
-# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 stops at High, 1.5 at Medium, 3 at Low. On Gemini
+# steps buy 2.6, 1.1 and 0.12 points a second: 0.2 and 1 stop at High, 3 at Low. On Gemini
 # 3.8 Flash (Low 22.5 in 5.1 s, Medium 30.1 in 14.5 s, High 30.8 in 28.1 s) they buy 0.81 and 0.05:
-# 0.2 stops at Medium, 1.5 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
+# 0.2 stops at Medium, 1 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
+#
+# The kept levels are realised only where the level can be set and its effect is verified: on the Gemini
+# entries whose levels Artificial Analysis measures, one entry per level a router needs, named
+# "<entry>-<level>" (the unsuffixed name keeps the level "pro" keeps), each with a static
+# "reasoning_effort" that LiteLLM sends to Google as the thinking level. That level is only a DEFAULT:
+# an effort a client sends replaces it, and Claude Code always sends one. Every other entry keeps the
+# provider's default level, since whether a provider honours an effort that LiteLLM sends is not
+# verified for the request-metered ones (OpenRouter, NVIDIA, OVHcloud, Kilo, Requesty), and a provider
+# that meters tokens, neurons or a prepaid balance (Groq, Cloudflare, DeepSeek direct, Mistral) is not
+# touched at all, since a higher level costs there. "ROUTAGE.md" records where each model stands.
 #
 # How the figures are read. The time is the mean time to the first ANSWER token ("performance_v3"
 # of the free API: the time the model spends thinking is part of it), the intelligence is the
@@ -58,8 +90,8 @@
 # of "pro" and "flash" are on the capabilities index because it measures nearly every model that
 # Artificial Analysis has no index for and measures the older Gemini models the floors are drawn from:
 # "pro" is at least as good as Gemini 3 Pro, and "flash" at least as good as Gemini 2.5 Flash (the
-# measurement of June 2025). "flash-lite" has NO floor: it is ordered by the shortest time to the first answer token, and every
-# member that answers conforms.
+# measurement of June 2025). "flash-lite" has NO floor: it is ordered by what a member is worth for
+# its time (above), and every member that answers conforms.
 #
 # A floor on the index may carry a "margin", in points of the index and 0 where it is omitted: a
 # member conforms while its figure is no more than the margin under the floor, and is under it only
@@ -109,7 +141,7 @@
 # capabilities index covers it: its entry's "eci" names the model, and the index, converted by the
 # calibration below, stands in for the Artificial Analysis one, flagged "estimé" in its verdict. The
 # index of the ranking always wins where it exists; the level kept, the exchange rate and the time are
-# still the ranking's, and a router ordered by time uses no estimate. A member with no index and no
+# still the ranking's, and a router that values time uses no estimate. A member with no index and no
 # capabilities index is "unrankable", not removed: it stays where it is in its cascade, flagged. 607
 # of 764 records have no index on 2026-11-21 (the Gemini 3.6 Flash, Gemini 3.5 Flash and Gemini 2.5
 # Pro among them): without the capabilities index a model with no index cannot be ranked, whatever it
@@ -160,7 +192,7 @@ code_fallback:
 
 inputs:
   quota:
-    gemini: "unknown: no limit is stated in this repository"
+    gemini: "Free tier, counted per Google project and per model, not per API key, and the daily quotas reset at midnight Pacific time, per ai.google.dev/gemini-api/docs/rate-limits (read 2026-11-22). The page of the rate limits of Google AI Studio for the gateway's project, free tier, read 2026-11-22, gives requests per minute / tokens per minute / requests per day per model: Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash and Gemini 2.5 Flash 5 / 250K / 20; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite 15 / 250K / 500; Gemini 2.5 Flash-Lite 10 / 250K / 20; Gemma 4 31B and Gemma 4 26B 30 / 16K / 14,400; Gemini Embedding 1 and 2 100 / 30K / 1,000; the text-to-speech models 3 / 10K / 10; Gemini 3.5 Transcribe 3 / 10K / 25; Gemini 3.1 Pro, Gemini 2.5 Pro and Gemini 4 Argon, Neon and Carbon 0, not served on the free tier; Gemini 3.7 Flash is not on that page. Every entry of one model draws on that model's quota: gemini-4-hydrogen, gemini-4-hydrogen-medium, gemini-4-hydrogen-low and gemini-4-hydrogen-xhigh share one 20 requests a day, and so do gemini-3-8-flash and gemini-3-8-flash-low"
     groq: "Free plan, 30 requests and 8K tokens per minute for these models, per console.groq.com/docs/rate-limits as the template quotes it (checked 2026-09-27)"
     mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
@@ -171,6 +203,7 @@ inputs:
     zai: "unknown: Z AI publishes no limit outside the account's console (docs.z.ai, read 2026-11-22), and the one-request-at-a-time limit a third party cites is not verified"
     requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
     nvidia: "40 requests per minute, shown on the account page (read 2026-11-22); no credit count, daily cap or end date is shown there or on any other page read, the API trial terms of service included"
+    cent_ai: "no limit stated: the home page says \"Free until Nov 30 · no daily limit\" (read 2026-11-22) and nothing of what follows the 30th, when the model may be billed; a spending limit set on the key keeps a billed call from costing anything, since the call then fails and the cascade moves on"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -206,8 +239,8 @@ routers:
         - {epoch: "Gemini 3 Pro"}
       reason: "At least as good as Gemini 2.5 Flash, as Epoch AI's capabilities index measured it in June 2025: a Flash of the generation before the current ones is the least a daily driver is asked to be, and the index measures the models that Artificial Analysis has no figure for. Gemini 2.5 Flash-Lite, the two Gemini Flash-Lite that the template serves and Gemini 3 Pro, the floor of pro, are shown to compare. The margin of 2 points is the one of pro, for the same reason: the capabilities index gives one figure per model, with an interval of about two points of its own scale, so a model within the margin of the floor is not told apart from it."
     level_gain:
-      min_points_per_second: 1.5
-      reason: "A daily driver that values time asks more of each extra second: 1.5 points a second stops Gemini 4 Hydrogen at Medium (High buys 9.6 points in 8.4 s, 1.1 a second) and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
+      min_points_per_second: 1
+      reason: "A daily driver asks more of each extra second than pro does: 1 point a second takes Gemini 4 Hydrogen to High, Google's default for the model that replaces the Flash line (High buys 9.6 points over Medium in 8.4 s, 1.1 a second; Xhigh buys 0.12), which gives flash the same head as pro, and keeps Gemini 3.8 Flash at Low (Medium buys 7.6 in 9.4 s, 0.81), on the figures of 2026-11-21."
     ranking:
       criterion: intelligence
       tie_margin_points: 2
@@ -218,16 +251,17 @@ routers:
   flash-lite:
     intelligence_floor:
       none: true
-      reason: "The router exists for speed and takes every model that answers: a floor would only remove the models that answer fast and think little, which are what it is for, so the shortest time to the first answer token orders it and nothing goes under a floor."
+      reason: "The router exists for speed and takes every model that answers: a floor would only remove the models that answer fast and think little, which are what it is for, so what a member is worth for its time orders it and nothing goes under a floor."
     level_gain:
       min_points_per_second: 3
-      reason: "The router that values time most asks the most of each extra second: 3 points a second keeps Gemini 4 Hydrogen at Low (Medium buys 14.3 points in 5.4 s, 2.6 a second) and Gemini 3.8 Flash at Low (Medium buys 0.81), on the figures of 2026-11-21."
+      reason: "The router that values time most asks the most of each extra second: 3 points a second keeps Gemini 4 Hydrogen at Low (Medium buys 14.3 points in 5.4 s, 2.6 a second) and Gemini 3.8 Flash at Low (Medium buys 0.81), on the figures of 2026-11-21. The same 3 points a second is the rate at which two models are compared in the ranking below."
     ranking:
-      criterion: first_answer
-      reason: "The template makes speed the point of this router, so the time to the first answer token orders it, shortest first."
+      criterion: intelligence_for_time
+      shared_quota_with: [pro, flash]
+      reason: "The router serves simple, short asks, so the time to the first answer token stays its measure; but when two models answer about as fast the smarter one goes first, so a member is worth its intelligence index less 3 points for each second of its mean time to the first answer token (3 being the rate validated above for the levels of one model, used here between models). The members with a time and no index come after those with both, shortest time first, and the members with no time stay where they are, flagged. A member that is the same model of the same provider as a member of pro or flash comes last, after every member with a quota of its own: Gemini's free quota is counted per model, 20 requests a day for Gemini 4 Hydrogen and Gemini 3.8 Flash against 500 for Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite (see inputs, read 2026-11-22), so a Gemini 3.8 Flash at Low at the head of this router, worth more than any of its own members, would spend in a few requests the quota the heads of pro and flash need. Changed by the maintainer on 2026-11-22: it ranked by the shortest time alone, and put each Gemini model's own entry ahead of the Flash-Lite models whatever its level."
     last_resort:
-      members: []
-      reason: "No keyless local entry is in this cascade, so nothing is exempt from the floor."
+      members: [ministral-3b]
+      reason: "The template places the paid Mistral after every free entry on purpose, as it does the paid DeepSeek in pro and flash: it ends the cascade, after the members that share a quota too. No keyless local entry is in this cascade."
   code:
     intelligence_floor:
       anchor:
@@ -274,8 +308,9 @@ routers:
 # as its provider or LiteLLM declares it ("yes", "no", or "unknown" where nothing is declared, never
 # guessed). "slug" is the Artificial Analysis record that
 # describes the entry at the level it is CALLED at ("level" names the record's level: minimal, low,
-# medium, high, xhigh, max, reasoning, non-reasoning); the template sets no "reasoning_effort"
-# anywhere, so the level is the provider's default, and "level_source" gives the provider's page and
+# medium, high, xhigh, max, reasoning, non-reasoning); the template sets a static "reasoning_effort"
+# on the Gemini entries that say so in their "level_source" and on no other, so the level of every
+# other entry is the provider's default, and "level_source" gives the provider's page and
 # the day it was read, or says "unknown". An entry with no record at all says why in "no_record".
 # "eci" names the model of Epoch AI's capabilities index (its display name, spelt as the index has it)
 # that describes the entry, for the floors and for a member the ranking has no index for; an entry
@@ -290,21 +325,46 @@ models:
   gemini-4-hydrogen:
     slug: gemini-4-hydrogen-high
     level: high
-    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level high for gemini-4-hydrogen"
+    level_source: "static reasoning_effort high in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22, the default of a request that sends none); ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: high is also Google's default for gemini-4-hydrogen"
     eci: "Gemini 4 Hydrogen"
     tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
     epoch:
       cursorbench_external: [gemini-4-hydrogen_high, gemini-4-hydrogen_low, gemini-4-hydrogen_medium, gemini-4-hydrogen_xhigh]
       ale_bench_external: [gemini-4-hydrogen_xhigh]
+  gemini-4-hydrogen-low:
+    slug: gemini-4-hydrogen-low
+    level: low
+    level_source: "static reasoning_effort low in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); the level the exchange rate of flash-lite keeps"
+    eci: "Gemini 4 Hydrogen"
+    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
+    epoch:
+      cursorbench_external: [gemini-4-hydrogen_low]
+  gemini-4-hydrogen-xhigh:
+    slug: gemini-4-hydrogen
+    level: xhigh
+    level_source: "static reasoning_effort xhigh in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); in no cascade, called by name only"
+    eci: "Gemini 4 Hydrogen"
+    note: "Artificial Analysis's record of the Xhigh level carries the bare slug of the model"
+    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
+    epoch:
+      cursorbench_external: [gemini-4-hydrogen_xhigh]
+      ale_bench_external: [gemini-4-hydrogen_xhigh]
   gemini-3-8-flash:
     slug: gemini-3-8-flash-medium
     level: medium
-    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level medium for gemini-3.8-flash"
+    level_source: "static reasoning_effort medium in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22, the default of a request that sends none); ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: medium is also Google's default for gemini-3.8-flash"
     eci: "Gemini 3.8 Flash"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       deepswe_external: [gemini-3.8-flash_high, gemini-3.8-flash_medium]
       ale_bench_external: [gemini-3.8-flash_high]
+  gemini-3-8-flash-low:
+    slug: gemini-3-8-flash-low
+    level: low
+    level_source: "static reasoning_effort low in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); the level the exchange rates of flash and flash-lite keep"
+    eci: "Gemini 3.8 Flash"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
   gemini-3-7-flash:
     slug: gemini-3-7-flash
     level: unknown
@@ -535,6 +595,21 @@ models:
     epoch: unknown
   openrouter-auto-free:
     no_record: "A router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  particle-1-free:
+    no_record: "Artificial Analysis lists no Particle-1 on 2026-11-21"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  ernie-5-5-flash-free:
+    no_record: "Artificial Analysis lists no ERNIE 5.5 Flash on 2026-11-21"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
+    epoch: unknown
+  lfm-3-1-7b-free:
+    slug: lfm3-1-7b
+    level: unknown
+    level_source: "unknown: openrouter.ai/liquid/lfm-3-1.7b:free, read 2026-11-21, says nothing of a reasoning default; its Kilo twin has the same record"
+    note: "Artificial Analysis publishes one record, named LFM3-1.7B, matched by its name"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
     epoch: unknown
   nemotron-ultra-kilo:
@@ -869,6 +944,10 @@ models:
     level: n/a
     level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
     tools: {support: "unknown", source: "no model card of Gemma 3 4B was found on the NVIDIA API Catalog (the address its pattern gives returned a page without one, read 2026-11-22), so nothing declares it"}
+    epoch: unknown
+  hy4-flash-cent-ai:
+    no_record: "Artificial Analysis lists no Hy4 Flash on 2026-11-21: its one Tencent record, Tencent Hy4, is another model, and the capabilities index and the code benchmarks of Epoch AI hold none either"
+    tools: {support: "unknown", source: "nothing read declares it: the pages of Cent AI read on 2026-11-22 give no capability data for the model"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"

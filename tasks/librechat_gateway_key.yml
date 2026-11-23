@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# tasks file for giving one LibreChat account a LiteLLM virtual key of its own, included once per account that sets
+# "gateway_key". The account is in "Artificial_Intelligence_LibreChat_account".
+#
+# Done AS the account rather than on its behalf in LibreChat's database: the role holds each account's password (it
+# created it), logs in through LibreChat's own API and stores the key through the route the gear beside the
+# endpoint's name calls, so the encryption of the key, and how it is stored, stay LibreChat's.
+#
+# Idempotent by LibreChat's own record: "GET /api/keys" answers "expiresAt: null" for a name with no key stored and
+# anything else for one that has it, and only the first case goes on. The key is made by LiteLLM, which returns it
+# once, so it cannot be looked up again to be stored later: if the account's key is missing from LibreChat while
+# LiteLLM already holds the alias (the run stopped between the two calls, or the key was deleted from LibreChat),
+# the call is refused, and the message below says to delete that key from "/ui" and deploy again.
+#
+# The name LibreChat stores a custom endpoint's key under is the endpoint's name, read from the file the container
+# mounts so that it is written once.
+#
+# "no_log" on every task that holds the password, the session token or the key, which hides why one failed: the
+# "rescue" says what can have gone wrong, none of it secret.
+- name: "Read the name of LibreChat's gateway endpoint"
+  ansible.builtin.set_fact:
+    Artificial_Intelligence_LibreChat_endpoint_name: "{{ (lookup('ansible.builtin.file', 'librechat/librechat.yaml') | from_yaml).endpoints.custom[0].name }}"
+
+- name: "Give the LibreChat account {{ Artificial_Intelligence_LibreChat_account.username }} its gateway key"
+  block:
+    - name: "Log in to LibreChat as {{ Artificial_Intelligence_LibreChat_account.username }}"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LibreChat_API_URL }}/api/auth/login"
+        method: POST
+        body_format: json
+        body:
+          email: "{{ Artificial_Intelligence_LibreChat_account.email }}"
+          password: "{{ Artificial_Intelligence_LibreChat_account.password }}"
+        status_code: [200]
+      register: Artificial_Intelligence_LibreChat_session
+      no_log: true
+      changed_when: false
+
+    - name: "Look up the gateway key of {{ Artificial_Intelligence_LibreChat_account.username }} in LibreChat"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LibreChat_API_URL }}/api/keys?name={{ Artificial_Intelligence_LibreChat_endpoint_name | urlencode }}"
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LibreChat_session.json.token }}"
+        status_code: [200]
+      register: Artificial_Intelligence_LibreChat_key_lookup
+      no_log: true
+      changed_when: false
+
+    - name: "Make the LiteLLM virtual key of {{ Artificial_Intelligence_LibreChat_account.username }}"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        body_format: json
+        body:
+          key_alias: "librechat-{{ Artificial_Intelligence_LibreChat_account.username }}"
+        status_code: [200]
+      register: Artificial_Intelligence_LibreChat_account_key
+      no_log: true
+      when: Artificial_Intelligence_LibreChat_key_lookup.json.expiresAt is none
+
+    - name: "Store the key in the LibreChat account of {{ Artificial_Intelligence_LibreChat_account.username }}"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LibreChat_API_URL }}/api/keys"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LibreChat_session.json.token }}"
+        body_format: json
+        body:
+          name: "{{ Artificial_Intelligence_LibreChat_endpoint_name }}"
+          value: "{{ Artificial_Intelligence_LibreChat_account_key.json.key }}"
+          expiresAt: null
+        status_code: [201]
+      no_log: true
+      changed_when: true
+      when: Artificial_Intelligence_LibreChat_key_lookup.json.expiresAt is none
+  rescue:
+    - name: "Say why the gateway key of {{ Artificial_Intelligence_LibreChat_account.username }} could not be made or stored"
+      ansible.builtin.fail:
+        msg: >-
+          The gateway key of the LibreChat account "{{ Artificial_Intelligence_LibreChat_account.username }}" could
+          not be made and stored (the answers are hidden, since they carry the password, a session or the key).
+          Either LibreChat refused the account's login (its password in the call is not the one it holds, two-factor
+          sign-in is on for it, or there were too many logins), or LiteLLM refused a second key with the alias
+          "librechat-{{ Artificial_Intelligence_LibreChat_account.username }}": if that key already exists, delete
+          it from "/ui" and deploy again. Or remove "gateway_key" from the account and enter a key by hand
+          through the gear beside the endpoint's name in LibreChat.

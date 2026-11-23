@@ -258,9 +258,10 @@ jobs:
     name: "LiteLLM drift check: verification cases"
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # The cases take minutes on their own, which is why they run beside the other checks and not in
-    # their job: they would be the longest step of it. 25 and not 15, for the setup time of a
-    # self-hosted pool on top of that (see the "REUSE compliance" job above).
-    timeout-minutes: 25
+    # their job: they would be the longest step of it. 45, for the setup time of a self-hosted pool on
+    # top of that (see the "REUSE compliance" job above), and because the real-list cases render the
+    # model list for every set of provider keys, which doubles with each provider the template gains.
+    timeout-minutes: 45
     steps:
       - name: Check the repository out
         uses: actions/checkout@v7
@@ -354,6 +355,17 @@ jobs:
       - name: "LiteLLM model list: hold it to its rule"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_model_drift.py
+
+      # "ROUTAGE.md" is kept by hand and records where each model sits in each router and at which level. This
+      # holds its router order and its static levels to the template rendered the way the check above renders
+      # it, so it reads PyYAML and Jinja2 too.
+      - name: "Routing document: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_routing_document.py --selftest
+
+      - name: "Routing document: hold ROUTAGE.md to the template"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/check_routing_document.py
 
       - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}

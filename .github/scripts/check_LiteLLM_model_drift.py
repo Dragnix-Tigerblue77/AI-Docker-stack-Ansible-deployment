@@ -150,13 +150,14 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/") and SambaNova as "openai/<id>" with an "api_base" on
-"api.sambanova.ai". An entry of no provider below -- OmniRoute, local and keyless, the ones served through
-Kilo Gateway and OVHcloud AI Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does
-not read, the "openai/<id>" ones served through Requesty, whose provider it does not read either, and the
+"cloudflare/<id>" (whose id starts with "@cf/"), SambaNova as "openai/<id>" with an "api_base" on
+"api.sambanova.ai", and Kilo Gateway as "openai/<id>" with an "api_base" on "ai-gateway.kilo.ai". An
+entry of no provider below -- OmniRoute, local and keyless, the ones served through OVHcloud AI
+Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does not read, the "openai/<id>"
+ones served through Requesty or through Cent AI, whose providers it does not read either, and the
 "nvidia_nim/<id>" ones, whose provider it does not read any more than the others -- is left out, and the
 report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
-name Z AI, Requesty or NVIDIA.
+name Z AI, Requesty, NVIDIA or Cent AI.
 
   provider    catalogue, and how its key is sent       what counts as a chat model, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free", both prices "0", and text its
@@ -173,6 +174,8 @@ name Z AI, Requesty or NVIDIA.
   cloudflare  api.cloudflare.com/client/v4/accounts/   task "Text Generation", not marked
               {account}/ai/models/search, paginated    for removal
               -- Bearer
+  kilo        ai-gateway.kilo.ai/api/v1/models         "isFree" true, and text its only
+              -- no key                                 output modality
 
 On top of each provider's own filter, an id naming a non-chat use (NON_CHAT_MARKERS: "tts",
 "whisper", "embed", "guard"...) is never a NEW candidate: Gemini's "generateContent" alone lets its
@@ -186,6 +189,15 @@ still offered as NEW, and is turned down with a "drift-ignore:" line. Gemini's m
 field that would tell it apart (name, version, displayName, description, token limits,
 supportedGenerationMethods, temperature, thinking), and "omni" is not a marker to add: other
 vendors' "omni" models are chat models, one of them routed in the file this check reads.
+
+Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
+whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
+the free ids are offered as NEW. Every id is a member, though: a model that stops being free is still
+listed, and is reported as a NOTICE and never as RETIRED, which is what a deletion would otherwise take
+it for. The list is the only route: Kilo documents no way to ask for one model, so a deletion rests on
+it alone, as OpenRouter's does. It also lists virtual models that pick another at each request
+("kilo-auto/free", "openrouter/free"), which are free and no model to route to, and which the template
+sets aside with a "drift-ignore:" line.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
@@ -226,9 +238,11 @@ WHAT IS REPORTED
 RETIRED    an active entry whose id the catalogue no longer lists: delete it and its cascade slots.
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
-NOTICE     an active entry the provider marks for removal: OpenRouter's "expiration_date",
-           Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated" flag of
-           Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date".
+NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
+           "expiration_date", Mistral's "deprecation" (with "deprecation_replacement_model"), the
+           "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
+           "planned_deprecation_date"; and an active Kilo entry that is no longer flagged free, since
+           its keyless call would be refused.
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -236,11 +250,12 @@ BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twi
 NEW        an id the file does not know. Known ids are those of the active and the commented-out
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
-           <provider> is one of the names above: "sambanova/<id>" for SambaNova, where the
-           entry itself reads "openai/<id>". A Mistral id is known when one of its "aliases" is.
+           <provider> is one of the names above: "sambanova/<id>" for SambaNova and "kilo/<id>" for
+           Kilo Gateway, where the entry itself reads "openai/<id>". A Mistral id is known when one
+           of its "aliases" is.
 
-Free-tier eligibility is machine-readable on OpenRouter alone, as ":free" and a price of "0". Every
-other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
+Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", and on Kilo
+Gateway, as "isFree". Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
@@ -431,12 +446,13 @@ and which only a person merges. They are split by how much the
 run knows of each model, never by its provider:
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
-  tier, stated by its provider's own API (FREE_CATALOGUES: today OpenRouter's ":free", both prices
-  "0", text the only output), and a figure of the ranking matched for certain (certain_match: the last
-  segment of the id, less ":free", and the slug or the name of one entry of the whole ranking and of
-  no other are equal once lower-cased with everything but letters and digits removed, and that
-  entry's name carries no variant marker such as "(Reasoning)"). A provider whose free tier
-  becomes machine-readable is added to FREE_CATALOGUES, and nothing else changes;
+  tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
+  "0", text the only output, and Kilo's "isFree", text the only output), and a figure of the
+  ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
+  slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
+  with everything but letters and digits removed, and that entry's name carries no variant marker
+  such as "(Reasoning)"). A provider whose free tier becomes machine-readable is added to
+  FREE_CATALOGUES, and nothing else changes;
 * "to_verify", opened as a draft: a model of which at least one of those facts is missing
   (missing_facts: a free tier the API does not state, a ranking not read, no entry, several, a match
   by name only or onto a variant, an entry with no figure). Its body says, for each model, which
@@ -448,7 +464,9 @@ run knows of each model, never by its provider:
   holds the key under the name the entry reads it from).
 
 Each entry is modelled on its provider's last entry in "model_list" -- its last active one, else its
-last commented-out one -- whose key and base it copies, and written right after it (after the comment
+last commented-out one -- whose key and base it copies (a keyless gateway's, KEYLESS_GATEWAYS, copies
+its literal marker and writes the "extra_headers" that blank the Authorization header, which the
+gateway answers 401 to otherwise), and written right after it (after the comment
 block, for a commented-out one, so that a run and its reason stay together), under a comment of a
 fixed text that says where it comes from and when; it is commented out, with a "not routed" reason
 to replace, when the provider has no active entry. Neither pull request puts a model in a cascade:
@@ -464,8 +482,9 @@ built and read back (addition_problem: it renders, breaks no offline rule the fi
 file's entries and the proposed ones and every cascade as it was). It refuses what this refuses: an
 id or a name of another spelling than ADDITION_ID and ADDITION_NAME, a name that is a word of the
 file, a ready model of a provider whose API does not state its free tier, an id of such a provider
-that does not end in ":free", an id already an entry or set aside, an entry to model one on whose key
-is not read from the environment or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
+whose ids all end in a suffix (FREE_SUFFIX: OpenRouter's ":free") that does not, an id already an
+entry or set aside, an entry to model one on whose key is not read from the environment (or, on a
+keyless gateway, is no plain marker) or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
 model this cannot propose -- of a spelling the file is not written with, of a provider with no entry,
 past the cap, or one whose body would be too long -- is listed, with the reason and its entry to
 complete, in the body of the pull request of the models to verify, and in the summary.
@@ -705,7 +724,8 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 # variable is a non-empty string, and the template reads nothing else but the switches below.
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
-    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA")
+    for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
+                     "Cent_AI")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -925,8 +945,11 @@ def attribute(model, api_base):
     prefix, identifier = model.split("/", 1)
     if prefix in ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare"):
         return prefix, identifier
-    if prefix == "openai" and isinstance(api_base, str) and "api.sambanova.ai" in api_base:
-        return "sambanova", identifier
+    if prefix == "openai" and isinstance(api_base, str):
+        if "api.sambanova.ai" in api_base:
+            return "sambanova", identifier
+        if "ai-gateway.kilo.ai" in api_base:
+            return "kilo", identifier
     return None
 
 
@@ -998,9 +1021,15 @@ def render_keyset(text, given):
         return None
 
 
+def provider_name(variable):
+    """The provider a key variable is for: "Artificial_Intelligence_LiteLLM_<Provider>_API_key", a name that
+    may hold underscores ("Cent_AI"), which a count of them from the end would cut."""
+    return variable[len("Artificial_Intelligence_LiteLLM_"):-len("_API_key")]
+
+
 def given_text(given):
     """The providers of a set of key variables, for a message."""
-    names = [variable.split("_")[-3] for variable in given]
+    names = [provider_name(variable) for variable in given]
     return ", ".join(names) if names else "no key"
 
 
@@ -1344,6 +1373,31 @@ def read_openrouter(pages):
     return catalogue
 
 
+def read_kilo(pages):
+    """Kilo Gateway: every model it lists, paid ones too, with "isFree" saying which ones the keyless
+    entries can call. Only a free text model is offered as NEW. One that is listed and no longer free
+    is a NOTICE and never a retirement: it still answers, to a caller with an account."""
+    catalogue = new_catalogue()
+    models = listed(pages[0])
+    if models and not any("isFree" in model for model in models):
+        # Without the flag every model would read as paid, and every active entry as a notice.
+        raise FetchError('the answer lists no "isFree" flag')
+    for model in models:
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        if model.get("isFree") is not True:
+            catalogue["notices"][identifier] = {"what": "paid"}
+            continue
+        if model.get("expiration_date"):
+            catalogue["notices"][identifier] = {"what": "expiration",
+                                                "date": safe_text(model["expiration_date"])}
+        architecture = model.get("architecture")
+        architecture = architecture if isinstance(architecture, dict) else {}
+        if architecture.get("output_modalities") == ["text"] and chat_like(identifier):
+            offer(catalogue, identifier, model.get("name") or "")
+    return catalogue
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -1517,6 +1571,7 @@ PROVIDERS = (
     ("cloudflare", "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search"
                    "?include_deprecated=true&per_page=%d&page=1" % CLOUDFLARE_PER_PAGE,
      "MODEL_DRIFT_CLOUDFLARE_API_KEY", bearer, read_cloudflare, cloudflare_next),
+    ("kilo", "https://ai-gateway.kilo.ai/api/v1/models", None, None, read_kilo, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
@@ -1525,7 +1580,7 @@ PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # could carry it.
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
-FREE_READABLE = {"openrouter"}
+FREE_READABLE = {"openrouter", "kilo"}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -2154,7 +2209,7 @@ def read_epoch(opener, today):
 
 CONTRACTS = ROOT / ".github" / "LiteLLM_router_contracts.yaml"
 CONTRACT_STATUSES = ("provisional", "validated")
-CONTRACT_CRITERIA = ("intelligence", "first_answer", "code_quality")
+CONTRACT_CRITERIA = ("intelligence", "intelligence_for_time", "code_quality")
 CONTRACT_STAND_INS = ("intelligence",)
 CONTRACT_REQUIRES = ("tools",)
 TOOLS_SUPPORT = ("yes", "no", "unknown")
@@ -2427,18 +2482,35 @@ def code_figure(quality, intelligence, points):
     return None, False
 
 
+def time_worth(intelligence, seconds, rate):
+    """What a member is worth to a router that values time: its intelligence index less the router's
+    exchange rate times its mean time to the first answer token, the same rate the router asks of one
+    model's levels. None when either figure is missing: the worth of a member is never estimated."""
+    if intelligence is None or seconds is None:
+        return None
+    return intelligence - rate * seconds
+
+
 def contract_order(rows, ranking):
     """The order a router's contract would give: the members that conform, then the last resort tier
     in the order it has now (the members the contract declares exempt and those under the floor). A
-    router ordered by time puts the shortest first; any other puts the best quality first, time
-    breaking a tie between members less than the router's margin apart. Code quality is the code
-    position, measured or estimated, the smallest first; without the archive the intelligence index
-    orders them all, as a stand-in. A member that cannot be judged is not placed."""
+    router that values time puts the members that have a worth first, the greatest first (see
+    time_worth), then those that have a time and no index, the shortest first, the current order
+    settling a tie, then the members whose quota is shared with a member of the routers it
+    names (see "shared_quota_with"), ordered the same way, so that they come after every member that
+    has a quota of its own, and then the last resort tier as for any router; any other router puts the best quality first, time breaking a tie between
+    members less than the router's margin apart. Code quality is the code position, measured or
+    estimated, the smallest first; without the archive the intelligence index orders them all, as a
+    stand-in. A member that cannot be judged is not placed."""
     main = [row for row in rows if row["kind"] == "conforming" and not row["last_resort"]]
     tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
-    if ranking["criterion"] == "first_answer":
-        return [row["name"] for row in sorted(
-            main, key=lambda row: (row["record"]["first_answer"], row["position"]))] + tail
+    if ranking["criterion"] == "intelligence_for_time":
+        def by_worth(row):
+            return (row["worth"] is None, -(row["worth"] or 0), row["record"]["first_answer"], row["position"])
+
+        own = sorted((row for row in main if not row["shared_quota"]), key=by_worth)
+        shared = sorted((row for row in main if row["shared_quota"]), key=by_worth)
+        return [row["name"] for row in own + shared] + tail
     if ranking["criterion"] == "code_quality" and any(row.get("quality") for row in rows):
         main.sort(key=lambda row: (row["code_position"], row["position"]))
         return [row["name"] for row in time_ties(main, ranking["tie_margin_points"],
@@ -2567,18 +2639,21 @@ def floor_text(block):
                           ", marge %g" % block["margin"] if block.get("margin") else "")
 
 
-def router_rows(members, contract, mappings, by_slug, families, floor=None, quality=None, scale=None, points=None):
+def router_rows(members, contract, mappings, by_slug, families, floor=None, quality=None, scale=None, points=None,
+                shared=frozenset()):
     """One row per member of a cascade against its router's contract, at the floor given or the
     contract's own. "quality" is the code quality of the members (see router_quality), or None: the
     members are then judged and ordered on the intelligence index, and otherwise on their code position,
     measured or, for a member that has none, estimated from its index by "points" (see code_points) and
     said so. "scale" is what converts a capabilities index (see eci_scale), or None: a member the
     ranking has no index for at the level it is called at is then placed on the estimate its entry's
-    "eci" gives, which a router ordered by time never uses, since its time comes from the ranking."""
+    "eci" gives, which a router that values time never uses, since its time comes from the ranking.
+    "shared" is the names of the members whose quota is shared with a member of the routers the contract
+    names (see shared_quota_names)."""
     rate = contract["level_gain"]["min_points_per_second"]
     block = contract["intelligence_floor"]
     floor = block["value"] if floor is None else floor
-    needs_time = contract["ranking"]["criterion"] == "first_answer"
+    needs_time = contract["ranking"]["criterion"] == "intelligence_for_time"
     needs_index = not (needs_time and block.get("none"))
     code = quality is not None
     rows = []
@@ -2596,24 +2671,46 @@ def router_rows(members, contract, mappings, by_slug, families, floor=None, qual
                                    needs_time, needs_index, block.get("margin", 0), code)
         record = found.get("record")
         timed = record is not None and not (place_estimated if code else estimated)
+        seconds = record["first_answer"] if timed else None
+        sharing = name in shared and kind == "conforming" and not last_resort
         rows.append({"name": name, "position": position, "found": found, "kind": kind,
-                     "verdict": text, "last_resort": last_resort, "tools": tools,
+                     "verdict": text + (" ; quota partagé : en dernier" if sharing else ""),
+                     "last_resort": last_resort, "tools": tools, "shared_quota": sharing,
                      "record": record, "quality": quality[name] if code else None,
                      "intelligence": value, "estimated": estimated,
                      "code_position": place, "code_estimated": place_estimated,
-                     "first_answer": record["first_answer"] if timed else None,
+                     "first_answer": seconds,
+                     "worth": time_worth(None if estimated else value, seconds, rate) if needs_time else None,
                      "kept": chosen_level(found["family"], rate) if found["state"] == "resolved" else None})
     return rows
 
 
-def floor_effects(members, contract, mappings, by_slug, families, quality=None, scale=None, points=None):
+def quota_identity(entry):
+    """What a quota is counted on, as far as the template tells: the provider's model id and its base
+    address. Two entries with the same identity draw on the same quota of the same account, whatever
+    their names and levels; None for an entry that names no model."""
+    return (entry["model"], entry["api_base"]) if isinstance(entry.get("model"), str) else None
+
+
+def shared_quota_names(members, ranking, lists, entries):
+    """The members of a cascade that are the same model of the same provider (see quota_identity) as a
+    member of one of the routers its ranking names in "shared_quota_with", read off the template and not
+    kept by hand: a free quota is counted per model, so such a member spends the quota of the router it
+    must not eat. "entries" is {name: entry} of the template's active entries."""
+    wanted = {quota_identity(entries[name]) for router in ranking.get("shared_quota_with") or ()
+              for name in lists.get((CONTRACT_FALLBACKS, router), ()) if name in entries} - {None}
+    return frozenset(name for name in members if name in entries and quota_identity(entries[name]) in wanted)
+
+
+def floor_effects(members, contract, mappings, by_slug, families, quality=None, scale=None, points=None,
+                  shared=frozenset()):
     """What each floor the contract proposes to compare does to a cascade: who stays in front and who
     goes to the last resort tier. Who is not placed at all does not depend on the floor."""
     effects = []
     block = contract["intelligence_floor"]
     compared = list(zip(block.get("candidates") or [], block.get("candidate_texts") or []))
     for floor, anchor_name in compared or ([(block["value"], block["text"])] if block["value"] is not None else []):
-        rows = router_rows(members, contract, mappings, by_slug, families, floor, quality, scale, points)
+        rows = router_rows(members, contract, mappings, by_slug, families, floor, quality, scale, points, shared)
         placed = contract_order(rows, contract["ranking"])
         tail = [row["name"] for row in rows if row["last_resort"] or row["kind"] == "below_floor"]
         effects.append({"floor": floor, "text": anchor_name, "main": [name for name in placed if name not in tail], "last": tail})
@@ -2672,6 +2769,7 @@ def contracts_report(template, ranking, contracts, epoch=None):
     by_slug, families = ranking_families(ranking["models"])
     tools = {name: mapping["tools"]["support"] for name, mapping in mappings.items()}
     scale, points = eci_scale(archive, contracts), code_points(contracts)
+    entries = {entry["name"]: entry for entry in template["active"] if isinstance(entry["name"], str)}
     routers = []
     for router, _ in RANKING_ROUTERS:
         members = lists.get((CONTRACT_FALLBACKS, router))
@@ -2681,11 +2779,13 @@ def contracts_report(template, ranking, contracts, epoch=None):
                                      scale, archive)
         base = contract.get("derives_from")
         quality = router_quality(members, contract, mappings, archive)
-        rows = router_rows(members, contract, mappings, by_slug, families, quality=quality, scale=scale, points=points)
+        shared = shared_quota_names(members, contract["ranking"], lists, entries)
+        rows = router_rows(members, contract, mappings, by_slug, families, quality=quality, scale=scale, points=points,
+                           shared=shared)
         routers.append({
             "name": router, "contract": contract, "rows": rows, "current": list(members),
             "proposed": contract_order(rows, contract["ranking"]),
-            "floors": floor_effects(members, contract, mappings, by_slug, families, quality, scale, points),
+            "floors": floor_effects(members, contract, mappings, by_slug, families, quality, scale, points, shared),
             "base": base, "quality": quality,
             "differences": derivation_differences(lists.get((CONTRACT_FALLBACKS, base), []), members, tools)
             if base else None})
@@ -2758,6 +2858,7 @@ def contracts_problems(contracts, template):
             contract_block_problems(contract, where, problems)
         else:
             full_contract_problems(contract, where, problems)
+            shared_quota_problems(router, contract, routers, problems)
     mappings = contracts.get("models")
     if not isinstance(mappings, dict):
         problems.append('"models" is missing or is not a mapping')
@@ -2853,6 +2954,24 @@ def contract_anchors(routers):
     return found
 
 
+def shared_quota_problems(router, contract, routers, problems):
+    """The "shared_quota_with" of a ranking, which only a router that values time has: the routers whose
+    members' quota it must not eat, each a router with a contract of its own and not the router itself."""
+    ranking = contract.get("ranking")
+    if not isinstance(ranking, dict) or "shared_quota_with" not in ranking:
+        return
+    where = 'router "%s", "ranking",' % router
+    names = ranking["shared_quota_with"]
+    if ranking.get("criterion") != "intelligence_for_time":
+        problems.append('%s has a "shared_quota_with" and is not ranked on "intelligence_for_time", the only '
+                        "criterion that reads it" % where)
+    elif (not isinstance(names, list) or not names or any(not isinstance(name, str) for name in names)
+          or any(name == router or not isinstance(routers.get(name), dict) or "derives_from" in routers[name]
+                 for name in names)):
+        problems.append('%s has a "shared_quota_with" that is not a list of other routers that have a contract of '
+                        "their own" % where)
+
+
 def full_contract_problems(contract, where, problems):
     block = contract_block_problems(contract.get("level_gain"), '%s, "level_gain",' % where, problems)
     if block is not None:
@@ -2885,7 +3004,7 @@ def full_contract_problems(contract, where, problems):
         if block.get("criterion") not in CONTRACT_CRITERIA:
             problems.append('%s, "ranking", must have a "criterion" among: %s'
                             % (where, ", ".join(CONTRACT_CRITERIA)))
-        elif block["criterion"] != "first_answer" and (
+        elif block["criterion"] != "intelligence_for_time" and (
                 figure(block.get("tie_margin_points")) is None or block["tie_margin_points"] < 0):
             problems.append('%s, "ranking", must have a "tie_margin_points" that is a number from 0 up' % where)
         elif block["criterion"] == "code_quality" and (
@@ -3063,8 +3182,15 @@ def epoch_status_text(epoch):
 
 def ranking_text(contract, epoch):
     ranking = contract["ranking"]
-    if ranking["criterion"] == "first_answer":
-        return "le délai le plus court"
+    if ranking["criterion"] == "intelligence_for_time":
+        shared = ranking.get("shared_quota_with") or []
+        return ("l'indice d'intelligence moins %g points par seconde de délai moyen avant le premier jeton de la "
+                "réponse, le plus grand en tête ; un membre qui a un délai et pas d'indice vient après ceux qui "
+                "ont les deux, le plus rapide d'abord%s"
+                % (contract["level_gain"]["min_points_per_second"],
+                   " ; un membre qui est le même modèle chez le même fournisseur qu'un membre de %s, donc sur le "
+                   "même quota, passe après tous les autres, dans le même ordre"
+                   % " ou ".join("`%s`" % safe_text(name, 20) for name in shared) if shared else ""))
     margin = ", le délai départageant deux membres à moins de %g points d'écart" % ranking["tie_margin_points"]
     if ranking["criterion"] != "code_quality":
         return "l'indice d'intelligence" + margin
@@ -3461,7 +3587,7 @@ HEAD_ROW = re.compile(r"(?P<lead>[ \t]*)'(?P<router>[^']+)'[ \t]*:[ \t]*(?P<chai
                       r"(?P<comma>,?)[ \t]*")
 HEAD_CHAIN = re.compile(r"(?:'[^']+'[ \t]+if[ \t]+has\.\w+[ \t]+else[ \t]+)*(?:'[^']+'|false)")
 HEAD_PLACEHOLDER = "'head-placeholder'"
-HEAD_PROVIDERS = tuple(variable.split("_")[-3] for variable in PROVIDER_KEY_VARIABLES)
+HEAD_PROVIDERS = tuple(provider_name(variable) for variable in PROVIDER_KEY_VARIABLES)
 
 
 def read_head(text):
@@ -4411,6 +4537,7 @@ PROVIDER_LABELS = {
     "openrouter": "OpenRouter", "cerebras": "Cerebras", "sambanova": "SambaNova",
     "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
     "cloudflare": "Cloudflare",
+    "kilo": "Kilo Gateway",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -4426,14 +4553,14 @@ def notice_text(notice, french=False):
     replacement = notice.get("replacement")
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
-                "inactive": "marqué inactif"}.get(what, what)
+                "inactive": "marqué inactif", "paid": "n'est plus gratuit"}.get(what, what)
         if date:
             text += " (`%s`)" % date
         if replacement:
             text += ", remplaçant désigné : `%s`" % replacement
         return text
     text = {"expiration": "expires", "deprecation": "deprecated",
-            "inactive": "listed as inactive"}.get(what, what)
+            "inactive": "listed as inactive", "paid": "no longer flagged free"}.get(what, what)
     if date:
         text += " on %s" % date
     if replacement:
@@ -4441,10 +4568,14 @@ def notice_text(notice, french=False):
     return text
 
 
+# The providers whose entries are "openai/<id>" with the provider's "api_base", by the name the report gives them.
+OPENAI_COMPATIBLE = {"sambanova": "SambaNova", "kilo": "Kilo Gateway"}
+
+
 def litellm_id(provider, identifier):
-    """The id as the file writes it in "model:"; SambaNova's is the one that needs its provider."""
-    if provider == "sambanova":
-        return "openai/%s" % identifier, " on SambaNova"
+    """The id as the file writes it in "model:"; SambaNova's and Kilo's are the ones that need their provider."""
+    if provider in OPENAI_COMPATIBLE:
+        return "openai/%s" % identifier, " on %s" % OPENAI_COMPATIBLE[provider]
     return "%s/%s" % (provider, identifier), ""
 
 
@@ -4600,10 +4731,23 @@ def capped(lines):
 # a catalogue.
 NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
-                 "cloudflare": "-cloudflare"}
-DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1"}
+                 "cloudflare": "-cloudflare", "kilo": "-kilo"}
+DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1"}
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
+# The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
+# a bearer token and the gateway refuses with a 401, so each blanks the Authorization header with
+# "extra_headers": an entry written without it fails at run time, behind a cascade that hides the failure.
+# Their names are the model's and the gateway's ("beam-kilo"), where ":free" is no word of the name.
+KEYLESS_GATEWAYS = {"kilo"}
+
+
+def keyless_header_lines(indent):
+    """The two lines that blank the Authorization header of an entry whose "api_key" is at "indent"."""
+    return [indent + "extra_headers:", indent + '  Authorization: ""']
+
+
+ADDITION_MARKER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 
 
 def provider_basis(entries, provider):
@@ -4614,8 +4758,8 @@ def provider_basis(entries, provider):
         if attributed and attributed[0] == provider:
             keys[entry["api_key"]] += 1
             bases[entry["api_base"]] += 1
-    key = next((k for k, _ in keys.most_common() if isinstance(k, str) and SAFE_KEY.fullmatch(k)),
-               None)
+    safe = ADDITION_MARKER if provider in KEYLESS_GATEWAYS else SAFE_KEY
+    key = next((k for k, _ in keys.most_common() if isinstance(k, str) and safe.fullmatch(k)), None)
     base = bases.most_common(1)[0][0] if bases else DEFAULT_BASES.get(provider)
     if not (isinstance(base, str) and SAFE_BASE.fullmatch(base)):
         base = None
@@ -4630,9 +4774,17 @@ def name_stem(identifier):
     return re.sub(r"[^a-z0-9]+", "-", stem).strip("-") or "model"
 
 
+def suffixed_stem(provider, stem):
+    """The stem with the provider's suffix: OpenRouter's names end in "-free" for the ":free" of the id, and
+    the other providers' get their own, a keyless gateway's replacing the "-free" rather than following it."""
+    if provider in KEYLESS_GATEWAYS:
+        stem = re.sub(r"-free$", "", stem) or stem
+        return stem + NAME_SUFFIXES.get(provider, "")
+    return stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
+
+
 def propose_name(provider, identifier, taken):
-    stem = name_stem(identifier)
-    name = stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
+    name = suffixed_stem(provider, name_stem(identifier))
     for suffix in ("", "-" + provider, "-new"):
         if name + suffix not in taken:
             name += suffix
@@ -4647,6 +4799,9 @@ def snippet(provider, identifier, basis, name):
              "      model: %s" % litellm_id(provider, identifier)[0]]
     if basis["api_base"]:
         lines.append('      api_base: "%s"' % basis["api_base"])
+    if provider in KEYLESS_GATEWAYS:
+        lines.append('      api_key: "%s"' % (basis["api_key"] or "%s-no-key-needed" % provider))
+        return lines + keyless_header_lines("      ")
     lines.append('      api_key: "%s"' % (basis["api_key"]
                                          or "os.environ/%s_API_KEY_<ACCOUNT>" % provider.upper()))
     return lines
@@ -4846,8 +5001,9 @@ def summary_body(result, config_name, link, snippets):
                  "raison écrite au-dessus, et décommenter si elle ne tient plus. La pull request "
                  "des modèles prêts les liste aussi quand elle est ouverte, sinon celle des modèles "
                  "à vérifier."),
-        "new_free": ("Nouveaux modèles gratuits sur OpenRouter",
-                     "`:free` et à 0 $, sortie texte uniquement. À ajouter, ou à commenter avec "
+        "new_free": ("Nouveaux modèles gratuits",
+                     "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
+                     "`isFree`), sortie texte uniquement. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -5347,7 +5503,10 @@ def addition_anchor(entries, provider):
 
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
 # which the selftest holds it to): the comment above the entry of such a model cites it.
-FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models"}
+FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models"}
+# Of those, the ones whose free ids all end in a suffix: OpenRouter's ":free". Kilo flags a model free and
+# spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), so no suffix is asked.
+FREE_SUFFIX = {"openrouter": ":free"}
 
 
 def addition_note(kind, date, provider, commented):
@@ -5373,6 +5532,8 @@ def addition_block(kind, date, item, anchor):
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
     block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
+    if item["provider"] in KEYLESS_GATEWAYS:
+        block += keyless_header_lines(lead + "    ")
     return block
 
 
@@ -5407,7 +5568,7 @@ def build_additions(text, date, kind, items):
             return None, "a ready addition is of a provider whose API states its free tier, and only"
         if not isinstance(identifier, str) or not ADDITION_ID.fullmatch(identifier):
             return None, "an id is not spelt like one"
-        if provider in FREE_CATALOGUES and not identifier.endswith(":free"):
+        if provider in FREE_SUFFIX and not identifier.endswith(FREE_SUFFIX[provider]):
             return None, 'an id of a provider whose API states its free tier does not end in ":free"'
         if (not isinstance(name, str) or len(name) > ADDITION_NAME_LIMIT
                 or not ADDITION_NAME.fullmatch(name)):
@@ -5423,7 +5584,10 @@ def build_additions(text, date, kind, items):
         if anchor is None:
             return None, "the template has no entry of %s to model one on" % provider
         key, base = anchor["fields"].get("api_key"), anchor["fields"].get("api_base")
-        if not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
+        if provider in KEYLESS_GATEWAYS:
+            if not isinstance(key, str) or not ADDITION_MARKER.fullmatch(key):
+                return None, "the key of the entry %s is not a plain marker, as a keyless gateway's is" % anchor["name"]
+        elif not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
             return None, "the key of the entry %s is not read from the environment" % anchor["name"]
         if base is not None and not ADDITION_BASE.fullmatch(base):
             return None, "the api_base of the entry %s is not a plain https address" % anchor["name"]
@@ -5459,6 +5623,13 @@ def addition_problem(text, new_text, items):
         return "the entries it reads are not the file's and the proposed ones"
     if fallback_lists(after["document"]) != fallback_lists(before["document"]):
         return "a cascade is not what it was"
+    # A keyless gateway's entry that does not blank the Authorization header is refused with a 401 at run time.
+    for item in items:
+        if item.get("provider") in KEYLESS_GATEWAYS:
+            entry = next(entry for entry in after["active"] + after["commented"] if entry["name"] == item["name"])
+            parameters = entry["item"].get("litellm_params") if isinstance(entry["item"], dict) else None
+            if not isinstance(parameters, dict) or parameters.get("extra_headers") != {"Authorization": ""}:
+                return "the entry %s of a keyless gateway does not blank the Authorization header" % item["name"]
     return None
 
 
@@ -5510,8 +5681,7 @@ def missing_facts(result, provider, finding):
 def addition_name(provider, identifier, taken):
     """A name for a proposed entry, the way propose_name() makes them, that is no word of the file nor
     another proposal's, or None."""
-    stem = name_stem(identifier)[:60].strip("-") or "model"
-    stem += "" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, "")
+    stem = suffixed_stem(provider, name_stem(identifier)[:60].strip("-") or "model")
     for extra in ["", "-" + provider, "-new"] + ["-%d" % number for number in range(2, 100)]:
         if stem + extra not in taken:
             taken.add(stem + extra)
@@ -5771,6 +5941,13 @@ MISSING_HOWTO = {
 }
 
 
+# How each catalogue that states a free tier says it, for the body of the pull request of the ready models.
+FREE_READINGS = {"openrouter": "un identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie",
+                 "kilo": "le drapeau `isFree`, le texte pour seule sortie"}
+FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], catalogue_url(name), reading)
+                          for name, reading in FREE_READINGS.items())
+
+
 def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     """The body of one addition pull request, in French: what it is, how to decide, and each model with
     its entry, its figures and places, and, for the one to verify, which fact is missing and how to
@@ -5783,12 +5960,11 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     if ready:
         out = ["Ajouts **prêts**, proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, %s. "
                "Pour chaque modèle ci-dessous, l'exécution tient tout ce qu'il faut pour l'ajouter sans y "
-               "réfléchir : sa gratuité, lue dans l'API de son fournisseur (chez OpenRouter, <%s> : un "
-               "identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie), et "
+               "réfléchir : sa gratuité, lue dans l'API de son fournisseur (%s), et "
                "un chiffre du classement d'Artificial Analysis rapproché de façon sûre (son identifiant, sans `:free`, s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte aucune marque de variante entre parenthèses). Les nouveaux "
                "modèles auxquels il manque une de ces informations, de quelque fournisseur qu'ils soient, sont "
                "dans une pull request à part, en brouillon%s." % (
-                   run, catalogue_url("openrouter"), " (branche %s)" % code_span(other) if other else ""),
+                   run, FREE_READING, " (branche %s)" % code_span(other) if other else ""),
                "",
                "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
                "commentaire qui cite le catalogue et le jour, et ne la met dans **aucune cascade** : "

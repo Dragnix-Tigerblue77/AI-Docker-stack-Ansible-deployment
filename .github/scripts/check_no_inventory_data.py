@@ -25,7 +25,7 @@ the control one wants to have over this category of value.
 
 WHAT IT DOES NOT DO
 -------------------
-* It does not see a host name WITHOUT a dot ("chsonvdsw01"), which #22 nonetheless names first. No
+* It does not see a host name WITHOUT a dot ("myhost01"), which the rule nonetheless names first. No
   mechanical rule tells such a name from an ordinary word; that one is a human read-through.
 * It does not read the issues. Neither does gitleaks, and GitHub's secret scanning would want a
   plan the organisation does not have. The content of the issues remains a human vigilance.
@@ -107,6 +107,7 @@ ALLOWED_HOSTS = {
     "www.cloudflare.com": "Cloudflare's own terms of service page, cited in the README ledger of free providers and in the comments of the role's variables and of the model list",
     "docs.z.ai": "Z AI's own pricing, model, introduction and terms of use pages, cited in the README ledger of free providers and in the comments of the role's variables and of the model list",
     "router.eu.requesty.ai": "Requesty's own European OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",
+    "api.cent-ai.dev": "Cent AI's own OpenAI-compatible endpoint, the api_base of its entry in the model list: a public service address, not the caller's",
     "kilo.ai": "Kilo's own gateway models page and terms, cited in the README ledger of free providers",
     "ai-gateway.kilo.ai": "Kilo's own OpenAI-compatible gateway, the api_base of its entries in the model list: a public service address, not the caller's",
     "oai.endpoints.kepler.ai.cloud.ovh.net": "OVHcloud AI Endpoints' own keyless OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",

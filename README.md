@@ -30,7 +30,7 @@ handlers/, vars/, meta/                       ses variables, sa configuration Li
 
 Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
 mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
-`Docker/deploy_Docker_compose_stack` du dépôt `Homelab_Ansible_deployment` la portent, chacun pour son
+`Docker/deploy_Docker_compose_stack` d'un dépôt privé du mainteneur la portent, chacun pour son
 orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
@@ -123,26 +123,29 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_UI_password` | aucun | **Obligatoire.** Rendu depuis le vault de l'appelant, comme les secrets ci-dessus. |
 | `Artificial_Intelligence_LiteLLM_disable_env_credential_login` | `false` | Fait refuser à `/ui` la connexion par `UI_USERNAME`/`UI_PASSWORD` et par la clé maîtresse, que LiteLLM signale comme critique. **Le rôle refuse `true` tant que `Artificial_Intelligence_LiteLLM_admin_users` est vide** : sans administrateur en base, plus personne ne se connecte, et on revient en la remettant à `false`. Un booléen, jamais une chaîne (`tasks/main.yml` la refuse). Voir « La connexion par identifiants d'environnement ». |
 | `Artificial_Intelligence_LiteLLM_internal_users` | `[]` | Une **liste**, jamais une paire de variables nommées (#103) : chaque `{username, email}` devient un compte `internal_user` à lui, self-service, avec une seule clé virtuelle qui atteint tous les modèles tant que #2 n'a pas construit l'isolation par compte (#114). Voir « Un compte par personne, pas une paire figée » plus bas. |
-| `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique que le run affiche une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
+| `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique, sur lequel le run s'arrête une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
+| `Artificial_Intelligence_LiteLLM_UI_URL` | `false` | L'adresse sur laquelle une personne ouvre LiteLLM, sur laquelle est construit le lien d'invitation d'un administrateur. `false` : celle du nœud telle que l'inventaire la donne (`ansible_host`, à défaut son nom) et le port publié, que seul Ansible connaît à l'exécution. Un appelant derrière un reverse proxy y met l'adresse qu'il sert, sans barre oblique finale. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
+| `Artificial_Intelligence_LibreChat_API_URL` | *dérivé du port de LibreChat* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API de LibreChat, depuis le nœud qui les exécute, pour donner à un compte sa clé de la passerelle. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
 autres comptes n'ont pas les leurs ici) :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des neuf clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
+| `Artificial_Intelligence_LiteLLM_Gemini_API_key` | `""` | **Au moins une des dix clés fournisseurs** (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), voir « Les clés fournisseurs » plus bas. Vide : aucune entrée Gemini dans la configuration. |
 | `Artificial_Intelligence_LiteLLM_GitHub_API_key` | `""` | Optionnelle depuis le retrait de GitHub Models (#109, #119) : plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
+| `Artificial_Intelligence_LiteLLM_Mistral_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Mistral. **Payant** : routé après tous les gratuits. |
 | `Artificial_Intelligence_LiteLLM_Cerebras_API_key` | `""` | Optionnelle depuis que Cerebras n'a plus de palier gratuit (#200) : ses deux entrées sont commentées, plus aucune entrée active du `model_list` ne la lit. |
-| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Groq. |
-| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée OpenRouter. |
-| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des neuf clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
-| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des neuf clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
+| `Artificial_Intelligence_LiteLLM_Groq_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Groq. |
+| `Artificial_Intelligence_LiteLLM_OpenRouter_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée OpenRouter. |
+| `Artificial_Intelligence_LiteLLM_DeepSeek_API_key` | `""` | Une des dix clés fournisseurs. Le seul fournisseur **payant** de ce fichier -- l'API directe de DeepSeek n'a pas de palier gratuit permanent, contrairement à tous les autres. |
+| `Artificial_Intelligence_LiteLLM_Cloudflare_API_key` | `""` | Une des dix clés fournisseurs : le jeton d'API de Cloudflare Workers AI. Vide : aucune entrée Cloudflare. À donner **avec** la variable suivante, ou pas du tout : le rôle refuse l'une sans l'autre. |
 | `Artificial_Intelligence_LiteLLM_Cloudflare_account_ID` | `""` | L'identifiant du compte Cloudflare, que LiteLLM lit dans l'environnement du conteneur (`CLOUDFLARE_ACCOUNT_ID`) pour construire l'adresse du point d'accès : aucune entrée du `model_list` ne le nomme. **Un seul compte** : les conditions de Cloudflare interdisent d'en ouvrir un second pour doubler le quota. Voir « Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des neuf clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
-| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des neuf clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
-| `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` | `""` | Une des neuf clés fournisseurs : la clé d'API du catalogue hébergé de NVIDIA, que le conteneur reçoit comme `NVIDIA_NIM_API_KEY`. Vide : aucune entrée NVIDIA. **Un service d'essai** dont les conditions interdisent la production et les données personnelles. Voir « NVIDIA : un service d'essai, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Zai_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API de Z AI (Zhipu), que le conteneur reçoit comme `ZAI_API_KEY`. Vide : aucune entrée Z AI. **Un seul compte.** Voir « Z AI : une clé, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Requesty_API_key` | `""` | Une des dix clés fournisseurs. Vide : aucune entrée Requesty. Gratuit « pour l'instant », dans un quota commun à tous ses modèles gratuits : voir « Requesty, une seconde source des modèles `:free` d'OpenRouter ». Un seul compte. |
+| `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API du catalogue hébergé de NVIDIA, que le conteneur reçoit comme `NVIDIA_NIM_API_KEY`. Vide : aucune entrée NVIDIA. **Un service d'essai** dont les conditions interdisent la production et les données personnelles. Voir « NVIDIA : un service d'essai, des limites inconnues » plus bas. |
+| `Artificial_Intelligence_LiteLLM_Cent_AI_API_key` | `""` | Une des dix clés fournisseurs : la clé d'API de Cent AI, que le conteneur reçoit comme `CENT_AI_API_KEY`. Vide : aucune entrée Cent AI. Un seul modèle gratuit, « jusqu'au 30 novembre » et sans suite annoncée : **donner à la clé une limite de dépense**, réglage de la page des clés de Cent AI, pour qu'un appel facturé échoue au lieu de coûter. Un seul compte. Voir « Cent AI : un modèle gratuit jusqu'au 30 novembre » plus bas. |
 
 Et celles que #71 apporte, pour Redis :
 
@@ -193,7 +196,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_session_cookie_secure` | `false` | Tant que LibreChat est servi en HTTP simple : l'image, en `NODE_ENV=production`, marque sinon ses cookies de session `Secure`, que le navigateur rejette en HTTP -- chaque rechargement et chaque expiration du jeton (15 min) ramène à la page de connexion. `true` le jour où un reverse proxy TLS est le seul accès. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | `LibreChat_uploads` · `MongoDB_LibreChat_data` | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
-| `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
+| `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. `gateway_key: true` (booléen, `false` si absent) donne au compte une clé de la passerelle à lui, faite et rangée par le rôle : voir « Une clé de la passerelle par compte LibreChat ». Voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
 (#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
@@ -249,7 +252,7 @@ modèle commenté du template met en garde contre.
 
 **`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja, et il ne
 porte aucun secret : son `apiKey` vaut `"user_provided"` depuis #103, chaque compte LibreChat
-saisissant lui-même sa propre clé de la passerelle -- Ansible n'a rien à y interpoler. Repris du POC
+saisissant lui-même sa propre clé de la passerelle, par l'**engrenage à côté du nom de l'endpoint** (tant qu'aucune clé n'est saisie, LibreChat répond « Aucune clé trouvée » et ne montre que la liste `default` du fichier ; avec une clé il liste les modèles de la passerelle) -- Ansible n'a rien à y interpoler. Repris du POC
 fonctionnel de tigerblue77, avec trois corrections : deux identifiants de modèles absents du
 `model_list` réel de #2, et une `apiKey` qui portait la clé maîtresse de la passerelle plutôt qu'une
 clé virtuelle dédiée.
@@ -339,9 +342,9 @@ le rôle de déploiement est désigné par une variable, donc son contenu est in
 vérifications tournent.
 
 Ce n'est pas théorique. `Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du
-dépôt `Homelab_Ansible_deployment` remplissent tous les deux les trois obligations ci-dessus **sans
+dépôt privé du mainteneur remplissent tous les deux les trois obligations ci-dessus **sans
 modification** — mais tous les deux lisent aussi `APT_cache_lifetime`, qui n'a de défaut ni dans l'un ni
-dans l'autre. Elle vit dans les `vars:` du `playbook.CHSONP.yaml` de ce dépôt, donc elle est en portée
+dans l'autre. Elle vit dans les `vars:` du playbook de ce dépôt, donc elle est en portée
 quand c'est lui qui appelle, et **absente partout ailleurs**. Un appelant qui ne la déclare pas échoue au
 déploiement, sur une variable non définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui
 n'apparaît nulle part dans l'appel qu'il a écrit.
@@ -410,7 +413,7 @@ vaut `false` par défaut et que le rendu de la configuration est alors identique
 l'ordre :
 
 1. Déclarer l'administrateur dans `Artificial_Intelligence_LiteLLM_admin_users` (voir « Les administrateurs de `/ui`,
-   invités et non dotés d'un mot de passe ») et lancer le rôle : le run affiche une seule fois le lien d'invitation.
+   invités et non dotés d'un mot de passe ») et lancer le rôle : le run s'arrête sur le lien d'invitation, une seule fois.
 2. Ouvrir le lien, choisir son mot de passe, puis **tester cette connexion** : se déconnecter, se reconnecter avec son
    courriel.
 3. Passer la variable à `true` et redéployer. La configuration change, donc le conteneur de la passerelle est recréé
@@ -601,7 +604,7 @@ pendant toute l'initialisation : environ 35 s de marge avant `unhealthy` (`start
 ## Le `model_list` du compte de la passerelle (#2, périmètre v1)
 
 `LiteLLM_config.yaml.j2` porte désormais le `model_list` réel du compte de la passerelle -- ses entrées actives, à
-travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway et OVHcloud AI Endpoints (sans clé), Cloudflare Workers AI, Z AI, NVIDIA et OmniRoute en
+travers Gemini, Mistral, Groq, OpenRouter (`:free`), Kilo Gateway et OVHcloud AI Endpoints (sans clé), Cloudflare Workers AI, Z AI, NVIDIA, Cent AI et OmniRoute en
 dernier recours -- repris de son propre POC fonctionnel plutôt que ré-inventé. DeepSeek s'y ajoute en accès direct, payant
 comme Mistral : placé en dernier recours dans chaque cascade où il apparaît, juste
 avant OmniRoute, qui reste le seul vraiment gratuit. La liste suit la règle posée par #169
@@ -645,7 +648,7 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les clés fournisseurs : au moins une, et seuls les fournisseurs dont la clé est donnée sont rendus (#296)
 
-Le rôle exige **au moins une** des neuf clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA), et échoue en les
+Le rôle exige **au moins une** des neuf clés (Gemini, Mistral, Groq, OpenRouter, DeepSeek, Cloudflare, Z AI, Requesty, NVIDIA, Cent AI), et échoue en les
 nommant toutes quand aucune n'est renseignée. Chaque personne choisit son fournisseur : le rôle n'impose ni
 Mistral ni DeepSeek, qui sont payants, à qui n'en veut pas. Un fournisseur sans clé n'a **aucune entrée** dans
 `LiteLLM_config.yaml.j2` et aucun emplacement dans les cascades : un modèle listé sans clé échouerait à chaque
@@ -756,6 +759,40 @@ filtres de sécurité et de données personnelles, des modèles de recherche d'i
 un détecteur de vidéo et un modèle de complétion de code. Les modèles d'embeddings n'ont aucune route de discussion
 à occuper.
 
+#### Cent AI : un modèle gratuit jusqu'au 30 novembre, et ce qui suit est inconnu
+
+Cent AI est un revendeur de modèles. LiteLLM n'a pas de fournisseur de ce nom : l'entrée `hy4-flash-cent-ai` s'écrit
+`openai/hy4-flash:free` avec `api_base: https://api.cent-ai.dev/v1`, comme celles de Requesty, et le `:free` part chez
+Cent AI avec le reste de l'identifiant. La clé (`Artificial_Intelligence_LiteLLM_Cent_AI_API_key`, de la forme `cai_...`)
+arrive au conteneur sous le nom `CENT_AI_API_KEY`. Un appel réel a répondu le 2026-11-22, d'après l'essai du mainteneur ;
+les appels d'outils à travers elle n'ont pas été essayés.
+
+**Ce qu'on ignore : la suite du 30 novembre.** La page d'accueil de Cent AI (lue le 2026-11-22) annonce « Free until
+Nov 30 · no daily limit » et ne dit rien de ce qui suit. Le catalogue liste le modèle à 0 $ ; il sera probablement
+facturé à son tarif ensuite, ce qui n'est **pas vérifié**. Le mainteneur a décidé de le router maintenant et de
+regarder de nouveau le 1er décembre. **À faire avant : donner à la clé une limite de dépense**, réglage de la page des
+clés de Cent AI. Un appel facturé échoue alors au lieu de coûter, et la cascade passe au membre suivant : sans cette
+limite, rien dans ce dépôt n'empêche une facture.
+
+**Un seul modèle est routable.** Le site tire aussi chaque jour au hasard un modèle gratuit « événement », sous un
+identifiant qui change tous les jours : il n'est pas routable, et aucune entrée ne le nomme.
+
+**Les risques, que le mainteneur a acceptés.** L'opérateur est un particulier dont les conditions sont un brouillon ;
+les requêtes sont relayées vers des fournisseurs qu'il ne nomme pas ; les prompts atteignent donc un tiers, et la
+passerelle sert toutes les applications du homelab. Un seul compte.
+
+**Ce modèle raisonne avant de répondre : ne pas plafonner `max_tokens` bas.** Avec 20, la réponse a été coupée
+(`finish_reason` à `length`). Aucune entrée ne règle `max_tokens`, et un appel doit en laisser au moins 200.
+
+**Où il est placé : en queue des gratuits de `pro`, `flash` et `flash-lite`, faute de chiffre.** C'est le Hy4 Flash de
+Tencent d'après son nom seulement. Artificial Analysis n'a aucun enregistrement de ce nom (son seul enregistrement récent
+de Tencent, « Tencent Hy4 », est un autre modèle), et ni l'indice de capacités ni les benchmarks de code d'Epoch AI ne le
+contiennent (lus le 2026-11-21) : aucun chiffre ne le place, et les contrats de routeur le rangent « sans
+enregistrement », comme `flint-kilo` ou `nemotron-bolt-e4b-nvidia`. Il ferme donc les gratuits à clé, derrière ceux qui
+ont un chiffre ou un jumeau et devant ceux d'OVHcloud, sans en déplacer aucun. Il n'est ni dans `code` ni dans
+`claude-code` : ses appels d'outils ne sont pas essayés, et `claude-code` n'admet que des appels d'outils déclarés. Le
+contrôle de dérive hebdomadaire ne lit pas son catalogue : un modèle qui change de nom ou de prix ne s'y voit pas.
+
 #### Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons
 
 Cloudflare est le seul fournisseur qui demande **deux valeurs** : le jeton d'API
@@ -764,7 +801,7 @@ l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
 cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
 rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
-compte pour « au moins une des neuf clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
+compte pour « au moins une des dix clés » et pour l'agent Claude Code, dont la cascade `claude-code` a un membre
 Cloudflare.
 
 **Un seul compte, et ce n'est pas un réglage.** Les conditions de Cloudflare (*Self-Serve Subscription Agreement*, lues
@@ -783,7 +820,7 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `gpt-oss-120b-cloudflare` | environ 314 000 | environ 147 000 | `flash`, derrière `gpt-oss-120b-groq` |
 | `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `flash-lite`, derrière `gpt-oss-20b-groq` |
 | `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `flash-lite`, derrière les deux autres sources |
-| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, dernier membre gratuit |
+| `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, placé par son délai |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
@@ -1011,6 +1048,12 @@ classement, à la casse et à la ponctuation près, au moins quatre caractères 
 une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qui est supprimé. Les réponses simulées du test
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
+**Où chaque modèle est placé, à quel niveau de réflexion et pourquoi** : `ROUTAGE.md`, à la racine, écrit à la main. Il dit les
+règles en mots simples (le niveau que garde chaque routeur, le classement de `flash-lite` par indice moins délai pondéré, la
+règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
+chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
+`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
+
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
 écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié
 dans le fichier), sur l'une de deux échelles, ou aucun plancher. Sur l'indice d'intelligence (plus il est grand,
@@ -1025,9 +1068,11 @@ plancher à dessein (le « dernier recours »), et, pour chaque entrée du modè
 d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
 ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
 un modèle lent n'est donc jamais écarté parce qu'il est lent. L'éligibilité tient au plancher (et aux appels d'outils
-pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` met le
-plus court en tête, les autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère
-de moins de la marge du routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
+pour `claude-code`) ; le délai moyen avant le premier jeton de la réponse ne sert qu'à ordonner : `flash-lite` classe ses
+membres par leur indice moins `min_points_per_second` fois ce délai (les membres sans indice après ceux qui ont les deux,
+le plus rapide d'abord, et ceux qui partagent leur quota avec un membre de `pro` ou de `flash` après tous les autres), les
+autres routeurs la meilleure qualité, et le délai départage deux membres dont la qualité diffère de moins de la marge du
+routeur (`tie_margin_points`). L'unité de routage est « modèle + niveau » : on monte les niveaux
 d'un modèle depuis le plus bas, et on passe au suivant tant qu'il apporte au moins `min_points_per_second` points
 d'indice par seconde de plus (un routeur qui tient au temps en demande plus). `claude-code` dérive de `code` (même
 classement, sa cascade est celle de `code` sans les membres qui ne prennent pas d'outils). `code` se classe sur la
@@ -1056,9 +1101,9 @@ partout. Les planchers de `pro` et de `flash` y sont ancrés : `pro` doit être 
 `flash` que Gemini 2.5 Flash, avec une marge de 2 points, parce que l'indice ne donne qu'un chiffre par modèle, avec un
 intervalle d'environ deux points, si bien qu'un modèle à moins de cette marge du plancher ne s'en distingue pas. `code`
 et `claude-code` ont pour plancher la position de code de Gemini 2.5 Flash, sans marge, et `flash-lite` n'a aucun
-plancher (le plus court délai avant le premier jeton ordonne, tout membre qui répond est admis). Un membre pour lequel
+plancher (tout membre qui répond est admis, et l'indice moins le délai pondéré ordonne). Un membre pour lequel
 le classement n'a pas d'indice au niveau où il est appelé est placé sur l'estimation du modèle que nomme son entrée
-(`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur ordonné par le délai n'utilise aucune
+(`eci`) ; l'indice du classement l'emporte partout où il existe, et un routeur qui tient au temps n'utilise aucune
 estimation. Si l'archive ou l'indice n'est pas lu, une ancre sur l'indice est introuvable, ne juge personne, et le résumé
 le dit ; un nom que l'indice ne contient plus est listé comme périmé, sans jamais être un échec. Le mainteneur a
 **validé** le fichier le 2026-11-22 (son champ `status`) ; le quota et la disponibilité des fournisseurs y restent
@@ -1101,7 +1146,7 @@ fusion automatique lit) et le secret `MODEL_DRIFT_APP_PRIVATE_KEY`. Sans la prem
 fait ce qu'il faisait avant. La clé privée n'atteint que `publish`, qui n'extrait rien du dépôt et n'y
 exécute aucun script ; l'issue des catalogues illisibles garde le jeton du workflow.
 
-OpenRouter, Cerebras et SambaNova publient leur catalogue sans clé. Pour couvrir les autres, créer dans
+OpenRouter, Cerebras, SambaNova et Kilo Gateway publient leur catalogue sans clé. Pour couvrir les autres, créer dans
 *Settings → Secrets and variables → Actions* les secrets `MODEL_DRIFT_GEMINI_API_KEY`,
 `MODEL_DRIFT_GROQ_API_KEY`, `MODEL_DRIFT_MISTRAL_API_KEY` et `MODEL_DRIFT_DEEPSEEK_API_KEY`, et, pour
 Cloudflare Workers AI, **deux** : `MODEL_DRIFT_CLOUDFLARE_API_KEY`, un jeton d'API du compte dont la seule
@@ -1110,9 +1155,9 @@ permission est *Account → Workers AI → Read*, et `MODEL_DRIFT_CLOUDFLARE_ACC
 où un message pourrait l'afficher, comme une clé. Chacun est facultatif, de préférence une clé dédiée, révocable
 sans toucher à celles de LiteLLM, et les deux de Cloudflare vont ensemble : l'un sans l'autre, le résumé dit
 lequel manque. Le contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par semaine, aucun
-jeton dépensé. Sans l'un d'eux, le résumé dit chaque semaine que son fournisseur est « non couvert ». Z AI et
-NVIDIA n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées (préfixes
-`zai/` et `nvidia_nim/`) sont listées dans le résumé comme « d'aucun catalogue lu ici », avec celles d'OmniRoute,
+jeton dépensé. Sans l'un d'eux, le résumé dit chaque semaine que son fournisseur est « non couvert ». Z AI,
+NVIDIA et Cent AI n'ont ni secret ni lecture de catalogue : le contrôle ne lit pas leurs modèles, et leurs entrées
+(préfixes `zai/`, `nvidia_nim/` et `openai/` avec l'adresse de Cent AI) sont listées dans le résumé comme « d'aucun catalogue lu ici », avec celles d'OmniRoute,
 sans jamais être déclarées retirées ni inconnues -- un modèle que l'un d'eux retire n'est donc vu que par la
 personne qui relit la page ou le catalogue de ses modèles, ou par l'erreur d'un appel.
 
@@ -1148,7 +1193,7 @@ plus protégée qu'une autre branche.
 
 Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examiné de zéro : chaque ligne dit ce que l'offre gratuite est, ses limites, le verdict et la page officielle lue, relue le 2026-11-21 sauf mention contraire. Les commentaires du `model_list` de `LiteLLM_config.yaml.j2` restent la source de ce qui est **déjà routé** et de la raison de chaque modèle commenté ; ce registre les résume, il ne les remplace pas, et ne porte aucun chiffre que le template ne donne pas.
 
-**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Une carte bancaire exigée n'écarte pas un fournisseur tant que la dépense peut être plafonnée à 0 $ ou que le compte est prépayé et vide : elle se note, elle ne tranche pas. Un dépôt jusqu'à 10 € est de même considéré (plafond fixé par le mainteneur le 2026-11-22), à condition d'être unique et supposé valable à vie : ni abonnement, ni recharge, ni crédit qui expire dans un an ou deux. C'est soit un ticket d'entrée, un crédit qui reste sur le compte et lève une limite, soit un crédit dépensé en jetons, qui ne se retient que comme réserve payante et jamais comme palier gratuit : la ligne dit alors ce que le dépôt achète, s'il expire ou se rembourse, et si cela vaut son prix. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
+**Critères.** Un palier gratuit qui dure, pas un crédit unique ; l'exigence d'une carte bancaire ou d'un téléphone ; des limites publiées ; un point d'accès compatible OpenAI ou un fournisseur natif de LiteLLM ; la politique sur les données et l'entraînement ; les conditions sur l'usage derrière une passerelle, l'automatisation et les comptes multiples. La position du mainteneur : l'entraînement sur les prompts est accepté quand il ne peut pas être désactivé, et les modèles en préversion conviennent. Une carte bancaire exigée n'écarte pas un fournisseur tant que la dépense peut être plafonnée à 0 $ ou que le compte est prépayé et vide : elle se note, elle ne tranche pas. Un dépôt jusqu'à 10 € est de même considéré (plafond fixé par le mainteneur le 2026-11-22), à condition d'être unique et supposé valable à vie : ni abonnement, ni recharge, ni crédit qui expire dans un an ou deux. C'est soit un ticket d'entrée, un crédit qui reste sur le compte et lève une limite, soit un crédit dépensé en jetons, qui ne se retient que comme réserve payante et jamais comme palier gratuit : la ligne dit alors ce que le dépôt achète, s'il expire ou se rembourse, et si cela vaut son prix. Tout palier gratuit qui dure est pris, qu'il batte ou non ce qui est déjà routé : la passerelle sert toutes les applications du homelab, pas le seul agent Claude Code, et diversifier les quotas compte autant que le meilleur modèle. Ne sont écartés que les essais limités dans le temps (30 jours, par exemple) et les quotas uniques, sauf s'ils sont énormes, et ce qui fait d'une offre à date un essai est ce qui est annoncé après elle. Gratuit jusqu'à une date, sans rien d'annoncé après : on le prend, et on le revoit à cette date. Gratuit jusqu'à une date, puis payant à un prix annoncé : c'est un essai, on l'écarte. Le risque qu'un fournisseur coupe une clé n'est pas anticipé, et un chemin réservé aux données sensibles est refusé : presque tout ce que traite la passerelle en contient un peu. La page d'un fournisseur est relue avant son ajout, jamais prise de ce registre.
 
 **Groupe 1 -- utilisés aujourd'hui** (état du template, vérifications datées dans ses commentaires).
 
@@ -1167,15 +1212,46 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | SambaNova | Palier gratuit sans moyen de paiement lié, d'après la page des limites : 20 requêtes par minute, 20 par jour et 200 000 jetons par jour, par modèle (gpt-oss-120b, gemma-4-31B-it) ; la page des plans dit au contraire d'ajouter un moyen de paiement et d'acheter des crédits ; avec une carte liée, palier Developer : 60 par minute, 12 000 par jour et par modèle, 20 millions de jetons par jour au total, paiement à l'usage (pages relues le 2026-11-22) | Essais du 2026-11-22. Sans carte liée : gpt-oss-120b, gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de moyen de paiement manquant (code tronqué à `PAYMENT_METHOD`, solde de 0 unité). Avec une carte liée et aucun crédit acheté : gpt-oss-120b répond ; gemma-4-31B-it et MiniMax-M3.1-Flash répondent par une erreur de crédits épuisés (code tronqué à `CREDITS_EXHAUS`) ; GLM-5.3 par une erreur de moyen de paiement. Plus tard le même jour, cinq appels de gpt-oss-120b espacés de 70 secondes répondent tous par l'erreur de crédits épuisés (code `CREDITS_EXHAUSTED`, solde de 0 unité) : ce n'est pas une limite de débit, et le compte n'a jamais reçu de crédit, aucun n'ayant été acheté. L'explication la plus simple est le quota gratuit de la page des limites (20 requêtes par jour et par modèle), que l'API énoncerait en « crédits épuisés » ; les appels de la journée n'ont pas été comptés, c'est donc une hypothèse, qu'un seul appel après la remise à zéro quotidienne tranchera. Le compte paraît prépayé et ne propose aucun plafond de dépense : un solde à 0 ne laisse rien à débiter | Non tranché, non routé : un appel après la remise à zéro quotidienne dira si une carte liée sans achat ouvre un quota qui se renouvelle (palier récurrent, à prendre) ou un solde qui s'épuise ; les pages ne disent ni le minimum d'achat ni l'expiration des crédits, et un dépôt n'achèterait que des jetons (voir les dépôts jusqu'à 10 € plus bas) |
 | DeepSeek | Aucun : solde prépayé, accepté par PayPal, carte, Alipay ou WeChat Pay | Payant | Routé en tout dernier recours avant OmniRoute, payant comme Mistral, clé facultative |
 | Requesty (modèles gratuits) | Passerelle qui relaie vers le fournisseur de chaque modèle ; pas de carte pour les modèles gratuits ; pas de fournisseur LiteLLM de ce nom, point d'accès compatible OpenAI | 200 requêtes par jour et 20 par minute pour une organisation neuve, pour tous ses modèles gratuits ensemble ; gratuit « pour l'instant » | Routé, derrière le jumeau `:free` d'OpenRouter, pour les seuls modèles que le `model_list` sert déjà par OpenRouter |
+| Cent AI (modèle gratuit) | Revendeur ; un modèle gratuit, `hy4-flash:free`, annoncé « Free until Nov 30 · no daily limit » (page d'accueil lue le 2026-11-22) ; point d'accès compatible OpenAI, pas de fournisseur LiteLLM de ce nom | Aucune limite annoncée ; rien n'est dit de la suite du 30 novembre, où le modèle sera probablement facturé à son tarif (non vérifié). Le modèle gratuit « événement » du jour, tiré au hasard sous un identifiant qui change chaque jour, n'est pas routable | Routé, en queue des gratuits de `pro`, `flash` et `flash-lite`, à revoir le 1er décembre. Opérateur particulier aux conditions en brouillon, requêtes relayées vers des fournisseurs non nommés : le mainteneur accepte ces risques. Une limite de dépense sur la clé fait échouer un appel facturé au lieu de le payer. **Non lu par le contrôle de dérive hebdomadaire** |
 | OmniRoute | Agrégateur local, sans clé | Aucun quota à protéger | Dernier recours des cascades |
+
+#### Gemini : conditions et quotas du palier gratuit
+
+Ce qui suit est écrit une fois ici, et les autres sections de ce document y renvoient. Conditions et pages lues le 2026-11-22 ; aucune conclusion juridique n'en est tirée, c'est à l'appelant de les confronter à son propre déploiement.
+
+**Les données.** Les conditions additionnelles de l'API Gemini (« Effective March 23, 2026 », [ai.google.dev/gemini-api/terms](https://ai.google.dev/gemini-api/terms)) distinguent selon la région. Hors de l'Espace économique européen (EEE), de la Suisse et du Royaume-Uni, Google utilise le contenu envoyé sur le quota non payant pour améliorer ses produits, et « human reviewers may read, annotate, and process your API input and output » : on n'y envoie ni information sensible, confidentielle ou personnelle, ni document de tiers. Dans ces trois régions, « the terms under "How Google uses Your Data" in "Paid Services" apply to all Services, including Google AI Studio and unpaid quota in the Gemini API, even though they are offered free of charge » : Google n'y utilise alors ni les requêtes ni les réponses pour améliorer ses produits. Toute mention, dans ce document, d'un contenu réutilisé ou lu par des relecteurs sur le palier gratuit vaut donc **hors de ces trois régions seulement**.
+
+**Les restrictions d'usage**, citées telles quelles :
+
+- « Use of Google AI Studio and Gemini API is for developers building with Google AI models for professional or business purposes, not for consumer use. »
+- « You may use only Paid Services when making API Clients available to users in the European Economic Area, Switzerland, or the United Kingdom. » C'est la phrase qui vise une passerelle partagée avec d'autres personnes dans ces régions.
+- « You must be 18 years of age or older to use the APIs. You also will not use the Services as part of a website, application, or other service [...] that is directed towards or is likely to be accessed by individuals under the age of 18. »
+
+**Plusieurs projets.** Les limites s'appliquent par projet et non par clé ([rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)), et les conditions générales des API de Google (page « Google APIs Terms of Service », « Last modified: November 9, 2021 », section 2(d)) disent : « You agree to, and will not attempt to circumvent, such limitations documented with each API. » Ouvrir plusieurs projets pour multiplier le quota gratuit d'une même application est ce que cette clause interdit ; des projets séparés pour des environnements séparés ne le sont pas.
+
+**Les quotas**, lus le 2026-11-22 dans la page des limites de Google AI Studio pour un projet au niveau sans frais. Ils sont par projet et par modèle, et les quotas quotidiens se remettent à zéro à minuit, heure du Pacifique.
+
+| Modèles | Requêtes par minute | Jetons par minute | Requêtes par jour |
+| --- | --- | --- | --- |
+| Gemini 4 Hydrogen | 5 | 250 K | 20 |
+| Gemini 3.8 Flash, 3.6 Flash, 3 Flash, 2.5 Flash (chacun) | 5 | 250 K | 20 |
+| Gemini 3.5 Flash-Lite, 3.1 Flash-Lite (chacun) | 15 | 250 K | 500 |
+| Gemini 2.5 Flash-Lite | 10 | 250 K | 20 |
+| Gemma 4 31B, 26B (chacun) | 30 | 16 K | 14 400 |
+| Gemini Embedding 1, 2 (chacun) | 100 | 30 K | 1 000 |
+| Synthèse vocale : 3.8 Flash TTS, 3.8 Flash Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS (chacun) | 3 | 10 K | 10 |
+| Gemini 3.5 Transcribe | 3 | 10 K | 25 |
+| Modèles de l'API Live | aucune limite | 65 K ou 20 K | aucune limite |
+| Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon, Carbon | 0 | 0 | 0 : non servis en gratuit |
 
 Pages officielles lues :
 
-- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing)
+- Google Gemini API : [Pricing](https://ai.google.dev/gemini-api/docs/pricing), [Additional Terms of Service](https://ai.google.dev/gemini-api/terms), [Rate limits](https://ai.google.dev/gemini-api/docs/rate-limits), « Google APIs Terms of Service » (sur le site des développeurs de Google)
 - Groq : [Rate limits](https://console.groq.com/docs/rate-limits)
 - Cloudflare Workers AI : [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), [Limits](https://developers.cloudflare.com/workers-ai/platform/limits/), [Data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Terms](https://www.cloudflare.com/terms/)
 - Z AI (Zhipu) : [Pricing](https://docs.z.ai/guides/overview/pricing), [Terms of use](https://docs.z.ai/legal-agreement/terms-of-use.md)
 - NVIDIA API Catalog : page d'accueil du catalogue, fiches de ses modèles et [API Trial Terms of Service](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf) (PDF)
+- Cent AI : page d'accueil du service, lue le 2026-11-22
 - Mistral : [Pricing](https://mistral.ai/pricing)
 - OpenRouter : [Limits](https://openrouter.ai/docs/api_reference/limits)
 - Kilo Gateway : [Models and providers](https://kilo.ai/docs/gateway/models-and-providers), [Authentication](https://kilo.ai/docs/gateway/authentication), [Terms](https://kilo.ai/terms)
@@ -1254,7 +1330,7 @@ Pages officielles lues :
 - **Les conditions sont lues, pas validées.** La page « Terms », mise à jour le 2026-11-02, limite un compte à une entité (aucun n'est utilisé) et interdit les outils d'aspiration automatique et le contournement des contrôles d'accès, ce qu'une passerelle qui appelle l'API documentée est tenue de ne pas être. Sa clause sur la licence des données n'a été lue que dans un résumé : **non vérifiée**.
 - **L'en-tête `Authorization` est vidé.** Le fournisseur `openai/` de LiteLLM envoie `Authorization: Bearer <api_key>`, et le service a répondu `401 INVALID_TOKEN` à ce marqueur envoyé ainsi (essayé à la main), alors qu'il sert un appel dont l'en-tête est vide ou absent. Chaque entrée vide donc l'en-tête par `extra_headers`, et `check_compose_template.py` y tient toute entrée posée sur le point d'accès du service, faute de quoi le `401` ne se verrait qu'à l'exécution.
 - **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `pro` et devant `nemotron-super-vl-free` dans `flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `flash`. `code` et `claude-code` n'ont aucune entrée Kilo : `claude-code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
-- **Rien ne surveille cette liste.** Le contrôle hebdomadaire ne lit pas le catalogue de Kilo : un modèle retiré ou devenu payant n'est pas signalé, son entrée échoue, la cascade passe au suivant et le refroidissement de la passerelle limite le coût.
+- **Le contrôle hebdomadaire lit cette liste.** Le catalogue de Kilo se lit sans clé et marque chaque modèle gratuit (`isFree`) : un modèle qu'il ne liste plus est supprimé par la pull request des suppressions, comme chez OpenRouter, sur sa seule liste, car Kilo ne documente aucune route pour interroger un modèle seul ; un modèle encore listé mais plus gratuit est signalé dans les retraits annoncés, et jamais supprimé ; un nouveau modèle gratuit est proposé par l'une des deux pull requests d'ajouts, avec son `api_key` littéral et l'en-tête `Authorization` vidé. `kilo-auto/free` et `openrouter/free`, qui choisissent un modèle à chaque requête, sont écartés par une ligne `drift-ignore` du template.
 
 ### OVHcloud AI Endpoints : des modèles gratuits sans clé, deux requêtes par minute et par modèle
 
@@ -1289,7 +1365,7 @@ Pages officielles lues :
 | AMD Radeon Token Factory | Une allocation quotidienne gratuite par clé, de taille non publiée ; la première clé exige l'échange d'un code, dont aucun moyen public d'obtention n'est trouvé ; le « 10 $ par jour » d'un annuaire ne figure pas sur la page officielle | | Un dépôt n'y change rien ; non vérifié, non pris |
 | Free AI | Plan gratuit annoncé : 1 000 requêtes par mois et 30 000 jetons par jour pour tout le compte, un seul modèle propre (un Qwen), les autres étant des relais gratuits d'OpenRouter ; les pages se contredisent sur l'obtention d'une clé gratuite | | Non pris : environ 33 requêtes par jour, aucun quota propre sur les relais, clé gratuite non vérifiée |
 | AnyModel | La route gratuite `am/free` exige un solde positif dont le minimum n'est pas indiqué ; revendeur qui relaie des paliers gratuits (aucun quota propre), paiement en cartes russes ou en cryptomonnaie, exploitant non vérifiable | | Non |
-| Cent AI | Revendeur prépayé (dépôt minimal de 1 $) ; un modèle gratuit « jusqu'au 30 novembre » pour tous, puis un pool gratuit quotidien partagé, premier arrivé premier servi, sans allocation par compte | Crédit d'inscription unique de 30 jours | Non : promotion à date fixe et pool partagé |
+| Cent AI | Revendeur prépayé (dépôt minimal de 1 $) ; un modèle gratuit « jusqu'au 30 novembre » pour tous, puis un pool gratuit quotidien partagé, premier arrivé premier servi, sans allocation par compte | Crédit d'inscription unique de 30 jours | Non : aucun dépôt n'est nécessaire, le modèle gratuit étant routé sans rien déposer (ligne du groupe 1) ; le modèle gratuit « événement » tiré chaque jour, sous un identifiant qui change, n'est pas routable |
 | Puter, Rewind AI, Top Tools AI | Puter : ses points d'accès compatibles OpenAI refusent les comptes gratuits ; Rewind AI : le moteur de Free AI avec 5 000 jetons par jour ; Top Tools AI : revendeur à forfait mensuel | | Non |
 
 ### Requesty, une seconde source des modèles `:free` d'OpenRouter
@@ -1320,7 +1396,7 @@ L'ordre n'est classé par aucun script et ne répond à aucun contrat : il est d
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Groq (`whisper-large-v3`, `whisper-large-v3-turbo`) | Palier gratuit, route compatible OpenAI, `groq/whisper-large-v3` dans LiteLLM | 25 Mo par fichier en gratuit, 100 Mo en payant, durée minimale facturée de 10 secondes ; limites par organisation. Ne conserve pas les données d'inférence par défaut, journaux jusqu'à 30 jours pour la fiabilité et les abus ; entraînement : non indiqué | Routé, têtes de la cascade, `whisper-large-v3` d'abord |
-| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | Limites du palier gratuit affichées dans AI Studio seulement, aucune n'est indiquée ici. **Sur le palier gratuit, le contenu sert à améliorer les produits de Google et les conditions disent de ne pas y envoyer d'informations sensibles, confidentielles ou personnelles, des relecteurs humains pouvant lire les entrées et sorties ; un enregistrement porte la voix de tiers** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `stt` |
+| Google Gemini (`gemini-3.5-transcribe`) | Gratuit sur le palier gratuit, `gemini/gemini-3.5-transcribe` dans LiteLLM ; clé déjà donnée | 3 requêtes par minute, 10 K jetons par minute et 25 requêtes par jour (voir « Gemini : conditions et quotas du palier gratuit »). **Hors de l'EEE, de la Suisse et du Royaume-Uni, le palier gratuit sert à améliorer les produits de Google et des relecteurs humains peuvent lire les entrées et sorties, ce qu'un enregistrement portant la voix de tiers ne supporte pas** | Routé en troisième, sur l'autorisation du mainteneur du 2026-11-22, qui accepte ce coût ; un appelant qui ne peut pas l'accepter ne donne pas de clé Gemini à une passerelle qui sert `stt` |
 | Mistral (Voxtral) | Aucune pour l'API (voir le groupe 1 du registre ci-dessus) ; `mistral/voxtral-mini-latest` dans LiteLLM ; le français figure parmi les langues de la documentation | Prix par minute et politique sur les données de l'API : non trouvés | Routé en dernier, payant, comme Mistral dans les cascades de texte |
 
 **Groupe 2 -- à ajouter.**
@@ -1358,7 +1434,7 @@ Pages officielles lues le 2026-11-22 :
 | Cascade `tts` | Modèle | Pourquoi là |
 | --- | --- | --- |
 | 1 | `gemini-3.8-flash-tts` | Le modèle complet ; le français est listé comme pris en charge par la page « Speech » de la documentation de l'API Gemini |
-| 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota, **si** Google compte le quota par modèle (non vérifié) |
+| 2 | `gemini-3.8-flash-lite-tts` | Le même fournisseur, un modèle à lui : il répond quand le premier est refusé pour quota : Google compte le quota par modèle, 10 requêtes par jour chacun au palier gratuit |
 
 Les trois modèles de préversion plus anciens ne sont pas routés : la page « Deprecations » les arrête au plus tôt le 2026-12-18.
 
@@ -1370,7 +1446,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 **Mistral Voxtral est servi mais n'est pas dans la cascade.** LiteLLM traduit six noms d'OpenAI vers des voix **anglaises** de Mistral et transmet les autres tels quels comme identifiants de voix Mistral, et la langue se règle par la voix, non par un paramètre : un appelant qui demande `alloy` pour du texte français serait lu par une voix anglaise. Ses voix françaises (quatre, toutes féminines : Marie, Manon, Lea, Camille) se demandent par leur propre identifiant, ce qu'une cascade partagée avec Gemini ne permet pas. L'entrée est laissée en commentaire dans `LiteLLM_config.yaml.j2`, avec cette raison.
 
-**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : ses conditions (en vigueur le 2026-03-23, lues le 2026-11-22) disent de ne soumettre aucune information sensible, confidentielle ou personnelle aux services non payants, dont le contenu sert à améliorer les produits de Google. Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts`. Les chiffres du palier gratuit pour ces deux modèles (caractères ou requêtes par jour) n'ont pas été lus.
+**Les données.** Le palier gratuit de l'API Gemini n'est pas fait pour du texte sensible : hors de l'EEE, de la Suisse et du Royaume-Uni, le contenu sert à améliorer les produits de Google (voir « Gemini : conditions et quotas du palier gratuit »). Un texte qu'on ne veut pas voir réutilisé ne passe pas par `tts` avec une clé du palier gratuit. Le quota de ces deux modèles est de 10 requêtes par jour chacun.
 
 **Le registre des fournisseurs de synthèse vocale**, lu le 2026-11-22, dans le même ordre que celui des fournisseurs de texte. Les pages de LiteLLM listent comme fournisseurs de `/audio/speech` OpenAI, Azure OpenAI, Azure AI Speech, AWS Polly, Vertex AI, Gemini, ElevenLabs, MiniMax et Mistral : Groq, Cloudflare, Together, Deepgram, Cartesia et Edge n'y sont pas.
 
@@ -1378,7 +1454,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini API | Quota des services non payants, « free of charge with generous limits » d'après la page des tarifs ; les chiffres de la ligne vocale n'ont pas été lus | Format WAV ou PCM seulement ; deux voix par conversation au plus ; contenu réutilisé par Google sur le palier gratuit | Routé, `gemini-3.8-flash-tts` puis `gemini-3.8-flash-lite-tts` |
+| Google Gemini API | Quota des services non payants, « free of charge with generous limits » d'après la page des tarifs ; 10 requêtes par jour et par modèle de synthèse | Format WAV ou PCM seulement ; deux voix par conversation au plus ; contenu réutilisé par Google sur le palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni | Routé, `gemini-3.8-flash-tts` puis `gemini-3.8-flash-lite-tts` |
 | Mistral Voxtral | Aucune : la clé du dépôt est payante, le prix à la minute et un palier d'essai n'ont pas été trouvés | Sortie mp3, wav, pcm, flac ou opus ; la langue se règle par la voix ; quatre voix françaises, toutes féminines | Examiné, non routé (entrée commentée) : les noms de voix d'OpenAI y donnent des voix anglaises |
 
 **Groupe 2 -- à ajouter.**
@@ -1433,7 +1509,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | --- | --- | --- | --- |
 | Cloudflare Workers AI | Modèles d'image (flux-1-schnell, flux-2, stable-diffusion-xl, etc.) dans les 10 000 « neurons » quotidiens | 720 requêtes par minute pour le texte vers image ; flux-1-schnell : prompt de 2048 caractères au plus, 8 pas au plus ; coût en neurons par tuile et par pas, sans total par image sur la page | À ajouter le jour où un routage existe : seule source gratuite et durable trouvée, mais inatteignable par LiteLLM (appel natif seulement) |
 | OpenRouter | Aucun modèle d'image `:free` ni à prix nul dans le catalogue ; des modèles d'image payants existent (Gemini image à environ 0,039 $ l'image, modèles d'image d'OpenAI) | LiteLLM les appelle par `/images/generations` sous la forme `openrouter/<modèle>` et les traduit en complétions de chat avec modalité image (lu dans sa documentation, non essayé) | Candidat comme réserve payante, pas comme palier gratuit : le crédit de 10 $ que le registre recommande pour porter les modèles `:free` de 50 à 1 000 requêtes par jour paierait environ 250 images, mais OpenRouter se réserve le droit d'expirer un crédit inutilisé au bout d'un an (le palier de 1 000 par jour, lui, tient au total acheté). Aucun routeur d'images n'est construit |
-| Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits | Écarté : payant |
+| Google Gemini API | Les modèles d'image sont « Not available » en palier gratuit (lu dans un résumé de la page des tarifs, non vérifié mot pour mot) ; payant de 0,039 à 0,134 $ par image | Contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni | Écarté : payant |
 | Recraft | Unités prépayées (1 $ = 1 000 unités), « Purchased units don't expire » ; 0,007 $ l'image en V4.1 Flash V2, 0,035 $ en V4.1 : 10 € achètent environ 1 600 images Flash ou 330 images V4.1 | Aucune allocation gratuite d'API trouvée ; taille minimale du paquet non lue (derrière un compte) ; route LiteLLM `recraft/recraftv3` | Candidat comme réserve payante (dépôt unique, crédit qui n'expire pas), pas comme palier gratuit : à ajouter seulement si un client du stack génère des images |
 | Together AI, OpenAI, xAI, fal (plateforme d'images), Replicate | Together AI : premier achat de 15 $, au-dessus du plafond ; OpenAI : 5 $ minimum, mais les crédits expirent au bout d'un an ; xAI, fal, Replicate : minimum et expiration non lus | Aucune route d'images de LiteLLM trouvée pour Together AI, xAI, fal ni Replicate | Écartés : plafond, crédit qui expire, ou aucune route |
 | Black Forest Labs | Paiement à l'usage ; les conditions donnent une licence pour entraîner sur les entrées et sorties et interdisent l'accès à l'API depuis autre chose que l'application du développeur | Passerelle exclue par les conditions | Écarté |
@@ -1449,7 +1525,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Docling (auto-hébergé) | Licence MIT ; PDF, DOCX, PPTX, XLSX, HTML et images vers Markdown ou JSON ; exécution locale, y compris pour des données sensibles | Aucune mesure de vitesse ni de processeur trouvée : à mesurer sur la machine | À ajouter : un service Docker, pas un routeur. Rien ne quitte la machine |
-| Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits | Servi autrement : aucun nouveau routeur n'est nécessaire |
+| Google Gemini API | Lit les PDF comme entrée multimodale des modèles de chat déjà routés | Contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni | Servi autrement : aucun nouveau routeur n'est nécessaire |
 | Mistral OCR | 2 $ les 1 000 pages (3 $ avec annotations), aucun palier gratuit d'OCR trouvé ; le solde est prépayé, un appel à solde nul répond 402, un plafond de dépense se règle, les frais prépayés ne sont pas remboursables (page lue le 2026-11-22) | Fournisseur `mistral/mistral-ocr-latest` de LiteLLM ; minimum et expiration du solde non lus (à lire dans la console) | Utilisable comme réserve payante (10 € achètent environ 5 700 pages), pas comme palier gratuit : à décider avec un besoin d'OCR |
 | Cloudflare Workers AI `toMarkdown` | « Free for most format conversions » (page datée du 2026-04-21) | Liste des formats non trouvée ; appel natif seulement | Non routable, comme ci-dessus |
 | Azure AI Document Intelligence | Niveau F0 : 500 pages gratuites par mois, récurrent ; compte Azure avec une carte non prépayée et un numéro de téléphone, sans frais | Route LiteLLM `azure_ai/doc-intelligence/prebuilt-layout` | Candidat : récurrent et joignable par LiteLLM. L'ancienne raison d'écart (contenu tiers chez un fournisseur cloud) ne tient plus ; à ajouter avec un besoin d'OCR |
@@ -1487,7 +1563,7 @@ Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la documentation de LiteLLM liste Google AI Studio (Gemini) pour `/realtime` et donne une configuration `mode: realtime`, avec des identifiants de modèle plus anciens que ceux de cette ligne (non essayée) ; reste qu'aucun client du stack n'ouvre de session temps réel |
+| Google Gemini Live API | Modèles `gemini-3.8-live` et `gemini-3.8-live-extended-thinking` gratuits (pages « Live API » et des tarifs) ; l'ancien `gemini-2.5-flash-native-audio-preview-12-2025` s'arrête le 2027-03-31 | Sessions audio de 15 minutes au plus sans compression, connexion d'environ 10 minutes ; entrée PCM 16 bits à 16 kHz, sortie à 24 kHz ; contenu du palier gratuit utilisé pour améliorer les produits hors de l'EEE, de la Suisse et du Royaume-Uni ; le français figure dans le tableau des langues (lu dans un résumé, non vérifié mot pour mot) | Non routé : la documentation de LiteLLM liste Google AI Studio (Gemini) pour `/realtime` et donne une configuration `mode: realtime`, avec des identifiants de modèle plus anciens que ceux de cette ligne (non essayée) ; reste qu'aucun client du stack n'ouvre de session temps réel |
 
 **Ce qui changerait le verdict** : un client temps réel réel dans le stack et un essai de la route Gemini Live de LiteLLM avec les modèles actuels. Aucune décision sur la téléphonie n'est prise ici.
 
@@ -1504,7 +1580,7 @@ Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: 
 | `gemini-embedding-2` | 3072 par défaut ; le paramètre `dimensions` de la requête (LiteLLM l'envoie à Google comme `outputDimensionality`) accepte de 128 à 3072, Google recommande 768, 1536 ou 3072 ; les vecteurs tronqués sont renormalisés par Google | Entrée de 8 192 jetons au plus ; pas de `task_type` pour ce modèle, la consigne se met dans le texte. Le rôle n'impose aucune valeur par défaut : l'appelant choisit, une fois, et la collection est créée à cette taille |
 | `mistral-embed` | Fixe, **non lue sur une page** : créer la collection d'après la longueur du premier vecteur reçu | La passerelle règle `drop_params: true` : un `dimensions` envoyé à ce modèle est ignoré sans erreur et le vecteur complet revient, alors que LiteLLM seul refuse l'appel |
 
-**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google, et les conditions de l'API Gemini interdisent d'y envoyer des informations personnelles, sensibles ou confidentielles sans passer par le service payant. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
+**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google hors de l'EEE, de la Suisse et du Royaume-Uni (voir « Gemini : conditions et quotas du palier gratuit »), et il n'y a pas lieu d'y envoyer des informations personnelles, sensibles ou confidentielles. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
 
 #### Le registre des embeddings et du rerank
 
@@ -1514,7 +1590,7 @@ Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit : pas pour des documents privés |
+| Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni : pas pour des documents privés |
 | Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
 
 Pages officielles lues :
@@ -1561,9 +1637,11 @@ critique, sans le faire elle-même.
 **Une invitation, pas un mot de passe.** `/user/new` n'en accepte pas ; `/user/update` en pose un, soumis à la politique de LiteLLM (12
 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et à changer à la première connexion : la valeur du coffre de
 l'appelant serait périmée dès que la personne se serait connectée une fois. Le rôle demande donc `POST /invitation/new` pour chaque
-compte **créé à ce run** et affiche, **une seule fois**, le chemin `/ui/onboarding?id=<id>`, valable sept jours : la personne l'ouvre
-sur l'adresse de la passerelle, choisit son mot de passe, qui sert tel quel, puis se connecte avec son courriel. Le lien est un chemin
-parce que l'adresse sur laquelle la personne atteint la passerelle est celle de l'appelant, pas celle du rôle.
+compte **créé à ce run** et s'arrête, **une seule fois**, sur le lien complet `<Artificial_Intelligence_LiteLLM_UI_URL>/ui/onboarding?invitation_id=<id>`,
+valable sept jours, un par administrateur, chacun sur sa ligne pour être cliquable : la personne l'ouvre, choisit son mot de passe, qui
+sert tel quel, puis se connecte avec son courriel, et le run reprend à Entrée (Ctrl+C puis A l'abandonne), comme les autres rôles qui
+attendent une action à la main. L'adresse est celle de l'appelant, pas celle du rôle : `Artificial_Intelligence_LiteLLM_UI_URL`, dont le
+défaut est celle du nœud.
 
 - **Un compte qui existe déjà** (409) n'est ni modifié ni réinvité, et son mot de passe n'est jamais réinitialisé : le rôle ne crée
   un compte qu'une fois. Un lien perdu se refait depuis *Internal Users* de `/ui`, ou par `POST /invitation/new` avec la clé maîtresse.
@@ -1572,7 +1650,17 @@ parce que l'adresse sur laquelle la personne atteint la passerelle est celle de 
 - **Noms et courriels distincts** de ceux de `Artificial_Intelligence_LiteLLM_internal_users`, dont les entrées passent par le même
   appel : un 409 sur un identifiant déjà pris par l'autre liste ferait ignorer l'entrée sans un mot, donc `tasks/main.yml` refuse la
   collision (courriels comparés sans tenir compte de la casse) avant tout déploiement.
+- **L'identité de la clé maîtresse existe avant la première invitation.** LiteLLM enregistre l'auteur d'une invitation comme clé
+  étrangère vers sa table des utilisateurs, avec l'identité de l'appelant : `default_user_id` pour la clé maîtresse, une ligne qu'il ne
+  crée que lorsque quelqu'un se connecte à `/ui` avec l'identifiant d'environnement. Quand celui-ci est coupé dès le premier
+  déploiement, personne ne le fait, et l'invitation est refusée d'un 400 « User id does not exist ». Le rôle crée donc cette
+  ligne (`proxy_admin`, sans clé ni courriel, comme le ferait cette connexion) juste avant d'inviter, seulement quand une invitation
+  va avoir lieu, et un 409 la laisse telle quelle. C'est un contournement de ce comportement de LiteLLM, pas la cause.
+- **Une invitation refusée fait échouer le run avec ce que LiteLLM a répondu** (le statut et son message, qui n'ont rien de secret),
+  et non plus avec un « 400 Bad Request » sans corps. Le compte existe alors sans mot de passe et un nouveau run ne l'invite pas :
+  le message dit comment l'inviter depuis *Internal Users*.
 - **Avec `--check`**, ces tâches sont sautées, comme celles des comptes internes : il n'y a pas de passerelle à interroger.
+- **Sans terminal** (CI, Semaphore), la pause n'affiche que « Not waiting for response to prompt », pas son texte : le run continue et le lien n'est montré nulle part. Le compte existe alors sans mot de passe, et un nouveau run ne le réinvite pas : on l'invite depuis *Internal Users* de `/ui` tant que la connexion d'environnement est active, ou par `POST /invitation/new` avec la clé maîtresse.
 - **Les administrateurs n'ont pas de clé virtuelle** : l'invitation est tout ce que le rôle leur donne.
 
 
@@ -1606,8 +1694,8 @@ première, sautée, ne rend pas (le rôle s'arrêtait alors sur `object of type 
 
 **`librechat.yaml` route désormais chaque compte LibreChat vers sa propre identité côté passerelle.**
 `apiKey: "user_provided"` (au lieu d'une clé unique lue dans l'environnement du conteneur) fait que
-LibreChat demande sa propre clé à CHAQUE compte, la première fois qu'il utilise cet endpoint, et la
-retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait tout le conteneur : n'importe
+LibreChat range une clé propre à CHAQUE compte, saisie une fois par l'engrenage à côté du nom de l'endpoint,
+et la retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait tout le conteneur : n'importe
 quel compte LibreChat, humain ou non, parlait à la passerelle sous la même identité, ce qui défaisait
 l'isolation par compte dès qu'un deuxième humain existait -- même avec son propre compte LiteLLM créé
 par la liste ci-dessus, rien ne l'aurait fait passer par lui plutôt que par l'unique clé partagée.
@@ -1616,6 +1704,23 @@ plus personne n'a besoin de pré-fabriquer une clé virtuelle avant que LibreCha
 règle au passage le problème d'ordre de démarrage que ce même `assert` posait (LiteLLM devait tourner
 pour émettre une clé via son propre `/key/generate`, et rien ne se déployait tant que l'`assert`
 n'était pas satisfait).
+
+**Une clé de la passerelle par compte LibreChat, faite et rangée par le rôle.** Pour un compte qui porte `gateway_key: true`
+dans `Artificial_Intelligence_LibreChat_users`, plus de saisie à la main : le rôle se connecte à LibreChat **avec le mot de
+passe de ce compte**, qu'il détient puisqu'il l'a créé, demande à LiteLLM une clé d'alias `librechat-<username>` sans liste
+de modèles, puis la range par la route de LibreChat que l'engrenage appelle, `PUT /api/keys`, sous le nom de l'endpoint. La clé
+n'est rangée que dans ce compte, qu'aucun autre ne partage, n'est écrite nulle part dans l'inventaire, et LibreChat la chiffre
+et la stocke lui-même : le rôle ne touche pas à sa base de données. Un compte sans `gateway_key` saisit sa clé à la main, comme
+avant. Elle est faite une fois : le rôle regarde d'abord, par `GET /api/keys`, si LibreChat a déjà une clé pour ce compte, et ne
+fait rien dans ce cas, donc un second passage ne change rien.
+
+Ce que ça ne fait pas : **multiplier les quotas gratuits.** Ils sont comptés par les fournisseurs, sur les clés de fournisseur de la
+passerelle, et partagés par toutes les clés virtuelles ; une clé par compte sépare le suivi et la révocation, et permet des
+limites par clé si on en pose. Et un cas à la main : LiteLLM rend la clé une seule fois, donc si LibreChat n'a plus la clé du
+compte alors que LiteLLM garde l'alias (le run s'est arrêté entre les deux appels, ou la clé a été supprimée de LibreChat), la
+création est refusée et le message dit de supprimer cette clé depuis `/ui` puis de redéployer. Si LibreChat refuse la
+connexion du compte (mot de passe de l'appel différent du sien, double authentification, trop de connexions), la tâche s'arrête
+de même sur un message qui dit quoi vérifier.
 
 **Redis, déployé par #71, pour l'état de cooldown partagé entre les workers de LiteLLM** ; ni #1 ni
 #2 n'en avait le périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement
