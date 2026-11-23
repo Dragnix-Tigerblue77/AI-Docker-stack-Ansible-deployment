@@ -13,26 +13,26 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 
 **Une entrée est un modèle à un niveau de réflexion.** Plus le niveau est haut, plus le modèle réfléchit avant de répondre : le score monte, l'attente aussi. Artificial Analysis mesure un score (l'indice d'intelligence) et une attente (le délai moyen avant le premier mot de la réponse) pour chaque niveau d'un même modèle.
 
-**Le niveau gardé par un routeur.** On part du niveau le plus bas et on monte d'un cran tant que chaque seconde d'attente en plus rapporte au moins un certain nombre de points de score. `pro` en demande 0,2 par seconde (il a le temps), `flash` 1, `flash-lite` 3 (il est fait pour aller vite). Exemple avec Gemini 4 Hydrogen, dont le niveau bas donne 26,9 points en 7,6 s, le moyen 41,2 en 13,0 s, le haut 50,8 en 21,5 s et le très haut 53,9 en 47,4 s : du bas au moyen, 14,3 points pour 5,4 s de plus font 2,6 points par seconde ; du moyen au haut, 1,1 ; du haut au très haut, 0,12. Donc `pro` et `flash` gardent le haut, le niveau par défaut de Google pour ce modèle qui remplace la lignée Flash, et `flash-lite` le bas. Gemini 3.8 Flash donne 22,5 points en 5,1 s (bas), 30,1 en 14,5 s (moyen) et 30,8 en 28,1 s (haut) : du bas au moyen 0,81 point par seconde, du moyen au haut 0,05. `pro` garde le moyen, `flash` et `flash-lite` le bas.
+**Le niveau gardé par un routeur.** On part du niveau le plus bas et on monte d'un cran tant que chaque seconde d'attente en plus rapporte au moins un certain nombre de points de score. `Auto-Pro` en demande 0,2 par seconde (il a le temps), `Auto-Flash` 1, `Auto-Flash-Lite` 3 (il est fait pour aller vite). Exemple avec Gemini 4 Hydrogen, dont le niveau bas donne 26,9 points en 7,6 s, le moyen 41,2 en 13,0 s, le haut 50,8 en 21,5 s et le très haut 53,9 en 47,4 s : du bas au moyen, 14,3 points pour 5,4 s de plus font 2,6 points par seconde ; du moyen au haut, 1,1 ; du haut au très haut, 0,12. Donc `Auto-Pro` et `Auto-Flash` gardent le haut, le niveau par défaut de Google pour ce modèle qui remplace la lignée Flash, et `Auto-Flash-Lite` le bas. Gemini 3.8 Flash donne 22,5 points en 5,1 s (bas), 30,1 en 14,5 s (moyen) et 30,8 en 28,1 s (haut) : du bas au moyen 0,81 point par seconde, du moyen au haut 0,05. `Auto-Pro` garde le moyen, `Auto-Flash` et `Auto-Flash-Lite` le bas.
 
-**`pro`, `flash`, `code` et `claude-code` : le meilleur score d'abord.** Deux membres à moins de 2 points l'un de l'autre ne sont pas départagés par le score : le plus rapide passe devant. Pour `code` et `claude-code`, le score est la position de code mesurée par Epoch AI. L'ordre de `pro` et de `flash` est celui du gabarit, écrit à la main : les contrats le comparent à leur propre ordre et le rapportent, sans rien changer.
+**`Auto-Pro`, `Auto-Flash`, `Auto-Code` et `Auto-Claude-Code` : le meilleur score d'abord.** Deux membres à moins de 2 points l'un de l'autre ne sont pas départagés par le score : le plus rapide passe devant. Pour `Auto-Code` et `Auto-Claude-Code`, le score est la position de code mesurée par Epoch AI. L'ordre de `Auto-Pro` et de `Auto-Flash` est celui du gabarit, écrit à la main : les contrats le comparent à leur propre ordre et le rapportent, sans rien changer.
 
-**`flash-lite` : chaque seconde d'attente en plus doit rapporter au moins 3 points de score.** Le routeur sert les demandes simples et courtes, donc l'attente avant le premier mot de la réponse reste sa mesure ; mais entre deux modèles qui répondent à peu près aussi vite, le plus intelligent passe devant. Le score d'un membre est son indice moins 3 fois son délai en secondes (3 est le taux déjà validé entre les niveaux d'un même modèle, repris ici entre les modèles). L'ordre est :
+**`Auto-Flash-Lite` : chaque seconde d'attente en plus doit rapporter au moins 3 points de score.** Le routeur sert les demandes simples et courtes, donc l'attente avant le premier mot de la réponse reste sa mesure ; mais entre deux modèles qui répondent à peu près aussi vite, le plus intelligent passe devant. Le score d'un membre est son indice moins 3 fois son délai en secondes (3 est le taux déjà validé entre les niveaux d'un même modèle, repris ici entre les modèles). L'ordre est :
 
 1. les membres qui ont un indice et un délai, par score décroissant ;
 2. les membres qui ont un délai mais pas d'indice, le plus rapide d'abord ;
 3. les membres dont les chiffres ne s'appliquent pas à coup sûr (niveau non vérifié) ou qui n'en ont aucun : ils gardent leur place d'avant ;
-4. les membres qui partagent le quota d'un membre de `pro` ou de `flash` (voir ci-dessous), dans le même ordre ;
+4. les membres qui partagent le quota d'un membre de `Auto-Pro` ou de `Auto-Flash` (voir ci-dessous), dans le même ordre ;
 5. le payant, tout à la fin.
 
-**Un membre de `flash-lite` ne mange pas le quota de `pro` ou de `flash`.** Le quota gratuit de Google est compté par modèle et par projet, pas par clé. Un membre de `flash-lite` qui est le même modèle chez le même fournisseur (même identifiant de modèle, même adresse) qu'un membre de `pro` ou de `flash` dépense donc le même compteur : il passe après tous les membres de `flash-lite` qui ont un quota à eux. Le rapport de contrat trouve ces membres tout seul dans le gabarit, il n'y en a pas de liste tenue à la main.
+**Un membre de `Auto-Flash-Lite` ne mange pas le quota de `Auto-Pro` ou de `Auto-Flash`.** Le quota gratuit de Google est compté par modèle et par projet, pas par clé. Un membre de `Auto-Flash-Lite` qui est le même modèle chez le même fournisseur (même identifiant de modèle, même adresse) qu'un membre de `Auto-Pro` ou de `Auto-Flash` dépense donc le même compteur : il passe après tous les membres de `Auto-Flash-Lite` qui ont un quota à eux. Le rapport de contrat trouve ces membres tout seul dans le gabarit, il n'y en a pas de liste tenue à la main.
 
-**Les niveaux fixés.** Seules les entrées Gemini dont Artificial Analysis mesure les niveaux (Gemini 4 Hydrogen et Gemini 3.8 Flash) ont un niveau fixé, avec une entrée par niveau dont un routeur a besoin, nommée `<entrée>-<niveau>` (le nom sans suffixe porte le niveau que garde `pro`). Ce niveau n'est qu'une valeur par défaut : si un client envoie son propre niveau, c'est le sien qui compte. Claude Code en envoie toujours un, donc `claude-code` n'est pas piloté par ces niveaux ; LibreChat et n8n n'en envoient pas, ils reçoivent le niveau fixé. Les autres entrées n'ont pas de niveau fixé :
+**Les niveaux fixés.** Seules les entrées Gemini dont Artificial Analysis mesure les niveaux (Gemini 4 Hydrogen et Gemini 3.8 Flash) ont un niveau fixé, avec une entrée par niveau dont un routeur a besoin, nommée `<entrée>-<niveau>` (le nom sans suffixe porte le niveau que garde `Auto-Pro`). Ce niveau n'est qu'une valeur par défaut : si un client envoie son propre niveau, c'est le sien qui compte. Claude Code en envoie toujours un, donc `Auto-Claude-Code` n'est pas piloté par ces niveaux ; LibreChat et n8n n'en envoient pas, ils reçoivent le niveau fixé. Les autres entrées n'ont pas de niveau fixé :
 
 - chez OpenRouter, NVIDIA, OVHcloud, Kilo et Requesty (facturés à la requête), on ne sait pas si le fournisseur tient compte du niveau que LiteLLM lui envoie : « non fixé : non vérifié chez ce fournisseur » ;
 - chez Groq, Cloudflare, DeepSeek en direct et Mistral (facturés au jeton, au neurone ou sur un solde prépayé), réfléchir plus coûterait de l'argent ou du quota : on n'y touche pas, c'est « défaut du fournisseur ».
 
-| Modèle | `pro`, `code`, `claude-code` (0,2) | `flash` (1) | `flash-lite` (3) |
+| Modèle | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` (0,2) | `Auto-Flash` (1) | `Auto-Flash-Lite` (3) |
 | --- | --- | --- | --- |
 | Gemini 4 Hydrogen | `high` : `gemini-4-hydrogen` | `high` : `gemini-4-hydrogen` | `low` : `gemini-4-hydrogen-low` |
 | Gemini 3.8 Flash | `medium` : `gemini-3-8-flash` | `low` : `gemini-3-8-flash-low` | `low` : `gemini-3-8-flash-low` |
@@ -54,53 +54,53 @@ Page des limites de débit de Google AI Studio du projet de la passerelle, nivea
 
 Gemini 3.7 Flash ne figure pas du tout dans la liste de cette page.
 
-Ce que ça change, en clair : les têtes de `pro` et de `flash` n'ont que 20 requêtes par jour. Ces 20 requêtes sont partagées par toutes les entrées du même modèle : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `pro` et de `flash`. Quand les 20 sont épuisées, la cascade passe au membre suivant. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `flash-lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
+Ce que ça change, en clair : les têtes de `Auto-Pro` et de `Auto-Flash` n'ont que 20 requêtes par jour. Ces 20 requêtes sont partagées par toutes les entrées du même modèle : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `Auto-Pro` et de `Auto-Flash`. Quand les 20 sont épuisées, la cascade passe au membre suivant. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `Auto-Flash-Lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
 
 ## Les routeurs
 
 Dans chaque tableau, « Niveau » dit ce que fixe le gabarit : un niveau entre apostrophes inversées s'il en fixe un, sinon « défaut du fournisseur » ou « non fixé : non vérifié chez ce fournisseur ». « Indice » et « Délai » sont ceux du niveau où l'entrée est appelée, « (estimé) » marquant un indice tiré de l'indice de capacités d'Epoch AI faute d'indice d'Artificial Analysis. Un tiret veut dire qu'aucun chiffre ne s'applique.
 
-### `pro`
+### `Auto-Pro`
 
 Tête : `gemini-4-hydrogen`, au niveau `high`. Raisonnement long, le temps n'est pas borné.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 21,5 s | niveau gardé par `pro` : passer de `high` à `xhigh` rapporte 0,12 point par seconde, moins que les 0,2 demandés ; meilleur indice du routeur |
+| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 21,5 s | niveau gardé par `Auto-Pro` : passer de `high` à `xhigh` rapporte 0,12 point par seconde, moins que les 0,2 demandés ; meilleur indice du routeur |
 | 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 155,1 s | deuxième meilleur indice, mais 155 s en moyenne avant la première réponse, au-delà des 90 s de patience : point ouvert |
-| 3 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 14,5 s | niveau gardé par `pro` : `medium`, car `high` rapporte 0,05 point par seconde, moins que les 0,2 demandés |
+| 3 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 14,5 s | niveau gardé par `Auto-Pro` : `medium`, car `high` rapporte 0,05 point par seconde, moins que les 0,2 demandés |
 | 4 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
 | 5 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
 | 6 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
 | 7 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 27,8 | 87,3 s | indice 27,8 en 87,3 s |
-| 8 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 17,7 | 10,8 s | indice 17,7 en 10,8 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 9 | `nemotron-ultra-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | indice 11,8 en 8,0 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 10 | `nemotron-ultra-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 11 | `nemotron-ultra-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 12 | `nemotron-ultra-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
+| 8 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 17,7 | 10,8 s | indice 17,7 en 10,8 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 9 | `nemotron-ultra-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 10 | `nemotron-ultra-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 11 | `nemotron-ultra-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 12 | `nemotron-ultra-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
 | 13 | `nemotron-reasoning-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas d'indice : garde sa place historique |
 | 14 | `nemotron-reasoning-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
 | 15 | `nemotron-reasoning-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
 | 16 | `nemotron-reasoning-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
-| 17 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | indice 13,6 en 12,4 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 18 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
-| 19 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
+| 17 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 18 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 19 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
 | 20 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
 | 21 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
 | 22 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place historique |
-| 23 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `pro`, mais garde sa place du gabarit |
+| 23 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
 | 24 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 48,8 s | payant : après tous les gratuits |
 | 25 | `omniroute-free-reasoning` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
-### `flash`
+### `Auto-Flash`
 
-Tête : `gemini-4-hydrogen`, au niveau `high`, comme `pro`. L'assistant de tous les jours : le meilleur score, au prix d'une attente plus longue.
+Tête : `gemini-4-hydrogen`, au niveau `high`, comme `Auto-Pro`. L'assistant de tous les jours : le meilleur score, au prix d'une attente plus longue.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 21,5 s | niveau gardé par `flash` : `high`, car passer de `medium` à `high` rapporte 1,1 point par seconde, plus que le 1 demandé, et `xhigh` 0,12 ; même entrée que la tête de `pro` |
+| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 21,5 s | niveau gardé par `Auto-Flash` : `high`, car passer de `medium` à `high` rapporte 1,1 point par seconde, plus que le 1 demandé, et `xhigh` 0,12 ; même entrée que la tête de `Auto-Pro` |
 | 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 155,1 s | deuxième place gardée du gabarit : à 1 point par seconde il serait bien plus bas, et 155 s dépassent les 90 s de patience : point ouvert |
-| 3 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `flash` : `low`, car `medium` rapporte 0,81 point par seconde, moins que le 1 demandé |
+| 3 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `Auto-Flash` : `low`, car `medium` rapporte 0,81 point par seconde, moins que le 1 demandé |
 | 4 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
 | 5 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
 | 6 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
@@ -140,7 +140,7 @@ Tête : `gemini-4-hydrogen`, au niveau `high`, comme `pro`. L'assistant de tous 
 | 40 | `deepseek-flash-direct` | DeepSeek | prépayé | défaut du fournisseur | 28,6 | 21,1 s | payant : après tous les gratuits |
 | 41 | `omniroute-free-auto` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
-### `flash-lite`
+### `Auto-Flash-Lite`
 
 Tête : `gemini-3-5-flash-lite`. Demandes simples et courtes : le score moins 3 points par seconde d'attente, puis les membres sans indice, puis ceux qui partagent un quota.
 
@@ -169,20 +169,20 @@ Tête : `gemini-3-5-flash-lite`. Demandes simples et courtes : le score moins 3 
 | 21 | `nemotron3-nano-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
 | 22 | `qwen3-5-9b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
 | 23 | `olala-mini-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
-| 24 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `flash-lite` : `low`, car `medium` rapporte 0,81 point par seconde, moins que les 3 demandés ; score 7,3, le meilleur du routeur, mais même modèle que la deuxième place de `pro` et que `flash` : dans les derniers pour ne pas manger leurs 20 requêtes par jour |
-| 25 | `gemini-4-hydrogen-low` | Google AI Studio | à la requête, quota par modèle | `low` | 26,9 | 7,6 s | niveau gardé par `flash-lite` : `low`, car `medium` rapporte 2,6 points par seconde, moins que les 3 demandés ; score 4,0, mais même modèle que la tête de `pro` : dans les derniers pour ne pas manger ses 20 requêtes par jour |
-| 26 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur | 10,0 | 5,1 s | score -5,2, mais c'est la même entrée que celle de `flash` : même quota, donc dans les derniers |
-| 27 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié, et c'est la même entrée que celle de `flash` : même quota, donc dans les derniers |
+| 24 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 0,81 point par seconde, moins que les 3 demandés ; score 7,3, le meilleur du routeur, mais même modèle que la deuxième place de `Auto-Pro` et que `Auto-Flash` : dans les derniers pour ne pas manger leurs 20 requêtes par jour |
+| 25 | `gemini-4-hydrogen-low` | Google AI Studio | à la requête, quota par modèle | `low` | 26,9 | 7,6 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 2,6 points par seconde, moins que les 3 demandés ; score 4,0, mais même modèle que la tête de `Auto-Pro` : dans les derniers pour ne pas manger ses 20 requêtes par jour |
+| 26 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur | 10,0 | 5,1 s | score -5,2, mais c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
+| 27 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié, et c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
 | 28 | `ministral-3b` | Mistral | prépayé | défaut du fournisseur | — | 1,7 s | payant : tout à la fin, après les gratuits |
 
-### `code`
+### `Auto-Code`
 
 Tête : `gemini-4-hydrogen`, au niveau `high`. Classé par position de code (Epoch AI, plus petite = meilleure).
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Position de code | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 9 % | 21,5 s | niveau gardé par `code` (même taux que `pro`) ; meilleure position de code du routeur |
-| 2 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 17 % | 14,5 s | niveau gardé par `code` (même taux que `pro`) : `medium` |
+| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 9 % | 21,5 s | niveau gardé par `Auto-Code` (même taux que `Auto-Pro`) ; meilleure position de code du routeur |
+| 2 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 17 % | 14,5 s | niveau gardé par `Auto-Code` (même taux que `Auto-Pro`) : `medium` |
 | 3 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 27,8 | 68 % | 87,3 s | indice 27,8 en 87,3 s |
 | 4 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 14 % (estimé) | 155,1 s | place du gabarit ; 155 s en moyenne avant la première réponse, au-delà des 90 s de patience : point ouvert |
 | 5 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 28,5 | 33 % (estimé) | 37,9 s | indice 28,5 en 37,9 s |
@@ -196,7 +196,7 @@ Tête : `gemini-4-hydrogen`, au niveau `high`. Classé par position de code (Epo
 | 13 | `glm-4-7-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : non vérifié chez ce fournisseur | — | — | — | même modèle que `glm-4-7-flash-cloudflare` chez un autre fournisseur, quota à part ; niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
 | 14 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 32,0 (estimé) | 29 % (estimé) | 21,1 s | indice 32,0 en 21,1 s |
 | 15 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
-| 16 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 84 % | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `code`, mais garde sa place du gabarit |
+| 16 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 84 % | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Code`, mais garde sa place du gabarit |
 | 17 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | 21,9 (estimé) | 43 % (estimé) | — | indice 21,9, délai inconnu |
 | 18 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
 | 19 | `laguna-xs-2-1-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
@@ -205,14 +205,14 @@ Tête : `gemini-4-hydrogen`, au niveau `high`. Classé par position de code (Epo
 | 22 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits |
 | 23 | `omniroute-free-code` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
-### `claude-code`
+### `Auto-Claude-Code`
 
-Tête : `gemini-4-hydrogen`, au niveau `high`. La cascade de `code` sans les membres qui ne prennent pas les appels d'outils, dans le même ordre.
+Tête : `gemini-4-hydrogen`, au niveau `high`. La cascade de `Auto-Code` sans les membres qui ne prennent pas les appels d'outils, dans le même ordre.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Position de code | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 9 % | 21,5 s | niveau gardé (même taux que `pro`) ; meilleure position de code, appelle les outils |
-| 2 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 17 % | 14,5 s | niveau gardé (même taux que `pro`) : `medium` |
+| 1 | `gemini-4-hydrogen` | Google AI Studio | à la requête, quota par modèle | `high` | 50,8 | 9 % | 21,5 s | niveau gardé (même taux que `Auto-Pro`) ; meilleure position de code, appelle les outils |
+| 2 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `medium` | 30,1 | 17 % | 14,5 s | niveau gardé (même taux que `Auto-Pro`) : `medium` |
 | 3 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 27,8 | 68 % | 87,3 s | indice 27,8 en 87,3 s |
 | 4 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 46,5 | 14 % (estimé) | 155,1 s | place du gabarit ; 155 s en moyenne avant la première réponse, au-delà des 90 s de patience : point ouvert |
 | 5 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | 28,5 | 33 % (estimé) | 37,9 s | indice 28,5 en 37,9 s |
@@ -234,11 +234,11 @@ Aucune cascade, aucun alias : on les appelle par leur nom, et elles n'ont pas de
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen-xhigh` | Google AI Studio | à la requête, quota par modèle | `xhigh` | 53,9 | 47,4 s | niveau le plus haut de Gemini 4 Hydrogen : 3,1 points de plus que `high` pour 25,9 s de plus, soit 0,12 point par seconde, sous ce que demande n'importe quel routeur ; délai médian de 76 s, d'où une patience de 180 s au lieu de 90 s, et un repli sur `gemini-4-hydrogen` ; dépense les mêmes 20 requêtes par jour que la tête de `pro` et de `flash` |
+| 1 | `gemini-4-hydrogen-xhigh` | Google AI Studio | à la requête, quota par modèle | `xhigh` | 53,9 | 47,4 s | niveau le plus haut de Gemini 4 Hydrogen : 3,1 points de plus que `high` pour 25,9 s de plus, soit 0,12 point par seconde, sous ce que demande n'importe quel routeur ; délai médian de 76 s, d'où une patience de 180 s au lieu de 90 s, et un repli sur `gemini-4-hydrogen` ; dépense les mêmes 20 requêtes par jour que la tête de `Auto-Pro` et de `Auto-Flash` |
 
 ## Ce qui a été regardé et n'a pas été créé
 
-Aucune de ces montées de niveau n'atteint les 0,2 point par seconde que `pro` demande, et aucune n'est dans une cascade.
+Aucune de ces montées de niveau n'atteint les 0,2 point par seconde que `Auto-Pro` demande, et aucune n'est dans une cascade.
 
 | Candidat | Gain | Attente en plus | Points par seconde | Pourquoi pas |
 | --- | --- | --- | --- | --- |
@@ -246,16 +246,16 @@ Aucune de ces montées de niveau n'atteint les 0,2 point par seconde que `pro` d
 | Mistral Large 4 au niveau `high` | +3,0 points | +22,4 s | 0,13 | niveau non vérifié chez NVIDIA, où il est servi |
 | Qwen3.8 27B au niveau `xhigh` | +2,6 points | +109,7 s | 0,02 | 135 s en moyenne avant la réponse, au-delà des 90 s de patience |
 | Gemini 3.8 Flash au niveau `high` | +0,7 point | +13,6 s | 0,05 | le gain ne vaut pas l'attente |
-| DeepSeek V4.1 Flash sans réflexion | 18,5 points en 1,0 s, soit un score de 15,4 | — | — | meilleur score de `flash-lite` sur le papier, mais on n'a pas vérifié qu'OVHcloud sait couper la réflexion, et ses 2 requêtes par minute le rendent mauvais en tête |
+| DeepSeek V4.1 Flash sans réflexion | 18,5 points en 1,0 s, soit un score de 15,4 | — | — | meilleur score de `Auto-Flash-Lite` sur le papier, mais on n'a pas vérifié qu'OVHcloud sait couper la réflexion, et ses 2 requêtes par minute le rendent mauvais en tête |
 
 ## Les points ouverts
 
-1. **`kimi-k3-1-pro-nvidia` dans `pro` et `flash`.** Son indice (46,5) est le deuxième de `pro`, mais il met 155 s en moyenne avant son premier mot, au-delà des 90 s de patience du routeur (médiane de 71 s). L'ordre des contrats, au niveau gardé, le mettrait en tête de `flash` ; il n'a pas été appliqué. Il garde la deuxième place du gabarit dans `pro` et dans `flash`, et la décision est à prendre : le descendre, ou le garder.
-2. **Les niveaux fixés ne sont que des valeurs par défaut.** Tout client qui envoie son propre niveau l'emporte, et Claude Code en envoie toujours un : `claude-code` ne tient donc pas le niveau que garde son contrat.
+1. **`kimi-k3-1-pro-nvidia` dans `Auto-Pro` et `Auto-Flash`.** Son indice (46,5) est le deuxième de `Auto-Pro`, mais il met 155 s en moyenne avant son premier mot, au-delà des 90 s de patience du routeur (médiane de 71 s). L'ordre des contrats, au niveau gardé, le mettrait en tête de `Auto-Flash` ; il n'a pas été appliqué. Il garde la deuxième place du gabarit dans `Auto-Pro` et dans `Auto-Flash`, et la décision est à prendre : le descendre, ou le garder.
+2. **Les niveaux fixés ne sont que des valeurs par défaut.** Tout client qui envoie son propre niveau l'emporte, et Claude Code en envoie toujours un : `Auto-Claude-Code` ne tient donc pas le niveau que garde son contrat.
 3. **Chez OpenRouter, NVIDIA, OVHcloud, Kilo et Requesty, rien n'est fixé** tant qu'on n'a pas vérifié que le fournisseur tient compte du niveau que LiteLLM lui envoie. Tant que ce n'est pas fait, le niveau gardé par le contrat y reste un simple rapport.
-4. **Les 20 requêtes par jour de Hydrogen et de 3.8 Flash.** Les têtes de `pro` et de `flash` s'épuisent vite, `gemini-4-hydrogen-xhigh` dépense les mêmes : la cascade passe alors au membre suivant.
-5. **Dans `flash-lite`, les membres sans chiffres passent avant `gemini-3-8-flash-low`**, parce que la règle veut que les membres à quota partagé viennent après tous ceux qui ont un quota à eux, même ceux dont les chiffres ne s'appliquent pas. À revoir si on préfère que Gemini 3.8 Flash, à 5,1 s, passe devant des modèles de 34 s ou sans chiffre.
-6. **Le payant `ministral-3b` reste le dernier** de `flash-lite`, comme tous les payants du gabarit : le contrat le déclare en dernier recours.
+4. **Les 20 requêtes par jour de Hydrogen et de 3.8 Flash.** Les têtes de `Auto-Pro` et de `Auto-Flash` s'épuisent vite, `gemini-4-hydrogen-xhigh` dépense les mêmes : la cascade passe alors au membre suivant.
+5. **Dans `Auto-Flash-Lite`, les membres sans chiffres passent avant `gemini-3-8-flash-low`**, parce que la règle veut que les membres à quota partagé viennent après tous ceux qui ont un quota à eux, même ceux dont les chiffres ne s'appliquent pas. À revoir si on préfère que Gemini 3.8 Flash, à 5,1 s, passe devant des modèles de 34 s ou sans chiffre.
+6. **Le payant `ministral-3b` reste le dernier** de `Auto-Flash-Lite`, comme tous les payants du gabarit : le contrat le déclare en dernier recours.
 
 ## Tenir ce document à jour
 

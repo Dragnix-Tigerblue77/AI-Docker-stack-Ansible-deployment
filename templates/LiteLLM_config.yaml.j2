@@ -32,15 +32,15 @@
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
 # by the way the names are built (the proxy accepts a name only if it is a model_list entry or an alias, so a
 # router that exists as a cascade alone would be refused). A router is left out when no model of its cascade
-# has a key or needs none, which "claude-code" and the two audio routers can come to. "check_compose_template.py" renders every
+# has a key or needs none, which "Auto-Claude-Code" and the two audio routers can come to. "check_compose_template.py" renders every
 # non-empty set of keys and holds each alias to the first member of its cascade. Kilo's members sit ahead of
-# the paid providers in "pro", "flash" and "flash-lite", and OmniRoute's behind them, so none of those ever
-# heads one of the three, and Kilo heads "flash-lite" when neither Gemini nor OpenRouter has a key: the table
-# below stops at Kilo. OVHcloud's sit behind every other free member of "pro",
-# "flash", "flash-lite" and "code", ahead of the paid ones, so they head "code" when no keyed free provider
-# does. Requesty's members sit right ahead of Kilo's in "flash", so Requesty heads it when no earlier
+# the paid providers in "Auto-Pro", "Auto-Flash" and "Auto-Flash-Lite", and OmniRoute's behind them, so none of those ever
+# heads one of the three, and Kilo heads "Auto-Flash-Lite" when neither Gemini nor OpenRouter has a key: the table
+# below stops at Kilo. OVHcloud's sit behind every other free member of "Auto-Pro",
+# "Auto-Flash", "Auto-Flash-Lite" and "Auto-Code", ahead of the paid ones, so they head "Auto-Code" when no keyed free provider
+# does. Requesty's members sit right ahead of Kilo's in "Auto-Flash", so Requesty heads it when no earlier
 # provider has a key.
-# Cent AI's sit behind Kilo's in "pro" and "flash", and among the last of "flash-lite", and in no other
+# Cent AI's sit behind Kilo's in "Auto-Pro" and "Auto-Flash", and among the last of "Auto-Flash-Lite", and in no other
 # router, so it heads none.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
@@ -51,19 +51,13 @@
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
   'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
 } %}
-# Every name below stands for a router and has, under its own name, the router's cascade (#300): LiteLLM
-# looks for fallbacks under the name that was ASKED for, so a request made under an alias that has no
-# cascade of its own would not fall back at all. There is no alias for the names the Claude Code CLI sends
-# by default: a CLI that should use one of these routers is told its name through its own model variables.
-{% set aliases_of = {
-  'pro': ['auto-pro'],
-  'flash': ['auto', 'auto-flash', 'auto-fast'],
-  'flash-lite': ['auto-flash-lite'],
-  'code': ['auto-code'],
-  'claude-code': [],
-  'stt': [],
-  'tts': ['auto-tts']
-} %}
+# A router is published under one name only, the one a client types: "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite",
+# "Auto-Code", "Auto-Claude-Code", "Auto-STT" and "Auto-TTS". It has, under that name, the router's cascade:
+# LiteLLM looks for fallbacks under the name that was ASKED for, so a name that is an alias and has no cascade
+# of its own would not fall back at all. The name of this file's own variable ("head") is the
+# short one the checks and the routing document use, and the checks translate between the two. There is no
+# alias for the names the Claude Code CLI sends by default: a CLI that should use one of these routers is told
+# its name through its own model variables.
 # Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
 # transcription, "TTS" for speech and "Embeddings" for vectors. A virtual key limited to a group in "/ui" reaches
 # the entries of that type, and the routers with them, since a router is an alias of its head and LiteLLM lets a
@@ -88,8 +82,8 @@ model_list:
   # available "on both the free and paid tiers" "across both GenerateContent and the Interactions
   # API": the call LiteLLM's "gemini/" provider makes. Artificial Analysis's ranking, read 2026-11-21 and matched by its id ("Gemini 4 Hydrogen
   # (Xhigh)", to be checked), gives it an intelligence index of 53.9 and 164.0 tokens per second:
-  # ahead of "gemini-3-8-flash" (30.8) in "pro", "flash", "code" and "claude-code", and ahead of
-  # "gpt-oss-20b-groq" (109.8 tokens per second) in "flash-lite". It heads "code" too: Epoch AI's coding
+  # ahead of "gemini-3-8-flash" (30.8) in "Auto-Pro", "Auto-Flash", "Auto-Code" and "Auto-Claude-Code", and ahead of
+  # "gpt-oss-20b-groq" (109.8 tokens per second) in "Auto-Flash-Lite". It heads "Auto-Code" too: Epoch AI's coding
   # benchmarks measure it (CursorBench and ALE-Bench, read 2026-11-21) and put it ahead of
   # "gemini-3-8-flash" on the one they share, and where a model has no coding figure its intelligence
   # index stands in. The free tier's limits are counted per project and per model, not per key
@@ -98,12 +92,12 @@ model_list:
   #
   # The entries of this model, and "gemini-3-8-flash" and "gemini-3-8-flash-low" below, set a static
   # "reasoning_effort", which LiteLLM sends to Google as the thinking level. One entry per level a router
-  # keeps, named "<entry>-<level>", the unsuffixed name carrying the level "pro", "code" and "claude-code"
-  # keep: High here, which "flash" keeps too, since High buys 9.6 points over Medium for 8.4 s, 1.1 a second,
+  # keeps, named "<entry>-<level>", the unsuffixed name carrying the level "Auto-Pro", "Auto-Code" and "Auto-Claude-Code"
+  # keep: High here, which "Auto-Flash" keeps too, since High buys 9.6 points over Medium for 8.4 s, 1.1 a second,
   # above the 1 it asks (Artificial Analysis, read 2026-11-21). A static level is only a DEFAULT, a client that sends an effort replaces
   # it, and Claude Code always sends one, so it steers LibreChat and n8n and not the Claude Code agent. The
-  # entries of one model draw on the same quota, which is why "flash-lite", whose members should not spend
-  # the quota "pro" and "flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
+  # entries of one model draw on the same quota, which is why "Auto-Flash-Lite", whose members should not spend
+  # the quota "Auto-Pro" and "Auto-Flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
   - model_name: gemini-4-hydrogen
     model_info:
       access_groups: ["LLM"]
@@ -112,7 +106,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
       reasoning_effort: high
 
-  # The level "flash-lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
+  # The level "Auto-Flash-Lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
   # lowest level Hydrogen has (it cannot be turned off).
   - model_name: gemini-4-hydrogen-low
     model_info:
@@ -149,7 +143,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
       reasoning_effort: medium
 
-  # The level "flash" and "flash-lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
+  # The level "Auto-Flash" and "Auto-Flash-Lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
   # the 1 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
   - model_name: gemini-3-8-flash-low
     model_info:
@@ -320,7 +314,7 @@ model_list:
       mode: embedding
       access_groups: ["Embeddings"]
 
-  # Text to speech, for the "tts" router and for it alone (its cascade says why these two and in this
+  # Text to speech, for the "Auto-TTS" router and for it alone (its cascade says why these two and in this
   # order). Added 2026-11-22. The speech page of the Gemini API documentation, read that day, lists
   # French as supported by both models and offers 30 prebuilt voices; "ai.google.dev/gemini-api/docs/
   # deprecations", read the same day, shuts down the three older preview speech models no earlier than
@@ -357,14 +351,14 @@ model_list:
   # drift-ignore: gemini/gemini-4-neon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Neon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $3.00 in / $15.00 out per million tokens
   # drift-ignore: gemini/gemini-omni-1.2-flash -- a video generation and editing model, not a chat model: "ai.google.dev/gemini-api/docs/models/gemini-omni-flash" (read 2026-11-21) calls it a model "for fast, conversational video generation and editing", with "Video with native Audio, Text" as its output and edits made through the Interactions API, and it is paid only, "Not available" in the Free Tier column of "ai.google.dev/gemini-api/docs/pricing" and "Not supported" for the Free tier on "ai.google.dev/gemini-api/docs/rate-limits"
 
-  # Speech to text, the third slot of the "stt" cascade, routed on the maintainer's authorisation of
+  # Speech to text, the third slot of the "Auto-STT" cascade, routed on the maintainer's authorisation of
   # 2026-11-22, with its cost to data kept in view. The "Gemini Transcribe" row of
   # "ai.google.dev/gemini-api/docs/pricing", read 2026-11-22, gives "Free of charge" in its Free Tier
   # column, and says that on the free tier the content is used to improve Google's products ("Not used"
   # on the paid one). "ai.google.dev/gemini-api/terms", the same day, says "Do not submit sensitive,
   # confidential, or personal information to the Unpaid Services" and that human reviewers may read what
   # an unpaid call sends and returns. A recorded call carries the voices of people who agreed to nothing,
-  # so a caller who cannot accept that does not give a Gemini key to a gateway that serves "stt". Its
+  # so a caller who cannot accept that does not give a Gemini key to a gateway that serves "Auto-STT". Its
   # free-tier request limits are shown in AI Studio only, and none is stated here.
   - model_name: gemini-3-5-transcribe
     litellm_params:
@@ -457,7 +451,7 @@ model_list:
       mode: embedding
       access_groups: ["Embeddings"]
 
-  # Speech to text, the last slot of the "stt" cascade: the one paid member of it, as everything of this
+  # Speech to text, the last slot of the "Auto-STT" cascade: the one paid member of it, as everything of this
   # section is. "docs.mistral.ai" lists French among the languages its Voxtral transcription supports
   # (read 2026-11-22). Its price per minute and any free tier were not found on Mistral's own pages that
   # day, so none is stated; its API data policy was not found either.
@@ -540,7 +534,7 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
 
-  # Speech to text, the first two slots of the "stt" cascade. "console.groq.com/docs/speech-to-text"
+  # Speech to text, the first two slots of the "Auto-STT" cascade. "console.groq.com/docs/speech-to-text"
   # ("Speech to Text"), read 2026-11-22, lists "whisper-large-v3" at $0.111 per hour and
   # "whisper-large-v3-turbo" at $0.04 per hour, both through the OpenAI-compatible route LiteLLM's "groq/"
   # provider calls, with a word error rate of 10.3 % and 12 % and a file limit of 25 MB on the free tier
@@ -673,10 +667,10 @@ model_list:
   # Added 2026-11-02 (#305). "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0),
   # with a 1,000,000-token context, text, image and video in and text out, and "tools" and
   # "tool_choice" among its supported parameters. Artificial Analysis's intelligence index gives it 13.6
-  # (read 2026-11-02, matched by its id, to be checked), under every ranked member of "pro" and
-  # "flash": it sits at the end of the free entries of those two cascades and in no other. "code" ranks by
-  # coding benchmarks and the index has none for it (null); "claude-code" holds no OpenRouter entry; and
-  # nothing shows it meets the sub-300 ms profile of "flash-lite".
+  # (read 2026-11-02, matched by its id, to be checked), under every ranked member of "Auto-Pro" and
+  # "Auto-Flash": it sits at the end of the free entries of those two cascades and in no other. "Auto-Code" ranks by
+  # coding benchmarks and the index has none for it (null); "Auto-Claude-Code" holds no OpenRouter entry; and
+  # nothing shows it meets the sub-300 ms profile of "Auto-Flash-Lite".
   - model_name: nemotron-super-vl-free
     model_info:
       access_groups: ["LLM"]
@@ -717,9 +711,9 @@ model_list:
   # day, for the newer snapshot it recommends; the launch post does not say which one Particle started
   # from). The estimate is that 33, less whatever its shorter reasoning costs on the index's harder tests,
   # which nothing measures. It only has to beat the 13.6 of "nemotron-super-vl-free" for the placement
-  # below to hold, so it sits ahead of it in "flash" and nowhere else: not in "pro", because its adapter
-  # exists to shorten reasoning, the one thing the estimate does not cover; not in "code" or
-  # "claude-code", which rank by coding leaderboards and have only Particle's own Terminal-Bench and
+  # below to hold, so it sits ahead of it in "Auto-Flash" and nowhere else: not in "Auto-Pro", because its adapter
+  # exists to shorten reasoning, the one thing the estimate does not cover; not in "Auto-Code" or
+  # "Auto-Claude-Code", which rank by coding leaderboards and have only Particle's own Terminal-Bench and
   # DeepSWE figures to go on. Neither its page nor OpenRouter's says how long the free access lasts or
   # whether prompts are retained. Tried by hand on 2026-11-21, nine requests: all but one answered (the
   # other was refused with a 429 by the shared upstream), the first answer token came in about 0.5 s, and
@@ -734,7 +728,7 @@ model_list:
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
   # 1,024,000-token context, "tools" and "tool_choice" among its supported parameters and no
   # "expiration_date". Neither Artificial Analysis nor Epoch AI lists it, so it has no figure to be
-  # placed by: it sits right behind "particle-1-free" in "flash" and nowhere else. It is a preview
+  # placed by: it sits right behind "particle-1-free" in "Auto-Flash" and nowhere else. It is a preview
   # checkpoint, free "for as long as the preview lasts" with no end date (Baidu's own "Introducing
   # ERNIE 5.5 Flash Preview"), served by Baidu's platform. Tried by hand the same day, nine requests:
   # all but one answered (the other was refused with a 429 by the shared upstream), the first answer
@@ -751,7 +745,7 @@ model_list:
   # outputs may be retained and used to train Liquid models. Artificial Analysis measures it at 6.0 on
   # its intelligence index, with 230 tokens/s but 13.8 s to the first answer token for a model that
   # always reasons ("artificialanalysis.ai/models/lfm3-1-7b", read that day), and Liquid's own model card
-  # says it is not for agentic coding or complex multi-step reasoning. It is therefore in "flash-lite"
+  # says it is not for agentic coding or complex multi-step reasoning. It is therefore in "Auto-Flash-Lite"
   # only, as the last of its OpenRouter members: a hair under the Gemini 3.1 Flash-Lite that heads that
   # cascade (6.2), and the slowest to answer in it.
   - model_name: lfm-3-1-7b-free
@@ -802,7 +796,7 @@ model_list:
   # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
   # past the gateway's limit on a hard question.
   # ============================================================================
-  # Second source of "gpt-oss-120b-groq", right behind it in "flash": the same weights through an allowance
+  # Second source of "gpt-oss-120b-groq", right behind it in "Auto-Flash": the same weights through an allowance
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
   # (read 2026-11-22), with reasoning at "medium" by default as on Groq. Free status unconfirmed.
   - model_name: gpt-oss-120b-cloudflare
@@ -812,7 +806,7 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Second source of "gpt-oss-20b-groq", right behind it in "flash-lite", for the same reason. 128,000 tokens
+  # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
   - model_name: gpt-oss-20b-cloudflare
     model_info:
@@ -821,7 +815,7 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Third source of Gemma 4 26B in "flash-lite", right behind the two others ("gemma-4-26b-gemini", then
+  # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
   # 2026-11-22). Free status unconfirmed.
   - model_name: gemma-4-26b-cloudflare
@@ -831,11 +825,11 @@ model_list:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # New to the gateway, and in "flash-lite" only, as the last of its free members: 24,000 tokens of context
-  # in LiteLLM's model map and on its page (read 2026-11-22), which is what "flash-lite" takes, and no
+  # New to the gateway, and in "Auto-Flash-Lite" only, as the last of its free members: 24,000 tokens of context
+  # in LiteLLM's model map and on its page (read 2026-11-22), which is what "Auto-Flash-Lite" takes, and no
   # reasoning phase to wait for. Epoch AI's capabilities index puts it at 126.2 (read 2026-11-21), under every
   # member of that cascade that it measures, hence the place. Its context is far under the 128,000 tokens
-  # "claude-code" asks, so "code" has no place for it either. Free status unconfirmed.
+  # "Auto-Claude-Code" asks, so "Auto-Code" has no place for it either. Free status unconfirmed.
   - model_name: llama-3-3-70b-cloudflare
     model_info:
       access_groups: ["LLM"]
@@ -843,7 +837,7 @@ model_list:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # New to the gateway, and in "Auto-Code" and "Auto-Claude-Code" only, as the last of their free members, ahead of
   # the paid ones: 131,072 tokens and function calling in LiteLLM's model map and on its page (read
   # 2026-11-22), which describes it as made for "multi-turn tool calling". Neither Artificial Analysis's
   # index nor Epoch AI's capabilities index nor its coding benchmarks measure it (read 2026-11-21), so
@@ -879,7 +873,7 @@ model_list:
   # Artificial Analysis nor Epoch AI measures it (read 2026-11-21). GLM-4.6V-Flash: a vision model, absent
   # from LiteLLM's model map, and no page read gives its context or its tools.
   # ============================================================================
-  # New to the gateway, and in "code" and "claude-code" only, as the last of their free members, ahead of
+  # New to the gateway, and in "Auto-Code" and "Auto-Claude-Code" only, as the last of their free members, ahead of
   # the paid ones: 200,000 tokens of context, function calling and tool choice in LiteLLM's model map
   # (read 2026-11-22, zero price), the 200K context of its page "GLM-4.7" of docs.z.ai, which lists function
   # calling for the family and not per model. Neither Artificial Analysis's index nor Epoch AI's
@@ -1000,12 +994,12 @@ model_list:
   # model for coding and agentic workflows", free, with a 1,048,576-token context and "tools" and "tool_choice"
   # among its supported parameters. Artificial Analysis gives "Beam 1.0" an intelligence index of 17.7 and 10.8 s
   # to the first answer token (matched by its name, to be checked, read 2026-11-21), and Epoch AI's capabilities
-  # index gives it 150.84 (same day): over the floor of "flash", under that of "pro", where the Nemotron
+  # index gives it 150.84 (same day): over the floor of "Auto-Flash", under that of "Auto-Pro", where the Nemotron
   # entries are under it too, and ahead of each of them on both figures. It therefore leads the free entries of
-  # "pro" and sits in "flash" ahead of "nemotron-super-vl-free", behind "particle-1-free" and
-  # "ernie-5-5-flash-free", which were placed there first. It is not in "flash-lite", whose point is speed and
-  # which 10.8 s does not serve, nor in "code" and "claude-code": Epoch AI scores it on one of the five
-  # benchmarks "code" is ranked on, too few to place it, and "claude-code" holds keyed providers only.
+  # "Auto-Pro" and sits in "Auto-Flash" ahead of "nemotron-super-vl-free", behind "particle-1-free" and
+  # "ernie-5-5-flash-free", which were placed there first. It is not in "Auto-Flash-Lite", whose point is speed and
+  # which 10.8 s does not serve, nor in "Auto-Code" and "Auto-Claude-Code": Epoch AI scores it on one of the five
+  # benchmarks "Auto-Code" is ranked on, too few to place it, and "Auto-Claude-Code" holds keyed providers only.
   - model_name: beam-kilo
     model_info:
       access_groups: ["LLM"]
@@ -1017,7 +1011,7 @@ model_list:
         Authorization: ""
 
   # Added 2026-11-22, with no figure to place it by: neither Artificial Analysis nor Epoch AI lists it (read
-  # 2026-11-21), so it sits at the end of the free entries of "flash" and in no other cascade. The catalogue
+  # 2026-11-21), so it sits at the end of the free entries of "Auto-Flash" and in no other cascade. The catalogue
   # says it is "an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out
   # of 40B total", built "for coding agents", and lists a 262,144-token context and "tools" among its
   # supported parameters, "tool_choice" not. It is the ":free" id that the catalogue flags free: the id
@@ -1304,15 +1298,15 @@ model_list:
   # takes those on.
   #
   # Placed by the same figures as the other entries: Artificial Analysis's index (read 2026-11-21) and, for
-  # "code" and "claude-code", Epoch AI's coding benchmarks where it has them. The Nemotron and Gemma entries are
+  # "Auto-Code" and "Auto-Claude-Code", Epoch AI's coding benchmarks where it has them. The Nemotron and Gemma entries are
   # further sources of models reached through another key, each right behind its twin. The same day's list also
   # holds models that are not routed: a vision model, a quantum calibration model and a translation model
   # whose cards list no function calling, and, judging by their names, safety and privacy filters, retrieval
   # and embedding models, a CLIP model, a video detector and a code completion model.
   # ============================================================================
   # Released on the catalogue 2026-11-04, with a 1,048,576-token context. Artificial Analysis's index gives it
-  # 46.5, second only to Gemini 4 Hydrogen among the members of "pro", and Epoch AI's ALE-Bench puts it first of
-  # the members of "code" that it scores. Its mean time to the first answer token on Artificial Analysis's probes
+  # 46.5, second only to Gemini 4 Hydrogen among the members of "Auto-Pro", and Epoch AI's ALE-Bench puts it first of
+  # the members of "Auto-Code" that it scores. Its mean time to the first answer token on Artificial Analysis's probes
   # is 155 s, longer than the "stream_timeout" below: at the effort those probes used, the router may give it up
   # before it answers.
   - model_name: kimi-k3-1-pro-nvidia
@@ -1364,9 +1358,9 @@ model_list:
       model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
-  # A 65,536-token context, under what "claude-code" requires, and the one record Artificial Analysis has is for a
+  # A 65,536-token context, under what "Auto-Claude-Code" requires, and the one record Artificial Analysis has is for a
   # 4GB build, with neither an index nor a timing: no figure places it, so it closes the free members of
-  # "flash-lite" and is in no other router.
+  # "Auto-Flash-Lite" and is in no other router.
   - model_name: nemotron-bolt-e4b-nvidia
     model_info:
       access_groups: ["LLM"]
@@ -1404,7 +1398,7 @@ model_list:
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # Poolside's model for agentic coding, with a 262,144-token context. Neither Artificial Analysis nor Epoch AI
-  # lists it (read 2026-11-21), so no figure places it: it closes the free members of "code" and "claude-code",
+  # lists it (read 2026-11-21), so no figure places it: it closes the free members of "Auto-Code" and "Auto-Claude-Code",
   # the two routers its purpose fits, and is in no other.
   - model_name: laguna-xs-2-1-nvidia
     model_info:
@@ -1413,7 +1407,7 @@ model_list:
       model: nvidia_nim/poolside/laguna-xs-2.1
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
-  # A 131,072-token context, the least that still meets the 128k "claude-code" asks for. Index 6.3 at the high
+  # A 131,072-token context, the least that still meets the 128k "Auto-Claude-Code" asks for. Index 6.3 at the high
   # level of its one Artificial Analysis record, low enough to sit behind the other NVIDIA entries that have a
   # figure.
   - model_name: muse-glimmer-nvidia
@@ -1432,7 +1426,7 @@ model_list:
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
 
   # Served by the endpoint, but no model card was found at the address the catalogue's pattern gives: its tool
-  # support and its context are unknown. In "flash-lite" only, where Artificial Analysis's timing (3.1 s to the
+  # support and its context are unknown. In "Auto-Flash-Lite" only, where Artificial Analysis's timing (3.1 s to the
   # first answer token) places it; that router has no floor.
   - model_name: gemma-3-12b-nvidia
     model_info:
@@ -1474,7 +1468,7 @@ model_list:
   # Tencent's Hy4 Flash, as far as its name says. No Artificial Analysis record carries that name (its one
   # Tencent record, "Tencent Hy4", is the model Tencent lists beside this one, not this one), and neither the
   # capabilities index nor a code benchmark of Epoch AI holds it (both read 2026-11-21), so no figure places it:
-  # it closes the free members of "pro", "flash" and "flash-lite", behind those that have a figure or a twin
+  # it closes the free members of "Auto-Pro", "Auto-Flash" and "Auto-Flash-Lite", behind those that have a figure or a twin
   # and ahead of OVHcloud's, and is in no other router, its tool calls being untried. It REASONS before it answers, so no "max_tokens" is set on it
   # and a caller must not cap it low: with 20 the answer was cut, with a finish reason of "length".
   - model_name: hy4-flash-cent-ai
@@ -1544,21 +1538,21 @@ router_settings:
   # land here.
   fallbacks:
     # Ordering rule inside every cascade below: rank by capability first, most capable to least --
-    # general-intelligence leaderboards (LMArena, Artificial Analysis) for "pro"/"flash"/"flash-lite",
-    # coding-specific leaderboards (SWE-bench Pro, Aider polyglot, LiveCodeBench) for "code" and
-    # "claude-code" -- with speed only a secondary tie-breaker and cost barely entering the comparison
+    # general-intelligence leaderboards (LMArena, Artificial Analysis) for "Auto-Pro"/"Auto-Flash"/"Auto-Flash-Lite",
+    # coding-specific leaderboards (SWE-bench Pro, Aider polyglot, LiveCodeBench) for "Auto-Code" and
+    # "Auto-Claude-Code" -- with speed only a secondary tie-breaker and cost barely entering the comparison
     # at all, since almost every entry here is free. A model's ELIGIBILITY for a cascade is a separate
     # question from its rank inside it: it must first fit that cascade's own latency/purpose profile
-    # (flash-lite is for simple, short asks, pro is for unbounded reasoning, claude-code
+    # (Auto-Flash-Lite is for simple, short asks, Auto-Pro is for unbounded reasoning, Auto-Claude-Code
     # additionally requires confirmed structured tool/function-calling support) before its capability
-    # earns it a slot there -- a slow-but-brilliant "pro" model never belongs in flash-lite no matter
+    # earns it a slot there -- a slow-but-brilliant model that "Auto-Pro" would take never belongs in "Auto-Flash-Lite" no matter
     # how far ahead it would rank there on intelligence alone.
     #
     # "gemini-3-8-flash" is the clearest case of the rule in practice: per Artificial Analysis'
     # Intelligence Index (measured 2026-09-13) it sat marginally ahead of Gemini 3.1 Pro despite the
-    # "flash" name, so it ranks in the pro cascade below, not just the flash one -- and Gemini 3.1 Pro
+    # "flash" name, so it ranks in the "Auto-Pro" cascade below, not just the "Auto-Flash" one -- and Gemini 3.1 Pro
     # has since left that cascade altogether, having no free tier (see its model_list comment). Inside
-    # "code", the ranking criterion switches to coding benchmarks specifically, which is what put
+    # "Auto-Code", the ranking criterion switches to coding benchmarks specifically, which is what put
     # OpenRouter's free GLM 5.2 (SWE-bench Pro 62.1%) at the head of that cascade until its ":free"
     # tier was dropped (#111). Its name stayed there after #111 commented the entry out, pointing at a
     # group that no longer existed; "check_LiteLLM_account_isolation.py" now refuses a fallback to an
@@ -1576,7 +1570,7 @@ router_settings:
     # reason given with it. "hy4-flash-cent-ai", which no figure places, closes the free members, behind Kilo's
     # and ahead of OVHcloud's three heaviest entries, which close the free ones, ahead of the paid ones.
 {% if head['pro'] %}
-    - pro: &pro_cascade
+    - Auto-Pro:
 {% if has.Gemini %}
         - gemini-4-hydrogen
 {% endif %}
@@ -1632,9 +1626,6 @@ router_settings:
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-reasoning
-{% for alias in aliases_of['pro'] %}
-    - {{ alias }}: *pro_cascade
-{% endfor %}
 {% endif %}
 
     # 2. FLASH -- balanced daily driver.
@@ -1655,7 +1646,7 @@ router_settings:
     # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
     # allowance of its own.
 {% if head['flash'] %}
-    - flash: &flash_cascade
+    - Auto-Flash:
 {% if has.Gemini %}
         - gemini-4-hydrogen
 {% endif %}
@@ -1737,9 +1728,6 @@ router_settings:
         - deepseek-flash-direct
 {% endif %}
         - omniroute-free-auto
-{% for alias in aliases_of['flash'] %}
-    - {{ alias }}: *flash_cascade
-{% endfor %}
 {% endif %}
 
     # 3. FLASH-LITE -- simple, short asks: the time to the first answer token is its measure, and between
@@ -1747,9 +1735,9 @@ router_settings:
     # index less 3 points for each second of that time (Artificial Analysis, read 2026-11-21), the members
     # with a time and no index follow by shortest time, those with no time and the ones the figures do not
     # place (a level nobody verified, no record) follow in their old order, and the entries that draw on the
-    # quota of a member of "pro" or "flash" come last, so as not to eat it: "gemini-3-8-flash-low" and
+    # quota of a member of "Auto-Pro" or "Auto-Flash" come last, so as not to eat it: "gemini-3-8-flash-low" and
     # "gemini-4-hydrogen-low" are the same Google models as those routers' heads, with 20 requests a day each
-    # against 500 for a Flash-Lite, and "qwen3-8-27b-groq" and "hy4-flash-cent-ai" are the entries of "flash" itself. The paid
+    # against 500 for a Flash-Lite, and "qwen3-8-27b-groq" and "hy4-flash-cent-ai" are the entries of "Auto-Flash" itself. The paid
     # "ministral-3b" closes the cascade. Where a twin exists, the OpenRouter entry stands ahead of the
     # entries of Requesty, of NVIDIA and of Kilo, in that order, and the Cloudflare twins
     # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") sit right behind the last slot of theirs. NVIDIA's two
@@ -1758,7 +1746,7 @@ router_settings:
     # which no index of Artificial Analysis measures, is placed by its time. OVHcloud's entries close them.
     # "ROUTAGE.md" gives each member's figures and the reason of its place.
 {% if head['flash-lite'] %}
-    - flash-lite: &flash_lite_cascade
+    - Auto-Flash-Lite:
 {% if has.Gemini %}
         - gemini-3-5-flash-lite
         - gemini-3-1-flash-lite
@@ -1825,9 +1813,6 @@ router_settings:
 {% if has.Mistral %}
         - ministral-3b
 {% endif %}
-{% for alias in aliases_of['flash-lite'] %}
-    - {{ alias }}: *flash_lite_cascade
-{% endfor %}
 {% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
@@ -1844,7 +1829,7 @@ router_settings:
     # of the paid ones: none of the figures this ranking reads measures them. OVHcloud's entries follow, heaviest
     # first and with Laguna last, ahead of the paid ones.
 {% if head['code'] %}
-    - code: &code_cascade
+    - Auto-Code:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
@@ -1888,12 +1873,9 @@ router_settings:
         - deepseek-v4-pro-direct
 {% endif %}
         - omniroute-free-code
-{% for alias in aliases_of['code'] %}
-    - {{ alias }}: *code_cascade
-{% endfor %}
 {% endif %}
 
-    # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). It is the "code"
+    # 5. CLAUDE-CODE -- 100% agentic CLI (strict tool/function calling, 128k+ context). It is the "Auto-Code"
     # cascade, member for member and in the same order, without the members that cannot meet that:
     # "omniroute-free-code" routes to whichever free model OmniRoute picks, and OmniRoute's own reference
     # says a free provider may emulate tool calls from the prompt or drop them, so nothing guarantees
@@ -1904,7 +1886,7 @@ router_settings:
     # Claude Code agent asks for, and whatever it resolves to must never be an Anthropic model backed
     # by a subscription (see its compliance note).
 {% if head['claude-code'] %}
-    - claude-code: &claude_code_cascade
+    - Auto-Claude-Code:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
@@ -1939,9 +1921,6 @@ router_settings:
 {% if has.DeepSeek %}
         - deepseek-v4-pro-direct
 {% endif %}
-{% for alias in aliases_of['claude-code'] %}
-    - {{ alias }}: *claude_code_cascade
-{% endfor %}
 {% endif %}
 
     # 6. STT -- speech to text, for "/audio/transcriptions". Not ranked by a script and held to no
@@ -1951,7 +1930,7 @@ router_settings:
     # model comes next, ahead of the paid one because it costs nothing, behind Groq because of what its
     # free tier does with the audio (see its entry above). Mistral's Voxtral is last because it is paid.
 {% if head['stt'] %}
-    - stt: &stt_cascade
+    - Auto-STT:
 {% if has.Groq %}
         - whisper-large-v3-groq
         - whisper-large-v3-turbo-groq
@@ -1962,9 +1941,6 @@ router_settings:
 {% if has.Mistral %}
         - voxtral-mini-mistral
 {% endif %}
-{% for alias in aliases_of['stt'] %}
-    - {{ alias }}: *stt_cascade
-{% endfor %}
 {% endif %}
 
     # 7. TTS -- text to speech, for /audio/speech. Not ranked by a leaderboard and with no contract: no
@@ -1977,12 +1953,9 @@ router_settings:
     # "model_group_alias" to /audio/speech as it does to chat, and a "response_format" other than "wav"
     # and "pcm", which Gemini cannot produce, is refused before any request leaves, so by both members alike.
 {% if head['tts'] %}
-    - tts: &tts_cascade
+    - Auto-TTS:
         - gemini-3-8-flash-tts
         - gemini-3-8-flash-lite-tts
-{% for alias in aliases_of['tts'] %}
-    - {{ alias }}: *tts_cascade
-{% endfor %}
 {% endif %}
 
     # 8. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
@@ -1999,31 +1972,26 @@ router_settings:
     # The routers are written out one by one and not in a loop: "check_LiteLLM_account_isolation.py"
     # reads this file without rendering it, and a name produced by a loop is invisible to it.
 {% if head['pro'] %}
-    "pro": "{{ head['pro'] }}"
+    "Auto-Pro": "{{ head['pro'] }}"
 {% endif %}
 {% if head['flash'] %}
-    "flash": "{{ head['flash'] }}"
+    "Auto-Flash": "{{ head['flash'] }}"
 {% endif %}
 {% if head['flash-lite'] %}
-    "flash-lite": "{{ head['flash-lite'] }}"
+    "Auto-Flash-Lite": "{{ head['flash-lite'] }}"
 {% endif %}
 {% if head['code'] %}
-    "code": "{{ head['code'] }}"
+    "Auto-Code": "{{ head['code'] }}"
 {% endif %}
 {% if head['claude-code'] %}
-    "claude-code": "{{ head['claude-code'] }}"
+    "Auto-Claude-Code": "{{ head['claude-code'] }}"
 {% endif %}
 {% if head['stt'] %}
-    "stt": "{{ head['stt'] }}"
+    "Auto-STT": "{{ head['stt'] }}"
 {% endif %}
 {% if head['tts'] %}
-    "tts": "{{ head['tts'] }}"
+    "Auto-TTS": "{{ head['tts'] }}"
 {% endif %}
-{% for router in ['pro', 'flash', 'flash-lite', 'code', 'claude-code', 'stt', 'tts'] if head[router] %}
-{% for alias in aliases_of[router] %}
-    "{{ alias }}": "{{ head[router] }}"
-{% endfor %}
-{% endfor %}
 
 general_settings:
   # The master key and the database URL are read from the environment rather than written here: this
