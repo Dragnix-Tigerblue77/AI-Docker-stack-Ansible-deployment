@@ -1710,8 +1710,9 @@ Ce que ça ne fait pas : **multiplier les quotas gratuits.** Ils sont comptés p
 passerelle, et partagés par toutes les clés virtuelles ; une clé par compte sépare le suivi et la révocation, et permet des
 limites par clé si on en pose. Et un cas à la main : LiteLLM rend la clé une seule fois, donc si LibreChat n'a plus la clé du
 compte alors que LiteLLM garde l'alias (le run s'est arrêté entre les deux appels, ou la clé a été supprimée de LibreChat), la
-création est refusée et le message dit de supprimer cette clé depuis `/ui` puis de redéployer. Faute de terminal ni de mot de
-passe valable (double authentification, trop de connexions), la tâche s'arrête de même sur un message qui dit quoi vérifier.
+création est refusée et le message dit de supprimer cette clé depuis `/ui` puis de redéployer. Si LibreChat refuse la
+connexion du compte (mot de passe de l'appel différent du sien, double authentification, trop de connexions), la tâche s'arrête
+de même sur un message qui dit quoi vérifier.
 
 **Redis, déployé par #71, pour l'état de cooldown partagé entre les workers de LiteLLM** ; ni #1 ni
 #2 n'en avait le périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement
