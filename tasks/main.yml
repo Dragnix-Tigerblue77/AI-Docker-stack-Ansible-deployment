@@ -241,6 +241,24 @@
       empty list for none.
   when: Artificial_Intelligence_Claude_code_enabled
 
+# What a LibreChat account's gateway key may call: a list of non-empty strings, the key's "models" as LiteLLM
+# takes them. The same traps as the agent's list above.
+- name: "Check the LibreChat gateway key's models are a list of non-empty strings"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_LibreChat_gateway_key_models is sequence
+      - Artificial_Intelligence_LibreChat_gateway_key_models is not string
+      - Artificial_Intelligence_LibreChat_gateway_key_models is not mapping
+      - >-
+        Artificial_Intelligence_LibreChat_gateway_key_models | select('string') | map('length')
+        | select('gt', 0) | list | length == Artificial_Intelligence_LibreChat_gateway_key_models | length
+      - Artificial_Intelligence_LibreChat_gateway_key_models | length > 0
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_LibreChat_gateway_key_models" must be a non-empty list of non-empty strings, the
+      access groups and routers the gateway key of a LibreChat account may call. A key made with no list could
+      call every model of the gateway, which is the opposite of what the list is for.
+
 # Not any string: the role hands this exact value to LiteLLM as a custom key, which LiteLLM refuses
 # unless it starts with "sk-" and holds at least 16 characters (read in its source, "key_management_
 # endpoints.py"), and the failure would otherwise surface from a task whose output is hidden. It is
