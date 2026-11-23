@@ -50,17 +50,20 @@
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'deepseek-v4-1-flash-ovh',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
-  'tts': 'gemini-3-8-flash-tts' if has.Gemini else false
+  'tts': 'gemini-3-8-flash-tts' if has.Gemini else false,
+  'decision': 'clef-cloudflare' if has.Cloudflare else false,
+  'extraction': 'clairic-cloudflare' if has.Cloudflare else false
 } %}
 # A router is published under one name only, the one a client types: "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite",
-# "Auto-Code", "Auto-Claude-Code", "Auto-STT" and "Auto-TTS". It has, under that name, the router's cascade:
+# "Auto-Code", "Auto-Claude-Code", "Auto-STT", "Auto-TTS", "Auto-Decision" and "Auto-Extraction". It has, under that name, the router's cascade:
 # LiteLLM looks for fallbacks under the name that was ASKED for, so a name that is an alias and has no cascade
 # of its own would not fall back at all. The name of this file's own variable ("head") is the
 # short one the checks and the routing document use, and the checks translate between the two. There is no
 # alias for the names the Claude Code CLI sends by default: a CLI that should use one of these routers is told
 # its name through its own model variables.
 # Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
-# transcription, "TTS" for speech and "Embeddings" for vectors. A virtual key limited to a group in "/ui" reaches
+# transcription, "TTS" for speech, "Embeddings" for vectors, "Decisions" for Clef's decisions ("evaluation") and
+# "Extraction" for Clairic's extraction. A virtual key limited to a group in "/ui" reaches
 # the entries of that type, and the routers with them, since a router is an alias of its head and LiteLLM lets a
 # key call an alias when the entry it resolves to is allowed. "check_compose_template.py" holds each entry to it.
 model_list:
@@ -850,6 +853,165 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # SEA-LION v4, a Gemma 3 27B tuned for the languages of Southeast Asia, with 128,000 tokens of context
+  # (its model page, read 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # No figure measures it, so it sits among the last free members of "Auto-Flash-Lite".
+  - model_name: gemma-sea-lion-v4-27b-it-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Cloudflare's own models that are not chat models, each called on a route of its own rather than on
+  # "/chat/completions", which LiteLLM gives them since it learnt them: Clef on "/v1/systemone" (a "state" and
+  # typed questions, answered with a probability for every allowed option), Clairic on "/v1/extraction" (a
+  # "state" and typed fields, answered with values and their confidence). Their pages and the pricing page
+  # (developers.cloudflare.com/workers-ai/, read 2026-11-23) bill input tokens only and name none of them among
+  # the models that need a paid billing method, so they draw on the account's daily allowance like the rest.
+  # LiteLLM's model map gives Clef the mode "evaluation", which its decisions route accepts, and Clairic the
+  # mode "extraction"; each mode puts its entries in an access group of their own. Clairic is in preview, its
+  # Flash in early research preview. "Auto-Decision" and "Auto-Extraction" below are made of them.
+  # Clef: 27B, 65,536 tokens, text and images.
+  - model_name: clef-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Clef Omni: a 30B mixture of experts, 64,000 tokens, text, images, audio (four clips of five minutes at most)
+  # and video (two clips of a minute at most), the one member that takes audio and video.
+  - model_name: clef-omni-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef-omni
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Clef Flash: 9B, 24,576 tokens, text and images; in no router, its context being under its siblings'.
+  - model_name: clef-flash-cloudflare
+    model_info:
+      mode: evaluation
+      access_groups: ["Decisions"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clef-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Clairic: 65,536 tokens, text, images and PDFs; its promotional price lasts until 2026-12-01, after which
+  # the same allowance reads fewer tokens.
+  - model_name: clairic-cloudflare
+    model_info:
+      mode: extraction
+      access_groups: ["Extraction"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clairic
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Clairic Flash: the same schema in early research preview, 65,536 tokens.
+  - model_name: clairic-flash-cloudflare
+    model_info:
+      mode: extraction
+      access_groups: ["Extraction"]
+    litellm_params:
+      model: cloudflare/@cf/cloudflare/clairic-flash
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # drift-ignore: cloudflare/@cf/daily-co/phonellm-mini-alpha-2 -- an alpha tuned for voice agents with thinking disabled, which no figure of Artificial Analysis or Epoch AI measures (read 2026-11-22); a release out of alpha comes under another name and is proposed again
+
+  # drift-ignore: cloudflare/@cf/deepseek-ai/deepseek-v4.1-flash-1017 -- paid per "developers.cloudflare.com/workers-ai/platform/pricing/" (read 2026-11-22), which names it among the models that need a paid billing method; OVHcloud serves the same model above
+
+  # IBM's Granite 4.0 H Micro, with 131,000 tokens of context and function calling (its model page, read
+  # 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # No figure measures it (Artificial Analysis's "Granite 4.0 Micro" is another model), so it sits among
+  # the last free members of "Auto-Flash-Lite".
+  - model_name: granite-4-0-h-micro-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/ibm-granite/granite-4.0-h-micro
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Meta's Llama 3.2 11B with vision, with 128,000 tokens of context (its model page, read 2026-11-22).
+  # Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # The page asks the account to accept Meta's licence once, with a request whose prompt is "agree":
+  # until then a call fails and the cascade moves on. The licence's use policy withholds the multimodal
+  # Llama 3.2 models from an individual domiciled, or a company based, in the European Union, so a caller
+  # there should not accept it. No figure measures it, so it sits among the last free members of "Auto-Flash-Lite".
+  - model_name: llama-3-2-11b-vision-instruct-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/meta/llama-3.2-11b-vision-instruct
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Meta's Llama 4 Scout, a mixture of experts with 17B active parameters, 131,000 tokens of context and
+  # function calling (its model page, read 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # Artificial Analysis gives it no index but 1.13 s to the first answer token (read 2026-11-22), which
+  # places it in "Auto-Flash-Lite" among the members with a time and no index.
+  - model_name: llama-4-scout-17b-16e-instruct-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # drift-ignore: cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora -- a LoRA base model with a 15,000-token context, under the 24,000 that "Auto-Flash-Lite" takes, and no figure measures v0.2 (read 2026-11-22)
+
+  # Mistral Small 3.1 24B, with vision, 128,000 tokens of context and function calling (its model page,
+  # read 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # No figure measures this version, so it sits among the last free members of "Auto-Flash-Lite".
+  - model_name: mistral-small-3-1-24b-instruct-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Qwen2.5 Coder 32B, with 32,768 tokens of context and no function calling listed (its model page, read
+  # 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method, so free within the account's daily allowance as far as that page tells.
+  # Only Epoch AI's capabilities index scores it, at 118.7 (read 2026-11-22), so it opens the last free
+  # members of "Auto-Flash-Lite" that no time measures; its context is far under what "Auto-Code" and
+  # "Auto-Claude-Code" ask.
+  - model_name: qwen2-5-coder-32b-instruct-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # Qwen3.8 27B, the model Groq and OVHcloud serve above, with 262,144 tokens of context and function calling
+  # (its model page, read 2026-11-22). Not among the models the pricing page
+  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-22) says need a paid billing
+  # method. It is absent from LiteLLM's model map, and its default reasoning level is Xhigh, which nothing
+  # here lowers: Artificial Analysis times that level at 135 s to the first answer token (read 2026-11-22),
+  # over the routers' patience, and its output costs more neurons than any other Cloudflare entry. So it
+  # sits right behind its twins in "Auto-Flash" and "Auto-Code", one more fallback for when they fail, where "Auto-Code"'s
+  # order puts it in "Auto-Claude-Code", and out of "Auto-Flash-Lite", whose Groq twin is there for answering
+  # without a thinking phase.
+  - model_name: qwen3-8-27b-cloudflare
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: cloudflare/@cf/qwen/qwen3.8-27b
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+
+  # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5
 
 {% endif %}
 {% if has.Zai %}
@@ -1717,6 +1879,9 @@ router_settings:
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
         - qwen3-8-27b-ovh
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
+{% endif %}
         - qwen3-6-35b-ovh
         - nemotron3-omni-30b-ovh
         - mistral-small-3-2-ovh
@@ -1744,7 +1909,10 @@ router_settings:
     # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") sit right behind the last slot of theirs. NVIDIA's two
     # Gemma 3 entries are placed by the time Artificial Analysis gives them, "nemotron-bolt-e4b-nvidia", which has no
     # figure, closes the free members that have a quota of their own but OVHcloud's, and "llama-3-3-70b-cloudflare",
-    # which no index of Artificial Analysis measures, is placed by its time. OVHcloud's entries close them.
+    # which no index of Artificial Analysis measures, is placed by its time, as is
+    # "llama-4-scout-17b-16e-instruct-cloudflare". The Cloudflare entries no figure measures follow
+    # "gemma-4-26b-cloudflare", "qwen2-5-coder-32b-instruct-cloudflare" first since Epoch AI alone scores it,
+    # the others by size. OVHcloud's entries close them.
     # "ROUTAGE.md" gives each member's figures and the reason of its place.
 {% if head['flash-lite'] %}
     - Auto-Flash-Lite:
@@ -1769,6 +1937,9 @@ router_settings:
 {% if has.Gemini %}
         - gemini-2-5-flash-lite
 {% endif %}
+{% if has.Cloudflare %}
+        - llama-4-scout-17b-16e-instruct-cloudflare
+{% endif %}
 {% if has.NVIDIA %}
         - gemma-3-4b-nvidia
 {% endif %}
@@ -1792,6 +1963,11 @@ router_settings:
 {% endif %}
 {% if has.Cloudflare %}
         - gemma-4-26b-cloudflare
+        - qwen2-5-coder-32b-instruct-cloudflare
+        - gemma-sea-lion-v4-27b-it-cloudflare
+        - mistral-small-3-1-24b-instruct-cloudflare
+        - llama-3-2-11b-vision-instruct-cloudflare
+        - granite-4-0-h-micro-cloudflare
 {% endif %}
 {% if has.NVIDIA %}
         - nemotron-bolt-e4b-nvidia
@@ -1862,6 +2038,9 @@ router_settings:
         - qwen3-5-397b-ovh
         - gpt-oss-120b-ovh
         - qwen3-8-27b-ovh
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
+{% endif %}
         - qwen3-6-35b-ovh
         - laguna-xs-2-1-ovh
 {% if has.Mistral %}
@@ -1915,6 +2094,9 @@ router_settings:
 {% if has.Zai %}
         - glm-4-7-flash-zai
 {% endif %}
+{% if has.Cloudflare %}
+        - qwen3-8-27b-cloudflare
+{% endif %}
 {% if has.Mistral %}
         - codestral
         - codestral-2508
@@ -1959,7 +2141,27 @@ router_settings:
         - gemini-3-8-flash-lite-tts
 {% endif %}
 
-    # 8. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
+    # 8. DECISION -- Clef's typed decisions, for "/v1/systemone" and "/v1/decisions". Not ranked by a leaderboard
+    # and with no contract, so the order is set by hand, and a fallback has to take every request its head takes,
+    # so that switching to it is invisible to the caller. Clef Omni does: text and images like Clef, with
+    # 64,000 tokens of context against Clef's 65,536. Clef Flash does not, with 24,576, and is called by name; so
+    # is Clef Omni for a request that carries audio or video, which Clef does not read.
+{% if head['decision'] %}
+    - Auto-Decision:
+        - clef-cloudflare
+        - clef-omni-cloudflare
+{% endif %}
+
+    # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above,
+    # by the same rule: Clairic Flash takes the same fields, text, images and PDFs, and the same 65,536 tokens, so
+    # it stands behind Clairic, whose earlier preview it is.
+{% if head['extraction'] %}
+    - Auto-Extraction:
+        - clairic-cloudflare
+        - clairic-flash-cloudflare
+{% endif %}
+
+    # 10. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
     # is slower than the router's own wait allows (see its entry), so when it fails or is given up the request
     # goes to the same model at the level the routers keep, and no further: whoever asked for that effort
     # wants that model.
@@ -1992,6 +2194,12 @@ router_settings:
 {% endif %}
 {% if head['tts'] %}
     "Auto-TTS": "{{ head['tts'] }}"
+{% endif %}
+{% if head['decision'] %}
+    "Auto-Decision": "{{ head['decision'] }}"
+{% endif %}
+{% if head['extraction'] %}
+    "Auto-Extraction": "{{ head['extraction'] }}"
 {% endif %}
 
 general_settings:

@@ -657,6 +657,8 @@ Chaque entrée du `model_list` est dans **un seul groupe d'accès**, écrit dans
 | `STT` | les modèles de transcription (`audio_transcription`) |
 | `TTS` | les modèles de synthèse vocale (`audio_speech`) |
 | `Embeddings` | les modèles de vecteurs (`embedding`) |
+| `Decisions` | les modèles de décision de Cloudflare, Clef (`evaluation`), qu'atteint le routeur `Auto-Decision` |
+| `Extraction` | les modèles d'extraction de Cloudflare, Clairic (`extraction`), qu'atteint le routeur `Auto-Extraction` |
 
 En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à son groupe, et le script de la veille de modèles écrit les entrées qu'il propose dans le groupe `LLM`.
 
@@ -837,6 +839,13 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `Auto-Flash-Lite`, derrière `gpt-oss-20b-groq` |
 | `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `Auto-Flash-Lite`, derrière les deux autres sources |
 | `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `Auto-Flash-Lite`, placé par son délai |
+| `llama-4-scout-17b-16e-instruct-cloudflare` | environ 407 000 | environ 129 000 | `Auto-Flash-Lite`, placé par son délai |
+| `qwen2-5-coder-32b-instruct-cloudflare` | environ 167 000 | environ 110 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `gemma-sea-lion-v4-27b-it-cloudflare` | environ 314 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
+| `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `qwen3-8-27b-cloudflare` | environ 244 000 | environ 34 000 | `Auto-Flash`, `Auto-Code` et `Auto-Claude-Code`, derrière ses jumeaux de Groq et d'OVHcloud ; réfléchit en Xhigh par défaut, ce qui use vite la sortie |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `Auto-Code` et `Auto-Claude-Code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
@@ -1524,6 +1533,37 @@ Pages officielles lues :
 - Azure AI Speech : page « Pricing »
 - ElevenLabs : page des tarifs
 - edge-tts : son README
+
+### Décider et extraire : les routeurs `Auto-Decision` et `Auto-Extraction`
+
+Deux routeurs qui ne sont pas du chat, servis dès que la clé Cloudflare est donnée, et faits pour les automatisations (n8n, par exemple) plutôt que pour une conversation. Ils ont leurs propres routes de LiteLLM, et non `/v1/chat/completions` : les nœuds « OpenAI » de n8n ne savent pas les appeler, un nœud « HTTP Request » avec la clé de la passerelle en `Authorization: Bearer` le fait.
+
+| Routeur | Route | Ce qu'on envoie | Ce qu'on reçoit | Cascade |
+| --- | --- | --- | --- | --- |
+| `Auto-Decision` | `POST /v1/systemone` | un `state` (texte, objet ou liste) et des `questions` typées : `noul` (oui ou non), `choice` (une option parmi des `criteria`), `score` (un niveau sur une échelle) | une probabilité pour chaque réponse permise de chaque question | Clef (27B), puis Clef Omni |
+| `Auto-Extraction` | `POST /v1/extraction` | un `state` (texte), éventuellement des images ou des PDF, et des `fields` typés : texte, date, nombre, liste, estimation dans un intervalle | chaque valeur, avec sa confiance, ou `null` quand le texte ne la donne pas | Clairic, puis Clairic Flash |
+
+Exemple, le tri d'un message d'assistance :
+
+```bash
+curl -s "$GATEWAY/v1/systemone" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d '{
+  "model": "Auto-Decision",
+  "state": "Le paiement échoue pour tous les clients depuis une heure.",
+  "questions": {
+    "urgent": {"type": "noul", "instructions": "La demande est-elle urgente ?"},
+    "equipe": {"type": "choice", "criteria": {"facturation": "Paiements et remboursements", "technique": "Pannes et erreurs"}},
+    "gravite": {"type": "score", "criteria": ["Aucun impact", "Mineur", "Majeur", "Critique"]}
+  }
+}'
+```
+
+**Un repli doit tout accepter de ce qu'accepte la tête**, pour que la bascule ne se voie pas. Clef Omni prend le texte et les images comme Clef, avec 64 000 jetons de contexte contre 65 536 : seule une requête entre les deux échouerait sur lui. Clef Flash (9B) n'a que 24 576 jetons : il reste hors de la cascade et s'appelle par son nom, `clef-flash-cloudflare`. Clairic Flash, lui, prend exactement ce que prend Clairic.
+
+**Le son et la vidéo** : seul Clef Omni les lit (quatre extraits audio de cinq minutes, deux vidéos d'une minute au plus) ; une requête qui en porte demande `clef-omni-cloudflare` par son nom.
+
+**Ce qu'ils coûtent** : les jetons d'entrée seulement, sur les 10 000 neurons par jour du compte Cloudflare, partagés avec ses modèles de texte. Au prix lu le 2026-11-23, cela fait au plus environ 460 000 jetons par jour pour Clef, 730 000 pour Clef Omni, 2,9 millions pour Clef Flash, 1,1 million pour Clairic et Clairic Flash (460 000 pour Clairic après le 2026-12-01, quand son prix promotionnel s'arrête).
+
+**Ce qui n'est pas vérifié** : ces routes n'ont pas été appelées depuis une passerelle réelle. Qu'un routeur à replis s'applique à `/v1/systemone` et à `/v1/extraction` comme au chat est ce que dit la documentation de LiteLLM, lue le 2026-11-23, et les routes demandent une version récente de LiteLLM (l'image n'est pas épinglée). Clairic est en préversion, Clairic Flash en préversion de recherche.
 
 ### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
 

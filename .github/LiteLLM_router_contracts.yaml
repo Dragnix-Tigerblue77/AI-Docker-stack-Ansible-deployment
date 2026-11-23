@@ -700,6 +700,13 @@ models:
       terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
       ale_bench_external: [gpt-oss-120b]
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-8-27b-cloudflare:
+    slug: qwen3-8-27b
+    level: xhigh
+    level_source: "its model page on developers.cloudflare.com, read 2026-11-22: reasoning low, medium or xhigh, xhigh by default, and the template sets none"
+    eci: "Qwen 3.8 27B"
+    tools: {support: "yes", source: "its model page on developers.cloudflare.com, read 2026-11-22: function calling"}
+    epoch: unknown
   qwen3-8-27b-ovh:
     no_record: "No Artificial Analysis record was matched to Qwen3.8-27B at the level the endpoint calls it at on 2026-11-22"
     eci: "Qwen 3.8 27B"
@@ -793,6 +800,33 @@ models:
     level: n/a
     level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
     eci: "Llama 3.3 70B"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  llama-4-scout-17b-16e-instruct-cloudflare:
+    slug: llama-4-scout
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    eci: "Llama 4 Scout"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  qwen2-5-coder-32b-instruct-cloudflare:
+    no_record: "Artificial Analysis's Qwen2.5 Coder Instruct 32B record has neither an index nor a timing (read 2026-11-22); Epoch AI scores Qwen2.5-Coder-32B at 118.73 on its capabilities index"
+    tools: {support: "unknown", source: "neither its model page on developers.cloudflare.com, read 2026-11-22, nor LiteLLM's model map lists function calling"}
+    epoch: unknown
+  gemma-sea-lion-v4-27b-it-cloudflare:
+    no_record: "Artificial Analysis has no record of SEA-LION v4 (read 2026-11-22); its Gemma 3 27B record is the base model, not this fine-tune"
+    tools: {support: "unknown", source: "neither its model page on developers.cloudflare.com, read 2026-11-22, nor LiteLLM's model map lists function calling"}
+    epoch: unknown
+  mistral-small-3-1-24b-instruct-cloudflare:
+    no_record: "Artificial Analysis's Mistral Small 3.1 record has neither an index nor a timing (read 2026-11-22)"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
+    epoch: unknown
+  llama-3-2-11b-vision-instruct-cloudflare:
+    no_record: "Artificial Analysis's Llama 3.2 Instruct 11B (Vision) record has neither an index nor a timing (read 2026-11-22)"
+    tools: {support: "unknown", source: "neither its model page on developers.cloudflare.com, read 2026-11-22, nor LiteLLM's model map lists function calling"}
+    epoch: unknown
+  granite-4-0-h-micro-cloudflare:
+    no_record: "Artificial Analysis has a Granite 4.0 Micro record with neither an index nor a timing, and nothing says it is the H Micro this endpoint serves (read 2026-11-22)"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch: unknown
   glm-4-7-flash-cloudflare:

@@ -1679,7 +1679,8 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSee
 # models in "/ui": by "model_info.mode" -- an entry with none is a text model. A router is an alias of its head, and
 # LiteLLM lets a key call an alias when the entry it resolves to is in an allowed group, so the routers follow their
 # heads without a group of their own.
-LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings"}
+LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings",
+                         "evaluation": "Decisions", "extraction": "Extraction"}
 
 
 def litellm_access_group(mode):
@@ -1689,10 +1690,13 @@ def litellm_access_group(mode):
 # The routers of an endpoint that is not chat, each with the providers whose models it routes to and the
 # "model_info.mode" its members carry, which no member of a text cascade may carry. They are aliases of their
 # cascade's head like the five above, but are kept apart from LITELLM_ROUTERS: that tuple is also the set of
-# names the Claude Code agent may be given, and the agent never asks for transcription or speech.
+# names the Claude Code agent may be given, and the agent never asks for transcription, speech, decisions or
+# extraction.
 LITELLM_MEDIA_ROUTERS = {
     "stt": (frozenset({"Groq", "Gemini", "Mistral"}), "audio_transcription"),
     "tts": (frozenset({"Gemini"}), "audio_speech"),
+    "decision": (frozenset({"Cloudflare"}), "evaluation"),
+    "extraction": (frozenset({"Cloudflare"}), "extraction"),
 }
 # The name each router is published under, which is the one a client types and the key the rendered file
 # carries. The rules below reason on the short ids above, and "litellm_logical_document" translates a rendering
@@ -1705,6 +1709,8 @@ LITELLM_ROUTER_PUBLIC_NAMES = {
     "claude-code": "Auto-Claude-Code",
     "stt": "Auto-STT",
     "tts": "Auto-TTS",
+    "decision": "Auto-Decision",
+    "extraction": "Auto-Extraction",
 }
 # The names a router no longer goes by, each with the name that replaced it: the short ids and the "auto-*"
 # aliases that stood beside them. A router keeps one name, since two names for one router are two cascades to
@@ -2125,6 +2131,24 @@ def _with_tts(document, variable="GEMINI_API_KEY", entries=("a-tts",), **faults)
     return _with_media(document, "tts", variable, entries, **faults)
 
 
+def _cloudflare_document(decision=True, extraction=True, **faults):
+    """A Cloudflare-only rendering: its "claude-code" router, and the decision and extraction routers its key
+    serves, the one a case leaves out missing and the faults it asks for on the decision router."""
+    document = _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [("claude-code", ["glm"])],
+                                 {"claude-code": "glm"})
+    if decision:
+        document = _with_media(document, "decision", "CLOUDFLARE_API_KEY", ("clef-a", "clef-b"), **faults)
+    if extraction:
+        document = _with_media(document, "extraction", "CLOUDFLARE_API_KEY", ("clairic-a",))
+    return document
+
+
+def _decision_chat_member():
+    document = _cloudflare_document()
+    document["router_settings"]["fallbacks"][1]["decision"].append("glm")
+    return document
+
+
 def _stt_document(**faults):
     """A Groq-only rendering with its "claude-code" router and a "stt" router, the faults a case asks for."""
     document = _litellm_document([("qwen", "os.environ/GROQ_API_KEY")], [("claude-code", ["qwen"])],
@@ -2261,8 +2285,15 @@ LITELLM_CONFIG_CASES = [
     ("claude-code served by a Groq key",
      _stt_document(), {"Groq"}, None),
     ("claude-code served by a Cloudflare key",
-     _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [("claude-code", ["glm"])], {"claude-code": "glm"}),
-     {"Cloudflare"}, None),
+     _cloudflare_document(), {"Cloudflare"}, None),
+    ("the decision router absent although Cloudflare has a key",
+     _cloudflare_document(decision=False), {"Cloudflare"}, "'decision' is absent"),
+    ("the extraction router absent although Cloudflare has a key",
+     _cloudflare_document(extraction=False), {"Cloudflare"}, "'extraction' is absent"),
+    ("the decision router's alias missing",
+     _cloudflare_document(head=False), {"Cloudflare"}, "'decision'"),
+    ("a chat model in the decision router",
+     _decision_chat_member(), {"Cloudflare"}, "'glm'"),
     ("claude-code missing although Cloudflare has a key",
      _litellm_document([("glm", "os.environ/CLOUDFLARE_API_KEY")], [], {}),
      {"Cloudflare"}, "'claude-code' is absent"),
