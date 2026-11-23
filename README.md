@@ -126,6 +126,7 @@ Et celles que #1 apporte, pour la passerelle et sa base :
 | `Artificial_Intelligence_LiteLLM_admin_users` | `[]` | Une **liste** de `{username, email}` : chaque entrée devient un compte `proxy_admin` de LiteLLM, **invité** par un lien à usage unique, sur lequel le run s'arrête une fois, et jamais doté d'un mot de passe par le rôle. Noms d'utilisateur et courriels distincts de ceux des comptes internes. Voir « Les administrateurs de `/ui`, invités et non dotés d'un mot de passe ». |
 | `Artificial_Intelligence_LiteLLM_UI_URL` | `false` | L'adresse sur laquelle une personne ouvre LiteLLM, sur laquelle est construit le lien d'invitation d'un administrateur. `false` : celle du nœud telle que l'inventaire la donne (`ansible_host`, à défaut son nom) et le port publié, que seul Ansible connaît à l'exécution. Un appelant derrière un reverse proxy y met l'adresse qu'il sert, sans barre oblique finale. |
 | `Artificial_Intelligence_LiteLLM_admin_API_URL` | *dérivé du port de LiteLLM* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API d'administration de LiteLLM, depuis le nœud qui les exécute. |
+| `Artificial_Intelligence_LibreChat_API_URL` | *dérivé du port de LibreChat* | **Pas un réglage.** Où les tâches `uri` du rôle joignent l'API de LibreChat, depuis le nœud qui les exécute, pour donner à un compte sa clé de la passerelle. |
 
 Et celles que #2 apporte, pour le `model_list` du compte de la passerelle (voir plus bas pourquoi les
 autres comptes n'ont pas les leurs ici) :
@@ -195,7 +196,7 @@ Et celles que #76 apporte, pour LibreChat et sa base :
 | `Artificial_Intelligence_LibreChat_session_cookie_secure` | `false` | Tant que LibreChat est servi en HTTP simple : l'image, en `NODE_ENV=production`, marque sinon ses cookies de session `Secure`, que le navigateur rejette en HTTP -- chaque rechargement et chaque expiration du jeton (15 min) ramène à la page de connexion. `true` le jour où un reverse proxy TLS est le seul accès. |
 | `Artificial_Intelligence_LibreChat_uploads_Docker_volume_name` · `Artificial_Intelligence_MongoDB_LibreChat_data_Docker_volume_name` | `LibreChat_uploads` · `MongoDB_LibreChat_data` | Volumes nommés pour les pièces jointes et la base. |
 | `Artificial_Intelligence_LibreChat_memory_limit` · `Artificial_Intelligence_MongoDB_LibreChat_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`1g`) limite le service à cette taille, `false` n'en pose aucune. / `512m` en exemple. |
-| `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. Voir plus bas. |
+| `Artificial_Intelligence_LibreChat_users` | aucun (`[]`) | **Obligatoire.** Liste de comptes LibreChat à créer, un dictionnaire par compte : `email`, `name`, `username`, `password` (chaînes non vides) et `admin` (booléen, `false` si absent) ; `admin: true` promeut le compte `ADMIN`. `gateway_key: true` (booléen, `false` si absent) donne au compte une clé de la passerelle à lui, faite et rangée par le rôle : voir « Une clé de la passerelle par compte LibreChat ». Voir plus bas. |
 
 `false` et non `''` pour les deux réseaux publiés plus haut, et pour le jeton GitHub facultatif de l'agent Claude Code
 (#245) : ansible-core 2.19 refuse un test de vérité sur autre chose qu'un booléen, donc « renseigné » s'écrit
@@ -251,7 +252,7 @@ modèle commenté du template met en garde contre.
 
 **`librechat.yaml` (`files/librechat/`) est copié, pas rendu.** Rien n'y a besoin de Jinja, et il ne
 porte aucun secret : son `apiKey` vaut `"user_provided"` depuis #103, chaque compte LibreChat
-saisissant lui-même sa propre clé de la passerelle -- Ansible n'a rien à y interpoler. Repris du POC
+saisissant lui-même sa propre clé de la passerelle, par l'**engrenage à côté du nom de l'endpoint** (tant qu'aucune clé n'est saisie, LibreChat répond « Aucune clé trouvée » et ne montre que la liste `default` du fichier ; avec une clé il liste les modèles de la passerelle) -- Ansible n'a rien à y interpoler. Repris du POC
 fonctionnel de tigerblue77, avec trois corrections : deux identifiants de modèles absents du
 `model_list` réel de #2, et une `apiKey` qui portait la clé maîtresse de la passerelle plutôt qu'une
 clé virtuelle dédiée.
@@ -1685,8 +1686,8 @@ première, sautée, ne rend pas (le rôle s'arrêtait alors sur `object of type 
 
 **`librechat.yaml` route désormais chaque compte LibreChat vers sa propre identité côté passerelle.**
 `apiKey: "user_provided"` (au lieu d'une clé unique lue dans l'environnement du conteneur) fait que
-LibreChat demande sa propre clé à CHAQUE compte, la première fois qu'il utilise cet endpoint, et la
-retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait tout le conteneur : n'importe
+LibreChat range une clé propre à CHAQUE compte, saisie une fois par l'engrenage à côté du nom de l'endpoint,
+et la retient chiffrée pour lui seul. Avant #103, une seule clé virtuelle servait tout le conteneur : n'importe
 quel compte LibreChat, humain ou non, parlait à la passerelle sous la même identité, ce qui défaisait
 l'isolation par compte dès qu'un deuxième humain existait -- même avec son propre compte LiteLLM créé
 par la liste ci-dessus, rien ne l'aurait fait passer par lui plutôt que par l'unique clé partagée.
@@ -1695,6 +1696,23 @@ plus personne n'a besoin de pré-fabriquer une clé virtuelle avant que LibreCha
 règle au passage le problème d'ordre de démarrage que ce même `assert` posait (LiteLLM devait tourner
 pour émettre une clé via son propre `/key/generate`, et rien ne se déployait tant que l'`assert`
 n'était pas satisfait).
+
+**Une clé de la passerelle par compte LibreChat, faite et rangée par le rôle.** Pour un compte qui porte `gateway_key: true`
+dans `Artificial_Intelligence_LibreChat_users`, plus de saisie à la main : le rôle se connecte à LibreChat **avec le mot de
+passe de ce compte**, qu'il détient puisqu'il l'a créé, demande à LiteLLM une clé d'alias `librechat-<username>` sans liste
+de modèles, puis la range par la route de LibreChat que l'engrenage appelle, `PUT /api/keys`, sous le nom de l'endpoint. La clé
+n'est rangée que dans ce compte, qu'aucun autre ne partage, n'est écrite nulle part dans l'inventaire, et LibreChat la chiffre
+et la stocke lui-même : le rôle ne touche pas à sa base de données. Un compte sans `gateway_key` saisit sa clé à la main, comme
+avant. Elle est faite une fois : le rôle regarde d'abord, par `GET /api/keys`, si LibreChat a déjà une clé pour ce compte, et ne
+fait rien dans ce cas, donc un second passage ne change rien.
+
+Ce que ça ne fait pas : **multiplier les quotas gratuits.** Ils sont comptés par les fournisseurs, sur les clés de fournisseur de la
+passerelle, et partagés par toutes les clés virtuelles ; une clé par compte sépare le suivi et la révocation, et permet des
+limites par clé si on en pose. Et un cas à la main : LiteLLM rend la clé une seule fois, donc si LibreChat n'a plus la clé du
+compte alors que LiteLLM garde l'alias (le run s'est arrêté entre les deux appels, ou la clé a été supprimée de LibreChat), la
+création est refusée et le message dit de supprimer cette clé depuis `/ui` puis de redéployer. Si LibreChat refuse la
+connexion du compte (mot de passe de l'appel différent du sien, double authentification, trop de connexions), la tâche s'arrête
+de même sur un message qui dit quoi vérifier.
 
 **Redis, déployé par #71, pour l'état de cooldown partagé entre les workers de LiteLLM** ; ni #1 ni
 #2 n'en avait le périmètre à l'origine. `--requirepass` est obligatoire, sans défaut, même raisonnement

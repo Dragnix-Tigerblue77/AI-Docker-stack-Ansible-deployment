@@ -354,11 +354,12 @@
       - item.password is string
       - item.password | length > 0
       - item.admin is not defined or item.admin is boolean
+      - item.gateway_key is not defined or item.gateway_key is boolean
     quiet: true
     fail_msg: >-
       Every entry of the LibreChat accounts needs a non-empty "email", "name", "username" and
-      "password", and "admin", when given, must be a boolean (a string such as "true" is not one, and
-      would silently grant nothing).
+      "password", and "admin" and "gateway_key", when given, must be booleans (a string such as "true"
+      is not one, and would silently grant nothing).
   loop: "{{ Artificial_Intelligence_LibreChat_users }}"
   loop_control:
     label: "{{ item.username | default('?') if item is mapping else '?' }}"
@@ -958,3 +959,13 @@
       loop: "{{ Artificial_Intelligence_LibreChat_users | selectattr('admin', 'defined') | selectattr('admin', 'equalto', true) | list }}"
       loop_control:
         label: "{{ item.username }}"
+
+    # A gateway key for each account that asks for one, from the account itself: see "librechat_gateway_key.yml".
+    # Not in a dry run, which neither created the accounts nor started LibreChat.
+    - name: "Give each LibreChat account that asks for one its own gateway key"
+      ansible.builtin.include_tasks: librechat_gateway_key.yml
+      loop: "{{ Artificial_Intelligence_LibreChat_users | selectattr('gateway_key', 'defined') | selectattr('gateway_key', 'equalto', true) | list }}"
+      loop_control:
+        loop_var: Artificial_Intelligence_LibreChat_account
+        label: "{{ Artificial_Intelligence_LibreChat_account.username }}"
+      when: not ansible_check_mode
