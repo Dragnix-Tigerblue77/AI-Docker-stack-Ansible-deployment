@@ -1628,7 +1628,7 @@ critique, sans le faire elle-même.
 **Une invitation, pas un mot de passe.** `/user/new` n'en accepte pas ; `/user/update` en pose un, soumis à la politique de LiteLLM (12
 caractères au moins, majuscule, minuscule, chiffre, caractère spécial) et à changer à la première connexion : la valeur du coffre de
 l'appelant serait périmée dès que la personne se serait connectée une fois. Le rôle demande donc `POST /invitation/new` pour chaque
-compte **créé à ce run** et s'arrête, **une seule fois**, sur le lien complet `<Artificial_Intelligence_LiteLLM_UI_URL>/ui/onboarding?id=<id>`,
+compte **créé à ce run** et s'arrête, **une seule fois**, sur le lien complet `<Artificial_Intelligence_LiteLLM_UI_URL>/ui/onboarding?invitation_id=<id>`,
 valable sept jours, un par administrateur, chacun sur sa ligne pour être cliquable : la personne l'ouvre, choisit son mot de passe, qui
 sert tel quel, puis se connecte avec son courriel, et le run reprend à Entrée (Ctrl+C puis A l'abandonne), comme les autres rôles qui
 attendent une action à la main. L'adresse est celle de l'appelant, pas celle du rôle : `Artificial_Intelligence_LiteLLM_UI_URL`, dont le

@@ -769,7 +769,7 @@
       Each link is for one use and is shown only here.
 
       {% for invitation in Artificial_Intelligence_LiteLLM_administrator_invitation.results | selectattr('status', 'defined') %}
-      {{ invitation.item.item.username }} : {{ base_URL }}/ui/onboarding?id={{ invitation.json.id }}{{ (' (before ' ~ invitation.json.expires_at ~ ')') if invitation.json.expires_at is defined else '' }}
+      {{ invitation.item.item.username }} : {{ base_URL }}/ui/onboarding?invitation_id={{ invitation.json.id }}{{ (' (before ' ~ invitation.json.expires_at ~ ')') if invitation.json.expires_at is defined else '' }}
       {% endfor %}
 
       Once the password is chosen :
