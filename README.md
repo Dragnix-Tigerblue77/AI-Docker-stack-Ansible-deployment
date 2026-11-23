@@ -1527,7 +1527,7 @@ Deux routeurs qui ne sont pas du chat, servis dès que la clé Cloudflare est do
 
 | Routeur | Route | Ce qu'on envoie | Ce qu'on reçoit | Cascade |
 | --- | --- | --- | --- | --- |
-| `Auto-Decision` | `POST /v1/systemone` | un `state` (texte, objet ou liste) et des `questions` typées : `noul` (oui ou non), `choice` (une option parmi des `criteria`), `score` (un niveau sur une échelle) | une probabilité pour chaque réponse permise de chaque question | Clef (27B), puis Clef Omni, puis Clef Flash (9B) |
+| `Auto-Decision` | `POST /v1/systemone` | un `state` (texte, objet ou liste) et des `questions` typées : `noul` (oui ou non), `choice` (une option parmi des `criteria`), `score` (un niveau sur une échelle) | une probabilité pour chaque réponse permise de chaque question | Clef (27B), puis Clef Omni |
 | `Auto-Extraction` | `POST /v1/extraction` | un `state` (texte), éventuellement des images ou des PDF, et des `fields` typés : texte, date, nombre, liste, estimation dans un intervalle | chaque valeur, avec sa confiance, ou `null` quand le texte ne la donne pas | Clairic, puis Clairic Flash |
 
 Exemple, le tri d'un message d'assistance :
@@ -1543,6 +1543,8 @@ curl -s "$GATEWAY/v1/systemone" -H "Authorization: Bearer $KEY" -H "Content-Type
   }
 }'
 ```
+
+**Un repli doit tout accepter de ce qu'accepte la tête**, pour que la bascule ne se voie pas. Clef Omni prend le texte et les images comme Clef, avec 64 000 jetons de contexte contre 65 536 : seule une requête entre les deux échouerait sur lui. Clef Flash (9B) n'a que 24 576 jetons : il reste hors de la cascade et s'appelle par son nom, `clef-flash-cloudflare`. Clairic Flash, lui, prend exactement ce que prend Clairic.
 
 **Le son et la vidéo** : seul Clef Omni les lit (quatre extraits audio de cinq minutes, deux vidéos d'une minute au plus) ; une requête qui en porte demande `clef-omni-cloudflare` par son nom.
 

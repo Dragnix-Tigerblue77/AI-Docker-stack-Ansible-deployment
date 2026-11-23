@@ -873,7 +873,7 @@ model_list:
   # the models that need a paid billing method, so they draw on the account's daily allowance like the rest.
   # LiteLLM's model map gives Clef the mode "evaluation", which its decisions route accepts, and Clairic the
   # mode "extraction"; each mode puts its entries in an access group of their own. Clairic is in preview, its
-  # Flash in early research preview. They make up "Auto-Decision" and "Auto-Extraction" below.
+  # Flash in early research preview. "Auto-Decision" and "Auto-Extraction" below are made of them.
   # Clef: 27B, 65,536 tokens, text and images.
   - model_name: clef-cloudflare
     model_info:
@@ -893,7 +893,7 @@ model_list:
       model: cloudflare/@cf/cloudflare/clef-omni
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Clef Flash: 9B, 24,576 tokens, text and images.
+  # Clef Flash: 9B, 24,576 tokens, text and images; in no router, its context being under its siblings'.
   - model_name: clef-flash-cloudflare
     model_info:
       mode: evaluation
@@ -2141,18 +2141,19 @@ router_settings:
 {% endif %}
 
     # 8. DECISION -- Clef's typed decisions, for "/v1/systemone" and "/v1/decisions". Not ranked by a leaderboard
-    # and with no contract, so the order is set by hand: the 27B model first, Clef Omni next, which reads the
-    # same questions with a larger backbone, and the 9B Flash last, whose context is the smallest. A request
-    # that carries audio or video asks for "clef-omni-cloudflare" by name, the only member that reads them.
+    # and with no contract, so the order is set by hand, and a fallback has to take every request its head takes,
+    # so that switching to it is invisible to the caller. Clef Omni does: text and images like Clef, with
+    # 64,000 tokens of context against Clef's 65,536. Clef Flash does not, with 24,576, and is called by name; so
+    # is Clef Omni for a request that carries audio or video, which Clef does not read.
 {% if head['decision'] %}
     - Auto-Decision:
         - clef-cloudflare
         - clef-omni-cloudflare
-        - clef-flash-cloudflare
 {% endif %}
 
-    # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above:
-    # Clairic first, its Flash, in an earlier preview, behind it.
+    # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above,
+    # by the same rule: Clairic Flash takes the same fields, text, images and PDFs, and the same 65,536 tokens, so
+    # it stands behind Clairic, whose earlier preview it is.
 {% if head['extraction'] %}
     - Auto-Extraction:
         - clairic-cloudflare
