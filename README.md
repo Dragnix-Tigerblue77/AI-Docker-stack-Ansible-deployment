@@ -29,9 +29,8 @@ handlers/, vars/, meta/                       ses variables, sa configuration Li
 ```
 
 Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
-mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
-`Docker/deploy_Docker_compose_stack` d'un dépôt privé du mainteneur la portent, chacun pour son
-orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
+mécanique appartient à l'appelant : un rôle à lui, pour Swarm ou pour Compose, qui n'a qu'à remplir le
+contrat décrit plus bas.
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
 après les services, porte les conventions qu'un bloc de service doit tenir : image sans tag (ou, pour
@@ -66,7 +65,7 @@ sans forker. Il n'y a donc dans ce dépôt aucune adresse IP, aucun nom d'hôte 
 ```yaml
 - role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "your_stack_deployment_role"
 ```
 
 Le seul paramètre obligatoire est celui-là : le rôle qui déploie réellement le stack. Le contrat qu'il doit
@@ -342,13 +341,12 @@ exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `asser
 le rôle de déploiement est désigné par une variable, donc son contenu est inconnu au moment où les
 vérifications tournent.
 
-Ce n'est pas théorique. `Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du
-dépôt privé du mainteneur remplissent tous les deux les trois obligations ci-dessus **sans
-modification** — mais tous les deux lisent aussi `APT_cache_lifetime`, qui n'a de défaut ni dans l'un ni
-dans l'autre. Elle vit dans les `vars:` du playbook de ce dépôt, donc elle est en portée
-quand c'est lui qui appelle, et **absente partout ailleurs**. Un appelant qui ne la déclare pas échoue au
-déploiement, sur une variable non définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui
-n'apparaît nulle part dans l'appel qu'il a écrit.
+Ce n'est pas théorique : un rôle de déploiement peut remplir les obligations ci-dessus **sans
+modification** et lire pourtant une variable qu'il ne définit pas, déclarée dans les `vars:` du playbook
+qui l'appelle d'habitude. Elle est alors en portée quand c'est ce playbook qui appelle, et **absente
+partout ailleurs**. Un appelant qui ne la déclare pas échoue au déploiement, sur une variable non
+définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui n'apparaît nulle part dans l'appel
+qu'il a écrit.
 
 Les deux rôles rendent en plus deux faits que les issues de service voudront lire :
 `Docker_stack_first_deployment`, qui dit si le stack est déployé pour la première fois sur cette machine,
@@ -2082,7 +2080,7 @@ valeur, fait échouer le contrôle, et dans le rendu à `$` l'alias arrive avec 
 ```yaml
 - role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "your_stack_deployment_role"
     Artificial_Intelligence_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
 ```
 
