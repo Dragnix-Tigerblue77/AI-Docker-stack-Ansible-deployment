@@ -21,7 +21,7 @@ WHAT IT RUNS
 * which pull request the step takes for the commit that was checked: one that is in a fork, against
   another branch, closed, no longer at that commit, or one of two at the same commit is not taken;
 * the shape of the ruleset it reads (no rule of required checks, two, none required);
-* the weekly model deletions: the ones that must merge (one entry, five, a commented-out entry, a
+* the model deletions: the ones that must merge (one entry, five, a commented-out entry, a
   diff that placed the deletion a few identical lines away from where an entry starts, the entry
   together with the cascade slots that named it) and every shape that must not (a setting, even one
   with a comment after it, or an address deleted, an entry cut short, a slot of an entry that stays,
@@ -305,12 +305,12 @@ def checks_of(names, failing=None, status="completed", app="github-actions"):
 
 
 def removals(patch, branch=None, author="github-actions[bot]", **overrides):
-    """A scenario for the weekly deletion pull request carrying "patch" in its one file."""
+    """A scenario for the deletion pull request carrying "patch" in its one file."""
     added, deleted = counts(patch) if patch else (0, 0)
     file = {"filename": "templates/LiteLLM_config.yaml.j2", "status": "modified", "additions": added,
             "deletions": deleted, "patch": patch}
     scenario = {
-        "pr": {"number": 7, "title": "weekly deletions", "state": "open", "draft": False,
+        "pr": {"number": 7, "title": "deletions", "state": "open", "draft": False,
                "base": {"ref": "main"}, "body": "Models their provider has retired.\n\n## Deleted\n\n- m1",
                "head": {"sha": HEAD_SHA, "ref": branch or "claude/LiteLLM-model-drift-removals",
                         "repo": {"full_name": "o/r"}},
@@ -407,7 +407,7 @@ def scenarios():
         "type": "required_status_checks", "parameters": {"required_status_checks": []}}]}),
         failed=True, needle="requires no check at all")
 
-    # --- the weekly deletions that must merge -----------------------------------------------------
+    # --- the deletions that must merge -----------------------------------------------------
     whole = set(block_of(base, "m1"))
     patch = deletion(base, whole)[0]
 
@@ -447,7 +447,7 @@ def scenarios():
     add("deletion: an entry that is commented out", "merged",
         removals(deletion(base, set(range(start, start + len(COMMENTED) + 1)))[0]))
 
-    # --- the weekly deletions that must not --------------------------------------------------------
+    # --- the deletions that must not --------------------------------------------------------
     # Most carry a whole entry, so that "one model at least" does not refuse them and only the look
     # at the deleted lines can.
     add("deletion: a cascade slot, and nothing else", "not merged",
@@ -579,7 +579,7 @@ def scenarios():
         add("deletion: the line cap is %r" % text, "not merged",
             removals(patch, env={"REMOVALS_MAX_LINES": text}), failed=True,
             needle="must be positive whole numbers")
-    # --- the weekly deletions opened by the workflow's GitHub App -----------------------------------
+    # --- the deletions opened by the workflow's GitHub App -----------------------------------
     # The pull request's author is then "<slug>[bot]", and the step knows the slug from a variable
     # that is empty until the App is configured. The commit stays the Actions bot's.
     app = "drift-app-2"
@@ -655,7 +655,7 @@ def scenarios():
     add("App: a Dependabot major is refused as ever with the slug set", "not merged",
         dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
 
-    # --- the weekly additions, which nothing but a person merges ---------------------------------------
+    # --- the additions, which nothing but a person merges ---------------------------------------
     # Each is tried as the workflow opens it, lines added, and as the worst it could be: a deletion that
     # would merge on the deletions' branch, by the Actions bot or the App, every check green. Only the
     # branch tells them apart, and it must.

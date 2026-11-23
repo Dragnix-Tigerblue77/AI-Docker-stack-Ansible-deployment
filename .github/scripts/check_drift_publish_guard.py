@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 
-"""Play the guards of the weekly model-drift workflow against made-up templates, days and issues.
+"""Play the guards of the model-drift workflow against made-up templates, days and issues.
 
 WHY THIS CHECK EXISTS
 ---------------------
@@ -36,10 +36,10 @@ colon), a name that is a word of the file, a provider that is no key of its tabl
 included), an item of another shape, an id already an entry or set aside, an entry with a literal key
 or an "http" base to model one on, a date, a kind or a number of items out of bounds -- the script
 must refuse too. Then the whole step is played against a made-up GitHub: both opened, the one to
-verify as a draft and ready for review where drafts are refused; a week with the same proposals that
-writes nothing; a week with others that rewrites both, keeping a ticked box and the draft; closing
+verify as a draft and ready for review where drafts are refused; a run with the same proposals that
+writes nothing; a run with others that rewrites both, keeping a ticked box and the draft; closing
 when nothing is left, and not when a catalogue was not read, a provider failed or the report was not
-trusted; a week that changes nothing but the days of the comments, which pushes nothing; a person's
+trusted; a run that changes nothing but the days of the comments, which pushes nothing; a person's
 commit with the pull request open (left alone) and without (the step fails); the script's template
 differing from the one built; proposals of another shape or a status the step does not know; a failing
 deletion that leaves the additions done; a commit of the other job that is not on main. The deletions,
@@ -47,7 +47,7 @@ which share the step's code with them, are played the same way: pushed and opene
 line added refused, a person's commit failing the step, closed when nothing is left.
 
 The workflow keeps an issue for one thing, a catalogue still unreadable at the day's last attempt, and
-two more scripts decide it. The gate's, between "BEGIN/END gate", is played on made-up Saturdays: a run
+two more scripts decide it. The gate's, between "BEGIN/END gate", is played on made-up days: a run
 started by hand and the first attempt read without asking anything; a retry reads only when the latest
 earlier scheduled attempt of the same day that left an outcome left "unreadable", passing over one that
 left none, a run started by hand, a run of another day, a run listed after it, an artifact of another
@@ -56,7 +56,7 @@ order; a cron it does not number fails. Its SCHEDULES are held to the crons of "
 order. The issue step's, between "BEGIN/END issue", is played on made-up issues: opened at the last
 attempt only, with the providers, the class of each failure and the earlier times; nothing written at an
 earlier attempt or by a run started by hand; the issue the workflow kept while it reported every drift
-taken over rather than doubled; closed, with a comment, by any run that reads every catalogue, a week of
+taken over rather than doubled; closed, with a comment, by any run that reads every catalogue, a day of
 deletions or of additions alone included; somebody else's issue, or one without the marker or under
 another title, never written; and what the "read" job hands over refused, with nothing written, when a
 word is no provider and class it knows, when the status and the catalogues named disagree, or when an
@@ -759,7 +759,7 @@ def step_scenarios(real, drift, folder):
                  (any("refused a draft" in warning for warning in r["warnings"]), "it did not say so")),
              noDrafts=True)
     refs = dict(ours(branches["ready"], built["ready"]), **ours(branches["to_verify"], built["to_verify"]))
-    scenario("a week with the same proposals rewrites nothing, and keeps the draft and the ticked boxes",
+    scenario("a run with the same proposals rewrites nothing, and keeps the draft and the ticked boxes",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
                  (not calls(r, "git.createCommit") and not pushed(r, branches["ready"]), "a commit was pushed"),
@@ -768,7 +768,7 @@ def step_scenarios(real, drift, folder):
              refs=refs, pulls=[pull(7, branches["ready"], body["ready"]),
                                pull(8, branches["to_verify"], body["to_verify"].replace("- [ ] **Gratuité.**", "- [x] **Gratuité.**"), draft=True)])
     stale = dict(ours(branches["ready"], "an older file"), **ours(branches["to_verify"], "an older file"))
-    scenario("a week with other proposals moves both branches and rewrites both bodies, keeping a ticked box",
+    scenario("a run with other proposals moves both branches and rewrites both bodies, keeping a ticked box",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
                  (len(calls(r, "git.updateRef")) == 2 and all(args["force"] for args in calls(r, "git.updateRef")),
@@ -782,7 +782,7 @@ def step_scenarios(real, drift, folder):
                                 pull(8, branches["to_verify"], "Avant.\n\n- [x] **Gratuité.** une case\n", draft=True)])
     earlier = {kind: drift.build_additions(real, "2026-11-16", kind, items)[0]
                for kind, items in (("ready", READY_ITEMS), ("to_verify", TO_VERIFY))}
-    scenario("a week later with the same proposals: the days the entries were proposed are kept, nothing is pushed",
+    scenario("a later run with the same proposals: the days the entries were proposed are kept, nothing is pushed",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
                  (not calls(r, "git.createCommit"), "a commit was made over the days alone"),
@@ -792,18 +792,18 @@ def step_scenarios(real, drift, folder):
              refs=dict(ours(branches["ready"], earlier["ready"]), **ours(branches["to_verify"], earlier["to_verify"])),
              pulls=[pull(7, branches["ready"], body["ready"]), pull(8, branches["to_verify"], body["to_verify"], True)])
     moved = earlier["ready"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
-    scenario("a branch whose other lines differ is built again, with this week's days",
+    scenario("a branch whose other lines differ is built again, with this run's days",
              lambda r: first(
                  (blob_texts(r) == [built["ready"]], "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
                  (len(pushed(r, branches["ready"])) == 1, "the branch was not moved")),
              parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
              refs=ours(branches["ready"], moved), pulls=[pull(7, branches["ready"], body["ready"])])
-    dated = real.replace("model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-23: x\n", 1)
+    dated = real.replace("model_list:\n", "model_list:\n  # Proposed by the drift run on 2026-11-23: x\n", 1)
     scenario("a day on a line the base holds is no day of a proposal: the branch is built again",
              lambda r: first((len(pushed(r, branches["ready"])) == 1, "a base line was taken for a proposal's")),
              parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
              refs=ours(branches["ready"], built["ready"].replace(
-                 "model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-16: x\n", 1)),
+                 "model_list:\n", "model_list:\n  # Proposed by the drift run on 2026-11-16: x\n", 1)),
              pulls=[pull(7, branches["ready"], body["ready"])], baseText=dated,
              files={"ready_template.j2": drift.build_additions(dated, date, "ready", READY_ITEMS)[0]})
     # An entry merged from a proposal of the same day and source carries the very line a new
@@ -1115,8 +1115,8 @@ GATE_STEP = "Find what the earlier attempts of the day ended with"
 ISSUE_STEP = "Open, update or close the issue of the unreadable catalogues"
 LEGACY_TITLE = "Dérive de la liste de modèles LiteLLM"
 MARKER = "<!-- LiteLLM-model-drift -->"
-DAY = "2026-11-28"
-SCHEDULES = ["47 6 * * 6", "47 8 * * 6", "47 10 * * 6", "47 12 * * 6"]
+DAY = "2026-11-25"
+SCHEDULES = ["17 7 * * *", "17 9 * * *", "17 11 * * *", "17 13 * * *"]
 
 # Plays one step's script against a made-up GitHub that knows runs, their artifacts and issues. It
 # filters nothing the real API would filter for the script ("event", "created"), so that the filters
@@ -1218,10 +1218,10 @@ def workflow_run(identifier, time, event="schedule"):
 
 
 def gate_scenarios():
-    """[(name, scenario, check)] for the gate, on a Saturday whose current run is the one of id 4."""
+    """[(name, scenario, check)] for the gate, on a day whose current run is the one of id 4."""
     out = []
     env = named_step("gate", GATE_STEP)[1]["env"]
-    times = {1: DAY + "T06:47:31Z", 2: DAY + "T08:47:12Z", 3: DAY + "T10:48:02Z", 4: DAY + "T12:47:05Z"}
+    times = {1: DAY + "T07:17:31Z", 2: DAY + "T09:17:12Z", 3: DAY + "T11:18:02Z", 4: DAY + "T13:17:05Z"}
 
     def scenario(name, attempt, artifacts, check, extra_runs=(), event="schedule", schedule=None):
         current = {2: times[2], 3: times[3], 4: times[4]}.get(attempt, times[4])
@@ -1276,10 +1276,10 @@ def gate_scenarios():
              {"1": [out_of + "read"], "9": [out_of + "unreadable"]}, outputs("false", "2"),
              extra_runs=[workflow_run(9, DAY + "T08:00:00Z", event="workflow_dispatch")])
     scenario("an attempt of another day is no attempt of this one", 2, {"8": [out_of + "unreadable"]},
-             outputs("false", "2"), extra_runs=[workflow_run(8, "2026-11-21T12:47:00Z")])
+             outputs("false", "2"), extra_runs=[workflow_run(8, "2026-11-24T13:17:00Z")])
     scenario("a run listed after this one is no attempt before it", 2,
              {"1": [out_of + "read"], "5": [out_of + "unreadable"]}, outputs("false", "2"),
-             extra_runs=[workflow_run(5, DAY + "T08:50:00Z")])
+             extra_runs=[workflow_run(5, DAY + "T09:50:00Z")])
     scenario("an artifact of another outcome is no outcome", 3,
              {"1": [out_of + "unreadable"], "2": [out_of + "maybe"]}, outputs("true", "3", earlier=unread(1)))
     scenario("a run with two outcomes has none", 3,
@@ -1297,7 +1297,7 @@ def gate_scenarios():
 def issue_scenarios():
     """[(name, scenario, check)] for the step that keeps the issue."""
     out = []
-    earlier = " ".join((DAY + "T06:47:31Z", DAY + "T08:47:12Z", DAY + "T10:48:02Z"))
+    earlier = " ".join((DAY + "T07:17:31Z", DAY + "T09:17:12Z", DAY + "T11:18:02Z"))
 
     def issue(number, title, state="open", login="github-actions[bot]", body=MARKER + "\nx"):
         return {"number": number, "title": title, "state": state, "body": body, "user": {"login": login}}
@@ -1382,10 +1382,10 @@ def issue_scenarios():
     scenario("the issue of the drift reports, closed, is reopened under the new title rather than doubled", taken_over,
              unreadable="groq:4xx mistral:network", issues=[legacy_closed])
     scenario("a run that reads every catalogue closes the open issue, with a comment", closed, issues=[legacy_open])
-    scenario("a week of deletions only opens no issue", nothing_written, status="1")
-    scenario("a week of additions only, the issue open: the run reads every catalogue and closes it", closed,
+    scenario("a run of deletions only opens no issue", nothing_written, status="1")
+    scenario("a run of additions only, the issue open: the run reads every catalogue and closes it", closed,
              status="1", issues=[issue(3, "Catalogue de fournisseur illisible pour la liste de modèles LiteLLM")])
-    scenario("a week with nothing opens no issue", nothing_written, status="0")
+    scenario("a run with nothing opens no issue", nothing_written, status="0")
     scenario("a run started by hand that reads everything closes the issue too", closed, last="false",
              event="workflow_dispatch", issues=[legacy_open])
     scenario("somebody else's issue under the title, with the marker, is never written", opened_beside,

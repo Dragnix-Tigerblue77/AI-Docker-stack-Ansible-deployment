@@ -57,13 +57,13 @@ WHAT IT CHECKS
 6. Every NOT_DISPATCHED entry still excuses something: it names a workflow file that exists, that
    the gate listens to, that has no "workflow_dispatch" trigger and that the gate does not dispatch.
    An exclusion that has stopped being true would otherwise keep waving a workflow past item 5.
-7. The weekly model-drift workflow, when there is one, dispatches the very same files on the branch
+7. The model-drift workflow, when there is one, dispatches the very same files on the branch
    of the pull request it opens: its own "WORKFLOW_FILES" lists exactly the gate's. A pull
    request opened with GITHUB_TOKEN gets no check from GitHub either, so that list is a copy of the
    gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
    gate would leave the deletion pull request without it, which only shows as a check that is not
    there.
-8. The branch the weekly model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
+8. The branch the model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
    is the one the gate merges, and the `if:` of the gate's job lets a run on it through. The gate
    merges that pull request by itself, and a branch named differently on either side would leave
    it open for ever with every check green, which shows as nothing at all.
@@ -119,7 +119,7 @@ NOT_DISPATCHED = {
 # The environment variable, on a step of the gate, whose value is the space-separated FILE names of
 # the workflows that step dispatches on the default branch once the gate has merged (#180).
 DISPATCH_ENV = "WORKFLOW_FILES"
-# The branch of the weekly deletions, written where it is made and where it is merged.
+# The branch of the deletions, written where it is made and where it is merged.
 BRANCH_ENV = "REMOVALS_BRANCH"
 
 
@@ -287,7 +287,7 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
                          "the same." % (DRIFT, " ".join(sorted(set(drift_files))), GATE,
                                         " ".join(sorted(set(gate_files)))))
 
-    # The branch the weekly deletions are made on, which the gate merges: written in three places.
+    # The branch the deletions are made on, which the gate merges: written in three places.
     if GATE in workflows and DRIFT in workflows:
         made = sorted(set(env_values(workflows[DRIFT], BRANCH_ENV)))
         merged = sorted(set(env_values(workflows[GATE], BRANCH_ENV)))

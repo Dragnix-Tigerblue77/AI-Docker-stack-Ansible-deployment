@@ -3547,14 +3547,14 @@ def run_proposal_cases():
     judged("each entry follows its provider's last entry, modelled on it, active or commented out like it",
            first_wrong(
                (not any(line.startswith("- ") for line in added), "a line of the file was changed: %r" % added[:3]),
-               ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the weekly drift run '
+               ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
                 '    model_info:\n      access_groups: ["LLM"]\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
                 '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
-               ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the weekly drift run on 2026-01-01: '
+               ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the drift run on 2026-01-01: '
                 'listed free by "ai-gateway.kilo.ai/api/v1/models" that day.\n  - model_name: gateway-fresh-kilo\n'
                 '    model_info:\n      access_groups: ["LLM"]\n'
                 '    litellm_params:\n      model: openai/vendor/gateway-fresh:free\n'
@@ -3565,7 +3565,7 @@ def run_proposal_cases():
                 and to_verify["text"].count('Authorization: ""') == 2,
                 "the Kilo entry to verify is wrong, or another entry lost its header"),
                ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
-                'weekly drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
+                'drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
                 '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM"]\n'
                 '  #   litellm_params:\n  #     model: openai/SN-Two\n'
                 '  #     api_base: "https://api.sambanova.ai/v1"\n' in to_verify["text"],
@@ -3634,7 +3634,7 @@ def run_proposal_cases():
                (vbody.endswith(PROPOSAL_SIGNATURE), "the body is not signed")))
     judged("the commits say what they add, in English, under the summary",
            first_wrong(
-               (ready["commit"].startswith("Propose the new LiteLLM models the weekly drift check knows everything "
+               (ready["commit"].startswith("Propose the new LiteLLM models the drift check knows everything "
                                            "of (#346)\n\n"), "the ready subject is wrong"),
                (to_verify["commit"].startswith("Propose the new LiteLLM models a person has to check before adding "
                                                "(#346)\n\n") and "openai/SN-Two" in to_verify["commit"],
@@ -3705,7 +3705,7 @@ def run_proposal_cases():
                 "the summary still ranks the proposed models"),
                (not left_outside_pull_requests(ranked) and exit_status(ranked) == 1
                 and "Aucune dérive." in render_summary(ranked, "selftest"),
-                "a week whose only news is proposed says something is left outside the pull requests")))
+                "a run whose only news is proposed says something is left outside the pull requests")))
 
     # The caps: entries per pull request, and the size of a body.
     many = answers_listing(RANKING_TEMPLATE)
@@ -3779,7 +3779,7 @@ def run_proposal_cases():
         {"provider": "cerebras", "id": "cb-three", "name": "cb-three-cerebras"}])
     judged("an entry of a provider with commented-out entries only follows the whole run, commented out",
            None if cerebras and ('  #     api_key: "os.environ/SAMBANOVA_API_KEY"\n\n  # Not routed to: proposed '
-                                 "by the weekly drift run on 2026-01-01, its free tier on Cerebras not verified "
+                                 "by the drift run on 2026-01-01, its free tier on Cerebras not verified "
                                  "yet.\n  # - model_name: cb-three-cerebras\n" in cerebras)
            and addition_problem(mini, cerebras, [{"provider": "cerebras", "id": "cb-three",
                                                   "name": "cb-three-cerebras"}]) is None
@@ -4123,7 +4123,7 @@ def run_carried_cases():
     """What the issue used to carry, now that only an unreadable catalogue opens one: an announced
     retirement in the body of the deletion pull request, a model free again in the body of the pull
     request of additions that concerns it, a NEW model no pull request proposes in the body of the one to
-    verify, and all of it, with the rest, in the run's summary, which is where it stays in a week with no
+    verify, and all of it, with the rest, in the run's summary, which is where it stays in a run with no
     pull request to carry it."""
     failures = 0
 
@@ -4208,7 +4208,7 @@ def run_carried_cases():
 
     result, new_text, proposals, summary, pr = week(news(dict(answers_listing(SELFTEST_TEMPLATE),
                                                               rankings=ranking_page()), fresh=False))
-    judged("a week with no pull request to carry them leaves the announcement and the model free again to the summary",
+    judged("a run with no pull request to carry them leaves the announcement and the model free again to the summary",
            first_wrong(
                (pr is None and new_text == SELFTEST_TEMPLATE, "something was deleted"),
                (not any(part["items"] for part in proposals.values()), "something was proposed"),
@@ -4216,7 +4216,7 @@ def run_carried_cases():
                 and "`openrouter/vendor/paid-one:free` (`paid-one`)" in section(summary, "## De nouveau gratuits sur OpenRouter"),
                 "the summary does not carry them"),
                (exit_status(result) == 1 and unreadable_providers(result) == [],
-                "a week of drift alone names a catalogue as unreadable")))
+                "a run of drift alone names a catalogue as unreadable")))
 
     failing = dict(answers_listing(SELFTEST_TEMPLATE), groq=leaky_401("groq"))
     result = run_online(SELFTEST_TEMPLATE, SELFTEST_KEYS, canned_opener(failing, []), "2026-01-01")
@@ -4413,8 +4413,8 @@ def run_command_line_cases():
 
 # ------------------------------------------------------------------------------------------------
 # The real model list. The cases above delete from small templates written for them; this one deletes
-# from "templates/LiteLLM_config.yaml.j2" itself what a week's retirements could ask for, so that a
-# shape of the file the deletion cannot take fails here and not in the weekly run, whose pull request
+# from "templates/LiteLLM_config.yaml.j2" itself what a run's retirements could ask for, so that a
+# shape of the file the deletion cannot take fails here and not in the drift run, whose pull request
 # merges itself. Nothing of the file is copied: what is held to is read off the file and its result.
 
 REAL_PAIR_STEP = 4  # bound: one pair of neighbours in four, since a deletion costs what an entry does
@@ -4430,7 +4430,7 @@ def bounded_keyset_documents(text):
     condition of the file that reads one key decides the same way whatever the other keys are, and a
     head of the "head" table is the value of the first provider given along its chain, so a cascade left
     empty, a slot or an alias left naming nothing, show with a key alone or a key missing. A file with
-    any other condition, two keys read at once say, gets every set, as the weekly run always does."""
+    any other condition, two keys read at once say, gets every set, as the drift run always does."""
     import jinja2.meta
     from jinja2.sandbox import SandboxedEnvironment
     tree = SandboxedEnvironment().parse(text)
@@ -4683,7 +4683,7 @@ def run_real_list_cases():
 
 def run_selftest():
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
-    # What the weekly workflow sets in the job that runs this check makes the summary carry a link to
+    # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
         "REMOVALS_BRANCH", "ADDITIONS_BRANCH", "ADDITIONS_TO_VERIFY_BRANCH", "GITHUB_SERVER_URL",
@@ -5502,7 +5502,7 @@ def run_contract_cases():
         status_stale, _, body_stale = run(online)
         status_notice, out_notice, _ = run(["--config", config, "--contracts", path])
         absent = [("models", "zulu"), ("code", "zulu")]
-        judged("an entry deleted from the template leaves a stale row: the report lists it, the plain run says so and stays green, the weekly status does not move",
+        judged("an entry deleted from the template leaves a stale row: the report lists it, the plain run says so and stays green, the status does not move",
                first_wrong(
                    (absent_names(stale_document, template) == absent, "absent: %r" % absent_names(stale_document, template)),
                    (contracts_report(template, contract_ranking(), stale_document)["absent"] == absent, "the report does not hold them"),
