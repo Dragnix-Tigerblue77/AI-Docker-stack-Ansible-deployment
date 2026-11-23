@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # The role used only "ansible.builtin.assert" and "ansible.builtin.include_role" until #76: the first

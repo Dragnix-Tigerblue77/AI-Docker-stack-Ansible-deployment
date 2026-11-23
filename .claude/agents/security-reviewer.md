@@ -6,7 +6,7 @@ model: sonnet
 ---
 
 <!--
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 You review this repository for security and licensing defects. There is no

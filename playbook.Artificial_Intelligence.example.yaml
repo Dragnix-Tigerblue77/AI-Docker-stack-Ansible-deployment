@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # EXAMPLE playbook: it shows how the role is called, it is not meant to be run as-is.
@@ -20,22 +20,15 @@
         # names the role that does. That role has to render "{{ Docker_compose_file_name }}.j2" from
         # ITS OWN CALLER's "templates/" -- that is, from the Artificial Intelligence role's -- and read the three other
         # variables "tasks/main.yml" hands it. The README spells the contract out.
-        #
-        # Here: the Swarm role of a private repository of this repository's owner, which meets it as-is.
-        # "Docker/deploy_Docker_compose_stack", from the same repository, meets it too -- that is what
-        # serves on the test bench until the target is Swarm.
-        Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+        Artificial_Intelligence_Docker_stack_deployment_role_name: "your_stack_deployment_role"
 
         # Whatever the role named above needs is the CALLER's to provide: this role cannot know what
         # that is, since the role is chosen by a variable, and neither of its asserts can check for it.
-        # Both homelab roles read "APT_cache_lifetime", and neither defaults it -- it lives in that
-        # repository's own playbook vars. Declared here so a caller who is not that playbook does not
-        # discover it as an undefined variable, mid-deployment, inside a role from another repository.
-        APT_cache_lifetime: 3600
+        # A variable that role reads without defaulting it is declared here, next to this one.
 
-        # The time zone handed to every container. A caller that already carries its own -- the
-        # homelab repository has "server_time_zone" in "group_vars/all.yaml" -- passes it here rather
-        # than restating it, so the stack's containers and the host running them tell the same time.
+        # The time zone handed to every container. A caller that already carries its own passes it here
+        # rather than restating it, so the stack's containers and the host running them tell the same
+        # time.
         Artificial_Intelligence_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
 
         # The published network, created and named by the caller, the one their reverse proxy listens

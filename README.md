@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -29,9 +29,8 @@ handlers/, vars/, meta/                       ses variables, sa configuration Li
 ```
 
 Un rôle et rien d'autre, et c'est délibéré : **le dépôt fournit le stack, pas la mécanique qui le déploie.** Cette
-mécanique appartient à l'appelant, et elle existe déjà -- `Docker/deploy_Docker_swarm_stack` et
-`Docker/deploy_Docker_compose_stack` d'un dépôt privé du mainteneur la portent, chacun pour son
-orchestrateur, avec tout ce que leurs commentaires documentent de pannes déjà payées.
+mécanique appartient à l'appelant : un rôle à lui, pour Swarm ou pour Compose, qui n'a qu'à remplir le
+contrat décrit plus bas.
 
 Le modèle commenté du template (`templates/Artificial_Intelligence.docker-compose.yml.j2`), placé
 après les services, porte les conventions qu'un bloc de service doit tenir : image sans tag (ou, pour
@@ -66,7 +65,7 @@ sans forker. Il n'y a donc dans ce dépôt aucune adresse IP, aucun nom d'hôte 
 ```yaml
 - role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "your_stack_deployment_role"
 ```
 
 Le seul paramètre obligatoire est celui-là : le rôle qui déploie réellement le stack. Le contrat qu'il doit
@@ -342,13 +341,12 @@ exige en plus, c'est à l'appelant de le fournir.** Ni ce rôle-ci ni ses `asser
 le rôle de déploiement est désigné par une variable, donc son contenu est inconnu au moment où les
 vérifications tournent.
 
-Ce n'est pas théorique. `Docker/deploy_Docker_swarm_stack` et `Docker/deploy_Docker_compose_stack` du
-dépôt privé du mainteneur remplissent tous les deux les trois obligations ci-dessus **sans
-modification** — mais tous les deux lisent aussi `APT_cache_lifetime`, qui n'a de défaut ni dans l'un ni
-dans l'autre. Elle vit dans les `vars:` du playbook de ce dépôt, donc elle est en portée
-quand c'est lui qui appelle, et **absente partout ailleurs**. Un appelant qui ne la déclare pas échoue au
-déploiement, sur une variable non définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui
-n'apparaît nulle part dans l'appel qu'il a écrit.
+Ce n'est pas théorique : un rôle de déploiement peut remplir les obligations ci-dessus **sans
+modification** et lire pourtant une variable qu'il ne définit pas, déclarée dans les `vars:` du playbook
+qui l'appelle d'habitude. Elle est alors en portée quand c'est ce playbook qui appelle, et **absente
+partout ailleurs**. Un appelant qui ne la déclare pas échoue au déploiement, sur une variable non
+définie, à l'intérieur d'un rôle d'un autre dépôt, portant un nom qui n'apparaît nulle part dans l'appel
+qu'il a écrit.
 
 Les deux rôles rendent en plus deux faits que les issues de service voudront lire :
 `Docker_stack_first_deployment`, qui dit si le stack est déployé pour la première fois sur cette machine,
@@ -1351,7 +1349,7 @@ Pages officielles lues :
 - Together AI : [Pricing](https://www.together.ai/pricing)
 - Fireworks : [Rate limits](https://docs.fireworks.ai/guides/quotas_usage/rate-limits)
 
-### Kilo Gateway : des modèles gratuits sans clé, une limite par adresse IP
+#### Kilo Gateway : des modèles gratuits sans clé, une limite par adresse IP
 
 `LiteLLM_config.yaml.j2` route aussi des modèles gratuits de Kilo Gateway, **sans clé et sans compte**. Comme celles d'OmniRoute, ses entrées sont toujours rendues, portent un `api_key` littéral et n'appartiennent à personne : `check_LiteLLM_account_isolation.py` les exempte pour la même raison. Aucune variable n'est ajoutée au rôle. Les pages citées ci-dessous sont celles du registre plus haut, lues le 2026-11-22.
 
@@ -1362,7 +1360,7 @@ Pages officielles lues :
 - **Où chaque modèle est placé.** Les modèles que le template sert déjà par OpenRouter et que le catalogue de Kilo liste gratuits (Nemotron 3 Ultra, Nemotron 3 Nano Omni, Nemotron 3.5 Lightning, Nemotron 3.5 Super VL, Particle-1, ERNIE 5.5 Flash et LFM 3 1.7B) ont leur entrée Kilo juste derrière leur jumeau, dans chaque cascade où il figure ; que ce soient les mêmes poids des deux côtés ne repose que sur l'identifiant. `beam-kilo` (Beam 1.0, de Reflection) n'a pas de jumeau : ses chiffres (Artificial Analysis et Epoch AI, lus le 2026-11-21) le placent devant les entrées Nemotron dans `Auto-Pro` et devant `nemotron-super-vl-free` dans `Auto-Flash`. `flint-kilo` et `glyph-cluster-kilo` n'ont aucun chiffre : ils terminent les entrées gratuites de `Auto-Flash`. `Auto-Code` et `Auto-Claude-Code` n'ont aucune entrée Kilo : `Auto-Claude-Code` ne tient que des fournisseurs à clé, et Beam n'est noté par Epoch AI que sur un des cinq bancs de `Auto-Code`. Le modèle `ling-3.2-flash:free` reste commenté, avec sa raison : il n'a répondu à aucune des sept requêtes faites à la main le 2026-11-22, toutes refusées par un `429`.
 - **Le contrôle hebdomadaire lit cette liste.** Le catalogue de Kilo se lit sans clé et marque chaque modèle gratuit (`isFree`) : un modèle qu'il ne liste plus est supprimé par la pull request des suppressions, comme chez OpenRouter, sur sa seule liste, car Kilo ne documente aucune route pour interroger un modèle seul ; un modèle encore listé mais plus gratuit est signalé dans les retraits annoncés, et jamais supprimé ; un nouveau modèle gratuit est proposé par l'une des deux pull requests d'ajouts, avec son `api_key` littéral et l'en-tête `Authorization` vidé. `kilo-auto/free` et `openrouter/free`, qui choisissent un modèle à chaque requête, sont écartés par une ligne `drift-ignore` du template.
 
-### OVHcloud AI Endpoints : des modèles gratuits sans clé, deux requêtes par minute et par modèle
+#### OVHcloud AI Endpoints : des modèles gratuits sans clé, deux requêtes par minute et par modèle
 
 `LiteLLM_config.yaml.j2` route aussi des modèles de texte d'OVHcloud AI Endpoints, **sans clé et sans compte**, sur le modèle de Kilo Gateway : entrées toujours rendues, nommées `<modèle>-ovh`, `api_key` littéral, aucune variable ajoutée au rôle, exemptées par `check_LiteLLM_account_isolation.py` pour la même raison. Les pages citées sont celles du registre plus haut, lues le 2026-11-22.
 
@@ -1398,7 +1396,7 @@ Pages officielles lues :
 | Cent AI | Revendeur prépayé (dépôt minimal de 1 $) ; un modèle gratuit « jusqu'au 30 novembre » pour tous, puis un pool gratuit quotidien partagé, premier arrivé premier servi, sans allocation par compte | Crédit d'inscription unique de 30 jours | Non : aucun dépôt n'est nécessaire, le modèle gratuit étant routé sans rien déposer (ligne du groupe 1) ; le modèle gratuit « événement » tiré chaque jour, sous un identifiant qui change, n'est pas routable |
 | Puter, Rewind AI, Top Tools AI | Puter : ses points d'accès compatibles OpenAI refusent les comptes gratuits ; Rewind AI : le moteur de Free AI avec 5 000 jetons par jour ; Top Tools AI : revendeur à forfait mensuel | | Non |
 
-### Requesty, une seconde source des modèles `:free` d'OpenRouter
+#### Requesty, une seconde source des modèles `:free` d'OpenRouter
 
 Requesty est une passerelle : elle relaie chaque requête vers le fournisseur du modèle. LiteLLM n'a pas de fournisseur de ce nom, donc chaque entrée est écrite `openai/<fournisseur>/<modèle>` avec un `api_base`, comme celles d'OmniRoute : LiteLLM ne retire que le préfixe `openai/`, et le reste, barre oblique comprise, part chez Requesty comme identifiant de modèle, que sa documentation demande sous la forme `fournisseur/modèle`. Cette lecture a été vérifiée dans le code de LiteLLM, appels de fonctions (`tools`) compris ; si chaque modèle les accepte chez Requesty, aucune page lue ne le dit.
 
@@ -1529,7 +1527,7 @@ Pages officielles lues :
 
 ### Les capacités sans routeur : ce qui a été lu, et pourquoi rien n'est routé
 
-Les routeurs de la passerelle ne couvrent que le texte. Cette section dit, pour cinq autres capacités, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Les verdicts ont été relus le 2026-11-22 sous ces règles : ceux qui ont changé le disent. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement, les préversions et les dépôts (un dépôt unique jusqu'à 10 €, supposé valable à vie : ni abonnement, ni recharge, ni crédit qui expire) ; un contenu qui part chez un tiers n'est pas une raison d'écarter un fournisseur ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
+Cette section dit, pour cinq capacités qui n'ont pas de routeur, ce qui a été lu (pages officielles, relues le 2026-11-22) et pourquoi aucun routeur n'existe encore, afin qu'une prochaine session reparte de ce constat et non de zéro. Les verdicts ont été relus le 2026-11-22 sous ces règles : ceux qui ont changé le disent. Chaque verdict porte la condition qui le changerait. Même position du mainteneur que plus haut sur l'entraînement, les préversions et les dépôts (un dépôt unique jusqu'à 10 €, supposé valable à vie : ni abonnement, ni recharge, ni crédit qui expire) ; un contenu qui part chez un tiers n'est pas une raison d'écarter un fournisseur ; un fournisseur qui n'a pas pu être lu est marqué non vérifié, jamais jugé.
 
 **Le fait qui décide plusieurs lignes : Cloudflare Workers AI.** La page « OpenAI compatibility » ne liste que les complétions de chat et les embeddings (`/v1/embeddings`) ; elle ne liste ni génération d'images, ni transcription, ni synthèse vocale. Les modèles d'image, de parole et de transcription ne s'atteignent que par l'appel natif `/ai/run/<modèle>`, pour lequel LiteLLM n'a pas de fournisseur : rien n'est donc routable par la passerelle aujourd'hui, même si le quota gratuit (10 000 « neurons » par jour) et la politique sur les données (aucune conservation, aucun entraînement sur le contenu client, page « Data usage ») sont ceux du fournisseur déjà retenu.
 
@@ -2094,7 +2092,7 @@ valeur, fait échouer le contrôle, et dans le rendu à `$` l'alias arrive avec 
 ```yaml
 - role: deploy_Artificial_Intelligence_Docker_stack
   vars:
-    Artificial_Intelligence_Docker_stack_deployment_role_name: "Docker/deploy_Docker_swarm_stack"
+    Artificial_Intelligence_Docker_stack_deployment_role_name: "your_stack_deployment_role"
     Artificial_Intelligence_server_time_zone: "{{ server_time_zone | default('Etc/UTC') }}"
 ```
 

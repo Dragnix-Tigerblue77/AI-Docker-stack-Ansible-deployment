@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 ---
 # tasks file for deploy_Artificial_Intelligence_Docker_stack
@@ -504,8 +504,8 @@
   when: Artificial_Intelligence_LiteLLM_disable_env_credential_login
 
 # The stack is rendered from THIS role's "templates/", and deployed by a role this repository does
-# not contain. The four variables below are the contract: they carry the names the homelab
-# repository's deployment roles expect, unprefixed, because they are theirs and not ours.
+# not contain. The four variables below are the contract: they carry the deployment role's names,
+# unprefixed, because they are that role's and not this one's.
 #
 # Passed as "include_role" parameters (precedence 20) rather than through a "set_fact" or a task
 # level "vars:": it is the only form that beats a fact already set. Below it, the fact wins, and a

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 # Python tooling for development and CI (pip install -r requirements.txt).
 # The versions are pinned so that the result of a lint is reproducible: two different versions would

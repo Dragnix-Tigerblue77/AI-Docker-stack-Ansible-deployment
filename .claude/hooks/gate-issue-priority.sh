@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 # PreToolUse gate, matched to mcp__github__issue_write in .claude/settings.json:
 # refuse a call that writes an issue's Priority field -- setting it, changing it,
