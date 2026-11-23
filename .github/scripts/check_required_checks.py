@@ -6,16 +6,18 @@
 
 WHY THIS CHECK EXISTS
 ---------------------
-".github/rulesets/main.json" is the list of checks a Dependabot update, or the weekly model-deletion
-pull request, has to pass before ".github/workflows/dependabot-auto-merge.yml" merges it. Nothing on GitHub's side reads that file:
-no ruleset is imported from it, so the merge workflow reads it itself. That makes it a file nothing else keeps honest, and it can go wrong in two directions, both
-of them silent:
+".github/rulesets/main.json" is the list of checks every merge has to pass: the ruleset GitHub
+enforces is imported from it, and ".github/workflows/dependabot-auto-merge.yml" reads it too, to
+merge a Dependabot update or the model-deletion pull request. GitHub reads its own copy of the file,
+imported by hand, and not this one. That makes the file a record nothing else keeps honest, and it
+can go wrong in two directions, both of them silent:
 
 * A context names a job no workflow reports. GitHub matches a check by the job's display "name:" --
   never the workflow's name, never the job's key -- so renaming a job without editing the file
   leaves a context that never reports. Every Dependabot update then waits for a human, each gate run
   saying only that the check "has not reported yet", which is also what it says on every ordinary
-  run while the other workflow is still going. Nothing about it looks broken.
+  run while the other workflow is still going. Nothing about it looks broken. Once the ruleset is
+  imported the same context keeps every other pull request unmerged too.
 * A job is missing from the file. The file names every job of the workflows the gate listens to,
   one by one, rather than a single aggregate job (the merge workflow's header says why). The price
   of that choice is that a job added to any of them gates nothing until somebody adds it here -- and

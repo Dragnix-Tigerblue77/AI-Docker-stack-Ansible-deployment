@@ -90,9 +90,10 @@ name: LiteLLM model drift
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
 # template's own (a key name and an address it already has, an id and a name of a narrow spelling),
 # which nothing but a person merges, and open an issue that names providers of its table -- not push
-# to main, which "contents: write" next to such code would allow on a repository whose main no
-# ruleset can protect (the header of "ansible-ci.yml" has the measurement). Whether that pull request then merges by
-# itself is for "dependabot-auto-merge.yml" to say.
+# to main, which "contents: write" next to such code would otherwise allow. The ruleset that
+# requires the checks already refuses a push of a commit no check has seen, which is one more
+# reason, not the only one, for that split. Whether that pull request then merges by itself is
+# for "dependabot-auto-merge.yml" to say.
 #
 # Never on a pull request, and from main: this is the one workflow that holds the providers' keys,
 # and no job may hold them next to the code of a pull request, which nobody has reviewed yet. So it
@@ -190,8 +191,10 @@ name: LiteLLM model drift
 # can cause and still get a run for -- for every workflow with no run yet on the branch's head, so
 # that a run that failed half way is repaired by the next. The list is the gate's own
 # "WORKFLOW_FILES", which "check_required_checks.py" holds equal. The pull request then waits for a
-# person's approval of its runs, and for a person's merge. With the App those dispatches are not
-# made, since they would only double the native runs. A token that could not be minted leaves that
+# person's approval of its runs, and for a person's merge, which the ruleset allows only once
+# "sign-off", which nothing starts for it, has succeeded: the App is what lets the model-deletion
+# pull request merge at all. With the App those dispatches are not made, since they would only
+# double the native runs. A token that could not be minted leaves that
 # step red and the run in the fallback.
 #
 # The commit's author is the Actions bot in both modes, and the commit carries that bot's

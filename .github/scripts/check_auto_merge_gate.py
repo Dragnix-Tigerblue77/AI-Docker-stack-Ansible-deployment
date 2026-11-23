@@ -32,17 +32,17 @@ WHAT IT RUNS
   unset, empty, another App's or no slug, and with an author that is not exactly that App's bot, they
   wait for a human, and every other condition holds for the App's pull request as for the Actions
   bot's (a wrong branch, a second commit, a commit that is not the Actions bot's, a draft, a line
-  added, a check red or missing, a sign-off that started and is not green);
+  added, a check red or missing, a sign-off that never started or started and is not green);
 * the two pull requests of additions the same workflow opens, on the branches it names for them: as
   it opens them, lines added, and as the worst they could be, a deletion that would merge on the
   deletions' branch, by either bot, every check green, which only their branch keeps from merging;
-* every check the ruleset names but "sign-off", each tried missing and red, so that widening the list
-  of checks the step excuses is noticed; a check posted by another app; and the latest of several
-  runs of one check, whichever order the API lists them in.
+* every check the ruleset names, "sign-off" included, each tried missing and red, so that excusing
+  one is noticed; a check posted by another app; and the latest of several runs of one check,
+  whichever order the API lists them in.
 
 The checks the ruleset names are read from the real ".github/rulesets/main.json", and the heading of
-the body from the real script that writes it, so that renaming "sign-off" or the heading in one place
-only fails here. The made-up GitHub does not answer whatever it is asked: every call is compared with
+the body from the real script that writes it, so that renaming the heading in one place only fails
+here. The made-up GitHub does not answer whatever it is asked: every call is compared with
 what the scenario's own pull request implies (the repository, the ruleset's path and ref, the head
 commit, the pull request number, the comparison, the merge method) and anything else throws, which is
 how a step that reads main's checks instead of the head's, or merges another pull request, is noticed.
@@ -317,7 +317,7 @@ def removals(patch, branch=None, author="github-actions[bot]", **overrides):
                "user": {"login": author}},
         "files": [file],
         "commits": [{"sha": "c1", "author": {"login": "github-actions[bot]"}, "commit": {"message": "x"}}],
-        "checks": checks_of([name for name in contexts() if name != "sign-off"]),
+        "checks": checks_of(contexts()),
         "behind_by": 0,
         "env": {},
     }
@@ -417,7 +417,7 @@ def scenarios():
         base_file.update(changes)
         return base_file
 
-    add("deletion: one whole entry, every check green but sign-off, which never starts", "merged",
+    add("deletion: one whole entry, every check green, sign-off included", "merged",
         removals(patch))
     five = set()
     for name in names[:5]:
@@ -514,25 +514,24 @@ def scenarios():
     add("deletion: a head behind the default branch", "not merged", removals(patch, behind_by=2),
         needle="behind")
 
-    # Every check the ruleset names but "sign-off" has to have reported, and reported success: the list
-    # of checks the step excuses is widened by an edit of one line, so each one is tried.
+    # Every check the ruleset names has to have reported, and reported success, "sign-off" included: it
+    # never starts on a pull request opened with the workflow's own token, and the ruleset keeps such a
+    # pull request from merging, so the step must not merge it either.
     others = [name for name in contexts() if name != "sign-off"]
-    for context in others:
+    for context in contexts():
         add("deletion: %s has not reported" % context, "not merged",
-            removals(patch, checks=checks_of([name for name in others if name != context])),
+            removals(patch, checks=checks_of([name for name in contexts() if name != context])),
             needle="has not reported")
         add("deletion: %s is red" % context, "not merged",
-            removals(patch, checks=checks_of(others, failing=context)), needle="concluded failure")
+            removals(patch, checks=checks_of(contexts(), failing=context)), needle="concluded failure")
+    add("deletion: every check green but sign-off, which never starts", "not merged",
+        removals(patch, checks=checks_of(others)), needle='"sign-off" has not reported')
     add("deletion: a check is still running", "not merged",
-        removals(patch, checks=checks_of(others, status="in_progress")), needle="is still in_progress")
+        removals(patch, checks=checks_of(contexts(), status="in_progress")), needle="is still in_progress")
     add("deletion: the right check names, posted by another app", "not merged",
-        removals(patch, checks=checks_of(others, app="some-other-app")), needle="has not reported")
-    add("deletion: sign-off reported red", "not merged",
-        removals(patch, checks=checks_of(contexts(), failing="sign-off")), needle="concluded failure")
-    # A sign-off that did report, and green, is of course fine: the excuse is for the one that never runs.
-    add("deletion: sign-off reported green as well", "merged", removals(patch, checks=checks_of(contexts())))
+        removals(patch, checks=checks_of(contexts(), app="some-other-app")), needle="has not reported")
     # The latest run of a check is the one that counts, whatever order the API lists them in.
-    rest = [run_of(name) for name in others if name != "gitleaks"]
+    rest = [run_of(name) for name in contexts() if name != "gitleaks"]
     old_green, new_red = run_of("gitleaks", "success", "1"), run_of("gitleaks", "failure", "2")
     old_red, new_green = run_of("gitleaks", "failure", "1"), run_of("gitleaks", "success", "2")
     add("deletion: a check green once and red when re-run, the older run listed first", "not merged",
@@ -592,8 +591,6 @@ def scenarios():
         return removals(patch, author=app + "[bot]" if author is None else author, env=env, **overrides)
 
     add("App: its bot opens the deletions, its slug is set", "merged", by_app())
-    add("App: the same with sign-off reported green too", "merged",
-        by_app(checks=checks_of(contexts())))
     add("App: the Actions bot still opens them with the slug set", "merged",
         by_app(author="github-actions[bot]"))
     add("App: the Actions bot still opens them with no slug", "merged",
@@ -638,10 +635,12 @@ def scenarios():
     asked["pr"]["body"] = "Models their provider has retired.\n\n%s\n\n- a comment names m1" % heading
     add("App: the body asks for a reading", "not merged", asked, needle="lists what a person has to read")
     add("App: a head behind the default branch", "not merged", by_app(behind_by=1), needle="behind")
-    add("App: a check is red", "not merged", by_app(checks=checks_of(others, failing="yamllint")),
+    add("App: a check is red", "not merged", by_app(checks=checks_of(contexts(), failing="yamllint")),
         needle="concluded failure")
     add("App: a check has not reported", "not merged",
-        by_app(checks=checks_of([name for name in others if name != "gitleaks"])), needle="has not reported")
+        by_app(checks=checks_of([name for name in contexts() if name != "gitleaks"])), needle="has not reported")
+    add("App: sign-off has not started", "not merged", by_app(checks=checks_of(others)),
+        needle='"sign-off" has not reported')
     add("App: sign-off started and is red", "not merged",
         by_app(checks=checks_of(contexts(), failing="sign-off")), needle="concluded failure")
     add("App: sign-off started and is still running", "not merged",
@@ -796,8 +795,8 @@ MUTATIONS = [
     ("a second commit passes", [("commits.length !== 1 ||", "")]),
     ("a person's commit passes", [("commits[0].author?.login !== 'github-actions[bot]'", "false")]),
     ("the body is not read", [(".test(pr.body ?? '')", ".test('')")]),
-    ("sign-off is required of the deletions", [
-        ("notApplicable.add(context);", "void context;")]),
+    ("a check that never started is excused", [
+        ("if (runs.length === 0) {", "if (runs.length === 0 && context === 'sign-off') continue;\n              if (runs.length === 0) {")]),
     ("any app's check of the right name counts", [("&& run.app?.slug === 'github-actions'", "")]),
     ("a check still running passes", [("latest.status !== 'completed'", "false")]),
     ("a check that is not a success passes", [("latest.conclusion !== 'success'", "false")]),
@@ -847,7 +846,6 @@ MUTATIONS = [
     ("a ruleset with no check passes", [("required.length === 0", "false")]),
     ("a ruleset with two rules of required checks passes", [("rules.length !== 1", "rules.length === 0")]),
     # the environment of the step, which is as much a part of the guard as the script
-    ("the list of checks the step excuses is widened", [], {"REMOVALS_NOT_APPLICABLE": "sign-off yamllint"}),
     ("the cap on entries is raised", [], {"REMOVALS_MAX_ENTRIES": "50"}),
     ("the heading that asks for a reading is another", [], {"REMOVALS_REVIEW_HEADING": "## Elsewhere"}),
     ("the branch of the deletions is another", [], {"REMOVALS_BRANCH": "claude/other"}),
