@@ -926,14 +926,20 @@ jobs:
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
                 if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);
-                after.set(anchor.last, (after.get(anchor.last) ?? []).concat(block));
+                after.set(anchor.last, (after.get(anchor.last) ?? []).concat([block]));
               }
+              // "notes" holds the index of each comment this wrote, the line after the blank one a
+              // block opens with: only the builder knows them, since a base line can read the same.
               const out = [];
+              const notes = [];
               lines.forEach((line, index) => {
                 out.push(line);
-                out.push(...(after.get(index) ?? []));
+                for (const block of after.get(index) ?? []) {
+                  notes.push(out.length + 1);
+                  out.push(...block);
+                }
               });
-              return { text: out.join('\n') };
+              return { text: out.join('\n'), notes };
             };
             // What "proposals.json" says of one kind: { complete, items } once its shape is checked,
             // or { problem }. The items themselves are judged by additionsTemplate.
@@ -1002,17 +1008,18 @@ jobs:
             };
 
             // The comment above a proposed entry carries the day it was proposed. A branch whose
-            // template differs from the new build only by those days, on lines the base does not
-            // hold, is kept as it is: a week with nothing new then pushes nothing and starts no check,
-            // and each entry keeps the day it was first proposed.
+            // template differs from the new build only by those days, on the lines the build wrote
+            // them on, is kept as it is: a week with nothing new then pushes nothing and starts no
+            // check, and each entry keeps the day it was first proposed. The lines are the builder's
+            // own account, not the ones the base lacks: the comment does not name its model, so an
+            // entry merged from an earlier proposal of the same day and source holds the same line.
             const undated = (line) => line.replace(/^(  # (?:Proposed|Not routed to: proposed) by the weekly drift run on )[0-9]{4}-[0-9]{2}-[0-9]{2}/, '$1');
-            const onlyDaysDiffer = (kept, built, baseText) => {
+            const onlyDaysDiffer = (kept, built) => {
               const keptLines = kept.split('\n');
-              const builtLines = built.split('\n');
-              const baseLines = new Set(baseText.split('\n'));
+              const builtLines = built.text.split('\n');
+              const notes = new Set(built.notes);
               return keptLines.length === builtLines.length && keptLines.every((line, index) => line === builtLines[index] ||
-                (!baseLines.has(builtLines[index]) && undated(builtLines[index]) !== builtLines[index] &&
-                 undated(line) === undated(builtLines[index])));
+                (notes.has(index) && undated(line) === undated(builtLines[index])));
             };
 
             // Writes "content" as the template in one commit on "base", and points the branch at it
@@ -1308,7 +1315,7 @@ jobs:
               // Signed as the deletions are: the commit is a proposal a person reads before merging.
               message = message.trimEnd() + `\n\nSigned-off-by: ${bot.name} <${bot.email}>\n`;
               const kept = head ? await templateAt(head) : null;
-              const content = kept !== null && onlyDaysDiffer(kept, built.text, baseText) ? kept : built.text;
+              const content = kept !== null && onlyDaysDiffer(kept, built) ? kept : built.text;
 
               await publish(spec.branch, head, content, message, {
                 title: ADDITION_TITLES[kind], existing, draft: spec.draft, body: keepTicks(body, existing?.body),

@@ -478,7 +478,7 @@ def load_builder():
              "build the template from the validated items"),
             (r"if \(handed !== built\.text\) \{\s*core\.setFailed\([^;]*\);\s*return;\s*\}",
              "stop when the script's build is another text"),
-            (r"const content = kept !== null && onlyDaysDiffer\(kept, built\.text, baseText\) \? kept : built\.text;",
+            (r"const content = kept !== null && onlyDaysDiffer\(kept, built\) \? kept : built\.text;",
              "push the text it built, or the branch's own where only the days differ"),
             (r"publish\(spec\.branch, head, content, message,", "push that text")):
         if not re.search(pattern, script):
@@ -806,6 +806,18 @@ def step_scenarios(real, drift, folder):
                  "model_list:\n", "model_list:\n  # Proposed by the weekly drift run on 2026-11-16: x\n", 1)),
              pulls=[pull(7, branches["ready"], body["ready"])], baseText=dated,
              files={"ready_template.j2": drift.build_additions(dated, date, "ready", READY_ITEMS)[0]})
+    # An entry merged from a proposal of the same day and source carries the very line a new
+    # proposal's comment is: the base holding it must not make that comment a line of the base.
+    note = next(line for line in built["ready"].split("\n") if line.startswith("  # Proposed by") and date in line)
+    merged = real.replace("model_list:\n", "model_list:\n%s\n" % note, 1)
+    scenario("a proposal's day on a line the base holds too, from an entry merged that day: nothing is pushed",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (not calls(r, "git.createCommit"), "a commit was made over the days alone")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], drift.build_additions(merged, "2026-11-16", "ready", READY_ITEMS)[0]),
+             pulls=[pull(7, branches["ready"], body["ready"])], baseText=merged,
+             files={"ready_template.j2": drift.build_additions(merged, date, "ready", READY_ITEMS)[0]})
     empty = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
     scenario("nothing left to propose, every catalogue read: both are closed, with a comment",
              lambda r: first(
@@ -1053,10 +1065,10 @@ ADDITION_MUTATIONS = [
      "if (false) core.setFailed(`${branch} holds ${foreign}, so neither"),
     ("refuse a status it does not know", "if (!['0', '1', '2'].includes(status)) {\n", "if (false) {\n"),
     ("build on main only", "if (!['ahead', 'identical'].includes(ancestry.status))", "if (false)"),
-    ("keep a branch whose days alone differ", "kept !== null && onlyDaysDiffer(kept, built.text, baseText) ? kept : built.text",
+    ("keep a branch whose days alone differ", "kept !== null && onlyDaysDiffer(kept, built) ? kept : built.text",
      "built.text"),
     ("keep only where the days alone differ", "keptLines.length === builtLines.length && keptLines.every(", "true || ("),
-    ("tell a proposal's day from a line of the base", "(!baseLines.has(builtLines[index]) &&", "(true &&"),
+    ("tell a proposal's day from a line of the base", "(notes.has(index) &&", "(true &&"),
 ]
 
 
