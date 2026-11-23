@@ -359,7 +359,11 @@ than the day it was written. Each claim cites the provider's own page and the da
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
-catalogues, writing what drifted to the run's summary and to the pull requests it concerns. A
+catalogues, writing what drifted to the run's summary and to the pull requests it concerns.
+Every provider the model list routes to has its catalogue read by that run, a provider that needs a
+key included, and the offline run fails on an active entry of a provider no reader covers, naming the entry
+(OmniRoute's virtual routes, which no catalogue lists, apart): a provider added to the template gets its
+reader in the script, and the tables that name the providers, in the same change. A
 model its provider no longer lists is deleted by that script, not by a model, in a pull request the
 same workflow opens, wherever it can read the result back as the original minus the deletion; what it
 refuses to delete stays a person's, from that pull request and the summary. An addition stays a

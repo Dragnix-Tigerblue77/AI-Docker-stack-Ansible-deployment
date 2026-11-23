@@ -504,13 +504,19 @@ def item(provider, identifier, name):
 READY_ITEMS = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
             item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free"),
             item("kilo", "vendor/fresh-three:free", "fresh-three-kilo"),
-            item("kilo", "vendor/fresh-four", "fresh-four-kilo")]
+            item("kilo", "vendor/fresh-four", "fresh-four-kilo"),
+            item("requesty", "vendor/fresh-six", "fresh-six-requesty")]
 TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
              item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
              item("cerebras", "zai-glm-9", "zai-glm-9-cerebras"),
              item("sambanova", "DeepSeek-V9", "deepseek-v9-sambanova"),
              item("cloudflare", "@cf/vendor/model-9", "model-9-cloudflare"),
-             item("kilo", "vendor/fresh-five:free", "fresh-five-kilo")]
+             item("kilo", "vendor/fresh-five:free", "fresh-five-kilo"),
+             item("nvidia", "vendor/fresh-seven", "fresh-seven-nvidia"),
+             item("ovhcloud", "Fresh-Eight.1", "fresh-eight-1-ovh"),
+             item("requesty", "vendor/fresh-nine", "fresh-nine-requesty"),
+             item("zai", "glm-9-flash", "glm-9-flash-zai"),
+             item("centai", "hy9-flash:free", "hy9-flash-cent-ai")]
 
 
 
@@ -599,6 +605,16 @@ def builder_scenarios(real, drift):
         "is already an entry")
     add("a Kilo id already an entry is refused", [item("kilo", "nvidia/nemotron-3-ultra-550b-a55b:free", "fresh-kilo")],
         "is already an entry")
+    add("an OVHcloud id already an entry is refused", [item("ovhcloud", "gpt-oss-120b", "fresh-ovh")],
+        "is already an entry", kind="to_verify")
+    add("an NVIDIA id already an entry is refused", [item("nvidia", "moonshotai/kimi-k3.1-pro", "fresh-nvidia")],
+        "is already an entry", kind="to_verify")
+    add("a Requesty id already an entry is refused", [item("requesty", "nvidia/nemotron-3-ultra-550b-a55b", "fresh-requesty")],
+        "is already an entry")
+    add("a ready model of a provider whose API states a price and no free tier is refused",
+        [item("ovhcloud", "Fresh-Eight.1", "fresh-eight-1-ovh")], "free tier, and only")
+    add("a ready model of a provider that states nothing is refused",
+        [item("nvidia", "vendor/fresh-seven", "fresh-seven-nvidia")], "free tier, and only")
     add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "kilo-auto/free", "auto-kilo")],
         "set aside by a drift-ignore line")
     add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
@@ -1034,6 +1050,14 @@ ADDITION_MUTATIONS = [
     ("blank the Authorization header of a keyless gateway's entry", "if (spec.keyless) block.push(", "if (false) block.push("),
     ("attribute the entries served through Kilo's gateway to it", "apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';",
      "apiBase.includes('ai-gateway.kilo.ai')) return null;"),
+    ("attribute the entries served through OVHcloud to it",
+     "apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';",
+     "apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return null;"),
+    ("attribute the entries served through Requesty to it", "apiBase.includes('requesty.ai')) return 'requesty';",
+     "apiBase.includes('requesty.ai')) return null;"),
+    ("blank the Authorization header of OVHcloud's entries", "label: 'OVHcloud', keyless: true", "label: 'OVHcloud'"),
+    ("state Requesty's free tier from its catalogue", "label: 'Requesty', free: 'router.eu.requesty.ai/v1/models'",
+     "label: 'Requesty'"),
     ("name every provider the script reads in the table of additions",
      "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
@@ -1374,6 +1398,11 @@ def issue_scenarios():
         (not result["failures"], "it failed: %s" % result["failures"][:1]),
         ("| Cloudflare | HTTP 4xx :" in (calls(result, "issues.create") or [{"body": ""}])[0]["body"], "it is not named")),
              unreadable="cloudflare:4xx")
+    scenario("the providers read since are named with their class too", lambda result: first(
+        (not result["failures"], "it failed: %s" % result["failures"][:1]),
+        (all(row in (calls(result, "issues.create") or [{"body": ""}])[0]["body"]
+             for row in ("| Cent AI | HTTP 4xx :", "| Z AI | HTTP 5xx :", "| NVIDIA | aucune réponse")), "one is not named")),
+             unreadable="centai:4xx zai:5xx nvidia:network")
     scenario("a catalogue of a provider the table does not name is refused", refused, unreadable="cloudflare2:4xx")
     scenario("an earlier attempt that cannot read opens nothing, and says the next one reads again",
              warned("two hours"), unreadable="groq:4xx", last="false")

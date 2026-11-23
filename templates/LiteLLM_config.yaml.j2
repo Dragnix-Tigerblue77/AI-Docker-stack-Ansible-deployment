@@ -1378,6 +1378,10 @@ model_list:
       api_key: "ovh-no-key-needed"
       extra_headers:
         Authorization: ""
+  # drift-ignore: ovhcloud/Meta-Llama-3_3-70B-Instruct -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
+  # drift-ignore: ovhcloud/Qwen3.6-27B -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
+  # drift-ignore: ovhcloud/Olala-v1.0-summarise -- a task-specific model, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: ovhcloud/Olala-v1.0-translate -- a task-specific model, which the header of this section sets aside (read 2026-11-22)
 
 {% if has.Requesty %}
   # ============================================================================
@@ -1439,6 +1443,9 @@ model_list:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
+  # drift-ignore: requesty/novita/ling-3.1-flash -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
+  # drift-ignore: requesty/nvidia/muse-glimmer-30b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
+  # drift-ignore: requesty/nvidia/nemotron-3-nano-30b-a3b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
 
 {% endif %}
 
@@ -1609,6 +1616,9 @@ model_list:
     litellm_params:
       model: nvidia_nim/google/gemma-3-4b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
+  # drift-ignore: nvidia/nvidia/cosmos-reason2-8b -- a vision model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: nvidia/nvidia/ising-calibration-1.5-31b -- a quantum calibration model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: nvidia/nvidia/riva-translate-4b-instruct-v2 -- a translation model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
 
 {% endif %}
 

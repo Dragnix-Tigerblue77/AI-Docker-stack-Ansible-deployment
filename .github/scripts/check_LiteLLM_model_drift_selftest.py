@@ -63,7 +63,7 @@ from check_LiteLLM_model_drift import (
     read_layout, read_ranking_models, read_template, refusal_text, render_commit_message,
     render_pr_body, render_summary, render_text, render_with_keys, rewrite_heads, router_quality,
     run_online, seconds_figure, slots_text, split_level, squash, TEMPLATE_SWITCHES, time_ties,
-    undeleted_count, unreadable_providers, urllib_opener, usage_of_id, verify_removal,
+    undeleted_count, unreadable_providers, urllib_opener, usage_of_id, verify_removal, OMNIROUTE_BASE,
 )
 
 
@@ -226,6 +226,23 @@ OFFLINE_CASES = (
      (" -- selftest: looked at and turned down", ""), '"drift-ignore:" line must read'),
     ("a drift-ignore naming no known provider is refused",
      ("drift-ignore: openrouter/", "drift-ignore: nowhere/"), "names no provider"),
+    ("an active entry of a provider no reader covers is refused, and named",
+     ("  - model_name: local\n",
+      "  - model_name: stray\n    litellm_params:\n      model: acme/stray-model\n"
+      "      api_key: \"os.environ/ACME_API_KEY\"\n\n  - model_name: local\n"),
+     ('the active entry "stray" (model: acme/stray-model) belongs to no provider whose catalogue this check reads',
+      "OmniRoute's virtual routes")),
+    ("an openai/ entry on a host no reader covers is refused too",
+     ("  - model_name: local\n",
+      "  - model_name: stray\n    litellm_params:\n      model: openai/stray-model\n"
+      "      api_base: \"https://api.acme.invalid/v1\"\n      api_key: \"x\"\n\n  - model_name: local\n"),
+     'the active entry "stray" (model: openai/stray-model)'),
+    ("an active entry with no model at all is refused too",
+     ("  - model_name: local\n", "  - model_name: stray\n\n  - model_name: local\n"),
+     'the active entry "stray" (model: None)'),
+    ("a commented-out entry of a provider no reader covers is not refused: it is not routed",
+     ("  # - model_name: paid-one\n  #   litellm_params:\n  #     model: openrouter/vendor/paid-one\n",
+      "  # - model_name: paid-one\n  #   litellm_params:\n  #     model: acme/paid-one\n"), None),
 )
 
 
@@ -368,6 +385,16 @@ def kilo_model(identifier, free=True, outputs=("text",), expiration=None):
             "architecture": {"output_modalities": list(outputs)}, "expiration_date": expiration}
 
 
+def requesty_model(identifier, prices=(0, 0), retires=None):
+    """One model as Requesty lists it: the two prices per token it states, and "retires" only on some."""
+    model = {"api": "chat", "id": identifier, "object": "model", "owned_by": "system",
+             "input_price": prices[0], "output_price": prices[1],
+             "pricing": [{"prompt_tokens_threshold": 0, "input_price": prices[0], "output_price": prices[1]}]}
+    if retires is not None:
+        model["retires"] = retires
+    return model
+
+
 def selftest_answers():
     """Canned catalogues matching SELFTEST_TEMPLATE exactly: no drift at all."""
     return {
@@ -409,6 +436,13 @@ def selftest_answers():
         # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
         "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
                         "success": True}],
+        # SELFTEST_TEMPLATE has no entry of NVIDIA, OVHcloud, Requesty, Z AI or Cent AI, which have catalogues
+        # that list nothing here: the cases that play them have a template of their own.
+        "nvidia": {"object": "list", "data": []},
+        "ovhcloud": {"object": "list", "data": []},
+        "requesty": {"object": "list", "data": []},
+        "zai": {"object": "list", "data": []},
+        "centai": {"object": "list", "data": []},
     }
 
 
@@ -441,6 +475,11 @@ def answers_listing(text, without=()):
         "kilo": {"data": [kilo_model(i) for i in sorted(ids["kilo"])]},
         "cloudflare": [{"result": [{"name": i, "task": {"name": "Text Generation"}}
                                    for i in sorted(ids["cloudflare"])], "success": True}],
+        "nvidia": {"data": [{"id": i} for i in sorted(ids["nvidia"])]},
+        "ovhcloud": {"data": [{"id": i} for i in sorted(ids["ovhcloud"])]},
+        "requesty": {"data": [requesty_model(i) for i in sorted(ids["requesty"])]},
+        "zai": {"data": [{"id": i} for i in sorted(ids["zai"])]},
+        "centai": {"data": [{"id": i} for i in sorted(ids["centai"])]},
     }
 
 
@@ -451,6 +490,8 @@ SELFTEST_KEYS = {
     "MODEL_DRIFT_DEEPSEEK_API_KEY": "selftest-deepseek-key-SECRET",
     "MODEL_DRIFT_CLOUDFLARE_API_KEY": "selftest-cloudflare-key-SECRET",
     "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID": "0123456789abcdef0123456789abcdef",
+    "MODEL_DRIFT_ZAI_API_KEY": "selftest-zai-key-SECRET",
+    "MODEL_DRIFT_CENT_AI_API_KEY": "selftest-centai-key-SECRET",
 }
 
 
@@ -4706,7 +4747,9 @@ def run_pricing_page_cases():
     # mistake a table of addresses invites, and nothing else would see it.
     own_domains = {"cerebras": "inference-docs.cerebras.ai", "sambanova": "cloud.sambanova.ai",
                    "gemini": "ai.google.dev", "groq": "console.groq.com", "mistral": "mistral.ai",
-                   "deepseek": "api-docs.deepseek.com", "cloudflare": "developers.cloudflare.com"}
+                   "deepseek": "api-docs.deepseek.com", "cloudflare": "developers.cloudflare.com",
+                   "nvidia": "build.nvidia.com", "ovhcloud": "www.ovhcloud.com", "zai": "docs.z.ai",
+                   "centai": "cent-ai.dev"}
 
     def foreign(table):
         return ["%s -> %s" % (name, urllib.parse.urlparse(url).hostname)
@@ -6945,6 +6988,393 @@ def run_cloudflare_cases():
     return failures
 
 
+# ------------------------------------------------------------------------------------------------
+# NVIDIA, OVHcloud, Requesty, Z AI and Cent AI: the providers every entry of which has a catalogue read
+# ------------------------------------------------------------------------------------------------
+
+COVERAGE_KEYS = dict(SELFTEST_KEYS)
+# SELFTEST_TEMPLATE with an entry of each of the five providers, the first in the "flash" cascade, and
+# one commented-out Requesty entry under its reason.
+COVERAGE_BLOCK = """\
+  - model_name: nv-one
+    litellm_params:
+      model: nvidia_nim/vendor/nv-one
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+
+  - model_name: ovh-one
+    litellm_params:
+      model: openai/OvhOne
+      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_key: "ovh-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  - model_name: req-one
+    litellm_params:
+      model: openai/vendor/req-one
+      api_base: "https://router.eu.requesty.ai/v1"
+      api_key: "os.environ/REQUESTY_API_KEY"
+
+  # Served, but not routed to: paid only.
+  # - model_name: req-paid
+  #   litellm_params:
+  #     model: openai/vendor/req-paid
+  #     api_base: "https://router.eu.requesty.ai/v1"
+  #     api_key: "os.environ/REQUESTY_API_KEY"
+
+  - model_name: zai-one
+    litellm_params:
+      model: zai/glm-9-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+  - model_name: cent-one
+    litellm_params:
+      model: openai/hy9-flash:free
+      api_base: "https://api.cent-ai.dev/v1"
+      api_key: "os.environ/CENT_AI_API_KEY"
+
+  # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
+  # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down
+  # drift-ignore: requesty/vendor/req-set -- selftest: looked at and turned down
+  # drift-ignore: zai/glm-9-set -- selftest: looked at and turned down
+  # drift-ignore: centai/hy9-set -- selftest: looked at and turned down
+
+"""
+COVERAGE_TEMPLATE = SELFTEST_TEMPLATE.replace(
+    "  - model_name: local\n", COVERAGE_BLOCK + "  - model_name: local\n", 1).replace(
+    "        - large\n", "        - nv-one\n        - large\n", 1)
+
+
+def coverage_answers(**changes):
+    """Catalogues that list exactly what COVERAGE_TEMPLATE holds, the five providers' being what they are
+    shaped like, and "changes" put in place of any of them."""
+    answers = selftest_answers()
+    answers.update({
+        "nvidia": {"object": "list", "data": [{"id": "vendor/nv-one", "object": "model", "owned_by": "vendor"},
+                                              {"id": "vendor/nv-embed-9"}]},
+        "ovhcloud": {"object": "list", "data": [
+            {"id": "OvhOne", "pricing": {"prompt": "0", "completion": "0"}, "context_length": 1, "owned_by": "x"},
+            {"id": "OvhSet", "pricing": {"prompt": "0", "completion": "0"}}]},
+        "requesty": {"object": "list", "data": [requesty_model("vendor/req-one"),
+                                                requesty_model("vendor/req-paid", (1e-06, 2e-06)),
+                                                requesty_model("vendor/req-set"),
+                                                requesty_model("vendor/req-other-paid", (1e-06, 2e-06))]},
+        "zai": {"object": "list", "data": [{"id": "glm-9-flash", "object": "model", "owned_by": "z-ai"},
+                                           {"id": "glm-9-set"}]},
+        "centai": {"object": "list", "data": [{"id": "hy9-flash:free"}, {"id": "hy9-set"}]},
+    })
+    answers.update(changes)
+    return answers
+
+
+def run_coverage_cases():
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def run(answers, environment=COVERAGE_KEYS, template=COVERAGE_TEMPLATE):
+        calls = []
+        result = run_online(template, environment, canned_opener(answers, calls), "2026-01-01")
+        return result, calls, render_text(result, "selftest"), render_summary(result, "selftest", link=None)
+
+    def found(result):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      for finding in report["findings"])
+
+    def report_of(result, name):
+        return next(report for report in result["providers"] if report["name"] == name)
+
+    def asked(calls, host):
+        return [(url, headers) for url, headers in calls if host in url]
+
+    def examine(body):
+        return (body.split("## Nouveaux modèles à examiner")[1].split("\n## ")[0]
+                if "## Nouveaux modèles à examiner" in body else "")
+
+    # What each provider's entries are attributed by, and the one exemption.
+    judged("an entry is attributed to NVIDIA, Z AI, OVHcloud, Requesty or Cent AI by its prefix or by the host of "
+           "its api_base, and an OmniRoute route to none",
+           first_wrong(
+               (attribute("nvidia_nim/meta/x-1", None) == ("nvidia", "meta/x-1"), "NVIDIA"),
+               (attribute("nvidia/meta/x-1", None) is None, "a prefix that is nobody's was attributed"),
+               (attribute("zai/glm-9", None) == ("zai", "glm-9"), "Z AI"),
+               (attribute("openai/X-1", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1") == ("ovhcloud", "X-1"),
+                "OVHcloud"),
+               (attribute("openai/a/b", "https://router.eu.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, European"),
+               (attribute("openai/a/b", "https://router.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, the other base"),
+               (attribute("openai/hy9:free", "https://api.cent-ai.dev/v1") == ("centai", "hy9:free"), "Cent AI"),
+               (attribute("openai/auto/best-free", "http://omniroute:20128/v1") is None, "OmniRoute was attributed"),
+               (attribute("openai/x", None) is None and attribute("openai/x", "https://api.acme.invalid/v1") is None,
+                "an openai/ entry of a host nobody reads was attributed")))
+    judged("each provider's entry is written back as the file writes it, and the names the report gives the five",
+           first_wrong(
+               (litellm_id("nvidia", "meta/x-1") == ("nvidia_nim/meta/x-1", ""), "NVIDIA"),
+               (litellm_id("zai", "glm-9") == ("zai/glm-9", ""), "Z AI"),
+               (litellm_id("ovhcloud", "X-1") == ("openai/X-1", " on OVHcloud"), "OVHcloud"),
+               (litellm_id("requesty", "a/b") == ("openai/a/b", " on Requesty"), "Requesty"),
+               (litellm_id("centai", "hy9:free") == ("openai/hy9:free", " on Cent AI"), "Cent AI"),
+               (all(re.fullmatch(r"[a-z]+", name) for name in PROVIDER_NAMES), "a name is not plain letters"),
+               (all(not isinstance(each[2], str) or each[2].startswith("MODEL_DRIFT_") for each in PROVIDERS),
+                "a key variable is not a MODEL_DRIFT_ one")))
+
+    # The baseline: every catalogue lists what the template holds, the three public ones without a credential.
+    result, calls, report, body = run(coverage_answers())
+    keyless = {host: asked(calls, host) for host in ("integrate.api.nvidia.com", "oai.endpoints.kepler.ai.cloud.ovh.net",
+                                                      "router.eu.requesty.ai")}
+    judged("the five catalogues are read, the public three without a credential and the keyed two with a bearer "
+           "token in a header and never in an address, and nothing is found",
+           first_wrong(
+               (found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
+               (all(len(each) == 1 for each in keyless.values()), "asked %r" % {k: len(v) for k, v in keyless.items()}),
+               (not any(key.lower() in ("authorization", "x-api-key") or "key" in key.lower()
+                        for each in keyless.values() for _, headers in each for key in headers),
+                "a public catalogue was asked with a credential"),
+               (asked(calls, "api.z.ai")[0][0] == "https://api.z.ai/api/paas/v4/models"
+                and asked(calls, "api.z.ai")[0][1].get("Authorization") == "Bearer selftest-zai-key-SECRET",
+                "Z AI: %r" % asked(calls, "api.z.ai")),
+               (asked(calls, "api.cent-ai.dev")[0][0] == "https://api.cent-ai.dev/v1/models"
+                and asked(calls, "api.cent-ai.dev")[0][1].get("Authorization") == "Bearer selftest-centai-key-SECRET",
+                "Cent AI: %r" % asked(calls, "api.cent-ai.dev")),
+               (not any("SECRET" in url for url, _ in calls), "a key is in an address"),
+               (not any("SECRET" in text for text in (report, body)), "a key reached the output"),
+               ("nvidia      read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               ("ovhcloud    read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               ("requesty    read, 4 model(s), 2 candidate(s); 1 active, 1 commented-out id(s) here" in report, report),
+               ("zai         read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               ("centai      read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               (result["unattributed"] == ["openai/auto/best-free"], "an entry of the five is of no catalogue: %r"
+                % result["unattributed"]),
+               (is_complete(result), "the coverage is partial")))
+
+    # A model a catalogue no longer lists is retired, whichever of the five serves it.
+    for name, identifier, fresh, entry in (
+            ("nvidia", "vendor/nv-one", {"object": "list", "data": [{"id": "vendor/nv-embed-9"}]}, "nvidia_nim/vendor/nv-one"),
+            ("ovhcloud", "OvhOne", {"object": "list", "data": [{"id": "OvhSet"}]}, "openai/OvhOne"),
+            ("requesty", "vendor/req-one", {"object": "list", "data": [requesty_model("vendor/req-set"),
+                                                                       requesty_model("vendor/req-paid", (1, 1))]},
+             "openai/vendor/req-one"),
+            ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
+            ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
+        result, calls, report, body = run(coverage_answers(**{name: fresh}))
+        expected = [("retired", identifier)]
+        outputs = apply_run(COVERAGE_TEMPLATE, coverage_answers(**{name: fresh}), COVERAGE_KEYS)
+        judged("%s: an active id the catalogue no longer lists is RETIRED, and the pull request deletes its entry%s" % (
+            name, " and its cascade slot" if name == "nvidia" else ""),
+               first_wrong(
+                   (found(result) == expected, "findings %r" % found(result)),
+                   (exit_status(result) == 1, "the status"),
+                   (entry not in outputs[1], "the entry is still in the file"),
+                   (name != "nvidia" or "- nv-one\n" not in outputs[1].split("router_settings:")[1], "its slot is still there"),
+                   (outputs[4] is not None and "`%s`" % entry in outputs[4], "the pull request does not name it"),
+                   (undeleted_count(outputs[0]) == 0, "something was left to a person")))
+        empty = coverage_answers(**{name: {"object": "list", "data": []}})
+        outputs = apply_run(COVERAGE_TEMPLATE, empty, COVERAGE_KEYS)
+        judged("%s: a catalogue that lists nothing deletes nothing, an empty answer being a failed read" % name,
+               first_wrong((outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
+                           (undeleted_count(outputs[0]) >= 1, "the finding is not left to a person")))
+
+    # NEW models: where each provider's API says nothing of the free tier, they are to examine, with the page.
+    answers = coverage_answers()
+    answers["nvidia"]["data"] += [{"id": "vendor/nv-new", "model_type": "vlm"}, {"id": "vendor/nv-embed-10"}]
+    answers["ovhcloud"]["data"] += [{"id": "OvhNew", "pricing": {"prompt": "0", "completion": "0"}},
+                                    {"id": "OvhPaid", "pricing": {"prompt": "0.001", "completion": "0.002"}}]
+    answers["zai"]["data"] += [{"id": "glm-9-new"}]
+    answers["centai"]["data"] += [{"id": "hy9-new"}]
+    result, calls, report, body = run(answers)
+    section = examine(body)
+    judged("a new NVIDIA, OVHcloud, Z AI or Cent AI model is to examine, never claimed free, whatever price its "
+           "record states, with the page of its provider linked; one of another usage says its usage",
+           first_wrong(
+               (found(result) == [("new", "OvhNew"), ("new", "OvhPaid"), ("new", "glm-9-new"), ("new", "hy9-new"),
+                                  ("new", "vendor/nv-embed-10"), ("new", "vendor/nv-new")], "findings %r" % found(result)),
+               ("nvidia_nim/vendor/nv-new: to examine, its free tier is not machine-readable -- usage: chat" in report,
+                report),
+               ("nvidia_nim/vendor/nv-embed-10: to examine, its free tier is not machine-readable -- usage: embeddings"
+                in report, report),
+               ("openai/OvhNew on OVHcloud: to examine, its free tier is not machine-readable -- usage: chat" in report,
+                "a price of 0 made an OVHcloud model free: %s" % report),
+               ("openai/OvhPaid on OVHcloud: to examine" in report, report),
+               ("zai/glm-9-new: to examine" in report and "openai/hy9-new on Cent AI: to examine" in report, report),
+               ("## Nouveaux modèles gratuits" not in body, "a model of the five was listed as free"),
+               (all("[%s](%s)" % (name, PRICING_PAGES[name]) in section for name in ("nvidia", "ovhcloud", "zai", "centai")),
+                "a pricing page is not linked: %s" % section)))
+
+    # Requesty states both prices: that is how a free one is told.
+    answers = coverage_answers()
+    answers["requesty"]["data"] += [requesty_model("vendor/req-new-free"), requesty_model("vendor/req-new-paid", (5e-06, 1e-05)),
+                                    requesty_model("vendor/req-half", (0, 1e-06)),
+                                    requesty_model("vendor/req-embed-9", (0, 0))]
+    result, calls, report, body = run(answers)
+    free_section = body.split("## Nouveaux modèles gratuits")[1].split("\n## ")[0] if "## Nouveaux modèles gratuits" in body else ""
+    judged("a new Requesty model priced 0 in and out is NEW and free, one priced in either direction is not offered, "
+           "and the models of another usage say it",
+           first_wrong(
+               (found(result) == [("new", "vendor/req-embed-9"), ("new", "vendor/req-new-free")],
+                "findings %r" % found(result)),
+               ("openai/vendor/req-new-free on Requesty: free -- usage: chat" in report, report),
+               ("openai/vendor/req-embed-9 on Requesty: free -- usage: embeddings" in report, report),
+               ("`openai/vendor/req-new-free` chez Requesty" in free_section, "it is not among the free models: " + free_section),
+               ("Requesty : prix d'entrée et de sortie à 0" in free_section, free_section)))
+    for purpose, change, wanted, text in (
+            ("an active Requesty id still listed but no longer priced 0 is a NOTICE and no retirement",
+             {"requesty": {"data": [requesty_model("vendor/req-one", (1e-06, 1e-06)), requesty_model("vendor/req-paid", (1e-06, 2e-06)),
+                                    requesty_model("vendor/req-set")]}},
+             [("notice", "vendor/req-one")], "no longer priced at 0"),
+            ("an active Requesty id priced 0 on one side only is a NOTICE too",
+             {"requesty": {"data": [requesty_model("vendor/req-one", (0, 1e-06)), requesty_model("vendor/req-paid", (1, 1)),
+                                    requesty_model("vendor/req-set")]}},
+             [("notice", "vendor/req-one")], "no longer priced at 0"),
+            ("a Requesty id with a retirement date is a NOTICE with the day",
+             {"requesty": {"data": [requesty_model("vendor/req-one", retires=1796083200),
+                                    requesty_model("vendor/req-paid", (1, 1)), requesty_model("vendor/req-set")]}},
+             [("notice", "vendor/req-one")], "expires on 2026-12-01")):
+        result, calls, report, body = run(coverage_answers(**change))
+        judged(purpose, first_wrong((found(result) == wanted, "findings %r" % found(result)),
+                                    (exit_status(result) == 1, "the status"),
+                                    (text in report, report)))
+    result, calls, report, body = run(coverage_answers(requesty={"data": [
+        {"id": "vendor/req-one"}, {"id": "vendor/req-set"}, {"id": "vendor/req-paid"}]}))
+    judged("a Requesty answer that states no price at all is an error, and no notice on every entry",
+           first_wrong((report_of(result, "requesty")["status"] == "error" and exit_status(result) == 2, "status"),
+                       ('the answer lists no price' in report, report),
+                       (found(result) == [], "findings %r" % found(result))))
+    result, calls, report, body = run(coverage_answers(requesty={"data": [
+        requesty_model("vendor/req-one", retires="soon"), requesty_model("vendor/req-set", retires=True),
+        requesty_model("vendor/req-paid", (1, 1), retires=-5)]}))
+    judged("a retirement date that is no plausible timestamp is read as none",
+           first_wrong((report_of(result, "requesty")["status"] == "read", report_of(result, "requesty").get("error")),
+                       (found(result) == [], found(result))))
+
+    # The free Requesty model is ready once the ranking knows it for certain, which is the one thing kept apart.
+    answers = coverage_answers()
+    answers["requesty"]["data"] += [requesty_model("vendor/req-fresh"), requesty_model("vendor/req-unranked")]
+    answers["rankings"] = ranking_page(ranking_model("req-fresh", "Req Fresh", 40, 30, 200, 0.0))
+    result, proposals = proposal_run(COVERAGE_TEMPLATE, answers, RANKING_KEYS)
+    ready = proposals["ready"]
+    judged("a free Requesty model the ranking matches for certain is ready, one it does not know is to verify, "
+           "and the entries are modelled on Requesty's own, base and key included, and read back",
+           first_wrong(
+               ([(item["provider"], item["id"]) for item in ready["items"]] == [("requesty", "vendor/req-fresh")],
+                "ready %r" % ready["items"]),
+               ([(item["provider"], item["id"]) for item in proposals["to_verify"]["items"]]
+                == [("requesty", "vendor/req-unranked")], "to verify %r" % proposals["to_verify"]["items"]),
+               ('  # Proposed by the drift run on 2026-01-01: listed free by "router.eu.requesty.ai/v1/models" that day.\n'
+                '  - model_name: req-fresh-requesty\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+                '      model: openai/vendor/req-fresh\n      api_base: "https://router.eu.requesty.ai/v1"\n'
+                '      api_key: "os.environ/REQUESTY_API_KEY"\n' in ready["text"], "the entry"),
+               (addition_problem(COVERAGE_TEMPLATE, ready["text"], ready["items"]) is None, "it does not read back"),
+               ("free" not in [what for report in result["providers"] if report["name"] == "requesty"
+                               for finding in report["findings"] for what, _ in finding.get("missing", [])],
+                "the free tier of Requesty was said to be missing")))
+
+    # An OVHcloud addition is a keyless gateway's: the marker is copied and the header blanked, never a key.
+    answers = coverage_answers()
+    answers["ovhcloud"]["data"] += [{"id": "Ovh-New.2", "pricing": {"prompt": "0", "completion": "0"}}]
+    answers["nvidia"]["data"] += [{"id": "vendor/nv-new.1"}]
+    answers["zai"]["data"] += [{"id": "glm-9-new"}]
+    answers["centai"]["data"] += [{"id": "hy9-new:free"}]
+    result, proposals = proposal_run(COVERAGE_TEMPLATE, answers, COVERAGE_KEYS)
+    part = proposals["to_verify"]
+    judged("new models of OVHcloud, NVIDIA, Z AI and Cent AI are proposed to verify only, each modelled on its provider's "
+           "own entry and the OVHcloud one with the marker and the blanked Authorization header, and the file reads back",
+           first_wrong(
+               (proposals["ready"]["items"] == [], "one was ready"),
+               (sorted(item["id"] for item in part["items"]) == ["Ovh-New.2", "glm-9-new", "hy9-new:free", "vendor/nv-new.1"],
+                "items %r" % part["items"]),
+               ('  - model_name: ovh-new-2-ovh\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+                '      model: openai/Ovh-New.2\n      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"\n'
+                '      api_key: "ovh-no-key-needed"\n      extra_headers:\n        Authorization: ""\n' in part["text"],
+                "the OVHcloud entry"),
+               ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+                '      model: nvidia_nim/vendor/nv-new.1\n      api_key: "os.environ/NVIDIA_NIM_API_KEY"\n' in part["text"],
+                "the NVIDIA entry"),
+               ('      model: zai/glm-9-new\n      api_key: "os.environ/ZAI_API_KEY"\n' in part["text"], "the Z AI entry"),
+               ('      model: openai/hy9-new:free\n      api_base: "https://api.cent-ai.dev/v1"\n'
+                '      api_key: "os.environ/CENT_AI_API_KEY"\n' in part["text"], "the Cent AI entry"),
+               ("  - model_name: hy9-new-cent-ai\n" in part["text"], "the Cent AI name"),
+               (addition_problem(COVERAGE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
+               ("docker exec" in part["body"] and "ZAI_API_KEY" in part["body"] and "CENT_AI_API_KEY" in part["body"],
+                "the commands of the keyed two do not run in the container"),
+               (not any("SECRET" in text for text in (part["body"], part["commit"])), "a key reached a text")))
+    judged("the names the five give their entries are the file's own",
+           first_wrong(
+               (propose_name("nvidia", "z-ai/glm-5.3-flash", set()) == "glm-5-3-flash-nvidia", "NVIDIA"),
+               (propose_name("ovhcloud", "Qwen3.8-27B", set()) == "qwen3-8-27b-ovh", "OVHcloud"),
+               (propose_name("requesty", "google/gemma-4-31b-it", set()) == "gemma-4-31b-it-requesty", "Requesty"),
+               (propose_name("zai", "glm-4.7-flash", set()) == "glm-4-7-flash-zai", "Z AI"),
+               (propose_name("centai", "hy4-flash:free", set()) == "hy4-flash-cent-ai", "Cent AI")))
+
+    # A key that is missing is a catalogue not covered, never a failed read.
+    for variable, name, host in (("MODEL_DRIFT_ZAI_API_KEY", "zai", "api.z.ai"),
+                                 ("MODEL_DRIFT_CENT_AI_API_KEY", "centai", "api.cent-ai.dev")):
+        for value in (None, "", "  "):
+            environment = {key: each for key, each in COVERAGE_KEYS.items() if key != variable}
+            if value is not None:
+                environment[variable] = value
+            result, calls, report, body = run(coverage_answers(), environment)
+            judged("%s with %s is not covered, never called, and the report says which secret is unset" % (
+                name, "no secret" if value is None else "a secret of %r" % value),
+                   first_wrong((asked(calls, host) == [], "the catalogue was called with no key"),
+                               ("%-11s not covered (no key): %s is unset" % (name, variable) in report, report),
+                               ("non couvert (pas de clé : secret `%s`)" % variable in body, body),
+                               (exit_status(result) == 0 and not is_complete(result), "the status or the coverage"),
+                               (unreadable_providers(result) == [], "a missing key was an unreadable catalogue")))
+    # A key echoed back by the provider, or an answer of another shape, is that provider's error.
+    for name, host, key in (("zai", "api.z.ai", "zai"), ("centai", "api.cent-ai.dev", "centai")):
+        result, calls, report, body = run(coverage_answers(**{name: leaky_401(key)}))
+        judged("%s: a 401 that echoes the key is its status and nothing else" % name,
+               first_wrong((report_of(result, name)["status"] == "error" and exit_status(result) == 2, "status"),
+                           ("SECRET" not in report + body, "the key reached the output"),
+                           ("HTTP 401" in report and report_of(result, name)["error_class"] == "4xx", report)))
+        for answer in ({"error": {"code": "1001"}}, {"data": "x"}, [], {"object": "list"}):
+            result, calls, report, body = run(coverage_answers(**{name: answer}))
+            judged("%s: an answer that is no list of models is that provider's error, never a retirement: %r" % (
+                name, answer),
+                   first_wrong((report_of(result, name)["status"] == "error", "it was read"),
+                               (found(result) == [] and exit_status(result) == 2, "findings %r" % found(result))))
+    # The public three are errors the same way, and the others are read around them.
+    for name in ("nvidia", "ovhcloud", "requesty"):
+        result, calls, report, body = run(coverage_answers(**{name: urllib.error.URLError("selftest: no route")}))
+        judged("%s: a catalogue that is down is an error, not a catalogue of zero models" % name,
+               first_wrong((report_of(result, name)["status"] == "error" and exit_status(result) == 2, "status"),
+                           (unreadable_providers(result) == [(name, "network")], unreadable_providers(result))))
+
+    # The rule that holds every routed provider to a reader, on the real file: each of them is attributed
+    # entries, and the one entry of no catalogue is OmniRoute's.
+    real = CONFIG.read_text(encoding="utf-8")
+    template, problems = read_template(real)
+    routed = {}
+    for entry in template["active"]:
+        attributed = attribute(entry["model"], entry["api_base"])
+        routed.setdefault(attributed[0] if attributed else None, []).append(entry["name"])
+    judged("every active entry of the real model list belongs to a provider this check reads, bar OmniRoute's routes",
+           first_wrong((problems == [], "the real file breaks a rule: %r" % problems[:1]),
+                       (set(routed) - {None} <= set(PROVIDER_NAMES), "a provider is attributed that is not read"),
+                       (all(len(routed.get(name, ())) > 0 for name in ("nvidia", "ovhcloud", "requesty", "zai", "centai")),
+                        "an entry of the five is not attributed: %r" % {name: len(routed.get(name, ())) for name in routed}),
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) for entry in template["active"]
+                            if attribute(entry["model"], entry["api_base"]) is None),
+                        "an entry of no provider is not OmniRoute's")))
+    result, calls, report, body = run(answers_listing(real), COVERAGE_KEYS, real)
+    judged("a catalogue that lists what the real file holds reports nothing, and reads every provider of the table",
+           first_wrong((found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
+                       (all(each["status"] == "read" for each in result["providers"]),
+                        [each["name"] for each in result["providers"] if each["status"] != "read"]),
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) is not None or
+                            attribute(entry["model"], entry["api_base"]) for entry in template["active"]), "an entry of nobody"),
+                       (is_complete(result), "the coverage is partial")))
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -6993,6 +7423,7 @@ def run_selftest_cases():
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
     failures += run_cloudflare_cases()
+    failures += run_coverage_cases()
     failures += run_apply_cases()
     failures += run_head_cases()
     failures += run_pricing_page_cases()
