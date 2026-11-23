@@ -261,7 +261,9 @@ jobs:
     # their job: they would be the longest step of it. 45, for the setup time of a self-hosted pool on
     # top of that (see the "REUSE compliance" job above), and because the real-list cases render the
     # model list for every set of provider keys, which doubles with each provider the template gains.
-    timeout-minutes: 45
+    # 90 is a stopgap, not the fix: those cases took 43 of the 45 minutes on the pool before the latest
+    # entries, and bounding the sets of keys they render is what will bring the job back under 45.
+    timeout-minutes: 90
     steps:
       - name: Check the repository out
         uses: actions/checkout@v7
