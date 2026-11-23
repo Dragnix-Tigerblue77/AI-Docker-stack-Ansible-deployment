@@ -4,9 +4,10 @@
 #
 # #2, v1 SCOPE: one account only. Another account's models come later, as entries of its own
 # carrying keys of its own (#107) -- not from its "/ui" login, which LiteLLM does not let add a
-# model. No entry below carries a "model_info.access_groups": every key
-# reaches every model, on purpose -- a username has no more business being hardcoded into an
-# authorization label than into a hostname, and there is only one account to isolate from so far
+# model. No access group below names an account: each entry carries the one its kind of model
+# maps to, and a key nobody restricted reaches every model -- a username has no more business
+# being hardcoded into an authorization label than into a hostname, and there is only one account
+# to isolate from so far
 # anyway. What #2 asks beyond this -- "access_groups"-backed teams and virtual keys created by
 # idempotent Ansible tasks against LiteLLM's admin API, per-key rpm/tpm limits, the "sci-*" / "gen-*"
 # sensitivity split, and the executable cross-account negative test -- is real and still open, and
