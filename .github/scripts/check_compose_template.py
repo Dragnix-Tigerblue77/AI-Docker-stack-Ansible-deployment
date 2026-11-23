@@ -770,8 +770,9 @@ def check_agent_additional_models_default(defaults, failures):
     The list is the allow-list of the agent's key (#307), which no render reads: a router missing from it
     is one the agent cannot be told to use, and the gateway refuses it the same way it refuses a name that
     does not exist, so nothing says it was forgotten. A name in it that is no router is a model the key
-    lets the agent ask for and nobody meant. The routers are LITELLM_ROUTERS, which the LiteLLM render is
-    already held to serving; the alias is left out because the key carries it from its own variable.
+    lets the agent ask for and nobody meant. The routers are LITELLM_ROUTERS, under their public names, which
+    the LiteLLM render is already held to serving; the alias is left out because the key carries it from its
+    own variable.
     """
     name = CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE
     value = defaults.get(name)
@@ -782,8 +783,9 @@ def check_agent_additional_models_default(defaults, failures):
         )
         return
     alias = defaults.get(CLAUDE_CODE_MODEL_VARIABLE)
-    unknown = sorted(set(value) - set(LITELLM_ROUTERS))
-    missing = sorted(set(LITELLM_ROUTERS) - {alias} - set(value))
+    routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
+    unknown = sorted(set(value) - routers)
+    missing = sorted(routers - {alias} - set(value))
     if unknown:
         failures.append(
             f"{name} lists {', '.join(map(repr, unknown))}, which is no router of LiteLLM_config.yaml.j2: the "
@@ -1513,29 +1515,33 @@ AGENT_TOKEN_DEFAULT_CASES = [
 ]
 
 # (name, the parsed defaults, expected substring or None). The router names are the ones the check holds
-# the LiteLLM render to serving, "claude-code" being the alias the agent asks for by default.
-_ROUTERS_BESIDES_THE_ALIAS = ["pro", "flash", "flash-lite", "code"]
+# the LiteLLM render to serving, "Auto-Claude-Code" being the alias the agent asks for by default.
+_ROUTERS_BESIDES_THE_ALIAS = ["Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]
 AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
     ("every router but the alias",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS},
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS},
      None),
     ("the alias listed too is accepted, the key writing it once",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
-      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["claude-code"] + _ROUTERS_BESIDES_THE_ALIAS}, None),
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["Auto-Claude-Code"] + _ROUTERS_BESIDES_THE_ALIAS}, None),
     ("a router forgotten",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["pro", "flash", "code"]},
-     "leaves out the router(s) 'flash-lite'"),
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["Auto-Pro", "Auto-Flash", "Auto-Code"]},
+     "leaves out the router(s) 'Auto-Flash-Lite'"),
     ("a name that is no router",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
       CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["auto"]},
      "lists 'auto', which is no router"),
+    ("a router listed by its short id, which is no name a client types",
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: ["pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]},
+     "lists 'pro', which is no router"),
     ("a name twice",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code",
-      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["pro"]}, "lists a name twice"),
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["Auto-Pro"]}, "lists a name twice"),
     ("a bare string, which Ansible would read as characters",
-     {CLAUDE_CODE_MODEL_VARIABLE: "claude-code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: "pro"},
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: "Auto-Pro"},
      "must default to a list of strings, the key's allow-list (#307), not str"),
-    ("no default at all", {CLAUDE_CODE_MODEL_VARIABLE: "claude-code"}, "it has no default"),
+    ("no default at all", {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code"}, "it has no default"),
 ]
 
 VOLUME_NAME_DEFAULT_CASES = [
@@ -1637,6 +1643,31 @@ LITELLM_MEDIA_ROUTERS = {
     "stt": (frozenset({"Groq", "Gemini", "Mistral"}), "audio_transcription"),
     "tts": (frozenset({"Gemini"}), "audio_speech"),
 }
+# The name each router is published under, which is the one a client types and the key the rendered file
+# carries. The rules below reason on the short ids above, and "litellm_logical_document" translates a rendering
+# into them before any rule reads it: a failure that says 'claude-code' means "Auto-Claude-Code".
+LITELLM_ROUTER_PUBLIC_NAMES = {
+    "pro": "Auto-Pro",
+    "flash": "Auto-Flash",
+    "flash-lite": "Auto-Flash-Lite",
+    "code": "Auto-Code",
+    "claude-code": "Auto-Claude-Code",
+    "stt": "Auto-STT",
+    "tts": "Auto-TTS",
+}
+# The names a router no longer goes by, each with the name that replaced it: the short ids and the "auto-*"
+# aliases that stood beside them. A router keeps one name, since two names for one router are two cascades to
+# keep level and a client choosing between them chooses by luck.
+LITELLM_ROUTER_RETIRED_NAMES = {
+    **{short: public for short, public in LITELLM_ROUTER_PUBLIC_NAMES.items()},
+    "auto": "Auto-Flash",
+    "auto-pro": "Auto-Pro",
+    "auto-flash": "Auto-Flash",
+    "auto-fast": "Auto-Flash",
+    "auto-flash-lite": "Auto-Flash-Lite",
+    "auto-code": "Auto-Code",
+    "auto-tts": "Auto-TTS",
+}
 # The members of "code" that "claude-code" leaves out: its calls must be strict tool calls on at least
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks. The entries on a keyless
 # base below are left out too, whatever they are: that router is reserved for keyed providers.
@@ -1671,9 +1702,53 @@ def render_litellm_config(keys, disable_env_credential_login=False):
     return environment.get_template(LITELLM_CONFIG_TEMPLATE).render(**context)
 
 
+def litellm_state(keys):
+    """How a failure names a rendering of the routing configuration: by the keys it was rendered for."""
+    return "LiteLLM config, keys: " + ("+".join(p for p in LITELLM_PROVIDERS if p in keys) or "none")
+
+
+def litellm_logical_document(document, state, failures):
+    """The rendering with every router under its short id instead of its public name.
+
+    A model_list entry, a cascade or an alias carrying a name a router no longer goes by is a failure and is
+    left as it is, so that it is not taken for the router it was: the file publishes a router under its
+    public name only. The rest is not touched, and a name that is no router's is none of this function's
+    business."""
+    short_of = {public: short for short, public in LITELLM_ROUTER_PUBLIC_NAMES.items()}
+
+    def translated(name, where):
+        if name in LITELLM_ROUTER_RETIRED_NAMES:
+            failures.append(
+                f"[{state}] {where} {name!r}, a name no router goes by any more: a router is published under its "
+                f"public name only ({LITELLM_ROUTER_RETIRED_NAMES[name]!r} for this one), since a second name is a second "
+                "cascade to keep level and a client choosing between them chooses by luck"
+            )
+            return name
+        return short_of.get(name, name)
+
+    logical = copy.deepcopy(document) if isinstance(document, dict) else {}
+    for entry in logical.get("model_list") or []:
+        if isinstance(entry, dict) and isinstance(entry.get("model_name"), str):
+            entry["model_name"] = translated(entry["model_name"], "the model_list has an entry named")
+    router_settings = logical.get("router_settings")
+    if isinstance(router_settings, dict):
+        router_settings["fallbacks"] = [
+            {translated(name, "a cascade is keyed on"): members for name, members in item.items()}
+            if isinstance(item, dict) else item
+            for item in router_settings.get("fallbacks") or []
+        ]
+        aliases = router_settings.get("model_group_alias")
+        if isinstance(aliases, dict):
+            router_settings["model_group_alias"] = {
+                translated(name, "an alias is named"): target for name, target in aliases.items()
+            }
+    return logical
+
+
 def check_litellm_config(document, keys, failures):
-    """Hold one rendering of the routing configuration to what the keys it was rendered for allow."""
-    state = "LiteLLM config, keys: " + ("+".join(p for p in LITELLM_PROVIDERS if p in keys) or "none")
+    """Hold one rendering of the routing configuration to what the keys it was rendered for allow. The
+    rendering is read with its routers under their short ids, "litellm_logical_document" having translated it."""
+    state = litellm_state(keys)
     router_settings = mapping(document, "router_settings")
     entries = [entry for entry in document.get("model_list") or [] if isinstance(entry, dict)]
     declared = {entry.get("model_name") for entry in entries}
@@ -1758,6 +1833,11 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {alias!r} has no cascade under its own name: LiteLLM looks for fallbacks "
                 "under the name that was asked for, so a request made under it would not fall back at all (#300)"
             )
+        if alias not in LITELLM_ROUTERS and alias not in LITELLM_MEDIA_ROUTERS:
+            failures.append(
+                f"[{state}] the alias {alias!r} is no router: the only aliases of the file are its routers, each "
+                "under its public name, so that a second name for one is not a second cascade to keep level"
+            )
 
     # An embedding model is reached by its own name alone: the vectors of two models are not comparable, and
     # LiteLLM does walk fallbacks for an embedding call, so one in a cascade, or one an alias resolves to
@@ -1804,12 +1884,6 @@ def check_litellm_config(document, keys, failures):
             )
     modes = {entry.get("model_name"): mapping(entry, "model_info").get("mode") for entry in entries}
     media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
-    # A name that is not one of the text routers takes the kind of the media router whose head it names.
-    kinds = {router: router for router in LITELLM_MEDIA_ROUTERS}
-    for alias, target in aliases.items():
-        for router in LITELLM_MEDIA_ROUTERS:
-            if alias not in LITELLM_ROUTERS and router in aliases and aliases[router] == target:
-                kinds.setdefault(alias, router)
     for router, (providers, mode) in LITELLM_MEDIA_ROUTERS.items():
         expected = bool(keys & providers)
         if (router in declared or router in aliases) != expected:
@@ -1818,14 +1892,8 @@ def check_litellm_config(document, keys, failures):
                 f"{'allow' if expected else 'do not allow'} it: it is served exactly when a provider it routes to "
                 "has a key"
             )
-        for alias, kind in kinds.items():
-            if kind == router and alias in cascades and router in cascades and cascades[alias] != cascades[router]:
-                failures.append(
-                    f"[{state}] the cascade of {alias!r} is {cascades[alias]!r}, where the cascade of {router!r} is "
-                    f"{cascades[router]!r}: both name the same head and are written side by side"
-                )
     for name, members in cascades.items():
-        wanted = LITELLM_MEDIA_ROUTERS[kinds[name]][1] if name in kinds else None
+        wanted = LITELLM_MEDIA_ROUTERS[name][1] if name in LITELLM_MEDIA_ROUTERS else None
         for member in members:
             mode = modes.get(member)
             if wanted and mode != wanted:
@@ -1904,7 +1972,7 @@ def check_litellm_configs(failures):
         except Exception as error:  # noqa: BLE001 - the message is the whole point
             failures.append(f"[LiteLLM config, keys: {'+'.join(sorted(keys))}] does not render: {error}")
             continue
-        check_litellm_config(document, keys, failures)
+        check_litellm_config(litellm_logical_document(document, litellm_state(keys), failures), keys, failures)
         rendered += 1
     for switch in (False, True):
         try:
@@ -2002,11 +2070,8 @@ def _with_stt(document, variable="GROQ_API_KEY", **faults):
 
 
 def _with_tts(document, variable="GEMINI_API_KEY", entries=("a-tts",), **faults):
-    """The speech router, and the alias "auto-tts" that is written beside it with the same cascade."""
-    document = _with_media(document, "tts", variable, entries, **faults)
-    document["router_settings"]["fallbacks"].append({"auto-tts": list(entries)})
-    document["router_settings"]["model_group_alias"]["auto-tts"] = entries[0]
-    return document
+    """The speech router added over entries read from the Gemini key."""
+    return _with_media(document, "tts", variable, entries, **faults)
 
 
 def _stt_document(**faults):
@@ -2018,8 +2083,8 @@ def _stt_document(**faults):
 
 _MISTRAL_ONLY = _with_stt(_litellm_document(
     [("mistral-large", "os.environ/MISTRAL_API_KEY")],
-    [("claude-code", ["mistral-large"]), ("auto-code", ["mistral-large"])],
-    {"claude-code": "mistral-large", "auto-code": "mistral-large"},
+    [("claude-code", ["mistral-large"]), ("code", ["mistral-large"])],
+    {"claude-code": "mistral-large", "code": "mistral-large"},
 ), "MISTRAL_API_KEY")
 
 def _stt_alias_off_head():
@@ -2074,7 +2139,7 @@ _TTS_ONLY = _tts_document()
 
 def _tts_fault(fault):
     """A Gemini-only rendering with one fault in its speech router."""
-    document = _tts_document(entries=("a-tts", "b-tts") if fault in ("off-head", "other-cascade") else ("a-tts",))
+    document = _tts_document(entries=("a-tts", "b-tts") if fault == "off-head" else ("a-tts",))
     router_settings = document["router_settings"]
     cascades = {name: members for item in router_settings["fallbacks"] for name, members in item.items()}
     if fault == "entry":
@@ -2082,15 +2147,12 @@ def _tts_fault(fault):
                                        "model_info": {"mode": "audio_speech", "access_groups": ["TTS"]},
                                        "litellm_params": {"api_key": "os.environ/GEMINI_API_KEY"}})
     elif fault == "off-head":
-        router_settings["model_group_alias"].update({"tts": "b-tts", "auto-tts": "b-tts"})
+        router_settings["model_group_alias"]["tts"] = "b-tts"
     elif fault == "text-member":
         cascades["tts"].append("chat")
-        cascades["auto-tts"].append("chat")
     elif fault == "in-text-cascade":
         router_settings["fallbacks"].append({"pro": ["chat", "a-tts"]})
         router_settings["model_group_alias"]["pro"] = "chat"
-    elif fault == "other-cascade":
-        cascades["auto-tts"].remove("b-tts")
     return document
 
 
@@ -2098,8 +2160,13 @@ LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
     ("an alias with no cascade of its own",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
-                       {"claude-code": "mistral-large", "auto-code": "mistral-large"}),
+                       {"claude-code": "mistral-large", "code": "mistral-large"}),
      {"Mistral"}, "has no cascade under its own name"),
+    ("an alias that is no router",
+     _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
+                       [("claude-code", ["mistral-large"]), ("extra", ["mistral-large"])],
+                       {"claude-code": "mistral-large", "extra": "mistral-large"}),
+     {"Mistral"}, "is no router"),
     ("an entry reading a key nobody gave",
      _litellm_document([("a", "os.environ/GROQ_API_KEY"), ("mistral-large", "os.environ/MISTRAL_API_KEY")],
                        [("claude-code", ["mistral-large"])], {"claude-code": "mistral-large"}),
@@ -2119,7 +2186,7 @@ LITELLM_CONFIG_CASES = [
      {"Mistral"}, "neither a model_list entry nor an alias"),
     ("an alias of an alias", _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")],
                                                [("claude-code", ["mistral-large"])],
-                                               {"claude-code": "mistral-large", "auto": "claude-code"}),
+                                               {"claude-code": "mistral-large", "flash": "claude-code"}),
      {"Mistral"}, "resolves an alias once"),
     ("an alias that is not its cascade's head",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY"), ("codestral", "os.environ/MISTRAL_API_KEY")],
@@ -2278,8 +2345,40 @@ LITELLM_CONFIG_CASES = [
     ("a text model in the speech cascade", _tts_fault("text-member"), {"Gemini"}, "model_info.mode is None"),
     ("a speech model in a text cascade", _tts_fault("in-text-cascade"), {"Gemini"},
      "the cascade of 'pro' names 'a-tts'"),
-    ("the speech router's alias with another cascade than its own", _tts_fault("other-cascade"), {"Gemini"},
-     "written side by side"),
+]
+
+
+def _named_document(entries=("m",), cascades=("Auto-Pro",), aliases=("Auto-Pro",)):
+    """A rendering reduced to the names this translation reads: entries, cascade keys and alias keys."""
+    return {
+        "model_list": [{"model_name": name, "litellm_params": {"model": "x/" + name}} for name in entries],
+        "router_settings": {"fallbacks": [{name: ["m"]} for name in cascades],
+                            "model_group_alias": {name: "m" for name in aliases}},
+    }
+
+
+# (what it is, the document, a fragment every run must report -- None when it must pass, and the entries,
+# cascade keys and alias keys the translation leaves, in this order)
+LITELLM_PUBLIC_NAME_CASES = [
+    ("every router under its public name", _named_document(
+        cascades=tuple(LITELLM_ROUTER_PUBLIC_NAMES.values()), aliases=tuple(LITELLM_ROUTER_PUBLIC_NAMES.values())),
+     None, (["m"], list(LITELLM_ROUTER_PUBLIC_NAMES), list(LITELLM_ROUTER_PUBLIC_NAMES))),
+    ("a name that is no router's is left alone", _named_document(cascades=("m",), aliases=()), None,
+     (["m"], ["m"], [])),
+    ("a cascade under the short id", _named_document(cascades=("pro",)), "a cascade is keyed on 'pro', a name no router goes by",
+     (["m"], ["pro"], ["pro"])),
+    ("an alias under the short id", _named_document(aliases=("claude-code",)),
+     "an alias is named 'claude-code', a name no router goes by", (["m"], ["pro"], ["claude-code"])),
+    ("the alias that stood beside a router", _named_document(aliases=("Auto-Pro", "auto-pro")),
+     "an alias is named 'auto-pro', a name no router goes by", (["m"], ["pro"], ["pro", "auto-pro"])),
+    ("the alias that stood beside the speech router", _named_document(cascades=("Auto-TTS", "auto-tts")),
+     "a cascade is keyed on 'auto-tts', a name no router goes by", (["m"], ["tts", "auto-tts"], ["pro"])),
+    ("the bare alias", _named_document(aliases=("auto",)), "an alias is named 'auto', a name no router goes by",
+     (["m"], ["pro"], ["auto"])),
+    ("an entry named as a retired name", _named_document(entries=("m", "flash")),
+     "the model_list has an entry named 'flash', a name no router goes by", (["m", "flash"], ["pro"], ["pro"])),
+    ("an entry named as a router's public name is read as the router", _named_document(entries=("m", "Auto-Pro")), None,
+     (["m", "pro"], ["pro"], ["pro"])),
 ]
 
 
@@ -2356,6 +2455,16 @@ def selftest():
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
         problems.extend(_verdict(name, failures, expected))
+
+    for name, document, expected, names in LITELLM_PUBLIC_NAME_CASES:
+        failures = []
+        logical = litellm_logical_document(document, "selftest", failures)
+        problems.extend(_verdict(name, failures, expected))
+        found = ([entry["model_name"] for entry in logical["model_list"]],
+                 [key for item in logical["router_settings"]["fallbacks"] for key in item],
+                 list(logical["router_settings"]["model_group_alias"]))
+        if found != names:
+            problems.append(f"{name!r}: the translation leaves {found!r}, expected {names!r}")
 
     for name, document, switch, expected in LITELLM_LOGIN_SWITCH_CASES:
         failures = []
@@ -2527,7 +2636,8 @@ def selftest():
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
-        f"LiteLLM routing case(s) and {len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
+        f"LiteLLM routing case(s), {len(LITELLM_PUBLIC_NAME_CASES)} LiteLLM public-name case(s) and "
+        f"{len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
     )
     return 0
 

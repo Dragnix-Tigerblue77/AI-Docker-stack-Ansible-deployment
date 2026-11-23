@@ -15,9 +15,10 @@ are prose, and a person reads them.
 WHAT IT CHECKS
 --------------
 The template is rendered with every provider key given, the way "check_LiteLLM_model_drift.py" renders
-it, and each of its text routers ("pro", "flash", "flash-lite", "code", "claude-code") is read off
-"router_settings.fallbacks". The document has, for each of them, a section headed "### `router`" with a
-table whose columns include "Rang", "Entrée" and "Niveau". Then:
+it, and each of its text routers ("Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code",
+"Auto-Claude-Code") is read off "router_settings.fallbacks". The document has, for each of them, a
+section headed "### `Auto-Pro`" (the router's published name) with a table whose columns include "Rang",
+"Entrée" and "Niveau". Then:
 
 1. Every router of the template has its section and its table, and no table is written twice.
 2. The entries of the table are the members of the cascade, the same entries in the same order. A
@@ -83,7 +84,13 @@ def read_sections(text):
         heading = HEADING.match(line)
         if heading:
             match = SECTION_TITLE.match(line)
-            title, header = (match.group("title").strip("`") if match else None), None
+            heading_name = match.group("title").strip("`") if match else None
+            # A router's section is headed by the name it is published under, and the rest of the check reads
+            # a router by its short id: a section headed by the short id is none, so that the document says
+            # the name a client types.
+            title = None if heading_name in drift.ROUTER_PUBLIC_NAMES else drift.ROUTER_OF_PUBLIC_NAME.get(
+                heading_name, heading_name)
+            header = None
             continue
         if title not in ROUTERS + (NAMED_SECTION,) or not line.lstrip().startswith("|"):
             continue
@@ -168,7 +175,8 @@ def document_problems(template, text):
         where = 'the table of "%s"' % router
         rows = sections.get(router)
         if not rows:
-            problems.append('the document has no table for the router "%s" (a section headed "### `%s`")' % (router, router))
+            problems.append('the document has no table for the router "%s" (a section headed "### `%s`")' % (
+                router, drift.ROUTER_PUBLIC_NAMES.get(router, router)))
             continue
         found = [entry_name(entry, where, problems) for _, entry, _ in rows]
         if None in found:
@@ -231,12 +239,12 @@ model_list:
     litellm_params: {model: acme/charlie, api_key: "k"}
 router_settings:
   fallbacks:
-    - pro: [alpha, bravo]
-    - flash: [alpha-low, bravo, charlie]
+    - Auto-Pro: [alpha, bravo]
+    - Auto-Flash: [alpha-low, bravo, charlie]
     - alpha-max: [alpha]
   model_group_alias:
-    "pro": "alpha"
-    "flash": "alpha-low"
+    "Auto-Pro": "alpha"
+    "Auto-Flash": "alpha-low"
 """
 
 SELFTEST_TABLE = """\
@@ -263,7 +271,7 @@ def selftest_document(pro=(("alpha", "`high`"), ("bravo", "défaut du fournisseu
                       flash=(("alpha-low", "`low`"), ("bravo", "non fixé : non vérifié chez ce fournisseur"),
                              ("charlie", "défaut du fournisseur")), named=SELFTEST_NAMED):
     tables = []
-    for router, members in (("pro", pro), ("flash", flash)):
+    for router, members in (("Auto-Pro", pro), ("Auto-Flash", flash)):
         if members is not None:
             tables.append(SELFTEST_TABLE.format(router=router, rows="\n".join(
                 selftest_row(number, name, level) for number, (name, level) in enumerate(members, 1))))
@@ -286,6 +294,8 @@ def selftest_cases():
         ("a member written twice", SELFTEST_TEMPLATE,
          selftest_document(pro=(("alpha", "`high`"), ("alpha", "`high`"), ("bravo", "défaut du fournisseur"))), 'writes "alpha" twice'),
         ("a router with no table", SELFTEST_TEMPLATE, selftest_document(flash=None), 'no table for the router "flash"'),
+        ("a router table headed by the short id, which is no name a client types", SELFTEST_TEMPLATE,
+         good.replace("### `Auto-Flash`", "### `flash`"), 'no table for the router "flash" (a section headed "### `Auto-Flash`")'),
         ("a static level that is not the template's", SELFTEST_TEMPLATE,
          selftest_document(pro=(("alpha", "`medium`"), ("bravo", "défaut du fournisseur"))), 'is fixed at medium and the template sets high'),
         ("a level said fixed on an entry that sets none", SELFTEST_TEMPLATE,
@@ -312,7 +322,7 @@ def selftest_cases():
         ("a table with no Niveau column", SELFTEST_TEMPLATE, good.replace("| Rang | Entrée | Fournisseur | Niveau | Raison |",
                                                                            "| Rang | Entrée | Fournisseur | Raison |", 1), 'has no column "Niveau"'),
         ("a router table written twice", SELFTEST_TEMPLATE, good + "\n" + SELFTEST_TABLE.format(
-            router="pro", rows=selftest_row(1, "alpha", "`high`")), 'two tables for "pro"'),
+            router="Auto-Pro", rows=selftest_row(1, "alpha", "`high`")), 'two tables for "pro"'),
         ("a template that does not render", "model_list: [", good, "not valid YAML"),
     ]
 

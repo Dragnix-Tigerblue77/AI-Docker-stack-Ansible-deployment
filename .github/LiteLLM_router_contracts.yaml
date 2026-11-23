@@ -11,6 +11,10 @@
 # here that is no entry of the template any more is not a failure, since a deletion leaves it: the
 # plain run prints a notice and the weekly summary lists it as a stale row, to be removed by a person.
 #
+# A router is named in this file, in the "head" table and in the script by its short id ("pro", "flash",
+# "flash-lite", "code", "claude-code"). The template publishes it under the name a client types, "Auto-Pro",
+# "Auto-Flash", "Auto-Flash-Lite", "Auto-Code" and "Auto-Claude-Code", and the script reads one for the other.
+#
 # VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
 # and the curve that estimates it, and the rules of the ranking below. Two of those rules were changed
 # by the maintainer the same day, after a first validation: the ranking of "flash-lite" (it was the
