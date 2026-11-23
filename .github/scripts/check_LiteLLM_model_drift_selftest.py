@@ -4247,9 +4247,9 @@ REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
 def quick_rendering():
     """A deletion renders the file for every set of keys, several times over, and parsing the results is
     most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
-    first rendering of a text is the plain one, which the quick one is held to. What it yields forgets
-    every text but the ones it is given: kept for the whole run, the variants of every scenario outgrew
-    the memory of a runner shared with other jobs, which killed the test."""
+    first rendering of a text is the plain one, which the quick one is held to. What every scenario reads,
+    cached while the real file is set up, is kept; what one scenario caches is forgotten once it is
+    checked, since the next never reads it, and kept it outgrew a runner shared with other jobs."""
     import jinja2
     from jinja2.sandbox import SandboxedEnvironment
     environment = SandboxedEnvironment(undefined=jinja2.StrictUndefined, trim_blocks=True,
@@ -4279,18 +4279,19 @@ def quick_rendering():
             parsed[text] = yaml.load(text, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
         return parsed[text]
 
-    def forget(keep):
-        kept_outputs = {output for (text, _), output in rendered.items() if text in keep}
-        for key in [key for key in rendered if key[0] not in keep]:
-            del rendered[key]
-        for text in [text for text in compiled if text not in keep]:
-            del compiled[text]
-        for output in [output for output in parsed if output not in kept_outputs]:
-            del parsed[output]
+    lasting = set()
+
+    def keep_what_is_cached():
+        lasting.update((id(cache), key) for cache in (rendered, compiled, parsed) for key in cache)
+
+    def forget_the_rest():
+        for cache in (rendered, compiled, parsed):
+            for key in [key for key in cache if (id(cache), key) not in lasting]:
+                del cache[key]
 
     vars(drift)["render_with_keys"], yaml.safe_load = render, load
     try:
-        yield forget
+        yield keep_what_is_cached, forget_the_rest
     finally:
         vars(drift)["render_with_keys"], yaml.safe_load = plain, loaded
 
@@ -4417,7 +4418,7 @@ def run_real_list_cases():
     """Each scenario of real_scenarios deleted from the real file (each key asked for twice, which is
     one deletion) and read back by real_failure; then the first of them with CRLF line endings."""
     failures = 0
-    with quick_rendering() as forget:
+    with quick_rendering() as (keep_what_is_cached, forget_the_rest):
         for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
             text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
             template, problems = read_template(text)
@@ -4427,11 +4428,12 @@ def run_real_list_cases():
                 return 1
             known = dangling(text)
             scenarios = real_scenarios(layout)
+            keep_what_is_cached()
             for keys in scenarios[:bound]:
                 wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
                 new_text, outcomes = apply_removals(text, wanted)
                 why = real_failure(text, keys, new_text, outcomes, layout, known)
-                forget({text})
+                forget_the_rest()
                 if why:
                     failures += 1
                     print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
