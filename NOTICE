@@ -1,10 +1,11 @@
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 
 AI Docker stack Ansible deployment
 ==================================
 
-Copyright (C) 2026 Tigerblue77.
+Copyright (C) 2026 Tigerblue77 and the AI Docker stack Ansible deployment
+contributors.
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU Affero General Public License, version 3, as
@@ -52,11 +53,11 @@ history is the authoritative record:
 
     git shortlog -sne
 
-That will change with the first contribution from someone else, and this
-file is where it changes: the copyright line above becomes collective
-when one lands, and a contributor who would rather be named than covered
-by it says so in their pull request and is named here. Neither is a
-condition of contributing.
+The copyright line above already names the contributors as a whole, so
+a first contribution from someone else changes nothing in it. A
+contributor who would rather be named than covered by it says so in
+their pull request and is named here. Neither is a condition of
+contributing.
 
 This is also where a limit on the second arm would be recorded. A
 contribution can be merged without the grant below -- its author only
@@ -84,20 +85,19 @@ the grant above.
 Everything else in a checkout is written for this repository and covered
 by that grant. Nothing is forked, nothing is vendored, and nothing is
 copied in from elsewhere: no upstream code under other terms, no seeded
-database dump, not even an Ansible collection -- the role uses "assert"
-and "include_role" from ansible.builtin and nothing else. The check
-scripts read jinja2 and PyYAML; they import them, they do not carry
-them, and those libraries reach you from their own distributor under
-their own terms rather than from here.
+database dump, no Ansible collection -- the one the role calls,
+community.docker, is named in requirements.yml and installed from
+Ansible Galaxy. The check scripts read jinja2 and PyYAML; they import
+them, they do not carry them, and those libraries reach you from their
+own distributor under their own terms rather than from here.
 
 What this repository DEPLOYS is a different question, and it is the one
 that grows.
 
-Today the answer is still none. "services:" in the stack's template,
-templates/Artificial_Intelligence.docker-compose.yml.j2, is an
-empty mapping, so a run of this role names no image and pulls none: the
-stack is the shape services are added into, and the first service issue
-has not landed.
+The stack's template, templates/Artificial_Intelligence.docker-compose.yml.j2,
+names the images a run deploys: the LLM gateway with its database and
+cache, the vector database, the chat interface and the agents around
+them.
 
 The compose file is where container images are named, and the
 orchestrator pulls each named image from that image's own registry at
@@ -113,11 +113,10 @@ business of whoever deploys the stack, not something this repository
 does or can do on their behalf.
 
 No image is named in this file, and the template stays the place where
-they are named: each arrives there pinned by version, which is the
-authoritative record of what the stack pulls, and a second list here
-would drift away from it at the first bump. The exception would be an
-image whose own terms require a notice to travel alongside the software,
-which is what a file like this one is for.
+they are named, the authoritative record of what the stack pulls: a
+second list here would drift away from it at the first change. The
+exception would be an image whose own terms require a notice to travel
+alongside the software, which is what a file like this one is for.
 
 The role that deploys the stack is not here either.
 "Artificial_Intelligence_Docker_stack_deployment_role_name" names it, the caller supplies
@@ -150,9 +149,11 @@ with its reason:
     extension once here is the choice made, rather than a second file
     next to every JSON the repository will hold.
 
-LICENSE is not an exception any more: it is a symbolic link to
-LICENSES/AGPL-3.0-only.txt, so the file REUSE requires and the file
-GitHub reads for the repository's licence badge are the same bytes.
+LICENSE is not an exception any more: it holds the licence text, and
+LICENSES/AGPL-3.0-only.txt, the file REUSE requires, is a symbolic link
+to it, so the two are the same bytes. The link goes that way round
+because GitHub did not recognise the licence while LICENSE was the
+link: it reads a regular file.
 
 One thing the check does NOT cover, and it is worth knowing here rather
 than assuming otherwise: a root file whose name begins with LICENSE is
