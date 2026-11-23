@@ -31,7 +31,6 @@ jobs:
   sign-off:
     name: sign-off
     runs-on: ubuntu-latest
-    # 15 and not 5: see the "REUSE compliance" job of "ansible-ci.yml".
     timeout-minutes: 15
     steps:
       # The whole history, because the script reads base..head and a shallow checkout has neither
