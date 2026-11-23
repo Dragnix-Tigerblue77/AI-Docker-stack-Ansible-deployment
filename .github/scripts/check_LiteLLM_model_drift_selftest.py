@@ -2124,7 +2124,7 @@ def run_ranking_cases():
            first_wrong((section.count("\n| `openrouter/") == RANKING_LISTED, "the table holds %d rows" % section.count("\n| `openrouter/")),
                        ("inconnu de la source" not in section, "an unmatched row came before a matched one"),
                        ("… et 55 autre(s) nouveau(x) modèle(s) sans chiffres ici" in section, "the rest was not counted"),
-                       (len(body) < 41000, "the body is %d characters long" % len(body))))
+                       (len(body) < 47000, "the body is %d characters long" % len(body))))
 
     # Figures that are not figures are none, and the matching takes the spelling it can trust.
     junk = ranking_model("fresh-model", "Fresh Model", "NaN", True, float("inf"), "1.5")
@@ -3514,12 +3514,14 @@ def run_proposal_cases():
                (not any(line.startswith("- ") for line in added), "a line of the file was changed: %r" % added[:3]),
                ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the weekly drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
+                '    model_info:\n      access_groups: ["LLM"]\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
                 '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
                ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the weekly drift run on 2026-01-01: '
                 'listed free by "ai-gateway.kilo.ai/api/v1/models" that day.\n  - model_name: gateway-fresh-kilo\n'
+                '    model_info:\n      access_groups: ["LLM"]\n'
                 '    litellm_params:\n      model: openai/vendor/gateway-fresh:free\n'
                 '      api_base: "https://ai-gateway.kilo.ai/api/v1"\n      api_key: "kilo-selftest-marker"\n'
                 '      extra_headers:\n        Authorization: ""\n' in ready["text"],
@@ -3529,10 +3531,12 @@ def run_proposal_cases():
                 "the Kilo entry to verify is wrong, or another entry lost its header"),
                ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
                 'weekly drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
-                '  # - model_name: sn-two-sambanova\n  #   litellm_params:\n  #     model: openai/SN-Two\n'
+                '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM"]\n'
+                '  #   litellm_params:\n  #     model: openai/SN-Two\n'
                 '  #     api_base: "https://api.sambanova.ai/v1"\n' in to_verify["text"],
                 "the SambaNova entry is not a commented-out one after sn-one, with its base"),
-               ("  - model_name: quick-groq\n    litellm_params:\n      model: groq/vendor/quick\n"
+               ("  - model_name: quick-groq\n    model_info:\n      access_groups: [\"LLM\"]\n"
+                "    litellm_params:\n      model: groq/vendor/quick\n"
                 '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"' in to_verify["text"], "the Groq entry is wrong"),
                (addition_problem(SELFTEST_TEMPLATE, to_verify["text"], to_verify["items"]) is None
                 and addition_problem(SELFTEST_TEMPLATE, ready["text"], ready["items"]) is None,
@@ -3889,12 +3893,15 @@ def run_proposal_cases():
     judged("a keyless gateway's entries are written with the literal marker and the header that blanks Authorization",
            first_wrong(
                (kilo_problem is None and kilo_text, "refused for %r" % kilo_problem),
-               (("  - model_name: gw-two-kilo\n    litellm_params:\n      model: openai/vendor/gw-two:free\n"
+               (("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+                 "    litellm_params:\n      model: openai/vendor/gw-two:free\n"
                  + kilo_entry) in kilo_text, "the entry with a :free id is wrong"),
-               (("  - model_name: gw-three-kilo\n    litellm_params:\n      model: openai/vendor/gw-three\n"
+               (("  - model_name: gw-three-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+                 "    litellm_params:\n      model: openai/vendor/gw-three\n"
                  + kilo_entry) in kilo_text, "the entry without :free is wrong, or was refused for it"),
                (addition_problem(ADDITIONS_TEMPLATE, kilo_text, kilo_items) is None, "the file does not read back")))
-    head = "  - model_name: gw-two-kilo\n    litellm_params:\n      model: openai/vendor/gw-two:free\n"
+    head = ("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+            "    litellm_params:\n      model: openai/vendor/gw-two:free\n")
     unblanked = kilo_text.replace(head + kilo_entry, head + kilo_entry.split("      extra_headers")[0])
     judged("a file whose entry of a keyless gateway does not blank the Authorization header is refused",
            None if unblanked != kilo_text and "does not blank the Authorization header" in (
@@ -6676,7 +6683,8 @@ def run_cloudflare_cases():
                (proposals["ready"]["items"] == [], "a Cloudflare model was ready"),
                (part["items"] == [{"provider": "cloudflare", "id": "@cf/vendor/new-text", "name": "new-text-cloudflare"}],
                 "items %r" % part["items"]),
-               ('  - model_name: new-text-cloudflare\n    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
+               ('  - model_name: new-text-cloudflare\n    model_info:\n      access_groups: ["LLM"]\n'
+                '    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
                 '      api_key: "os.environ/CLOUDFLARE_API_KEY"\n' in part["text"], "the entry"),
                ("api_base" not in part["text"].split("new-text-cloudflare")[1].split("\n\n")[0], "an api_base was invented"),
                (addition_problem(CLOUDFLARE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
