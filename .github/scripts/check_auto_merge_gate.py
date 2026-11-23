@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 
 """Run the merge step of dependabot-auto-merge.yml against a made-up GitHub, one pull request at a time.

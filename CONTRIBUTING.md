@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -166,9 +166,10 @@ versionné — exactement ce que la règle interdit. Un hôte amont légitime s'
   licence. Mesuré : un `LICENSE-COMMERCIAL.md` passe à l'identique avec ou sans en-tête. Les deux familles qui
   n'en portent pas — les templates de rôle, rendus sur le nœud géré, et le JSON, qui n'a pas de
   syntaxe de commentaire — sont déclarées dans `REUSE.toml`, chacune avec sa raison.
-  `LICENSE` est un **lien symbolique** vers `LICENSES/AGPL-3.0-only.txt` : le fichier que `reuse`
-  exige et celui dont GitHub tire le badge de licence sont ainsi les mêmes octets, pas deux copies
-  libres de diverger.
+  `LICENSE` porte le texte de la licence, et `LICENSES/AGPL-3.0-only.txt`, que `reuse` exige, est un
+  **lien symbolique** vers lui : les deux sont ainsi les mêmes octets, pas deux copies libres de
+  diverger. Le lien va dans ce sens parce que GitHub ne reconnaissait pas la licence tant que
+  `LICENSE` était le lien : il lit un fichier ordinaire.
 
 ## La licence de vos contributions
 
@@ -211,9 +212,9 @@ tout ce que vous écrivez, vous pouvez le reprendre ailleurs sans rien demander 
 seule chose que vous accordez est le droit d'en faire **aussi** un autre usage — celui que l'AGPL
 seule interdirait.
 
-Le `NOTICE` est l'endroit où cela se voit : la ligne de copyright y devient collective à la première
-contribution extérieure, et qui préfère y être nommé plutôt que couvert par elle le dit dans sa pull
-request. Ni l'un ni l'autre n'est une condition pour contribuer.
+Le `NOTICE` est l'endroit où cela se voit : sa ligne de copyright nomme déjà les contributeurs dans
+leur ensemble (« Tigerblue77 and the AI Docker stack Ansible deployment contributors »), et qui
+préfère y être nommé plutôt que couvert par elle le dit dans sa pull request. Ni l'un ni l'autre n'est une condition pour contribuer.
 
 ### Si le point 2 ne vous convient pas
 

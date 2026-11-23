@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Installs what the CI gates on, so that a Claude Code on the web session can run the same checks a

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 r"""Render the Artificial Intelligence compose template, parse it, and hold it to the conventions #31 sets.
 

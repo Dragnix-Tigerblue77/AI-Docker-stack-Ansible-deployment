@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -551,8 +551,9 @@ header is a gate here, not a habit. Families that cannot carry one are declared 
 instead, each with its reason: `templates/` and `files/`, rendered or copied verbatim onto the
 managed node where a header would end up in the deployed file, and `**/*.json`, JSON having no
 comment syntax.
-`LICENSE` is a symlink to `LICENSES/AGPL-3.0-only.txt`, so the file REUSE requires and the file
-GitHub reads for the repository's licence badge are the same bytes.
+`LICENSE` holds the licence text and `LICENSES/AGPL-3.0-only.txt`, the file REUSE requires, is a
+symlink to it, so the two are the same bytes. The link goes that way round because GitHub did not
+recognise the licence while `LICENSE` was the link: it reads a regular file.
 
 **The gate has one hole, and it is the one that matters for #35.** `reuse lint` does not ask a
 root file named `LICENSE*` for a header at all -- it reads those as licence texts. A

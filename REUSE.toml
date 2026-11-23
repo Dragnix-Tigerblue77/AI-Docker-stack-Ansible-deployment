@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Tigerblue77
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 # SPDX-License-Identifier: AGPL-3.0-only
 
 version = 1
@@ -15,7 +15,7 @@ SPDX-PackageDownloadLocation = "https://github.com/Dragnix-Tigerblue77/AI-Docker
 # the target. This repository IS the role, so the path has no "roles/**/" prefix to carry.
 [[annotations]]
 path = "templates/**"
-SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-FileCopyrightText = "2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors"
 SPDX-License-Identifier = "AGPL-3.0-only"
 
 # "files/**" is the same case as "templates/**" above, just copied verbatim rather than rendered:
@@ -25,7 +25,7 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 # necessity -- and the wrong one, for the same reason as "templates/**".
 [[annotations]]
 path = "files/**"
-SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-FileCopyrightText = "2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors"
 SPDX-License-Identifier = "AGPL-3.0-only"
 
 # JSON has no comment syntax at all: a "#" line is not a comment there, it is a parse error.
@@ -41,7 +41,7 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 
 [[annotations]]
 path = ["**/*.json"]
-SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-FileCopyrightText = "2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors"
 SPDX-License-Identifier = "AGPL-3.0-only"
 
 # One version and nothing else: "actions/setup-python" and the session hook read the file whole, so a
@@ -49,5 +49,5 @@ SPDX-License-Identifier = "AGPL-3.0-only"
 # line, so it is declared here, like the JSON above.
 [[annotations]]
 path = ".python-version"
-SPDX-FileCopyrightText = "2026 Tigerblue77"
+SPDX-FileCopyrightText = "2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors"
 SPDX-License-Identifier = "AGPL-3.0-only"

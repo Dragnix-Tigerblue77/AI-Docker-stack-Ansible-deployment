@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Tigerblue77
+SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -38,9 +38,9 @@ The short version: **using** it never requires a commercial licence, with the si
 
 Three consequences are worth spelling out, because they are what enquiries about Ansible content usually turn out to be about.
 
-- **Copyleft reaches this role, not the software the stack deploys.** `services:` is an empty mapping today, and every image a service issue adds to it — an LLM gateway, a vector database, a reranker, the agents and connectors around them — keeps its own licence entirely. None of them is derived from this role, and this repository neither contains nor distributes any of them: it names them, and your own container runtime fetches them from their own registries. [`NOTICE`](./NOTICE) records that.
+- **Copyleft reaches this role, not the software the stack deploys.** Every image the stack's template names — an LLM gateway, a vector database, the agents and connectors around them — keeps its own licence entirely. None of them is derived from this role, and this repository neither contains nor distributes any of them: it names them, and your own container runtime fetches them from their own registries. [`NOTICE`](./NOTICE) records that.
 - **It does not reach your inventory, your variables, your FQDNs or your secrets.** Those are your data, written by you, describing your estate — copyleft follows the code you received and modified, not what you feed it.
-- **Section 13 concerns a modified version whose users drive it over a network.** A playbook run from an operator's workstation exposes no network interface to anybody, and an unmodified version triggers nothing at all, so section 13 stays dormant in ordinary use. The web interfaces the stack will eventually publish belong to the programs behind them, under their own licences, not to this one; section 13 here matters only if you have modified the role and built a service around it that *its users* drive remotely.
+- **Section 13 concerns a modified version whose users drive it over a network.** A playbook run from an operator's workstation exposes no network interface to anybody, and an unmodified version triggers nothing at all, so section 13 stays dormant in ordinary use. The web interfaces the stack publishes belong to the programs behind them, under their own licences, not to this one; section 13 here matters only if you have modified the role and built a service around it that *its users* drive remotely.
 
 One case deserves naming rather than leaving to be discovered, because it is the likeliest enquiry about a role like this one: rendering the stack onto a machine that is not yours. Landing the rendered compose file on a host you control is running the work. Landing it on a client's host hands a third party a copy of a work derived from this template — the AGPL permits that too, provided the copy carries the licence and the notices and you can supply the corresponding source (sections 4 and 5). It is the withholding, not the deployment, that needs the other arm.
 
@@ -55,11 +55,11 @@ Terms are agreed case by case. The shape on offer is:
 
 It covers only the parts whose copyright this project holds or is authorised to sublicense. Today that excludes nothing: the tree is the copyright holder's own work. It is not expected to stay that way — this repository is shared, and [`CONTRIBUTING.md`](./CONTRIBUTING.md) is what keeps a future contribution offerable under both arms instead of under the AGPL alone, which is why it was written before the first outside contribution rather than after it.
 
-It does not and cannot cover the container images the stack will name: those are third-party works your own runtime fetches from their own registries, and they keep their own terms in every case. This repository contains none of them and distributes none of them — [`NOTICE`](./NOTICE) is where that is recorded, and where an image whose own terms require a notice to travel alongside would be named.
+It does not and cannot cover the container images the stack names: those are third-party works your own runtime fetches from their own registries, and they keep their own terms in every case. This repository contains none of them and distributes none of them — [`NOTICE`](./NOTICE) is where that is recorded, and where an image whose own terms require a notice to travel alongside would be named.
 
 ## How to ask
 
-**Through GitHub.** Open an issue on this repository describing your use case, or reach the copyright holder, [@tigerblue77](https://github.com/tigerblue77), on his profile there. An issue is the better of the two unless what you have to say is confidential: it is seen sooner, and it leaves a record both sides can point back to — but while this repository stays private an outsider cannot open one at all, so until it is public the profile is the route.
+**Through GitHub.** Open an issue on this repository describing your use case, or reach the copyright holder, [@tigerblue77](https://github.com/tigerblue77), on his profile there. An issue is the better of the two unless what you have to say is confidential: it is seen sooner, and it leaves a record both sides can point back to.
 
 Please include:
 
