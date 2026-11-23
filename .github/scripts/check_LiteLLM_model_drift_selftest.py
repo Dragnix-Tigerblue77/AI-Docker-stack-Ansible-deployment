@@ -51,19 +51,19 @@ from check_LiteLLM_model_drift import (
     RANKING_URL, REASON, REFUSALS, REVIEW_HEADING, SETTINGS_SECTIONS, TIMEOUT, UNCARRIED_HEADING,
     WORD, absent_names, addition_name, addition_problem, alias_drift, anchor_floor, anchor_scale,
     apply_removals, apply_to_result, ask_for, attribute, build_additions, carried_sections,
-    catalogue_command, catalogue_url, changed_heads, chat_like, chosen_level, code_figure, code_points,
+    catalogue_command, catalogue_url, changed_heads, chosen_level, code_figure, code_points,
     code_span, comment_content, confirm_absences, contract_order, contracts_problems, time_worth, shared_quota_names,
     contracts_report, contracts_section, derivation_differences, derivation_lines, describe_entry,
     eci_scale, eci_to_index, epoch_member_name, epoch_position, error_class, exit_status,
     fallback_lists, fetch_json, floor_text, given_text, guarded, index_to_position, is_bare,
     is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents,
-    left_behind, left_outside_pull_requests, main, match_ranking, median_position, member_quality,
+    left_behind, left_outside_pull_requests, litellm_id, main, match_ranking, median_position, member_quality,
     offline_contract_notices, offline_contract_problems, place, plan_lines, pricing_page_problems,
     propose_additions, propose_name, proposed, ranking_families, read_catalogue, read_epoch, read_head,
     read_layout, read_ranking_models, read_template, refusal_text, render_commit_message,
     render_pr_body, render_summary, render_text, render_with_keys, rewrite_heads, router_quality,
     run_online, seconds_figure, slots_text, split_level, squash, TEMPLATE_SWITCHES, time_ties,
-    undeleted_count, unreadable_providers, urllib_opener, verify_removal,
+    undeleted_count, unreadable_providers, urllib_opener, usage_of_id, verify_removal,
 )
 
 
@@ -133,6 +133,17 @@ model_list:
   #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
 
   # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and turned down
+  # drift-ignore: openrouter/vendor/painter:free -- selftest: not a chat model, not routed to
+  # drift-ignore: openrouter/vendor/voice-tts:free -- selftest: not a chat model, not routed to
+  # drift-ignore: kilo/vendor/kilo-painter:free -- selftest: not a chat model, not routed to
+  # drift-ignore: kilo/vendor/kilo-voice-tts:free -- selftest: not a chat model, not routed to
+  # drift-ignore: groq/whisper-large-v9 -- selftest: not a chat model, not routed to
+  # drift-ignore: groq/vendor/whisper-v9 -- selftest: not a chat model, not routed to
+  # drift-ignore: gemini/text-embedding-9 -- selftest: not a chat model, not routed to
+  # drift-ignore: mistral/mistral-embed -- selftest: not a chat model, not routed to
+  # drift-ignore: cloudflare/@cf/vendor/embed-9 -- selftest: not a chat model, not routed to
+  # drift-ignore: cloudflare/@cf/vendor/hear-9 -- selftest: not a chat model, not routed to
+  # drift-ignore: cloudflare/@cf/vendor/guard-9 -- selftest: not a chat model, not routed to
 
   - model_name: local
     litellm_params:
@@ -403,7 +414,7 @@ def selftest_answers():
 
 # Groq without "vendor/fast". It still lists one id with a slash, as the real one lists many, because
 # the lookup of a model is trusted only once it has answered for a listed model of the same shape;
-# "vendor/whisper-v9" is not a chat model, so it is not offered as a NEW one.
+# "vendor/whisper-v9" is a transcription model that SELFTEST_TEMPLATE sets aside, so it is no finding.
 GROQ_WITHOUT_FAST = {"data": [{"id": "whisper-large-v9", "active": True},
                               {"id": "vendor/whisper-v9", "active": True}]}
 
@@ -680,12 +691,16 @@ def online_cases():
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("openrouter", openrouter_with(openrouter_model("vendor/paid-one:free"))),
          [("back", "vendor/paid-one:free")], 1, None),
-        ("a new :free text model is NEW, a new image one is not",
+        ("a new :free text model and a new :free image one are both NEW, each with its usage",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("openrouter", openrouter_with(openrouter_model("vendor/fresh:free"),
                                                openrouter_model("vendor/other-painter:free",
                                                                 outputs=("text", "image")))),
-         [("new", "vendor/fresh:free")], 1, None),
+         [("new", "vendor/fresh:free"), ("new", "vendor/other-painter:free")], 1,
+         lambda result, calls, report, body: (
+             None if "openrouter/vendor/fresh:free: free -- usage: chat" in report
+             and "openrouter/vendor/other-painter:free: free -- usage: image" in report
+             else "the report does not give the usage of each: %s" % report)),
         ("an expiration date on an active OpenRouter id is a NOTICE",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("openrouter", openrouter_with(
@@ -722,13 +737,18 @@ def online_cases():
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("openrouter", openrouter_with(openrouter_model("vendor/fresh:free"))),
          [("new", "vendor/fresh:free")], 1, no_pricing_links),
-        ("Gemini's second page is read, and a chat model found there is NEW",
+        ("Gemini's second page is read, and a model found there is NEW, a speech one with its usage",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("gemini", [base["gemini"][0], {"models": [
              {"name": "models/gemini-10-pro", "supportedGenerationMethods": ["generateContent"]},
              {"name": "models/gemini-10-flash-tts",
               "supportedGenerationMethods": ["generateContent"]}]}]),
-         [("new", "gemini-10-pro")], 1, second_page_read),
+         [("new", "gemini-10-flash-tts"), ("new", "gemini-10-pro")], 1,
+         lambda result, calls, report, body: (
+             second_page_read(result, calls, report, body)
+             or (None if "gemini/gemini-10-flash-tts: to examine, its free tier is not machine-readable "
+                         "-- usage: speech, its entry is written by hand, with model_info.mode audio_speech"
+                         in report else "the speech model is not said to be one: %s" % report))),
         ("every Kilo entry of the real model list is attributed to Kilo, and a catalogue that lists them reports "
          "nothing, the virtual models the file sets aside included",
          real, SELFTEST_KEYS, dict(listing, kilo={"data": listing["kilo"]["data"] + [
@@ -747,14 +767,16 @@ def online_cases():
          changed("kilo", kilo_with(replacing=(kilo_model("vendor/kilo-one:free", expiration="2026-12-11"),))),
          [("notice", "vendor/kilo-one:free")], 1,
          kilo_notice("expires on 2026-12-11", "expiration annoncée (`2026-12-11`)")),
-        ("a new free Kilo text model is NEW and free; a paid one, an image one and a speech one are not",
+        ("a new free Kilo model is NEW and free, an image one too with its usage, and a paid one is not",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("kilo", kilo_with(kilo_model("vendor/kilo-fresh:free"), kilo_model("vendor/kilo-fresh-paid", free=False),
                                    kilo_model("vendor/kilo-fresh-painter:free", outputs=("text", "image")))),
-         [("new", "vendor/kilo-fresh:free")], 1,
+         [("new", "vendor/kilo-fresh-painter:free"), ("new", "vendor/kilo-fresh:free")], 1,
          lambda result, calls, report, body: (
              "a free model of Kilo was listed as one to examine" if "## Nouveaux modèles à examiner" in body
-             else None if "openai/vendor/kilo-fresh:free on Kilo Gateway: free" in report
+             else "the report does not give the usage of the Kilo image model"
+             if "openai/vendor/kilo-fresh-painter:free on Kilo Gateway: free -- usage: image" not in report
+             else None if "openai/vendor/kilo-fresh:free on Kilo Gateway: free -- usage: chat" in report
              else "the report does not list the new Kilo model as free")),
         ("a Kilo answer that flags no model as free or paid is an error, and no notice on every entry",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
@@ -812,14 +834,18 @@ def online_cases():
              "a key reached the output" if "SECRET" in report + body
              else None if "refused for ***" in report and "`network error: refused for ***`" in body
              else "the key was not replaced")),
-        ("a model whose fields have a type nobody documented is skipped, not a crash",
+        ("a model whose fields have a type nobody documented is read as unclassified, not a crash",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          dict(changed("gemini", [{"models": base["gemini"][0]["models"] + [
              {"name": "models/gemini-odd", "supportedGenerationMethods": 5}],
               "nextPageToken": 5}]),
               mistral={"data": base["mistral"]["data"] + [
                   {"id": "mistral-odd", "aliases": 5, "capabilities": {"completion_chat": False}}]}),
-         no_drift, 0, None),
+         [("new", "gemini-odd"), ("new", "mistral-odd")], 1,
+         lambda result, calls, report, body: (
+             None if "gemini/gemini-odd: to examine, its free tier is not machine-readable -- usage: unclassified"
+             in report and "mistral/mistral-odd: to examine, its free tier is not machine-readable -- usage: "
+             "unclassified" in report else "an odd model is not said to be unclassified: %s" % report)),
         ("a catalogue nested too deeply to parse is that provider's error, not a crash",
          SELFTEST_TEMPLATE, SELFTEST_KEYS,
          changed("groq", b"[" * 100000 + b"]" * 100000), no_drift, 2,
@@ -1883,7 +1909,7 @@ def run_ranking_cases():
                ("`flash-lite` : avant `free-low`" in section, "flash-lite is not placed before free-low"),
                ("jamais une décision" in section, "the table does not say it is not a decision"),
                (exit_status(result) == 1 and is_complete(result), "the exit status or the coverage moved"),
-               ("rankings    read, 7 model(s), 2 of the 4 NEW model(s) matched" in report, "the report does not count: %s" % report)))
+               ("rankings    read, 7 model(s), 2 of the 4 NEW chat model(s) matched" in report, "the report does not count: %s" % report)))
     judged("no key, no echoed key and no markup of the ranking source's text reaches the output",
            first_wrong(
                ("SECRET" not in report and "SECRET" not in body, "a key reached the output"),
@@ -2605,14 +2631,22 @@ def run_hardening_cases():
                   status == CRASH_STATUS and "a piece of an answer" not in written
                   and "crashed, RuntimeError" in written))
 
-    cases.append(("an id naming a use other than chat is never a new candidate, and a chat model is",
-                  not any(chat_like(identifier) for identifier in (
-                      "voxtral-small-latest", "gemini-nano-banana-2.1", "gemini-robotics-er-2-preview",
-                      "deep-research-max-preview-04-2026", "gemini-2.5-computer-use-preview-10-2025",
-                      "antigravity-preview-latest", "WHISPER-large-v9"))
-                  and all(chat_like(identifier) for identifier in (
-                      "mistral-large-4", "gemini-4-argon", "MiniMax-M3.1-Flash", "gemini-pro-latest",
-                      "allam-2-7b", "labs-leanstral-1-5"))))
+    cases.append(("an id names its usage by the first marker it holds, and a chat model by none",
+                  all(usage_of_id(identifier) == usage for identifier, usage in (
+                      ("voxtral-small-latest", "audio"), ("voxtral-mini-transcribe-2", "transcription"),
+                      ("gemini-nano-banana-2.1", "image"), ("gemini-robotics-er-2-preview", "agent"),
+                      ("deep-research-max-preview-04-2026", "agent"),
+                      ("gemini-2.5-computer-use-preview-10-2025", "agent"),
+                      ("antigravity-preview-latest", "agent"), ("WHISPER-large-v9", "transcription"),
+                      ("playai-tts", "speech"), ("canopylabs/orpheus-v1-english", "speech"),
+                      ("text-embedding-9", "embeddings"), ("bge-reranker-v2", "rerank"),
+                      ("veo-3.1-generate-preview", "video"), ("lyria-3-pro-preview", "music"),
+                      ("llama-guard-4-12b", "moderation"), ("mistral-ocr-latest", "ocr"),
+                      ("mistral-large-4", "chat"), ("gemini-4-argon", "chat"),
+                      ("MiniMax-M3.1-Flash", "chat"), ("gemini-pro-latest", "chat"),
+                      ("allam-2-7b", "chat"), ("labs-leanstral-1-5", "chat")))
+                  and usage_of_id("zz-unknown", "unclassified") == "unclassified"
+                  and usage_of_id("zz-whisper", "unclassified") == "transcription"))
     cases.append(("a cascade named by a Jinja expression is not named in a message of its own",
                   slots_text([("router_settings.fallbacks", "flash-lite"),
                               ("router_settings.fallbacks", JINJA_PLACEHOLDER)])
@@ -2983,7 +3017,8 @@ def online_apply_cases():
                 if line.startswith("- `openrouter/vendor/okay:free`")]
         if len(okay) != 1:
             return "the well-spelt id with a hostile name is not listed once"
-        if okay[0].count("`") != 4:
+        # The id, the name and the usage are a code span each.
+        if okay[0].count("`") != 6:
             return "the hostile name broke out of its code span: %r" % okay[0]
         if "unusual spelling left out" not in report:
             return "the report does not say that an id was left out"
@@ -3945,6 +3980,142 @@ def run_proposal_cases():
                (all(command.count("'") == 2 for command in commands), "a command holds a quote of its own"),
                (all(("docker exec" in command) == keyed(name) for name, command in zip(PROVIDER_NAMES, commands)),
                 "a keyed command does not run in the container, or a keyless one does")))
+    return failures
+
+
+def usage_answers():
+    """proposal_answers() and a NEW model of every usage the readers tell apart, each of a provider that
+    says it differently: by the catalogue's own field (Cloudflare's task, the output modalities of OpenRouter,
+    the methods of Gemini, Mistral's "completion_chat") or by the id alone (Groq). The ranking knows the
+    transcription one, which proves that a model of another usage is never matched to it."""
+    answers = proposal_answers()
+    answers["groq"]["data"].append({"id": "whisper-large-v10", "active": True})
+    answers["openrouter"]["data"] += [openrouter_model("vendor/painter-10:free", outputs=("text", "image")),
+                                      openrouter_model("vendor/voice-10:free", outputs=("audio",))]
+    answers["gemini"][0]["models"] += [
+        {"name": "models/text-embedding-10", "supportedGenerationMethods": ["embedContent"]},
+        {"name": "models/aqa-9", "supportedGenerationMethods": ["generateAnswer"]}]
+    answers["mistral"]["data"] += [{"id": "voxtral-mini-10", "capabilities": {"completion_chat": False}},
+                                   {"id": "mystery-9", "capabilities": {}}]
+    answers["cloudflare"][0]["result"] += [
+        cloudflare_model("@cf/vendor/hear-10", task="Automatic Speech Recognition"),
+        cloudflare_model("@cf/vendor/say-10", task="Text-to-Speech"),
+        cloudflare_model("@cf/vendor/embed-10", task="Text Embeddings"),
+        cloudflare_model("@cf/vendor/guard-10"),
+        cloudflare_model("@cf/vendor/see-10", task="Object Detection")]
+    answers["rankings"]["data"].append(ranking_model("whisper-large-v10", "Whisper Large V10", 50, 40, 100, 0.0))
+    return answers
+
+
+def run_usage_cases():
+    """What a NEW model of a usage other than chat is: listed with its usage like any other, in the same sections,
+    and kept out of what assumes a chat model."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    expected = {
+        ("groq", "whisper-large-v10"): "transcription",
+        ("cloudflare", "@cf/vendor/hear-10"): "transcription",
+        ("cloudflare", "@cf/vendor/say-10"): "speech",
+        ("cloudflare", "@cf/vendor/embed-10"): "embeddings",
+        ("cloudflare", "@cf/vendor/guard-10"): "moderation",
+        ("cloudflare", "@cf/vendor/see-10"): "object detection",
+        ("openrouter", "vendor/painter-10:free"): "image",
+        ("openrouter", "vendor/voice-10:free"): "speech",
+        ("gemini", "text-embedding-10"): "embeddings",
+        ("gemini", "aqa-9"): "unclassified",
+        ("mistral", "voxtral-mini-10"): "audio",
+        ("mistral", "mystery-9"): "unclassified",
+        ("openrouter", "vendor/fresh:free"): "chat",
+        ("groq", "vendor/quick"): "chat",
+        ("mistral", "magistral-9"): "chat",
+    }
+    # A model's entry is written by hand, with the mode of its usage when the file has one.
+    modes = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding"}
+    answers = usage_answers()
+    result, proposals = proposal_run(SELFTEST_TEMPLATE, answers)
+    ready, to_verify = proposals["ready"], proposals["to_verify"]
+    proposed_ids = {(item["provider"], item["id"]) for part in (ready, to_verify) for item in part["items"]}
+    findings = {(report["name"], finding["id"]): finding for report in result["providers"]
+                for finding in report["findings"] if finding["kind"] == "new"}
+    ranked_ids = {(row["provider"], row["id"]) for row in result["ranked"]}
+    report = render_text(result, "selftest")
+    summary = render_summary(result, "selftest")
+    section = {title: summary.split("## " + title)[1].split("\n## ")[0]
+               for title in ("Nouveaux modèles gratuits", "Nouveaux modèles à examiner")
+               if "## " + title in summary}
+    other = {key: usage for key, usage in expected.items() if usage != "chat"}
+
+    judged("a new model of every usage is NEW, with the usage its catalogue or its id gives it",
+           first_wrong(*[(findings.get(key, {}).get("usage") == usage,
+                          "%s/%s: usage %r, expected %r" % (key + (findings.get(key, {}).get("usage"), usage)))
+                         for key, usage in sorted(expected.items())]))
+    judged("a model of another usage is neither ranked, nor proposed, nor given an entry to paste",
+           first_wrong(
+               (not ranked_ids & set(other), "ranked: %r" % sorted(ranked_ids & set(other))),
+               (("openrouter", "vendor/fresh:free") in ranked_ids, "the chat model is no more ranked"),
+               (not proposed_ids & set(other), "proposed: %r" % sorted(proposed_ids & set(other))),
+               (("openrouter", "vendor/fresh:free") in proposed_ids and ("groq", "vendor/quick") in proposed_ids,
+                "a chat model is no more proposed: %r" % sorted(proposed_ids)),
+               (all(findings[key].get("unproposed") and not findings[key].get("proposed") for key in other),
+                "a model of another usage is not marked as not proposed"),
+               (not any("model: %s" % litellm_id(provider, identifier)[0] in summary + to_verify["body"]
+                        for provider, identifier in other),
+                "an entry was written for a model of another usage")))
+    judged("the line of a model of another usage says its usage, and that its entry is written by hand with its mode",
+           first_wrong(
+               ("groq/whisper-large-v10: to examine, its free tier is not machine-readable -- usage: transcription, "
+                "its entry is written by hand, with model_info.mode audio_transcription" in report,
+                "the plain line of the Groq model: %s" % report),
+               ("cloudflare/@cf/vendor/say-10: to examine, its free tier is not machine-readable -- usage: speech, "
+                "its entry is written by hand, with model_info.mode audio_speech" in report, "the Cloudflare speech line"),
+               ("gemini/text-embedding-10: to examine, its free tier is not machine-readable -- usage: embeddings, "
+                "its entry is written by hand, with model_info.mode embedding" in report, "the Gemini embedding line"),
+               ("openrouter/vendor/painter-10:free: free -- usage: image, its entry is written by hand" in report
+                and "openrouter/vendor/painter-10:free: free -- usage: image, its entry is written by hand," not in report,
+                "an image model has no mode to give, and the line says none"),
+               ("gemini/aqa-9: to examine, its free tier is not machine-readable -- usage: unclassified, "
+                "its entry is written by hand" in report, "an unclassified model is not said to be written by hand"),
+               ("openrouter/vendor/fresh:free: free -- usage: chat" in report
+                and "openrouter/vendor/fresh:free: free -- usage: chat," not in report,
+                "the chat line says more than its usage")))
+    judged("the summary lists them in the sections the others are in, each line with its usage",
+           first_wrong(
+               ("`groq/whisper-large-v10` : usage `transcription`" in section.get("Nouveaux modèles à examiner", ""),
+                "the Groq model is not in the section to examine"),
+               ("`openrouter/vendor/painter-10:free`" in section.get("Nouveaux modèles gratuits", "")
+                and "usage `image`" in section.get("Nouveaux modèles gratuits", ""),
+                "the free image model is not in the free section"),
+               ("model_info.mode: audio_transcription" in summary, "the summary does not give the mode"),
+               ("usage `chat`" in summary, "a chat model's line does not say its usage"),
+               (all(usage in summary for usage in ("`embeddings`", "`moderation`", "`object detection`", "`unclassified`")),
+                "a usage is missing from the summary"),
+               ("## Nouveaux modèles qu'aucun ajout ne porte" not in summary, "a section of their own was made")))
+    judged("the pull request of the models to verify carries them by hand too, with no entry",
+           first_wrong(
+               (UNCARRIED_HEADING in to_verify["body"], "the section of what no addition carries is missing"),
+               ("usage `transcription`" in to_verify["body"] and "audio_transcription" in to_verify["body"],
+                "the body does not say the usage and the mode")))
+    hostile = drift.read_cloudflare([cloudflare_page(
+        cloudflare_model("@cf/vendor/evil-10", task="Evil `task` @bob <b>x</b> ::error:: " + "y" * 80))])
+    shown = hostile["usages"].get("@cf/vendor/evil-10", "")
+    judged("a usage that a catalogue names, a Cloudflare task, is cut down to plain words and a length like the rest",
+           first_wrong((shown != "", "the model was not offered"),
+                       (not any(each in shown for each in ("`", "@", "<", ">", "::")), "unsafe usage: %r" % shown),
+                       (len(shown) <= 40, "the usage is %d characters long" % len(shown))))
+    judged("a chat model that no pull request proposes still gets its entry to paste, with its usage",
+           first_wrong(("`cerebras/cb-new` : usage `chat`" in summary, "the line of the Cerebras model"),
+                       ("model: cerebras/cb-new" in summary, "the entry of the Cerebras model is gone")))
     return failures
 
 
@@ -6591,7 +6762,7 @@ def run_cloudflare_cases():
                (not any("SECRET" in value for key, value in headers.items() if key != "Authorization"),
                 "the token is in another header"),
                (found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
-               ("cloudflare  read, 5 model(s), 2 chat candidate(s); 1 active, 1 commented-out id(s) here" in report,
+               ("cloudflare  read, 5 model(s), 5 candidate(s); 1 active, 1 commented-out id(s) here" in report,
                 "the report: %s" % report),
                (result["unattributed"] == ["openai/auto/best-free"], "an entry of Cloudflare is of no catalogue"),
                (hides_account(report, body) is None, hides_account(report, body))))
@@ -6601,9 +6772,16 @@ def run_cloudflare_cases():
         cloudflare_model("@cf/vendor/ending-text", planned="2026-12-01")))
     examine = body.split("## Nouveaux modèles à examiner")[1].split("\n## ")[0] if "## Nouveaux modèles à examiner" in body else ""
     judged("a Text Generation model the file does not know is NEW, to examine against Cloudflare's pricing page, "
-           "and never claimed free; one of another task or that is deprecated or ending is not offered",
+           "and never claimed free; one of another task is NEW with its usage, and one that is deprecated or "
+           "ending is not offered",
            first_wrong(
-               (found(result) == [("new", "@cf/vendor/new-text")], "findings %r" % found(result)),
+               (found(result) == [("new", "@cf/vendor/new-embed"), ("new", "@cf/vendor/new-text")],
+                "findings %r" % found(result)),
+               ("cloudflare/@cf/vendor/new-embed: to examine, its free tier is not machine-readable -- usage: "
+                "embeddings, its entry is written by hand, with model_info.mode embedding" in report,
+                "the embedding model is not said to be one: %s" % report),
+               ("cloudflare/@cf/vendor/new-text: to examine, its free tier is not machine-readable -- usage: chat"
+                in report and "-- usage: chat," not in report, "the chat model is not said to be one: %s" % report),
                ("`cloudflare/@cf/vendor/new-text`" in examine, "the model is not listed to examine"),
                ("[cloudflare](https://developers.cloudflare.com/workers-ai/platform/pricing/)" in examine,
                 "the pricing page is not linked"),
@@ -6642,7 +6820,9 @@ def run_cloudflare_cases():
            first_wrong(
                ([url.rsplit("&", 1)[1] for url, _ in asked] == ["page=1", "page=2"], "asked %r" % [url for url, _ in asked]),
                (all("include_deprecated=true&per_page=50" in url for url, _ in asked), "the parameters did not follow"),
-               (found(result) == [("new", "@cf/vendor/second-page")], "findings %r" % found(result)),
+               ([each for each in found(result) if "filler" not in each[1]] == [("new", "@cf/vendor/second-page")],
+                "findings %r" % found(result)),
+               (sum(1 for each in found(result) if "filler" in each[1]) == 45, "the models of the first page are not all read"),
                (hides_account(report, body) is None, hides_account(report, body))))
     result, asked, _, _ = run(cloudflare_catalogue())
     judged("a short page is the last", first_wrong((len(asked) == 1, "%d requests" % len(asked))))
@@ -6661,10 +6841,10 @@ def run_cloudflare_cases():
            first_wrong(*[(cloudflare_report(run(page)[0])["status"] == "error",
                           "%r was read" % (page,)) for page in ({"result": None, "success": True},
                                                                 {"result": [], "success": False}, {"models": []})]))
-    judged("a model with no name, or of a shape nobody documented, is skipped and no crash",
+    judged("a model with no name is skipped, and one of a shape nobody documented is read as unclassified, no crash",
            first_wrong((found(run([cloudflare_page(*cloudflare_catalogue()[0]["result"], {"id": "x"}, 5,
                                                    {"name": "@cf/vendor/odd", "task": 5, "properties": 5})])[0])
-                        == [], "an odd model was a finding"),))
+                        == [("new", "@cf/vendor/odd")], "the odd models were read otherwise"),))
 
     # Without both values the provider is not covered, and is never called.
     for variables, said, french in (
@@ -6831,6 +7011,7 @@ def run_selftest_cases():
     failures += run_hardening_cases()
     failures += run_command_line_cases()
     failures += run_proposal_cases()
+    failures += run_usage_cases()
     failures += run_carried_cases()
     failures += run_proposal_command_line_cases()
     failures += run_bounded_key_set_cases()
