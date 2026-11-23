@@ -108,9 +108,14 @@ name: LiteLLM model drift
 # with its HTTP status and nothing else, a key found in an error is replaced, and a redirect is not
 # followed, since the keys travel in the headers.
 #
+# Every provider the model list routes to has its catalogue read here, one that needs a key included, and
+# the offline run fails on an active entry of a provider no reader covers (OmniRoute's virtual routes, which
+# no catalogue lists, apart).
+#
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
-# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova and Kilo Gateway need none. A missing
-# key is no failed read: it opens no issue and starts no retry.
+# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud
+# and Requesty publish their catalogue without one and need none. A missing key is no failed read: it opens no
+# issue and starts no retry.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
 #   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
@@ -127,6 +132,10 @@ name: LiteLLM model drift
 #                                 is replaced by "***" wherever a message could show it, like a key.
 #                                 The identifier is no credential, and a secret all the same: it is the
 #                                 account's, which no file of this repository names.
+#   MODEL_DRIFT_ZAI_API_KEY       Z AI -- "zai/" entries. Its answer is read as the OpenAI-style list the
+#                                 API is expected to give, which no run has read: the catalogue answers
+#                                 401 without a key, and no session of this repository holds one.
+#   MODEL_DRIFT_CENT_AI_API_KEY   Cent AI -- "openai/" entries on its "api_base". Read as Z AI's is.
 #
 # One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
 # Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).
@@ -204,7 +213,7 @@ name: LiteLLM model drift
 # their checks dispatched where no App writes them. They are split by how much the run knows of a
 # model, never by its provider. The first, ready for review, holds the models of which it knows every
 # fact an addition needs: a free tier its provider's API states (OpenRouter's ":free" at a price
-# of 0, Kilo Gateway's "isFree") and a figure of the ranking matched for certain: the end of the id, less ":free", spelt like
+# of 0, Kilo Gateway's "isFree", Requesty's prices of 0 in and out) and a figure of the ranking matched for certain: the end of the id, less ":free", spelt like
 # the slug or name of one entry of the ranking and no other once case and punctuation are dropped,
 # with no variant marker such as "(Reasoning)" on that entry. The second, opened as a draft, holds any
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
@@ -413,6 +422,8 @@ jobs:
           MODEL_DRIFT_DEEPSEEK_API_KEY: ${{ secrets.MODEL_DRIFT_DEEPSEEK_API_KEY }}
           MODEL_DRIFT_CLOUDFLARE_API_KEY: ${{ secrets.MODEL_DRIFT_CLOUDFLARE_API_KEY }}
           MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID }}
+          MODEL_DRIFT_ZAI_API_KEY: ${{ secrets.MODEL_DRIFT_ZAI_API_KEY }}
+          MODEL_DRIFT_CENT_AI_API_KEY: ${{ secrets.MODEL_DRIFT_CENT_AI_API_KEY }}
           MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY: ${{ secrets.MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY }}
         run: |
           out="$RUNNER_TEMP/drift"
@@ -576,6 +587,7 @@ jobs:
             const PROVIDERS = {
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
               groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',
+              nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
@@ -835,6 +847,11 @@ jobs:
               deepseek: { prefix: 'deepseek/', label: 'DeepSeek' },
               cloudflare: { prefix: 'cloudflare/', label: 'Cloudflare' },
               kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },
+              nvidia: { prefix: 'nvidia_nim/', label: 'NVIDIA' },
+              ovhcloud: { prefix: 'openai/', label: 'OVHcloud', keyless: true },
+              requesty: { prefix: 'openai/', label: 'Requesty', free: 'router.eu.requesty.ai/v1/models' },
+              zai: { prefix: 'zai/', label: 'Z AI' },
+              centai: { prefix: 'openai/', label: 'Cent AI' },
             };
             const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
@@ -849,9 +866,13 @@ jobs:
             const providerOf = (model, apiBase) => {
               if (typeof model !== 'string' || !model.includes('/')) return null;
               const prefix = model.slice(0, model.indexOf('/'));
-              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare'].includes(prefix)) return prefix;
+              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai'].includes(prefix)) return prefix;
+              if (prefix === 'nvidia_nim') return 'nvidia';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';
+              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';
+              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('requesty.ai')) return 'requesty';
+              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.cent-ai.dev')) return 'centai';
               return null;
             };
             const additionEntries = (lines) => {

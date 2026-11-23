@@ -96,7 +96,10 @@ Offline, the default, run on every pull request. It reads the file and nothing e
       -- it is how it load-balances -- so the day this file wants one, this rule is the line to
       change, knowingly;
   (c) every commented-out entry carries its reason (defined below);
-  (d) every "# drift-ignore:" line is well formed and gives its reason.
+  (d) every "# drift-ignore:" line is well formed and gives its reason;
+  (e) every active entry belongs to a provider whose catalogue this check reads, OmniRoute's virtual
+      routes apart (see "HOW EACH PROVIDER IS READ"): a model of a provider nobody reads is one that
+      nothing would ever report retired.
 
 "--online" reads each provider's model catalogue as well, and reports the drift: it prints a
 plain-text report and, with "--summary PATH", writes the whole report that
@@ -150,14 +153,14 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/"), SambaNova as "openai/<id>" with an "api_base" on
-"api.sambanova.ai", and Kilo Gateway as "openai/<id>" with an "api_base" on "ai-gateway.kilo.ai". An
-entry of no provider below -- OmniRoute, local and keyless, the ones served through OVHcloud AI
-Endpoints, keyless too, the "zai/<id>" ones, whose provider this check does not read, the "openai/<id>"
-ones served through Requesty or through Cent AI, whose providers it does not read either, and the
-"nvidia_nim/<id>" ones, whose provider it does not read any more than the others -- is left out, and the
-report says how many: it is never RETIRED, never reported as unknown, and a "drift-ignore:" line cannot
-name Z AI, Requesty, NVIDIA or Cent AI.
+"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
+an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
+OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai") and Cent AI
+("api.cent-ai.dev"). Every provider the model list routes to has its catalogue read here, one that needs
+a key included, and the offline run refuses an active entry of any other: OmniRoute's virtual routes
+("openai/auto/..." on a local "api_base"), which no catalogue lists because the machine itself picks the
+model, are the one exemption, and the report says how many there are. The names a "drift-ignore:" line
+takes are those of the table below, Cent AI's being "centai": the workflow's tables read a name as plain letters.
 
   provider    catalogue, and how its key is sent       what the provider's own filter keeps, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free" and both prices "0"
@@ -175,6 +178,14 @@ name Z AI, Requesty, NVIDIA or Cent AI.
               -- Bearer
   kilo        ai-gateway.kilo.ai/api/v1/models         "isFree" true
               -- no key
+  nvidia      integrate.api.nvidia.com/v1/models       every model
+              -- no key
+  ovhcloud    oai.endpoints.kepler.ai.cloud.ovh.net/   every model
+              v1/models -- no key
+  requesty    router.eu.requesty.ai/v1/models          "input_price" and "output_price" both 0
+              -- no key
+  zai         api.z.ai/api/paas/v4/models -- Bearer    every model
+  centai      api.cent-ai.dev/v1/models -- Bearer      every model
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -207,6 +218,14 @@ tell it apart (name, version, displayName, description, token limits, supportedG
 temperature, thinking), and "omni" is not a marker to add: other vendors' "omni" models are chat
 models, one of them routed in the file this check reads.
 
+Requesty lists every model it relays, nearly all of them paid, each with the "input_price" and the
+"output_price" per token it states: only a model priced 0 in and out is offered as NEW, and an active entry
+whose model is still listed but no longer priced 0 is a NOTICE and never RETIRED, as Kilo's is. A "retires"
+timestamp is a NOTICE too, read as seconds since the epoch, which is what its values look like. NVIDIA,
+OVHcloud, Z AI and Cent AI are read as plain lists of ids. OVHcloud states a price per token and says nothing
+of the keyless access its entries are called through, so its NEW models are listed to examine and never
+claimed free; NVIDIA, Z AI and Cent AI state nothing per model either.
+
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
 the free ids are offered as NEW. Every id is a member, though: a model that stops being free is still
@@ -217,7 +236,8 @@ it alone, as OpenRouter's does. It also lists virtual models that pick another a
 sets aside with a "drift-ignore:" line.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
-MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
+MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY, MODEL_DRIFT_ZAI_API_KEY,
+MODEL_DRIFT_CENT_AI_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
 with MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID beside it. An unset or empty one leaves its
 provider "not covered (no key)", which the report says every time rather than skipping it, and says
 which of the two Cloudflare lacks. Gemini's
@@ -243,6 +263,10 @@ The API has no route that answers for one model by its id that this reads, so Cl
 deleted from the list alone, as OpenRouter's are, under the same refusals (an empty list, more than half
 the file's models missing).
 
+The answers of Z AI and Cent AI are read as the OpenAI-style list ("data", each with an "id") their
+documentation describes, and no run has read either: both answer 401 without a key and no session of this
+repository holds one. A shape that is not that list is the provider's error, never a retirement.
+
 Whether a Cloudflare model is free is not read, and no check for it is made up: the pricing page names, in
 a note of prose, the models that need a paid billing method, and every other model draws on the
 10,000 neurons a day of the whole account. The models' own records carry a "require_workers_paid" property
@@ -256,10 +280,10 @@ RETIRED    an active entry whose id the catalogue no longer lists: delete it and
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
 NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
-           "expiration_date", Mistral's "deprecation" (with "deprecation_replacement_model"), the
+           "expiration_date", Requesty's "retires", Mistral's "deprecation" (with "deprecation_replacement_model"), the
            "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
-           "planned_deprecation_date"; and an active Kilo entry that is no longer flagged free, since
-           its keyless call would be refused.
+           "planned_deprecation_date"; an active Kilo entry that is no longer flagged free, since
+           its keyless call would be refused; and an active Requesty entry that is no longer priced 0.
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -267,12 +291,13 @@ BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twi
 NEW        an id the file does not know. Known ids are those of the active and the commented-out
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
-           <provider> is one of the names above: "sambanova/<id>" for SambaNova and "kilo/<id>" for
-           Kilo Gateway, where the entry itself reads "openai/<id>". A Mistral id is known when one
+           <provider> is one of the names above: "sambanova/<id>" for SambaNova, "kilo/<id>" for
+           Kilo Gateway, "ovhcloud/<id>", "requesty/<id>" and "centai/<id>", and "nvidia/<id>" for
+           the entries that read "nvidia_nim/<id>", where the entry itself reads "openai/<id>". A Mistral id is known when one
            of its "aliases" is. Each carries its usage (see above), shown on its line.
 
-Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", and on Kilo
-Gateway, as "isFree". Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
+Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", on Kilo
+Gateway, as "isFree", and on Requesty, as the two prices at 0. Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
@@ -465,7 +490,7 @@ provider. A NEW model of another usage is proposed in neither: it is listed with
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
   tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
-  "0", and Kilo's "isFree"), and a figure of the
+  "0", Kilo's "isFree", and Requesty's two prices at 0), and a figure of the
   ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
   slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
   with everything but letters and digits removed, and that entry's name carries no variant marker
@@ -970,18 +995,31 @@ def comment_content(line):
     return text[1:] if text.startswith(" ") else text
 
 
+# The "model:" prefix LiteLLM routes each provider it has a provider for by, where it is not the name this check
+# gives the provider.
+LITELLM_PREFIXES = {"nvidia": "nvidia_nim"}
+NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai")
+# The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
+OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
+                "ovhcloud": "oai.endpoints.kepler.ai.cloud.ovh.net", "requesty": "requesty.ai",
+                "centai": "api.cent-ai.dev"}
+# The one provider whose entries no catalogue backs: OmniRoute is a local gateway that picks among the models the
+# machine itself holds, so its virtual "auto/..." routes are listed nowhere upstream and no reader could cover them.
+OMNIROUTE_BASE = re.compile(r"https?://omniroute[:/]")
+
+
 def attribute(model, api_base):
     """(provider, id) for a LiteLLM "model:" value, or None when no catalogue here covers it."""
     if not isinstance(model, str) or "/" not in model:
         return None
     prefix, identifier = model.split("/", 1)
-    if prefix in ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare"):
-        return prefix, identifier
+    for provider in NATIVE_PROVIDERS:
+        if prefix == LITELLM_PREFIXES.get(provider, provider):
+            return provider, identifier
     if prefix == "openai" and isinstance(api_base, str):
-        if "api.sambanova.ai" in api_base:
-            return "sambanova", identifier
-        if "ai-gateway.kilo.ai" in api_base:
-            return "kilo", identifier
+        for provider, host in OPENAI_HOSTS.items():
+            if host in api_base:
+                return provider, identifier
     return None
 
 
@@ -1133,6 +1171,18 @@ def read_template(text):
 
     problems = []
     active = [entry_of(item) for item in document["model_list"] if isinstance(item, dict)]
+
+    # (e) Every active entry belongs to a provider whose catalogue is read: an entry of any other is never
+    # retired nor reported, whatever its provider does.
+    for entry in active:
+        if (attribute(entry["model"], entry["api_base"]) is None
+                and not OMNIROUTE_BASE.match(str(entry["api_base"]))):
+            problems.append(
+                'the active entry "%s" (model: %s) belongs to no provider whose catalogue this check reads.\n'
+                "    Every provider the list routes to has its catalogue read, one that needs a key included,\n"
+                "    so that a model it retires is deleted and one it announces is reported: add its reader to\n"
+                "    PROVIDERS and the tables that name the providers (OmniRoute's virtual routes, which no\n"
+                "    catalogue lists, are the one exemption)." % (entry["name"], entry["model"]))
 
     # Commented-out entries: each block is uncommented and parsed like any other entry.
     commented = []
@@ -1467,6 +1517,42 @@ def read_kilo(pages):
     return catalogue
 
 
+def requesty_price(model, key):
+    """The price per token Requesty states under "key", or None when it states none that is a number."""
+    price = model.get(key)
+    return price if isinstance(price, (int, float)) and not isinstance(price, bool) else None
+
+
+def retirement_date(timestamp):
+    """The day of a Unix timestamp in seconds, or None when it is no plausible one."""
+    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)) or not 0 < timestamp < 4102444800:
+        return None
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).date().isoformat()
+
+
+def read_requesty(pages):
+    """Requesty: every model it lists, nearly all of them paid, each with the prices it states per token. Only
+    a model priced 0 in and out is offered as NEW, and one that is listed and priced otherwise is a NOTICE and
+    never a retirement, as Kilo's is: it still answers, to a caller who pays. A "retires" date is a NOTICE too."""
+    catalogue = new_catalogue()
+    models = listed(pages[0])
+    if models and not any(requesty_price(model, "input_price") is not None
+                          and requesty_price(model, "output_price") is not None for model in models):
+        # Without the prices every model would read as paid, and every active entry as a notice.
+        raise FetchError("the answer lists no price")
+    for model in models:
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        retires = retirement_date(model.get("retires"))
+        if retires:
+            catalogue["notices"][identifier] = {"what": "expiration", "date": retires}
+        elif requesty_price(model, "input_price") == 0 and requesty_price(model, "output_price") == 0:
+            offer(catalogue, identifier, usage=usage_of_id(identifier))
+        else:
+            catalogue["notices"][identifier] = {"what": "priced"}
+    return catalogue
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -1652,6 +1738,15 @@ PROVIDERS = (
                    "?include_deprecated=true&per_page=%d&page=1" % CLOUDFLARE_PER_PAGE,
      "MODEL_DRIFT_CLOUDFLARE_API_KEY", bearer, read_cloudflare, cloudflare_next),
     ("kilo", "https://ai-gateway.kilo.ai/api/v1/models", None, None, read_kilo, None),
+    # NVIDIA's, OVHcloud's and Requesty's catalogues are public. Requesty's is the European one the entries'
+    # "api_base" names, and lists the same models as its other address. Z AI's and Cent AI's need a key, and
+    # their answer is read as the OpenAI-style list they document: no run has read either, which needs a key
+    # this repository's sessions do not hold.
+    ("nvidia", "https://integrate.api.nvidia.com/v1/models", None, None, read_plain, None),
+    ("ovhcloud", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", None, None, read_plain, None),
+    ("requesty", "https://router.eu.requesty.ai/v1/models", None, None, read_requesty, None),
+    ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
+    ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
@@ -1660,7 +1755,7 @@ PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # could carry it.
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
-FREE_READABLE = {"openrouter", "kilo"}
+FREE_READABLE = {"openrouter", "kilo", "requesty"}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -1674,6 +1769,10 @@ PRICING_PAGES = {
     "groq": "https://console.groq.com/docs/rate-limits",
     "mistral": "https://mistral.ai/pricing",
     "deepseek": "https://api-docs.deepseek.com/quick_start/pricing",
+    "nvidia": "https://build.nvidia.com/",
+    "ovhcloud": "https://www.ovhcloud.com/en/public-cloud/ai-endpoints/catalog/",
+    "zai": "https://docs.z.ai/guides/overview/pricing",
+    "centai": "https://cent-ai.dev/",
 }
 
 
@@ -4620,6 +4719,7 @@ PROVIDER_LABELS = {
     "gemini": "Gemini", "groq": "Groq", "mistral": "Mistral", "deepseek": "DeepSeek",
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
+    "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -4635,14 +4735,16 @@ def notice_text(notice, french=False):
     replacement = notice.get("replacement")
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
-                "inactive": "marqué inactif", "paid": "n'est plus gratuit"}.get(what, what)
+                "inactive": "marqué inactif", "paid": "n'est plus gratuit",
+                "priced": "n'est plus à 0 $"}.get(what, what)
         if date:
             text += " (`%s`)" % date
         if replacement:
             text += ", remplaçant désigné : `%s`" % replacement
         return text
     text = {"expiration": "expires", "deprecation": "deprecated",
-            "inactive": "listed as inactive", "paid": "no longer flagged free"}.get(what, what)
+            "inactive": "listed as inactive", "paid": "no longer flagged free",
+            "priced": "no longer priced at 0"}.get(what, what)
     if date:
         text += " on %s" % date
     if replacement:
@@ -4651,14 +4753,15 @@ def notice_text(notice, french=False):
 
 
 # The providers whose entries are "openai/<id>" with the provider's "api_base", by the name the report gives them.
-OPENAI_COMPATIBLE = {"sambanova": "SambaNova", "kilo": "Kilo Gateway"}
+OPENAI_COMPATIBLE = {"sambanova": "SambaNova", "kilo": "Kilo Gateway", "ovhcloud": "OVHcloud",
+                     "requesty": "Requesty", "centai": "Cent AI"}
 
 
 def litellm_id(provider, identifier):
-    """The id as the file writes it in "model:"; SambaNova's and Kilo's are the ones that need their provider."""
+    """The id as the file writes it in "model:"; the "openai/" ones need their provider named beside them."""
     if provider in OPENAI_COMPATIBLE:
         return "openai/%s" % identifier, " on %s" % OPENAI_COMPATIBLE[provider]
-    return "%s/%s" % (provider, identifier), ""
+    return "%s/%s" % (LITELLM_PREFIXES.get(provider, provider), identifier), ""
 
 
 def by_hand_text(usage):
@@ -4828,15 +4931,21 @@ def capped(lines):
 # a catalogue.
 NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
-                 "cloudflare": "-cloudflare", "kilo": "-kilo"}
-DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1"}
+                 "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
+                 "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai"}
+DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
+                 "ovhcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+                 "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1"}
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
 # a bearer token and the gateway refuses with a 401, so each blanks the Authorization header with
 # "extra_headers": an entry written without it fails at run time, behind a cascade that hides the failure.
 # Their names are the model's and the gateway's ("beam-kilo"), where ":free" is no word of the name.
-KEYLESS_GATEWAYS = {"kilo"}
+KEYLESS_GATEWAYS = {"kilo", "ovhcloud"}
+# The providers whose entries are named after the model and the provider ("hy4-flash-cent-ai"), the ":free" of an id
+# being no word of the name: the keyless gateways', and the one reseller whose only free model is spelt so.
+FREE_NOT_IN_NAME = KEYLESS_GATEWAYS | {"centai"}
 
 
 def keyless_header_lines(indent):
@@ -4873,8 +4982,8 @@ def name_stem(identifier):
 
 def suffixed_stem(provider, stem):
     """The stem with the provider's suffix: OpenRouter's names end in "-free" for the ":free" of the id, and
-    the other providers' get their own, a keyless gateway's replacing the "-free" rather than following it."""
-    if provider in KEYLESS_GATEWAYS:
+    the other providers' get their own, FREE_NOT_IN_NAME's replacing the "-free" rather than following it."""
+    if provider in FREE_NOT_IN_NAME:
         stem = re.sub(r"-free$", "", stem) or stem
         return stem + NAME_SUFFIXES.get(provider, "")
     return stem + ("" if stem.endswith("-free") else NAME_SUFFIXES.get(provider, ""))
@@ -5102,7 +5211,7 @@ def summary_body(result, config_name, link, snippets):
                  "à vérifier."),
         "new_free": ("Nouveaux modèles gratuits",
                      "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
-                     "`isFree`), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
+                     "`isFree` ; Requesty : prix d'entrée et de sortie à 0), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -5537,6 +5646,15 @@ FREE_TIER_CHECKS = {
     "sambanova": "l'offre « Free » : tant qu'elle demande « Add a payment method and purchase "
                  "credits to run your first requests », le modèle reste commenté, comme les autres "
                  "entrées SambaNova",
+    "nvidia": "la page d'accueil du catalogue et la fiche du modèle : l'offre est celle d'un service d'essai, "
+              "annoncée pour le service et non modèle par modèle, et l'API ne dit rien de la gratuité d'un modèle",
+    "ovhcloud": "la fiche du modèle dans le catalogue : l'API donne un prix par jeton, mais l'accès sans clé que "
+                "les entrées d'OVHcloud utilisent n'y est pas décrit ; vérifier les appels d'outils annoncés "
+                "(« Function Calling ») et que le modèle est servi sans clé, comme les autres entrées OVHcloud",
+    "zai": "la page des tarifs, qui nomme les modèles gratuits : la gratuité d'un modèle n'est lue nulle part "
+           "dans l'API de Z AI, dont la réponse n'est pas documentée",
+    "centai": "la page d'accueil, qui annonce le modèle gratuit avec sa date de fin : la gratuité d'un modèle "
+              "n'est lue nulle part dans l'API de Cent AI",
     "cloudflare": "la note qui nomme les modèles demandant un moyen de facturation payant : un modèle qui "
                   "n'y est pas est gratuit dans la limite des 10 000 neurons par jour de tout le compte, "
                   "mais la page ne le dit pas, et rien dans l'API ne le dit : c'est une déduction, que "
@@ -5604,9 +5722,11 @@ def addition_anchor(entries, provider):
 
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
 # which the selftest holds it to): the comment above the entry of such a model cites it.
-FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models"}
+FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models",
+                   "requesty": "router.eu.requesty.ai/v1/models"}
 # Of those, the ones whose free ids all end in a suffix: OpenRouter's ":free". Kilo flags a model free and
-# spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), so no suffix is asked.
+# spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), and Requesty prices them at 0
+# under ids that say nothing of it, so no suffix is asked.
 FREE_SUFFIX = {"openrouter": ":free"}
 
 
@@ -6048,7 +6168,8 @@ MISSING_HOWTO = {
 
 # How each catalogue that states a free tier says it, for the body of the pull request of the ready models.
 FREE_READINGS = {"openrouter": "un identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie",
-                 "kilo": "le drapeau `isFree`, le texte pour seule sortie"}
+                 "kilo": "le drapeau `isFree`, le texte pour seule sortie",
+                 "requesty": "`input_price` et `output_price` à 0"}
 FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], catalogue_url(name), reading)
                           for name, reading in FREE_READINGS.items())
 
