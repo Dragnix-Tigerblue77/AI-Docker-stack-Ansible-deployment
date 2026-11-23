@@ -821,6 +821,12 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `gpt-oss-20b-cloudflare` | environ 550 000 | environ 367 000 | `flash-lite`, derrière `gpt-oss-20b-groq` |
 | `gemma-4-26b-cloudflare` | environ 1 100 000 | environ 367 000 | `flash-lite`, derrière les deux autres sources |
 | `llama-3-3-70b-cloudflare` | environ 375 000 | environ 49 000 | `flash-lite`, placé par son délai |
+| `llama-4-scout-17b-16e-instruct-cloudflare` | environ 407 000 | environ 129 000 | `flash-lite`, placé par son délai |
+| `qwen2-5-coder-32b-instruct-cloudflare` | environ 167 000 | environ 110 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `gemma-sea-lion-v4-27b-it-cloudflare` | environ 314 000 | environ 198 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
+| `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
+| `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `flash-lite`, parmi les derniers membres gratuits, faute de chiffre |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `code` et `claude-code`, dernier membre gratuit |
 
 Un agent qui renvoie son historique à chaque requête use l'entrée très vite : à 50 000 jetons de contexte par requête,
