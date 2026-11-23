@@ -14,8 +14,6 @@ runs:
       uses: actions/setup-python@v7
       with:
         python-version-file: ".python-version"
-        # Why check-latest: see the "yamllint" job of ".github/workflows/ansible-ci.yml".
-        check-latest: true
         cache: "pip"
 
     # "requirements.txt" carries "docker" too: the Python SDK the role's "community.docker" modules

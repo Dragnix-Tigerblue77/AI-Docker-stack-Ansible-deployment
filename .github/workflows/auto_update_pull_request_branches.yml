@@ -38,9 +38,8 @@ name: Auto-update pull request branches
 #    leaves behind are brought level after the next push to main made any other
 #    way. Nothing is blocked meanwhile, since main does not require a branch to
 #    be up to date.
-#  * The job holds its runner while it sleeps: on a hosted runner of a private
-#    repository the wait is billed as minutes, and behind CI_RUNNER it occupies
-#    one runner of the pool for the whole quiet period.
+#  * The job holds its runner while it sleeps: on a hosted runner the wait is
+#    billed as runner time, which costs nothing on a public repository.
 #  * A run cancelled by the next push ends as "cancelled" in the Actions tab.
 #    GitHub's documentation says a notification is sent for the cancelled runs
 #    of a workflow one triggered, and does not say whether the "only notify for
@@ -162,26 +161,18 @@ jobs:
     #   run, one per push. When to spend private minutes on this is the
     #   maintainer's call, and setting that variable to "true", together with
     #   one of the two credentials the header describes, is the whole
-    #   activation: it needs no change to this file. CI_RUNNER should name a
-    #   self-hosted pool by then, with a runner to spare: the job sleeps for the
-    #   whole quiet period, so on the hosted runners it falls back to, every
-    #   series of merges bills an hour against the organisation's private
-    #   Actions minutes, and on a pool it holds one runner that long.
+    #   activation: it needs no change to this file. The job sleeps for the
+    #   whole quiet period, so every series of merges bills an hour of runner
+    #   time, which costs nothing on a public repository.
     if: vars.PULL_REQUESTS_UPDATE_ENABLED == 'true'
-    # Behind CI_RUNNER like every other job here (#162), although this one
-    # holds the widest credential of any: Contents, Pull requests AND Workflows
+    # This job holds the widest credential of any here: Contents, Pull requests AND Workflows
     # write. What allows it is what the credential never meets: no trigger
     # above is "pull_request", nothing is checked out, and nothing from any pull
     # request runs on the runner. The rebase happens on GitHub's side, through
     # the API, and all the runner handles is pull request numbers, SHAs and
-    # mergeability flags. A self-hosted pool is also what takes the quiet
-    # period's minutes off the bill, as long as it has a runner to spare while
-    # the job sleeps. The step below needs gh and jq on whatever CI_RUNNER
-    # names: GitHub's hosted image has both, and so does a self-hosted runner
-    # built on myoung34/github-runner (its build/install_base.sh installs jq,
-    # its build/config.json the GitHub CLI). The header of "ansible-ci.yml" says
-    # what the variable may name, and when.
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    # mergeability flags. The step below needs gh and jq, which GitHub's hosted
+    # image has.
+    runs-on: ubuntu-latest
     # The wait and then the pass, so it has to stay above QUIET_PERIOD_MINUTES by
     # as much as a pass may take. A hosted job is cut off at six hours.
     timeout-minutes: 75

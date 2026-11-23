@@ -42,12 +42,9 @@ name: Dependabot auto-merge
 #     write and run code nobody has reviewed yet -- a freshly bumped dependency included, since
 #     that is exactly what a Dependabot branch carries.
 #
-# Both jobs take their runner from CI_RUNNER like every other job here, although they hold
-# a write token. The second point above is what allows it: nothing from a pull request is checked
-# out or executed, so a self-hosted runner never holds both a write token and code nobody has
-# reviewed. Left on the hosted runners, "merge" would also be the job that stops merging
-# Dependabot's updates the day the included minutes run out. The header of "ansible-ci.yml" says
-# what the variable may name, and when.
+# The second point above is what allows these jobs to hold a write token: nothing from a pull
+# request is checked out or executed, so no job both holds a write token and runs code nobody has
+# reviewed. The header of "ansible-ci.yml" says why every job runs on hosted runners only.
 #
 # The same step also merges the pull request that "LiteLLM_model_drift.yml" opens every week to
 # delete the models their provider has retired, and nothing else that workflow's tokens open. It
@@ -137,7 +134,7 @@ concurrency:
 jobs:
   merge:
     name: Merge a green Dependabot update or weekly model deletion
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
     # runner. It decides nothing: the step below checks the author, the commits and the checks
@@ -156,7 +153,7 @@ jobs:
       merged: ${{ steps.merge.outputs.merged }}
     steps:
       # github-script rather than gh and jq: the runner's own Node is the one thing every runner is
-      # guaranteed to have, hosted or self-hosted, whatever else the image it runs in carries.
+      # guaranteed to have, whatever else the image it runs in carries.
       - name: Merge the pull request if every required check passed on its head
         id: merge
         uses: actions/github-script@v9
@@ -479,7 +476,7 @@ jobs:
     name: Run the checks on main after the merge
     needs: merge
     if: needs.merge.outputs.merged == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       # Creating a "workflow_dispatch" event, and nothing else.

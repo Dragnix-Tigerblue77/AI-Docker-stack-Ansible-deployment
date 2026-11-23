@@ -223,11 +223,9 @@ name: LiteLLM model drift
 # formed: a status among three that agrees with the unreadable catalogues it names. That step runs
 # whether or not it then writes anything, and the pull requests are closed only after it succeeded.
 #
-# Every job takes its runner from CI_RUNNER like every job here (the header of "ansible-ci.yml"
-# says what it may name). The keys and the write token may reach a self-hosted runner that way,
-# which is safe only for one thrown away after each job: a persistent pool that also serves
-# "ansible-ci.yml" has run a pull request's code before them, and what that code left behind would
-# run next to the keys or the token.
+# Every job runs on GitHub's hosted runners, each thrown away after the job, so nothing a pull
+# request's code left behind can run next to the keys or the token. The header of "ansible-ci.yml"
+# says why hosted runners only.
 
 on:
   # The first attempt, then the three retries; the gate numbers them in this order, from its
@@ -252,7 +250,7 @@ jobs:
   gate:
     name: decide whether this attempt runs
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # The runs of this workflow and their artifacts' names, and nothing else: no key, no checkout.
     permissions:
@@ -348,7 +346,7 @@ jobs:
     name: read the providers' catalogues
     needs: gate
     if: ${{ github.ref == 'refs/heads/main' && needs.gate.outputs.run == 'true' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     # The keys, and no write. Checking out needs to read.
     permissions:
@@ -383,8 +381,6 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          # See the "yamllint" job of "ansible-ci.yml".
-          check-latest: true
 
       # PyYAML and Jinja2 alone, each at the version requirements.txt pins, rather than the whole
       # file: the script reads the model list with the first and renders it with the second, needs
@@ -523,7 +519,7 @@ jobs:
     name: publish the issue and the pull requests
     needs: [gate, read]
     if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     # The token that writes, and none of the providers' keys; the App's private key, when there is
     # one, reaches this job alone. This job checks nothing out, installs nothing and runs no script
@@ -551,7 +547,7 @@ jobs:
           path: ${{ runner.temp }}/drift
 
       # github-script rather than gh, for the reason "dependabot-auto-merge.yml" gives: the runner's
-      # own Node is the one thing every runner is guaranteed to have, hosted or self-hosted.
+      # own Node is the one thing every runner is guaranteed to have.
       - name: Open, update or close the issue of the unreadable catalogues
         id: issue
         uses: actions/github-script@v9

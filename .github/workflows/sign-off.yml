@@ -14,8 +14,8 @@ name: Commit sign-off
 #
 # Like every job of "ansible-ci.yml" and "gitleaks.yml", its job is named in
 # ".github/rulesets/main.json" and gates Dependabot's merges: Dependabot signs its own commits, so
-# an update needs no exemption. The header of "ansible-ci.yml" says what CI_RUNNER may name, and
-# when.
+# an update needs no exemption. The header of "ansible-ci.yml" says why every job runs on hosted
+# runners only.
 
 on:
   pull_request:
@@ -30,7 +30,7 @@ concurrency:
 jobs:
   sign-off:
     name: sign-off
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     # 15 and not 5: see the "REUSE compliance" job of "ansible-ci.yml".
     timeout-minutes: 15
     steps:
@@ -43,13 +43,11 @@ jobs:
           fetch-depth: 0
 
       # The script imports nothing outside the standard library, but the python3 of a runner is
-      # pinned by nobody. "check-latest" is explained in the "yamllint" job of "ansible-ci.yml";
-      # there is no "cache", since nothing is installed for it to keep.
+      # pinned by nobody. There is no "cache", since nothing is installed for it to keep.
       - name: Install Python
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
-          check-latest: true
 
       # The two SHAs travel as environment variables and are not expanded into the script line:
       # they are hexadecimal and GitHub's own, but a "run:" that expands ${{ }} inline is the shape
