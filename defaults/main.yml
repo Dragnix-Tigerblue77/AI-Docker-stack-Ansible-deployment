@@ -566,10 +566,23 @@ Artificial_Intelligence_LibreChat_config_Docker_name: "LibreChat_config{{ ('-' ~
 # MANDATORY, without a default: this role does not get to presuppose who runs the estate. One
 # mapping per account: "email", "name", "username" and "password" (all non-empty strings), and
 # "admin: true" for the ADMIN role (a boolean, false when omitted).
+#
+# "gateway_key: true" (a boolean, false when omitted) gives that account a LiteLLM virtual key of its own, made
+# and stored by the role: the account is logged in to LibreChat with its own password, so that the key lands in
+# THAT account's store through LibreChat's own API, the one behind the gear beside the endpoint's name, and in no
+# other account's. It is minted once, by LiteLLM, with the alias "librechat-<username>" and no allow-list, and is
+# shown nowhere: an account without "gateway_key" enters its own key by hand, as before. One key per account is
+# what lets the gateway tell the accounts apart; the free quotas themselves are counted by the providers, on the
+# gateway's provider keys, and shared by every key.
 # Artificial_Intelligence_LibreChat_users:
 #   - email:
 #     name:
 #     username:
 #     password:
 #     admin: true
+#     gateway_key: true
 Artificial_Intelligence_LibreChat_users: []
+
+# NOT a setting: where the role's "uri" tasks reach LibreChat's own API, on the node that runs them, to give an
+# account its gateway key. Derived from the port LibreChat is published on, so that one place names it.
+Artificial_Intelligence_LibreChat_API_URL: "http://localhost:{{ Artificial_Intelligence_LibreChat_port_to_expose }}"
