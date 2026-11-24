@@ -2523,7 +2523,8 @@ def _short_answer_document(mode=None, **overrides):
                         "model_info": {**({"mode": mode} if mode else {"max_input_tokens": 131072}),
                                        "access_groups": litellm_access_groups(mode, parameters["api_key"],
                                                                               parameters["api_base"])}}],
-        # An entry that is no text model belongs in no text cascade, which another rule holds.
+        # An entry that is no text model belongs in no text cascade, which another rule holds; the cases give it the
+        # mode of embeddings, which no router serves, so that the rule that every entry is routed does not apply.
         "router_settings": {} if mode else {"fallbacks": [{"flash": ["a-cloudflare"]}],
                                             "model_group_alias": {"flash": "a-cloudflare"},
                                             "enable_pre_call_checks": True},
@@ -2969,11 +2970,11 @@ LITELLM_CONFIG_CASES = [
     ("a text entry of Cloudflare whose limit is a boolean", _short_answer_document(max_tokens=True), set(),
      "sets no positive max_tokens nor max_completion_tokens"),
     ("an entry of Cloudflare that is no text model needs no limit",
-     _short_answer_document(mode="evaluation", max_tokens=None), set(), None),
+     _short_answer_document(mode="embedding", max_tokens=None), set(), None),
     ("a text entry of Groq with no limit", _short_answer_document(model="groq/vendor/model", max_tokens=None), set(),
      "sets no positive max_tokens nor max_completion_tokens"),
-    ("a transcription entry of Groq needs no limit",
-     _short_answer_document(mode="audio_transcription", model="groq/whisper", max_tokens=None), set(), None),
+    ("an entry of Groq that is no text model needs no limit",
+     _short_answer_document(mode="embedding", model="groq/vendor-embedding", max_tokens=None), set(), None),
     ("a text entry of another provider needs no limit",
      _short_answer_document(model="gemini/vendor-model", max_tokens=None), set(), None),
     ("a member of a cascade with its window", _window_document(), set(), None),
