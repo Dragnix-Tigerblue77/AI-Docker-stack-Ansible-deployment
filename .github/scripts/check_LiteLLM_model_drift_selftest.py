@@ -4667,6 +4667,11 @@ REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
 ONE_KEY_CONDITION = re.compile(r"\{%-?\s*(?:el)?if\s+(?:not\s+)?has\.\w+\s*-?%\}")
 
 
+# The script's own keyset_documents, kept because bounded_key_sets puts bounded_keyset_documents in its
+# place, and a file the bounds do not fit has to reach the plain one rather than itself.
+plain_keyset_documents = keyset_documents
+
+
 def bounded_keyset_documents(text):
     """keyset_documents over each key alone, every key, and every key but one, rather than every set of
     them: 2n + 1 renderings for n keys where every set is 2^n - 1, which doubled with each provider. A
@@ -4683,7 +4688,7 @@ def bounded_keyset_documents(text):
     if len(names) < 3 or not all(ONE_KEY_CONDITION.fullmatch(condition) or "has." not in condition
                                  and not any(name in condition for name in names)
                                  for condition in conditions):
-        return keyset_documents(text)
+        return plain_keyset_documents(text)
     sets = [(name,) for name in names] + [tuple(names)] + [
         tuple(other for other in names if other != name) for name in names]
     return [(given, drift.render_keyset(text, given)) for given in sets]
@@ -4904,6 +4909,18 @@ def run_bounded_key_set_cases():
             print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted" % (what, got, wanted))
         else:
             print("selftest: ok -- the bounded sets of keys of a file with %s are %d" % (what, wanted))
+    # While the sets are bounded, keyset_documents is bounded_keyset_documents, which must still reach
+    # the plain function for a file the bounds do not fit, and not itself.
+    with bounded_key_sets():
+        try:
+            got = len(keyset_documents(two))
+        except RecursionError:
+            got = None
+    if got != 2 ** 4 - 1:
+        failures += 1
+        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, 2 ** 4 - 1))
+    else:
+        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets every set")
     return failures
 
 
