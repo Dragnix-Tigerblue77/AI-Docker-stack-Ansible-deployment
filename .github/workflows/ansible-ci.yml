@@ -266,7 +266,9 @@ jobs:
   repository-rules:
     name: Repository rules
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A guard against a run that hangs, not a budget: the publish guard's selftest alone plays every builder
+    # scenario against the step and the script, and takes over ten minutes as the proposals grow.
+    timeout-minutes: 30
     # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
     # one up to the minute: three scripts each running in a second would cost three minutes, and
     # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.

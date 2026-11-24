@@ -916,7 +916,7 @@ def online_cases():
          lambda result, calls, report, body: (
              second_page_read(result, calls, report, body)
              or (None if "gemini/gemini-10-flash-tts: to examine, its free tier is not machine-readable "
-                         "-- usage: speech, its entry is written by hand, with model_info.mode audio_speech"
+                         "-- usage: speech, its entry is proposed, with model_info.mode audio_speech"
                          in report else "the speech model is not said to be one: %s" % report))),
         ("every Kilo entry of the real model list is attributed to Kilo, and a catalogue that lists them reports "
          "nothing, the virtual models the file sets aside included",
@@ -4298,8 +4298,13 @@ def run_usage_cases():
         ("groq", "vendor/quick"): "chat",
         ("mistral", "magistral-9"): "chat",
     }
-    # A model's entry is written by hand, with the mode of its usage when the file has one.
-    modes = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding"}
+    # Every kind of model the run can tell is written, with the mode of its usage; one it cannot tell is not.
+    modes = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding",
+             "image": "image_generation", "moderation": "moderation"}
+    unknown = {("gemini", "aqa-9"), ("mistral", "mystery-9"), ("cloudflare", "@cf/vendor/see-10")}
+    # The router of their mode does not route to their provider, so no slot can be written for them.
+    slotless = {("openrouter", "vendor/voice-10:free")}
+    chat_like = {("mistral", "voxtral-mini-10")}
     answers = usage_answers()
     result, proposals = proposal_run(SELFTEST_TEMPLATE, answers)
     ready, to_verify = proposals["ready"], proposals["to_verify"]
@@ -4313,57 +4318,97 @@ def run_usage_cases():
                for title in ("Nouveaux modèles gratuits", "Nouveaux modèles à examiner")
                if "## " + title in summary}
     other = {key: usage for key, usage in expected.items() if usage != "chat"}
+    # This file has no entry of Cloudflare, so there is none to model one of its models on.
+    no_model = {key for key in other if key[0] == "cloudflare"} - unknown
+    written = set(other) - unknown - slotless - no_model
+    items = {(item["provider"], item["id"]): item for part in (ready, to_verify) for item in part["items"]}
 
     judged("a new model of every usage is NEW, with the usage its catalogue or its id gives it",
            first_wrong(*[(findings.get(key, {}).get("usage") == usage,
                           "%s/%s: usage %r, expected %r" % (key + (findings.get(key, {}).get("usage"), usage)))
                          for key, usage in sorted(expected.items())]))
-    judged("a model of another usage is neither ranked, nor proposed, nor given an entry to paste",
+    judged("a model of another usage is never ranked, and is proposed with its usage when the run can tell its kind",
            first_wrong(
                (not ranked_ids & set(other), "ranked: %r" % sorted(ranked_ids & set(other))),
                (("openrouter", "vendor/fresh:free") in ranked_ids, "the chat model is no more ranked"),
-               (not proposed_ids & set(other), "proposed: %r" % sorted(proposed_ids & set(other))),
+               (written <= proposed_ids, "not proposed: %r" % sorted(written - proposed_ids)),
+               (not proposed_ids & (unknown | slotless | no_model),
+                "proposed with no mode, no slot or no entry to model on: %r"
+                % sorted(proposed_ids & (unknown | slotless | no_model))),
+               (all(findings[key].get("unproposed") and not findings[key].get("proposed")
+                    for key in unknown | slotless | no_model),
+                "a model of an unknown kind or with no slot is not marked as not proposed"),
+               (all("routeur exige" in findings[key]["unproposed"]
+                    for key in slotless), "a model with no slot is not told why"),
+               (all(items[key].get("usage") == other[key] for key in written - chat_like),
+                "an item does not carry its usage: %r" % {key: items[key].get("usage") for key in written}),
+               (all("usage" not in items[key] for key in chat_like), "a chat-like model carries a usage"),
                (("openrouter", "vendor/fresh:free") in proposed_ids and ("groq", "vendor/quick") in proposed_ids,
                 "a chat model is no more proposed: %r" % sorted(proposed_ids)),
-               (all(findings[key].get("unproposed") and not findings[key].get("proposed") for key in other),
-                "a model of another usage is not marked as not proposed"),
-               (not any("model: %s" % litellm_id(provider, identifier)[0] in summary + to_verify["body"]
+               (not any("model: %s" % litellm_id(provider, identifier)[0] in summary
                         for provider, identifier in other),
-                "an entry was written for a model of another usage")))
-    judged("the line of a model of another usage says its usage, and that its entry is written by hand with its mode",
+                "an entry to paste was written in the summary for a model of another usage")))
+    entries = {entry["name"]: entry for entry in (read_template(to_verify["text"])[0] or {}).get("active", [])}
+    judged("the entry of each is written with the mode and the access group of its usage, and in no cascade",
+           first_wrong(
+               *[((entries.get(items[key]["name"]) or {}).get("item", {}).get("model_info", {}).get("mode") == modes[other[key]]
+                  and (entries.get(items[key]["name"]) or {}).get("item", {}).get("model_info", {}).get(
+                      "access_groups") == drift.access_groups(key[0], other[key]),
+                  "%s/%s: %r" % (key + ((entries.get(items[key]["name"]) or {}).get("item"),)))
+                 for key in sorted(written - chat_like)],
+               (entries[items[("mistral", "voxtral-mini-10")]["name"]]["item"]["model_info"] == {"access_groups": ["LLM", "Private-Data"]},
+                "a chat-like model is not written as a chat one"),
+               (not any(items[key]["name"] in members for key in written - {("openrouter", "vendor/fresh:free")}
+                        for members in fallback_lists(read_template(to_verify["text"])[0]["document"]).values()),
+                "an entry is in a cascade of a file that has none for its router")))
+    judged("the line of a model of another usage says its usage, and what becomes of its entry",
            first_wrong(
                ("groq/whisper-large-v10: to examine, its free tier is not machine-readable -- usage: transcription, "
-                "its entry is written by hand, with model_info.mode audio_transcription" in report,
+                "its entry is proposed, with model_info.mode audio_transcription" in report,
                 "the plain line of the Groq model: %s" % report),
                ("cloudflare/@cf/vendor/say-10: to examine, its free tier is not machine-readable -- usage: speech, "
-                "its entry is written by hand, with model_info.mode audio_speech" in report, "the Cloudflare speech line"),
+                "its entry is written by hand, with model_info.mode audio_speech, and a slot its router does not "
+                "route to" in report, "the Cloudflare speech line"),
                ("gemini/text-embedding-10: to examine, its free tier is not machine-readable -- usage: embeddings, "
-                "its entry is written by hand, with model_info.mode embedding" in report, "the Gemini embedding line"),
-               ("openrouter/vendor/painter-10:free: free -- usage: image, its entry is written by hand" in report
-                and "openrouter/vendor/painter-10:free: free -- usage: image, its entry is written by hand," not in report,
-                "an image model has no mode to give, and the line says none"),
+                "its entry is proposed, with model_info.mode embedding" in report, "the Gemini embedding line"),
+               ("openrouter/vendor/painter-10:free: free -- usage: image, its entry is proposed, with "
+                "model_info.mode image_generation (the gateway has no router or client for it yet)" in report,
+                "an image model is not said to be one the gateway has nothing for"),
+               ("mistral/voxtral-mini-10: to examine, its free tier is not machine-readable -- usage: audio, "
+                "its entry is proposed as a chat one" in report, "a chat-like model is not said to be one"),
                ("gemini/aqa-9: to examine, its free tier is not machine-readable -- usage: unclassified, "
-                "its entry is written by hand" in report, "an unclassified model is not said to be written by hand"),
+                "its entry is written by hand, the kind of model being unknown" in report,
+                "an unclassified model is not said to be written by hand"),
                ("openrouter/vendor/fresh:free: free -- usage: chat" in report
                 and "openrouter/vendor/fresh:free: free -- usage: chat," not in report,
                 "the chat line says more than its usage")))
-    judged("the summary lists them in the sections the others are in, each line with its usage",
+    judged("the summary lists what no pull request carries, with its usage, and points to the pull requests for the rest",
            first_wrong(
-               ("`groq/whisper-large-v10` : usage `transcription`" in section.get("Nouveaux modèles à examiner", ""),
-                "the Groq model is not in the section to examine"),
-               ("`openrouter/vendor/painter-10:free`" in section.get("Nouveaux modèles gratuits", "")
-                and "usage `image`" in section.get("Nouveaux modèles gratuits", ""),
-                "the free image model is not in the free section"),
-               ("model_info.mode: audio_transcription" in summary, "the summary does not give the mode"),
-               ("usage `chat`" in summary, "a chat model's line does not say its usage"),
-               (all(usage in summary for usage in ("`embeddings`", "`moderation`", "`object detection`", "`unclassified`")),
+               ("`gemini/aqa-9` : usage `unclassified`" in section.get("Nouveaux modèles à examiner", ""),
+                "the unclassified model is not in the section to examine"),
+               (all("usage `%s`" % usage in summary for usage in ("object detection", "unclassified", "speech")),
                 "a usage is missing from the summary"),
+               ("usage `chat`" in summary, "a chat model's line does not say its usage"),
+               ("## Ajouts proposés par pull request" in summary, "the summary does not point to the pull requests"),
                ("## Nouveaux modèles qu'aucun ajout ne porte" not in summary, "a section of their own was made")))
-    judged("the pull request of the models to verify carries them by hand too, with no entry",
+    body = to_verify["body"]
+    judged("the pull request of the models to verify says the usage of each, what its entry is and where it goes",
            first_wrong(
-               (UNCARRIED_HEADING in to_verify["body"], "the section of what no addition carries is missing"),
-               ("usage `transcription`" in to_verify["body"] and "audio_transcription" in to_verify["body"],
-                "the body does not say the usage and the mode")))
+               (UNCARRIED_HEADING in body, "the section of what no addition carries is missing"),
+               ("usage `unclassified`" in body, "the body does not carry the unknown kind by hand"),
+               ("`model_info.mode: audio_transcription`, groupe d'accès `STT`" in body,
+                "the body does not say the mode and the group of a transcription model"),
+               ("`model_info.mode: image_generation`, groupe d'accès `Images`" in body,
+                "the body does not say the mode and the group of an image model"),
+               ("la passerelle n'a ni routeur, ni groupe de clés, ni client pour le type `image`" in body,
+                "the body does not say the gateway has nothing for an image model"),
+               ("Place laissée à une personne" in body and "`Auto-STT`" in body,
+                "the body does not leave the place in the router of a transcription model to a person"),
+               ("Aucun routeur** : un modèle d'embeddings" in body, "the body does not say embeddings are in no router"),
+               ("drift-ignore: gemini/text-embedding-10" in body or "drift-ignore: gemini/text-embedding-10".replace(
+                   "gemini/", "") in body, "the line that sets a model aside is missing"),
+               ("**Classement" not in body.split("## Modèles proposés")[-1].split("###")[1] if "###" in body else True,
+                "a ranking is given for a model that is not chat")))
     hostile = drift.read_cloudflare([cloudflare_page(
         cloudflare_model("@cf/vendor/evil-10", task="Evil `task` @bob <b>x</b> ::error:: " + "y" * 80))])
     shown = hostile["usages"].get("@cf/vendor/evil-10", "")
@@ -4374,6 +4419,46 @@ def run_usage_cases():
     judged("a chat model that no pull request proposes still gets its entry to paste, with its usage",
            first_wrong(("`cerebras/cb-new` : usage `chat`" in summary, "the line of the Cerebras model"),
                        ("model: cerebras/cb-new" in summary, "the entry of the Cerebras model is gone")))
+
+    # The tables of this script are the template's: the modes and the groups of check_compose_template.py, and the
+    # providers of its media routers.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("check_compose_template", Path(__file__).with_name("check_compose_template.py"))
+    compose = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(compose)
+    judged("the modes, groups and routers of the additions are those the template is held to",
+           first_wrong(
+               ({drift.USAGE_MODES[usage]: drift.USAGE_GROUPS[usage] for usage in drift.USAGE_MODES}
+                == compose.LITELLM_ACCESS_GROUPS, "USAGE_MODES and USAGE_GROUPS are not LITELLM_ACCESS_GROUPS"),
+               ({drift.USAGE_MODES[usage] for usage in drift.USAGE_MODES if usage not in drift.SERVED_USAGES}
+                == compose.LITELLM_UNROUTED_MODES, "the kinds with no router are not LITELLM_UNROUTED_MODES"),
+               ({router: {provider.lower() for provider in providers}
+                 for router, (providers, _) in compose.LITELLM_MEDIA_ROUTERS.items()}
+                == {router: providers for router, providers in drift.ROUTER_PROVIDERS.items() if router != "fiction"},
+                "ROUTER_PROVIDERS is not LITELLM_MEDIA_ROUTERS"),
+               ({drift.ROUTER_OF_USAGE[usage]: drift.USAGE_MODES[usage] for usage in ("speech", "transcription", "decision", "extraction")}
+                == {router: mode for router, (_, mode) in compose.LITELLM_MEDIA_ROUTERS.items()},
+                "ROUTER_OF_USAGE does not send each mode to its router")))
+
+    # An entry whose mode has a router is given a slot at the tail of that router's cascade.
+    cascaded = ADDITIONS_TEMPLATE.replace("    - flash:\n", "    - Auto-Flash-Lite:\n")
+    chosen = [{"provider": "openrouter", "id": "vendor/tail:free", "name": "tail-free"},
+              {"provider": "gemini", "id": "gem-tail", "name": "gem-tail"},
+              {"provider": "gemini", "id": "gem-vector", "name": "gem-vector", "usage": "embeddings"}]
+    built, problem = drift.build_additions(cascaded, "2026-11-24", "to_verify", chosen)
+    tail = "        - free-one\n{% if has.OpenRouter %}\n        - tail-free\n{% endif %}\n{% if has.Gemini %}\n        - gem-tail\n{% endif %}"
+    judged("a text entry is written at the tail of the Auto-Flash-Lite cascade under its provider's key, an embedding in no cascade, "
+           "and the file reads back",
+           first_wrong((problem is None, "refused: %s" % problem),
+                       (built is not None and tail in built, "the slots are not at the tail"),
+                       (built is not None and "        - gem-vector" not in built, "the embedding is in a cascade"),
+                       (built is not None and drift.addition_problem(cascaded, built, chosen) is None,
+                        "the file does not read back: %s" % (built and drift.addition_problem(cascaded, built, chosen)))))
+    for usage, provider, identifier in (("speech", "openrouter", "vendor/say:free"), ("decision", "gemini", "gem-decide")):
+        _, refused = drift.build_additions(cascaded, "2026-11-24", "to_verify",
+                                           [{"provider": provider, "id": identifier, "name": "x-1", "usage": usage}])
+        judged("a %s model of %s is refused: the router of its mode does not route to it" % (usage, provider),
+               None if refused and "is not one of the providers of the" in refused else "answer: %r" % refused)
     return failures
 
 
@@ -7166,7 +7251,7 @@ def run_cloudflare_cases():
                (found(result) == [("new", "@cf/vendor/new-embed"), ("new", "@cf/vendor/new-text")],
                 "findings %r" % found(result)),
                ("cloudflare/@cf/vendor/new-embed: to examine, its free tier is not machine-readable -- usage: "
-                "embeddings, its entry is written by hand, with model_info.mode embedding" in report,
+                "embeddings, its entry is proposed, with model_info.mode embedding" in report,
                 "the embedding model is not said to be one: %s" % report),
                ("cloudflare/@cf/vendor/new-text: to examine, its free tier is not machine-readable -- usage: chat"
                 in report and "-- usage: chat," not in report, "the chat model is not said to be one: %s" % report),

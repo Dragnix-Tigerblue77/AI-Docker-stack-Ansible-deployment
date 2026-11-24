@@ -1712,7 +1712,12 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSee
 # LiteLLM lets a key call an alias when the entry it resolves to is in an allowed group, so the routers follow their
 # heads without a group of their own.
 LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings",
-                         "evaluation": "Decisions", "extraction": "Extraction"}
+                         "evaluation": "Decisions", "extraction": "Extraction",
+                         "image_generation": "Images", "video_generation": "Videos", "rerank": "Rerank",
+                         "moderation": "Moderation", "ocr": "OCR"}
+# The modes of the kinds of model the gateway has no router for: an entry of one is reached by its own name and
+# is in no cascade, whichever it is, since a text request sent to it can only fail.
+LITELLM_UNROUTED_MODES = frozenset({"image_generation", "video_generation", "rerank", "moderation", "ocr"})
 # The one exception: text models kept out of "LLM" on purpose, each group named for the key an entry reads. Such an
 # entry is in that group whatever its mode, and no other entry is, so that no key holding "LLM" reaches it.
 LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
@@ -2229,7 +2234,7 @@ def check_litellm_config(document, keys, failures):
                 f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
             )
     modes = {entry.get("model_name"): mapping(entry, "model_info").get("mode") for entry in entries}
-    media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
+    media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()} | LITELLM_UNROUTED_MODES
     for router, (providers, mode) in LITELLM_MEDIA_ROUTERS.items():
         expected = bool(keys & providers)
         if (router in declared or router in aliases) != expected:
@@ -3003,6 +3008,34 @@ LITELLM_CONFIG_CASES = [
                         ("embed", ["gemini-3-8-flash"])],
                        {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash", "embed": "gemini-embedding-2"}),
      {"Gemini"}, "involves the embedding model 'gemini-embedding-2'"),
+    # The kinds of model the gateway has no router for are entries in a group of their own, reached by name.
+    *[(f"a {mode} model in no cascade, in the group {group!r} that a key can be limited to",
+       _with_tts(_with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                                              ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                                             [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                             {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+                           "GEMINI_API_KEY")),
+       {"Gemini"}, None)
+      for mode, group in LITELLM_ACCESS_GROUPS.items() if mode in LITELLM_UNROUTED_MODES],
+    *[(f"a {mode} model in a text cascade",
+       _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                          ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                         [("pro", ["gemini-3-8-flash", "a-" + mode]), ("claude-code", ["gemini-3-8-flash"])],
+                         {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+       {"Gemini"}, "a member of a non-chat router")
+      for mode in sorted(LITELLM_UNROUTED_MODES)],
+    *[(f"a {mode} entry in the text group",
+       dict(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                               ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                              [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                              {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+            model_list=[{"model_name": "gemini-3-8-flash", "litellm_params": {"model": "x/g",
+                                                                                  "api_key": "os.environ/GEMINI_API_KEY"},
+                         "model_info": {"access_groups": ["LLM"]}},
+                        {"model_name": "a-" + mode, "litellm_params": {"model": "x/a", "api_key": "os.environ/GEMINI_API_KEY"},
+                         "model_info": {"mode": mode, "access_groups": ["LLM"]}}]),
+       {"Gemini"}, f"makes it a {LITELLM_ACCESS_GROUPS[mode]!r} entry")
+      for mode in sorted(LITELLM_UNROUTED_MODES)],
     ("the speech router served as an alias by its cascade's head", _TTS_ONLY, {"Gemini"}, None),
     ("the speech router written as an entry of the model list", _tts_fault("entry"), {"Gemini"},
      "'tts' is a model_list entry"),
