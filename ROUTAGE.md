@@ -101,28 +101,29 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`. Raisonnement long, le temps n'es
 | 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 46,5 | 155,1 s | deuxième meilleur indice, mais 155 s en moyenne avant la première réponse, au-delà des 90 s de patience : point ouvert |
 | 3 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `high` | 30,8 | 28,1 s | niveau le plus haut du modèle, compté à la requête ; 28,1 s, sous l'attente du routeur |
 | 4 | `gemini-3-7-flash` | Google AI Studio | à la requête, quota par modèle | défaut du fournisseur | 30,8 (estimé) | — | jumeau de `gemini-3-8-flash` : son point d'accès route vers ce modèle et son compteur n'est pas établi, d'où une place juste derrière lui |
-| 5 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
-| 6 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
-| 7 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
-| 8 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 27,8 | 87,3 s | indice 27,8 en 87,3 s |
-| 9 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 10 | `nemotron-ultra-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | 11,8 | 8,0 s | indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 11 | `nemotron-ultra-requesty` | Requesty | à la requête, compteur commun | `max` | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 12 | `nemotron-ultra-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 13 | `nemotron-ultra-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 14 | `nemotron-reasoning-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | pas d'indice : garde sa place historique |
-| 15 | `nemotron-reasoning-requesty` | Requesty | à la requête, compteur commun | `max` | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
-| 16 | `nemotron-reasoning-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
-| 17 | `nemotron-reasoning-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
-| 18 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 19 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 20 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 21 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
-| 22 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
-| 23 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 24 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
-| 25 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 48,8 s | payant : après tous les gratuits |
-| 26 | `omniroute-free-reasoning` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
+| 5 | `ling-3-1-flash-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 30,0 | — | indice 30 d'Artificial Analysis (Ling 3.1 Flash 1019, rapproché par le nom, sans délai publié) : placé par son indice, derrière la 3.8 Flash |
+| 6 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
+| 7 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
+| 8 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
+| 9 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 27,8 | 87,3 s | indice 27,8 en 87,3 s |
+| 10 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 11 | `nemotron-ultra-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | 11,8 | 8,0 s | indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 12 | `nemotron-ultra-requesty` | Requesty | à la requête, compteur commun | `max` | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 13 | `nemotron-ultra-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 14 | `nemotron-ultra-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | 11,8 | 8,0 s | même modèle que `nemotron-ultra-free` chez un autre fournisseur, quota à part ; indice 11,8 en 8,0 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 15 | `nemotron-reasoning-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | pas d'indice : garde sa place historique |
+| 16 | `nemotron-reasoning-requesty` | Requesty | à la requête, compteur commun | `max` | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
+| 17 | `nemotron-reasoning-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
+| 18 | `nemotron-reasoning-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `nemotron-reasoning-free` chez un autre fournisseur, quota à part ; pas d'indice : garde sa place historique |
+| 19 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 20 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 21 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 22 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
+| 23 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
+| 24 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 25 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Pro`, mais garde sa place du gabarit |
+| 26 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 48,8 s | payant : après tous les gratuits |
+| 27 | `omniroute-free-reasoning` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
 ### `Auto-Flash`
 
@@ -134,48 +135,57 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`, comme `Auto-Pro`. L'assistant de
 | 2 | `kimi-k3-1-pro-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 46,5 | 155,1 s | deuxième place gardée du gabarit : à 1 point par seconde il serait bien plus bas, et 155 s dépassent les 90 s de patience : point ouvert |
 | 3 | `gemini-3-8-flash` | Google AI Studio | à la requête, quota par modèle | `high` | 30,8 | 28,1 s | niveau le plus haut du modèle, compté à la requête ; 28,1 s, sous l'attente du routeur |
 | 4 | `gemini-3-7-flash` | Google AI Studio | à la requête, quota par modèle | défaut du fournisseur | 30,8 (estimé) | — | jumeau de `gemini-3-8-flash` : son point d'accès route vers ce modèle et son compteur n'est pas établi, d'où une place juste derrière lui |
-| 5 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
-| 6 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
-| 7 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
-| 8 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 27,8 | 87,3 s | indice 27,8 en 87,3 s |
-| 9 | `gemini-3-6-flash` | Google AI Studio | à la requête, quota par modèle | `high` | 25,6 (estimé) | 12,6 s | niveau le plus haut du modèle, le seul qu'Artificial Analysis mesure ; indice 25,6 en 12,6 s |
-| 10 | `gemini-3-flash-preview` | Google AI Studio | à la requête, quota par modèle | `high` | 21,5 (estimé) | 6,3 s | niveau le plus haut du modèle, et son défaut ; indice 21,5 en 6,3 s |
-| 11 | `gpt-oss-120b-groq` | Groq | au jeton | défaut du fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s |
-| 12 | `gpt-oss-120b-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
-| 13 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | indice 10,0 en 5,1 s |
-| 14 | `gemma-4-31b-gemini` | Google AI Studio | à la requête, quota par modèle | non fixé : LiteLLM envoie à Gemma un budget que Google ne documente pas | 8,7 (estimé) | 35,4 s | indice 8,7 en 35,4 s |
-| 15 | `gemma-4-31b-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 16 | `gemma-4-31b-requesty` | Requesty | à la requête, compteur commun | `high` | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 17 | `gemma-4-31b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 18 | `particle-1-free` | OpenRouter (:free) | à la requête, compteur commun | `xhigh` | — | — | aucun chiffre publié : garde sa place historique |
-| 19 | `particle-1-kilo` | Kilo Gateway | à la requête, par adresse IP | `max` | — | — | aucun chiffre publié : garde sa place historique |
-| 20 | `ernie-5-5-flash-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | — | — | aucun chiffre publié : garde sa place historique |
-| 21 | `ernie-5-5-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | — | — | aucun chiffre publié : garde sa place historique |
-| 22 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s |
-| 23 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s |
-| 24 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
-| 25 | `muse-glimmer-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 6,3 | 23,7 s | indice 6,3 en 23,7 s |
-| 26 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
-| 27 | `flint-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
-| 28 | `glyph-cluster-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
-| 29 | `dots-3-note-preview-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant le routeur gratuit d'OpenRouter ; gratuit jusqu'au 31 décembre |
-| 30 | `dots-3-note-preview-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `dots-3-note-preview-free` chez un autre fournisseur ; aucun chiffre publié : derrière lui ; gratuit jusqu'au 31 décembre |
-| 31 | `openrouter-auto-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : routeur qui choisit un modèle par requête | — | — | aucun chiffre publié : garde sa place historique |
-| 32 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
-| 33 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
-| 34 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 35 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
-| 36 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | — | indice 21,9, délai inconnu |
-| 37 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
-| 38 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 39 | `nemotron3-omni-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | pas d'indice : garde sa place historique |
-| 40 | `mistral-small-3-2-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 41 | `mistral-medium` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr (indice 4,6 en 26,8 s) : au-dessus du plancher de `Auto-Flash` (indice de capacités 141,6 contre 140,8 pour Gemini 2.5 Flash), sous celui de `Auto-Pro` ; devant `mistral-small`, le plus petit |
-| 42 | `mistral-small` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
-| 43 | `ministral-14b` | Mistral | prépayé | défaut du fournisseur | — | 2,3 s | pas d'indice : garde sa place historique |
-| 44 | `ministral-8b` | Mistral | prépayé | défaut du fournisseur | — | 2,0 s | pas d'indice : garde sa place historique |
-| 45 | `deepseek-flash-direct` | DeepSeek | prépayé | défaut du fournisseur | 28,6 | 21,1 s | payant : après tous les gratuits |
-| 46 | `omniroute-free-auto` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
+| 5 | `ling-3-1-flash-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 30,0 | — | indice 30 d'Artificial Analysis (Ling 3.1 Flash 1019, rapproché par le nom, sans délai publié) : placé par son indice, avant les entrées de NVIDIA de moins de 29 |
+| 6 | `step-5-preview-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 28,5 | 37,9 s | indice 28,5 en 37,9 s |
+| 7 | `minimax-m3-1-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 29,1 | 52,0 s | indice 29,1 en 52,0 s |
+| 8 | `mistral-large-4-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 26,1 | 71,3 s | indice 26,1 en 71,3 s |
+| 9 | `glm-5-3-flash-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 27,8 | 87,3 s | indice 27,8 en 87,3 s |
+| 10 | `gemini-3-6-flash` | Google AI Studio | à la requête, quota par modèle | `high` | 25,6 (estimé) | 12,6 s | niveau le plus haut du modèle, le seul qu'Artificial Analysis mesure ; indice 25,6 en 12,6 s |
+| 11 | `gemini-3-flash-preview` | Google AI Studio | à la requête, quota par modèle | `high` | 21,5 (estimé) | 6,3 s | niveau le plus haut du modèle, et son défaut ; indice 21,5 en 6,3 s |
+| 12 | `gpt-oss-120b-groq` | Groq | au jeton | défaut du fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s |
+| 13 | `gpt-oss-120b-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
+| 14 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | indice 10,0 en 5,1 s |
+| 15 | `gemma-4-31b-gemini` | Google AI Studio | à la requête, quota par modèle | non fixé : LiteLLM envoie à Gemma un budget que Google ne documente pas | 8,7 (estimé) | 35,4 s | indice 8,7 en 35,4 s |
+| 16 | `gemma-4-31b-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 17 | `gemma-4-31b-requesty` | Requesty | à la requête, compteur commun | `high` | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 18 | `gemma-4-31b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 19 | `particle-1-free` | OpenRouter (:free) | à la requête, compteur commun | `xhigh` | — | — | aucun chiffre publié : garde sa place historique |
+| 20 | `particle-1-kilo` | Kilo Gateway | à la requête, par adresse IP | `max` | — | — | aucun chiffre publié : garde sa place historique |
+| 21 | `ernie-5-5-flash-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | — | — | aucun chiffre publié : garde sa place historique |
+| 22 | `ernie-5-5-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | — | — | aucun chiffre publié : garde sa place historique |
+| 23 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s |
+| 24 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s |
+| 25 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
+| 26 | `muse-glimmer-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 6,3 | 23,7 s | indice 6,3 en 23,7 s |
+| 27 | `muse-glimmer-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 6,3 | 23,7 s | même modèle que `muse-glimmer-nvidia` chez un autre fournisseur, quota à part ; indice 6,3 en 23,7 s |
+| 28 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
+| 29 | `flint-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place historique, devant son jumeau |
+| 30 | `flint-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
+| 31 | `glyph-cluster-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
+| 32 | `dots-3-note-preview-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant le routeur gratuit d'OpenRouter ; gratuit jusqu'au 31 décembre |
+| 33 | `dots-3-note-preview-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `dots-3-note-preview-free` chez un autre fournisseur ; aucun chiffre publié : derrière lui ; gratuit jusqu'au 31 décembre |
+| 34 | `openrouter-auto-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : routeur qui choisit un modèle par requête | — | — | aucun chiffre publié : garde sa place historique |
+| 35 | `kilo-auto-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit de Kilo, qui choisit un modèle par requête : aucun chiffre publié, derrière le routeur gratuit d'OpenRouter |
+| 36 | `kilo-openrouter-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit d'OpenRouter appelé par Kilo : le compteur par adresse IP de Kilo et non celui du compte OpenRouter ; aucun chiffre publié |
+| 37 | `ling-3-2-flash-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié ; refusé par le pool amont partagé la plupart du temps, d'où sa place en fin des gratuits |
+| 38 | `ling-3-2-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `ling-3-2-flash-free` chez un autre fournisseur ; aucun chiffre publié ; mêmes refus du pool amont |
+| 39 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
+| 40 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
+| 41 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 42 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
+| 43 | `llama-3-3-70b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; après les gros modèles d'OVHcloud |
+| 44 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | — | indice 21,9, délai inconnu |
+| 45 | `qwen3-6-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; derrière le modèle qui le remplace |
+| 46 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
+| 47 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 48 | `nemotron3-omni-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | pas d'indice : garde sa place historique |
+| 49 | `mistral-small-3-2-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 50 | `mistral-medium` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr (indice 4,6 en 26,8 s) : au-dessus du plancher de `Auto-Flash` (indice de capacités 141,6 contre 140,8 pour Gemini 2.5 Flash), sous celui de `Auto-Pro` ; devant `mistral-small`, le plus petit |
+| 51 | `mistral-small` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
+| 52 | `ministral-14b` | Mistral | prépayé | défaut du fournisseur | — | 2,3 s | pas d'indice : garde sa place historique |
+| 53 | `ministral-8b` | Mistral | prépayé | défaut du fournisseur | — | 2,0 s | pas d'indice : garde sa place historique |
+| 54 | `deepseek-flash-direct` | DeepSeek | prépayé | défaut du fournisseur | 28,6 | 21,1 s | payant : après tous les gratuits |
+| 55 | `omniroute-free-auto` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
 ### `Auto-Flash-Lite`
 
@@ -201,23 +211,26 @@ Tête : `gemini-3-5-flash-lite`. Demandes simples et courtes : le score moins 3 
 | 16 | `gemma-4-26b-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gemma-4-26b-gemini` chez un autre fournisseur |
 | 17 | `gemma-4-26b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gemma-4-26b-gemini` chez un autre fournisseur |
 | 18 | `qwen2-5-coder-32b-instruct-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre d'Artificial Analysis ; seul l'indice de capacités d'Epoch AI le note (118,7) : en tête des membres Cloudflare sans chiffre |
-| 19 | `gemma-sea-lion-v4-27b-it-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille |
-| 20 | `mistral-small-3-1-24b-instruct-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié pour cette version : parmi les derniers membres gratuits, par taille |
-| 21 | `llama-3-2-11b-vision-instruct-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille ; échoue tant que la licence de Meta n'est pas acceptée sur le compte |
-| 22 | `granite-4-0-h-micro-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, le plus petit |
-| 23 | `nemotron-bolt-e4b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
-| 24 | `gpt-oss-20b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gpt-oss-20b-groq` chez un autre fournisseur |
-| 25 | `gemma-4-26b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gemma-4-26b-gemini` chez un autre fournisseur |
-| 26 | `nemotron3-nano-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
-| 27 | `qwen3-5-9b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
-| 28 | `olala-mini-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
-| 29 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 0,81 point par seconde, moins que les 3 demandés ; score 7,3, le meilleur du routeur, mais même modèle que la deuxième place de `Auto-Pro` et que `Auto-Flash` : dans les derniers pour ne pas manger leurs 20 requêtes par jour |
-| 30 | `gemini-3-7-flash` | Google AI Studio | à la requête, quota par modèle | défaut du fournisseur | — | — | ni indice ni délai (un routeur qui tient au temps n'utilise aucune estimation) : jumeau de `gemini-3-8-flash-low`, son point d'accès route vers ce modèle et son compteur n'est pas établi, d'où une place juste derrière lui |
-| 31 | `gemini-4-hydrogen-low` | Google AI Studio | à la requête, quota par modèle | `low` | 26,9 | 7,6 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 2,6 points par seconde, moins que les 3 demandés ; score 4,0, mais même modèle que la tête de `Auto-Pro` : dans les derniers pour ne pas manger ses 20 requêtes par jour |
-| 32 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | score -5,2, mais c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
-| 33 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié, et c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
-| 34 | `ministral-3b` | Mistral | prépayé | défaut du fournisseur | — | 1,7 s | payant : après les gratuits |
-| 35 | `omniroute-free-fast` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin, après le payant |
+| 19 | `phonellm-mini-alpha-2-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille (30B) ; pas de phase de raisonnement |
+| 20 | `gemma-sea-lion-v4-27b-it-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille |
+| 21 | `mistral-small-3-1-24b-instruct-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié pour cette version : parmi les derniers membres gratuits, par taille |
+| 22 | `llama-3-2-11b-vision-instruct-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille ; échoue tant que la licence de Meta n'est pas acceptée sur le compte |
+| 23 | `mistral-7b-instruct-v0-2-lora-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, par taille (7B) ; 15 000 jetons de contexte, que les vérifications préalables du routeur lui épargnent quand la demande ne tient pas, et aucun appel d'outils |
+| 24 | `granite-4-0-h-micro-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | aucun chiffre publié : parmi les derniers membres gratuits, le plus petit |
+| 25 | `nemotron-bolt-e4b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
+| 26 | `nemotron-3-nano-30b-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont, devant OVHcloud ; même modèle que `nemotron3-nano-30b-ovh` |
+| 27 | `gpt-oss-20b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gpt-oss-20b-groq` chez un autre fournisseur |
+| 28 | `gemma-4-26b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place d'avant ; même modèle que `gemma-4-26b-gemini` chez un autre fournisseur |
+| 29 | `nemotron3-nano-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
+| 30 | `qwen3-5-9b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
+| 31 | `olala-mini-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : `Auto-Flash-Lite` ne monte pas de niveau | — | — | aucun chiffre publié : garde sa place d'avant, après ceux qui en ont |
+| 32 | `gemini-3-8-flash-low` | Google AI Studio | à la requête, quota par modèle | `low` | 22,5 | 5,1 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 0,81 point par seconde, moins que les 3 demandés ; score 7,3, le meilleur du routeur, mais même modèle que la deuxième place de `Auto-Pro` et que `Auto-Flash` : dans les derniers pour ne pas manger leurs 20 requêtes par jour |
+| 33 | `gemini-3-7-flash` | Google AI Studio | à la requête, quota par modèle | défaut du fournisseur | — | — | ni indice ni délai (un routeur qui tient au temps n'utilise aucune estimation) : jumeau de `gemini-3-8-flash-low`, son point d'accès route vers ce modèle et son compteur n'est pas établi, d'où une place juste derrière lui |
+| 34 | `gemini-4-hydrogen-low` | Google AI Studio | à la requête, quota par modèle | `low` | 26,9 | 7,6 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 2,6 points par seconde, moins que les 3 demandés ; score 4,0, mais même modèle que la tête de `Auto-Pro` : dans les derniers pour ne pas manger ses 20 requêtes par jour |
+| 35 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | score -5,2, mais c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
+| 36 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié, et c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
+| 37 | `ministral-3b` | Mistral | prépayé | défaut du fournisseur | — | 1,7 s | payant : après les gratuits |
+| 38 | `omniroute-free-fast` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin, après le payant |
 
 ### `Auto-Code`
 
@@ -239,17 +252,19 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`. Classé par position de code (Ep
 | 12 | `laguna-xs-2-1-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
 | 13 | `glm-4-7-flash-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
 | 14 | `glm-4-7-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | même modèle que `glm-4-7-flash-cloudflare` chez un autre fournisseur, quota à part ; niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
-| 15 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 29 % (estimé) | 21,1 s | indice 32,0 en 21,1 s |
-| 16 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
-| 17 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 84 % | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Code`, mais garde sa place du gabarit |
-| 18 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | 43 % (estimé) | — | indice 21,9, délai inconnu |
-| 19 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | — | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
-| 20 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
-| 21 | `laguna-xs-2-1-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
-| 22 | `codestral` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
-| 23 | `codestral-2508` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
-| 24 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits |
-| 25 | `omniroute-free-code` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | — | routeur local sans clé et sans chiffre : tout à la fin |
+| 15 | `glm-4-5-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : non vérifié chez ce fournisseur | — | — | — | aucun chiffre publié : fin des membres gratuits à clé, derrière son frère ; même compte et même limite non publiée |
+| 16 | `phonellm-mini-alpha-2-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | — | — | — | aucun chiffre publié : fin des membres gratuits à clé, 262 140 jetons de contexte et appels d'outils |
+| 17 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 29 % (estimé) | 21,1 s | indice 32,0 en 21,1 s |
+| 18 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
+| 19 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 84 % | 10,3 s | indice 4,2 en 10,3 s ; sous le plancher de `Auto-Code`, mais garde sa place du gabarit |
+| 20 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | 43 % (estimé) | — | indice 21,9, délai inconnu |
+| 21 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | — | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
+| 22 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
+| 23 | `laguna-xs-2-1-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | — | aucun chiffre publié : garde sa place historique |
+| 24 | `codestral` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
+| 25 | `codestral-2508` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
+| 26 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits |
+| 27 | `omniroute-free-code` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
 ### `Auto-Claude-Code`
 
@@ -271,10 +286,12 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`. La cascade de `Auto-Code` sans l
 | 12 | `laguna-xs-2-1-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
 | 13 | `glm-4-7-flash-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
 | 14 | `glm-4-7-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : LiteLLM ne le transmet pas à ce fournisseur | — | — | — | même modèle que `glm-4-7-flash-cloudflare` chez un autre fournisseur, quota à part ; niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
-| 15 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | — | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, à la place que lui donne l'ordre de `Auto-Code` |
-| 16 | `codestral` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
-| 17 | `codestral-2508` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
-| 18 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits, seul payant de ce routeur |
+| 15 | `glm-4-5-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : non vérifié chez ce fournisseur | — | — | — | aucun chiffre publié : derrière son frère ; même compte et même limite non publiée ; 128 000 jetons de contexte, le minimum du routeur |
+| 16 | `phonellm-mini-alpha-2-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | — | — | — | aucun chiffre publié : 262 140 jetons de contexte et appels d'outils |
+| 17 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | — | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, à la place que lui donne l'ordre de `Auto-Code` |
+| 18 | `codestral` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
+| 19 | `codestral-2508` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
+| 20 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits, seul payant de ce routeur |
 
 ### `Auto-Fiction`
 
@@ -291,13 +308,37 @@ Tête : `aion-3-5-aion-labs`. Les six modèles d'Aion Labs et eux seuls, dans le
 
 ### Entrées appelées par leur nom
 
-Aucune cascade, aucun alias : on les appelle par leur nom, et elles n'ont pas de place à gagner. Ce sont les seules entrées d'un mode qui a un routeur à n'être dans aucune cascade : `check_compose_template.py` refuse toute autre, et `check_routing_document.py` vérifie que cette section liste exactement celles qu'il déclare.
+Aucune cascade, aucun alias : on les appelle par leur nom. Aucun chiffre ne les place, ou aucun routeur ne peut les tenir (un niveau sous ce que demande chaque routeur, un modèle de garde ou de traduction qui ne répond pas comme un modèle de conversation) ; elles sont dans la liste pour qu'une personne choisisse dans la liste entière. Ce sont les seules entrées d'un mode qui a un routeur à n'être dans aucune cascade : `check_compose_template.py` refuse toute autre, et `check_routing_document.py` vérifie que cette section liste exactement celles qu'il déclare.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `omniroute-free-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la catégorie `vision` d'OmniRoute : un filtre qui ne garde, parmi les fournisseurs qu'il a connectés, que les modèles capables de lire une image ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
 | 2 | `omniroute-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/vision` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
 | 3 | `omniroute-multimodal` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/multimodal` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 4 | `gemini-flash-latest` | Google AI Studio | à la requête, quota non établi | défaut du fournisseur | — | — | alias que Google fait pointer sur chaque nouvelle version Flash : suit les sorties sans modifier le gabarit ; version derrière l'alias et quota non lus |
+| 5 | `gemini-flash-lite-latest` | Google AI Studio | à la requête, quota non établi | défaut du fournisseur | — | — | l'alias équivalent pour la ligne Flash-Lite |
+| 6 | `glm-4-6v-flash-zai` | Z AI | à la requête, limite non publiée | non fixé : non vérifié chez ce fournisseur | — | — | modèle de vision gratuit : aucun routeur qui exige un contexte ou des outils ne le tient, ni contexte ni outils n'étant lus |
+| 7 | `olala-summarise-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle spécialisé dans le résumé |
+| 8 | `olala-translate-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle spécialisé dans la traduction : demande un champ `source_language` dans le corps de la requête |
+| 9 | `qwen3-vl-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle de vision, 32K jetons de contexte |
+| 10 | `qwen2-5-vl-72b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle de vision sans appels d'outils |
+| 11 | `qwen3guard-gen-0-6b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 12 | `qwen3guard-gen-8b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 13 | `cosmos-reason2-8b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de vision et de raisonnement physique, sans appels d'outils sur sa fiche |
+| 14 | `ising-calibration-1-5-31b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle d'étalonnage quantique, sans appels d'outils sur sa fiche |
+| 15 | `riva-translate-4b-instruct-v2-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de traduction, sans appels d'outils sur sa fiche |
+| 16 | `nemoguard-topic-control-8b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 17 | `nemotron-safety-guard-8b-v3-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 18 | `nemotron-3-5-content-safety-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 19 | `whisper-large-v3-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | transcription, jamais essayée : `Auto-STT` n'en tient aucune, parce que ce routeur n'existe que si un fournisseur à clé peut répondre, ce qu'un membre sans clé changerait |
+| 20 | `whisper-large-v3-turbo-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | la version turbo du précédent, mêmes raisons, jamais essayée |
+| 21 | `nvr-tts-en-us-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en anglais, sans voix française, jamais essayée : `Auto-TTS` n'en tient aucune, parce que ce routeur n'existe que si un fournisseur à clé peut répondre |
+| 22 | `nvr-tts-es-es-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en espagnol, mêmes raisons |
+| 23 | `nvr-tts-it-it-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en italien, mêmes raisons |
+| 24 | `nvr-tts-de-de-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en allemand, mêmes raisons |
+| 25 | `voxtral-mini-tts-mistral` | Mistral | prépayé | défaut du fournisseur | — | — | synthèse vocale de Mistral : ses voix françaises se demandent par leur identifiant, ce que ne peut pas faire une cascade partagée avec les membres de Gemini, qui prennent les noms de voix d'OpenAI |
+| 26 | `orpheus-v1-english-groq` | Groq | à la requête, 10 par minute et 100 par jour | défaut du fournisseur | — | — | synthèse vocale sans voix française, que demande `Auto-TTS` ; jamais essayée : aucune page lue ne confirme la route de LiteLLM pour cet identifiant |
+| 27 | `orpheus-arabic-saudi-groq` | Groq | à la requête, 10 par minute et 100 par jour | défaut du fournisseur | — | — | synthèse vocale en arabe, sans voix française, mêmes raisons ; même quota que le précédent |
 
 ## Ce qui a été regardé et n'a pas été créé
 

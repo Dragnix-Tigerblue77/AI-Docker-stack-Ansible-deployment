@@ -969,7 +969,7 @@ def online_cases():
                          "-- usage: speech, its entry is proposed, with model_info.mode audio_speech"
                          in report else "the speech model is not said to be one: %s" % report))),
         ("every Kilo entry of the real model list is attributed to Kilo, and a catalogue that lists them reports "
-         "nothing, the virtual models the file sets aside included",
+         "nothing, the virtual models included",
          real, SELFTEST_KEYS, dict(listing, kilo={"data": listing["kilo"]["data"] + [
              kilo_model("kilo-auto/free"), kilo_model("openrouter/free")]}), no_drift, 0, kilo_of_the_real_list),
         ("an active Kilo id the catalogue no longer lists is RETIRED, read without a key",
@@ -3922,8 +3922,8 @@ def run_proposal_cases():
                 and "**Gratuité.**" not in rough and "not free per" not in rough, "its free tier is to check"),
                ("  - Places suggérées :" in rough, "the places that can be computed are missing"),
                ("- [ ] **Classement.** Le chercher sur <https://artificialanalysis.ai/>" in unmeasured
-                and "  # drift-ignore: openrouter/vendor/unmeasured:free -- no entry of the Artificial Analysis "
-                "ranking measured it on 2026-01-01" in unmeasured, "the unmeasured model is not said so")))
+                and "en queue des membres gratuits" in unmeasured
+                and "drift-ignore" not in unmeasured, "the unmeasured model is not said so, or is offered a line to set it aside")))
     vbody = ready["body"]
     judged("the ready pull request names what it read, places nothing, and says the places are under revision",
            first_wrong(
@@ -4006,8 +4006,9 @@ def run_proposal_cases():
                 "the places are missing"),
                ("drift-ignore" not in fresh, "a measured model is offered a line to set it aside"),
                ("**Non placé**, faute de mesure : aucune entrée du classement ne s'écrit comme lui" in mystery
-                and "  # drift-ignore: openrouter/vendor/mystery-thing:free -- no entry of the Artificial Analysis "
-                "ranking measured it on 2026-01-01" in mystery, "the unmeasured model is placed: %s" % mystery[:600]),
+                and "en queue des membres gratuits" in mystery
+                and "drift-ignore: openrouter/vendor/mystery-thing:free" not in mystery,
+                "the unmeasured model is placed, or offered a line to set it aside: %s" % mystery[:600]),
                ("**approximatif**" in vbody, "the caveat of the matching is missing"),
                ("## Classement des nouveaux modèles" not in render_summary(ranked, "selftest"),
                 "the summary still ranks the proposed models"),
@@ -4154,11 +4155,11 @@ def run_proposal_cases():
     blanked = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(blank, []), "2026-01-01")
     blank_proposals = propose_additions(RANKING_TEMPLATE, blanked)
     blank_body = blank_proposals["to_verify"]["body"]
-    judged("a model the ranking knows with no figure is to verify, not placed, and gets its line",
+    judged("a model the ranking knows with no figure is to verify, not placed by a figure, and is never offered a line to set it aside",
            first_wrong(
                (blank_proposals["ready"]["items"] == [], "a model with no figure is ready"),
                ("**Non placé**, faute de mesure : le classement le connaît, sans aucun chiffre" in blank_body
-                and "drift-ignore: openrouter/vendor/blank-model:free" in blank_body, "it was placed"),
+                and "drift-ignore: openrouter/vendor/blank-model:free" not in blank_body, "it was placed, or offered a line to set it aside"),
                ("Aucune dérive." in render_summary(blanked, "selftest"),
                 "a summary whose only news is proposed does not say there is no drift")))
 
@@ -4177,8 +4178,9 @@ def run_proposal_cases():
                 and "rapproché par le nom : à vérifier" in twin_proposals["to_verify"]["body"],
                 "a match by name made a model ready"),
                ("**Non placé** : le classement d'Artificial Analysis n'a pas été lu" in unread
-                and "the Artificial Analysis ranking was not read on 2026-01-01" in unread,
-                "an unread ranking is not said: %s" % unread[:600])))
+                and "en queue des membres gratuits" in unread
+                and "drift-ignore: openrouter/vendor/fresh:free" not in unread,
+                "an unread ranking is not said, or the model is offered a line to set it aside: %s" % unread[:600])))
     # What "certain" means, case by case: the same model spelt with other punctuation, by its slug or by
     # its name, is certain; two entries that spell alike, a digit apart, or a variant are not.
     certainty = ranking_answers(

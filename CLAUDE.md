@@ -365,18 +365,19 @@ never built here: a service carries no `build:` key, and `check_compose_template
 **The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
 provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a
 commented-out corpse only misleads the next audit into re-checking it. A model the provider still
-serves but that this list deliberately does not route to stays **commented out, with its reason** on
-the line above it: paid, bank card required, enterprise contract only, and so on -- that comment is
-the answer to "why is it not used", so it is written once instead of being rediscovered. New models
-are **added** as providers publish them, so the list tracks each provider's current catalogue rather
-than the day it was written. Each claim cites the provider's own page and the date it was checked
-(#169). An active entry is therefore either usable, and then a member of a cascade or the target of an alias,
-or it is not, and then it goes: deleted, or commented out with its reason. The two exceptions are the embedding
-models, addressed by their own name because their vector space ties a collection to them, and the few entries
-declared in `LITELLM_CALLED_BY_NAME` of `check_compose_template.py`, each with its reason, which must be the
-same ones as the section of `ROUTAGE.md` that lists the entries called by name. A model its provider redirects
-to another one is routed right behind that one for as long as it is not established that it has no counter of its
-own, and one still served with a free quota of its own until a stated date is routed until that date.
+serves but that costs money to call, or that only a contract opens, stays **commented out, with its
+reason** on the line above it: paid, a trial or a one-time credit, an enterprise contract only, and so
+on -- that comment is the answer to "why is it not used", so it is written once instead of being
+rediscovered. New models are **added** as providers publish them, so the list tracks each provider's
+current catalogue rather than the day it was written. Each claim cites the provider's own page and the
+date it was checked (#169). An active entry is therefore either usable, and then a member of a cascade
+or the target of an alias, or it is not, and then it goes: deleted, or commented out with its reason.
+The two exceptions are the embedding models, addressed by their own name because their vector space ties
+a collection to them, and the entries declared in `LITELLM_CALLED_BY_NAME` of `check_compose_template.py`,
+each with its reason, which must be the same ones as the section of `ROUTAGE.md` that lists the entries
+called by name. A model its provider redirects to another one is routed right behind that one for as long
+as it is not established that it has no counter of its own, and one still served with a free quota of its
+own until a stated date is routed until that date.
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
@@ -410,6 +411,14 @@ model free again or a new model no addition can carry stays a person's from the 
 pull request. An issue is opened for one thing only, a provider's catalogue still unreadable after
 the day's two retries. What the workflow needs and what it refuses to delete are in its header and
 in the docstring of the script.
+
+**What a cleanup of the model list may remove.** A cleanup removes only what its provider has retired or
+redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, what a
+person set aside for a data or operator reason, or a second entry for the same model at the same
+level, which is a duplicate and not a model. A free model that can be called is never removed,
+commented out, set aside by a `drift-ignore:` line or kept out of every cascade for being redundant,
+unmeasured, too small a window (the router's pre-call checks skip a member a request does not fit)
+or deemed not needed: it goes by its figure, at the tail of the free members, or by name.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
