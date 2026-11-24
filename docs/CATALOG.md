@@ -24,7 +24,6 @@ Ce catalogue dit tout ce que la passerelle sert : les groupes d'accès, les rout
   - [`Auto-Decision`](#auto-decision)
   - [`Auto-Extraction`](#auto-extraction)
   - [`Auto-Fiction`](#auto-fiction)
-  - [Les entrées qui ont un repli](#les-entrées-qui-ont-un-repli)
 - [Les fournisseurs](#les-fournisseurs)
   - [Les quotas que déclarent les contrats](#les-quotas-que-déclarent-les-contrats)
 - [Les modèles](#les-modèles)
@@ -101,21 +100,21 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 
 | Entrée | Fournisseur | Niveau | Remarque |
 | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | `high` | — |
+| `gemini-4-hydrogen` | Gemini | `xhigh` | — |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
-| `gemini-3-8-flash` | Gemini | `medium` | — |
+| `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
 | `beam-kilo` | Kilo | — | — |
-| `nemotron-ultra-free` | OpenRouter | — | — |
-| `nemotron-ultra-requesty` | Requesty | — | — |
+| `nemotron-ultra-free` | OpenRouter | `high` | — |
+| `nemotron-ultra-requesty` | Requesty | `max` | — |
 | `nemotron-ultra-nvidia` | NVIDIA | — | — |
-| `nemotron-ultra-kilo` | Kilo | — | — |
+| `nemotron-ultra-kilo` | Kilo | `high` | — |
 | `nemotron-reasoning-free` | OpenRouter | — | — |
-| `nemotron-reasoning-requesty` | Requesty | — | — |
+| `nemotron-reasoning-requesty` | Requesty | `max` | — |
 | `nemotron-reasoning-nvidia` | NVIDIA | — | — |
 | `nemotron-reasoning-kilo` | Kilo | — | — |
 | `nemotron-super-vl-free` | OpenRouter | — | — |
@@ -135,28 +134,27 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 
 | Entrée | Fournisseur | Niveau | Remarque |
 | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | `high` | — |
+| `gemini-4-hydrogen` | Gemini | `xhigh` | — |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
-| `gemini-3-8-flash-low` | Gemini | `low` | — |
+| `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
-| `gemini-3-6-flash` | Gemini | défaut : medium | — |
-| `gemini-3-flash-preview` | Gemini | défaut : reasoning | — |
+| `gemini-3-6-flash` | Gemini | `high` | — |
+| `gemini-3-flash-preview` | Gemini | `high` | — |
 | `gpt-oss-120b-groq` | Groq | défaut : medium | — |
 | `gpt-oss-120b-cloudflare` | Cloudflare | défaut : medium | — |
-| `gemini-2-5-flash` | Gemini | — | — |
 | `qwen3-8-27b-groq` | Groq | défaut : non-reasoning | — |
 | `gemma-4-31b-gemini` | Gemini | — | — |
 | `gemma-4-31b-free` | OpenRouter | — | — |
-| `gemma-4-31b-requesty` | Requesty | — | — |
+| `gemma-4-31b-requesty` | Requesty | `high` | — |
 | `gemma-4-31b-nvidia` | NVIDIA | — | — |
-| `particle-1-free` | OpenRouter | — | — |
-| `particle-1-kilo` | Kilo | — | — |
-| `ernie-5-5-flash-free` | OpenRouter | — | — |
-| `ernie-5-5-flash-kilo` | Kilo | — | — |
+| `particle-1-free` | OpenRouter | `xhigh` | — |
+| `particle-1-kilo` | Kilo | `max` | — |
+| `ernie-5-5-flash-free` | OpenRouter | `high` | — |
+| `ernie-5-5-flash-kilo` | Kilo | `high` | — |
 | `beam-kilo` | Kilo | — | — |
 | `nemotron-super-vl-free` | OpenRouter | — | — |
 | `nemotron-super-vl-nvidia` | NVIDIA | — | — |
@@ -199,7 +197,6 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `nemotron-lightning-requesty` | Requesty | — | — |
 | `nemotron-lightning-nvidia` | NVIDIA | — | — |
 | `nemotron-lightning-kilo` | Kilo | — | — |
-| `gemini-2-5-flash-lite` | Gemini | défaut : non-reasoning | — |
 | `llama-4-scout-17b-16e-instruct-cloudflare` | Cloudflare | — | — |
 | `gemma-3-4b-nvidia` | NVIDIA | — | — |
 | `llama-3-3-70b-cloudflare` | Cloudflare | — | — |
@@ -235,8 +232,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 
 | Entrée | Fournisseur | Niveau | Remarque |
 | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | `high` | — |
-| `gemini-3-8-flash` | Gemini | `medium` | — |
+| `gemini-4-hydrogen` | Gemini | `xhigh` | — |
+| `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
@@ -244,9 +241,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `qwen3-8-27b-groq` | Groq | défaut : non-reasoning | — |
-| `gemini-3-6-flash` | Gemini | défaut : medium | — |
+| `gemini-3-6-flash` | Gemini | `high` | — |
 | `muse-glimmer-nvidia` | NVIDIA | — | — |
-| `gemini-2-5-flash` | Gemini | — | — |
 | `laguna-xs-2-1-nvidia` | NVIDIA | — | — |
 | `glm-4-7-flash-cloudflare` | Cloudflare | — | — |
 | `glm-4-7-flash-zai` | Zai | — | — |
@@ -269,8 +265,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 
 | Entrée | Fournisseur | Niveau | Remarque |
 | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | `high` | — |
-| `gemini-3-8-flash` | Gemini | `medium` | — |
+| `gemini-4-hydrogen` | Gemini | `xhigh` | — |
+| `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
@@ -278,9 +274,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `qwen3-8-27b-groq` | Groq | défaut : non-reasoning | — |
-| `gemini-3-6-flash` | Gemini | défaut : medium | — |
+| `gemini-3-6-flash` | Gemini | `high` | — |
 | `muse-glimmer-nvidia` | NVIDIA | — | — |
-| `gemini-2-5-flash` | Gemini | — | — |
 | `laguna-xs-2-1-nvidia` | NVIDIA | — | — |
 | `glm-4-7-flash-cloudflare` | Cloudflare | — | — |
 | `glm-4-7-flash-zai` | Zai | — | — |
@@ -336,14 +331,6 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `aion-3-0-mini-aion-labs` | Aion Labs | — | — |
 | `aion-2-0-aion-labs` | Aion Labs | — | — |
 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | — | — |
-
-### Les entrées qui ont un repli
-
-Une entrée appelée par son nom, qui n'est la tête d'aucun routeur, et ce que LiteLLM essaie quand elle échoue.
-
-| Entrée | Repli |
-| --- | --- |
-| `gemini-4-hydrogen-xhigh` | `gemini-4-hydrogen` |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
 
@@ -432,7 +419,7 @@ Les routeurs où figure chaque fournisseur, une ligne par routeur :
 
 Ce que dit `.github/LiteLLM_router_contracts.yaml`, tel quel, des limites de chaque fournisseur : ce sont des déclarations datées, qu'aucun contrôle ne vérifie.
 
-- **Gemini** : Free tier, counted per Google project and per model, not per API key, and the daily quotas reset at midnight Pacific time, per ai.google.dev/gemini-api/docs/rate-limits (read 2026-11-22). The page of the rate limits of Google AI Studio for the gateway's project, free tier, read 2026-11-22, gives requests per minute / tokens per minute / requests per day per model: Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash and Gemini 2.5 Flash 5 / 250K / 20; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite 15 / 250K / 500; Gemini 2.5 Flash-Lite 10 / 250K / 20; Gemma 4 31B and Gemma 4 26B 30 / 16K / 14,400; Gemini Embedding 1 and 2 100 / 30K / 1,000; the text-to-speech models 3 / 10K / 10; Gemini 3.5 Transcribe 3 / 10K / 25; Gemini 3.1 Pro, Gemini 2.5 Pro and Gemini 4 Argon, Neon and Carbon 0, not served on the free tier; Gemini 3.7 Flash is not on that page. Every entry of one model draws on that model's quota: gemini-4-hydrogen, gemini-4-hydrogen-medium, gemini-4-hydrogen-low and gemini-4-hydrogen-xhigh share one 20 requests a day, and so do gemini-3-8-flash and gemini-3-8-flash-low
+- **Gemini** : Free tier, counted per Google project and per model, not per API key, and the daily quotas reset at midnight Pacific time, per ai.google.dev/gemini-api/docs/rate-limits (read 2026-11-22). The page of the rate limits of Google AI Studio for the gateway's project, free tier, read 2026-11-22, gives requests per minute / tokens per minute / requests per day per model: Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash and Gemini 2.5 Flash 5 / 250K / 20; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite 15 / 250K / 500; Gemini 2.5 Flash-Lite 10 / 250K / 20; Gemma 4 31B and Gemma 4 26B 30 / 16K / 14,400; Gemini Embedding 1 and 2 100 / 30K / 1,000; the text-to-speech models 3 / 10K / 10; Gemini 3.5 Transcribe 3 / 10K / 25; Gemini 3.1 Pro, Gemini 2.5 Pro and Gemini 4 Argon, Neon and Carbon 0, not served on the free tier; Gemini 3.7 Flash is not on that page. Every entry of one model draws on that model's quota: gemini-4-hydrogen and gemini-4-hydrogen-low share one 20 requests a day, and so do gemini-3-8-flash and gemini-3-8-flash-low
 - **Mistral** : Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel
 - **Groq** : Free plan, 30 requests and 8K tokens per minute for these models, per console.groq.com/docs/rate-limits as the template quotes it (checked 2026-09-27)
 - **OpenRouter** : 20 requests per minute and 50 per day, 1000 once 10 credits are bought, counted across every :free model of the account together, per openrouter.ai/docs/api_reference/limits as the template quotes it (checked 2026-09-27)
@@ -455,18 +442,15 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 
 | Entrée | Fournisseur | Type | Groupes | Routeurs | Niveau | Contexte | Sortie max |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
+| `gemini-4-hydrogen` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `xhigh` | 1 048 576 | 65 536 |
 | `gemini-4-hydrogen-low` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | `low` | 1 048 576 | 65 536 |
-| `gemini-4-hydrogen-xhigh` | Gemini | chat | `LLM`, `Private-Data` | — | `xhigh` | 1 048 576 | 65 536 |
-| `gemini-3-8-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` | `medium` | 1 048 576 | 65 536 |
-| `gemini-3-8-flash-low` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Flash-Lite` | `low` | 1 048 576 | 65 536 |
+| `gemini-3-8-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
+| `gemini-3-8-flash-low` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | `low` | 1 048 576 | 65 536 |
 | `gemini-3-7-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | 65 536 |
-| `gemini-3-6-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : medium | 1 048 576 | 65 536 |
+| `gemini-3-6-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
 | `gemini-3-5-flash-lite` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : minimal | 1 048 576 | 65 536 |
 | `gemini-3-1-flash-lite` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : minimal | 1 048 576 | 65 536 |
-| `gemini-3-flash-preview` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | défaut : reasoning | 1 048 576 | 65 536 |
-| `gemini-2-5-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | 65 536 |
-| `gemini-2-5-flash-lite` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : non-reasoning | 1 048 576 | 65 536 |
+| `gemini-3-flash-preview` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | `high` | 1 048 576 | 65 536 |
 | `gemma-4-31b-gemini` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — |
 | `gemma-4-26b-gemini` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 262 144 | — |
 | `gemini-embedding-2` | Gemini | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — |
@@ -489,15 +473,15 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `whisper-large-v3-turbo-groq` | Groq | `audio_transcription` | `STT`, `Public-Data-Only` | `Auto-STT` | — | — | — |
 | `deepseek-v4-pro-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 000 000 | 393 216 |
 | `deepseek-flash-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | défaut : high | 1 000 000 | 393 216 |
-| `nemotron-ultra-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 000 000 | 65 536 |
+| `nemotron-ultra-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 |
 | `nemotron-reasoning-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 256 000 | 65 536 |
 | `nemotron-lightning-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 65 536 |
 | `nemotron-super-vl-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 000 000 | 131 072 |
 | `gemma-4-31b-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 32 768 |
 | `gemma-4-26b-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 32 768 |
 | `openrouter-auto-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | — | — |
-| `particle-1-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 072 |
-| `ernie-5-5-flash-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 024 000 | 921 600 |
+| `particle-1-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `xhigh` | 1 048 576 | 131 072 |
+| `ernie-5-5-flash-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 1 024 000 | 921 600 |
 | `lfm-3-1-7b-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 8 192 |
 | `dots-3-note-preview-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 512 000 | 460 800 |
 | `nemotron-3-embed-1b-free` | OpenRouter | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — |
@@ -522,12 +506,12 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `qwen3-8-27b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : xhigh | 262 144 | — |
 | `bge-m3-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — |
 | `glm-4-7-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only` | `Auto-Code`, `Auto-Claude-Code` | — | 200 000 | 128 000 |
-| `nemotron-ultra-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 000 000 | 65 536 |
+| `nemotron-ultra-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 |
 | `nemotron-reasoning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 256 000 | 65 536 |
 | `nemotron-lightning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 65 536 |
 | `nemotron-super-vl-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 000 000 | 131 072 |
-| `particle-1-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 072 |
-| `ernie-5-5-flash-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 024 000 | 921 600 |
+| `particle-1-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `max` | 1 048 576 | 131 072 |
+| `ernie-5-5-flash-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 1 024 000 | 921 600 |
 | `lfm-3-1-7b-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 8 192 |
 | `beam-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 131 072 |
 | `flint-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 235 929 |
@@ -546,10 +530,10 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `qwen3-5-9b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 262 144 | 65 536 |
 | `olala-mini-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 32 768 | 16 384 |
 | `laguna-xs-2-1-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Code` | — | 131 072 | 65 536 |
-| `nemotron-ultra-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 048 576 | 65 536 |
-| `nemotron-reasoning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 131 072 | 20 480 |
+| `nemotron-ultra-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `max` | 1 048 576 | 65 536 |
+| `nemotron-reasoning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `max` | 131 072 | 20 480 |
 | `nemotron-lightning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 048 576 | 65 536 |
-| `gemma-4-31b-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 8 192 |
+| `gemma-4-31b-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 262 144 | 8 192 |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | — |
 | `mistral-large-4-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 048 576 | — |
 | `nemotron-ultra-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 048 576 | — |
@@ -576,6 +560,9 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `omniroute-free-code` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Code` | — | — | — |
 | `omniroute-free-reasoning` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | — | — |
 | `omniroute-free-fast` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | — | — |
+| `omniroute-free-vision` | OmniRoute | chat | `LLM`, `Public-Data-Only` | — | — | — | — |
+| `omniroute-vision` | OmniRoute | chat | `LLM`, `Public-Data-Only` | — | — | — | — |
+| `omniroute-multimodal` | OmniRoute | chat | `LLM`, `Public-Data-Only` | — | — | — | — |
 | `Auto` | LiteLLM | chat | `LLM`, `Public-Data-Only` | — | — | — | — |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
