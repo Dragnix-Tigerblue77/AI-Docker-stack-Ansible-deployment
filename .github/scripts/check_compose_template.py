@@ -834,7 +834,7 @@ def check_librechat_gateway_key_models_default(defaults, failures):
     the text models, and the routers that group does not hold, since a router is in no group. The router of the
     agent is left out of what the default must hold, and may be named."""
     routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
-    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"} | set(LITELLM_DATA_GROUP_NAMES)
+    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM", LITELLM_AGENT_GROUP} | set(LITELLM_DATA_GROUP_NAMES)
     # The models kept apart are a group and a router of the template, so that a key may be given them by name, and
     # are never in the default: an account that inherited them would reach what they were kept apart for.
     kept_apart = set(LITELLM_KEPT_APART_GROUPS.values()) | {
@@ -1727,6 +1727,10 @@ LITELLM_UNROUTED_MODES = frozenset({"image_generation", "video_generation", "rer
 # The one exception: text models kept out of "LLM" on purpose, each group named for the key an entry reads. Such an
 # entry is in that group whatever its mode, and no other entry is, so that no key holding "LLM" reaches it.
 LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
+# The group the agent's key holds besides its routers: the members of the agent's own cascade carry it, written last,
+# after their type group and their data group, and no other entry does, so that the key reaches the models that take strict tool calls and nothing
+# else, fallbacks included, which LiteLLM skips when the key does not allow the member.
+LITELLM_AGENT_GROUP = "Claude-Code"
 
 
 def litellm_access_group(mode, reference=None):
@@ -2177,6 +2181,8 @@ def check_litellm_config(document, keys, failures):
     aliases = mapping(router_settings, "model_group_alias")
     given = {LITELLM_PROVIDERS[provider] for provider in keys}
 
+    agent_cascade = next((members for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
+                          for name, members in item.items() if name == "claude-code" and isinstance(members, list)), [])
     for entry in entries:
         info = mapping(entry, "model_info")
         parameters = mapping(entry, "litellm_params")
@@ -2192,13 +2198,16 @@ def check_litellm_config(document, keys, failures):
                 "terms do with the data sent to it, so no group could be written, and the provider is Public-Data-Only "
                 "until a row says why it is not"
             )
-        elif info.get("access_groups") != [wanted, data]:
+        elif info.get("access_groups") != [wanted, data] + (
+                [LITELLM_AGENT_GROUP] if entry.get("model_name") in agent_cascade else []):
             failures.append(
                 f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
                 f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry of the data group "
-                f"{data!r}: a key limited to a type of models reaches the entries of that type and no other, so each "
-                "entry is in its type group and in exactly one data group (the one its provider's row gives), and the "
-                "models kept apart are in the group of their own, which no other entry is in"
+                f"{data!r}{' and a member of the agent' + chr(39) + 's cascade' if entry.get('model_name') in agent_cascade else ''}: "
+                "a key limited to a type of models reaches the entries of that type and no other, so each entry is in "
+                "its type group and in exactly one data group (the one its provider's row gives), the models kept "
+                "apart are in the group of their own, which no other entry is in, and the members of the agent's "
+                f"cascade, and they alone, are also in {LITELLM_AGENT_GROUP!r}, written last, the group the agent's key holds"
             )
 
     for entry in entries:
@@ -2623,7 +2632,8 @@ def _litellm_document(entries, cascades, aliases):
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
              "model_info": {**({"mode": mode[0]} if mode else {"max_input_tokens": 131072}),
-                            "access_groups": litellm_access_groups(mode[0] if mode else None, key)}}
+                            "access_groups": litellm_access_groups(mode[0] if mode else None, key)
+                            + ([LITELLM_AGENT_GROUP] if name in dict(cascades).get("claude-code", []) else [])}}
             for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases,
@@ -2782,6 +2792,25 @@ def _entry_without_group():
     document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
     del document["model_list"][0]["model_info"]["access_groups"]
     return document
+
+
+def _agent_member_without_its_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
+    document["model_list"][0]["model_info"]["access_groups"] = ["LLM", LITELLM_DATA_PRIVATE]
+    return _with_stt(document, "GEMINI_API_KEY")
+
+
+def _agent_group_before_the_data_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
+    document["model_list"][0]["model_info"]["access_groups"] = ["LLM", LITELLM_AGENT_GROUP, LITELLM_DATA_PRIVATE]
+    return _with_stt(document, "GEMINI_API_KEY")
+
+
+def _agent_group_outside_the_cascade():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY"), ("b", "os.environ/GEMINI_API_KEY")],
+                                 [("claude-code", ["a"]), ("flash", ["b", "a"])], {"claude-code": "a", "flash": "b"})
+    document["model_list"][1]["model_info"]["access_groups"] = ["LLM", LITELLM_DATA_PRIVATE, LITELLM_AGENT_GROUP]
+    return _with_stt(document, "GEMINI_API_KEY")
 
 
 def _entry_in_the_wrong_group():
@@ -3179,6 +3208,12 @@ LITELLM_CONFIG_CASES = [
     ("a transcription cascade holding a chat model", _stt_chat_member(), {"Groq"}, "model_info.mode is None"),
     ("a model entry in no access group", _entry_without_group(), {"Gemini"}, "is in the access groups None"),
     ("an embedding entry in the text group", _entry_in_the_wrong_group(), {"Gemini"}, "makes it a 'Embeddings' entry"),
+    ("a member of the agent's cascade outside the agent's group", _agent_member_without_its_group(), {"Gemini"},
+     "'Private-Data' and a member of the agent's cascade"),
+    ("a member of the agent's cascade with the agent's group before its data group",
+     _agent_group_before_the_data_group(), {"Gemini"}, "are also in 'Claude-Code', written last"),
+    ("the agent's group on an entry outside the agent's cascade", _agent_group_outside_the_cascade(), {"Gemini"},
+     "is in the access groups ['LLM', 'Private-Data', 'Claude-Code']"),
     ("a chat cascade holding an audio model", _stt_in_chat_cascade(), {"Groq"}, "a member of a non-chat router"),
     ("a router written as an entry of the model list",
      _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],

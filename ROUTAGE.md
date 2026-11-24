@@ -253,7 +253,7 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`. Classé par position de code (Ep
 
 ### `Auto-Claude-Code`
 
-Tête : `gemini-4-hydrogen`, au niveau `xhigh`. La cascade de `Auto-Code` sans les membres qui ne prennent pas les appels d'outils, dans le même ordre.
+Tête : `gemini-4-hydrogen`, au niveau `xhigh`. La cascade de `Auto-Code` sans les membres qui ne prennent pas les appels d'outils, dans le même ordre. Ses membres, et eux seuls, sont aussi dans le groupe d'accès `Claude-Code`, celui de la clé de l'agent : LiteLLM vérifie la clé avant chaque secours, et cette clé n'atteint ainsi que des modèles qui prennent les appels d'outils.
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Position de code | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

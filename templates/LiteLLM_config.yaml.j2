@@ -94,6 +94,9 @@
 # other group is a label and no key is ever given it. The routers are in no group and their cascades mix
 # both, so such a key must not be given a router. The provider decides it, in "check_compose_template.py", with the
 # reason and the page read.
+# The members of "Auto-Claude-Code" are also in "Claude-Code", written last, after their data group, and no other
+# entry is: the agent's key holds that group, since LiteLLM checks the calling key before each fallback and skips a member it does not allow, and the
+# cascade's members are the models that take strict tool calls on enough context, which the agent cannot do without.
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -139,7 +142,7 @@ model_list:
   # before the router's (its source, read 2026-11-24).
   - model_name: gemini-4-hydrogen
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -179,7 +182,7 @@ model_list:
   # the router's timeouts.
   - model_name: gemini-3-8-flash
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -217,7 +220,7 @@ model_list:
   # is the one of Gemini 3.8 Flash, delete the entry.
   - model_name: gemini-3-7-flash
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -229,7 +232,7 @@ model_list:
   # Artificial Analysis ranks it at, 12.6 s to the first answer token (read 2026-11-21): the router's timeouts hold.
   - model_name: gemini-3-6-flash
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -482,7 +485,7 @@ model_list:
   # ============================================================================
   - model_name: codestral
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -491,7 +494,7 @@ model_list:
 
   - model_name: codestral-2508
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -669,7 +672,7 @@ model_list:
   # audit.
   - model_name: qwen3-8-27b-groq
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 131072
       max_output_tokens: 16384
       supports_vision: true
@@ -774,7 +777,7 @@ model_list:
   # DeepSeek has committed to keep serving "deepseek-v4-pro" past 2026-09-14.
   - model_name: deepseek-v4-pro-direct
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 1000000
       max_output_tokens: 393216
       supports_vision: false
@@ -1120,7 +1123,7 @@ model_list:
   # goes. Free status unconfirmed, and tool calls through this endpoint not tried.
   - model_name: glm-4-7-flash-cloudflare
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 131072
       supports_vision: false
     litellm_params:
@@ -1298,7 +1301,7 @@ model_list:
   # without a thinking phase.
   - model_name: qwen3-8-27b-cloudflare
     model_info:
-      access_groups: ["LLM", "Private-Data"]
+      access_groups: ["LLM", "Private-Data", "Claude-Code"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -1371,7 +1374,7 @@ model_list:
   # reasoning record (read 2026-11-21). Tool calls through this endpoint were not tried.
   - model_name: glm-4-7-flash-zai
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 200000
       max_output_tokens: 128000
       supports_vision: false
@@ -1931,7 +1934,7 @@ model_list:
   # before it answers.
   - model_name: kimi-k3-1-pro-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 1048576
       supports_vision: true
     litellm_params:
@@ -1943,7 +1946,7 @@ model_list:
   # confirmed to use; 71 s to the first answer token.
   - model_name: mistral-large-4-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 1048576
       supports_vision: true
     litellm_params:
@@ -2007,7 +2010,7 @@ model_list:
   # "stream_timeout" below.
   - model_name: glm-5-3-flash-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
     litellm_params:
       model: nvidia_nim/z-ai/glm-5.3-flash
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -2017,7 +2020,7 @@ model_list:
   # which is another model, so nothing places it by coding.
   - model_name: minimax-m3-1-flash-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 1000000
       supports_vision: true
     litellm_params:
@@ -2028,7 +2031,7 @@ model_list:
   # name.
   - model_name: step-5-preview-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 1000000
       max_output_tokens: 1000000
       supports_vision: true
@@ -2041,7 +2044,7 @@ model_list:
   # the two routers its purpose fits, and is in no other.
   - model_name: laguna-xs-2-1-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 262144
       supports_vision: false
     litellm_params:
@@ -2053,7 +2056,7 @@ model_list:
   # figure.
   - model_name: muse-glimmer-nvidia
     model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
+      access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
       max_input_tokens: 131072
       supports_vision: true
     litellm_params:
