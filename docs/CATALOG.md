@@ -58,6 +58,7 @@ Ces groupes s'ajoutent au groupe du type : une entrée qui en porte un est aussi
 | `Private-Data` | `LLM` |
 | `Private-Data` | `STT` |
 | `Private-Data` | `TTS` |
+| `Claude-Code` | `LLM` |
 | `Public-Data-Only` | `Embeddings` |
 | `Public-Data-Only` | `LLM` |
 | `Public-Data-Only` | `STT` |
@@ -442,12 +443,12 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 
 | Entrée | Fournisseur | Type | Groupes | Routeurs | Niveau | Contexte | Sortie max |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `xhigh` | 1 048 576 | 65 536 |
+| `gemini-4-hydrogen` | Gemini | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `xhigh` | 1 048 576 | 65 536 |
 | `gemini-4-hydrogen-low` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | `low` | 1 048 576 | 65 536 |
-| `gemini-3-8-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
+| `gemini-3-8-flash` | Gemini | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
 | `gemini-3-8-flash-low` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | `low` | 1 048 576 | 65 536 |
-| `gemini-3-7-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | 65 536 |
-| `gemini-3-6-flash` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
+| `gemini-3-7-flash` | Gemini | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | 65 536 |
+| `gemini-3-6-flash` | Gemini | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | `high` | 1 048 576 | 65 536 |
 | `gemini-3-5-flash-lite` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : minimal | 1 048 576 | 65 536 |
 | `gemini-3-1-flash-lite` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : minimal | 1 048 576 | 65 536 |
 | `gemini-3-flash-preview` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | `high` | 1 048 576 | 65 536 |
@@ -457,8 +458,8 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gemini-3-8-flash-tts` | Gemini | `audio_speech` | `TTS`, `Private-Data` | `Auto-TTS` | — | — | — |
 | `gemini-3-8-flash-lite-tts` | Gemini | `audio_speech` | `TTS`, `Private-Data` | `Auto-TTS` | — | — | — |
 | `gemini-3-5-transcribe` | Gemini | `audio_transcription` | `STT`, `Private-Data` | `Auto-STT` | — | — | — |
-| `codestral` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Code`, `Auto-Claude-Code` | — | 128 000 | — |
-| `codestral-2508` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Code`, `Auto-Claude-Code` | — | 128 000 | — |
+| `codestral` | Mistral | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 128 000 | — |
+| `codestral-2508` | Mistral | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 128 000 | — |
 | `mistral-medium` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — |
 | `mistral-small` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — |
 | `ministral-14b` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — |
@@ -468,10 +469,10 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `voxtral-mini-mistral` | Mistral | `audio_transcription` | `STT`, `Private-Data` | `Auto-STT` | — | — | — |
 | `gpt-oss-120b-groq` | Groq | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | défaut : medium | 131 072 | 65 536 |
 | `gpt-oss-20b-groq` | Groq | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | défaut : medium | 131 072 | 65 536 |
-| `qwen3-8-27b-groq` | Groq | chat | `LLM`, `Public-Data-Only` | `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | défaut : non-reasoning | 131 072 | 16 384 |
+| `qwen3-8-27b-groq` | Groq | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | défaut : non-reasoning | 131 072 | 16 384 |
 | `whisper-large-v3-groq` | Groq | `audio_transcription` | `STT`, `Public-Data-Only` | `Auto-STT` | — | — | — |
 | `whisper-large-v3-turbo-groq` | Groq | `audio_transcription` | `STT`, `Public-Data-Only` | `Auto-STT` | — | — | — |
-| `deepseek-v4-pro-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 000 000 | 393 216 |
+| `deepseek-v4-pro-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 000 000 | 393 216 |
 | `deepseek-flash-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | défaut : high | 1 000 000 | 393 216 |
 | `nemotron-ultra-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 |
 | `nemotron-reasoning-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 256 000 | 65 536 |
@@ -491,7 +492,7 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gpt-oss-20b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | défaut : medium | 128 000 | — |
 | `gemma-4-26b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 256 000 | — |
 | `llama-3-3-70b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 24 000 | — |
-| `glm-4-7-flash-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Code`, `Auto-Claude-Code` | — | 131 072 | — |
+| `glm-4-7-flash-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 131 072 | — |
 | `gemma-sea-lion-v4-27b-it-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 128 000 | — |
 | `clef-cloudflare` | Cloudflare | `evaluation` | `Decisions`, `Private-Data` | `Auto-Decision` | — | — | — |
 | `clef-omni-cloudflare` | Cloudflare | `evaluation` | `Decisions`, `Private-Data` | `Auto-Decision` | — | — | — |
@@ -503,9 +504,9 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `llama-4-scout-17b-16e-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 131 000 | — |
 | `mistral-small-3-1-24b-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 128 000 | — |
 | `qwen2-5-coder-32b-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 32 768 | — |
-| `qwen3-8-27b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : xhigh | 262 144 | — |
+| `qwen3-8-27b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : xhigh | 262 144 | — |
 | `bge-m3-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — |
-| `glm-4-7-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only` | `Auto-Code`, `Auto-Claude-Code` | — | 200 000 | 128 000 |
+| `glm-4-7-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 200 000 | 128 000 |
 | `nemotron-ultra-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 |
 | `nemotron-reasoning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 256 000 | 65 536 |
 | `nemotron-lightning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 65 536 |
@@ -534,18 +535,18 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `nemotron-reasoning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `max` | 131 072 | 20 480 |
 | `nemotron-lightning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 048 576 | 65 536 |
 | `gemma-4-31b-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 262 144 | 8 192 |
-| `kimi-k3-1-pro-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | — |
-| `mistral-large-4-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 048 576 | — |
+| `kimi-k3-1-pro-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | — |
+| `mistral-large-4-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 048 576 | — |
 | `nemotron-ultra-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 048 576 | — |
 | `nemotron-reasoning-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 262 144 | — |
 | `nemotron-lightning-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 048 576 | — |
 | `nemotron-super-vl-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | — |
 | `nemotron-bolt-e4b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 65 536 | — |
-| `glm-5-3-flash-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : max | — | — |
-| `minimax-m3-1-flash-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 000 000 | — |
-| `step-5-preview-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 000 000 | 1 000 000 |
-| `laguna-xs-2-1-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Code`, `Auto-Claude-Code` | — | 262 144 | — |
-| `muse-glimmer-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 131 072 | — |
+| `glm-5-3-flash-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : max | — | — |
+| `minimax-m3-1-flash-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 000 000 | — |
+| `step-5-preview-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 000 000 | 1 000 000 |
+| `laguna-xs-2-1-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 262 144 | — |
+| `muse-glimmer-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 131 072 | — |
 | `gemma-4-31b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | — |
 | `gemma-3-12b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | — | — |
 | `gemma-3-4b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | — | — |
