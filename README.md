@@ -1478,12 +1478,21 @@ Pages officielles lues :
 - DeepSeek : [FAQ](https://api-docs.deepseek.com/faq)
 - Requesty : pages « Free models », « Billing », « Quickstart » et « Data privacy » de sa documentation, relues le 2026-11-22
 
-**Groupe 2 -- à ajouter, par ordre de préférence.** Aucun pour l'instant.
+**Groupe 2 -- à ajouter, par ordre de préférence.**
+
+| Fournisseur | Offre gratuite | Limites | Verdict |
+| --- | --- | --- | --- |
+| AxForge | « Every new account includes 3M free serverless tokens every 30 days, after a card check (nothing charged) » : 3 millions de jetons par période de 30 jours, pour les modèles du service (Qwen3.8 27B et Flash Next, GLM-5.3-Flash, MiMo-V2.6-Flash, un modèle d'embeddings). La vérification se fait par carte sur la page de Stripe ; « Each card unlocks them once in 12 months, and a prepaid card cannot ». Le solde est prépayé et « When the balance is exhausted, further requests are declined » : la dépense est plafonnée à 0 tant qu'aucun solde n'est acheté. Point d'accès compatible OpenAI (`https://api.axforge.ai/v1`), pas de fournisseur LiteLLM de ce nom ; sa documentation donne le montage `openai/<modèle>` avec `api_base` (pages lues le 2026-11-24) | 8 appels simultanés par compte, et « There are no hidden quotas. This table is the whole list ». L'allocation gratuite est « a launch offer and may change with notice on the pricing page » ; aucune limite par minute ou par jour n'est écrite | À ajouter en premier. Hébergé à Stockholm, « Customer content is never used to train, fine-tune or evaluate any AxForge model », prompts traités en mémoire et jamais écrits sur disque ; responsable de traitement irlandais. Les conditions disent que les clés sont personnelles (« do not share, publish or resell them ») : une clé tenue par la passerelle pour le seul foyer n'est pas ce qu'elles visent d'après leur lecture, mais ce n'est pas validé. Ajouter le fournisseur demande une clé (carte non prépayée, une fois par an), une variable de clé, des entrées `openai/` avec `api_base`, et un contrôle de dérive qui ne peut pas lire le catalogue de l'API (`GET /v1/models` répond 401 sans clé ; le catalogue du site est public) |
+
+Pages officielles lues le 2026-11-24 :
+
+- AxForge : [Pricing](https://axforge.ai/pricing/), [Terms of Service](https://axforge.ai/terms.html), [Privacy policy](https://axforge.ai/privacy.html), [Errors & limits](https://dev.axforge.ai/docs/errors-limits/) et [LiteLLM](https://dev.axforge.ai/docs/connect/litellm/)
 
 **Groupe 3 -- écartés, avec la raison.**
 
 | Fournisseur | Ce qui est offert | Raison de l'écart |
 | --- | --- | --- |
+| Gonka Broker | « at least 1M tokens of any model », renouvelés le premier de chaque mois civil, sans carte mais avec un numéro de mobile vérifié par SMS (FAQ et page de facturation de sa documentation) ; solde prépayé, dépense plafonnée à 0 ; point d'accès compatible OpenAI (`https://proxy.gonkabroker.com/v1`) ; MiniMax-M2.7, DeepSeek-V4-Flash-0731, GLM-5.3-Flash et BGE-M3 (pages lues le 2026-11-24) | Les prompts sont exécutés par le réseau décentralisé Gonka, sur les GPU d'opérateurs que l'on ne connaît pas et qu'aucun contrat ne lie à l'utilisateur : le courtier dit ne rien stocker, mais ce que gardent ces opérateurs n'est écrit sur aucune page lue, alors que presque tout ce que la passerelle traite porte un nom ou deux. Le débit gratuit n'est visible qu'une fois le compte ouvert, et les conditions permettent de modifier ou d'arrêter l'offre « at any time ... without prior notice ». Écarté le 2026-11-24 |
 
 | Cohere (clés d'essai) | 1 000 appels par mois, 20 requêtes par minute par modèle de chat, soit environ 33 appels par jour | Trop étroit ; comptes multiples et usage en « service bureau » interdits ; page des conditions datée de 2022, peut-être périmée |
 | GitHub Models | Fermé le 2026-07-30 | Plus de service |
@@ -1505,6 +1514,10 @@ Pages officielles lues :
 | Vercel AI Gateway | Crédit mensuel gratuit sur un sous-ensemble de modèles | Limites « not fixed », montant non lu ; apporter sa propre clé est réservé aux plans payants |
 | Fireworks | Un crédit de 1 $ une seule fois ; sans moyen de paiement, 10 requêtes par minute puis « Your account will be suspended until you add a payment method » ; aucun modèle serverless gratuit listé (pages relues le 2026-11-22) | Ne journalise pas les prompts des modèles ouverts sans accord explicite | Crédit unique, carte exigée pour continuer ; fournisseur `fireworks_ai/` de LiteLLM |
 | Together AI | « doesn't currently offer free trials » : au moins 15 $ de crédits à acheter avant de créer une clé ; un seul modèle gratuit affiché, un « Ternary Bonsai 27B » dont le contexte et les outils ne sont pas lus (pages relues le 2026-11-22) | Garde par défaut les prompts et les réponses et peut s'en servir pour améliorer ses produits ; la rétention zéro se règle dans les paramètres de l'organisation | Pas de palier gratuit, achat préalable ; fournisseur `together_ai/` de LiteLLM |
+| LLM7 | Aucune : paiement à l'usage sur solde prépayé, chaque modèle du catalogue public (`GET /v1/models`) porte un tarif au jeton ; l'abonnement Pro est fermé aux nouveaux comptes ; aucun crédit gratuit à l'inscription dans les conditions mises à jour le 2026-11-19 | Pas d'offre gratuite. Les conditions interdisent aussi de « proxy, gateway, embed » le service ou de le revendre sans accord écrit, et de coordonner des comptes pour contourner une limite |
+| Pollinations | Solde en dollars (« pollen ») acheté ou gagné par des quêtes, c'est-à-dire des contributions fusionnées dans le dépôt du projet ; clé obligatoire, point d'accès compatible OpenAI (pages lues le 2026-11-24) | Aucun quota récurrent dans la documentation ni dans le catalogue ; le solde gratuit se gagne en contribuant au code. Les pages de conditions et de confidentialité du site ne s'affichent pas sans JavaScript, donc ne sont pas lues |
+| GitCode (AtomGit AI) | Hub de modèles dont l'API d'inférence est compatible OpenAI (`https://api-ai.gitcode.com/v1/chat/completions`, jeton d'accès) ; la FAQ de sa documentation annonce « Free Quota : Monthly free usage quota provided », sans aucun chiffre, et compte l'usage en jetons (pages lues le 2026-11-24) | Aucun quota, aucune limite, aucune condition ni politique de données lisibles : le site principal est une application JavaScript vide et la documentation ne chiffre rien. Un palier dont le montant n'est écrit nulle part ne se vérifie pas ; à rouvrir si un compte affiche un quota mensuel chiffré |
+| ModelScope (Alibaba) | API-Inference gratuite, compatible OpenAI (`https://api-inference.modelscope.cn/v1/`, fournisseur `modelscope` de LiteLLM) ; 200 « magicube » par jour à l'inscription et 50 de plus avec un compte Alibaba Cloud lié, à 0,5, 1 ou 2 par appel selon le modèle, soit 125 à 500 appels par jour (**calcul**) (pages lues le 2026-11-24) | Le compte doit être lié à un compte Alibaba Cloud ayant passé la vérification d'identité (« real-name verification ») : la page de cette vérification ne s'affiche pas sans JavaScript, et rien de lu ne dit qu'un résident suisse ou français puisse la passer. Produit « non-commercial, non-profit », « Do not use it for online tasks requiring high concurrency and SLA guarantees », ce que fait une passerelle ; conditions et lieu de traitement non lus |
 
 Pages officielles lues :
 
@@ -1528,13 +1541,13 @@ Pages officielles lues :
 - Nebius Token Factory : pages « Billing » et « Legal quick guide » de la documentation de Token Factory
 - Fireworks : pages « Pricing », « Account quotas », « What happens when I finish my $1 credit » et « Data handling » de sa documentation
 - Together AI : pages « Pricing », « Billing and credits » et « Privacy and security » de sa documentation
+- LLM7 : [Terms of Service](https://github.com/chigwell/llm7.io/blob/main/TERMS.md) (lues sur le fichier brut du même dépôt, la page GitHub refusant l'accès sans navigateur), [Privacy Policy](https://llm7.io/privacy) et [Models API](https://docs.llm7.io/guides/models-api)
+- Pollinations : [documentation de l'API](https://gen.pollinations.ai/docs/llm.txt), [catalogue](https://gen.pollinations.ai/v1/models) et [Pollinations Pay](https://github.com/pollinations/pollinations/blob/main/BRING_YOUR_OWN_POLLEN.md) ; les pages `pollinations.ai/terms` et `enter.pollinations.ai/quests` répondent mais ne montrent que leur titre sans JavaScript
+- GitCode (AtomGit AI) : [FAQ](https://ai-docs.gitcode.com/en/faq/), [Usage Guide](https://ai-docs.gitcode.com/en/docs/models/billing/) et [LangChain](https://ai-docs.gitcode.com/en/docs/api/langchain/) de sa documentation ; `ai-docs.gitcode.com/en/api` ne répond pas
+- ModelScope : [Usage limits](https://www.modelscope.ai/docs/model-service/API-Inference/limits), [Introduction](https://www.modelscope.cn/docs/model-service/API-Inference/intro) et [Magicube](https://www.modelscope.cn/docs/magicube/intro), lues dans leur version Markdown (`.md`) puisque les pages ne s'affichent pas sans JavaScript
+- Gonka Broker : [Free LLM API](https://gonkabroker.com/free-llm-api/), [Terms of Service](https://app.gonkabroker.com/terms-of-service), [Privacy policy](https://app.gonkabroker.com/privacy-policy), [FAQ](https://docs.gonkabroker.com/support/faq/), [Billing & Deposits](https://docs.gonkabroker.com/guides/billing-and-deposits/) et [Limits & Quotas](https://docs.gonkabroker.com/reference/limits-and-quotas/)
 
-**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
-
-| Fournisseur | Ce qui a été vu | Ce qui manque |
-| --- | --- | --- |
-| LLM7, Pollinations, AxForge, Gonka Broker, GitCode | Pages officielles vides ou sans chiffres | Tout |
-| ModelScope (Alibaba) | La page officielle des limites (lue le 2026-11-22) exige un compte lié à un compte Alibaba Cloud ayant passé la vérification d'identité ; le quota de 2 000 appels par jour n'y figure plus, l'usage se compte en « magicube » (0,5 à 2 par appel selon le modèle) sans que le montant gratuit y soit publié (une sonde tierce de septembre 2026 dit 200 par jour) ; gratuit, non commercial, « pas pour des tâches en ligne à forte concurrence ou sous SLA » | Si la vérification d'identité accepte un étranger (en Chine elle demande normalement une pièce d'identité chinoise), les conditions, et le lieu de traitement des données (probablement la Chine) |
+**Groupe 4 -- pistes non vérifiées.** Aucune.
 
 Pages officielles lues :
 
@@ -1710,7 +1723,7 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| AWS Polly | Voix standard : 5 millions de caractères par mois sans date de fin affichée ; neuronales (1 million) et génératives (100 000) pendant les douze premiers mois seulement ; fournisseur natif de LiteLLM | Voix françaises masculines : Rémi (neuronale et générative), Mathieu (standard), Florian (générative), Liam (français canadien). Un compte AWS, donc une clé d'accès, un secret et une région : trois nouvelles variables ; la carte bancaire n'est pas indiquée | La meilleure piste vérifiée pour une voix masculine française ; pas construit ici, c'est un nouveau fournisseur |
+| Azure AI Speech (palier F0) | « Always » : 0,5 million de caractères neuronaux par mois, sur une ressource au palier F0 dont les quotas ne se règlent pas (page des tarifs et page des quotas lues le 2026-11-24) ; voix françaises masculines HenriNeural, ClaudeNeural, AlainNeural, JeromeNeural, MauriceNeural, YvesNeural et RemyMultilingualNeural, d'après la page des langues. LiteLLM sait appeler le service (route de synthèse « Azure AVA » vers `tts.speech.microsoft.com`, clé et région) | 20 transactions par 60 secondes au palier F0, 10 minutes d'audio au plus par requête. Un compte Azure exige un numéro de téléphone et une carte non prépayée ; avec le compte gratuit il faut passer au paiement à l'usage « within 30 days or after you've used your credit » pour garder les services gratuits, sinon « your account and services will be disabled » | À ajouter, **sous réserve** : le plafond à zéro est celui de la ressource F0, qui ne peut pas facturer, et non celui du compte, qui passe au paiement à l'usage sans plafond de dépense ; une ressource créée par erreur au palier payant se facture. Ajouter le fournisseur demande une clé et une région, soit deux nouvelles variables, et la création d'une ressource Speech au palier F0 |
 
 **Groupe 3 -- écartés, avec la raison.**
 
@@ -1722,13 +1735,10 @@ Les trois modèles de préversion plus anciens ne sont pas routés : la page « 
 | Deepgram Aura | 200 dollars, une seule fois | Crédit unique ; pas de français indiqué |
 | Together AI, OpenAI | Aucune | Payants (Kokoro 4 dollars le million de caractères, Orpheus 15 ; `tts-1` 15 dollars le million) |
 | edge-tts | Client non officiel du service de lecture à voix haute de Microsoft Edge : sans clé, de nombreuses voix françaises dont des masculines | Usage non officiel d'un service de Microsoft ; son README ne dit rien des conditions, de la stabilité ni des limites |
+| AWS Polly | Voix standard : 5 millions de caractères par mois, sans durée indiquée sur la page des tarifs ; neuronales (1 million), longue forme (500 000) et génératives (100 000) « for the first 12 months » ; fournisseur natif de LiteLLM (`aws_polly`) | La seule voix française masculine en voix standard est Mathieu ; les meilleures, Rémi (neuronale et générative) et Florian (générative), sont des offres de douze mois. Un compte AWS créé depuis le 2025-07-15 démarre sur un « free plan » de 100 à 200 $ de crédits qui « ends after six months or when your credits are fully used », puis « your account closes automatically » sauf passage au plan payant, qui n'a pas de plafond de dépense à zéro (les actions de Budgets s'appuient sur des données de facturation en retard) | Une voix standard ne vaut pas un compte qui se ferme au bout de six mois ou passe payant sans plafond. LiteLLM sait pourtant l'appeler : ce n'est pas la raison. Pages lues le 2026-11-24 |
+| ElevenLabs | Plan gratuit de 10 000 crédits par mois, soit environ 10 minutes de synthèse d'après la colonne « Minutes included » de la page des tarifs ; fournisseur natif de LiteLLM (`elevenlabs`) (page des tarifs et conditions lues le 2026-11-24) | Les conditions réservent le plan gratuit à un usage non commercial (« Free User ... non-commercial purposes ») et la documentation de facturation y ajoute l'attribution ; dix minutes par mois sont trop étroites pour une voix de passerelle. L'accès à l'API avec le plan gratuit n'est écrit sur aucune page lue |
 
-**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
-
-| Fournisseur | Ce qui a été vu | Ce qui manque |
-| --- | --- | --- |
-| Azure AI Speech (palier F0) | 0,5 million de caractères neuronaux gratuits par mois | Les prix, la liste des voix françaises, et un compte Azure |
-| ElevenLabs | Un résumé de la page des tarifs parle de 10 000 crédits par mois en gratuit, soit environ 10 000 caractères | Rien ne le confirme pour la synthèse, ni l'usage commercial sur le plan gratuit |
+**Groupe 4 -- pistes non vérifiées.** Aucune.
 
 **La synthèse locale.** Piper (qui a des voix françaises masculines) ou Kokoro tournant sur le processeur du serveur est la voie saine pour une voix masculine française, sans envoyer de texte à un tiers : elle est suivie par une issue du dépôt, et n'est pas promise ici.
 
@@ -1737,13 +1747,13 @@ Pages officielles lues :
 - Google Gemini API : pages « Speech », « Pricing », « Deprecations » et ses conditions d'utilisation
 - Mistral : documentation du modèle Voxtral de synthèse vocale
 - LiteLLM : page « Text to Speech » de sa documentation, et son code source
-- AWS Polly : pages « Pricing » et des voix
+- AWS Polly : pages [Pricing](https://aws.amazon.com/polly/pricing/) et [des voix standard](https://docs.aws.amazon.com/polly/latest/dg/standard-voices.html), [Free Tier](https://aws.amazon.com/free/) et [plans gratuits](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html), relues le 2026-11-24
 - Groq : page « Text to Speech » de sa documentation
 - Cloudflare Workers AI : page du modèle MeloTTS et page « Models »
 - Cartesia : pages des tarifs et de confidentialité
 - Deepgram, Together AI, OpenAI : pages des tarifs
-- Azure AI Speech : page « Pricing »
-- ElevenLabs : page des tarifs
+- Azure AI Speech : [Pricing](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speech-services/), [Quotas and limits](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-services-quotas-and-limits), [Language support](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support) et [Azure account](https://azure.microsoft.com/en-us/pricing/purchase-options/azure-account), lues le 2026-11-24
+- ElevenLabs : [Pricing](https://elevenlabs.io/pricing), [Terms of Use](https://elevenlabs.io/terms-of-use) et [Billing](https://elevenlabs.io/docs/overview/administration/billing), lues le 2026-11-24
 - edge-tts : son README
 
 ### Décider et extraire : les routeurs `Auto-Decision` et `Auto-Extraction`
@@ -1891,7 +1901,7 @@ Six entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: e
 
 #### Le registre des embeddings et du rerank
 
-Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank n'a aucune entrée : aucun point d'accès gratuit, durable et sans entraînement n'est atteignable avec les clés que le rôle connaît.
+Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank n'a qu'une entrée, Voyage AI, au groupe 2 : aucun autre point d'accès gratuit, durable et sans entraînement n'est atteignable avec les clés que le rôle connaît.
 
 **Groupe 1 -- utilisés aujourd'hui.**
 
@@ -1900,6 +1910,7 @@ Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank
 | Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni : pas pour des documents privés |
 | Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
 | Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, soit environ 9,3 millions de jetons `@cf/baai/bge-m3` par jour (**dérivé** de 1 075 neurons le million de jetons, page des tarifs lue le 2026-11-24) ; `@cf/baai/bge-m3` : contexte de 60 000 jetons, « Zero data retention », 0,012 $ le million de jetons | 3 000 requêtes par minute pour les embeddings ; taille du vecteur non lue sur une page | `bge-m3-cloudflare` routé par son nom, par le point d'accès compatible OpenAI (le fournisseur `cloudflare/` de LiteLLM n'a pas de route d'embeddings). « Zero data retention » et « No training » : le meilleur candidat pour des documents privés |
+| OpenRouter | Trois modèles `:free` au catalogue public des embeddings, à tarif 0 : `nvidia/nemotron-3.5-embed-1b:free` et `nvidia/nemotron-3.5-embed-8b:free` (multilingues, 32 768 jetons, texte et images de pages), `nvidia/nemotron-3-embed-1b:free` (4 096 jetons, texte) ; `POST /embeddings` du point d'accès compatible OpenAI ; la route d'embeddings d'OpenRouter existe dans LiteLLM (pages lues le 2026-11-24) | Les limites des modèles gratuits d'OpenRouter, déjà au registre du texte : 20 requêtes par minute et 50 par jour pour tout le compte, partagées avec les modèles de texte gratuits (non essayé) | Routés par leur nom (`nemotron-3-embed-1b-free`, `nemotron-3-5-embed-1b-free`, `nemotron-3-5-embed-8b-free`), sur la clé OpenRouter que le rôle connaît déjà. NVIDIA journalise et réutilise ce qui leur est envoyé : pas pour des documents privés |
 
 Pages officielles lues :
 
@@ -1913,8 +1924,14 @@ Pages officielles lues :
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
 | Cloudflare Workers AI (les autres modèles) | Même allocation de 10 000 « neurons » par jour, comptée avec celle de `bge-m3` ; `@cf/baai/bge-large-en-v1.5` (1024 dimensions, anglais), `@cf/google/embeddinggemma-2` (768 dimensions, options 128, 256, 512) ; le rerank (`bge-reranker-base`, 0,003 $ le million) n'a pas de route LiteLLM listée | 3 000 requêtes par minute pour les embeddings | Non ajoutés : `bge-m3` couvre le multilingue, et un second modèle d'un même fournisseur ne donne pas de second quota. Un modèle moins cher en neurons que `bge-m3` (`@cf/google/embeddinggemma-2`, 154 neurons le million de jetons, page des tarifs lue le 2026-11-24) mérite un examen avant qu'une collection ne soit remplie |
+| Voyage AI | « The first 200 million tokens » de voyage-4-large, voyage-4, voyage-4-lite et voyage-context-4, et de rerank-2.5, rerank-2.5-lite, rerank-2 et rerank-2-lite, « are free for every account » : un quota unique par compte, mais de 200 millions de jetons, sans renouvellement écrit ; ensuite 0,02 à 0,12 $ le million pour les embeddings, 0,02 et 0,05 $ pour le rerank ; fournisseur natif de LiteLLM (`voyage/`, embeddings et rerank) (pages lues le 2026-11-24) | Palier 1 : 2 000 requêtes par minute et 3 à 16 millions de jetons par minute selon le modèle, mais il « requires you add a payment method » ; les limites sans moyen de paiement ne sont pas lues. Facturation mensuelle par carte, ou crédits prépayés ; aucun plafond de dépense à zéro n'est écrit | À ajouter, rerank compris, sans carte d'abord. Le contenu peut servir à entraîner les modèles de Voyage : la désactivation exige un moyen de paiement enregistré et un administrateur de l'organisation, donc pas de documents privés sans carte. Demande un compte, une clé et une variable |
 
-Pages officielles lues : celles de Cloudflare dans le groupe 1.
+Pages officielles lues : celles de Cloudflare dans le groupe 1, et, le 2026-11-24 :
+
+- OpenRouter : [catalogue des modèles d'embeddings](https://openrouter.ai/api/v1/embeddings/models), [Submit an embedding request](https://openrouter.ai/docs/api-reference/embeddings/create-embeddings) et [Limits](https://openrouter.ai/docs/api/reference/limits)
+- Voyage AI : [Pricing](https://docs.voyageai.com/docs/pricing), [Rate limits](https://docs.voyageai.com/docs/rate-limits), [FAQ](https://docs.voyageai.com/docs/faq) et [Privacy](https://www.voyageai.com/privacy)
+- Jina AI : [Embeddings](https://jina.ai/embeddings) et [Rate limit](https://jina.ai/api-dashboard)
+- Together AI : [Billing and credits](https://docs.together.ai/docs/billing-credits)
 
 **Groupe 3 -- écartés, avec la raison.**
 
@@ -1925,14 +1942,10 @@ Pages officielles lues : celles de Cloudflare dans le groupe 1.
 | Hugging Face Inference Providers | Aucun crédit pour les comptes gratuits | Pas d'offre gratuite |
 | OpenAI | `text-embedding-3-small` (1536) et `-large` (3072) | Aucune offre gratuite trouvée |
 | Fireworks | Crédits prépayés, embeddings de 0,008 à 0,016 $ le million de jetons | Pas d'offre gratuite |
+| Jina AI | « New users get an auto-generated API key with free tokens », montant non écrit ; clé gratuite : 100 requêtes et 100 000 jetons par minute ; `jina-embeddings-v4` « free of charge via the API » parce que sa licence de recherche interdit l'usage commercial ; fournisseur natif de LiteLLM (`jina_ai`, embeddings et rerank) (pages lues le 2026-11-24) | Jetons d'essai d'un montant non publié, donc un essai ; le seul modèle gratuit, v4, est bridé en débit, « not suitable for production workloads » et sans promesse de durée. Les pages de conditions et de confidentialité du site répondent 404 |
+| Together AI, Nebius | Together : « doesn't currently offer free trials », au moins 15 $ de crédits à acheter avant d'utiliser la plateforme (page « Billing and credits » lue le 2026-11-24). Nebius : aucune offre gratuite, une carte exigée à l'inscription (pages de facturation lues le 2026-11-22) ; sa page des tarifs répond 403 le 2026-11-24 | Mêmes raisons que dans le registre du texte, où les deux sont écartés |
 
-**Groupe 4 -- pistes non vérifiées.** Aucune n'est un verdict.
-
-| Fournisseur | Ce qui a été vu | Ce qui manque |
-| --- | --- | --- |
-| Voyage AI | Famille voyage-4, 1024 dimensions par défaut, 32 000 jetons ; « The first 200 million tokens ... are free for every account » ; rerank-3 à 0,05 $ le million ; fournisseur `voyage/` de LiteLLM | Un compte à ouvrir, et rien ne dit que le crédit se renouvelle |
-| Jina AI | Jetons gratuits pour une clé neuve, 100 requêtes par minute avec une clé gratuite | Le montant ; aucune chaîne d'embedding propre à LiteLLM, le point d'accès compatible OpenAI conviendrait |
-| Together AI, Nebius | Pas de prix d'embeddings chez le premier, page des tarifs en 404 chez le second | Tout |
+**Groupe 4 -- pistes non vérifiées.** Aucune.
 
 ### Les administrateurs de `/ui`, invités et non dotés d'un mot de passe
 
