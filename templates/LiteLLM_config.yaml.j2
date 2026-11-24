@@ -337,35 +337,6 @@ model_list:
   #     model: gemini/gemini-2.5-pro
   #     api_key: "os.environ/GEMINI_API_KEY"
 
-  # Served until 2026-12-01: "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-24, says
-  # "gemini-2.5-flash" is deprecated and no longer available to select in Google AI Studio, and that
-  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It has a free quota of its own
-  # until then (the same 5 requests a minute and 20 a day as the Gemini 3 Flash entries, on the rate-limits page
-  # of the gateway's project in Google AI Studio, read 2026-11-22), so it is routed in "Auto-Flash", "Auto-Code" and
-  # "Auto-Claude-Code" to spend it, and goes on 2026-12-01: its name would then serve another model, and a second slot for it would only spend
-  # that model's quota twice.
-  - model_name: gemini-2-5-flash
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1048576
-      max_output_tokens: 65536
-      supports_vision: true
-    litellm_params:
-      model: gemini/gemini-2.5-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  # The same page, read 2026-11-22, says "gemini-2.5-flash-lite" is not deprecated and "remains
-  # available through the API until further notice".
-  - model_name: gemini-2-5-flash-lite
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1048576
-      max_output_tokens: 65536
-      supports_vision: true
-    litellm_params:
-      model: gemini/gemini-2.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
-
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
   # "ai.google.dev/gemini-api/docs/models/deep-research-pro-preview-12-2025" gives its "Agent code"
   # under the "Interactions API", and ".../docs/deep-research" says the agent "is exclusively
@@ -2345,6 +2316,11 @@ router_settings:
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # A member that answers "not found" is set aside for "cooldown_time" from its first such answer: its provider has
+  # retired or lost it, and every request would otherwise pay that call again before moving on. Without this policy a
+  # member reached through a cascade is never set aside, whatever it answers.
+  allowed_fails_policy:
+    NotFoundErrorAllowedFails: 0
   # Counts each entry's requests and tokens against the free limits its "rpm", "tpm", "rpd" and "tpd" state, in Redis
   # so that every worker shares the count, and skips without a call a member that has reached one: a provider at its
   # limit answers 429 only after a round trip, and the head of a cascade with 20 requests a day spends every request
@@ -2517,7 +2493,6 @@ router_settings:
         - gpt-oss-120b-cloudflare
 {% endif %}
 {% if has.Gemini %}
-        - gemini-2-5-flash
 {% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
@@ -2623,9 +2598,6 @@ router_settings:
         - nemotron-lightning-nvidia
 {% endif %}
         - nemotron-lightning-kilo
-{% if has.Gemini %}
-        - gemini-2-5-flash-lite
-{% endif %}
 {% if has.Cloudflare %}
         - llama-4-scout-17b-16e-instruct-cloudflare
 {% endif %}
@@ -2720,7 +2692,6 @@ router_settings:
         - muse-glimmer-nvidia
 {% endif %}
 {% if has.Gemini %}
-        - gemini-2-5-flash
 {% endif %}
 {% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
@@ -2786,7 +2757,6 @@ router_settings:
         - muse-glimmer-nvidia
 {% endif %}
 {% if has.Gemini %}
-        - gemini-2-5-flash
 {% endif %}
 {% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
