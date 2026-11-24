@@ -84,6 +84,14 @@ ALLOWED_HOSTS = {
     "anthropic.com": "domain of the address a Claude Code session commits under, which check_sign_off.py refuses as a certifier",
     "users.noreply.github.com": "domain of the GitHub noreply addresses: the maintainer's, which check_sign_off.py expects on a commit a session authored, and the Actions bot's, author of the model-list deletion commit",
     "json.schemastore.org": "JSON schema referenced by .claude/settings.json for editor validation",
+    # The official APIs the Level 1 collector of #20 calls, one per platform. That level exists
+    # precisely to read these and nothing else ("never scrape what an official API gives"), so the
+    # host is the platform's public endpoint rather than anything of the caller's.
+    "api.twitch.tv": "Twitch's official Helix API, called by the Level 1 stats collector (#20)",
+    "www.googleapis.com": "Google's API host, serving the YouTube Data API the Level 1 stats collector calls (#20)",
+    "open.tiktokapis.com": "TikTok's official Display API, called by the Level 1 stats collector (#20)",
+    "api.x.com": "X's official API, called by the Level 1 stats collector (#20)",
+    "graph.facebook.com": "Meta's official Graph API, for the Facebook and Instagram Level 1 stats collectors (#20)",
     "ai.google.dev": "Gemini terms of use, cited in #2",
     "aistudio.google.com": "Gemini API billing page, cited in the README registry",
     "aws.amazon.com": "AWS free-tier and pricing pages, cited in the README registry",

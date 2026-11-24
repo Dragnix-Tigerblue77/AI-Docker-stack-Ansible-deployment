@@ -1,0 +1,92 @@
+{
+  "name": "Artificial_Intelligence - Facebook Stats Collector",
+  "nodes": [
+    {
+      "id": "note-facebook",
+      "name": "Limitations - Facebook",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 900,
+        "height": 260,
+        "content": "## Facebook Graph API (Page Insights)\n\n- Suppose une Page Facebook (pas un profil personnel) et une app Meta avec la permission `pages_read_engagement` en revue active. Tant que la revue n'est pas passée, le noeud Insights échoue et le sous-workflow retombe sur `null` (`Continue on Fail`) sans bloquer les autres plateformes.\n- `followers_count` = `followers_count` (ou `fan_count` en repli) via `GET /{page-id}?fields=followers_count,fan_count`.\n- `views_recent_30d` / `views_average` : somme/moyenne de la métrique `page_impressions` sur les 30 derniers jours (`GET /{page-id}/insights?metric=page_impressions&period=day&since=...&until=...`).\n- `account_status` : pas de champ standard exposé par la Graph API pour une Page -> `null`.\n- `PLACEHOLDER_FACEBOOK_PAGE_ID` doit être renseigné dans le noeud HTTP Request après import."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-page",
+      "name": "GET /{page-id} (fan_count)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/PLACEHOLDER_FACEBOOK_PAGE_ID",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "id,name,followers_count,fan_count" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Facebook Graph OAuth2 (Artificial_Intelligence)" }
+      }
+    },
+    {
+      "id": "http-insights",
+      "name": "GET /{page-id}/insights (page_impressions)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 100],
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/PLACEHOLDER_FACEBOOK_PAGE_ID/insights",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "metric", "value": "page_impressions" },
+            { "name": "period", "value": "day" },
+            { "name": "since", "value": "={{ $now.minus({ days: 30 }).toFormat('yyyy-LL-dd') }}" },
+            { "name": "until", "value": "={{ $now.toFormat('yyyy-LL-dd') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Facebook Graph OAuth2 (Artificial_Intelligence)" }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const page = $('GET /{page-id} (fan_count)').item.json;\nconst insightsResult = $input.first().json;\nconst insightsFailed = !!insightsResult.error && !insightsResult.data;\nconst dailyValues = (!insightsFailed && insightsResult.data && insightsResult.data[0] && insightsResult.data[0].values) || [];\n\nconst totalViews = dailyValues.reduce((sum, d) => sum + (d.value || 0), 0);\n\nreturn [{\n  json: {\n    platform: 'facebook',\n    account_id: page.id,\n    account_name: page.name,\n    followers_count: page.followers_count ?? page.fan_count ?? null,\n    views_recent_30d: dailyValues.length ? totalViews : null,\n    views_average: dailyValues.length ? Math.round(totalViews / dailyValues.length) : null,\n    account_status: null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "GET /{page-id} (fan_count)", "type": "main", "index": 0 }]] },
+    "GET /{page-id} (fan_count)": { "main": [[{ "node": "GET /{page-id}/insights (page_impressions)", "type": "main", "index": 0 }]] },
+    "GET /{page-id}/insights (page_impressions)": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

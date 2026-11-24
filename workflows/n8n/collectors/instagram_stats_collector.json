@@ -1,0 +1,90 @@
+{
+  "name": "Artificial_Intelligence - Instagram Stats Collector",
+  "nodes": [
+    {
+      "id": "note-instagram",
+      "name": "Limitations - Instagram",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 900,
+        "height": 260,
+        "content": "## Instagram Graph API\n\n- Suppose un compte Instagram Business/Creator lié à une Page Facebook, et une app Meta avec `instagram_manage_insights` en revue active. Le noeud media/insights est en `Continue on Fail` : sans permission active, `views_recent_30d`/`views_average` retombent à `null` sans bloquer les autres plateformes.\n- `followers_count` = `followers_count` via `GET /{ig-user-id}?fields=followers_count,username`.\n- `views_recent_30d` / `views_average` : somme/moyenne de l'insight `impressions` des médias publiés dans les 30 derniers jours (`GET /{ig-user-id}/media?fields=timestamp,insights.metric(impressions)`), une seule page (25 médias) - suffisant pour un mois de publication normal.\n- `account_status` : pas de champ standard exposé -> `null`.\n- `PLACEHOLDER_INSTAGRAM_USER_ID` doit être renseigné dans le noeud HTTP Request après import."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-user",
+      "name": "GET /{ig-user-id} (followers_count)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/PLACEHOLDER_INSTAGRAM_USER_ID",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "id,username,followers_count" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (Artificial_Intelligence)" }
+      }
+    },
+    {
+      "id": "http-media",
+      "name": "GET /{ig-user-id}/media (impressions)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 100],
+      "parameters": {
+        "url": "=https://graph.facebook.com/v19.0/PLACEHOLDER_INSTAGRAM_USER_ID/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "timestamp,insights.metric(impressions)" },
+            { "name": "limit", "value": "25" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "Instagram Graph OAuth2 (Artificial_Intelligence)" }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const user = $('GET /{ig-user-id} (followers_count)').item.json;\nconst mediaResult = $input.first().json;\nconst mediaFailed = !!mediaResult.error && !mediaResult.data;\nconst media = (!mediaFailed && mediaResult.data) || [];\n\nconst since = new Date();\nsince.setDate(since.getDate() - 30);\n\nconst recent = media.filter((m) => new Date(m.timestamp) >= since);\nconst views = recent.map((m) => {\n  const impressions = m.insights && m.insights.data && m.insights.data[0] && m.insights.data[0].values && m.insights.data[0].values[0];\n  return impressions ? (impressions.value || 0) : 0;\n});\nconst totalViews = views.reduce((sum, v) => sum + v, 0);\n\nreturn [{\n  json: {\n    platform: 'instagram',\n    account_id: user.id,\n    account_name: user.username,\n    followers_count: user.followers_count ?? null,\n    views_recent_30d: recent.length ? totalViews : null,\n    views_average: recent.length ? Math.round(totalViews / recent.length) : null,\n    account_status: null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "GET /{ig-user-id} (followers_count)", "type": "main", "index": 0 }]] },
+    "GET /{ig-user-id} (followers_count)": { "main": [[{ "node": "GET /{ig-user-id}/media (impressions)", "type": "main", "index": 0 }]] },
+    "GET /{ig-user-id}/media (impressions)": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

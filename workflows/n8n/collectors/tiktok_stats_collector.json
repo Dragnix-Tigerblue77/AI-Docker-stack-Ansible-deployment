@@ -1,0 +1,97 @@
+{
+  "name": "Artificial_Intelligence - TikTok Stats Collector",
+  "nodes": [
+    {
+      "id": "note-tiktok",
+      "name": "Limitations - TikTok",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -260],
+      "parameters": {
+        "width": 900,
+        "height": 280,
+        "content": "## TikTok Display API (Login Kit)\n\n- `followers_count` = `follower_count` via `POST /v2/user/info/` (scope `user.info.stats`).\n- `views_recent_30d` / `views_average` : nécessitent le scope `video.list` (`POST /v2/video/list/`), pas toujours accordé sans passer par une revue d'app TikTok plus poussée. Le noeud d'appel vidéo est en `Continue on Fail` : si l'appel échoue (scope non accordé), les deux champs sont mis à `null` sans bloquer le flux, conformément à l'arbitrage validé.\n- `account_status` : aucun champ équivalent exposé par la Display API -> toujours `null` pour TikTok.\n- Pagination `video.list` non gérée (une seule page, `max_count` 20) - suffisant pour estimer 30 jours pour un compte à publication modérée ; à revoir si le volume de publication augmente."
+      }
+    },
+    {
+      "id": "trg-exec",
+      "name": "When called by orchestrator",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 100],
+      "parameters": {}
+    },
+    {
+      "id": "http-user-info",
+      "name": "POST /v2/user/info/",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 100],
+      "parameters": {
+        "url": "https://open.tiktokapis.com/v2/user/info/",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "open_id,display_name,follower_count" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (Artificial_Intelligence)" }
+      }
+    },
+    {
+      "id": "http-video-list",
+      "name": "POST /v2/video/list/",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 100],
+      "parameters": {
+        "url": "https://open.tiktokapis.com/v2/video/list/",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "id,create_time,view_count" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "max_count", "value": "20" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": { "id": "PLACEHOLDER", "name": "TikTok OAuth2 (Artificial_Intelligence)" }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "code-normalize",
+      "name": "Normalize to common schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 100],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const user = $('POST /v2/user/info/').item.json.data.user;\nconst videoResult = $input.first();\nconst videoFailed = !!videoResult.json.error && !videoResult.json.data;\nconst videos = (!videoFailed && videoResult.json.data && videoResult.json.data.videos) || [];\n\nconst since = Math.floor(Date.now() / 1000) - 30 * 24 * 3600;\nconst recent = videos.filter((v) => v.create_time >= since);\nconst totalViews = recent.reduce((sum, v) => sum + (v.view_count || 0), 0);\n\nreturn [{\n  json: {\n    platform: 'tiktok',\n    account_id: user.open_id,\n    account_name: user.display_name,\n    followers_count: user.follower_count ?? null,\n    views_recent_30d: recent.length ? totalViews : null,\n    views_average: recent.length ? Math.round(totalViews / recent.length) : null,\n    account_status: null\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "When called by orchestrator": { "main": [[{ "node": "POST /v2/user/info/", "type": "main", "index": 0 }]] },
+    "POST /v2/user/info/": { "main": [[{ "node": "POST /v2/video/list/", "type": "main", "index": 0 }]] },
+    "POST /v2/video/list/": { "main": [[{ "node": "Normalize to common schema", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
