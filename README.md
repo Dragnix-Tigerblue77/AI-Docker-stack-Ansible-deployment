@@ -948,6 +948,7 @@ le prix en neurons par million de jetons ; l'un ou l'autre de l'entrée et de la
 | `gemma-sea-lion-v4-27b-it-cloudflare` | environ 314 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
 | `mistral-small-3-1-24b-instruct-cloudflare` | environ 313 000 | environ 198 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
 | `llama-3-2-11b-vision-instruct-cloudflare` | environ 2 245 000 | environ 163 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre ; licence de Meta à accepter une fois sur le compte |
+| `mistral-7b-instruct-v0-2-lora-cloudflare` | non publié : absent de la table des tarifs lue le 2026-11-24 | non publié | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre ; 15 000 jetons de contexte (page du modèle, lue le 2026-11-24), que les vérifications préalables du routeur (`enable_pre_call_checks`) lui épargnent quand la demande ne tient pas |
 | `granite-4-0-h-micro-cloudflare` | environ 6 471 000 | environ 982 000 | `Auto-Flash-Lite`, parmi les derniers membres gratuits, faute de chiffre |
 | `qwen3-8-27b-cloudflare` | environ 244 000 | environ 34 000 | `Auto-Flash`, `Auto-Code` et `Auto-Claude-Code`, derrière ses jumeaux de Groq et d'OVHcloud ; réfléchit en Xhigh par défaut, ce qui use vite la sortie |
 | `glm-4-7-flash-cloudflare` | environ 1 818 000 | environ 275 000 | `Auto-Code` et `Auto-Claude-Code`, dernier membre gratuit |

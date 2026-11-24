@@ -1318,8 +1318,7 @@ model_list:
       max_completion_tokens: 32768
 
   # New to the gateway, and in "Auto-Flash-Lite" only, as the last of its free members: 24,000 tokens of context
-  # in LiteLLM's model map and on its page (read 2026-11-22), which is what "Auto-Flash-Lite" takes, and no
-  # reasoning phase to wait for. Epoch AI's capabilities index puts it at 126.2 (read 2026-11-21), under every
+  # in LiteLLM's model map and on its page (read 2026-11-22), and no reasoning phase to wait for. Epoch AI's capabilities index puts it at 126.2 (read 2026-11-21), under every
   # member of that cascade that it measures, hence the place. Its context is far under the 128,000 tokens
   # "Auto-Claude-Code" asks, so "Auto-Code" has no place for it either. Free status unconfirmed.
   - model_name: llama-3-3-70b-cloudflare
@@ -1489,11 +1488,14 @@ model_list:
       litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
-  # Mistral 7B Instruct v0.2 with LoRA adapter support, added 2026-11-24 and called by name only: its model page,
-  # read that day, gives a 15,000-token context, zero data retention and no function calling, under the 24,000 tokens
-  # of context "Auto-Flash-Lite" takes, and no figure measures this version. It is not among the models the pricing page
-  # (developers.cloudflare.com/workers-ai/platform/pricing/, read 2026-11-24) says need a paid billing method, so free
-  # within the account's daily allowance as far as that page tells.
+  # Mistral 7B Instruct v0.2 with LoRA adapter support, added 2026-11-24 and in "Auto-Flash-Lite" only, among the last
+  # free members, ahead of the smaller "granite-4-0-h-micro-cloudflare": its model page, read 2026-11-24, gives a
+  # 15,000-token context, zero data retention and no function calling, and no figure measures this version. A window
+  # is no reason to keep a model out of a cascade: the router's pre-call checks skip it, without a call, for a request
+  # it does not fit, and the cascade moves on. It has no tools, so "Auto-Claude-Code" and "Auto-Code" have no place
+  # for it. It is not among the models the pricing page (developers.cloudflare.com/workers-ai/platform/pricing/, read
+  # 2026-11-24) says need a paid billing method, so free within the account's daily allowance as far as that page
+  # tells; that page gives it no price in neurons.
   - model_name: mistral-7b-instruct-v0-2-lora-cloudflare
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -3433,6 +3435,7 @@ router_settings:
         - gemma-sea-lion-v4-27b-it-cloudflare
         - mistral-small-3-1-24b-instruct-cloudflare
         - llama-3-2-11b-vision-instruct-cloudflare
+        - mistral-7b-instruct-v0-2-lora-cloudflare
         - granite-4-0-h-micro-cloudflare
 {% endif %}
 {% if has.NVIDIA %}

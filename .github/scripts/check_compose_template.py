@@ -1819,8 +1819,6 @@ LITELLM_CALLED_BY_NAME = {
                                 "kept for whoever wants to follow releases without editing the file",
     "glm-4-6v-flash-zai": "a vision model whose context and tool support no page gives, so no cascade that asks for "
                           "either holds it",
-    "mistral-7b-instruct-v0-2-lora-cloudflare": "15,000 tokens of context and no function calling, under what any "
-                                                "router asks, so no cascade holds it",
     "olala-summarise-ovh": "a task-specific summary model, which no cascade holds",
     "olala-translate-ovh": "a task-specific translation model that asks for a 'source_language' field of its own, "
                            "which no cascade holds",

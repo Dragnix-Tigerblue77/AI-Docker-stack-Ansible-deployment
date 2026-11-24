@@ -412,24 +412,12 @@ pull request. An issue is opened for one thing only, a provider's catalogue stil
 the day's two retries. What the workflow needs and what it refuses to delete are in its header and
 in the docstring of the script.
 
-**Cleaning the list never shortens it.** The aim is the most free quota and the most choice, and a
-person decides from the full list: a router, a cascade or a "head" row is where a model is placed, never
-the test of whether it is listed. So an audit, a deletion pull request, a drift report or a registry may
-remove or leave out only what its provider has retired or redirected (a retirement that is only announced is not one: the model stays until the day it goes), what is paid only, what cannot be
-called (a gated model, a route LiteLLM has no call for, a provider that answers no request), what the
-free-tier rule below sets aside (a trial limited in time, a one-time quota), and what a person validated
-as a data or operator reason. A free model that can be called is never deleted, commented out, set aside
-by a `drift-ignore:` line or kept out of every cascade because it is redundant, no better than what is
-routed, a second model on a quota already counted (it answers when the first is refused for a reason of
-its own), already covered by a copy of it at another provider, not needed by any router or client today,
-unmeasured, "to keep the list short", or merely callable by name with nothing to say why. A model with a
-figure is placed by it; one without goes to the end of the free members of the cascades that can hold it;
-one that no cascade can hold (a guard model, a vision model, an embedding, a speech model, a level no
-router asks for) is an active entry of its kind, called by name, in the access group of its mode. What the
-gateway has no key, variable, provider reader, mode or access group for is written in the README's
-registry as something to add, with what adding it takes, and is not dropped. A `drift-ignore:` line is the
-record of a model turned down for one of the reasons above, with the page that says so and the date it was
-read; any other reason is a defect, and the fix is the entry.
+**Cleaning the list never shortens it.** A cleanup removes only what its provider has retired or
+redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, or
+what a person set aside for a data or operator reason. A free model that can be called is never
+removed, commented out, set aside by a `drift-ignore:` line or kept out of every cascade for being
+redundant, unmeasured, too small a window (the router's pre-call checks skip a member a request does
+not fit) or deemed not needed: it goes by its figure, at the tail of the free members, or by name.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
