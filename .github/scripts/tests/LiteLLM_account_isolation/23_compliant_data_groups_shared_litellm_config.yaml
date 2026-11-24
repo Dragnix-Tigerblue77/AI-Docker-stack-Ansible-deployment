@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 0
+---
+# The two groups that say what a provider does with the data sent to it are on every entry of every account, the
+# default one included, and are no account's allow list: even an account a caller labelled "private-data" does not
+# make them a claim on its key, and neither the grouping rule nor the labelling rule fires.
+model_list:
+  - model_name: gen-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      access_groups: ["LLM", "Private-Data"]
+
+  - model_name: gen-chat-private-data
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY_PRIVATE_DATA
+    model_info:
+      access_groups: ["LLM", "Private-Data"]
+
+  - model_name: other-chat
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+
+router_settings:
+  fallbacks:
+    - gen-chat: ["other-chat"]
