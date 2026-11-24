@@ -42,7 +42,8 @@ WHAT IT CHECKS
 --------------
 1. The file still gates the default branch: target "branch", enforcement "active",
    "~DEFAULT_BRANCH" with nothing excluded, no bypass actor, exactly one rule and of type
-   "required_status_checks", with at least one context and none of them twice. A re-export made
+   "required_status_checks", with at least one context and none of them twice, each from GitHub
+   Actions, the only source the gate reads a check from. A re-export made
    after clicking around the settings page can bring any of those back while the file still parses.
 2. Every context is the display name of exactly one job in ".github/workflows/" -- its "name:", or
    its key when it has none, which is the name GitHub reports it under. Two jobs reporting one name
@@ -99,6 +100,10 @@ RULESET = ROOT / ".github" / "rulesets" / "main.json"
 WORKFLOWS = ROOT / ".github" / "workflows"
 GATE = "dependabot-auto-merge.yml"
 DRIFT = "LiteLLM_model_drift.yml"
+# The id of the GitHub Actions app, the "source" the ruleset's settings page sets per check. Left out,
+# a check run of the same name posted by any integration would satisfy the ruleset, while the gate
+# reads GitHub Actions' runs only.
+GITHUB_ACTIONS_APP_ID = 15368
 
 # Jobs of a workflow the gate listens to that are deliberately NOT required, each with its reason --
 # the same shape as the allowlist of "check_no_inventory_data.py", and for the same reason: an entry
@@ -198,6 +203,12 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
             found.append("it requires no check at all, which would merge unchecked updates.")
         for context in sorted({context for context in contexts if contexts.count(context) > 1}):
             found.append('required context "%s" is listed more than once.' % context)
+        for check in checks:
+            if check.get("integration_id") != GITHUB_ACTIONS_APP_ID:
+                found.append('required context "%s" has "integration_id" %r, expected %d, GitHub '
+                             "Actions: a check of that name from any other source would satisfy it."
+                             % (check.get("context", ""), check.get("integration_id"),
+                                GITHUB_ACTIONS_APP_ID))
 
     # Every display name a job reports under, with the workflows reporting it.
     reporters = {}
@@ -414,7 +425,10 @@ def selftest_ruleset(*contexts, **overrides):
         "rules": [{
             "type": "required_status_checks",
             "parameters": {
-                "required_status_checks": [{"context": context} for context in contexts],
+                "required_status_checks": [
+                    {"context": context, "integration_id": GITHUB_ACTIONS_APP_ID}
+                    for context in contexts
+                ],
             },
         }],
     }
@@ -461,6 +475,12 @@ def selftest_cases():
         ("two jobs reporting one required name are refused",
          selftest_ruleset(*good), selftest_workflows(extra=SELFTEST_CI.replace("CI", "Other")),
          "is reported by 2 jobs"),
+        ("a check any source could satisfy is refused",
+         selftest_ruleset(*good, rules=[{"type": "required_status_checks", "parameters": {
+             "required_status_checks": [{"context": "the linter"}, {"context": "build",
+                                                                     "integration_id": GITHUB_ACTIONS_APP_ID}],
+         }}]),
+         selftest_workflows(), '"the linter" has "integration_id" None'),
         ("a context listed twice is refused",
          selftest_ruleset("the linter", "build", "build"), selftest_workflows(), "more than once"),
         ("an empty list of checks is refused",
