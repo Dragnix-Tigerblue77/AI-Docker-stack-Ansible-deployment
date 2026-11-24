@@ -4148,6 +4148,13 @@ def run_proposal_cases():
                ("free tier, and only" in (build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", aion_items)[1] or ""),
                 "a ready addition of a provider whose catalogue flags no model free was let through")))
     entries = addition_entries(ADDITIONS_TEMPLATE.split("\n"))
+    # An OpenRouter embedding entry written last is not the one a new chat model is written after.
+    with_embedding = addition_entries(ADDITIONS_TEMPLATE.replace(
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n{% endif %}',
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n\n  - model_name: free-embed\n    litellm_params:\n'
+        '      model: openrouter/vendor/embed:free\n      api_key: "os.environ/OPENROUTER_API_KEY"\n'
+        '    model_info:\n      mode: embedding\n      access_groups: ["Embeddings"]\n{% endif %}', 1).split("\n"))
+    embedding_anchor = (addition_anchor(with_embedding, "openrouter") or {}).get("name") if with_embedding else None
     basis = provider_basis(read_template(ADDITIONS_TEMPLATE)[0]["active"], "kilo")
     taken = set(WORD.findall(ADDITIONS_TEMPLATE)) | {"gw-one-kilo"}
     snippet_lines = snippet("kilo", "vendor/gw-four:free", basis, "gw-four-kilo")
@@ -4162,7 +4169,9 @@ def run_proposal_cases():
                 "a name that is taken did not get another"),
                (snippet_lines[-3:] == ['      api_key: "gw-no-key"', "      extra_headers:", '        Authorization: ""'],
                 "the snippet of a keyless gateway is not the entry's shape: %r" % snippet_lines),
-               (entries and addition_anchor(entries, "kilo")["name"] == "gw-one", "the entry of Kilo is not found")))
+               (entries and addition_anchor(entries, "kilo")["name"] == "gw-one", "the entry of Kilo is not found"),
+               (embedding_anchor == "free-one",
+                "a new OpenRouter model would be written after an embedding entry: %r" % embedding_anchor)))
 
     # The tables the bodies read, against the providers they serve.
     commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
