@@ -412,7 +412,7 @@ pull request. An issue is opened for one thing only, a provider's catalogue stil
 the day's two retries. What the workflow needs and what it refuses to delete are in its header and
 in the docstring of the script.
 
-**Cleaning the list never shortens it.** A cleanup removes only what its provider has retired or
+**What a cleanup of the model list may remove.** A cleanup removes only what its provider has retired or
 redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, what a
 person set aside for a data or operator reason, or a second entry for the same model at the same
 level, which is a duplicate and not a model. A free model that can be called is never removed,
