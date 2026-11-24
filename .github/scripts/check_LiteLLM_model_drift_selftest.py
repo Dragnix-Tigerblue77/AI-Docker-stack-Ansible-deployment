@@ -134,6 +134,10 @@ credential_list:
     credential_info: {}
     credential_values:
       api_key: "os.environ/CENT_AI_API_KEY"
+  - credential_name: vercel-ai-gateway
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 model_list:
   - model_name: flash
     litellm_params:
@@ -7872,7 +7876,7 @@ COVERAGE_BLOCK = """\
   - model_name: vc-one
     litellm_params:
       model: vercel_ai_gateway/vendor/vc-one
-      api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
+      litellm_credential_name: "vercel-ai-gateway"
 
   # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
   # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down

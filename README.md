@@ -777,7 +777,7 @@ donc LibreChat les propose toujours. À connaître :
 
 Chaque clé fournisseur arrive à LiteLLM comme un **identifiant nommé** du `credential_list` de `LiteLLM_config.yaml.j2`
 (`gemini`, `mistral`, `groq`, `openrouter`, `deepseek`, `cloudflare`, `zai`, `requesty`, `nvidia-nim`, `cent-ai`,
-`aion-labs`, et `<fournisseur>-<étiquette>` pour la clé d'un autre compte), et les entrées disent `litellm_credential_name`
+`aion-labs`, `vercel-ai-gateway`, et `<fournisseur>-<étiquette>` pour la clé d'un autre compte), et les entrées disent `litellm_credential_name`
 là où elles disaient `api_key`. L'onglet « LLM Credentials » de `/ui` les liste donc, avec la source `config` : la
 valeur y est masquée (il en reste les deux premiers et les deux derniers caractères, pour l'administrateur seul : un
 utilisateur interne reçoit un 401 sur `GET /credentials`), et LiteLLM refuse de la modifier ou de la supprimer depuis `/ui` ou l'API.
