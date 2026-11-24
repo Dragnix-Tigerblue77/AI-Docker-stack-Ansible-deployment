@@ -607,7 +607,8 @@ def deletion_targets(template_text):
     is in the cascades of several routers, the last member of a cascade, and an entry called by name. They are
     found in the template as it is, so that no entry is named here and any of them can go. A head of a router or a
     last resort is never chosen, since deleting one rewrites the head of that router in the template itself, which no
-    format of this file can avoid."""
+    format of this file can avoid. The template may have no entry called by name, as it may at any time, so that kind
+    is looked at when there is one, and is played on the miniature of this file's own selftest in any case."""
     document = yaml.safe_load(drift.render_with_keys(template_text, None))
     lists = cascades(document)
     heads = set(aliases(document).values())
@@ -630,7 +631,7 @@ def deletion_targets(template_text):
     named = [name for name in lists if name not in drift.ROUTER_OF_PUBLIC_NAME]
     if named:
         targets["an entry called by name"] = named[0]
-    wanted = ("an entry in the cascades of several routers", "the last member of a cascade", "an entry called by name")
+    wanted = ("an entry in the cascades of several routers", "the last member of a cascade")
     return targets, [what for what in wanted if what not in targets]
 
 
@@ -718,7 +719,9 @@ def selftest_cases():
         ("deleting an entry of the real template, wherever it stands, only removes lines from the catalogue",
          lambda: next((wrong for wrong in (deletion_wrong(*real_sources(), name) for name in
                                            deletion_targets(real_sources()[0])[0].values()) if wrong), None)),
-        ("the template has an entry in several cascades, the end of a cascade and an entry called by name to delete",
+        ("deleting an entry called by name, in the miniature template, only removes lines from the catalogue",
+         lambda: deletion_wrong(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS, "alpha")),
+        ("the template has an entry in several cascades and the end of a cascade to delete",
          lambda: None if not deletion_targets(real_sources()[0])[1] else
          "no entry of the template shows: %s" % ", ".join(deletion_targets(real_sources()[0])[1])),
         ("a catalogue that is not there is refused", lambda: verdict(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS, None, 1, "does not exist")),
