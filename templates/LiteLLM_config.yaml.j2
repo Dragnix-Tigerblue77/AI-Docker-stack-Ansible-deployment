@@ -178,7 +178,8 @@ credential_list:
 # "developers.cloudflare.com/workers-ai/models/<slug>/"; OpenRouter, Kilo, Requesty, OVHcloud and Aion Labs, the
 # "/models" list of their API ("openrouter.ai/api/v1/models" and the same path on the others' "api_base");
 # NVIDIA "build.nvidia.com/<publisher>/<model>/modelcard"; Mistral "docs.mistral.ai/models/<model>.md"; DeepSeek
-# "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7" and, for GLM-4.5-Flash, "docs.z.ai/guides/llm/glm-4.5"; Cent AI "cent-ai.dev/models".
+# "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7" and, for GLM-4.5-Flash, "docs.z.ai/guides/llm/glm-4.5"; Cent AI "cent-ai.dev/models"; Vercel AI Gateway
+# "ai-gateway.vercel.sh/v1/models", the "context_window" and "max_tokens" of each model.
 # "check_compose_template.py" requires the window of every member of a cascade.
 # Every entry is also in exactly one of two groups that say what its provider does with the data sent to it,
 # written after its type group: "Private-Data" for a provider whose own terms leave prompts and outputs untrained,
@@ -3007,7 +3008,10 @@ model_list:
   # Meta's open-weight reasoning model: Artificial Analysis index 24.9 at its Xhigh level, 11.0 s (read 2026-11-21).
   - model_name: muse-spark-open-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/meta/muse-spark-open
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3016,7 +3020,10 @@ model_list:
   # 2026-11-21), so right behind Gemini 3.8 Flash in "Auto-Pro" and behind its low level in "Auto-Flash".
   - model_name: inkling-2-small-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/thinkingmachines/inkling-2-small
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3024,7 +3031,10 @@ model_list:
   # Artificial Analysis index 26.7, 48.6 s (read 2026-11-21).
   - model_name: mimo-v2-6-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/xiaomi/mimo-v2.6-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3034,7 +3044,10 @@ model_list:
   # without an index and is not routed.
   - model_name: ling-3-1-flash-1019-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 262144
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.1-flash-1019
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3043,7 +3056,10 @@ model_list:
   # is unknown).
   - model_name: inkling-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/thinkingmachines/inkling
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3052,7 +3068,10 @@ model_list:
   # estimated, past the floor of "Auto-Pro". Its record is at Xhigh, 54.5 s, and the level called is unknown.
   - model_name: gpt-5-2-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3061,7 +3080,10 @@ model_list:
   # Artificial Analysis index.
   - model_name: gpt-5-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3069,7 +3091,10 @@ model_list:
   # Capabilities index 10.9, estimated.
   - model_name: gpt-5-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3077,7 +3102,10 @@ model_list:
   # Capabilities index 11.3, estimated.
   - model_name: gpt-5-4-nano-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.4-nano
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3085,7 +3113,10 @@ model_list:
   # Capabilities index 12.0, estimated.
   - model_name: o3-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/o3
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3093,7 +3124,10 @@ model_list:
   # Capabilities index 10.0, estimated.
   - model_name: o4-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/o4-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3101,7 +3135,10 @@ model_list:
   # Capabilities index 15.4, estimated.
   - model_name: qwen3-6-plus-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.6-plus
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3110,7 +3147,10 @@ model_list:
   # its open-weights sibling being a model the hosted one need not be.
   - model_name: qwen3-5-plus-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.5-plus
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3118,7 +3158,10 @@ model_list:
   # Capabilities index 8.4, estimated, the hosted model of the name (see "qwen3-5-plus-vercel").
   - model_name: qwen3-5-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.5-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3127,7 +3170,10 @@ model_list:
   # and not behind the twin, among the members of the same range.
   - model_name: qwen3-6-35b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.6-35b-a3b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3135,7 +3181,10 @@ model_list:
   # Capabilities index 11.2, estimated, of DeepSeek V3.2; the entry is its thinking variant.
   - model_name: deepseek-v3-2-thinking-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/deepseek/deepseek-v3.2-thinking
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3143,7 +3192,10 @@ model_list:
   # Capabilities index 5.0, estimated.
   - model_name: deepseek-v3-1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 163840
+      max_output_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/deepseek/deepseek-v3.1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3152,7 +3204,10 @@ model_list:
   # only.
   - model_name: kimi-k2-7-code-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/moonshotai/kimi-k2.7-code
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3161,7 +3216,10 @@ model_list:
   # (read 2026-11-21).
   - model_name: kimi-k2-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/moonshotai/kimi-k2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3169,7 +3227,10 @@ model_list:
   # Capabilities index 7.8, estimated.
   - model_name: glm-4-7-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 120000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.7
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3178,7 +3239,10 @@ model_list:
   # no cascade.
   - model_name: mistral-medium-3-5-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/mistral-medium-3.5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3187,7 +3251,10 @@ model_list:
   # of "Auto-Flash" is drawn from.
   - model_name: gemini-2-5-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65535
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/google/gemini-2.5-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3196,7 +3263,10 @@ model_list:
   # ones. Index 3.8 (read 2026-11-21).
   - model_name: gpt-oss-120b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-oss-120b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3204,7 +3274,10 @@ model_list:
   # The model of "gpt-oss-20b-groq" and its twins, right behind the Cloudflare one in "Auto-Flash-Lite".
   - model_name: gpt-oss-20b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-oss-20b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3213,7 +3286,10 @@ model_list:
   # behind it in "Auto-Flash-Lite".
   - model_name: gemini-2-5-flash-lite-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65535
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/google/gemini-2.5-flash-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3221,7 +3297,10 @@ model_list:
   # The model of "gemma-4-26b-gemini" and its twins, right behind the OpenRouter one in "Auto-Flash-Lite".
   - model_name: gemma-4-26b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/google/gemma-4-26b-a4b-it
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3229,7 +3308,10 @@ model_list:
   # The model of "nemotron-ultra-free" and its twins, behind the last keyed one and ahead of Kilo's, in "Auto-Pro".
   - model_name: nemotron-ultra-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-3-ultra-550b-a55b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3238,7 +3320,10 @@ model_list:
   # and "Auto-Flash".
   - model_name: nemotron-super-vl-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-3.5-super-vl
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3247,7 +3332,10 @@ model_list:
   # 0, "Lightning Free".
   - model_name: nemotron-lightning-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-3.5-lightning-free
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3256,7 +3344,10 @@ model_list:
   # figure, index 29.1.
   - model_name: minimax-m3-1-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 524288
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/minimax/minimax-m3.1-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3265,7 +3356,10 @@ model_list:
   # time of 1.1 s.
   - model_name: llama-4-scout-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/meta/llama-4-scout
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3273,357 +3367,510 @@ model_list:
   # The model of "llama-3-3-70b-cloudflare", right behind it in "Auto-Flash-Lite": no index, and a time of 2.3 s.
   - model_name: llama-3-3-70b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/meta/llama-3.3-70b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen-3-14b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 40960
+      max_output_tokens: 16384
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen-3-14b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen-3-30b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 40960
+      max_output_tokens: 16384
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen-3-30b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen-3-32b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen-3-32b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-coder-30b-a3b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-coder-30b-a3b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-coder-next-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-coder-next
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-next-80b-a3b-instruct-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-next-80b-a3b-instruct
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-vl-instruct-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-vl-instruct
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-6-27b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.6-27b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-7-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 991000
+      max_output_tokens: 64000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.7-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: qwen3-8-omni-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3.8-omni-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nova-2-lite-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 1000000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/amazon/nova-2-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nova-lite-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 300000
+      max_output_tokens: 8192
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/amazon/nova-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nova-micro-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/amazon/nova-micro
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nova-pro-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 300000
+      max_output_tokens: 8192
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/amazon/nova-pro
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: seed-2-1-turbo-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/bytedance/seed-2.1-turbo
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: apex-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/callstack/apex
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: command-a-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 8000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/cohere/command-a
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: deepseek-r1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/deepseek/deepseek-r1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glimpse-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 220000
+      max_output_tokens: 4096
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/elorian/glimpse
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: mercury-3-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inception/mercury-3
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ling-3-0-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.0-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ling-3-0-flash-fin-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.0-flash-fin
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ling-3-0-flash-sante-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.0-flash-sante
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ling-3-0-flash-vl-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.0-flash-vl
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ling-3-1-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inclusionai/ling-3.1-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: schematron-v2-small-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 4096
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inference-net/schematron-v2-small
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: schematron-v2-turbo-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/inference-net/schematron-v2-turbo
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: interfaze-beta-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 32000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/interfaze/interfaze-beta
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: lfm2-5-24b-a2b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8200
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/liquid/lfm2.5-24b-a2b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: longcat-2-5-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/meituan/longcat-2.5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: llama-3-1-70b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/meta/llama-3.1-70b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: llama-3-1-8b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/meta/llama-3.1-8b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: llama-4-maverick-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/meta/llama-4-maverick
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: muse-ember-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/meta/muse-ember
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: minimax-m2-1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 204800
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/minimax/minimax-m2.1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: minimax-m2-5-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/minimax/minimax-m2.5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: minimax-m2-7-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 204800
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/minimax/minimax-m2.7
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: codestral-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 4000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/mistral/codestral
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ministral-14b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/ministral-14b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ministral-3b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 4000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/ministral-3b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ministral-8b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 4000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/ministral-8b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: mistral-large-3-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/mistral-large-3
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: mistral-nemo-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/mistral/mistral-nemo
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: toast-1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131000
+      max_output_tokens: 4000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/mixedbread/toast-1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: morph-v3-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 81920
+      max_output_tokens: 16384
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/morph/morph-v3-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: morph-v3-large-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 81920
+      max_output_tokens: 16384
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/morph/morph-v3-large
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nemotron-3-super-120b-a12b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-3-super-120b-a12b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nemotron-nano-12b-v2-vl-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-nano-12b-v2-vl
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: nemotron-nano-9b-v2-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/nvidia/nemotron-nano-9b-v2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-4-1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4.1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3631,14 +3878,20 @@ model_list:
   # The priority tier of openai/gpt-4.1: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-4-1-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4.1-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-4-1-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4.1-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3646,21 +3899,30 @@ model_list:
   # The priority tier of openai/gpt-4.1-mini: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-4-1-mini-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4.1-mini-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-4-1-nano-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4.1-nano
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-4o-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4o
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3668,14 +3930,20 @@ model_list:
   # The priority tier of openai/gpt-4o: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-4o-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4o-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-4o-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4o-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3683,14 +3951,20 @@ model_list:
   # The priority tier of openai/gpt-4o-mini: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-4o-mini-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-4o-mini-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-codex-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5-codex
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3698,7 +3972,10 @@ model_list:
   # The priority tier of openai/gpt-5: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-5-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3706,42 +3983,60 @@ model_list:
   # The priority tier of openai/gpt-5-mini: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-5-mini-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5-mini-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-nano-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5-nano
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-1-codex-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.1-codex
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-1-codex-max-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.1-codex-max
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-1-codex-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.1-codex-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-5-1-thinking-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.1-thinking
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3749,7 +4044,10 @@ model_list:
   # The priority tier of openai/gpt-5.1-thinking: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-5-1-thinking-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.1-thinking-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3757,28 +4055,40 @@ model_list:
   # The priority tier of openai/gpt-5.2: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-5-2-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-5.2-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-oss-safeguard-120b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-oss-safeguard-120b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: gpt-oss-safeguard-20b-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/openai/gpt-oss-safeguard-20b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: o1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/o1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3786,161 +4096,230 @@ model_list:
   # The priority tier of openai/o3: the same model at a higher price, so the figures of the model describe it.
   - model_name: o3-fast-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/o3-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: o3-mini-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/openai/o3-mini
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: o3-pro-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/openai/o3-pro
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: ultramarine-1-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/paperinstruments/ultramarine-1-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: sonar-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 127000
+      max_output_tokens: 8000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/perplexity/sonar
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: arrow-2-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/quiverai/arrow-2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: arrow-2-telos-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/quiverai/arrow-2-telos
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: flint-v1-0-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/recursive/flint-v1.0
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: scaledown-summarize-1-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 1000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/scaledown/scaledown-summarize-1
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: step-3-7-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/stepfun/step-3.7-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: hy-mt2-lite-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/tencent/hy-mt2-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: hy-mt2-plus-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/tencent/hy-mt2-plus
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: hy-mt2-pro-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/tencent/hy-mt2-pro
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: hy3-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/tencent/hy3
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: hy4-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1024000
+      max_output_tokens: 64000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/tencent/hy4-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-5-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 96000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-5-air-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 96000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.5-air
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-5v-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 66000
+      max_output_tokens: 16000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.5v
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-6-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 96000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.6
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-7-flash-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 131000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.7-flash
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-4-7-flashx-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: vercel_ai_gateway/zai/glm-4.7-flashx
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: glm-5v-turbo-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/zai/glm-5v-turbo
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 
   - model_name: mistral-small-vercel
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 4000
+      supports_vision: true
     litellm_params:
       model: vercel_ai_gateway/mistral/mistral-small
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3953,7 +4332,7 @@ model_list:
   - model_name: qwen3-embedding-0-6b-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-embedding-0.6b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3961,7 +4340,7 @@ model_list:
   - model_name: qwen3-embedding-4b-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-embedding-4b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3969,7 +4348,7 @@ model_list:
   - model_name: qwen3-embedding-8b-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/alibaba/qwen3-embedding-8b
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3977,7 +4356,7 @@ model_list:
   - model_name: titan-embed-text-v2-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/amazon/titan-embed-text-v2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3985,7 +4364,7 @@ model_list:
   - model_name: embed-v4-0-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/cohere/embed-v4.0
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -3993,7 +4372,7 @@ model_list:
   - model_name: embed-v5-0-fast-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/cohere/embed-v5.0-fast
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4001,7 +4380,7 @@ model_list:
   - model_name: embed-v5-0-pro-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/cohere/embed-v5.0-pro
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4009,7 +4388,7 @@ model_list:
   - model_name: gemini-embedding-001-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/google/gemini-embedding-001
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4017,7 +4396,7 @@ model_list:
   - model_name: text-embedding-005-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/google/text-embedding-005
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4025,7 +4404,7 @@ model_list:
   - model_name: text-multilingual-embedding-002-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/google/text-multilingual-embedding-002
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4033,7 +4412,7 @@ model_list:
   - model_name: codestral-embed-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/mistral/codestral-embed
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4041,7 +4420,7 @@ model_list:
   - model_name: mistral-embed-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/mistral/mistral-embed
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4049,7 +4428,7 @@ model_list:
   - model_name: voyage-3-large-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-3-large
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4057,7 +4436,7 @@ model_list:
   - model_name: voyage-3-5-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-3.5
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4065,7 +4444,7 @@ model_list:
   - model_name: voyage-3-5-lite-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-3.5-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4073,7 +4452,7 @@ model_list:
   - model_name: voyage-4-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-4
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4081,7 +4460,7 @@ model_list:
   - model_name: voyage-4-large-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-4-large
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4089,7 +4468,7 @@ model_list:
   - model_name: voyage-4-lite-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-4-lite
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4097,7 +4476,7 @@ model_list:
   - model_name: voyage-code-2-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-code-2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4105,7 +4484,7 @@ model_list:
   - model_name: voyage-code-3-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-code-3
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4113,7 +4492,7 @@ model_list:
   - model_name: voyage-finance-2-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-finance-2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
@@ -4121,7 +4500,7 @@ model_list:
   - model_name: voyage-law-2-vercel
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
     litellm_params:
       model: vercel_ai_gateway/voyage/voyage-law-2
       api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"

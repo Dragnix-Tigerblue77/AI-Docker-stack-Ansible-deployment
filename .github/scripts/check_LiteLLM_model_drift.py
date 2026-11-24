@@ -6030,7 +6030,7 @@ DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare"
                "openrouter": "Public-Data-Only", "groq": "Public-Data-Only", "deepseek": "Public-Data-Only",
                "zai": "Public-Data-Only", "requesty": "Public-Data-Only", "nvidia": "Public-Data-Only",
                "centai": "Public-Data-Only", "kilo": "Public-Data-Only", "cerebras": "Public-Data-Only",
-               "sambanova": "Public-Data-Only"}
+               "sambanova": "Public-Data-Only", "vercel": "Public-Data-Only"}
 DEFAULT_DATA_GROUP = "Public-Data-Only"
 
 
