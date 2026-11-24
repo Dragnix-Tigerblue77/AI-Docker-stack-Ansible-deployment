@@ -155,12 +155,12 @@ An entry belongs to a provider by the prefix of its "model:", which is how LiteL
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 "cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
-OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai") and Cent AI
-("api.cent-ai.dev"). Every provider the model list routes to has its catalogue read here, one that needs
+OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai"), Cent AI
+("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
 a key included, and the offline run refuses an active entry of any other: OmniRoute's virtual routes
 ("openai/auto/..." on a local "api_base"), which no catalogue lists because the machine itself picks the
 model, are the one exemption, and the report says how many there are. The names a "drift-ignore:" line
-takes are those of the table below, Cent AI's being "centai": the workflow's tables read a name as plain letters.
+takes are those of the table below, Cent AI's being "centai" and Aion Labs' "aionlabs": the workflow's tables read a name as plain letters.
 
   provider    catalogue, and how its key is sent       what the provider's own filter keeps, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free" and both prices "0"
@@ -186,6 +186,7 @@ takes are those of the table below, Cent AI's being "centai": the workflow's tab
               -- no key
   zai         api.z.ai/api/paas/v4/models -- Bearer    every model
   centai      api.cent-ai.dev/v1/models -- Bearer      every model
+  aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -225,6 +226,11 @@ timestamp is a NOTICE too, read as seconds since the epoch, which is what its va
 OVHcloud, Z AI and Cent AI are read as plain lists of ids. OVHcloud states a price per token and says nothing
 of the keyless access its entries are called through, so its NEW models are listed to examine and never
 claimed free; NVIDIA, Z AI and Cent AI state nothing per model either.
+
+Aion Labs' catalogue is public and lists its models with a price each: its free tier is the allowance of
+the account and no model's own, so no model of it is ever read as free, and a NEW one is listed to examine and
+proposed only in the pull request of models to verify. Its models are in an access group of their own
+("Fiction", which ACCESS_GROUPS gives an entry written for it) and in one router of their own.
 
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
@@ -280,7 +286,7 @@ RETIRED    an active entry whose id the catalogue no longer lists: delete it and
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
 NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
-           "expiration_date", Requesty's "retires", Mistral's "deprecation" (with "deprecation_replacement_model"), the
+           "expiration_date", Requesty's "retires", Aion Labs' "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the
            "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
            "planned_deprecation_date"; an active Kilo entry that is no longer flagged free, since
            its keyless call would be refused; and an active Requesty entry that is no longer priced 0.
@@ -292,7 +298,7 @@ NEW        an id the file does not know. Known ids are those of the active and t
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
            <provider> is one of the names above: "sambanova/<id>" for SambaNova, "kilo/<id>" for
-           Kilo Gateway, "ovhcloud/<id>", "requesty/<id>" and "centai/<id>", and "nvidia/<id>" for
+           Kilo Gateway, "ovhcloud/<id>", "requesty/<id>" and "centai/<id>", "aionlabs/<id>", and "nvidia/<id>" for
            the entries that read "nvidia_nim/<id>", where the entry itself reads "openai/<id>". A Mistral id is known when one
            of its "aliases" is. Each carries its usage (see above), shown on its line.
 
@@ -768,7 +774,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
-                     "Cent_AI")
+                     "Cent_AI", "Aion_Labs")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1002,7 +1008,7 @@ NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openro
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
 OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
                 "ovhcloud": "oai.endpoints.kepler.ai.cloud.ovh.net", "requesty": "requesty.ai",
-                "centai": "api.cent-ai.dev"}
+                "centai": "api.cent-ai.dev", "aionlabs": "api.aionlabs.ai"}
 # The one provider whose entries no catalogue backs: OmniRoute is a local gateway that picks among the models the
 # machine itself holds, so its virtual "auto/..." routes are listed nowhere upstream and no reader could cover them.
 OMNIROUTE_BASE = re.compile(r"https?://omniroute[:/]")
@@ -1049,6 +1055,7 @@ ROUTER_PUBLIC_NAMES = {
     "tts": "Auto-TTS",
     "decision": "Auto-Decision",
     "extraction": "Auto-Extraction",
+    "fiction": "Auto-Fiction",
 }
 ROUTER_OF_PUBLIC_NAME = {public: router for router, public in ROUTER_PUBLIC_NAMES.items()}
 
@@ -1553,6 +1560,33 @@ def read_requesty(pages):
     return catalogue
 
 
+def read_aionlabs(pages):
+    """Aion Labs: a public list of the models, each with a price and, where it is retired, an "expires_at" (and the
+    "replacement_model_id" that takes its place). Its free tier is the account's allowance and no model's own, so
+    nothing here says one is free: every model not retired is offered as NEW, and the free tier is checked by a
+    person. A modality other than text on both sides is read for what it is."""
+    catalogue = new_catalogue()
+    for model in listed(pages[0]):
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        if model.get("expires_at"):
+            replacement = model.get("replacement_model_id")
+            catalogue["notices"][identifier] = {
+                "what": "expiration", "date": safe_text(model["expires_at"]),
+                "replacement": safe_text(replacement) if isinstance(replacement, str) and replacement else None}
+            continue
+        architecture = model.get("architecture")
+        modality = architecture.get("modality") if isinstance(architecture, dict) else None
+        sides = modality.split("->") if isinstance(modality, str) else []
+        if len(sides) == 2 and sides[1].strip() != "text":
+            usage = next((usage for kind, usage in MODALITY_USAGES if kind in sides[1]),
+                         usage_of_id(identifier, UNCLASSIFIED))
+        else:
+            usage = usage_of_id(identifier, CHAT if sides else UNCLASSIFIED)
+        offer(catalogue, identifier, model.get("name") or "", usage)
+    return catalogue
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -1747,6 +1781,7 @@ PROVIDERS = (
     ("requesty", "https://router.eu.requesty.ai/v1/models", None, None, read_requesty, None),
     ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
     ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
+    ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
@@ -1773,6 +1808,7 @@ PRICING_PAGES = {
     "ovhcloud": "https://www.ovhcloud.com/en/public-cloud/ai-endpoints/catalog/",
     "zai": "https://docs.z.ai/guides/overview/pricing",
     "centai": "https://cent-ai.dev/",
+    "aionlabs": "https://www.aionlabs.ai/docs/rate-limits/",
 }
 
 
@@ -1947,9 +1983,11 @@ RANKING_KEY = "MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY"
 RANKING_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
 RANKING_SITE = "https://artificialanalysis.ai/"
 # The router and the figure that decides its place. "claude-code" is held to strict tool calls and
-# a long context besides, which a score does not say: the report says so, and nothing here applies.
+# a long context besides, which a score does not say: the report says so, and nothing here applies. "fiction"
+# has a contract and a table in the document of the routes like the others, but none of its members has a
+# figure, so no new model is ever placed in it and its report lists them unranked.
 RANKING_ROUTERS = (("pro", "intelligence"), ("flash", "intelligence"), ("flash-lite", "speed"),
-                   ("code", "coding"), ("claude-code", "intelligence"))
+                   ("code", "coding"), ("claude-code", "intelligence"), ("fiction", "intelligence"))
 # The routers whose cascade is chosen for its speed: a model slower than the slowest of the members
 # the ranking knows is not placed there, however high it would rank on the figure above. The template's
 # ordering rule makes eligibility a question apart from rank, and a slow model has no place in these.
@@ -4720,6 +4758,7 @@ PROVIDER_LABELS = {
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
     "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
+    "aionlabs": "Aion Labs",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -4754,7 +4793,8 @@ def notice_text(notice, french=False):
 
 # The providers whose entries are "openai/<id>" with the provider's "api_base", by the name the report gives them.
 OPENAI_COMPATIBLE = {"sambanova": "SambaNova", "kilo": "Kilo Gateway", "ovhcloud": "OVHcloud",
-                     "requesty": "Requesty", "centai": "Cent AI"}
+                     "requesty": "Requesty", "centai": "Cent AI",
+                     "aionlabs": "Aion Labs"}
 
 
 def litellm_id(provider, identifier):
@@ -4932,10 +4972,16 @@ def capped(lines):
 NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
                  "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
-                 "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai"}
+                 "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
+                 "aionlabs": "-aion-labs"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
                  "ovhcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
-                 "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1"}
+                 "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",
+                 "aionlabs": "https://api.aionlabs.ai/v1"}
+# The access group of an entry written for a provider whose models are kept out of "LLM" on purpose, and the one
+# every other provider's entries are in. "check_compose_template.py" holds the template to the same table.
+ACCESS_GROUPS = {"aionlabs": "Fiction"}
+DEFAULT_ACCESS_GROUP = "LLM"
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
@@ -5002,7 +5048,7 @@ def propose_name(provider, identifier, taken):
 def snippet(provider, identifier, basis, name):
     lines = ["  - model_name: %s" % name,
              "    model_info:",
-             '      access_groups: ["LLM"]',
+             '      access_groups: ["%s"]' % ACCESS_GROUPS.get(provider, DEFAULT_ACCESS_GROUP),
              "    litellm_params:",
              "      model: %s" % litellm_id(provider, identifier)[0]]
     if basis["api_base"]:
@@ -5655,6 +5701,11 @@ FREE_TIER_CHECKS = {
            "dans l'API de Z AI, dont la réponse n'est pas documentée",
     "centai": "la page d'accueil, qui annonce le modèle gratuit avec sa date de fin : la gratuité d'un modèle "
               "n'est lue nulle part dans l'API de Cent AI",
+    "aionlabs": "la page « Rate limits » de sa documentation : l'offre gratuite est celle du compte (15 requêtes "
+                "par minute, 20 000 jetons par minute et par jour, tous les modèles ensemble) et non celle d'un "
+                "modèle, dont le catalogue donne un prix ; ses conditions la disent « a courtesy that we may "
+                "change or withdraw at any time ». Un modèle d'Aion Labs n'entre que dans `Auto-Fiction`, avec le "
+                "groupe d'accès `Fiction`, jamais dans `LLM` ni dans un autre routeur",
     "cloudflare": "la note qui nomme les modèles demandant un moyen de facturation payant : un modèle qui "
                   "n'y est pas est gratuit dans la limite des 10 000 neurons par jour de tout le compte, "
                   "mais la page ne le dit pas, et rien dans l'API ne le dit : c'est une déduction, que "
@@ -5749,7 +5800,8 @@ def addition_block(kind, date, item, anchor):
     lead = "  # " if anchor["commented"] else "  "
     block = ["", "  # " + addition_note(kind, date, item["provider"], anchor["commented"]),
              "%s- model_name: %s" % (lead, item["name"]), "%s  model_info:" % lead,
-             '%s    access_groups: ["LLM"]' % lead, "%s  litellm_params:" % lead,
+             '%s    access_groups: ["%s"]' % (lead, ACCESS_GROUPS.get(item["provider"], DEFAULT_ACCESS_GROUP)),
+             "%s  litellm_params:" % lead,
              "%s    model: %s" % (lead, litellm_id(item["provider"], item["id"])[0])]
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
