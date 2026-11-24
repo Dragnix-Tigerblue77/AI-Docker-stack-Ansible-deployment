@@ -190,7 +190,7 @@ jobs:
               const BLANK = /^\s*$/;
               const COMMENT = /^\s*#/;
               const HEADER = /^ {2}- model_name:\s*(\S.*?)\s*$/;
-              const BODY = /^( {4}model_info:| {6}access_groups:\s*\["LLM", "(?:Private-Data|Public-Data-Only)"(?:, "Claude-Code")?\]| {4}litellm_params:| {6}(model|api_key|api_base):\s*\S.*?| {6}extra_headers:| {8}Authorization:\s*"")\s*$/;
+              const BODY = /^( {4}model_info:| {6}access_groups:\s*\["LLM", "(?:Private-Data|Public-Data-Only)"(?:, "Claude-Code")?\]| {4}litellm_params:| {6}(model|api_key|litellm_credential_name|api_base):\s*\S.*?| {6}extra_headers:| {8}Authorization:\s*"")\s*$/;
               const SLOT = /^ {8}- ([A-Za-z0-9_.:/-]+)\s*$/;
               const REACH = 3;
               const cut = (text) => (text.length > 60 ? text.slice(0, 57) + '...' : text);

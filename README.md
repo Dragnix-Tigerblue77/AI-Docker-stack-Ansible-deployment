@@ -645,8 +645,9 @@ test négatif inter-comptes exécutable -- resté ouvert sur #2, délibérément
 arrivera l'identité d'un compte viendra d'une variable du rôle, jamais d'un nom écrit dans ce fichier.
 
 **La clé d'API décide du compte, jamais le nom du modèle.** `check_LiteLLM_account_isolation.py` (#32)
-attribue chaque entrée à un compte par le nom de sa variable d'environnement -- `os.environ/GEMINI_API_KEY`,
-sans suffixe, est le compte par défaut, et `os.environ/GEMINI_API_KEY_<ÉTIQUETTE>` un autre compte dont l'appelant
+attribue chaque entrée à un compte par le nom de la variable d'environnement que lit l'identifiant qu'elle nomme
+(`litellm_credential_name`, voir « Les clés dans `/ui` » plus bas) -- `GEMINI_API_KEY`,
+sans suffixe, est le compte par défaut, et `GEMINI_API_KEY_<ÉTIQUETTE>` un autre compte dont l'appelant
 choisit l'étiquette, jamais un nom de personne -- et non par le `model_name` ou par
 `access_groups`, qui ne sont que des étiquettes. C'est pour cette convention que les clés fournisseur
 sont exposées au conteneur sous un nom en `_API_KEY` plutôt que sous leur nom usuel (`GITHUB_TOKEN`
@@ -761,13 +762,46 @@ donc LibreChat les propose toujours. À connaître :
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
   Il tient aussi le fichier compose à la même table : le conteneur de la passerelle doit recevoir chaque clé sous le
   nom que la configuration lit, qui n'est pas toujours celui du fournisseur (`NVIDIA_NIM_API_KEY`, pas
-  `NVIDIA_API_KEY`).
+  `NVIDIA_API_KEY`). Il tient enfin les identifiants à leur forme : un par clé donnée et aucun pour une clé qui ne
+  l'est pas, chacun nommé d'après sa variable, et chaque entrée sur un identifiant qui existe, sans clé à elle.
 - Toute entrée d'un mode qui a un routeur (texte, transcription, synthèse vocale, décisions, extraction, modèles
   gardés à part) est membre d'une cascade ou cible d'un alias, sauf celles que `check_compose_template.py` déclare
   appelées par leur nom (`LITELLM_CALLED_BY_NAME`), chacune avec sa raison : un modèle qu'on peut appeler est
   routé, et un modèle qu'on ne peut pas appeler est supprimé ou commenté avec sa raison. Les modèles d'embeddings,
   qu'aucun routeur ne sert, sont exemptés. Ces entrées sont les mêmes que celles de la section « Entrées appelées
   par leur nom » de `ROUTAGE.md`, ce que `check_routing_document.py` vérifie.
+
+#### Les clés dans `/ui` : des identifiants nommés, jamais saisis dans `/ui`
+
+Chaque clé fournisseur arrive à LiteLLM comme un **identifiant nommé** du `credential_list` de `LiteLLM_config.yaml.j2`
+(`gemini`, `mistral`, `groq`, `openrouter`, `deepseek`, `cloudflare`, `zai`, `requesty`, `nvidia-nim`, `cent-ai`,
+`aion-labs`, et `<fournisseur>-<étiquette>` pour la clé d'un autre compte), et les entrées disent `litellm_credential_name`
+là où elles disaient `api_key`. L'onglet « LLM Credentials » de `/ui` les liste donc, avec la source `config` : la
+valeur y est masquée (il en reste les deux premiers et les deux derniers caractères, pour l'administrateur seul : un
+utilisateur interne reçoit un 401 sur `GET /credentials`), et LiteLLM refuse de la modifier ou de la supprimer depuis `/ui` ou l'API.
+Les entrées des passerelles sans clé (Kilo Gateway, OVHcloud, OmniRoute) gardent leur marqueur littéral : ce n'est pas un secret.
+
+Le fournisseur reçoit la même clé qu'avant : LiteLLM donne à l'entrée celle de son identifiant au moment de la requête, et la
+variable d'environnement, donc le coffre, reste la seule source d'une clé. Mesuré avec un faux fournisseur local, la clé
+reçue est la même, entrée et identifiant côte à côte, pour neuf familles de fournisseurs (Gemini, Mistral, Groq, OpenRouter,
+DeepSeek, Z AI, NVIDIA, Cloudflare et les entrées `openai/`), en flux comme en vecteurs ; une cascade se replie et se refroidit
+comme avant, et Cloudflare lit toujours `CLOUDFLARE_ACCOUNT_ID` lui-même.
+
+**Ne jamais ajouter ni modifier un identifiant depuis `/ui`.** LiteLLM garde en base ceux qu'on y saisit, et quand l'un porte le
+nom d'un identifiant déclaré ici, c'est lui qui prend sa place au démarrage suivant (mesuré) : la clé envoyée n'est plus celle
+du coffre, et rien n'échoue. Un nom qu'aucun identifiant ne déclare n'est pas une erreur pour LiteLLM non plus : la requête part
+sans clé, ou avec celle que le fournisseur lit dans l'environnement, qui est celle du compte par défaut. Les deux contrôles
+refusent ce second cas. **Avant le premier déploiement qui passe aux identifiants**, vérifier qu'aucun identifiant de ces noms
+n'existe déjà en base, avec cette commande, qui ne change rien et n'affiche aucune clé (une ligne `db` est à supprimer
+depuis `/ui` avant) :
+
+```sh
+docker exec "$(docker ps --quiet --filter name=litellm | head -n 1)" python3 -c 'import json, os, urllib.request; request = urllib.request.Request("http://localhost:4000/credentials", headers={"Authorization": "Bearer " + os.environ["LITELLM_MASTER_KEY"]}); print(*(item["credential_name"] + " " + item["source"] for item in json.load(urllib.request.urlopen(request))["credentials"]), sep="\n")'
+```
+
+Deux traces restent visibles du passage : chaque requête d'une entrée à identifiant porte l'étiquette `Credential: <nom>` parmi
+les étiquettes de suivi de sa consommation, et l'identifiant interne de chaque entrée change une fois, ce qui remet à zéro les
+refroidissements en cours dans Redis.
 
 #### NVIDIA : un service d'essai, des limites inconnues, et une place dans chaque cascade
 
@@ -883,7 +917,7 @@ contrôle de dérive lit le catalogue de Cent AI : un modèle qui le quitte est 
 #### Cloudflare Workers AI : deux valeurs, un seul compte, et un quota en neurons
 
 Cloudflare est le seul fournisseur qui demande **deux valeurs** : le jeton d'API
-(`Artificial_Intelligence_LiteLLM_Cloudflare_API_key`, lu par les entrées comme `os.environ/CLOUDFLARE_API_KEY`) et
+(`Artificial_Intelligence_LiteLLM_Cloudflare_API_key`, lu par l'identifiant `cloudflare` que nomment les entrées) et
 l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`, exposé au conteneur comme
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
 cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. La seule exception est `bge-m3-cloudflare`, dont le fournisseur `cloudflare/` n'a pas de route d'embeddings : le rôle construit l'adresse depuis le même identifiant dans `CLOUDFLARE_EMBEDDINGS_API_BASE`, et l'entrée la lit en entier. Le
@@ -928,7 +962,7 @@ n'en font pas partie) et **à confirmer sur le compte** : le tableau de bord Clo
 #### Z AI : une clé, des limites inconnues, et la fin des cascades `Auto-Code` et `Auto-Claude-Code`
 
 Z AI (Zhipu) est un fournisseur natif de LiteLLM (préfixe `zai/`) : la clé
-(`Artificial_Intelligence_LiteLLM_Zai_API_key`) arrive aux entrées comme `os.environ/ZAI_API_KEY`, et aucune entrée
+(`Artificial_Intelligence_LiteLLM_Zai_API_key`) arrive aux entrées par l'identifiant `zai`, qui lit `ZAI_API_KEY`, et aucune entrée
 n'écrit d'`api_base`. Le code de LiteLLM, lu le 2026-11-22, appelle de lui-même le point d'accès **général** de Z AI ;
 l'autre, celui du « coding plan », que la page « Introduction » de sa documentation réserve aux outils officiellement
 pris en charge, n'est donc jamais atteint par ce fichier. Laquelle des deux adresses sert les modèles gratuits n'est

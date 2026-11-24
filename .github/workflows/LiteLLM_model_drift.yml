@@ -954,12 +954,12 @@ jobs:
             const ADDITION_LIMIT = 25;
             const ADDITION_ID = /^(?!.*(?:::|\/\/))(?:@cf\/)?[A-Za-z0-9][A-Za-z0-9._:\/+~-]{0,198}[A-Za-z0-9]$/;
             const ADDITION_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-            const ADDITION_KEY = /^os\.environ\/[A-Z][A-Z0-9_]*$/;
+            const ADDITION_CREDENTIAL = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
             const ADDITION_MARKER = /^[a-z][a-z0-9-]{0,63}$/;
             const ADDITION_BASE = /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[A-Za-z0-9._-]+)*\/?$/;
             const ADDITION_DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
             const ADDITION_ENTRY = /^  (# )?- model_name: ([^\s#]+)\s*$/;
-            const ADDITION_FIELD = /^\s+(model|api_key|api_base|mode):\s*(?:"([^"]*)"|(\S+))\s*$/;
+            const ADDITION_FIELD = /^\s+(model|api_key|litellm_credential_name|api_base|mode):\s*(?:"([^"]*)"|(\S+))\s*$/;
             const providerOf = (model, apiBase) => {
               if (typeof model !== 'string' || !model.includes('/')) return null;
               const prefix = model.slice(0, model.indexOf('/'));
@@ -1047,9 +1047,10 @@ jobs:
                   if (envBase === undefined || !Object.hasOwn(ADDITION_ENV_BASES, envBase)) return { problem: 'the template has no embedding entry of cloudflare to model one on' };
                   apiBase = undefined;
                 }
+                const credential = anchor.fields.litellm_credential_name;
                 if (spec.keyless) {
                   if (typeof key !== 'string' || !ADDITION_MARKER.test(key)) return { problem: `the key of the entry ${anchor.name} is not a plain marker, as a keyless gateway's is` };
-                } else if (typeof key !== 'string' || !ADDITION_KEY.test(key)) return { problem: `the key of the entry ${anchor.name} is not read from the environment` };
+                } else if (typeof credential !== 'string' || !ADDITION_CREDENTIAL.test(credential)) return { problem: `the entry ${anchor.name} does not read its key through a credential` };
                 if (apiBase !== undefined && !ADDITION_BASE.test(apiBase)) return { problem: `the api_base of the entry ${anchor.name} is not a plain https address` };
                 if (kind === 'ready' && anchor.commented) return { problem: 'a ready addition follows an active entry' };
                 const lead = anchor.commented ? '  # ' : '  ';
@@ -1062,8 +1063,8 @@ jobs:
                 block.push(`${lead}    access_groups: ["${spec.group ?? (usage ? usage.group : 'LLM')}", "${spec.data}"]`, `${lead}  litellm_params:`, `${lead}    model: ${prefix}${id}`);
                 if (envBase !== undefined) block.push(`${lead}    api_base: "${envBase}"`);
                 else if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
-                block.push(`${lead}    api_key: "${key}"`);
-                if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);
+                if (spec.keyless) block.push(`${lead}    api_key: "${key}"`, `${lead}    extra_headers:`, `${lead}      Authorization: ""`);
+                else block.push(`${lead}    litellm_credential_name: "${credential}"`);
                 after.set(anchor.last, (after.get(anchor.last) ?? []).concat([block]));
                 if (!anchor.commented) {
                   const refusal = slotRefusal(provider, hasUsage ? item.usage : 'chat');
