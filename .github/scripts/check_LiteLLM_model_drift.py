@@ -156,7 +156,7 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
+"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", "vercel_ai_gateway/<id>", and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
 OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai"), Cent AI
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
@@ -191,6 +191,7 @@ Labs' "aionlabs": the workflow's tables read a name as plain letters.
   zai         api.z.ai/api/paas/v4/models -- Bearer    every model listed, which omits the free ones
   centai      api.cent-ai.dev/v1/models -- Bearer      every model
   aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
+  vercel      ai-gateway.vercel.sh/v1/models -- no key  none: no model is ever offered as NEW
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -241,6 +242,14 @@ Aion Labs' catalogue is public and lists its models with a price each: its free 
 the account and no model's own, so no model of it is ever read as free, and a NEW one is listed to examine and
 proposed only in the pull request of models to verify. Its models are in an access group of their own
 ("Fiction", which ACCESS_GROUPS gives an entry written for it) and in one router of their own.
+
+Vercel AI Gateway lists every model it relays, free tier or not, and its public catalogue says nothing of which models
+the free tier covers: that is on its models page only, and a price of 0 is no proof, since some models priced 0 are
+outside it. So it is read for what it can say, that an entry's model has left the catalogue (RETIRED) or is announced
+to ("deprecated_at", a NOTICE), and no model of it is ever offered as NEW: listing the hundreds of text models of a
+catalogue that is mostly paid, every day, would help nobody. The entries are free-tier models a person picked on that page,
+and a model that leaves the free tier stays in the catalogue and answers 403, which nothing here can tell.
+Its names are "vercel", and its table of pricing pages has no row for it (NEW_NEVER_OFFERED).
 
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
@@ -906,7 +915,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
-                     "Cent_AI", "Aion_Labs")
+                     "Cent_AI", "Aion_Labs", "Vercel_AI_Gateway")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1171,8 +1180,9 @@ def comment_content(line):
 
 # The "model:" prefix LiteLLM routes each provider it has a provider for by, where it is not the name this check
 # gives the provider.
-LITELLM_PREFIXES = {"nvidia": "nvidia_nim"}
-NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai")
+LITELLM_PREFIXES = {"nvidia": "nvidia_nim", "vercel": "vercel_ai_gateway"}
+NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai",
+                    "vercel")
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
 OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
                 "ovhcloud": "oai.endpoints.kepler.ai.cloud.ovh.net", "requesty": "requesty.ai",
@@ -1919,6 +1929,26 @@ def read_aionlabs(pages):
     return catalogue
 
 
+def read_vercel(pages):
+    """Vercel AI Gateway: every model it relays, free tier or not, each with a "type" and a price and, where it is
+    retired, a "deprecated_at" in milliseconds since the epoch. Its free tier is a monthly credit that covers a
+    subset of the models, which only its models page says ("availableToFreeTier"): the API does not, and a price of
+    0 is no proof, since some models priced 0 are outside the free tier. So no model of it is ever offered as NEW,
+    where a person would otherwise be asked to examine some three hundred, nearly two thirds of them outside the
+    free tier, every day; the catalogue is read for what it can say, that an entry's model has left it or is
+    announced to."""
+    catalogue = new_catalogue()
+    for model in listed(pages[0]):
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        retired = model.get("deprecated_at")
+        date = retirement_date(retired / 1000) if isinstance(retired, (int, float)) \
+            and not isinstance(retired, bool) else None
+        if date:
+            catalogue["notices"][identifier] = {"what": "expiration", "date": date}
+    return catalogue
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -2122,6 +2152,8 @@ PROVIDERS = (
     ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
     ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
     ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
+    # Vercel AI Gateway's catalogue is public too, and lists every model it relays, free tier or not.
+    ("vercel", "https://ai-gateway.vercel.sh/v1/models", None, None, read_vercel, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # The providers whose catalogue omits models they serve. An entry of theirs that the catalogue does not
@@ -2172,6 +2204,9 @@ INCOMPLETE_CATALOGUES = {
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
 FREE_READABLE = {"openrouter", "kilo", "requesty"}
+# The providers whose catalogue is read for retirements and never offers a NEW model, because nothing in it says
+# which models the free tier covers and listing them all would be noise.
+NEW_NEVER_OFFERED = {"vercel"}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -2193,11 +2228,11 @@ PRICING_PAGES = {
 }
 
 
-def pricing_page_problems(providers, free_readable, pages):
+def pricing_page_problems(providers, free_readable, pages, never_offered=NEW_NEVER_OFFERED):
     """What is wrong with the table of pricing pages, as sentences: a provider whose NEW models are
     listed to examine and has no page to examine them on, a page of a provider that is never listed
     there, and an address that is not a plain https one."""
-    listed = [name for name in providers if name not in free_readable]
+    listed = [name for name in providers if name not in free_readable and name not in never_offered]
     problems = ["%s has no pricing page, so its NEW models are listed to examine with nowhere to "
                 "examine them" % name for name in listed if name not in pages]
     problems += ["%s has a pricing page but none of its NEW models is ever listed to examine"
@@ -5674,7 +5709,7 @@ PROVIDER_LABELS = {
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
     "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
-    "aionlabs": "Aion Labs",
+    "aionlabs": "Aion Labs", "vercel": "Vercel AI Gateway",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -5977,7 +6012,7 @@ NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
                  "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
                  "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
-                 "aionlabs": "-aion-labs"}
+                 "aionlabs": "-aion-labs", "vercel": "-vercel"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
                  "ovhcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
                  "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",

@@ -139,8 +139,8 @@ name: LiteLLM model drift
 # Auto router, which no catalogue lists, apart).
 #
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
-# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud
-# and Requesty publish their catalogue without one and need none. A missing key is no failed read: it opens no
+# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud,
+# Requesty and Vercel AI Gateway publish their catalogue without one and need none. A missing key is no failed read: it opens no
 # issue and starts no retry.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
@@ -679,6 +679,7 @@ jobs:
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
               groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',
               nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI', aionlabs: 'Aion Labs',
+              vercel: 'Vercel AI Gateway',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
@@ -983,6 +984,7 @@ jobs:
               zai: { prefix: 'zai/', label: 'Z AI', data: 'Public-Data-Only' },
               centai: { prefix: 'openai/', label: 'Cent AI', data: 'Public-Data-Only' },
               aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction', data: 'Private-Data' },
+              vercel: { prefix: 'vercel_ai_gateway/', label: 'Vercel AI Gateway', data: 'Public-Data-Only' },
             };
             // The usages other than chat an item may carry, each with the "model_info.mode" and the access
             // group the template holds its entries to (check_compose_template.py). The first five are served
@@ -1076,6 +1078,7 @@ jobs:
               const prefix = model.slice(0, model.indexOf('/'));
               if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai'].includes(prefix)) return prefix;
               if (prefix === 'nvidia_nim') return 'nvidia';
+              if (prefix === 'vercel_ai_gateway') return 'vercel';
               if (prefix === 'openai' && typeof apiBase === 'string' && Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';

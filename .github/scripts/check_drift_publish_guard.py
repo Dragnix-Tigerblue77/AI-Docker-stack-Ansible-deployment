@@ -523,7 +523,8 @@ TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendo
              item("requesty", "vendor/fresh-nine", "fresh-nine-requesty"),
              item("zai", "glm-9-flash", "glm-9-flash-zai"),
              item("centai", "hy9-flash:free", "hy9-flash-cent-ai"),
-             item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs")]
+             item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs"),
+             item("vercel", "vendor/fresh-ten", "fresh-ten-vercel")]
 
 
 # One model of every usage other than chat, each of a provider that can have it and none of which has to be
@@ -1305,6 +1306,8 @@ ADDITION_MUTATIONS = [
      "label: 'Requesty'"),
     ("attribute the entries served through Aion Labs' endpoint to it", "apiBase.includes('api.aionlabs.ai')) return 'aionlabs';",
      "apiBase.includes('api.aionlabs.ai')) return null;"),
+    ("attribute the entries of LiteLLM's own Vercel AI Gateway provider to it", "if (prefix === 'vercel_ai_gateway') return 'vercel';",
+     "if (prefix === 'vercel_ai_gateway') return null;"),
     ("write the entry of a provider kept out of LLM in the group of its own",
      "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
      "[\"${usage ? usage.group : 'LLM'}\", \"${spec.data}\"]"),

@@ -474,6 +474,15 @@ def aion_model(identifier, modality="text->text", expires=None, replacement=None
             "expires_at": expires, "replacement_model_id": replacement}
 
 
+def vercel_model(identifier, kind="language", price="0.000001", deprecated_at=None):
+    """A model of Vercel AI Gateway's public catalogue: a "type" and a price, and no flag for the free tier."""
+    model = {"id": identifier, "object": "model", "name": identifier, "type": kind,
+             "pricing": {"input": price, "output": price}}
+    if deprecated_at is not None:
+        model["deprecated_at"] = deprecated_at
+    return model
+
+
 def selftest_answers():
     """Canned catalogues matching SELFTEST_TEMPLATE exactly: no drift at all."""
     return {
@@ -516,13 +525,14 @@ def selftest_answers():
         # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
         "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
                         "success": True}],
-        # SELFTEST_TEMPLATE has no entry of NVIDIA, OVHcloud, Requesty, Z AI or Cent AI, which have catalogues
+        # SELFTEST_TEMPLATE has no entry of NVIDIA, OVHcloud, Requesty, Z AI, Cent AI or Vercel, which have catalogues
         # that list nothing here: the cases that play them have a template of their own.
         "nvidia": {"object": "list", "data": []},
         "ovhcloud": {"object": "list", "data": []},
         "requesty": {"object": "list", "data": []},
         "zai": {"object": "list", "data": []},
         "centai": {"object": "list", "data": []},
+        "vercel": {"object": "list", "data": []},
     }
 
 
@@ -561,6 +571,7 @@ def answers_listing(text, without=()):
         "requesty": {"data": [requesty_model(i) for i in sorted(ids["requesty"])]},
         "zai": {"data": [{"id": i} for i in sorted(ids["zai"])]},
         "centai": {"data": [{"id": i} for i in sorted(ids["centai"])]},
+        "vercel": {"data": [vercel_model(i) for i in sorted(ids["vercel"])]},
     }
 
 
@@ -5526,6 +5537,9 @@ def run_pricing_page_cases():
         ("a page for the provider whose free tier is machine-readable is refused",
          PROVIDER_NAMES, FREE_READABLE, dict(pages, openrouter="https://example.invalid/"),
          "openrouter has a pricing page"),
+        ("a page for the provider whose catalogue is read for retirements only is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, vercel="https://example.invalid/"),
+         "vercel has a pricing page"),
         ("a page for a provider that does not exist is refused",
          PROVIDER_NAMES, FREE_READABLE, dict(pages, ghost="https://example.invalid/"),
          "ghost has a pricing page"),
@@ -7810,6 +7824,11 @@ COVERAGE_BLOCK = """\
       api_base: "https://api.cent-ai.dev/v1"
       litellm_credential_name: "cent-ai"
 
+  - model_name: vc-one
+    litellm_params:
+      model: vercel_ai_gateway/vendor/vc-one
+      api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
+
   # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
   # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down
   # drift-ignore: requesty/vendor/req-set -- selftest: looked at and turned down
@@ -7839,6 +7858,8 @@ def coverage_answers(**changes):
         "zai": {"object": "list", "data": [{"id": "glm-9-flash", "object": "model", "owned_by": "z-ai"},
                                            {"id": "glm-9-set"}]},
         "centai": {"object": "list", "data": [{"id": "hy9-flash:free"}, {"id": "hy9-set"}]},
+        "vercel": {"object": "list", "data": [vercel_model("vendor/vc-one"), vercel_model("vendor/vc-free-listed", price="0"),
+                                              vercel_model("vendor/vc-painter", "image")]},
     })
     answers.update(changes)
     return answers
@@ -7884,6 +7905,8 @@ def run_coverage_cases():
                (attribute("nvidia_nim/meta/x-1", None) == ("nvidia", "meta/x-1"), "NVIDIA"),
                (attribute("nvidia/meta/x-1", None) is None, "a prefix that is nobody's was attributed"),
                (attribute("zai/glm-9", None) == ("zai", "glm-9"), "Z AI"),
+               (attribute("vercel_ai_gateway/vendor/x-1", None) == ("vercel", "vendor/x-1"), "Vercel AI Gateway"),
+               (attribute("vercel/vendor/x-1", None) is None, "a prefix that is nobody's was attributed (vercel)"),
                (attribute("openai/X-1", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1") == ("ovhcloud", "X-1"),
                 "OVHcloud"),
                (attribute("openai/a/b", "https://router.eu.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, European"),
@@ -7898,6 +7921,7 @@ def run_coverage_cases():
            first_wrong(
                (litellm_id("nvidia", "meta/x-1") == ("nvidia_nim/meta/x-1", ""), "NVIDIA"),
                (litellm_id("zai", "glm-9") == ("zai/glm-9", ""), "Z AI"),
+               (litellm_id("vercel", "vendor/x-1") == ("vercel_ai_gateway/vendor/x-1", ""), "Vercel AI Gateway"),
                (litellm_id("ovhcloud", "X-1") == ("openai/X-1", " on OVHcloud"), "OVHcloud"),
                (litellm_id("requesty", "a/b") == ("openai/a/b", " on Requesty"), "Requesty"),
                (litellm_id("centai", "hy9:free") == ("openai/hy9:free", " on Cent AI"), "Cent AI"),
@@ -7908,8 +7932,8 @@ def run_coverage_cases():
     # The baseline: every catalogue lists what the template holds, the three public ones without a credential.
     result, calls, report, body = run(coverage_answers())
     keyless = {host: asked(calls, host) for host in ("integrate.api.nvidia.com", "oai.endpoints.kepler.ai.cloud.ovh.net",
-                                                      "router.eu.requesty.ai")}
-    judged("the five catalogues are read, the public three without a credential and the keyed two with a bearer "
+                                                      "router.eu.requesty.ai", "ai-gateway.vercel.sh")}
+    judged("the six catalogues are read, the public four without a credential and the keyed two with a bearer "
            "token in a header and never in an address, and nothing is found",
            first_wrong(
                (found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
@@ -7930,6 +7954,7 @@ def run_coverage_cases():
                ("requesty    read, 4 model(s), 2 candidate(s); 1 active, 1 commented-out id(s) here" in report, report),
                ("zai         read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
                ("centai      read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               ("vercel      read, 3 model(s), 0 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
                (result["unattributed"] == ["openai/auto/best-free"], "an entry of the five is of no catalogue: %r"
                 % result["unattributed"]),
                (is_complete(result), "the coverage is partial")))
@@ -7943,7 +7968,9 @@ def run_coverage_cases():
                                                                        requesty_model("vendor/req-paid", (1, 1))]},
              "openai/vendor/req-one"),
             ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
-            ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
+            ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free"),
+            ("vercel", "vendor/vc-one", {"object": "list", "data": [vercel_model("vendor/vc-painter", "image")]},
+             "vercel_ai_gateway/vendor/vc-one")):
         incomplete = name in drift.INCOMPLETE_CATALOGUES
         # Z AI's list is not believed alone: its probe says the model does not exist, the code its documentation
         # gives, and the entry is retired like the others.
@@ -7992,6 +8019,28 @@ def run_coverage_cases():
                ("## Nouveaux modèles gratuits" not in body, "a model of the five was listed as free"),
                (all("[%s](%s)" % (name, PRICING_PAGES[name]) in section for name in ("nvidia", "ovhcloud", "zai", "centai")),
                 "a pricing page is not linked: %s" % section)))
+
+    # Vercel AI Gateway: nothing in its catalogue says which models the free tier covers, and a price of 0 is no proof,
+    # so no model of it is ever offered as NEW; an announced retirement is a NOTICE, in milliseconds since the epoch.
+    answers = coverage_answers()
+    answers["vercel"]["data"] += [vercel_model("vendor/vc-new"), vercel_model("vendor/vc-new-free", price="0"),
+                                  vercel_model("vendor/vc-new-image", "image")]
+    result, calls, report, body = run(answers)
+    judged("a new Vercel AI Gateway model is never offered, whatever its type and its price, and the status stays 0",
+           first_wrong(
+               (found(result) == [], "findings %r" % found(result)),
+               ("vc-new" not in report and "vc-new" not in body, "a new model of Vercel AI Gateway was reported"),
+               (exit_status(result) == 0, "the status"),
+               (is_complete(result), "the coverage is partial")))
+    answers = coverage_answers(vercel={"object": "list", "data": [
+        vercel_model("vendor/vc-one", deprecated_at=1801112700000), vercel_model("vendor/vc-painter", "image", deprecated_at=True),
+        vercel_model("vendor/vc-other", deprecated_at="soon")]})
+    result, calls, report, body = run(answers)
+    judged("a model of Vercel AI Gateway with a deprecation date is a NOTICE with that day, and a date that is no number is none",
+           first_wrong(
+               (found(result) == [("notice", "vendor/vc-one")], "findings %r" % found(result)),
+               ("expires on 2027-01-28" in report, report),
+               (exit_status(result) == 1, "the status")))
 
     # Requesty states both prices: that is how a free one is told.
     answers = coverage_answers()

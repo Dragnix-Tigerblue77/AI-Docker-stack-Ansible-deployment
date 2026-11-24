@@ -1728,6 +1728,7 @@ LITELLM_PROVIDERS = {
     "NVIDIA": "NVIDIA_NIM_API_KEY",
     "Cent_AI": "CENT_AI_API_KEY",
     "Aion_Labs": "AION_LABS_API_KEY",
+    "Vercel_AI_Gateway": "VERCEL_AI_GATEWAY_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by

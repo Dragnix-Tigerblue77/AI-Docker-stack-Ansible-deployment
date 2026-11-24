@@ -381,6 +381,16 @@ Artificial_Intelligence_LiteLLM_Cent_AI_API_key: ""
 # does not do. Aion Labs says it stores no content and trains on none. The container reads the key as
 # "AION_LABS_API_KEY".
 Artificial_Intelligence_LiteLLM_Aion_Labs_API_key: ""
+# Vercel AI Gateway, which serves a subset of its models, text models included, out of a monthly included credit
+# that its FAQ (read 2026-11-24) calls "not an expiring trial": the current pages give no amount (an older
+# version said 5 USD every 30 days, and a renewal has not been observed yet). Using it needs a payment method on the team, and
+# the card is charged only by a purchase of credit or by Auto-reload, which is off by default: leave both
+# alone, since the first purchase ends the free monthly credit for good (its pricing page, read the same day).
+# The credit is SHARED by every entry and small, and once it is spent the gateway answers 402 and the cascade
+# moves on. A model outside the free tier answers 403, which the cascade passes over as well. Reached through
+# LiteLLM's own "vercel_ai_gateway/" provider, whose base is Vercel's. ONE account: its terms were not read.
+# The container reads the key as "VERCEL_AI_GATEWAY_API_KEY", the name LiteLLM looks for.
+Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret

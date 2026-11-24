@@ -213,6 +213,7 @@ inputs:
     nvidia: "40 requests per minute, shown on the account page (read 2026-11-22); no credit count, daily cap or end date is shown there or on any other page read, the API trial terms of service included"
     cent_ai: "no limit stated: the home page says \"Free until Nov 30 · no daily limit\" (read 2026-11-22) and nothing of what follows the 30th, when the model may be billed; a spending limit set on the key keeps a billed call from costing anything, since the call then fails and the cascade moves on"
     aion_labs: "15 requests a minute, 20,000 tokens a minute and 20,000 tokens a day for the whole account, all models together, on the free tier of the Rate Limits page of its documentation (read 2026-11-23); its terms of 2026-10-17 call free use \"a courtesy that we may change or withdraw at any time\""
+    vercel_ai_gateway: "A monthly included credit, \"not an expiring trial\", shared by every entry of the provider and on a subset of its models, per vercel.com/docs/ai-gateway/pricing and its FAQ (read 2026-11-24): its amount is on no page read now (an older version of the pages said 5 USD every 30 days, and a renewal has not been observed yet), the rate limits per model are \"lower\" than the paid tier's and given no figure, a request with no credit answers 402 and a model outside the subset 403; the first purchase of credit ends the free credit for good"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -1157,3 +1158,795 @@ models:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown
+  muse-spark-open-vercel:
+    slug: muse-spark-open
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium, high and xhigh and gives no default"
+    eci: "Muse Spark Open"
+    note: "Artificial Analysis publishes one record, at Xhigh"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [Muse-Spark-Open-816B-A42B_xhigh]
+  inkling-2-small-vercel:
+    slug: inkling-2-small
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, minimal, low, medium, high, xhigh and max and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  mimo-v2-6-flash-vercel:
+    slug: mimo-v2-6-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, minimal, low, medium and high and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [mimo-v2.6-flash]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  ling-3-1-flash-1019-vercel:
+    slug: ling-3-1-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    note: "Artificial Analysis publishes one record, named Ling 3.1 Flash 1019, with an index and no timing"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  inkling-vercel:
+    slug: inkling
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, minimal, low, medium, high, xhigh and max and gives no default"
+    eci: "Inkling"
+    note: "Artificial Analysis has an Xhigh and a High record"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [Inkling]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gpt-5-2-vercel:
+    slug: gpt-5-2
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium, high and xhigh and gives no default"
+    eci: "GPT-5.2"
+    note: "Artificial Analysis has an Xhigh, a Medium and a Non-reasoning record, none with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      swe_bench_verified: [gpt-5.2-2025-12-11_high]
+      terminalbench_external: [gpt-5.2-2025-12-11_medium, gpt-5.2-2025-12-11_unknown]
+      ale_bench_external: [gpt-5.2-2025-12-11_high, gpt-5.2-2025-12-11_medium]
+  gpt-5-vercel:
+    slug: gpt-5
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
+    eci: "GPT-5"
+    note: "Artificial Analysis has a High, a Medium, a Low and a Minimal record, none with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      swe_bench_verified: [gpt-5-2025-08-07_high, gpt-5-2025-08-07_medium]
+      terminalbench_external: [gpt-5-2025-08-07_medium, gpt-5-2025-08-07_unknown]
+      ale_bench_external: [gpt-5-2025-08-07_high, gpt-5-2025-08-07_minimal]
+  gpt-5-mini-vercel:
+    slug: gpt-5-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
+    eci: "GPT-5 mini"
+    note: "Artificial Analysis has a High, a Medium and a Minimal record, none with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      swe_bench_verified: [gpt-5-mini-2025-08-07_medium]
+      terminalbench_external: [gpt-5-mini-2025-08-07_medium, gpt-5-mini-2025-08-07_unknown]
+      ale_bench_external: [gpt-5-mini-2025-08-07_high]
+  gpt-5-4-nano-vercel:
+    slug: gpt-5-4-nano
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium, high and xhigh and gives no default"
+    eci: "GPT-5.4 Nano"
+    note: "Artificial Analysis has an Xhigh, a Medium and a Non-reasoning record, none with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [gpt-5.4-nano-2026-03-17_high]
+  o3-vercel:
+    slug: o3
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o3"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      swe_bench_verified: [o3-2025-04-16_medium]
+      ale_bench_external: [o3-2025-04-16_high]
+  o4-mini-vercel:
+    slug: o4-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o4-mini"
+    note: "Artificial Analysis ranks it at High only"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [o4-mini-2025-04-16_high]
+  qwen3-6-plus-vercel:
+    slug: qwen3-6-plus
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, minimal, low, medium, high, xhigh and max and gives no default"
+    eci: "Qwen 3.6 Plus"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      swe_bench_verified: [qwen3.6-plus]
+      ale_bench_external: [qwen3.6-plus]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-5-plus-vercel:
+    no_record: "No Artificial Analysis record was matched to Qwen 3.5 Plus on 2026-11-21: its Qwen3.5 397B A17B record is the open-weights model, which the hosted one need not be"
+    eci: "Qwen 3.5 Plus (hosted 397B-A17B)"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [qwen3.5-plus]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-5-flash-vercel:
+    no_record: "No Artificial Analysis record was matched to Qwen 3.5 Flash on 2026-11-21: its Qwen3.5 35B A3B record is the open-weights model, which the hosted one need not be"
+    eci: "Qwen 3.5 Flash (hosted 35B-A3B)"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [qwen3.5-flash]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  qwen3-6-35b-vercel:
+    no_record: "No Artificial Analysis record was matched to qwen3.6-35b-a3b on 2026-11-22"
+    eci: "Qwen 3.6 35B-A3B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [qwen3.6-35b-a3b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  deepseek-v3-2-thinking-vercel:
+    slug: deepseek-v3-2-reasoning
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    eci: "DeepSeek-V3.2"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [deepseek/deepseek-v3.2]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  deepseek-v3-1-vercel:
+    slug: deepseek-v3-1-reasoning
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    eci: "DeepSeek-V3.1"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  kimi-k2-7-code-vercel:
+    slug: kimi-k2-7-code
+    level: n/a
+    level_source: "n/a: a model with one Artificial Analysis record and no level"
+    eci: "Kimi K2.7 Code"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      deepswe_external: [kimi-k2.7-code]
+      ale_bench_external: [kimi-k2.7-code]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  kimi-k2-vercel:
+    slug: kimi-k2
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    eci: "Kimi K2 (Jul 2025)"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [Kimi-K2-Instruct]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  glm-4-7-vercel:
+    slug: glm-4-7
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    eci: "GLM-4.7"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record, neither with an index"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [glm-4.7]
+      ale_bench_external: [glm-4.7]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  mistral-medium-3-5-vercel:
+    slug: mistral-medium-3-5
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none and high and gives no default"
+    eci: "Mistral Medium 3.5"
+    note: "Artificial Analysis publishes one record"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gemini-2-5-flash-vercel:
+    slug: gemini-2-5-flash-reasoning
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high, and a token budget and gives no default"
+    eci: "Gemini 2.5 Flash (Jun 2025)"
+    note: "A thinking budget, not a level: the Reasoning record is the nearest"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [gemini-2.5-flash]
+      ale_bench_external: [gemini-2.5-flash]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gpt-oss-120b-vercel:
+    slug: gpt-oss-120b
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "gpt-oss-120b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
+      ale_bench_external: [gpt-oss-120b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gpt-oss-20b-vercel:
+    slug: gpt-oss-20b
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "gpt-oss-20b"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]
+      ale_bench_external: [gpt-oss-20b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  gemini-2-5-flash-lite-vercel:
+    slug: gemini-2-5-flash-lite
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high, and a token budget and gives no default"
+    eci: "Gemini 2.5 Flash-Lite (Jun 2025)"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gemma-4-26b-vercel:
+    slug: gemma-4-26b-a4b
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "Gemma 4 26B A4B"
+    note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [gemma-4-26b-a4b]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  nemotron-ultra-vercel:
+    slug: nvidia-nemotron-3-ultra-550b-a55b
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    eci: "Nemotron 3 Ultra"
+    note: "Artificial Analysis publishes one record, named Reasoning"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nemotron-super-vl-vercel:
+    slug: nemotron-3-5-super-vl
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nemotron-lightning-vercel:
+    slug: nemotron-3-5-lightning
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  minimax-m3-1-flash-vercel:
+    slug: minimax-m3-1-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium, high, xhigh and max and gives no default"
+    note: "Artificial Analysis publishes one record and does not state its level, and the capabilities index has no MiniMax-M3.1-Flash"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  llama-4-scout-vercel:
+    slug: llama-4-scout
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    eci: "Llama 4 Scout"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  llama-3-3-70b-vercel:
+    slug: llama-3-3-instruct-70b
+    level: n/a
+    level_source: "n/a: an instruct model with one Artificial Analysis record and no level"
+    eci: "Llama 3.3 70B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen-3-14b-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen-3-14b on 2026-11-24"
+    eci: "Qwen3-14B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen-3-30b-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen-3-30b on 2026-11-24"
+    eci: "Qwen3-30B-A3B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen-3-32b-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen-3-32b on 2026-11-24"
+    eci: "Qwen3-32B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-coder-30b-a3b-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen3-coder-30b-a3b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-coder-next-vercel:
+    slug: qwen3-coder-next
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-next-80b-a3b-instruct-vercel:
+    slug: qwen3-next-80b-a3b-instruct
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-vl-instruct-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen3-vl-instruct on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-6-27b-vercel:
+    slug: qwen3-6-27b
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    eci: "Qwen3.6 27B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-7-flash-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen3.7-flash on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  qwen3-8-omni-flash-vercel:
+    no_record: "No Artificial Analysis record was matched to alibaba/qwen3.8-omni-flash on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nova-2-lite-vercel:
+    no_record: "No Artificial Analysis record was matched to amazon/nova-2-lite on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nova-lite-vercel:
+    slug: nova-lite
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nova-micro-vercel:
+    slug: nova-micro
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nova-pro-vercel:
+    slug: nova-pro
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  seed-2-1-turbo-vercel:
+    no_record: "No Artificial Analysis record was matched to bytedance/seed-2.1-turbo on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  apex-vercel:
+    no_record: "No Artificial Analysis record was matched to callstack/apex on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  command-a-vercel:
+    slug: command-a
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  deepseek-r1-vercel:
+    slug: deepseek-r1-0120
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "DeepSeek-R1"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glimpse-vercel:
+    no_record: "No Artificial Analysis record was matched to elorian/glimpse on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  mercury-3-vercel:
+    no_record: "No Artificial Analysis record was matched to inception/mercury-3 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ling-3-0-flash-vercel:
+    slug: ling-3-0-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ling-3-0-flash-fin-vercel:
+    slug: ling-3-0-flash-fin
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ling-3-0-flash-sante-vercel:
+    no_record: "No Artificial Analysis record was matched to inclusionai/ling-3.0-flash-sante on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ling-3-0-flash-vl-vercel:
+    slug: ling-3-0-flash-vl
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ling-3-1-flash-vercel:
+    slug: ling-3-1-flash-1001
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  schematron-v2-small-vercel:
+    no_record: "No Artificial Analysis record was matched to inference-net/schematron-v2-small on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  schematron-v2-turbo-vercel:
+    no_record: "No Artificial Analysis record was matched to inference-net/schematron-v2-turbo on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  interfaze-beta-vercel:
+    no_record: "No Artificial Analysis record was matched to interfaze/interfaze-beta on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  lfm2-5-24b-a2b-vercel:
+    no_record: "No Artificial Analysis record was matched to liquid/lfm2.5-24b-a2b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  longcat-2-5-vercel:
+    no_record: "No Artificial Analysis record was matched to meituan/longcat-2.5 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  llama-3-1-70b-vercel:
+    no_record: "No Artificial Analysis record was matched to meta/llama-3.1-70b on 2026-11-24"
+    eci: "Llama 3.1-70B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  llama-3-1-8b-vercel:
+    no_record: "No Artificial Analysis record was matched to meta/llama-3.1-8b on 2026-11-24"
+    eci: "Llama 3.1-8B"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  llama-4-maverick-vercel:
+    slug: llama-4-maverick
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "Llama 4 Maverick"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  muse-ember-vercel:
+    slug: muse-ember
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium, high, xhigh and max and gives no default"
+    note: "Artificial Analysis has an Xhigh and a Max record and the catalogue lists efforts below them"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  minimax-m2-1-vercel:
+    slug: minimax-m2-1
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  minimax-m2-5-vercel:
+    slug: minimax-m2-5
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  minimax-m2-7-vercel:
+    slug: minimax-m2-7
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  codestral-vercel:
+    no_record: "No Artificial Analysis record was matched to mistral/codestral on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ministral-14b-vercel:
+    no_record: "No Artificial Analysis record was matched to mistral/ministral-14b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ministral-3b-vercel:
+    no_record: "No Artificial Analysis record was matched to mistral/ministral-3b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ministral-8b-vercel:
+    no_record: "No Artificial Analysis record was matched to mistral/ministral-8b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  mistral-large-3-vercel:
+    slug: mistral-large-3
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  mistral-nemo-vercel:
+    no_record: "No Artificial Analysis record was matched to mistral/mistral-nemo on 2026-11-24"
+    eci: "Mistral NeMo"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  toast-1-vercel:
+    no_record: "No Artificial Analysis record was matched to mixedbread/toast-1 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  morph-v3-fast-vercel:
+    no_record: "No Artificial Analysis record was matched to morph/morph-v3-fast on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  morph-v3-large-vercel:
+    no_record: "No Artificial Analysis record was matched to morph/morph-v3-large on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  nemotron-3-super-120b-a12b-vercel:
+    no_record: "No Artificial Analysis record was matched to nvidia/nemotron-3-super-120b-a12b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nemotron-nano-12b-v2-vl-vercel:
+    no_record: "No Artificial Analysis record was matched to nvidia/nemotron-nano-12b-v2-vl on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  nemotron-nano-9b-v2-vercel:
+    no_record: "No Artificial Analysis record was matched to nvidia/nemotron-nano-9b-v2 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4-1-vercel:
+    slug: gpt-4-1
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4.1"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4-1-fast-vercel:
+    slug: gpt-4-1
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4.1"
+    note: "The priority tier of openai/gpt-4.1: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4-1-mini-vercel:
+    slug: gpt-4-1-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4.1 mini"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4-1-mini-fast-vercel:
+    slug: gpt-4-1-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4.1 mini"
+    note: "The priority tier of openai/gpt-4.1-mini: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4-1-nano-vercel:
+    slug: gpt-4-1-nano
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4.1 nano"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4o-vercel:
+    slug: gpt-4o
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4o-fast-vercel:
+    slug: gpt-4o
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    note: "The priority tier of openai/gpt-4o: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4o-mini-vercel:
+    slug: gpt-4o-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4o mini"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-4o-mini-fast-vercel:
+    slug: gpt-4o-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    eci: "GPT-4o mini"
+    note: "The priority tier of openai/gpt-4o-mini: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-codex-vercel:
+    slug: gpt-5-codex
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-fast-vercel:
+    slug: gpt-5
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
+    eci: "GPT-5"
+    note: "The priority tier of openai/gpt-5: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-mini-fast-vercel:
+    slug: gpt-5-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
+    eci: "GPT-5 mini"
+    note: "The priority tier of openai/gpt-5-mini: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-nano-vercel:
+    slug: gpt-5-nano
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
+    eci: "GPT-5 nano"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-1-codex-vercel:
+    slug: gpt-5-1-codex
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-1-codex-max-vercel:
+    no_record: "No Artificial Analysis record was matched to openai/gpt-5.1-codex-max on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-1-codex-mini-vercel:
+    slug: gpt-5-1-codex-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-1-thinking-vercel:
+    no_record: "No Artificial Analysis record was matched to openai/gpt-5.1-thinking on 2026-11-24"
+    eci: "GPT-5.1"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-1-thinking-fast-vercel:
+    no_record: "No Artificial Analysis record was matched to openai/gpt-5.1-thinking-fast on 2026-11-24"
+    eci: "GPT-5.1"
+    note: "The priority tier of openai/gpt-5.1-thinking: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-5-2-fast-vercel:
+    slug: gpt-5-2
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium, high and xhigh and gives no default"
+    eci: "GPT-5.2"
+    note: "The priority tier of openai/gpt-5.2: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-oss-safeguard-120b-vercel:
+    no_record: "No Artificial Analysis record was matched to openai/gpt-oss-safeguard-120b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  gpt-oss-safeguard-20b-vercel:
+    no_record: "No Artificial Analysis record was matched to openai/gpt-oss-safeguard-20b on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  o1-vercel:
+    slug: o1
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o1"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  o3-fast-vercel:
+    slug: o3
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o3"
+    note: "The priority tier of openai/o3: the same model at a higher price, so the figures of the model describe it"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  o3-mini-vercel:
+    slug: o3-mini
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o3-mini"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  o3-pro-vercel:
+    slug: o3-pro
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    eci: "o3-pro"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  ultramarine-1-flash-vercel:
+    no_record: "No Artificial Analysis record was matched to paperinstruments/ultramarine-1-flash on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  sonar-vercel:
+    slug: sonar
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, minimal, low, medium, high and xhigh and gives no default"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  arrow-2-vercel:
+    no_record: "No Artificial Analysis record was matched to quiverai/arrow-2 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  arrow-2-telos-vercel:
+    no_record: "No Artificial Analysis record was matched to quiverai/arrow-2-telos on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  flint-v1-0-vercel:
+    no_record: "No Artificial Analysis record was matched to recursive/flint-v1.0 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  scaledown-summarize-1-vercel:
+    no_record: "No Artificial Analysis record was matched to scaledown/scaledown-summarize-1 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  step-3-7-flash-vercel:
+    slug: step-3-7-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  hy-mt2-lite-vercel:
+    no_record: "No Artificial Analysis record was matched to tencent/hy-mt2-lite on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  hy-mt2-plus-vercel:
+    no_record: "No Artificial Analysis record was matched to tencent/hy-mt2-plus on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  hy-mt2-pro-vercel:
+    no_record: "No Artificial Analysis record was matched to tencent/hy-mt2-pro on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "no", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: supported_parameters lists no tools"}
+    epoch: unknown
+  hy3-vercel:
+    slug: hy3
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  hy4-flash-vercel:
+    no_record: "No Artificial Analysis record was matched to tencent/hy4-flash on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-5-vercel:
+    no_record: "No Artificial Analysis record was matched to zai/glm-4.5 on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-5-air-vercel:
+    slug: glm-4-5-air
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-5v-vercel:
+    slug: glm-4-5v
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-6-vercel:
+    slug: glm-4-6
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists a reasoning toggle and no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-7-flash-vercel:
+    slug: glm-4-7-flash
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-4-7-flashx-vercel:
+    no_record: "No Artificial Analysis record was matched to zai/glm-4.7-flashx on 2026-11-24, and Epoch AI's capabilities index holds none under that name"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  glm-5v-turbo-vercel:
+    slug: glm-5v-turbo
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts none, low, medium and high and gives no default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch: unknown
+  mistral-small-vercel:
+    slug: mistral-small-4
+    level: unknown
+    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
+    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
+    epoch:
+      ale_bench_external: [mistral-small-2603]
+    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
