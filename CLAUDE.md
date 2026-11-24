@@ -335,6 +335,21 @@ because a `"` in a double-quoted YAML string had the file refused and a `\` rewr
 a word (#188); without `ensure_ascii=False` an emoji becomes a surrogate pair Compose refuses. The same
 render carries quotes and backslashes, and the check refuses a value that does not arrive whole.
 
+**The vault is the only source of a provider key, and a credential is never added or edited from `/ui`.**
+Each key reaches LiteLLM as a named credential, declared in the `credential_list` of
+`templates/LiteLLM_config.yaml.j2` and reading its environment variable (`GEMINI_API_KEY` is `gemini`,
+`NVIDIA_NIM_API_KEY` is `nvidia-nim`, another account's `GROQ_API_KEY_<LABEL>` is `groq-<label>`), so
+that `/ui` lists it under "LLM Credentials", masked and read-only for what a config declares. An entry
+says `litellm_credential_name` and carries no key of its own: an `api_key` on it would win over its
+credential's. The keyless gateways have no credential, their literal marker being no secret. A credential
+saved from `/ui` goes to the database, which nothing here reads, and it drifts from the vault with nothing
+failing: one bearing the name of a declared credential replaces it at the next start, so the key sent
+stops being the vault's, and a name no credential declares is no error either, the request leaving with
+no key or with the one the provider reads from the environment, the default account's.
+`check_compose_template.py` holds a rendering to one credential per key given, named after its variable,
+and every entry to a declared one, and `check_LiteLLM_account_isolation.py` follows the name to the
+variable to tell the account; the drift run writes a new entry with the credential of the entry it follows.
+
 **Images float by default, and are pinned on purpose only where a database would lose its data.** An
 image is written with no tag at all -- `image: redis`, never `image: redis:latest` and never a tag
 held in a variable: no tag *is* `latest`, writing it out adds nothing, and a variable for it is a

@@ -706,17 +706,21 @@ def builder_scenarios(real, drift):
         "set aside by a drift-ignore line", base=miniature)
     add("a provider without an entry to model one on is refused", [item("mistral", "magistral-9", "magistral-9")],
         "no entry of mistral", base=miniature, kind="to_verify")
-    add("an entry whose key is not read from the environment is not modelled on",
-        [item("groq", "vendor/fresh", "fresh-groq")], "is not read from the environment",
+    add("an entry whose key is not read through a credential is not modelled on",
+        [item("groq", "vendor/fresh", "fresh-groq")], "does not read its key through a credential",
         base=miniature, kind="to_verify")
+    add("an entry whose credential is spelt otherwise is not modelled on",
+        [item("groq", "vendor/fresh", "fresh-groq")], "does not read its key through a credential",
+        base=miniature.replace('api_key: "not-from-the-environment"', 'litellm_credential_name: "Groq_Key"'),
+        kind="to_verify")
     add("an entry whose base is not https is not modelled on",
         [item("deepseek", "fresh", "fresh-direct")], "is not a plain https address",
         base=miniature, kind="to_verify")
     commented_only = miniature.replace(
         "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
-        '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
+        '      litellm_credential_name: "openrouter"\n',
         "  # Not routed to: a guardrail.\n  # - model_name: free-one\n  #   litellm_params:\n"
-        '  #     model: openrouter/vendor/one:free\n  #     api_key: "os.environ/OPENROUTER_API_KEY"\n')
+        '  #     model: openrouter/vendor/one:free\n  #     litellm_credential_name: "openrouter"\n')
     assert commented_only != miniature
     add("a ready model of a provider with commented-out entries only is refused",
         [item("openrouter", "vendor/b:free", "b-free")], "follows an active entry", base=commented_only)
@@ -1152,7 +1156,7 @@ ADDITION_MUTATIONS = [
     ("write a slot only for an active entry", "if (!anchor.commented) {\n      const refusal", "if (true) {\n      const refusal"),
     ("refuse an id already an entry", "if (known.has(prefix + id))", "if (false)"),
     ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),
-    ("model an entry on a key read from the environment", "!ADDITION_KEY.test(key)", "false"),
+    ("model an entry on a credential", "!ADDITION_CREDENTIAL.test(credential)", "false"),
     ("model a keyless gateway's entry on a plain marker", "!ADDITION_MARKER.test(key)", "false"),
     ("blank the Authorization header of a keyless gateway's entry", "if (spec.keyless) block.push(", "if (false) block.push("),
     ("attribute the entries served through Kilo's gateway to it", "apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';",

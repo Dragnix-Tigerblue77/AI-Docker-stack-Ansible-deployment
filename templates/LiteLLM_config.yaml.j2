@@ -57,6 +57,96 @@
   'extraction': 'clairic-cloudflare' if has.Cloudflare else false,
   'fiction': 'aion-3-5-aion-labs' if has.Aion_Labs else false
 } %}
+# The provider keys are named credentials, declared by "credential_list" below, and an entry says
+# "litellm_credential_name" where it used to say "api_key". LiteLLM resolves the name when it sends the
+# request and hands the entry the credential's key, which reaches the provider exactly as the key written
+# on the entry did; an "api_key" on an entry would win over its credential's, which is why none carries
+# both. The environment variable stays the one place a key comes from: a credential only reads it, and
+# "/ui" lists what is declared here under "LLM Credentials", masked and read-only.
+# A credential is never added or edited from "/ui": one saved there under a name declared here would take
+# the place of the declared one at the next start, and its key would stop being the one in the vault.
+# One credential per variable read, named after it ("<provider>", and "<provider>-<label>" for another
+# account's), so that the account an entry spends is still the variable its credential names, which
+# "check_LiteLLM_account_isolation.py" follows. A name no credential declares is not an error to LiteLLM:
+# the request goes out without a key, which "check_compose_template.py" and that check refuse. The keyless
+# gateways have no credential: their "api_key" is a literal marker, not a secret. "credential_info" is
+# required by LiteLLM, which refuses to start on a credential without it, and holds nothing here.
+credential_list:
+{% if has.Gemini %}
+  - credential_name: gemini
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY"
+{% endif %}
+{% if has.Mistral %}
+  - credential_name: mistral
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/MISTRAL_API_KEY"
+{% endif %}
+{% if has.Groq %}
+  - credential_name: groq
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GROQ_API_KEY"
+{% endif %}
+{% if has.OpenRouter %}
+  - credential_name: openrouter
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY"
+{% endif %}
+{% if has.DeepSeek %}
+  - credential_name: deepseek
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/DEEPSEEK_API_KEY"
+{% endif %}
+{% if has.Cloudflare %}
+  - credential_name: cloudflare
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+{% endif %}
+{% if has.Zai %}
+  - credential_name: zai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/ZAI_API_KEY"
+{% endif %}
+{% if has.Requesty %}
+  - credential_name: requesty
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/REQUESTY_API_KEY"
+{% endif %}
+{% if has.NVIDIA %}
+  - credential_name: nvidia-nim
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+{% endif %}
+{% if has.Cent_AI %}
+  - credential_name: cent-ai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CENT_AI_API_KEY"
+{% endif %}
+{% if has.Aion_Labs %}
+  - credential_name: aion-labs
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/AION_LABS_API_KEY"
+{% endif %}
+  # Declared when their providers are given a key and their entries are put back:
+  # - credential_name: cerebras
+  #   credential_info: {}
+  #   credential_values:
+  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  # - credential_name: sambanova
+  #   credential_info: {}
+  #   credential_values:
+  #     api_key: "os.environ/SAMBANOVA_API_KEY"
 # A router is published under one name only, the one a client types: "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite",
 # "Auto-Code", "Auto-Claude-Code", "Auto-STT", "Auto-TTS", "Auto-Decision", "Auto-Extraction" and "Auto-Fiction". It has, under that name, the router's cascade:
 # LiteLLM looks for fallbacks under the name that was ASKED for, so a name that is an alias and has no cascade
@@ -148,7 +238,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-4-hydrogen
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -166,7 +256,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-4-hydrogen
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -188,7 +278,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.8-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -204,7 +294,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.8-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -226,7 +316,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.7-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
 
   # High, the highest level it takes ("ai.google.dev/gemini-api/docs/thinking", read 2026-11-24), is the one level
   # Artificial Analysis ranks it at, 12.6 s to the first answer token (read 2026-11-21): the router's timeouts hold.
@@ -238,7 +328,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.6-flash
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -251,7 +341,7 @@ model_list:
   # - model_name: gemini-3-5-flash
   #   litellm_params:
   #     model: gemini/gemini-3.5-flash
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   - model_name: gemini-3-5-flash-lite
     model_info:
@@ -261,7 +351,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 15
       tpm: 250000
       rpd: 500
@@ -273,12 +363,12 @@ model_list:
   # - model_name: gemini-3-1-pro
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
   #
   # - model_name: gemini-3-1-pro-customtools
   #   litellm_params:
   #     model: gemini/gemini-3.1-pro-preview-customtools
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", read 2026-11-02:
   # "Gemini 4 Argon is not available on the Free tier. Every token the model processes is counted
@@ -287,7 +377,7 @@ model_list:
   # - model_name: gemini-4-argon
   #   litellm_params:
   #     model: gemini/gemini-4-argon
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   - model_name: gemini-3-1-flash-lite
     model_info:
@@ -297,7 +387,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 15
       tpm: 250000
       rpd: 500
@@ -312,7 +402,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemini-3-flash-preview
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 5
       tpm: 250000
       rpd: 20
@@ -326,7 +416,7 @@ model_list:
   # - model_name: gemini-omni-1-1-flash
   #   litellm_params:
   #     model: gemini/gemini-omni-1.1-flash
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   # Served until 2026-12-01, but not routed to: "ai.google.dev/gemini-api/docs/deprecations", read
   # 2026-11-22, says "gemini-2.5-pro" is deprecated and "no longer available to select in Google AI
@@ -336,7 +426,7 @@ model_list:
   # - model_name: gemini-2-5-pro
   #   litellm_params:
   #     model: gemini/gemini-2.5-pro
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
   # "ai.google.dev/gemini-api/docs/models/deep-research-pro-preview-12-2025" gives its "Agent code"
@@ -348,7 +438,7 @@ model_list:
   # - model_name: deep-research-pro
   #   litellm_params:
   #     model: gemini/deep-research-pro-preview-12-2025
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 
   # Gemma 4 through the Gemini API itself, added 2026-09-27. Free: the "Gemma 4" table of
   # "ai.google.dev/gemini-api/docs/pricing" gives "Free of charge" for input and output on the free
@@ -364,7 +454,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemma-4-31b-it
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 30
       tpm: 16000
       rpd: 14400
@@ -376,7 +466,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: gemini/gemma-4-26b-a4b-it
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 30
       tpm: 16000
       rpd: 14400
@@ -397,7 +487,7 @@ model_list:
   - model_name: gemini-embedding-2
     litellm_params:
       model: gemini/gemini-embedding-2
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 100
       tpm: 30000
       rpd: 1000
@@ -417,7 +507,7 @@ model_list:
   - model_name: gemini-3-8-flash-tts
     litellm_params:
       model: gemini/gemini-3.8-flash-tts
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 3
       tpm: 10000
       rpd: 10
@@ -428,7 +518,7 @@ model_list:
   - model_name: gemini-3-8-flash-lite-tts
     litellm_params:
       model: gemini/gemini-3.8-flash-lite-tts
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 3
       tpm: 10000
       rpd: 10
@@ -460,7 +550,7 @@ model_list:
   - model_name: gemini-3-5-transcribe
     litellm_params:
       model: gemini/gemini-3.5-transcribe
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
       rpm: 3
       tpm: 10000
       rpd: 25
@@ -490,7 +580,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: mistral/codestral-latest
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   - model_name: codestral-2508
     model_info:
@@ -499,7 +589,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: mistral/codestral-2508
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   # In "Auto-Flash", ahead of "mistral-small" as the larger model. Epoch AI's capabilities index puts it at 141.6 against
   # 140.8 for Gemini 2.5 Flash (Jun 2025), the floor of that router, and under the floor of "Auto-Pro"; Artificial
@@ -512,7 +602,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: mistral/mistral-medium-latest
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   - model_name: mistral-small
     model_info:
@@ -521,7 +611,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: mistral/mistral-small-latest
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   # Ministral 3 (Apache 2.0, "docs.mistral.ai/getting-started/models/models_overview") -- edge-sized
   # generalists, verified 2026-09-13. The 14B card describes it as "performance comparable to its
@@ -535,7 +625,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: mistral/ministral-14b-2512
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   - model_name: ministral-8b
     model_info:
@@ -544,7 +634,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: mistral/ministral-8b-2512
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   - model_name: ministral-3b
     model_info:
@@ -553,7 +643,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: mistral/ministral-3b-2512
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
 
   # An embedding model, added 2026-11-22, in no cascade and behind no alias, for the reason given at
   # "gemini-embedding-2" above. Paid like the rest of this section: $0.10 per million tokens in
@@ -564,7 +654,7 @@ model_list:
   - model_name: mistral-embed
     litellm_params:
       model: mistral/mistral-embed
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
     model_info:
       mode: embedding
       access_groups: ["Embeddings", "Private-Data"]
@@ -576,7 +666,7 @@ model_list:
   - model_name: voxtral-mini-mistral
     litellm_params:
       model: mistral/voxtral-mini-latest
-      api_key: "os.environ/MISTRAL_API_KEY"
+      litellm_credential_name: "mistral"
     model_info:
       mode: audio_transcription
       access_groups: ["STT", "Private-Data"]
@@ -591,7 +681,7 @@ model_list:
   # - model_name: voxtral-mini-tts-mistral
   #   litellm_params:
   #     model: mistral/voxtral-mini-tts-3-0
-  #     api_key: "os.environ/MISTRAL_API_KEY"
+  #     litellm_credential_name: "mistral"
   #   model_info:
   #     mode: audio_speech
 
@@ -613,12 +703,12 @@ model_list:
   # - model_name: gpt-oss-120b-cerebras
   #   litellm_params:
   #     model: cerebras/gpt-oss-120b
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
   #
   # - model_name: qwen3-8-27b-cerebras
   #   litellm_params:
   #     model: cerebras/qwen-3.8-27b
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
 
 {% if has.Groq %}
   # Every text model of Groq states the length of its answer, as "max_completion_tokens", the name Groq's API
@@ -640,7 +730,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: groq/openai/gpt-oss-120b
-      api_key: "os.environ/GROQ_API_KEY"
+      litellm_credential_name: "groq"
       max_completion_tokens: 32768
       rpm: 30
       tpm: 8000
@@ -655,7 +745,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: groq/openai/gpt-oss-20b
-      api_key: "os.environ/GROQ_API_KEY"
+      litellm_credential_name: "groq"
       max_completion_tokens: 32768
       rpm: 30
       tpm: 8000
@@ -678,7 +768,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: groq/qwen/qwen3.8-27b
-      api_key: "os.environ/GROQ_API_KEY"
+      litellm_credential_name: "groq"
       max_completion_tokens: 16384
       rpm: 30
       tpm: 8000
@@ -699,7 +789,7 @@ model_list:
   - model_name: whisper-large-v3-groq
     litellm_params:
       model: groq/whisper-large-v3
-      api_key: "os.environ/GROQ_API_KEY"
+      litellm_credential_name: "groq"
       rpm: 20
       rpd: 2000
     model_info:
@@ -709,7 +799,7 @@ model_list:
   - model_name: whisper-large-v3-turbo-groq
     litellm_params:
       model: groq/whisper-large-v3-turbo
-      api_key: "os.environ/GROQ_API_KEY"
+      litellm_credential_name: "groq"
       rpm: 20
       rpd: 2000
     model_info:
@@ -739,13 +829,13 @@ model_list:
   #   litellm_params:
   #     model: openai/gemma-4-31B-it
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #     litellm_credential_name: "sambanova"
   #
   # - model_name: gpt-oss-120b-sambanova
   #   litellm_params:
   #     model: openai/gpt-oss-120b
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #     litellm_credential_name: "sambanova"
   #
   # Served, but not routed to, read again on 2026-11-02:
   # "api.sambanova.ai/v1/models" lists it, priced per token ($0.30 in / $1.20 out per million), and the
@@ -755,7 +845,7 @@ model_list:
   #   litellm_params:
   #     model: openai/MiniMax-M3.1-Flash
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #     litellm_credential_name: "sambanova"
 
   # Looked at on 2026-11-21 and turned down: the drift report stops listing this id.
   # drift-ignore: sambanova/GLM-5.3 -- no free tier: "api.sambanova.ai/v1/models" prices it per token ($2.80 in / $8.80 out per million), the Free Tier rows of "docs.sambanova.ai/docs/en/models/rate-limits" name only gpt-oss-120b and gemma-4-31B-it, and the Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to run your first requests" with "signupCredits":false (all read 2026-11-21)
@@ -783,7 +873,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: deepseek/deepseek-v4-pro
-      api_key: "os.environ/DEEPSEEK_API_KEY"
+      litellm_credential_name: "deepseek"
 
   - model_name: deepseek-flash-direct
     model_info:
@@ -793,7 +883,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: deepseek/deepseek-flash
-      api_key: "os.environ/DEEPSEEK_API_KEY"
+      litellm_credential_name: "deepseek"
 
 {% endif %}
 {% if has.OpenRouter %}
@@ -819,7 +909,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
       reasoning_effort: high
 
   - model_name: nemotron-reasoning-free
@@ -830,7 +920,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   - model_name: nemotron-lightning-free
     model_info:
@@ -840,7 +930,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   # Added 2026-11-02 (#305). "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0),
   # with a 1,000,000-token context, text, image and video in and text out, and "tools" and
@@ -857,7 +947,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-super-vl:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   - model_name: gemma-4-31b-free
     model_info:
@@ -867,7 +957,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   - model_name: gemma-4-26b-free
     model_info:
@@ -877,14 +967,14 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/google/gemma-4-26b-a4b-it:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   - model_name: openrouter-auto-free
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openrouter/openrouter/free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
   # 1,048,576-token context, text and image in and text out, "tools" and "tool_choice" among its supported
@@ -914,7 +1004,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/particle-ai/particle-1:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
       reasoning_effort: xhigh
 
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
@@ -933,7 +1023,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openrouter/baidu/ernie-5.5-flash-preview:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
       reasoning_effort: high
 
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
@@ -952,7 +1042,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openrouter/liquid/lfm-3-1.7b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   # Added 2026-11-23. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
   # 512,000-token context, text and image in and text out, and "tools" and "tool_choice" among its supported
@@ -971,7 +1061,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openrouter/dots-studio/dots-3-note-preview:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
   # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
@@ -996,7 +1086,7 @@ model_list:
   - model_name: nemotron-3-embed-1b-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3-embed-1b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
     model_info:
       mode: embedding
       access_groups: ["Embeddings", "Public-Data-Only"]
@@ -1004,7 +1094,7 @@ model_list:
   - model_name: nemotron-3-5-embed-1b-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-embed-1b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
     model_info:
       mode: embedding
       access_groups: ["Embeddings", "Public-Data-Only"]
@@ -1012,7 +1102,7 @@ model_list:
   - model_name: nemotron-3-5-embed-8b-free
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-embed-8b:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
     model_info:
       mode: embedding
       access_groups: ["Embeddings", "Public-Data-Only"]
@@ -1072,7 +1162,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-120b
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
@@ -1084,7 +1174,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-20b
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
@@ -1097,7 +1187,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_completion_tokens: 32768
 
   # New to the gateway, and in "Auto-Flash-Lite" only, as the last of its free members: 24,000 tokens of context
@@ -1112,7 +1202,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 8192
 
   # New to the gateway, and in "Auto-Code" and "Auto-Claude-Code" only, as the last of their free members, ahead of
@@ -1128,7 +1218,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_completion_tokens: 32768
 
   # SEA-LION v4, a Gemma 3 27B tuned for the languages of Southeast Asia, with 128,000 tokens of context
@@ -1143,7 +1233,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Cloudflare's own models that are not chat models, each called on a route of its own rather than on
@@ -1162,7 +1252,7 @@ model_list:
       access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Clef Omni: a 30B mixture of experts, 64,000 tokens, text, images, audio (four clips of five minutes at most)
   # and video (two clips of a minute at most), the one member that takes audio and video.
@@ -1172,7 +1262,7 @@ model_list:
       access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef-omni
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Clef Flash: 9B, 24,576 tokens, text and images; the last member of "Auto-Decision", its context being under its
   # siblings'.
@@ -1182,7 +1272,7 @@ model_list:
       access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef-flash
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Clairic: 65,536 tokens, text, images and PDFs; its promotional price lasts until 2026-12-01, after which
   # the same allowance reads fewer tokens.
@@ -1192,7 +1282,7 @@ model_list:
       access_groups: ["Extraction", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clairic
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Clairic Flash: the same schema in early research preview, 65,536 tokens.
   - model_name: clairic-flash-cloudflare
@@ -1201,7 +1291,7 @@ model_list:
       access_groups: ["Extraction", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clairic-flash
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # drift-ignore: cloudflare/@cf/daily-co/phonellm-mini-alpha-2 -- an alpha tuned for voice agents with thinking disabled, which no figure of Artificial Analysis or Epoch AI measures (read 2026-11-22); a release out of alpha comes under another name and is proposed again
 
@@ -1220,7 +1310,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/ibm-granite/granite-4.0-h-micro
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Meta's Llama 3.2 11B with vision, with 128,000 tokens of context (its model page, read 2026-11-22).
@@ -1238,7 +1328,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.2-11b-vision-instruct
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Meta's Llama 4 Scout, a mixture of experts with 17B active parameters, 131,000 tokens of context and
@@ -1254,7 +1344,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora -- a LoRA base model with a 15,000-token context, under the 24,000 that "Auto-Flash-Lite" takes, and no figure measures v0.2 (read 2026-11-22)
@@ -1270,7 +1360,7 @@ model_list:
       max_input_tokens: 128000
     litellm_params:
       model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 32768
 
   # Qwen2.5 Coder 32B, with 32,768 tokens of context and no function calling listed (its model page, read
@@ -1287,7 +1377,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_tokens: 8192
 
   # Qwen3.8 27B, the model Groq and OVHcloud serve above, with 262,144 tokens of context and function calling
@@ -1306,7 +1396,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: cloudflare/@cf/qwen/qwen3.8-27b
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
       max_completion_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5; the form (forms.gle/kgvmkr6ucHN3xNuH6) was closed on 2026-11-24
@@ -1334,7 +1424,7 @@ model_list:
     litellm_params:
       model: openai/@cf/baai/bge-m3
       api_base: "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE"
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
     model_info:
       mode: embedding
       access_groups: ["Embeddings", "Private-Data"]
@@ -1380,7 +1470,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: zai/glm-4.7-flash
-      api_key: "os.environ/ZAI_API_KEY"
+      litellm_credential_name: "zai"
 
 {% endif %}
   # ============================================================================
@@ -1853,7 +1943,7 @@ model_list:
     litellm_params:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
       reasoning_effort: max
 
   - model_name: nemotron-reasoning-requesty
@@ -1865,7 +1955,7 @@ model_list:
     litellm_params:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
       reasoning_effort: max
 
   - model_name: nemotron-lightning-requesty
@@ -1877,7 +1967,7 @@ model_list:
     litellm_params:
       model: openai/nvidia/nemotron-3.5-lightning-30b-a3b
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
 
   - model_name: gemma-4-31b-requesty
     model_info:
@@ -1888,7 +1978,7 @@ model_list:
     litellm_params:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
       reasoning_effort: high
   # drift-ignore: requesty/novita/ling-3.1-flash -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
   # drift-ignore: requesty/nvidia/muse-glimmer-30b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
@@ -1939,7 +2029,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/moonshotai/kimi-k3.1-pro
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 262,144-token context in the capability data of its card page, whose text says up to 1M: the smaller is
   # taken. Index 26.1 at the high effort its card gives as the vendor's default, which the endpoint was not
@@ -1951,7 +2041,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/mistralai/mistral-large-4-1t-a52b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # The same model as "nemotron-ultra-free", through NVIDIA's own pool. 1,048,576-token context.
   - model_name: nemotron-ultra-nvidia
@@ -1961,7 +2051,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # The same model as "nemotron-reasoning-free". 262,144-token context.
   - model_name: nemotron-reasoning-nvidia
@@ -1971,7 +2061,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # The same model as "nemotron-lightning-free". 1,048,576-token context.
   - model_name: nemotron-lightning-nvidia
@@ -1981,7 +2071,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # The same model as "nemotron-super-vl-free". 262,144-token context.
   - model_name: nemotron-super-vl-nvidia
@@ -1991,7 +2081,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 65,536-token context, under what "Auto-Claude-Code" requires, and the one record Artificial Analysis has is for a
   # 4GB build, with neither an index nor a timing: no figure places it, so it closes the free members of
@@ -2003,7 +2093,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-bolt-e4b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 1,048,576-token context. Its card says reasoning_effort defaults to max, the effort Epoch AI's DeepSWE
   # file scores it at. Index 27.8, 87 s to the first answer token on Artificial Analysis's probes, close to the
@@ -2013,7 +2103,7 @@ model_list:
       access_groups: ["LLM", "Public-Data-Only", "Claude-Code"]
     litellm_params:
       model: nvidia_nim/z-ai/glm-5.3-flash
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 262,144-token context in the capability data of its card page, whose text says up to 1M: the smaller is
   # taken. Index 29.1, 52 s to the first answer token. Epoch AI scores no model of this name, only MiniMax-M3,
@@ -2025,7 +2115,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/minimaxai/minimax-m3.1-flash
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 1,048,576-token context. Index 28.5, 38 s to the first answer token. Epoch AI scores no model of this
   # name.
@@ -2037,7 +2127,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/stepfun-ai/step-5-preview
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # Poolside's model for agentic coding, with a 262,144-token context. Neither Artificial Analysis nor Epoch AI
   # lists it (read 2026-11-21), so no figure places it: it closes the free members of "Auto-Code" and "Auto-Claude-Code",
@@ -2049,7 +2139,7 @@ model_list:
       supports_vision: false
     litellm_params:
       model: nvidia_nim/poolside/laguna-xs-2.1
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # A 131,072-token context, the least that still meets the 128k "Auto-Claude-Code" asks for. Index 6.3 at the high
   # level of its one Artificial Analysis record, low enough to sit behind the other NVIDIA entries that have a
@@ -2061,7 +2151,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/meta/muse-glimmer-30b
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # The same model as "gemma-4-31b-gemini" and "gemma-4-31b-free", through a pool of its own. 262,144-token context.
   - model_name: gemma-4-31b-nvidia
@@ -2071,7 +2161,7 @@ model_list:
       supports_vision: true
     litellm_params:
       model: nvidia_nim/google/gemma-4-31b-it
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # Served by the endpoint, but no model card was found at the address the catalogue's pattern gives: its tool
   # support and its context are unknown. In "Auto-Flash-Lite" only, where Artificial Analysis's timing (3.1 s to the
@@ -2081,7 +2171,7 @@ model_list:
       access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-12b-it
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   # As "gemma-3-12b-nvidia": no card was found, so tools and context are unknown. 1.9 s to the first answer
   # token on Artificial Analysis's probes.
@@ -2090,7 +2180,7 @@ model_list:
       access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-4b-it
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
   # drift-ignore: nvidia/nvidia/cosmos-reason2-8b -- a vision model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
   # drift-ignore: nvidia/nvidia/ising-calibration-1.5-31b -- a quantum calibration model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
   # drift-ignore: nvidia/nvidia/riva-translate-4b-instruct-v2 -- a translation model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
@@ -2132,7 +2222,7 @@ model_list:
     litellm_params:
       model: openai/hy4-flash:free
       api_base: "https://api.cent-ai.dev/v1"
-      api_key: "os.environ/CENT_AI_API_KEY"
+      litellm_credential_name: "cent-ai"
 
 {% endif %}
 
@@ -2176,7 +2266,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-3.5
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   # Its smaller sibling, also of the GLM family, with the same 262,144 tokens of context.
   - model_name: aion-3-5-mini-aion-labs
@@ -2188,7 +2278,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-3.5-mini
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   # The generation before, of the GLM family, with 131,072 tokens of context.
   - model_name: aion-3-0-aion-labs
@@ -2200,7 +2290,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-3.0
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   # Of the DeepSeek family, with 131,072 tokens of context.
   - model_name: aion-3-0-mini-aion-labs
@@ -2212,7 +2302,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-3.0-mini
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   # A variant of DeepSeek V3.2, with 131,072 tokens of context.
   - model_name: aion-2-0-aion-labs
@@ -2224,7 +2314,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-2.0
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   # A variant of Llama 3.1 8B, the only one of the six that neither reasons nor takes tool calls, with 32,768 tokens
   # of context.
@@ -2237,7 +2327,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-rp-llama-3.1-8b
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
 {% endif %}
   # ============================================================================

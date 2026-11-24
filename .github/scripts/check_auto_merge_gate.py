@@ -181,7 +181,7 @@ async function play(scenario) {
 
 def entry(name, address=False, key="GEMINI", header=None):
     lines = ["  - model_name: %s" % name, "    model_info:", '      access_groups: ["LLM", "Public-Data-Only"]', "    litellm_params:",
-             "      model: provider/%s" % name, '      api_key: "os.environ/%s_API_KEY"' % key]
+             "      model: provider/%s" % name, '      litellm_credential_name: "%s"' % key.lower()]
     if address:
         lines.append("      api_base: http://gateway.invalid:1234/v1")
     if header is not None:
@@ -195,7 +195,7 @@ def entry(name, address=False, key="GEMINI", header=None):
 SETTING = "  turn_off_message_logging: true   # kept out of the logs"
 # An entry that is commented out, which the tool deletes like any other and which counts as an entry.
 COMMENTED = ["  # - model_name: gone", "  #   litellm_params:", "  #     model: provider/gone",
-             '  #     api_key: "os.environ/GEMINI_API_KEY"', "  #"]
+             '  #     litellm_credential_name: "gemini"', "  #"]
 
 
 def miniature(count=8):
@@ -428,7 +428,7 @@ def scenarios():
     at = base.index("  - model_name: m1")
     cloudflare = list(base)
     cloudflare[at + 4] = "      model: cloudflare/@cf/vendor/m1"
-    cloudflare[at + 5] = '      api_key: "os.environ/CLOUDFLARE_API_KEY"'
+    cloudflare[at + 5] = '      litellm_credential_name: "cloudflare"'
     add("deletion: a whole Cloudflare entry, whose model starts with \"@cf/\"", "merged",
         removals(deletion(cloudflare, set(block_of(cloudflare, "m1")))[0]))
     add("deletion: a Cloudflare entry and the model line of one that stays", "not merged",
