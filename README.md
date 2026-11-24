@@ -1215,8 +1215,8 @@ permission est *Account → Workers AI → Read*, et `MODEL_DRIFT_CLOUDFLARE_ACC
 (32 caractères hexadécimaux), que l'adresse du catalogue contient et que le contrôle remplace par `***` partout
 où un message pourrait l'afficher, comme une clé. Chacun est facultatif, de préférence une clé dédiée, révocable
 sans toucher à celles de LiteLLM, et les deux de Cloudflare vont ensemble : l'un sans l'autre, le résumé dit
-lequel manque. Le contrôle n'appelle aucun modèle : une requête de liste par fournisseur et par exécution, aucun
-jeton dépensé, et les clés ne voyagent que dans des en-têtes. Sans l'un d'eux, le résumé dit à chaque exécution que son
+lequel manque. Le contrôle n'appelle aucun modèle, à une exception près (Z AI, ci-dessous) : une requête de liste par
+fournisseur et par exécution, aucun jeton dépensé, et les clés ne voyagent que dans des en-têtes. Sans l'un d'eux, le résumé dit à chaque exécution que son
 fournisseur est « non couvert », et ce n'est pas une lecture ratée : aucune issue, aucune reprise. Les entrées
 d'OmniRoute sont listées dans le résumé comme « d'aucun catalogue lu ici ».
 
@@ -1226,11 +1226,27 @@ le run de la veille, qui tient les clés, les lit, pour la première fois le 202
 
 **Le catalogue de Z AI omet ses modèles gratuits « Flash »** (GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash n'y figurent pas, alors
 que Z AI les sert : un appel à GLM-4.7-Flash a reçu, le 2026-11-24, un `429` de code `1305`, une surcharge, et non l'erreur d'un modèle
-inconnu). Pour ce fournisseur, une entrée absente du catalogue, active ou commentée, ne prouve donc pas un retrait : le contrôle la
-signale comme une information à lire (« NOTICE ») et ne la supprime jamais, ni sous `--apply`. Z AI n'a pas de route qui réponde pour un
-seul modèle, et le contrôle n'appelle aucun modèle : c'est à une personne de vérifier, par un appel avec la clé du compte, et de retirer
-l'entrée si le modèle est vraiment retiré. Les fournisseurs dans ce cas sont déclarés dans `INCOMPLETE_CATALOGUES`, en tête de
-`.github/scripts/check_LiteLLM_model_drift.py`, chacun avec sa raison ; aucun autre n'est connu pour omettre des modèles qu'il sert.
+inconnu). Pour ce fournisseur, une entrée absente du catalogue ne prouve donc pas un retrait, et Z AI n'a pas de route qui réponde pour
+un seul modèle : pour chaque entrée **active** que la liste omet, le contrôle regarde d'abord la page des tarifs de Z AI (plus bas), qui
+liste ses modèles gratuits en Markdown et ne coûte aucune requête du quota : un modèle qu'elle nomme est servi, sans aucun appel. Un jour
+normal, tous les modèles routés y sont, et le contrôle n'appelle donc rien. Seul un modèle que ni la liste ni cette page ne nomment (ou
+une page illisible ce jour-là) est interrogé par la requête la moins chère qui prouve qu'un modèle existe, une complétion de chat de
+`max_tokens: 1` avec la clé `MODEL_DRIFT_ZAI_API_KEY`, gratuite pour les modèles routés. La page des codes d'erreur de Z AI (<https://docs.z.ai/api-reference/api-code>, lue le 2026-11-24)
+décide de la réponse : `200` et tout `429` (limites, solde, forfait : jamais un modèle inconnu) disent que le modèle est servi, et le
+résumé le liste à part, dans « Absents de la liste, mais toujours servis », sans que l'exécution sorte en échec ; `400` avec le code `1211`
+(« Unknown Model ») est le seul code que cette page donne pour un modèle qui n'existe pas, et fait de l'entrée un retrait, supprimé
+comme les autres sous `--apply` ; toute autre réponse (`401`, `5xx`, délai dépassé, code inconnu, corps inattendu) ne tranche rien, et
+l'entrée reste une alerte (« NOTICE ») qui dit ce que Z AI a répondu. Une entrée **commentée** n'est jamais interrogée (c'est une entrée
+non routée, souvent pour son prix, et un appel pourrait coûter) : son absence reste une alerte, sans suppression. Les fournisseurs dans
+ce cas sont déclarés dans `INCOMPLETE_CATALOGUES`, en tête de `.github/scripts/check_LiteLLM_model_drift.py`, chacun avec sa raison ;
+aucun autre n'est connu pour omettre des modèles qu'il sert.
+
+Les nouveaux modèles gratuits de Z AI sont masqués par la même omission. Le contrôle lit donc la page des tarifs, que la
+documentation de Z AI sert en Markdown (<https://docs.z.ai/guides/overview/pricing.md>, lue le 2026-11-24) : un modèle dont les colonnes
+« Input » et « Output » valent `Free` est proposé comme nouveau, à examiner, avec la mention « listed free on its pricing page ». Ce
+n'est pas une gratuité lue dans l'API : la page nomme les modèles par leur nom d'affichage (l'identifiant est ce nom en minuscules), et sa
+mise en page peut changer. Une page sans tableau de prix lisible est l'erreur de ce fournisseur, jamais un retrait ; la clé n'est pas
+envoyée à cette page, qui est publique.
 
 La réponse du catalogue de Cloudflare n'est pas documentée par son API, qui type chaque modèle « unknown » : le
 contrôle lit la forme que lisent la documentation de ses modèles et son outil en ligne de commande, et aucune

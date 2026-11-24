@@ -275,9 +275,25 @@ run, which holds the keys, is what reads them, and first did on 2026-11-24. A sh
 
 Z AI's list omits its free "Flash" models although it serves them: a call to glm-4.7-flash on the account's
 key was answered with an overload error (HTTP 429, code 1305), which a model the provider does not know is
-not. Reading it as complete would delete a served model, so it is declared in INCOMPLETE_CATALOGUES and an
-entry of it that the list does not name is a NOTICE, never RETIRED or GONE (WHAT IS REPORTED). The list
-still decides NEW and every other notice. Only a provider known to omit what it serves is declared there.
+not. Reading it as complete would delete a served model, so it is declared in INCOMPLETE_CATALOGUES, and the
+list alone never makes an entry of it RETIRED or GONE. Z AI has no route that answers for one model, so the
+run asks it with the cheapest call that proves a model exists: a chat completion of "max_tokens": 1 on the
+key it holds, for each ACTIVE entry the list omits (probe_absences) -- but only once the pricing page below,
+which costs no request of the quota, has not listed it free: a model that page names is served and is asked
+about nowhere, so a normal day spends none, and the probe is the fallback for a model neither names or for
+a page that could not be read that run. HTTP 200, and any 429 (the codes its
+error page documents under 429 are limits, a balance and a plan, never an unknown model), say the model is
+served: it is listed apart (SERVED), and is no finding. HTTP 400 with code 1211, "Unknown Model", the one
+code that page documents for a model that does not exist, makes it RETIRED, deleted like any other. Every
+other answer (an authentication code, a code about the call and not the model, a 5xx, a timeout, a code the
+page does not list, a body that is not an error of its shape) settles nothing: the entry stays a NOTICE that
+says what the probe answered. A commented-out entry is never asked about, since it is one not routed to for
+its price and a call to it could cost, so its absence is a NOTICE. A list that holds nothing asks nothing.
+Z AI's pricing page, which its documentation serves as Markdown, tables the models free of charge ("Free" in
+both the Input and the Output column), and is read as a second source of NEW models the list omits too: they
+are listed to examine, labelled as read there, like any NEW model of a provider whose API says nothing of the
+free tier. A page that holds no such table is that provider's error and never a retirement. The page is public
+and the key is not sent to it. Only a provider known to omit what it serves is declared.
 
 Whether a Cloudflare model is free is not read, and no check for it is made up: the pricing page names, in
 a note of prose, the models that need a paid billing method, and every other model draws on the
@@ -291,15 +307,17 @@ WHAT IS REPORTED
 RETIRED    an active entry whose id the catalogue no longer lists: delete it and its cascade slots.
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
-           Neither is ever said of a provider whose catalogue is known to omit models it serves
-           (INCOMPLETE_CATALOGUES, Z AI's, which leaves out its free "Flash" models): there the same
-           absence, of an active or a commented-out entry, is a NOTICE that says so, and nothing is deleted.
+           Neither is said on the list alone of a provider whose catalogue is known to omit models it serves
+           (INCOMPLETE_CATALOGUES, Z AI's, which leaves out its free "Flash" models): there an active entry
+           is asked about (see above) and is RETIRED only when the provider says the model does not exist,
+           and a commented-out one is a NOTICE that says so.
 NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
            "expiration_date", Requesty's "retires", Aion Labs' "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the
            "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
            "planned_deprecation_date"; an active Kilo entry that is no longer flagged free, since
            its keyless call would be refused; an active Requesty entry that is no longer priced 0;
-           and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list.
+           and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list
+           and that asking it could not settle (a commented-out one is not asked).
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -348,9 +366,8 @@ it has to answer 200 first for a model the list does name, of the same shape (wi
 id or without, since a slash may not be routed like a plain id). The references document the route
 and not the status of an unknown id, which is why nothing is deleted on any answer but a 404. The
 other providers, whose API has no such route, are deleted from on their list alone, as before --
-bar those of INCOMPLETE_CATALOGUES, whose list is known to omit models that are served: nothing is
-deleted from it, and no request asks the provider for a model, since the only way to ask Z AI is a chat
-call, which this check never makes.
+bar those of INCOMPLETE_CATALOGUES, whose list is known to omit models that are served: an active
+entry is deleted only when asking the provider says the model does not exist, as above.
 
 "--apply" deletes, for each such id, in a single pass over the file:
 
@@ -696,7 +713,8 @@ WHAT IT DELIBERATELY DOES NOT DO
   a path for (the summary, the catalogues it could not read, the pull request, the commit message,
   the coverage, the count of what it did not delete, the proposals). The workflow that runs it does
   the rest, the issue included, whose text it writes itself.
-* It does not call any model. A listed model can still refuse a given key -- Google restricts
+* It calls no model, bar the one-token probe of a provider of INCOMPLETE_CATALOGUES for an active entry
+  its list omits. A listed model can still refuse a given key -- Google restricts
   Gemini 2.5 to accounts that used it before -- and only LiteLLM's own health check on the node
   would see that.
 * It does not read OpenRouter's "/api/v1/models/<id>/endpoints". A removed slug answers there with
@@ -1374,10 +1392,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def urllib_opener(url, headers, limit=None):
+def urllib_opener(url, headers, limit=None, data=None):
     """The answer's body, or with a "limit" at most one byte more than it, which says it is too big
-    without having held all of it."""
-    request = urllib.request.Request(url, headers=headers)
+    without having held all of it. "data" makes the request a POST of that body."""
+    request = urllib.request.Request(url, headers=headers, data=data)
     with urllib.request.build_opener(NoRedirect).open(request, timeout=TIMEOUT) as response:
         return response.read() if limit is None else response.read(limit + 1)
 
@@ -1796,16 +1814,46 @@ PROVIDERS = (
     ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
-# The providers whose catalogue omits models they serve, each with why, in English and in French: an entry
-# of theirs that the catalogue does not list proves nothing, so it is a NOTICE for a person and is never
-# RETIRED or GONE, hence never deleted. Only a provider known to omit models goes here, with what was
-# observed; a provider whose list is merely thought incomplete does not.
+# The providers whose catalogue omits models they serve. An entry of theirs that the catalogue does not
+# list proves nothing by itself, so it is never RETIRED or GONE on the list alone. Only a provider known to
+# omit models goes here, with what was observed; a provider whose list is merely thought incomplete does not.
+# Each declares:
+#   "reason"        why, in English and in French, as a NOTICE says it;
+#   "probe"         how to ask the provider about ONE model, when it has no route that answers for it (LOOKUPS
+#                   is for those that do): a request that proves the model exists as cheaply as the API
+#                   allows, and how its answer is read (probe_verdict). An ACTIVE entry the list omits is
+#                   asked about; a commented-out one never is, since it is one not routed to for its price
+#                   and a call to it could cost. Without a probe, or when it cannot settle the question,
+#                   the absence stays a NOTICE;
+#   "free_listing"  a page of the provider's documentation, in Markdown, that tables the models it offers
+#                   free, read for the NEW ones the list omits too (read_free_listing).
+# Z AI. Its error codes are documented at https://docs.z.ai/api-reference/api-code (read 2026-11-24): the
+# error is {"error": {"code": "<code>", "message": ...}} under an HTTP status, 1211 with HTTP 400 is
+# "Unknown Model, please check the model code", and every 429 is a limit, a balance or a plan -- 1113
+# insufficient balance, 1302 rate limit, 1305 service temporarily overloaded, 1308, 1310, 1311 plan does not
+# include the model, and the rest -- which a model that does not exist is never answered with. So 200 and
+# 429 say the model is served, and 400 with 1211 is the only answer that says it is not; every other answer
+# (an authentication code, 1210 invalid parameter, 1212 and 1220-1222, which speak of the call and not the
+# model, a 5xx, a timeout, a code the page does not list) settles nothing. The free models are the
+# routed ones, so the probe costs nothing; "max_tokens": 1 keeps it small whatever is routed.
+# The pricing page serves its tables as Markdown (https://docs.z.ai/guides/overview/pricing.md, read
+# 2026-11-24), where a model free of charge is one whose Input and Output cells both read "Free".
 INCOMPLETE_CATALOGUES = {
-    "zai": ("its catalogue omits its free \"Flash\" models, which are served all the same (a call to one "
-            "is answered, with an overload error at times, and never as an unknown model)",
-            "son catalogue omet ses modèles gratuits « Flash », qui sont servis malgré tout (un appel "
-            "à l'un d'eux reçoit une réponse, une erreur de surcharge parfois, jamais celle d'un modèle "
-            "inconnu)"),
+    "zai": {
+        "reason": ("its catalogue omits its free \"Flash\" models, which are served all the same (a call to one "
+                   "is answered, with an overload error at times, and never as an unknown model)",
+                   "son catalogue omet ses modèles gratuits « Flash », qui sont servis malgré tout (un appel "
+                   "à l'un d'eux reçoit une réponse, une erreur de surcharge parfois, jamais celle d'un modèle "
+                   "inconnu)"),
+        "probe": {
+            "url": "https://api.z.ai/api/paas/v4/chat/completions",
+            "body": lambda model: {"model": model, "messages": [{"role": "user", "content": "hi"}],
+                                   "max_tokens": 1},
+            "served": (200, 429),
+            "unknown": ((400, "1211"),),
+        },
+        "free_listing": "https://docs.z.ai/guides/overview/pricing.md",
+    },
 }
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
 # its path, which the secret gives and nothing that is printed may. The address in PROVIDERS keeps the
@@ -1943,6 +1991,143 @@ def confirm_absences(provider, report, catalogue, opener, headers):
     report["findings"] = kept
 
 
+PROBE_READ = 4096  # what is read of a probe's answer: a code and a message, never more
+
+
+def probe_verdict(probe, status, raw):
+    """How a probe's answer reads: ("served", None), ("absent", None), or ("unsettled", why), the reason
+    being a sentence that never carries a key nor any of the answer but its status and its numeric code."""
+    code = None
+    try:
+        payload = json.loads(raw) if raw else None
+    except (ValueError, RecursionError):
+        payload = None
+    if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+        value = payload["error"].get("code")
+        if isinstance(value, (str, int)) and not isinstance(value, bool) and re.fullmatch(r"\d{1,6}", str(value)):
+            code = str(value)
+    if (status, code) in probe["unknown"]:
+        return "absent", None
+    if status == 200:
+        if isinstance(payload, dict) and "error" not in payload:
+            return "served", None
+        return "unsettled", "HTTP 200 with an answer that is not a completion"
+    if status in probe["served"]:
+        return "served", None
+    return "unsettled", "HTTP %d%s" % (status, ", code %s" % code if code else "")
+
+
+def ask_by_probe(opener, probe, identifier, headers):
+    """What "probe" says when asked for the model "identifier": see probe_verdict. A failure of the
+    request itself is "unsettled" too, and never "absent"."""
+    body = json.dumps(probe["body"](identifier)).encode()
+    headers = dict(headers, **{"Content-Type": "application/json"})
+    try:
+        raw, status = opener(probe["url"], headers, PROBE_READ, body), 200
+    except urllib.error.HTTPError as error:
+        try:
+            raw = error.read(PROBE_READ + 1)
+        except (OSError, ValueError, http.client.HTTPException):
+            raw = b""
+        status = error.code
+    except urllib.error.URLError as error:
+        return "unsettled", "network error: %s" % safe_text(error.reason, ERROR_READ)
+    except (OSError, ValueError, http.client.HTTPException) as error:
+        return "unsettled", "network error: %s" % error.__class__.__name__
+    if len(raw) > PROBE_READ:
+        return "unsettled", "HTTP %d with an answer too long to read" % status
+    return probe_verdict(probe, status, raw)
+
+
+def probe_absences(provider, report, catalogue, opener, headers):
+    """For a provider of INCOMPLETE_CATALOGUES that declares a probe, settle each ACTIVE entry its list
+    omits. One its free listing names is served and costs no request; the rest are asked about, and a model
+    the provider serves leaves the findings and is kept in report["served"]. One it says does not
+    exist becomes RETIRED, deleted like any other. Anything else leaves the NOTICE, with why. A commented-out
+    entry is never asked about. A list that holds nothing is a failed read, and asks nothing."""
+    probe = (INCOMPLETE_CATALOGUES.get(provider) or {}).get("probe")
+    if not probe or not catalogue["members"]:
+        return
+    kept, asked = [], 0
+    free_listed = catalogue.get("free_listed", ())
+    for finding in report["findings"]:
+        notice = finding.get("notice") or {}
+        if finding["kind"] != "notice" or notice.get("what") != "unlisted" or notice.get("commented"):
+            kept.append(finding)
+            continue
+        if finding["id"] in free_listed:
+            # The provider's own page lists it as free: served, and no request is spent to know it.
+            finding["served_by"] = "its pricing page"
+            report.setdefault("served", []).append(finding)
+            continue
+        if asked >= LOOKUP_LIMIT:
+            notice["probe"] = "more than %d models are missing from the list, too many to ask about" % LOOKUP_LIMIT
+            kept.append(finding)
+            continue
+        asked += 1
+        verdict, why = ask_by_probe(opener, probe, finding["id"], headers)
+        if verdict == "served":
+            report.setdefault("served", []).append(finding)
+        elif verdict == "absent":
+            kept.append({"kind": "retired", "id": finding["id"], "names": finding["names"], "confirmed": True})
+        else:
+            notice["probe"] = why
+            kept.append(finding)
+    report["findings"] = kept
+
+
+FREE_LISTING_LIMIT = 1_000_000
+FREE_MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def read_free_listing(markdown):
+    """The ids of the models a provider's Markdown pricing page tables as free: a row of a table whose
+    header names a "Model", an "Input" and an "Output" column, with "Free" in both of the last two. The
+    id is the name lowercased, which is how this provider writes it. A page with no such table is not
+    one this check can read, which is that provider's error and never a model gone."""
+    free, tables = set(), 0
+    columns = None
+    for line in markdown.splitlines():
+        line = line.strip().lstrip(">").strip()
+        if not (line.startswith("|") and line.endswith("|")):
+            columns = None
+            continue
+        cells = [cell.strip().replace("\\", "") for cell in line.strip("|").split("|")]
+        if columns is None:
+            lowered = [cell.lower() for cell in cells]
+            if "model" in lowered and "input" in lowered and "output" in lowered:
+                columns = (lowered.index("model"), lowered.index("input"), lowered.index("output"))
+                tables += 1
+            continue
+        if all(re.fullmatch(r":?-+:?", cell) for cell in cells if cell):
+            continue
+        if max(columns) < len(cells):
+            name, price_in, price_out = (cells[column] for column in columns)
+            if price_in.lower() == "free" and price_out.lower() == "free" and FREE_MODEL_NAME.fullmatch(name):
+                free.add(name.lower())
+    if not tables:
+        raise FetchError("the pricing page holds no table of prices this check reads")
+    return free
+
+
+def add_free_listing(opener, url, catalogue):
+    """Read the provider's pricing page for its free models and offer the ones the list omits as NEW,
+    labelled with where they were read. The key is never sent: the page is public documentation."""
+    raw = fetch_raw(opener, url, {"User-Agent": USER_AGENT, "Accept": "text/markdown"}, FREE_LISTING_LIMIT)
+    if len(raw) > FREE_LISTING_LIMIT:
+        raise FetchError("the pricing page is too big to read")
+    try:
+        free = read_free_listing(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise FetchError("the pricing page is not text") from None
+    catalogue["free_listed"] = free
+    for identifier in sorted(free):
+        if identifier not in catalogue["candidates"]:
+            offer(catalogue, identifier, usage=usage_of_id(identifier))
+        if identifier in catalogue["candidates"]:
+            catalogue["candidates"][identifier] = "listed free on its pricing page"
+
+
 # ------------------------------------------------------------------------------------------------
 # The diff
 # ------------------------------------------------------------------------------------------------
@@ -1966,7 +2151,8 @@ def diff(provider, catalogue, active, commented, ignored):
     def absent(kind, identifier, names):
         if incomplete:
             return {"kind": "notice", "id": identifier, "names": names,
-                    "notice": {"what": "unlisted", "reason": incomplete}}
+                    "notice": {"what": "unlisted", "reason": incomplete["reason"],
+                               "commented": kind == "gone"}}
         return {"kind": kind, "id": identifier, "names": names}
 
     for identifier, names in sorted(active.items()):
@@ -2254,11 +2440,22 @@ def run_online(text, environment, opener, today):
             report["error"] = shown_error(error, environment)
             report["error_class"] = error_class(error)
             continue
+        free_listing = (INCOMPLETE_CATALOGUES.get(name) or {}).get("free_listing")
+        if free_listing:
+            try:
+                add_free_listing(opener, free_listing, catalogue)
+            except FetchError as error:
+                # The list was read and its findings stand; the page is a second source for NEW models
+                # only, and what it could not say deletes nothing. It is the provider's error all the same.
+                report["status"] = "error"
+                report["error"] = "its pricing page: " + shown_error(error, environment)
+                report["error_class"] = error_class(error)
         report["members"] = len(catalogue["members"])
         report["candidates"] = len(catalogue["candidates"])
         report["unsafe"] = catalogue["unsafe"]
         report["findings"] = diff(name, catalogue, active, commented, ignored)
         confirm_absences(name, report, catalogue, opener, headers)
+        probe_absences(name, report, catalogue, opener, headers)
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
@@ -4805,8 +5002,14 @@ def notice_text(notice, french=False):
     replacement = notice.get("replacement")
     if what == "unlisted":
         if french:
-            return "non listé ; %s : ce n'est pas un retrait" % notice["reason"][1]
-        return "not listed; %s, so the absence is not a retirement" % notice["reason"][0]
+            extra = (", et une entrée commentée n'est jamais interrogée" if notice.get("commented")
+                     else ", et interroger le fournisseur sur ce modèle n'a pas tranché (%s)" % notice["probe"]
+                     if notice.get("probe") else "")
+            return "non listé ; %s%s : ce n'est pas un retrait" % (notice["reason"][1], extra)
+        extra = (", and a commented-out entry is never asked about" if notice.get("commented")
+                 else ", and asking the provider about the model could not settle it (%s)" % notice["probe"]
+                 if notice.get("probe") else "")
+        return "not listed; %s%s, so the absence is not a retirement" % (notice["reason"][0], extra)
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
                 "inactive": "marqué inactif", "paid": "n'est plus gratuit",
@@ -4946,7 +5149,7 @@ def render_text(result, config_name):
               for finding in report.get("served", ())]
     if served:
         out += ["SERVED   missing from the provider's list, yet it answers when asked for the model "
-                "itself -- kept, nothing to delete"]
+                "itself, or its provider's own page lists it free -- kept, nothing to delete"]
         for report, finding in served:
             line = "  %s%s" % litellm_id(report["name"], finding["id"])
             if finding.get("names"):
@@ -5345,8 +5548,8 @@ def summary_body(result, config_name, link, snippets):
     if served:
         out += ["## Absents de la liste, mais toujours servis", "",
                 "La liste de leur fournisseur ne les nomme pas, mais il répond quand on lui demande "
-                "le modèle lui-même : ils ne sont pas retirés, rien n'est supprimé, et cette section "
-                "n'est qu'une information.", ""]
+                "le modèle lui-même, ou sa page de tarifs les donne gratuits : ils ne sont pas retirés, "
+                "rien n'est supprimé, et cette section n'est qu'une information.", ""]
         out += capped(["- `%s`%s%s" % (litellm_id(report["name"], finding["id"])[0],
                                       litellm_id(report["name"], finding["id"])[1].replace(
                                           " on ", " chez "),
