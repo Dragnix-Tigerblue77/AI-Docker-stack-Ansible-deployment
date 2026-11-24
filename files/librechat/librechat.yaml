@@ -23,7 +23,7 @@ endpoints:
         # would have answered with a 404 from the gateway the moment either was selected. Replaced
         # the first with "gpt-oss-120b-groq", an actual deployed Groq entry serving the same role;
         # dropped the second outright, since no working SambaNova substitute exists to offer instead.
-        default: ["Auto", "Auto-Flash", "Auto-Code", "Auto-Pro", "Auto-Flash-Lite", "gemini-3-7-flash", "gpt-oss-120b-groq", "codestral"]
+        default: ["Auto", "Auto-Flash", "Auto-Code", "Auto-Pro", "Auto-Flash-Lite", "gemini-3-8-flash", "gpt-oss-120b-groq", "codestral"]
         fetch: true
       titleModel: "Auto-Flash"
       dropParams: ["stop"]
