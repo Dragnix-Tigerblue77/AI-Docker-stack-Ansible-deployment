@@ -1,0 +1,139 @@
+{
+ "artificial_analysis_read": null,
+ "epoch_read": "2026-11-24",
+ "entries": {
+  "beam-kilo": {
+   "epoch_eci": 150.84
+  },
+  "deepseek-flash-direct": {
+   "epoch_eci": 159.41
+  },
+  "deepseek-v4-1-flash-ovh": {
+   "epoch_eci": 159.41
+  },
+  "deepseek-v4-pro-direct": {
+   "epoch_eci": 155.96,
+   "epoch_code_position": 21.68
+  },
+  "gemini-3-1-flash-lite": {
+   "epoch_eci": 144.97
+  },
+  "gemini-3-5-flash-lite": {
+   "epoch_eci": 145.63
+  },
+  "gemini-3-6-flash": {
+   "epoch_eci": 155.24,
+   "epoch_code_position": 71.57
+  },
+  "gemini-3-7-flash": {
+   "epoch_eci": 158.4,
+   "epoch_code_position": 45.74
+  },
+  "gemini-3-8-flash": {
+   "epoch_eci": 158.81,
+   "epoch_code_position": 17.18
+  },
+  "gemini-3-8-flash-low": {
+   "epoch_eci": 158.81
+  },
+  "gemini-3-flash-preview": {
+   "epoch_eci": 152.35,
+   "epoch_code_position": 25.87
+  },
+  "gemini-4-hydrogen": {
+   "epoch_eci": 166.81,
+   "epoch_code_position": 9.37
+  },
+  "gemini-4-hydrogen-low": {
+   "epoch_eci": 166.81
+  },
+  "gemma-4-26b-cloudflare": {
+   "epoch_eci": 141.56
+  },
+  "gemma-4-26b-free": {
+   "epoch_eci": 141.56
+  },
+  "gemma-4-26b-gemini": {
+   "epoch_eci": 141.56
+  },
+  "gemma-4-26b-ovh": {
+   "epoch_eci": 141.56
+  },
+  "gemma-4-31b-free": {
+   "epoch_eci": 144.12
+  },
+  "gemma-4-31b-gemini": {
+   "epoch_eci": 144.12
+  },
+  "gemma-4-31b-nvidia": {
+   "epoch_eci": 144.12
+  },
+  "gemma-4-31b-requesty": {
+   "epoch_eci": 144.12
+  },
+  "glm-5-3-flash-nvidia": {
+   "epoch_eci": 153.77,
+   "epoch_code_position": 68.24
+  },
+  "gpt-oss-120b-cloudflare": {
+   "epoch_eci": 140.21,
+   "epoch_code_position": 84.28
+  },
+  "gpt-oss-120b-groq": {
+   "epoch_eci": 140.21,
+   "epoch_code_position": 84.28
+  },
+  "gpt-oss-120b-ovh": {
+   "epoch_eci": 140.21,
+   "epoch_code_position": 84.28
+  },
+  "gpt-oss-20b-cloudflare": {
+   "epoch_eci": 134.89,
+   "epoch_code_position": 89.71
+  },
+  "gpt-oss-20b-groq": {
+   "epoch_eci": 134.89,
+   "epoch_code_position": 89.71
+  },
+  "gpt-oss-20b-ovh": {
+   "epoch_eci": 134.89,
+   "epoch_code_position": 89.71
+  },
+  "kimi-k3-1-pro-nvidia": {
+   "epoch_eci": 161.2
+  },
+  "llama-3-3-70b-cloudflare": {
+   "epoch_eci": 126.18
+  },
+  "llama-4-scout-17b-16e-instruct-cloudflare": {
+   "epoch_eci": 127.75
+  },
+  "mistral-large-4-nvidia": {
+   "epoch_eci": 154.57
+  },
+  "mistral-medium": {
+   "epoch_eci": 141.58
+  },
+  "nemotron-ultra-free": {
+   "epoch_eci": 147.02
+  },
+  "nemotron-ultra-kilo": {
+   "epoch_eci": 147.02
+  },
+  "nemotron-ultra-nvidia": {
+   "epoch_eci": 147.02
+  },
+  "nemotron-ultra-requesty": {
+   "epoch_eci": 147.02
+  },
+  "qwen3-8-27b-cloudflare": {
+   "epoch_eci": 152.63
+  },
+  "qwen3-8-27b-groq": {
+   "epoch_eci": 152.63
+  },
+  "qwen3-8-27b-ovh": {
+   "epoch_eci": 152.63
+  }
+ }
+}

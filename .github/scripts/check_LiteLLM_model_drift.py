@@ -571,6 +571,20 @@ use of that API ask, and the figures are shown as published.
   not a finite number is none, and the key is replaced by "***" wherever an error could carry it. The
   job that writes holds no such key, as with the others.
 
+THE FIGURES THE CATALOGUE SHOWS
+-------------------------------
+"--scores PATH" is the figures file "docs/catalog_scores.json": the intelligence index and the time to the first answer
+token of the Artificial Analysis record each entry is mapped to by the router contracts, at the level it is called at
+(never a record whose level is unverified), and the capabilities index and the code position of its model in Epoch AI's
+archive, which this run already reads. The file the path names is read first, as the figures of the run before; a source
+this run did not read (no key, an error, none asked) keeps what that file held of it, with its day, and one it read
+replaces it, a figure it no longer gives being dropped. The file is rewritten in place when "--apply" deleted something,
+so that the entries that went take their figures with them, and for each pull request of additions "<kind>_scores.json"
+is written beside its template, for the entries of that template. Nothing is written otherwise, so a run that changes
+nothing leaves the file alone. The file is held to its shape by "scores_problems" and written the one way
+"render_scores" writes it, which "generate_catalog.py --check" requires of every copy: it is data, numbers within
+bounds for entries of the template, and nothing a reader of those sites could write into it is more than a wrong figure.
+
 PROPOSING WHAT IS NEW
 --------------------
 "--proposals DIR" proposes the NEW models, whatever their kind, in two pull requests of their own, which the
@@ -3906,6 +3920,200 @@ def router_contracts(text, result, path):
         return {"status": "error", "kind": error.__class__.__name__}
 
 
+# ------------------------------------------------------------------------------------------------
+# The figures of the catalogue: what this run read of Artificial Analysis and of Epoch AI, per entry
+# ------------------------------------------------------------------------------------------------
+
+# "docs/catalog_scores.json" holds the figures that "docs/CATALOG.md" shows for each entry. The CI cannot read the
+# sites they come from, so the weekly run does, and rewrites the file in each pull request it opens; the check of
+# every pull request then holds the file to its shape (below) and the catalogue to the file. The file is data
+# and nothing else: the figures are numbers, within bounds that no real figure leaves, and each belongs to an
+# entry of the template, so that what a compromised reader could put in it steers nothing and says nothing.
+SCORES = ROOT / "docs" / "catalog_scores.json"
+SCORE_SOURCES = (
+    ("artificial_analysis_read", ("aa_index", "aa_first_answer_seconds")),
+    ("epoch_read", ("epoch_eci", "epoch_code_position")),
+)
+SCORE_KEYS = tuple(key for _, keys in SCORE_SOURCES for key in keys)
+# The widest range each figure can take, a bound and not a judgement: a figure outside it is no figure of its kind.
+SCORE_BOUNDS = {"aa_index": (0, 200), "aa_first_answer_seconds": (0, 3600), "epoch_eci": (0, 1000),
+                "epoch_code_position": (0, 100)}
+SCORE_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+SCORE_TOP = tuple(read for read, _ in SCORE_SOURCES) + ("entries",)
+
+
+def score_figure(value, key):
+    """The figure as the file writes it, or None when it is no figure of this kind: a number, finite, within its
+    bounds, to two decimals so that a revised source does not rewrite the file for a digit nobody reads."""
+    number = figure(value)
+    low, high = SCORE_BOUNDS[key]
+    return round(number, 2) if number is not None and low <= number <= high else None
+
+
+def scores_problems(document, names):
+    """Why "document" is not a file of figures for the entries "names", as a list: a list of nothing means the shape
+    is the one the generator reads. Every figure is a number, every key one of the four, every entry one of the
+    template's, every date a real day or none, and a figure of a source that was never read is refused."""
+    if not isinstance(document, dict) or set(document) != set(SCORE_TOP):
+        return ["the file is not an object with exactly the keys %s" % ", ".join(SCORE_TOP)]
+    problems = []
+    dates = {}
+    for read, _ in SCORE_SOURCES:
+        value = document[read]
+        if value is not None:
+            try:
+                datetime.date.fromisoformat(value)
+            except (TypeError, ValueError):
+                value = False
+            if value is False or not SCORE_DATE.fullmatch(value):
+                problems.append("%s is not a day written YYYY-MM-DD, or null" % read)
+                value = None
+        dates[read] = value
+    entries = document["entries"]
+    if not isinstance(entries, dict):
+        return problems + ["entries is not an object"]
+    for name, figures in entries.items():
+        if name not in names:
+            problems.append("%s is no entry of the template" % safe_text(name, 60))
+        elif not isinstance(figures, dict) or not figures:
+            problems.append("%s holds no figure" % name)
+        else:
+            for key, value in figures.items():
+                if key not in SCORE_KEYS:
+                    problems.append("%s: %s is no kind of figure" % (name, safe_text(key, 40)))
+                elif score_figure(value, key) is None:
+                    problems.append("%s: %s is not a number within %s and %s" % ((name, key) + SCORE_BOUNDS[key]))
+                elif score_figure(value, key) != value:
+                    problems.append("%s: %s is not written to two decimals at most" % (name, key))
+                elif dates[next(read for read, keys in SCORE_SOURCES if key in keys)] is None:
+                    problems.append("%s: %s comes from a source the file says was never read" % (name, key))
+    return problems
+
+
+def render_scores(document):
+    """The file as it is written, and the only way it is: the entries by name, the figures in the order of
+    SCORE_KEYS, one space of indentation, a newline at the end. A copy that is not exactly this is refused, so that
+    the file has one spelling and no room in it."""
+    ordered = {read: document[read] for read, _ in SCORE_SOURCES}
+    ordered["entries"] = {name: {key: document["entries"][name][key] for key in SCORE_KEYS
+                                 if key in document["entries"][name]} for name in sorted(document["entries"])}
+    return json.dumps(ordered, indent=1) + "\n"
+
+
+def parse_scores(text):
+    """(document, problems) of the text of the file: a key written twice and anything but an object are refused."""
+    def pairs(items):
+        keys = [key for key, _ in items]
+        if len(set(keys)) != len(keys):
+            raise ValueError("a key is written twice")
+        return dict(items)
+    try:
+        return json.loads(text, object_pairs_hook=pairs), []
+    except (ValueError, RecursionError) as error:
+        return None, ["the file is not JSON (%s)" % error.__class__.__name__]
+
+
+def scores_file_problems(text, names):
+    """(document, problems) of the text of the figures file against the entries "names": the problems of its shape, or
+    that it is not written the one way it is."""
+    document, problems = parse_scores(text)
+    problems = problems or scores_problems(document, names)
+    if not problems and text != render_scores(document):
+        problems = ["the file is not written the way the generator writes it (entries by name, one space of "
+                    "indentation, a newline at the end)"]
+    return document, problems
+
+
+def read_scores(path, names):
+    """(document, problems) of the file at "path" against the entries "names". A file that is absent is a problem, so
+    that nothing is checked against figures nobody committed."""
+    try:
+        text = Path(path).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return None, ["the file cannot be read (%s)" % error.__class__.__name__]
+    return scores_file_problems(text, names)
+
+
+def code_position_of(mapping, archive):
+    """The measured code position of an entry in the archive read, or None."""
+    return member_quality(mapping, archive)["position"]
+
+
+def catalog_scores(text, contracts, ranking, epoch, previous, today):
+    """The document of the figures for the template "text": what this run read of each source for each entry the
+    contracts map, and, for a source this run did not read (no key, an error, none asked), what the file already
+    held of it, with its day. An entry that is no entry of the template is left out whichever source says
+    something of it, which is how a deletion takes its figures with it. Never raises: a source that cannot be
+    turned into figures counts as not read."""
+    template, _ = read_template(text)
+    names = [entry["name"] for entry in template["active"] if isinstance(entry["name"], str)]
+    held = previous.get("entries") if isinstance(previous, dict) and isinstance(previous.get("entries"), dict) else {}
+    mappings = contracts.get("models") if isinstance(contracts, dict) and isinstance(contracts.get("models"), dict) else {}
+    fresh = {name: {} for name in names}
+    read = {}
+    for source, keys in SCORE_SOURCES:
+        before = previous.get(source) if isinstance(previous, dict) else None
+        read[source] = before if isinstance(before, str) else None
+        try:
+            if source == "artificial_analysis_read" and (ranking or {}).get("status") == "read":
+                by_slug, families = ranking_families(ranking["models"])
+                for name in names:
+                    mapping = mappings.get(name)
+                    found = describe_entry(mapping, by_slug, families) if isinstance(mapping, dict) else None
+                    if found and found["state"] == "resolved" and not found["unverified"]:
+                        record = found["record"]
+                        for key, value in (("aa_index", record["intelligence"]),
+                                           ("aa_first_answer_seconds", record["first_answer"])):
+                            if score_figure(value, key) is not None:
+                                fresh[name][key] = score_figure(value, key)
+                read[source] = today
+                continue
+            if source == "epoch_read" and (epoch or {}).get("status") == "read":
+                for name in names:
+                    mapping = mappings.get(name)
+                    if not isinstance(mapping, dict):
+                        continue
+                    found = {"epoch_eci": (epoch.get("eci") or {}).get(mapping.get("eci")),
+                             "epoch_code_position": code_position_of(mapping, epoch)}
+                    for key, value in found.items():
+                        if score_figure(value, key) is not None:
+                            fresh[name][key] = score_figure(value, key)
+                read[source] = today
+                continue
+        except Exception:
+            fresh = {name: {key: value for key, value in figures.items() if key not in keys}
+                     for name, figures in fresh.items()}
+        if read[source] is None:
+            continue
+        for name in names:
+            old = held.get(name) if isinstance(held.get(name), dict) else {}
+            for key in keys:
+                if key in old and score_figure(old[key], key) == old[key]:
+                    fresh[name][key] = old[key]
+    document = {source: read[source] for source, _ in SCORE_SOURCES}
+    document["entries"] = {name: figures for name, figures in fresh.items() if figures}
+    return document
+
+
+def scores_text(text, contracts, ranking, epoch, previous, today):
+    """The text of the figures file for the template "text", as it is written, or None when the template cannot be
+    read."""
+    template, _ = read_template(text)
+    if template is None:
+        return None
+    return render_scores(catalog_scores(text, contracts, ranking, epoch, previous, today))
+
+
+def previous_scores(path):
+    """The figures file as the checkout has it, or None when it is absent or no figures file: a run then holds on to
+    nothing and writes what it read."""
+    try:
+        document, _ = parse_scores(Path(path).read_bytes().decode("utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
 def level_text(record):
     return record["level"] if record["level"] else "niveau unique"
 
@@ -7044,11 +7252,12 @@ def carried_sections(result, kind, back, snippets):
     return out
 
 
-def write_proposals(directory, proposals, date):
+def write_proposals(directory, proposals, date, scores=None):
     """"proposals.json" (the date, and for each kind whether it is complete and its items: what the job
     that writes builds from), and for each kind that has items its body, its commit message and the
-    file as built here, which that job requires its own to equal. A file of an earlier run is removed
-    first."""
+    file as built here, which that job requires its own to equal, and, when "scores" is given (a function
+    of the text of a template that returns the figures file for it, or None), the figures of the
+    entries of that file. A file of an earlier run is removed first."""
     folder = Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
     data = {"date": date}
@@ -7060,6 +7269,11 @@ def write_proposals(directory, proposals, date):
             path.unlink(missing_ok=True)
             if part["items"]:
                 path.write_bytes(part[key].encode("utf-8"))
+        path = folder / ("%s_scores.json" % kind)
+        path.unlink(missing_ok=True)
+        written = scores(part["text"]) if scores and part["items"] else None
+        if written is not None:
+            path.write_bytes(written.encode("utf-8"))
     (folder / "proposals.json").write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
 
 
@@ -7498,6 +7712,11 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "to DIR what the workflow keeps them with: "
                              "proposals.json, and for each pull request with something to propose its "
                              "body, its commit message and the file with the entries added")
+    parser.add_argument("--scores", metavar="PATH",
+                        help="with --online, the file of the figures the catalogue shows (Artificial Analysis "
+                             "and Epoch AI, per entry): it is read as the figures of the run before, rewritten "
+                             "in place when --apply deleted something, and written for each pull request of "
+                             "additions beside its template, as \"<kind>_scores.json\"")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
     parser.add_argument("--contracts", metavar="PATH",
@@ -7511,8 +7730,8 @@ def main(argv=None, opener=urllib_opener, environment=None):
         import check_LiteLLM_model_drift_selftest
         return check_LiteLLM_model_drift_selftest.run_selftest()
     if (arguments.summary or arguments.coverage or arguments.undeleted or arguments.proposals
-            or arguments.unreadable) and not arguments.online:
-        parser.error("--summary, --coverage, --undeleted, --proposals and --unreadable need --online")
+            or arguments.unreadable or arguments.scores) and not arguments.online:
+        parser.error("--summary, --coverage, --undeleted, --proposals, --unreadable and --scores need --online")
     if arguments.apply and not arguments.online:
         parser.error("--apply needs --online")
     if (arguments.pr_body or arguments.commit_message) and not arguments.apply:
@@ -7566,14 +7785,19 @@ def main(argv=None, opener=urllib_opener, environment=None):
     if contracts_file is not None and (result.get("rankings") or {}).get("status") == "read":
         result["epoch"] = read_epoch(opener, today)
     result["contracts"] = router_contracts(text, result, contracts_file)
+    scores = scores_writer(arguments, contracts_file, result, today)
     if arguments.apply and not result["unreadable"]:
         new_text = apply_to_result(text, result)
         if new_text != text:
             path.write_bytes(new_text.encode("utf-8"))
+            # The figures follow the template in the same pull request, and lose those of the entries it lost.
+            written = scores(new_text) if scores else None
+            if written is not None:
+                Path(arguments.scores).write_bytes(written.encode("utf-8"))
     if arguments.proposals:
         # Made on the file as main has it, whatever was deleted: the additions are pull requests of
         # their own, built on main.
-        write_proposals(arguments.proposals, propose_additions(text, result, run_link()), today)
+        write_proposals(arguments.proposals, propose_additions(text, result, run_link()), today, scores)
     sys.stdout.write(render_text(result, shown))
     if arguments.coverage:
         Path(arguments.coverage).write_text(
@@ -7605,6 +7829,20 @@ def main(argv=None, opener=urllib_opener, environment=None):
             if deleted:
                 Path(target).write_text(render(), encoding="utf-8")
     return exit_status(result)
+
+
+def scores_writer(arguments, contracts_file, result, today):
+    """A function of the text of a template that returns the figures file for it, or None where there is nothing to
+    write them from: no "--scores", no contracts, a model list that could not be read or contracts that are not
+    well formed. What the file held before the run is read once, here, since the deletion rewrites it before the
+    proposals are made."""
+    if not arguments.scores or contracts_file is None or result["unreadable"]:
+        return None
+    contracts, problems = load_contracts(contracts_file)
+    if problems or not isinstance(contracts, dict):
+        return None
+    previous = previous_scores(arguments.scores)
+    return lambda body: scores_text(body, contracts, result.get("rankings"), result.get("epoch"), previous, today)
 
 
 def guarded(entry, argv=None):

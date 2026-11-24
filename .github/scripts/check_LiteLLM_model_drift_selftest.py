@@ -73,6 +73,7 @@ from check_LiteLLM_model_drift import (
     render_pr_body, render_summary, render_text, render_with_keys, rewrite_heads, router_quality,
     run_online, seconds_figure, slots_text, split_level, squash, TEMPLATE_SWITCHES, time_ties,
     undeleted_count, unreadable_providers, urllib_opener, usage_of_id, verify_removal, OMNIROUTE_BASE,
+    catalog_scores, render_scores, scores_file_problems, scores_text,
 )
 
 
@@ -4842,6 +4843,145 @@ def run_command_line_cases():
 
 
 # ------------------------------------------------------------------------------------------------
+# The figures of the catalogue: what a run writes into "docs/catalog_scores.json"
+
+SCORES_RANKING = {"status": "read", "models": [
+    {"name": "Flash (High)", "slug": "flash-high", "intelligence": 50.123, "first_answer": 12.3456},
+    {"name": "Flash (Low)", "slug": "flash-low", "intelligence": 30.0, "first_answer": 4.0},
+    {"name": "Large", "slug": "large", "intelligence": 20.0, "first_answer": None}]}
+SCORES_EPOCH = {"status": "read", "date": "2026-11-24", "skipped": {}, "eci": {"Flash X": 150.456},
+                "files": {"deepswe_external": {"scores": {"f": 0.5, "g": 0.4, "h": 0.3}, "rows": 3, "bad": 0},
+                          "ale_bench_external": {"scores": {"f": 0.9, "a": 0.1, "b": 0.2, "c": 0.3}, "rows": 4,
+                                                 "bad": 0}}}
+SCORES_CONTRACTS = {"models": {
+    "flash": {"slug": "flash-high", "level": "high", "eci": "Flash X",
+              "epoch": {"deepswe_external": ["f"], "ale_bench_external": ["f"]}},
+    "large": {"slug": "large", "level": "unknown"},
+    "free-one": {"slug": "flash-high", "level": "unknown", "eci": "Flash X", "epoch": {"deepswe_external": ["f"]}},
+    "gone": {"slug": "flash-high", "level": "high"}}}
+SCORES_FOUND = {"artificial_analysis_read": "2026-11-24", "epoch_read": "2026-11-24", "entries": {
+    "flash": {"aa_index": 50.12, "aa_first_answer_seconds": 12.35, "epoch_eci": 150.46, "epoch_code_position": 29.17},
+    "free-one": {"epoch_eci": 150.46}, "large": {"aa_index": 20.0}}}
+SCORES_BEFORE = {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-17", "entries": {
+    "flash": {"aa_index": 10.0, "epoch_eci": 100.0}, "gone": {"aa_index": 9.0}, "fast": {"aa_index": 8.0},
+    "large": {"aa_index": 999999.0}}}
+
+
+def run_catalog_scores_cases():
+    """The figures file of the catalogue: what a run writes of each source and carries of the one it did not read, what
+    is left out, what the shape of the file refuses, and the command line that writes it."""
+    failures = 0
+    names = [entry["name"] for entry in read_template(SELFTEST_TEMPLATE)[0]["active"]]
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def found(ranking=SCORES_RANKING, epoch=SCORES_EPOCH, previous=None, contracts=SCORES_CONTRACTS, text=SELFTEST_TEMPLATE):
+        return catalog_scores(text, contracts, ranking, epoch, previous, "2026-11-24")
+
+    def same(document, wanted):
+        return first_wrong((document == wanted, "%r" % document))
+
+    judged("both sources read: the figures of the record and the model each entry is mapped to, rounded to two decimals",
+           same(found(), SCORES_FOUND))
+    judged("a record whose level is not the one the entry is called at gives no figure of Artificial Analysis, and "
+           "an entry the template has not is left out",
+           first_wrong(("aa_index" not in found()["entries"]["free-one"], "free-one has an index"),
+                       ("gone" not in found()["entries"], "a deleted entry has figures")))
+    judged("a source that was not read is carried from the file with its day, the other one is read",
+           same(found(ranking=None, previous=SCORES_BEFORE),
+                {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-24", "entries": {
+                    "flash": {"aa_index": 10.0, "epoch_eci": 150.46, "epoch_code_position": 29.17},
+                    "free-one": {"epoch_eci": 150.46}, "fast": {"aa_index": 8.0}}}))
+    judged("a figure of a source that was read and no longer gives it is dropped, not carried",
+           same(found(previous=dict(SCORES_BEFORE, entries={"large": {"aa_index": 5.0}, "free-one": {"aa_index": 6.0}})),
+                SCORES_FOUND))
+    judged("neither source read: no day and no figure with nothing before, and with a file before it, what it held of the "
+           "template's entries only",
+           first_wrong((found(ranking=None, epoch=None) == {"artificial_analysis_read": None, "epoch_read": None,
+                                                          "entries": {}}, "%r" % found(ranking=None, epoch=None)),
+                       (found(ranking={"status": "error"}, epoch={"status": "error"}, previous=SCORES_BEFORE)
+                        == {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-17", "entries": {
+                            "flash": {"aa_index": 10.0, "epoch_eci": 100.0}, "fast": {"aa_index": 8.0}}},
+                        "%r" % found(ranking={"status": "error"}, epoch={"status": "error"}, previous=SCORES_BEFORE))))
+    judged("a figure the file held that is out of its bounds is not carried",
+           first_wrong(("large" not in found(ranking=None, previous=SCORES_BEFORE)["entries"],
+                        "a figure out of bounds was carried")))
+    judged("a source that cannot be turned into figures counts as not read, and what the file held of it stays",
+           same(found(contracts={"models": {"flash": {"slug": "flash-high", "level": "high", "eci": ["not", "hashable"]}}},
+                      previous=SCORES_BEFORE),
+                {"artificial_analysis_read": "2026-11-24", "epoch_read": "2026-11-17", "entries": {
+                    "flash": {"aa_index": 50.12, "aa_first_answer_seconds": 12.35, "epoch_eci": 100.0}}}))
+    text = scores_text(SELFTEST_TEMPLATE, SCORES_CONTRACTS, SCORES_RANKING, SCORES_EPOCH, None, "2026-11-24")
+    judged("the text of the file is the canonical one, which the shape check accepts, and a template that cannot be "
+           "read gives no text",
+           first_wrong((scores_file_problems(text, names) == (json.loads(text), []), "the check refuses it"),
+                       (text == render_scores(json.loads(text)) and text.endswith("}\n"), "it is not canonical"),
+                       (scores_text("model_list: [\n", SCORES_CONTRACTS, None, None, None, "2026-11-24") is None,
+                        "a template that cannot be read gave a text")))
+
+    # The command line: the file is the figures of the run before, rewritten in place when something was deleted,
+    # and written beside the template of each pull request of additions.
+    answers = proposal_answers()
+    answers["groq"]["data"] = [model for model in answers["groq"]["data"] if model["id"] != "vendor/fast"]
+    with tempfile.TemporaryDirectory() as directory:
+        config = os.path.join(directory, "config.yaml.j2")
+        contracts = os.path.join(directory, "contracts.yaml")
+        scores = os.path.join(directory, "scores.json")
+        folder = os.path.join(directory, "proposals")
+        Path(contracts).write_text(yaml.safe_dump(SCORES_CONTRACTS), encoding="utf-8")
+        before = render_scores(SCORES_BEFORE | {"entries": {"flash": {"aa_index": 10.0}, "fast": {"aa_index": 8.0}}})
+
+        def run(flags):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    return main(["--config", config, "--contracts", contracts] + flags,
+                                opener=canned_opener(answers, []), environment=SELFTEST_KEYS)
+                except SystemExit as error:
+                    return error.code
+
+        def reset():
+            Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
+            Path(scores).write_text(before, encoding="utf-8")
+
+        reset()
+        status = run(["--online", "--scores", scores, "--proposals", folder])
+        judged("without --apply nothing is deleted and the file is not touched, but each pull request of additions "
+               "gets the figures of the entries of its own template",
+               first_wrong((Path(scores).read_text(encoding="utf-8") == before, "the file was rewritten"),
+                           (status == 1, "status %r" % status),
+                           (json.loads(Path(folder, "to_verify_scores.json").read_text(encoding="utf-8"))["entries"]
+                            == {"flash": {"aa_index": 10.0}, "fast": {"aa_index": 8.0}}, "the figures of a proposal")))
+        reset()
+        run(["--online", "--apply", "--scores", scores, "--proposals", folder])
+        after = json.loads(Path(scores).read_text(encoding="utf-8"))
+        judged("--apply that deletes an entry rewrites the file without the entry, in place; the proposals still hold "
+               "the figures of main, which they are built on",
+               first_wrong(("fast" not in after["entries"] and after["entries"].get("flash") == {"aa_index": 10.0},
+                            "the entry's figures stayed: %r" % after),
+                           ("fast" in json.loads(Path(folder, "to_verify_scores.json").read_text(encoding="utf-8"))["entries"],
+                            "a proposal lost the figures of an entry main has")))
+        judged("a run with no --scores writes no figures file, whatever is proposed",
+               first_wrong((run(["--online", "--proposals", folder]) == 1, "status"),
+                           (not os.path.exists(os.path.join(folder, "to_verify_scores.json")), "a proposal has figures")))
+        reset()
+        Path(scores).write_text("not json", encoding="utf-8")
+        run(["--online", "--apply", "--scores", scores])
+        judged("a figures file that is no figures file is read as nothing before, and replaced",
+               first_wrong((json.loads(Path(scores).read_text(encoding="utf-8"))["entries"] == {}, "it was kept")))
+        judged("--scores without --online is refused", first_wrong((run(["--scores", scores]) == 2, "it was accepted")))
+    return failures
+
+
+# ------------------------------------------------------------------------------------------------
 # The real model list. The cases above delete from small templates written for them; this one deletes
 # from "templates/LiteLLM_config.yaml.j2" itself what a run's retirements could ask for, so that a
 # shape of the file the deletion cannot take fails here and not in the drift run, whose pull request
@@ -8771,6 +8911,7 @@ GROUPS_OF_THE_PARTS = (
     ),
     (
         run_head_cases,
+        run_catalog_scores_cases,
     ),
 )
 
