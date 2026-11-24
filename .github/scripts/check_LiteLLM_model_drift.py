@@ -130,7 +130,10 @@ the file given by "--config" IN PLACE, so it is run on a checkout that can be th
 workflow does. The exit status is the one "--online" gives: a deletion made is still a drift until
 it is merged. "--pr-body PATH" and "--commit-message PATH" write the body of the pull request
 (French) and the message of the commit (English) that carry the deletions, and only when something
-was deleted; a file left at that path by an earlier run is removed first.
+was deleted; a file left at that path by an earlier run is removed first. It writes no catalogue: the
+overview of what the gateway serves, "docs/CATALOG.md", is generated from the template by
+"generate_catalog.py", which the workflow runs on the template this one edited and on each one it proposes,
+so that the pull requests carry the catalogue in the same commit as the template.
 
 WHAT COUNTS AS A REASON
 -----------------------
@@ -6173,11 +6176,12 @@ def render_pr_body(result, link=None):
         "disparaissent du rapport à l'exécution d'après.",
         "",
         "Elle se fusionne seule quand aucune section « À relire » n'y figure, que les lignes "
-        "supprimées sont uniquement des entrées entières, les places de cascade qui les nomment, "
-        "des commentaires ou des lignes vides, qu'elle reste sous les plafonds d'entrées et de "
-        "lignes fixés par `.github/workflows/dependabot-auto-merge.yml`, que sa branche contient "
-        "tout `main` et que les contrôles que ce workflow attend sont verts. Sinon elle attend "
-        "une personne.",
+        "supprimées du modèle sont uniquement des entrées entières, les places de cascade qui les "
+        "nomment, des commentaires ou des lignes vides, que le catalogue `docs/CATALOG.md`, généré "
+        "à partir du modèle et commité avec lui, ne fait que perdre des lignes, qu'elle reste sous "
+        "les plafonds d'entrées et de lignes fixés par `.github/workflows/dependabot-auto-merge.yml`, "
+        "que sa branche contient tout `main` et que les contrôles que ce workflow attend sont verts. "
+        "Sinon elle attend une personne.",
         "",
         "## %s" % ("Suppression" if len(applied) == 1 else "Suppressions"),
         "",

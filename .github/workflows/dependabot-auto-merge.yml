@@ -52,8 +52,14 @@ name: Dependabot auto-merge
 #     App is configured), and carries one commit, which the Actions bot is the author of in both
 #     cases: the pull request's author widens with the App, the commit's does not. An App only the
 #     repository's administrator can install is what opens it, and nobody else can name it here;
-#   * it changes one file, the model list's template, and adds no line to it: a pull request that
-#     can only take lines away cannot bring in a model, an address or a key, whatever made it;
+#   * it changes the model list's template and adds no line to it: a pull request that can only take
+#     lines away cannot bring in a model, an address or a key, whatever made it. The catalogue of what
+#     the gateway serves, which is generated from that template and which the check of every pull
+#     request holds to what the template produces, may change with it, and then as a file that loses
+#     lines and gains none: it is the one other file, and a line it would gain, a file that is renamed
+#     or has no patch, or any third file, leaves the pull request to a person. A deletion changes the
+#     counts and the ranks the catalogue states, which rewrites a line and so adds one: such a pull
+#     request waits for a person;
 #   * what it takes away is read line by line in the diff, not counted: whole model entries, the
 #     cascade slots that name an entry going in the same diff, comments and blank lines, and
 #     nothing else. A setting, an address, or the model of an entry that stays is not a model, and
@@ -164,6 +170,8 @@ jobs:
           # hyphens; anything else leaves the Actions bot alone.
           MODEL_DRIFT_APP_SLUG: ${{ vars.MODEL_DRIFT_APP_SLUG }}
           REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
+          # The catalogue generated from it, the one other file such a pull request may change.
+          REMOVALS_CATALOG_FILE: docs/CATALOG.md
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
           # The title of the section of its body that asks a person to read.
@@ -371,10 +379,22 @@ jobs:
               const files = await github.paginate(github.rest.pulls.listFiles, {
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
-              const file = files[0];
-              if (files.length !== 1 || file.filename !== process.env.REMOVALS_FILE ||
-                  file.status !== 'modified' || file.additions !== 0 || !file.patch) {
-                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone. It is waiting for a human.`);
+              // The template, and beside it the catalogue generated from it, which may only lose lines
+              // too: GitHub's count of its additions and the patch both say none, and the lines the
+              // patch deletes are the ones GitHub counts. It is not the template, so none of the
+              // shape and size checks below read it; the check of the pull request holds it to what
+              // the template produces.
+              const catalogs = files.filter((each) => each.filename === process.env.REMOVALS_CATALOG_FILE);
+              const others = files.filter((each) => each.filename !== process.env.REMOVALS_CATALOG_FILE);
+              const patchLines = (each) => (each.patch ?? '').split('\n');
+              const onlyLosesLines = (each) => each.status === 'modified' && each.additions === 0 &&
+                each.deletions >= 1 && !patchLines(each).some((line) => line.startsWith('+')) &&
+                patchLines(each).filter((line) => line.startsWith('-')).length === each.deletions;
+              const file = others[0] ?? {};
+              if (others.length !== 1 || catalogs.length > 1 || file.filename !== process.env.REMOVALS_FILE ||
+                  file.status !== 'modified' || file.additions !== 0 || !file.patch ||
+                  catalogs.some((each) => !onlyLosesLines(each))) {
+                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone, with ${process.env.REMOVALS_CATALOG_FILE} losing lines too. It is waiting for a human.`);
                 return;
               }
               // A cap that is not a number would let every comparison below pass: refuse to merge

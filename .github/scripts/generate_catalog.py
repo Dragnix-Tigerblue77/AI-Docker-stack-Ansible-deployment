@@ -43,7 +43,9 @@ WHY THE CHECK COMPARES BYTES
 ----------------------------
 "--check" regenerates the file in memory and compares it with the committed one, and refuses any difference, a
 hand edit included: a copy that is edited by hand is a copy a regeneration silently reverts. A change to the template
-or to the contracts file therefore regenerates the catalogue in the same commit.
+or to the contracts file therefore regenerates the catalogue in the same commit, and so do the pull requests of
+the drift workflow: its job that reads the providers' catalogues runs this script, with a template and an output file
+of its own, on the template it edited and on each one it proposes, and the job that writes commits the two together.
 
 Its verification cases are Python literals rather than fixture files, for the reason CLAUDE.md gives: a fixture on
 disk is reachable by "ansible-lint --fix". Run it from the repository root:

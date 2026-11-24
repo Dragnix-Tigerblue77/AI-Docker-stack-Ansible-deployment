@@ -1050,7 +1050,7 @@ supprimer ».
 de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
 fusionne les mises à jour de Dependabot, la fusionne quand elle est ouverte par le bot Actions ou par
 l'App du workflow (dont la variable `MODEL_DRIFT_APP_SLUG` donne le nom) et porte un seul commit, celui
-du bot Actions dans les deux cas ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; que les
+du bot Actions dans les deux cas ; qu'elle ne touche que le modèle de configuration, et le catalogue `docs/CATALOG.md` qui en est généré, sans ajouter aucune ligne à l'un ni à l'autre ; que les
 lignes qu'elle retire sont, une à une, des entrées de modèle entières, les places de cascade qui
 nomment une entrée retirée dans la même pull request, des commentaires ou des lignes vides, et rien
 d'autre (un réglage, une adresse ou le modèle d'une entrée qui reste n'en sont pas) ; qu'elle
@@ -1231,7 +1231,7 @@ suivent la forme que documente l'API (aucune clé n'était disponible pour en en
 règles en mots simples (le niveau de réflexion de chaque entrée, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
 règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
 chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
-`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici. Pour une vue d'ensemble de tout ce que sert la passerelle (groupes d'accès, routeurs et leurs membres, fournisseurs, modèles), voir `docs/CATALOG.md`, généré à partir du gabarit et des contrats.
+`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici. Pour une vue d'ensemble de tout ce que sert la passerelle (groupes d'accès, routeurs et leurs membres, fournisseurs, modèles), voir `docs/CATALOG.md`, généré à partir du gabarit et des contrats. Il n'est jamais en retard : toute modification du gabarit embarque le catalogue régénéré dans le même commit, celles du workflow de dérive comprises (son job `read` le génère à partir du gabarit qu'il édite ou qu'il propose, son job `publish` commite les deux ensemble), et `generate_catalog.py --check`, contrôle requis, prouve que le catalogue est bien ce que produit le gabarit. Une suppression change des totaux et des rangs que le catalogue énonce, donc des lignes qu'elle réécrit et non seulement retire : la porte d'auto-fusion, qui n'admet du catalogue que des lignes retirées, la laisse alors à une personne.
 
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
 écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié

@@ -17,6 +17,12 @@ name: LiteLLM model drift
 # create and approve pull requests" included: while it is off, and no GitHub App writes the pull
 # requests (below), the step that opens them fails and names it.
 #
+# Every pull request carries the catalogue of what the gateway serves in the same commit as its
+# template, "docs/CATALOG.md": it is generated from the template and the router contracts, and a copy
+# that is not what they produce is refused by the check every pull request runs, so a template
+# changed alone would be red. The "read" job generates it from the template it edited, or from each
+# proposal's, and hands it over beside that template; "publish" commits the two together.
+#
 # What a person has to read rides on the pull request it concerns, which notifies them: an announced
 # retirement in the body of the deletion pull request, a model free again in the body of the pull
 # request of ready additions (of the one to verify when the ready one is not opened), and a NEW model
@@ -66,16 +72,20 @@ name: LiteLLM model drift
 #              It checks nothing out, and decides whether this attempt runs (above).
 #   "read"     holds the providers' keys and a READ-ONLY token. It checks main out, installs
 #              PyYAML and Jinja2, runs the script, and hands the texts, the edited template and the
-#              proposals to the next job as an artifact, and six values as job outputs; it writes the
-#              report to the run's summary, and uploads the artifact whose name is its outcome.
+#              proposals to the next job as an artifact, each with the catalogue generated from it by
+#              the generator, which needs PyYAML and Jinja2 and nothing more, in a step whose
+#              environment holds no key; and six values as job outputs; it writes the report to the
+#              run's summary, and uploads the artifact whose name is its outcome.
 #   "publish"  holds the token that writes, and none of the providers' keys. It checks nothing out
 #              and runs nothing of this repository: it takes what it receives as data (a status
 #              among three, the catalogues not read as words of a provider and a class, a coverage
 #              among two, a flag among three, a count, a commit of
 #              main, a template it uploads only once it has checked that it is main's own with
 #              lines deleted, and rows of its "head" table written again in the one form that names
-#              only models and providers the file has, and for each pull request of additions a list
-#              of a provider, an id and a name per model, from which it writes the template itself)
+#              only models and providers the file has, the catalogue generated from that template,
+#              which it commits with it once it has checked it is no larger than a catalogue is, and
+#              for each pull request of additions a list of a provider, an id and a name per model,
+#              from which it writes the template itself, and the catalogue of the script's build)
 #              and calls the API. It builds the issue's text itself, from a provider of its table, a
 #              class among five and the times the gate read from GitHub.
 #
@@ -86,8 +96,10 @@ name: LiteLLM model drift
 # a pull request that deletes lines of the template and re-points a router among models and
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
 # template's own (a key name and an address it already has, an id and a name of a narrow spelling),
-# which nothing but a person merges, and open an issue that names providers of its table -- not push
-# to main, which "contents: write" next to such code would otherwise allow. The ruleset that
+# which nothing but a person merges, put any text of its choosing in "docs/CATALOG.md" of those pull
+# requests -- which the check of every pull request, holding it to what the template produces, turns
+# red, and which the gate lets through of the deletions only as lines taken out -- and open an issue
+# that names providers of its table -- not push to main, which "contents: write" next to such code would otherwise allow. The ruleset that
 # requires the checks already refuses a push of a commit no check has seen, which is one more
 # reason, not the only one, for that split. Whether that pull request then merges by itself is
 # for "dependabot-auto-merge.yml" to say.
@@ -168,8 +180,8 @@ name: LiteLLM model drift
 # time.
 #
 # The pull request: one branch (REMOVALS_BRANCH, below), one pull request, assigned to tigerblue77
-# and never a draft. The branch is main plus ONE commit, made through the API with the token the
-# paragraphs below describe and rewritten at every run that finds something to delete, so that it
+# and never a draft. The branch is main plus ONE commit, which holds the template and the catalogue
+# generated from it, made through the API with the token the paragraphs below describe and rewritten at every run that finds something to delete, so that it
 # follows main and what the providers list; the title and the body are rewritten with it, and an
 # edit made to either by hand is lost at the next run. A run that finds nothing leaves the branch
 # alone and closes an open pull request with a comment -- unless a provider could not be read or has
@@ -516,19 +528,54 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      # What the script changed in the checkout. It edits one file and no other: anything else
-      # modified here is a bug to stop at, not a change to push, and the next job says so.
+      # The catalogue of what the gateway serves is generated from the template, and a change to the
+      # template changes it in the same commit: it is regenerated here, where PyYAML and Jinja2 are
+      # installed and the generator needs nothing else, from the template this job edited and from
+      # each proposal's, and handed over beside them. This step's environment holds no key. A failure
+      # is not a failed step, which would keep the issue of the unreadable catalogues from being
+      # written: it is said in the output, or by a proposal's catalogue missing, and the next step and
+      # the one that writes refuse what would then go out with a stale catalogue.
+      - name: Regenerate the catalogue of what the gateway serves
+        id: catalog
+        run: |
+          out="$RUNNER_TEMP/drift"
+          ok=true
+          python3 .github/scripts/generate_catalog.py || ok=false
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          # A proposal whose catalogue could not be generated is left without one, which the job that
+          # writes refuses for that proposal alone.
+          for kind in ready to_verify; do
+            if [ -f "$out/proposals/${kind}_template.j2" ]; then
+              rm -f "$out/proposals/${kind}_catalog.md"
+              python3 .github/scripts/generate_catalog.py \
+                --template "$out/proposals/${kind}_template.j2" \
+                --output "$out/proposals/${kind}_catalog.md" || rm -f "$out/proposals/${kind}_catalog.md"
+            fi
+          done
+
+      # What the script changed in the checkout. It edits the template, and the catalogue follows it:
+      # those two files and no other. Anything else modified here is a bug to stop at, not a change to
+      # push, and so is a catalogue that changed with no change of the template, or a template that
+      # changed with a catalogue that could not be generated; the next job says so.
       - name: Find what the deletions changed
         id: changes
+        env:
+          CATALOG_OK: ${{ steps.catalog.outputs.ok }}
         run: |
           changed="$(git status --porcelain --untracked-files=no)"
+          template=" M templates/LiteLLM_config.yaml.j2"
+          catalog=" M docs/CATALOG.md"
           if [ -z "$changed" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-          elif [ "$changed" = " M templates/LiteLLM_config.yaml.j2" ]; then
+          elif [ "$CATALOG_OK" != true ]; then
+            echo "::error::The catalogue could not be generated from the edited template. Nothing will be pushed."
+            echo "changed=invalid" >> "$GITHUB_OUTPUT"
+          elif [ "$changed" = "$template" ] || [ "$changed" = "$catalog"$'\n'"$template" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             cp templates/LiteLLM_config.yaml.j2 "$RUNNER_TEMP/drift/LiteLLM_config.yaml.j2"
+            cp docs/CATALOG.md "$RUNNER_TEMP/drift/CATALOG.md"
           else
-            echo "::error::The drift check changed something other than templates/LiteLLM_config.yaml.j2. Nothing will be pushed."
+            echo "::error::The drift check changed something other than templates/LiteLLM_config.yaml.j2 and the docs/CATALOG.md that follows it. Nothing will be pushed."
             echo "changed=invalid" >> "$GITHUB_OUTPUT"
           fi
           echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -764,8 +811,10 @@ jobs:
           PR_BODY: ${{ runner.temp }}/drift/pull_request.md
           COMMIT_MESSAGE: ${{ runner.temp }}/drift/commit.txt
           TEMPLATE_FILE: ${{ runner.temp }}/drift/LiteLLM_config.yaml.j2
+          # The catalogue the other job generated from that template, which goes in the same commit.
+          CATALOG_FILE: ${{ runner.temp }}/drift/CATALOG.md
           # What the script proposes to add: "proposals.json", and per pull request its body, its
-          # commit message and the template as the script built it.
+          # commit message, the template as the script built it and the catalogue generated from it.
           PROPOSALS: ${{ runner.temp }}/drift/proposals
           # The FILES of the workflows a pull request is checked by, which GITHUB_TOKEN starts none
           # of: the very list "dependabot-auto-merge.yml" dispatches after a merge, each carrying the
@@ -780,6 +829,9 @@ jobs:
             const { owner, repo } = context.repo;
             const baseBranch = 'main';
             const template = 'templates/LiteLLM_config.yaml.j2';
+            const catalog = 'docs/CATALOG.md';
+            // The catalogue is text people read, a few hundred lines; a file past this is not that.
+            const CATALOG_MAX_BYTES = 1000000;
             const workflows = process.env.WORKFLOW_FILES.split(/\s+/).filter(Boolean);
             const bot = { name: 'github-actions[bot]', email: '41898282+github-actions[bot]@users.noreply.github.com' };
             const status = process.env.DRIFT_STATUS;
@@ -838,6 +890,15 @@ jobs:
               return null;
             };
             // END template guard
+
+            // Why the catalogue the other job generated may not be pushed, or null. What it says is the
+            // generator's, and the check that runs on the pull request holds it to what the template
+            // produces, so this bounds the file and no more: a text of a size a catalogue has.
+            const catalogProblem = (text) => {
+              if (typeof text !== 'string' || text.length === 0) return 'it is empty';
+              if (Buffer.byteLength(text, 'utf8') > CATALOG_MAX_BYTES) return `it is longer than ${CATALOG_MAX_BYTES} bytes`;
+              return null;
+            };
 
             // BEGIN additions builder
             // The template an addition pull request carries, built here from nothing but what each
@@ -1175,17 +1236,21 @@ jobs:
                 (notes.has(index) && undated(line) === undated(builtLines[index])));
             };
 
-            // Writes "content" as the template in one commit on "base", and points the branch at it
-            // unless it already holds that tree. Returns the branch's new tip, or null when the branch
-            // moved while this ran, which is left alone.
-            const pushCommit = async (branch, head, content, message) => {
+            // Writes "files", the template and the catalogue generated from it, as [path, content]
+            // pairs, in one commit on "base", and points the branch at it unless it already holds that
+            // tree. Returns the branch's new tip, or null when the branch moved while this ran, which
+            // is left alone.
+            const pushCommit = async (branch, head, files, message) => {
               const { data: baseCommit } = await github.rest.git.getCommit({ owner, repo, commit_sha: base });
-              const { data: blob } = await github.rest.git.createBlob({
-                owner, repo, content: Buffer.from(content).toString('base64'), encoding: 'base64',
-              });
+              const entries = [];
+              for (const [path, content] of files) {
+                const { data: blob } = await github.rest.git.createBlob({
+                  owner, repo, content: Buffer.from(content).toString('base64'), encoding: 'base64',
+                });
+                entries.push({ path, mode: '100644', type: 'blob', sha: blob.sha });
+              }
               const { data: tree } = await github.rest.git.createTree({
-                owner, repo, base_tree: baseCommit.tree.sha,
-                tree: [{ path: template, mode: '100644', type: 'blob', sha: blob.sha }],
+                owner, repo, base_tree: baseCommit.tree.sha, tree: entries,
               });
               const current = head ? (await github.rest.git.getCommit({ owner, repo, commit_sha: head })).data : null;
               if (current && current.tree.sha === tree.sha) {
@@ -1273,8 +1338,8 @@ jobs:
 
             // Writes the commit, opens or updates the pull request, hands its number to the step that
             // assigns it and asks for its checks.
-            const publish = async (branch, head, content, message, request) => {
-              const tip = await pushCommit(branch, head, content, message);
+            const publish = async (branch, head, files, message, request) => {
+              const tip = await pushCommit(branch, head, files, message);
               if (!tip) return;
               const pr = await openOrUpdate({ branch, ...request });
               if (!pr) return;
@@ -1347,6 +1412,7 @@ jobs:
                 `\n\nSigned-off-by: ${bot.name} <${bot.email}>\n`;
               const body = fs.readFileSync(process.env.PR_BODY, 'utf8');
               const content = fs.readFileSync(process.env.TEMPLATE_FILE);
+              const catalogText = fs.readFileSync(process.env.CATALOG_FILE, 'utf8');
 
               // The job that made the template is trusted with deleting lines and with writing the rows
               // of the "head" table again, and nothing else (see "templateProblem" above): the file it
@@ -1364,7 +1430,16 @@ jobs:
                 return;
               }
 
-              await publish(branch, head, content, message, { title, body, existing, draft: false });
+              // The catalogue goes with it, so that the pull request never carries a template whose
+              // catalogue is stale; "check_auto_merge_gate.py" says what the gate lets through of it.
+              const catalogFlaw = catalogProblem(catalogText);
+              if (catalogFlaw) {
+                core.setFailed(`The catalogue the other job handed over is refused, and nothing is pushed: ${catalogFlaw}.`);
+                return;
+              }
+
+              await publish(branch, head, [[template, content], [catalog, catalogText]], message,
+                { title, body, existing, draft: false });
             };
 
             // The two pull requests that propose additions, which nothing but a person merges: the
@@ -1447,10 +1522,12 @@ jobs:
                 return;
               }
               let handed;
+              let handedCatalog;
               let body;
               let message;
               try {
                 handed = fs.readFileSync(`${folder}/${kind}_template.j2`, 'utf8');
+                handedCatalog = fs.readFileSync(`${folder}/${kind}_catalog.md`, 'utf8');
                 body = fs.readFileSync(`${folder}/${kind}_body.md`, 'utf8');
                 message = fs.readFileSync(`${folder}/${kind}_commit.txt`, 'utf8');
               } catch (error) {
@@ -1465,12 +1542,17 @@ jobs:
                 core.setFailed(`The body proposed for ${spec.branch} is longer than GitHub accepts.`);
                 return;
               }
+              const catalogFlaw = catalogProblem(handedCatalog);
+              if (catalogFlaw) {
+                core.setFailed(`The catalogue handed over for ${spec.branch} is refused, and nothing is pushed: ${catalogFlaw}.`);
+                return;
+              }
               // Signed as the deletions are: the commit is a proposal a person reads before merging.
               message = message.trimEnd() + `\n\nSigned-off-by: ${bot.name} <${bot.email}>\n`;
               const kept = head ? await templateAt(head) : null;
               const content = kept !== null && onlyDaysDiffer(kept, built) ? kept : built.text;
 
-              await publish(spec.branch, head, content, message, {
+              await publish(spec.branch, head, [[template, content], [catalog, handedCatalog]], message, {
                 title: ADDITION_TITLES[kind], existing, draft: spec.draft, body: keepTicks(body, existing?.body),
               });
             };
