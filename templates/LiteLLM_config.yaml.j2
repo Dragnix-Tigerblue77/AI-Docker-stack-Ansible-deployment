@@ -2132,6 +2132,14 @@ model_list:
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
+  - model_name: omniroute-free-fast
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openai/auto/best-fast
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
 {% if head['pro'] and head['flash'] and head['flash-lite'] %}
   # ============================================================================
   # Auto -- picks "Auto-Flash-Lite", "Auto-Flash" or "Auto-Pro" for each request, by how complex it looks
@@ -2421,7 +2429,7 @@ router_settings:
     # quota of a member of "Auto-Pro" or "Auto-Flash" come last, so as not to eat it: "gemini-3-8-flash-low" and
     # "gemini-4-hydrogen-low" are the same Google models as those routers' heads, with 20 requests a day each
     # against 500 for a Flash-Lite, and "qwen3-8-27b-groq" and "hy4-flash-cent-ai" are the entries of "Auto-Flash" itself. The paid
-    # "ministral-3b" closes the cascade. Where a twin exists, the OpenRouter entry stands ahead of the
+    # "ministral-3b" comes last of the keyed members and the keyless "omniroute-free-fast", OmniRoute's latency-first route, closes the cascade. Where a twin exists, the OpenRouter entry stands ahead of the
     # entries of Requesty, of NVIDIA and of Kilo, in that order, and the Cloudflare twins
     # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") sit right behind the last slot of theirs. NVIDIA's two
     # Gemma 3 entries are placed by the time Artificial Analysis gives them, "nemotron-bolt-e4b-nvidia", which has no
@@ -2507,6 +2515,7 @@ router_settings:
 {% if has.Mistral %}
         - ministral-3b
 {% endif %}
+        - omniroute-free-fast
 {% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
