@@ -864,7 +864,7 @@ jobs:
             const ADDITION_BASE = /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[A-Za-z0-9._-]+)*\/?$/;
             const ADDITION_DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
             const ADDITION_ENTRY = /^  (# )?- model_name: ([^\s#]+)\s*$/;
-            const ADDITION_FIELD = /^\s+(model|api_key|api_base):\s*(?:"([^"]*)"|(\S+))\s*$/;
+            const ADDITION_FIELD = /^\s+(model|api_key|api_base|mode):\s*(?:"([^"]*)"|(\S+))\s*$/;
             const providerOf = (model, apiBase) => {
               if (typeof model !== 'string' || !model.includes('/')) return null;
               const prefix = model.slice(0, model.indexOf('/'));
@@ -931,7 +931,7 @@ jobs:
                 names.add(name);
                 if (known.has(spec.prefix + id)) return { problem: `${provider}/${id} is already an entry` };
                 if (ignored.has(`${provider}/${id}`)) return { problem: `${provider}/${id} is set aside by a drift-ignore line` };
-                const own = entries.filter((entry) => providerOf(entry.fields.model, entry.fields.api_base) === provider);
+                const own = entries.filter((entry) => entry.fields.mode !== 'embedding' && providerOf(entry.fields.model, entry.fields.api_base) === provider);
                 const anchor = [...own].reverse().find((entry) => !entry.commented) ?? own[own.length - 1];
                 if (!anchor) return { problem: `the template has no entry of ${provider} to model one on` };
                 const key = anchor.fields.api_key;

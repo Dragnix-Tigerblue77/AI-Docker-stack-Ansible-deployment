@@ -5913,7 +5913,7 @@ ADDITION_BASE = re.compile(r"https://[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._
 ADDITION_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 # The file as written, read line by line the way the builder of the workflow reads it.
 ADDITION_ENTRY = re.compile(r"  (# )?- model_name: ([^\s#]+)\s*")
-ADDITION_FIELD = re.compile(r"\s+(model|api_key|api_base):\s*(?:\"([^\"]*)\"|(\S+))\s*")
+ADDITION_FIELD = re.compile(r"\s+(model|api_key|api_base|mode):\s*(?:\"([^\"]*)\"|(\S+))\s*")
 ADDITION_ACTIVE_BODY = re.compile(r" {4,}\S")
 ADDITION_COMMENTED_BODY = re.compile(r"  # {2,}\S")
 ADDITION_COMMENT_RUN = re.compile(r"  #( |$)")
@@ -6013,9 +6013,11 @@ def addition_entries(lines):
 def addition_anchor(entries, provider):
     """The entry a new one of "provider" is modelled on and written after: its last active entry,
     else its last commented-out one, else None. An entry whose "api_base" is read from the environment is
-    never the model: it is an embedding, which a new chat model is not written after."""
+    never the model, nor is one whose "mode" is "embedding" (OpenRouter's free embedding models): an embedding is
+    not what a new chat model is written after."""
     own = [entry for entry in entries
            if entry["fields"].get("api_base") not in OPENAI_ENV_BASES
+           and entry["fields"].get("mode") != "embedding"
            and (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0]
            == provider]
     active = [entry for entry in own if not entry["commented"]]
