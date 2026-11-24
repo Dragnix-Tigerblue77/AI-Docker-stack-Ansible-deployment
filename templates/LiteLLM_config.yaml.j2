@@ -2255,6 +2255,39 @@ model_list:
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
+  # Three vision routes, in no cascade and behind no alias, called by name alone. Read in OmniRoute's source
+  # ("open-sse/services/autoCombo/builtinCatalog.ts") and its "docs/AUTO-COMBO.md" on 2026-11-24, and none was
+  # called for real from here: all three are untried. "auto/best-vision" resolves to the "vision" category, a
+  # candidate filter that keeps only the vision-capable models among the providers OmniRoute has connected.
+  # "auto/vision" and "auto/multimodal" are curated "auto/<category>" ids: vision-capable models with balanced
+  # weights.
+  - model_name: omniroute-free-vision
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/best-vision
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omniroute-vision
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/vision
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omniroute-multimodal
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/multimodal
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
 {% if head['pro'] and head['flash'] and head['flash-lite'] %}
   # ============================================================================
   # Auto -- picks "Auto-Flash-Lite", "Auto-Flash" or "Auto-Pro" for each request, by how complex it looks

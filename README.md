@@ -232,6 +232,8 @@ sans réponse. La variante `-web` ajoute Chromium et Playwright, et le tag flott
 des fournisseurs sans clé d'OmniRoute sont émulés depuis le prompt ou ignorés, ce qui est la raison pour laquelle
 `Auto-Claude-Code` n'a pas `omniroute-free-code`.
 
+**Trois routes de vision, appelées par leur nom et dans aucune cascade** : `omniroute-free-vision` (`auto/best-vision`), `omniroute-vision` (`auto/vision`) et `omniroute-multimodal` (`auto/multimodal`), toutes trois déclarées `supports_vision: true`. D'après le code d'OmniRoute et sa documentation des combos automatiques, lus le 2026-11-24, `auto/best-vision` est la catégorie `vision`, un filtre qui ne garde, parmi les fournisseurs connectés, que les modèles capables de lire une image, et les deux autres sont les identifiants `auto/<catégorie>` du catalogue intégré, des modèles capables de lire une image aux poids équilibrés. Aucun routeur de la passerelle ne prend d'images, d'où l'absence de cascade. Aucune des trois n'a été appelée pour de bon depuis le dépôt.
+
 **Le mot de passe du tableau de bord est obligatoire, sans défaut.** L'image démarre avec `CHANGEME` si
 rien n'est fourni -- documenté en amont comme volontairement faible pour forcer un changement. Traité
 comme le mot de passe `/ui` de LiteLLM (#1) : vaulté, jamais laissé à son défaut.

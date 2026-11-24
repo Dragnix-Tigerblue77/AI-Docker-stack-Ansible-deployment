@@ -1053,3 +1053,15 @@ models:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown
+  omniroute-free-vision:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-vision:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-multimodal:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown

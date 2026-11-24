@@ -294,6 +294,9 @@ Aucune cascade, aucun alias : on les appelle par leur nom, et elles n'ont pas de
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `gemini-4-hydrogen-xhigh` | Google AI Studio | à la requête, quota par modèle | `xhigh` | 53,9 | 47,4 s | niveau le plus haut de Gemini 4 Hydrogen : 3,1 points de plus que `high` pour 25,9 s de plus, soit 0,12 point par seconde, sous ce que demande n'importe quel routeur ; délai médian de 76 s, d'où une patience de 180 s au lieu de 90 s, et un repli sur `gemini-4-hydrogen` ; dépense les mêmes 20 requêtes par jour que la tête de `Auto-Pro` et de `Auto-Flash` |
+| 2 | `omniroute-free-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la catégorie `vision` d'OmniRoute : un filtre qui ne garde, parmi les fournisseurs qu'il a connectés, que les modèles capables de lire une image ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 3 | `omniroute-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/vision` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 4 | `omniroute-multimodal` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/multimodal` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
 
 ## Ce qui a été regardé et n'a pas été créé
 
