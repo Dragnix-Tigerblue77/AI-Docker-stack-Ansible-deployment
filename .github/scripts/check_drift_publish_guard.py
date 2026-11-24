@@ -51,7 +51,7 @@ two more scripts decide it. The gate's, between "BEGIN/END gate", is played on m
 started by hand and the first attempt read without asking anything; a retry reads only when the latest
 earlier scheduled attempt of the same day that left an outcome left "unreadable", passing over one that
 left none, a run started by hand, a run of another day, a run listed after it, an artifact of another
-outcome and a run with two; the fourth attempt alone is the last, with the times of the earlier ones in
+outcome and a run with two; the third attempt alone is the last, with the times of the earlier ones in
 order; a cron it does not number fails. Its SCHEDULES are held to the crons of "on.schedule", in their
 order. The issue step's, between "BEGIN/END issue", is played on made-up issues: opened at the last
 attempt only, with the providers, the class of each failure and the earlier times; nothing written at an
@@ -1261,7 +1261,7 @@ ISSUE_STEP = "Open, update or close the issue of the unreadable catalogues"
 LEGACY_TITLE = "Dérive de la liste de modèles LiteLLM"
 MARKER = "<!-- LiteLLM-model-drift -->"
 DAY = "2026-11-25"
-SCHEDULES = ["17 7 * * *", "17 9 * * *", "17 11 * * *", "17 13 * * *"]
+SCHEDULES = ["17 4 * * *", "17 6 * * *", "17 8 * * *"]
 
 # Plays one step's script against a made-up GitHub that knows runs, their artifacts and issues. It
 # filters nothing the real API would filter for the script ("event", "created"), so that the filters
@@ -1351,6 +1351,10 @@ def schedule_problem(document):
     if listed != crons:
         return "the gate's SCHEDULES (%s) are not the crons of on.schedule (%s), in their order" % (
             ", ".join(listed), ", ".join(crons))
+    # The gate counts the attempts of one day by their date in UTC, which only crons of one time zone keep in order.
+    zones = {entry.get("timezone") for entry in on.get("schedule") or []}
+    if len(zones) > 1:
+        return "the crons of on.schedule are in different time zones (%s)" % ", ".join(sorted(map(str, zones)))
     if "workflow_dispatch" not in on:
         return "the workflow cannot be started by hand any more"
     return None
@@ -1366,11 +1370,12 @@ def gate_scenarios():
     """[(name, scenario, check)] for the gate, on a day whose current run is the one of id 4."""
     out = []
     env = named_step("gate", GATE_STEP)[1]["env"]
-    times = {1: DAY + "T07:17:31Z", 2: DAY + "T09:17:12Z", 3: DAY + "T11:18:02Z", 4: DAY + "T13:17:05Z"}
+    # 04:17, 06:17 and 08:17 in Paris in winter, as GitHub lists them, in UTC.
+    times = {1: DAY + "T03:17:31Z", 2: DAY + "T05:17:12Z", 3: DAY + "T07:18:02Z"}
 
     def scenario(name, attempt, artifacts, check, extra_runs=(), event="schedule", schedule=None):
-        current = {2: times[2], 3: times[3], 4: times[4]}.get(attempt, times[4])
-        runs = [workflow_run(number, times[number]) for number in range(1, 4) if times[number] < current]
+        current = {2: times[2], 3: times[3]}.get(attempt, times[3])
+        runs = [workflow_run(number, times[number]) for number in range(1, 3) if times[number] < current]
         runs += [workflow_run(4, current)] + list(extra_runs)
         context = {"eventName": event, "runId": 4,
                    "payload": {"schedule": schedule or SCHEDULES[attempt - 1]} if event == "schedule" else {}}
@@ -1409,27 +1414,27 @@ def gate_scenarios():
              outputs("false", "2"))
     scenario("a retry after a retry that did nothing does nothing", 3, {"1": [out_of + "read"]}, outputs("false", "3"))
     scenario("an attempt that left no outcome is passed over, and the one before decides", 3,
-             {"1": [out_of + "unreadable"]}, outputs("true", "3", earlier=unread(1)))
-    scenario("the fourth attempt after three that could not read is the last, with their times in order", 4,
-             {"1": [out_of + "unreadable"], "2": [out_of + "unreadable"], "3": [out_of + "unreadable"]},
-             outputs("true", "4", last="true", earlier=unread(1, 2, 3)))
-    scenario("the fourth attempt after a third that read everything does nothing", 4,
-             {"1": [out_of + "unreadable"], "2": [out_of + "unreadable"], "3": [out_of + "read"]},
-             outputs("false", "4"))
+             {"1": [out_of + "unreadable"]}, outputs("true", "3", last="true", earlier=unread(1)))
+    scenario("the third attempt after two that could not read is the last, with their times in order", 3,
+             {"1": [out_of + "unreadable"], "2": [out_of + "unreadable"]},
+             outputs("true", "3", last="true", earlier=unread(1, 2)))
+    scenario("the third attempt after a second that read everything does nothing", 3,
+             {"1": [out_of + "unreadable"], "2": [out_of + "read"]}, outputs("false", "3"))
     scenario("a retry with no earlier attempt of the day does nothing", 2, {}, outputs("false", "2"))
     scenario("a run started by hand is no attempt of the chain", 2,
              {"1": [out_of + "read"], "9": [out_of + "unreadable"]}, outputs("false", "2"),
-             extra_runs=[workflow_run(9, DAY + "T08:00:00Z", event="workflow_dispatch")])
+             extra_runs=[workflow_run(9, DAY + "T04:00:00Z", event="workflow_dispatch")])
     scenario("an attempt of another day is no attempt of this one", 2, {"8": [out_of + "unreadable"]},
-             outputs("false", "2"), extra_runs=[workflow_run(8, "2026-11-24T13:17:00Z")])
+             outputs("false", "2"), extra_runs=[workflow_run(8, "2026-11-24T07:18:00Z")])
     scenario("a run listed after this one is no attempt before it", 2,
              {"1": [out_of + "read"], "5": [out_of + "unreadable"]}, outputs("false", "2"),
-             extra_runs=[workflow_run(5, DAY + "T09:50:00Z")])
+             extra_runs=[workflow_run(5, DAY + "T05:50:00Z")])
     scenario("an artifact of another outcome is no outcome", 3,
-             {"1": [out_of + "unreadable"], "2": [out_of + "maybe"]}, outputs("true", "3", earlier=unread(1)))
+             {"1": [out_of + "unreadable"], "2": [out_of + "maybe"]},
+             outputs("true", "3", last="true", earlier=unread(1)))
     scenario("a run with two outcomes has none", 3,
              {"1": [out_of + "unreadable"], "2": [out_of + "read", out_of + "unreadable"]},
-             outputs("true", "3", earlier=unread(1)))
+             outputs("true", "3", last="true", earlier=unread(1)))
 
     def refused(result):
         if not any("none of SCHEDULES" in failure for failure in result["failures"]):
@@ -1442,7 +1447,7 @@ def gate_scenarios():
 def issue_scenarios():
     """[(name, scenario, check)] for the step that keeps the issue."""
     out = []
-    earlier = " ".join((DAY + "T07:17:31Z", DAY + "T09:17:12Z", DAY + "T11:18:02Z"))
+    earlier = " ".join((DAY + "T03:17:31Z", DAY + "T05:17:12Z"))
 
     def issue(number, title, state="open", login="github-actions[bot]", body=MARKER + "\nx"):
         return {"number": number, "title": title, "state": state, "body": body, "user": {"login": login}}
@@ -1597,7 +1602,7 @@ ATTEMPT_MUTATIONS = [
     ("gate", "do nothing without an earlier outcome", "if (outcomes.length === 0) {", "if (false) {"),
     ("gate", "do nothing after an attempt that read everything", "if (outcomes[0].outcome !== 'unreadable') {",
      "if (false) {"),
-    ("gate", "call the fourth attempt alone the last", "attempt === schedules.length, earlier", "true, earlier"),
+    ("gate", "call the third attempt alone the last", "attempt === schedules.length, earlier", "true, earlier"),
     ("gate", "give the earlier times in order", ".replace(/\\.[0-9]+Z$/, 'Z')).reverse();", ".replace(/\\.[0-9]+Z$/, 'Z'));"),
     ("gate", "give the earlier times without a fraction", ".replace(/\\.[0-9]+Z$/, 'Z')", ""),
     ("issue", "open the issue at the last attempt only", "if (process.env.LAST_ATTEMPT !== 'true') {", "if (false) {"),

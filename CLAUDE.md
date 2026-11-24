@@ -393,7 +393,7 @@ because the provider says the model is active, keep the earliest day and print a
 both. The map never deletes anything, and an unreadable map costs the report only its own signal. A
 model free again or a new model no addition can carry stays a person's from the body of an addition
 pull request. An issue is opened for one thing only, a provider's catalogue still unreadable after
-the day's three retries. What the workflow needs and what it refuses to delete are in its header and
+the day's two retries. What the workflow needs and what it refuses to delete are in its header and
 in the docstring of the script.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
