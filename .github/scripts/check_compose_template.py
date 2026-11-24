@@ -1811,8 +1811,6 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 # reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
 # unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
 LITELLM_CALLED_BY_NAME = {
-    "gemini-3-8-flash-high": "the highest level of its model, which buys less than any router asks for the time it "
-                             "costs, kept for whoever asks for it by name",
     "gemini-flash-latest": "an alias Google moves to the latest Flash release, with no quota stated for it, kept for "
                            "whoever wants to follow releases without editing the file",
     "gemini-flash-lite-latest": "an alias Google moves to the latest Flash-Lite release, with no quota stated for it, "

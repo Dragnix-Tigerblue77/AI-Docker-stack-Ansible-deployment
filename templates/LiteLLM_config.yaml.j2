@@ -301,19 +301,6 @@ model_list:
       rpd: 20
       reasoning_effort: low
 
-  # In no cascade at all, reachable only when asked for by name: the highest level Artificial Analysis measures for this
-  # model, which buys 0.7 points of the index over Medium for 13.6 more seconds, 0.05 a second, under what any router
-  # asks (Artificial Analysis, read 2026-11-21). It is here because a caller who wants that level should not have to
-  # send an effort of its own, and because it costs nothing more than the other levels of the model: it draws on the
-  # same 20 requests a day.
-  - model_name: gemini-3-8-flash-high
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-    litellm_params:
-      model: gemini/gemini-3.8-flash
-      litellm_credential_name: "gemini"
-      reasoning_effort: high
-
   # A twin of "gemini-3-8-flash", placed right behind it in every cascade that holds that model.
   # "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-24, says "gemini-3.7-flash" is no longer available in
   # Google AI Studio and that its endpoint "is not shutting down and automatically routes API requests to
