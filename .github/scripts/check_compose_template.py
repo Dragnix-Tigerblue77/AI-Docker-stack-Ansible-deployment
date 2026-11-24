@@ -59,9 +59,15 @@ neither. A value is recognised by its marker -- the variable's own name, an "@" 
 place that percent-encodes the value on purpose, as a connection URL does, turns the "@" into "%40"
 and is not followed: what an encoder does is that encoder's to justify.
 
-It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for EVERY non-empty set of the
-provider keys (#296). The role asks for at least one, and a provider without a key has to leave the file
-whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
+It renders the LiteLLM routing configuration (`LiteLLM_config.yaml.j2`) for a covering array of the
+provider keys, not for every set of them: that was 2^n - 1 renderings, which doubled with each provider
+until the checks outran their time. The template's conditions each read some of the keys, and the sets are such
+that every case of the keys any one condition reads is rendered, plus each key alone, every key and every key
+but one; the empty set is none of them. The most keys one condition reads, and the number of sets, are printed
+on every run, and a condition that reads more than KEY_SET_STRENGTH_LIMIT of them is refused, since the sets
+would no longer hold all its cases: it is split. The sets are worked out by "key_set_plan" of
+"check_LiteLLM_model_drift.py", the one place that knows how, so that both checks render the file for the same
+ones. The role asks for at least one key, and a provider without a key has to leave the file whole: its models, its slots in the cascades, and the routers it alone backs. A model listed without a key
 can only fail, and a cascade naming a model that is not listed makes LiteLLM refuse the request. Each of
 the renders is held to the rules in "check_litellm_config", among them that an alias of a
 router points at the first member of the router's own cascade, the one thing the template's two lists of
@@ -119,7 +125,7 @@ Jinja2 does not have. It is Ansible's own, not an imitation of it, so what this 
 """
 
 import copy
-import itertools
+import os
 import re
 import sys
 from pathlib import Path
@@ -128,6 +134,11 @@ import jinja2.meta
 import yaml
 from ansible.plugins.filter.core import to_json
 from jinja2 import Environment, FileSystemLoader, meta
+
+# The sets of keys the routing configuration is rendered for are worked out where the drift check reads the same
+# file, so that both render it for the same ones.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_LiteLLM_model_drift import KEY_SET_STRENGTH_LIMIT, KeySetRefusal, key_set_plan, provider_name  # noqa: E402
 
 ROLE = Path(__file__).resolve().parents[2]
 
@@ -1698,7 +1709,7 @@ AGENT_MODEL_CASES = [
 ]
 
 
-# --- The LiteLLM routing configuration, rendered for every set of provider keys (#296) --------------
+# --- The LiteLLM routing configuration, rendered for a covering array of the provider keys ---
 
 LITELLM_CONFIG_TEMPLATE = "LiteLLM_config.yaml.j2"
 # The provider, and the environment variable its key reaches the gateway under.
@@ -2151,10 +2162,19 @@ def check_litellm_data_group_table(table, failures, providers=None):
             failures.append(f"LITELLM_DATA_GROUPS row {name} is in {row[0]!r}, which is neither of {LITELLM_DATA_GROUP_NAMES}")
 
 
-def litellm_key_sets():
-    """Every non-empty set of the provider keys, in a stable order."""
-    names = list(LITELLM_PROVIDERS)
-    return [frozenset(chosen) for size in range(1, len(names) + 1) for chosen in itertools.combinations(names, size)]
+def litellm_key_variables(providers=None):
+    return tuple(f"Artificial_Intelligence_LiteLLM_{provider}_API_key"
+                 for provider in (LITELLM_PROVIDERS if providers is None else providers))
+
+
+def litellm_key_sets(source, providers=None):
+    """(sets, strength) for the routing configuration "source": the sets of provider keys to render it for, as
+    frozensets of provider names, and the most keys a single condition of it reads. The sets are a covering array of
+    that strength and the boundary sets, so that every case of the keys any one condition reads is rendered, and
+    their number grows with the logarithm of the keys read instead of doubling with each. Raises KeySetRefusal for
+    a file with a condition above KEY_SET_STRENGTH_LIMIT."""
+    plan = key_set_plan(source, litellm_key_variables(providers))
+    return [frozenset(provider_name(variable) for variable in given) for given in plan.sets], plan.strength
 
 
 def render_litellm_config(keys, disable_env_credential_login=False):
@@ -2702,7 +2722,8 @@ def check_litellm_login_switch(document, switch, failures):
 
 
 def check_litellm_configs(failures):
-    """Render the routing configuration for every non-empty set of provider keys and judge each one."""
+    """Render the routing configuration for the sets of provider keys that litellm_key_sets gives and judge each
+    one. Returns (the number of sets rendered, the strength they cover)."""
     source = (ROLE / "templates" / LITELLM_CONFIG_TEMPLATE).read_text(encoding="utf-8")
     for name in litellm_unsupplied_variables(source, LITELLM_PROVIDERS):
         failures.append(
@@ -2712,7 +2733,12 @@ def check_litellm_configs(failures):
     check_litellm_data_group_table(LITELLM_DATA_GROUPS, failures)
     rendered = 0
     named = set()
-    for keys in litellm_key_sets():
+    try:
+        key_sets, strength = litellm_key_sets(source)
+    except KeySetRefusal as refusal:
+        failures.append(f"[LiteLLM config] {refusal}")
+        key_sets, strength = [], 0
+    for keys in key_sets:
         try:
             document = yaml.safe_load(render_litellm_config(keys))
         except Exception as error:  # noqa: BLE001 - the message is the whole point
@@ -2736,7 +2762,7 @@ def check_litellm_configs(failures):
             failures.append(f"[LiteLLM config, login switch {'on' if switch else 'off'}] does not render: {error}")
             continue
         check_litellm_login_switch(document, switch, failures)
-    return rendered
+    return rendered, strength
 
 
 LITELLM_LOGIN_SWITCH_CASES = [
@@ -2760,6 +2786,32 @@ LITELLM_VARIABLE_CASES = [
      "{% set has = {'X': Artificial_Intelligence_LiteLLM_Cloudflare_API_key is string} %}", {"Groq"},
      ["Artificial_Intelligence_LiteLLM_Cloudflare_API_key"]),
     ("a variable that is no provider key", "{{ Artificial_Intelligence_LiteLLM_config_Docker_name }}", {"Groq"}, []),
+]
+
+
+def _key_set_source(providers, conditions):
+    """A Jinja file that sets "has" for "providers" as the template does and holds one line per condition."""
+    has = ", ".join(
+        f"'{name}': Artificial_Intelligence_LiteLLM_{name}_API_key is string" for name in providers)
+    return "{% set has = {" + has + "} %}\n" + "".join(f"{{% if {each} %}}x\n{{% endif %}}\n" for each in conditions)
+
+
+_WIDE = [f"P{number}" for number in range(KEY_SET_STRENGTH_LIMIT + 1)]
+# The sets of keys the template is rendered for: a file whose condition reads two keys, or three, has every case of
+# them rendered, a file that reads no key is rendered once, and a condition above the limit is refused with its line.
+LITELLM_KEY_SET_CASES = [
+    # (what it is, the file, its providers, the providers whose every case must be rendered, a fragment the refusal
+    #  must hold -- None when it is not refused)
+    ("a condition on two providers has all four cases rendered",
+     _key_set_source(["A", "B", "C", "D"], ["has.A and has.B", "has.C", "has.D"]), ["A", "B", "C", "D"], ["A", "B"], None),
+    ("a condition on three providers has all eight cases rendered",
+     _key_set_source(["A", "B", "C", "D", "E"], ["has.A or has.B and has.C", "has.D", "has.E"]),
+     ["A", "B", "C", "D", "E"], ["A", "B", "C"], None),
+    ("a file that reads no key is rendered once, for none", "x: 1\n", ["A", "B"], [], None),
+    ("a condition above the limit is refused, with its line and its keys",
+     _key_set_source(_WIDE, [" and ".join(f"has.{name}" for name in _WIDE)]), _WIDE, [], "line 2"),
+    ("a condition at the limit is not",
+     _key_set_source(_WIDE, [" and ".join(f"has.{name}" for name in _WIDE[:-1])]), _WIDE, _WIDE[:-1], None),
 ]
 
 
@@ -3694,6 +3746,23 @@ def selftest():
         if found != expected:
             problems.append(f"{name!r}: found {found!r}, expected {expected!r}")
 
+    for name, source, providers, covered, expected in LITELLM_KEY_SET_CASES:
+        try:
+            sets, strength = litellm_key_sets(source, providers)
+        except KeySetRefusal as refusal:
+            if expected is None or expected not in str(refusal) or "KEY_SET_STRENGTH_LIMIT" not in str(refusal):
+                problems.append(f"{name!r}: refused unexpectedly or for the wrong reason: {refusal}")
+            continue
+        seen = {tuple(provider in given for provider in covered) for given in sets}
+        if expected is not None:
+            problems.append(f"{name!r}: accepted, expected a refusal mentioning {expected!r}")
+        elif len(seen) != 2 ** len(covered):
+            problems.append(f"{name!r}: {len(seen)} of the {2 ** len(covered)} cases of {covered} are rendered")
+        elif not covered and sets != [frozenset()]:
+            problems.append(f"{name!r}: rendered for {sets!r}, expected once with no key")
+        elif covered and not all(sets):
+            problems.append(f"{name!r}: the empty set is one of the sets")
+
     for name, entry, expected in LITELLM_EFFORT_CASES:
         failures = []
         check_litellm_reasoning_efforts([entry], "selftest", failures)
@@ -3907,7 +3976,8 @@ def selftest():
         f"case(s), {len(LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES)} LibreChat gateway key models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
-        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
+        f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_KEY_SET_CASES)} LiteLLM key set "
+        f"case(s), {len(LITELLM_CONFIG_CASES)} "
         f"LiteLLM routing case(s), {len(LITELLM_DATA_TABLE_CASES)} data group table case(s), "
         f"{len(LITELLM_EFFORT_CASES)} reasoning-effort case(s), "
         f"{len(LITELLM_CREDENTIAL_CASES)} LiteLLM credential case(s), "
@@ -4070,7 +4140,7 @@ def main():
                 "model variables were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
             )
     check_quote_exemptions(defaults, failures)
-    key_sets = check_litellm_configs(failures)
+    key_sets, key_strength = check_litellm_configs(failures)
     if "published network unset" in documents:
         check_litellm_key_environment(documents["published network unset"], "published network unset", failures)
 
@@ -4089,7 +4159,11 @@ def main():
         f"Artificial Intelligence compose template: renders and parses in both states, {services} service(s) checked "
         "against the conventions of #31."
     )
-    print(f"LiteLLM routing configuration: renders and holds its cascade rules for each of the {key_sets} non-empty sets of provider keys.")
+    print(
+        f"LiteLLM routing configuration: renders and holds its cascade rules for each of the {key_sets} sets of "
+        f"provider keys that cover every case of the keys one condition reads, at most {key_strength} (the limit is "
+        f"{KEY_SET_STRENGTH_LIMIT})."
+    )
     # Printed on every run, so the places still waiting on another pull request stay in view, and so
     # does how many values the render actually gave a "$" -- a number that drops is a value lost.
     owners = sorted({owner.split(",")[0] for owner in DOLLAR_LEFT_TO_OTHER_PULL_REQUESTS.values()})

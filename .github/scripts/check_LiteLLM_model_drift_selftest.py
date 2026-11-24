@@ -28,6 +28,7 @@ import difflib
 import http.client
 import http.server
 import io
+import itertools
 import json
 import multiprocessing
 import os
@@ -65,7 +66,8 @@ from check_LiteLLM_model_drift import (
     contracts_report, contracts_section, derivation_differences, derivation_lines, describe_entry,
     eci_scale, eci_to_index, epoch_member_name, epoch_position, error_class, exit_status,
     fallback_lists, fetch_json, floor_text, given_text, guarded, index_to_position, is_bare,
-    is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents,
+    is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents, KEY_SET_STRENGTH_LIMIT,
+    KeySetRefusal, covering_array, covering_key_sets, key_set_plan,
     left_behind, left_outside_pull_requests, litellm_id, main, match_ranking, median_position, member_quality,
     offline_contract_notices, offline_contract_problems, place, plan_lines, pricing_page_problems,
     propose_additions, propose_name, proposed, ranking_families, read_catalogue, read_epoch, read_head,
@@ -2651,7 +2653,7 @@ KEYSET_CASES = (
 
 
 def run_keyset_cases():
-    """A cascade is judged for every set of provider keys, not on the union: the one that holds a
+    """A cascade is judged for each of the sets of provider keys, not on the union: the one that holds a
     provider's members alone is empty for each set that leaves the provider out."""
     failures = 0
     # The cascade above lists only-groq and only-mistral after "always", so "always" keeps it
@@ -4852,7 +4854,7 @@ def run_command_line_cases():
 REAL_PAIR_STEP = 4  # bound: one pair of neighbours in four, since a deletion costs what an entry does
 REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
 # A statement of the file that reads one provider's key and no other: the only kind of condition the
-# bounded sets of keys below can stand in for every set of.
+# bounded sets of keys below can stand in for the covering sets of.
 ONE_KEY_CONDITION = re.compile(r"\{%-?\s*(?:el)?if\s+(?:not\s+)?has\.\w+\s*-?%\}")
 
 
@@ -4862,12 +4864,12 @@ plain_keyset_documents = keyset_documents
 
 
 def bounded_keyset_documents(text):
-    """keyset_documents over each key alone, every key, and every key but one, rather than every set of
-    them: 2n + 1 renderings for n keys where every set is 2^n - 1, which doubled with each provider. A
-    condition of the file that reads one key decides the same way whatever the other keys are, and a
+    """keyset_documents over each key alone, every key, and every key but one, rather than over the covering sets
+    of the drift run: 2n + 1 renderings for n keys, which a deletion from the real model list repeats hundreds of
+    times. A condition of the file that reads one key decides the same way whatever the other keys are, and a
     head of the "head" table is the value of the first provider given along its chain, so a cascade left
     empty, a slot or an alias left naming nothing, show with a key alone or a key missing. A file with
-    any other condition, two keys read at once say, gets every set, as the drift run always does."""
+    any other condition, two keys read at once say, gets the covering sets, as the drift run always does."""
     import jinja2.meta
     from jinja2.sandbox import SandboxedEnvironment
     tree = SandboxedEnvironment().parse(text)
@@ -4897,7 +4899,7 @@ def bounded_key_sets():
 
 @contextlib.contextmanager
 def quick_rendering():
-    """A deletion renders the file for every set of keys, several times over, and parsing the results is
+    """A deletion renders the file for each of its sets of keys, several times over, and parsing the results is
     most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
     first rendering of a text is the plain one, which the quick one is held to. What every scenario reads,
     cached while the real file is set up, is kept; what one scenario caches is forgotten once it is
@@ -5082,8 +5084,8 @@ def real_failure(text, keys, new_text, outcomes, layout, known):
 
 
 def run_bounded_key_set_cases():
-    """bounded_keyset_documents renders 2n + 1 sets for a file whose conditions each read one key, and
-    every set for one with a condition that reads two: four keys, where the two counts differ."""
+    """bounded_keyset_documents renders 2n + 1 sets for a file whose conditions each read one key, and the
+    covering sets for one with a condition that reads two, which hold every case of those two keys."""
     keys = PROVIDER_KEY_VARIABLES[:4]
     head = "{%% set has = {%s} %%}\n" % ", ".join("'%s': %s" % pair for pair in zip("ABCD", keys))
     one = head + "{% if has.A %}a: 1\n{% endif %}{% if not has.B %}b: 1\n{% endif %}" \
@@ -5091,11 +5093,14 @@ def run_bounded_key_set_cases():
     two = head + "{% if has.A and has.B %}a: 1\n{% endif %}{% if has.C %}c: 1\n{% endif %}" \
                  "{% if has.D %}d: 1\n{% endif %}"
     failures = 0
-    for text, wanted, what in ((one, 2 * 4 + 1, "one key per condition"), (two, 2 ** 4 - 1, "a condition on two keys")):
+    pair = {tuple(each in given for each in keys[:2]) for given, _ in bounded_keyset_documents(two)}
+    for text, wanted, what in ((one, 2 * 4 + 1, "one key per condition"),
+                               (two, len(key_set_plan(two).sets), "a condition on two keys")):
         got = len(bounded_keyset_documents(text))
-        if got != wanted:
+        if got != wanted or (text is two and len(pair) != 4):
             failures += 1
-            print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted" % (what, got, wanted))
+            print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted, %d cases of the "
+                  "two keys" % (what, got, wanted, len(pair)))
         else:
             print("selftest: ok -- the bounded sets of keys of a file with %s are %d" % (what, wanted))
     # While the sets are bounded, keyset_documents is bounded_keyset_documents, which must still reach
@@ -5105,11 +5110,125 @@ def run_bounded_key_set_cases():
             got = len(keyset_documents(two))
         except RecursionError:
             got = None
-    if got != 2 ** 4 - 1:
+    wanted = len(key_set_plan(two).sets)
+    if got != wanted:
         failures += 1
-        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, 2 ** 4 - 1))
+        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, wanted))
     else:
-        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets every set")
+        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets its covering sets")
+    return failures
+
+
+def covering_failure(sets, keys, columns):
+    """What is missing from "sets" (tuples of the names of the keys given) for every case of "columns" (names
+    among "keys") to be rendered, or None: each of the 2^len(columns) assignments of them has to be a set's."""
+    seen = {tuple(each in given for each in columns) for given in sets}
+    if len(seen) != 2 ** len(columns):
+        return "%d of the %d cases of %s are rendered" % (len(seen), 2 ** len(columns), ", ".join(columns))
+    return None
+
+
+def key_condition_template(names, conditions):
+    """A Jinja file that sets "has" for the keys "names" the way the real one does, and carries "conditions", each
+    the text of one condition, as statements around one line of text."""
+    head = "{%% set has = {%s} %%}\n" % ", ".join("'%s': %s is string and %s | length > 0" % (name, key, key)
+                                               for name, key in names)
+    return head + "".join("{%% if %s %%}x: 1\n{%% endif %%}" % condition for condition in conditions)
+
+
+def run_covering_key_set_cases():
+    """The sets of keys a file is rendered for are a covering array of the most keys one of its conditions reads:
+    every case of those keys is rendered, a condition past the limit is refused, a file that reads no key is
+    rendered once, and the number of sets stays small as the keys grow."""
+    failures = 0
+    judged = []
+
+    def case(purpose, why):
+        judged.append((purpose, why))
+
+    real = [("K%d" % number, "Artificial_Intelligence_LiteLLM_%s_API_key" % provider)
+            for number, provider in enumerate(("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek"))]
+    names, variables = zip(*real)
+    plan = key_set_plan(key_condition_template(real, ["has.K0 and has.K1", "has.K2", "has.K3 or has.K4"]))
+    case("a condition on two keys renders all four of their cases",
+         covering_failure(plan.sets, variables, variables[:2]) or (None if plan.strength == 2 else
+                                                                 "its strength is %d" % plan.strength))
+    plan = key_set_plan(key_condition_template(real, ["has.K0 and (has.K1 or has.K2)", "has.K4"]))
+    case("a condition on three keys renders all eight of their cases",
+         covering_failure(plan.sets, variables, variables[:3]) or (None if plan.strength == 3 else
+                                                                 "its strength is %d" % plan.strength))
+    chain = ("{% set head = {'x': 'a' if has.K0 else 'b' if has.K1 else 'c' if has.K2 else false} %}"
+             "{% if head['x'] %}x: 1\n{% endif %}")
+    plan = key_set_plan(key_condition_template(real, ["has.K4"]) + chain)
+    case("a router's head, which reads the keys of its chain and not those of the other heads, renders their cases",
+         covering_failure(plan.sets, variables, variables[:3]) or (None if plan.strength == 3 else
+                                                                 "its strength is %d" % plan.strength))
+    case("the empty set is never one of them", None if all(plan.sets) else "a set gives no key")
+    plan = key_set_plan("a: 1\n")
+    case("a file that reads no key renders once, for none",
+         None if plan.sets == ((),) and plan.strength == 0 else "%r, strength %d" % (plan.sets, plan.strength))
+    rendered = keyset_documents("a: 1\n")
+    case("and its one rendering is its document",
+         None if rendered == [((), {"a": 1})] else "%r" % (rendered,))
+
+    # The limit: a condition at it is covered, one above it is refused, naming its line and its keys.
+    wide = [("W%d" % number, "W%d" % number) for number in range(KEY_SET_STRENGTH_LIMIT + 1)]
+
+    def reading(count):
+        return key_condition_template(wide, ["has.W0 and " + " and ".join("has.W%d" % number
+                                                                         for number in range(1, count))])
+    try:
+        at_limit = key_set_plan(reading(KEY_SET_STRENGTH_LIMIT), tuple(each[1] for each in wide)).strength
+    except KeySetRefusal as refusal:
+        at_limit = str(refusal)
+    case("a condition on as many keys as the limit allows is covered",
+         None if at_limit == KEY_SET_STRENGTH_LIMIT else "got %r" % (at_limit,))
+    try:
+        key_set_plan(reading(KEY_SET_STRENGTH_LIMIT + 1), tuple(each[1] for each in wide))
+        refused = "nothing was refused"
+    except KeySetRefusal as refusal:
+        text = str(refusal)
+        refused = None if all(fragment in text for fragment in (
+            "line 2", "W0", "W%d" % KEY_SET_STRENGTH_LIMIT, "has.W0 and",
+            "KEY_SET_STRENGTH_LIMIT")) else "the refusal does not name the condition: %s" % text
+    case("a condition on more keys than that is refused, with its line and its keys", refused)
+
+    # The number of sets stays small: sixteen keys, one condition on two of them.
+    sixteen = [("S%d" % number, "S%d" % number) for number in range(16)]
+    plan = key_set_plan(key_condition_template(sixteen, ["has.S0 and has.S1", "has.S7"] + [
+        "has.S%d" % number for number in range(2, 16)]), tuple(each[1] for each in sixteen))
+    case("sixteen keys with a condition on two of them take %d sets, a few dozen and not 65535" % len(plan.sets),
+         covering_failure(plan.sets, plan.keys, plan.keys[:2]) or (None if len(plan.sets) <= 64 else
+                                                                 "%d sets" % len(plan.sets)))
+
+    # The array itself: every case of every group of columns, for sizes the file does not need, and the same
+    # array each time it is built.
+    for count, strength in ((5, 2), (6, 3), (7, 4), (8, 3), (9, 5)):
+        sets = covering_key_sets(count, strength)
+        missing = next((columns for columns in itertools.combinations(range(count), strength)
+                        if len({tuple(index in each for index in columns) for each in sets}) != 2 ** strength),
+                       None)
+        case("%d keys, strength %d: every case of every %d of them is rendered, with no empty set"
+             % (count, strength, strength),
+             None if missing is None and all(sets) else "columns %r are not covered, or a set is empty" % (missing,))
+    case("the array built twice is the same", None if covering_array.__wrapped__(9, 4) == covering_array(9, 4)
+         else "it is not")
+
+    # The real file: its strength and its sets, printed, and every condition of it rendered in every case.
+    text = CONFIG.read_text(encoding="utf-8")
+    plan = key_set_plan(text)
+    broken = next((covering_failure(plan.sets, plan.keys, sorted(keys)) for _, _, keys in plan.conditions
+                   if covering_failure(plan.sets, plan.keys, sorted(keys))), None)
+    case("the model list reads %d keys, at most %d in one condition, and is rendered for %d sets that hold every "
+         "case of each of its %d conditions" % (len(plan.keys), plan.strength, len(plan.sets), len(plan.conditions)),
+         broken or (None if plan.strength <= KEY_SET_STRENGTH_LIMIT else "its strength is above the limit"))
+
+    for purpose, why in judged:
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
     return failures
 
 
@@ -5130,7 +5249,7 @@ def real_text_and_layout(ending):
     if ending not in real_layouts:
         text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
         template, problems = read_template(text)
-        # Reading the layout renders the file for every set of keys, which only the patches make quick.
+        # Reading the layout renders the file for each of its sets of keys, which only the patches make quick.
         with contextlib.ExitStack() as stack:
             if real_list_session is None:
                 stack.enter_context(quick_rendering())
@@ -8729,7 +8848,7 @@ def run_pool_cases():
 #   run_coverage_cases                     1.1
 #   run_contract_cases, run_review_cases   0.9, 0.8
 #   run_online_apply_cases                 0.7
-#   each of the other twenty-three         0.5 or less, about 4 in all
+#   each of the others                     0.5 or less, about 4 in all
 #
 # The deletions come to about 2,400 per part, so the groups are what evens the parts out: the one group
 # that costs as much as eight deletions goes alone to the part whose deletions cost least, and the rest
@@ -8749,6 +8868,7 @@ GROUPS_OF_THE_PARTS = (
         run_eci_cases,
         run_proposal_command_line_cases,
         run_bounded_key_set_cases,
+        run_covering_key_set_cases,
         run_command_line_cases,
     ),
     (

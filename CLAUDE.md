@@ -412,6 +412,14 @@ pull request. An issue is opened for one thing only, a provider's catalogue stil
 the day's two retries. What the workflow needs and what it refuses to delete are in its header and
 in the docstring of the script.
 
+The checks render that file for a covering array of the provider keys, never for every set of them, which
+doubled with each provider: every case of the keys any one condition reads is rendered, plus each key alone,
+every key and every key but one. `key_set_plan` in `check_LiteLLM_model_drift.py` works the sets out for both
+checks, and `check_compose_template.py` prints, on every run, the most keys one condition reads and the number of
+sets. A condition that reads more keys than `KEY_SET_STRENGTH_LIMIT` is refused with its line and its keys, so a
+guarantee cannot erode unseen: it is split, and the limit is raised only knowing what the larger array costs.
+A router's `head` row reads the keys of its whole chain, so a chain longer than the limit is the case to watch.
+
 **What a cleanup of the model list may remove.** A cleanup removes only what its provider has retired or
 redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, what a
 person set aside for a data or operator reason, or a second entry for the same model at the same
