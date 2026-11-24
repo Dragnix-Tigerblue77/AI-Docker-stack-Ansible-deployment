@@ -597,8 +597,10 @@ def builder_scenarios(real, drift):
         [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
         "has no embedding entry of cloudflare", kind="to_verify",
         base=real.replace("os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE", "https://upstream-host/v1"))
+    # Every Cloudflare embedding entry, since a base read from the environment on any one of them is an entry to model on.
     plain_base = real.replace('      model: openai/@cf/baai/bge-m3\n      api_base: "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE"',
-                              '      model: cloudflare/@cf/baai/bge-m3\n      api_base: "https://upstream-host/v1"')
+                              '      model: cloudflare/@cf/baai/bge-m3\n      api_base: "https://upstream-host/v1"'
+                              ).replace("os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE", "https://upstream-host/v1")
     assert plain_base != real
     add("an embedding model of Cloudflare modelled on an entry whose base is a plain address is refused",
         [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
