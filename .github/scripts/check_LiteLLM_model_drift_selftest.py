@@ -9,25 +9,34 @@ The script's "--selftest" runs this module, and it can be run directly, from any
 
     python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
 
+The cases run across the cores of the machine; "--workers 1" runs them in this process, which is what
+to debug with. "--half 1" or "--half 2" runs one half of them, which is what each of the two jobs of the
+CI does: the two halves together are every case, and each case is in one of them.
+
 It exits 0 when every case judged as expected and 1 otherwise. The cases are Python literals rather
 than fixture files, for the reason the script gives: a fixture on disk is reachable by
 "ansible-lint --fix". The scripts directory is flat and not a package, so the script is imported by
 its file name, which is what puts this directory on the path whichever way this module was started.
 """
 
+import argparse
 import collections
+import concurrent.futures
+import concurrent.futures.process
 import contextlib
 import difflib
 import http.client
 import http.server
 import io
 import json
+import multiprocessing
 import os
 import re
 import runpy
 import sys
 import tempfile
 import threading
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -4674,13 +4683,16 @@ def quick_rendering():
     most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
     first rendering of a text is the plain one, which the quick one is held to. What every scenario reads,
     cached while the real file is set up, is kept; what one scenario caches is forgotten once it is
-    checked, since the next never reads it, and kept it outgrew a runner shared with other jobs."""
+    checked, since the next never reads it, and kept it outgrew a runner shared with other jobs. Within a
+    scenario, what it caches is bounded to the last few texts: a provider deleted whole tries each of its
+    entries alone, each a text of its own that nothing reads again, and kept for the whole scenario they
+    made it the largest of the run, several times over once the scenarios run side by side."""
     import jinja2
     from jinja2.sandbox import SandboxedEnvironment
     environment = SandboxedEnvironment(undefined=jinja2.StrictUndefined, trim_blocks=True,
                                        keep_trailing_newline=True)
     plain, loaded = render_with_keys, yaml.safe_load
-    rendered, compiled, parsed = {}, {}, {}
+    rendered, compiled, parsed, compared = {}, {}, {}, set()
 
     def quick(text, given):
         return compiled[text].render({**{name: "" if given is not None and name not in given
@@ -4690,21 +4702,33 @@ def quick_rendering():
     def render(text, given):
         key = (text, None if given is None else frozenset(given))
         if key not in rendered:
-            if text in compiled:
-                rendered[key] = quick(text, key[1])
-            else:
-                rendered[key] = plain(text, given)
+            if text not in compiled:
                 compiled[text] = environment.from_string(text)
-                if quick(text, key[1]) != rendered[key]:
+            rendered[key] = quick(text, key[1])
+            # The first rendering of a text is the plain one, which the quick one is held to.
+            if hash(text) not in compared:
+                compared.add(hash(text))
+                if plain(text, given) != rendered[key]:
                     raise RuntimeError("the quick rendering is not the plain one")
+            trim()
         return rendered[key]
 
     def load(text):
         if text not in parsed:
             parsed[text] = yaml.load(text, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+            trim()
         return parsed[text]
 
     lasting = set()
+    # Texts held at once: far more than a check reads together, far fewer than a provider's entries.
+    sets_of_keys = 2 * len(PROVIDER_KEY_VARIABLES) + 1
+    limits = ((rendered, 8 * sets_of_keys), (compiled, 8), (parsed, 8 * sets_of_keys))
+
+    def trim():
+        for cache, limit in limits:
+            kept = [key for key in cache if (id(cache), key) not in lasting]
+            for key in kept[:max(0, len(kept) - limit)]:
+                del cache[key]
 
     def keep_what_is_cached():
         lasting.update((id(cache), key) for cache in (rendered, compiled, parsed) for key in cache)
@@ -4859,40 +4883,104 @@ def run_bounded_key_set_cases():
     return failures
 
 
-def run_real_list_cases():
-    """Each scenario of real_scenarios deleted from the real file (each key asked for twice, which is
-    one deletion) and read back by real_failure; then the first of them with CRLF line endings. Each is
-    rendered for the bounded sets of keys of bounded_keyset_documents."""
-    failures = 0
-    with quick_rendering() as (keep_what_is_cached, forget_the_rest), bounded_key_sets():
-        for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
-            text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
-            template, problems = read_template(text)
+def real_halves(items):
+    """The items of real_scenarios, or their places in it, dealt to the two halves of the cases: even
+    places to the first, odd to the second. Neighbours cost alike and a whole provider costs more, so
+    dealing out by place spreads both evenly where a cut in the middle would put the providers in one
+    half."""
+    return [[chosen for number, chosen in enumerate(items) if number % HALVES == half]
+            for half in range(HALVES)]
+
+
+real_layouts = {}
+
+
+def real_text_and_layout(ending):
+    """The real model list with the line endings given, its layout, and what is wrong with it if it has
+    none. Read once per process, and so once for all of a pool's, which are forked after it is."""
+    if ending not in real_layouts:
+        text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
+        template, problems = read_template(text)
+        # Reading the layout renders the file for every set of keys, which only the patches make quick.
+        with contextlib.ExitStack() as stack:
+            if real_list_session is None:
+                stack.enter_context(quick_rendering())
+                stack.enter_context(bounded_key_sets())
             layout = read_layout(text, template)[0] if template else None
-            if layout is None:
-                print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
-                return 1
-            known = dangling(text)
-            scenarios = real_scenarios(layout)
-            keep_what_is_cached()
-            for keys in scenarios[:bound]:
-                wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
-                new_text, outcomes = apply_removals(text, wanted)
-                why = real_failure(text, keys, new_text, outcomes, layout, known)
-                forget_the_rest()
-                if why:
-                    failures += 1
-                    print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
-                        ", ".join(sorted("%s/%s" % key for key in keys)),
-                        " with CRLF line endings" if ending != "\n" else "", why))
-    if not failures:
-        print("selftest: ok -- %d deletions from the real model list leave what they should"
-              % len(scenarios))
-    return failures
+        real_layouts[ending] = (text, layout, problems)
+    return real_layouts[ending]
 
 
-def run_selftest():
-    """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
+def run_real_list_partition_case():
+    """The halves of the real scenarios are disjoint and together are real_scenarios, in every mode: a
+    scenario dropped from both would pass for ever without being tried."""
+    text, layout, problems = real_text_and_layout("\n")
+    if layout is None:
+        print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
+        return 1
+    scenarios = real_scenarios(layout)
+    halves = real_halves(range(len(scenarios)))
+    dealt = sorted(number for each in halves for number in each)
+    if dealt != list(range(len(scenarios))):
+        print("selftest: FAILED (the halves of the real model list) -- they are not a partition of its %d "
+              "scenarios" % len(scenarios))
+        return 1
+    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the halves, %s"
+          % (len(scenarios), " and ".join(str(len(each)) for each in halves)))
+    return 0
+
+
+# What a process holds while it deletes from the real model list: the patches of quick_rendering and
+# bounded_key_sets, and what was read of each file. A process that goes on to run another group of
+# cases leaves it first, since those cases run with the plain functions.
+real_list_session = None
+
+
+def enter_real_list_session():
+    global real_list_session
+    if real_list_session is None:
+        stack = contextlib.ExitStack()
+        keep, forget = stack.enter_context(quick_rendering())
+        stack.enter_context(bounded_key_sets())
+        real_list_session = {"stack": stack, "keep": keep, "forget": forget, "files": {}}
+    return real_list_session
+
+
+def leave_real_list_session():
+    global real_list_session
+    if real_list_session is not None:
+        real_list_session["stack"].close()
+        real_list_session = None
+
+
+def run_real_list_deletion(ending, number):
+    """Scenario "number" of real_scenarios deleted from the real file (each key asked for twice, which is
+    one deletion) and read back by real_failure, rendered for the bounded sets of keys of
+    bounded_keyset_documents. Returns the number of failures."""
+    session = enter_real_list_session()
+    if ending not in session["files"]:
+        text, layout, problems = real_text_and_layout(ending)
+        if layout is None:
+            print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
+            return 1
+        session["files"][ending] = (text, layout, real_scenarios(layout), dangling(text))
+        session["keep"]()
+    text, layout, scenarios, known = session["files"][ending]
+    keys = scenarios[number]
+    wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
+    new_text, outcomes = apply_removals(text, wanted)
+    why = real_failure(text, keys, new_text, outcomes, layout, known)
+    session["forget"]()
+    if why:
+        print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
+            ", ".join(sorted("%s/%s" % key for key in keys)),
+            " with CRLF line endings" if ending != "\n" else "", why))
+    return 1 if why else 0
+
+
+def run_selftest(half=None, workers=None):
+    """Prove that every rule refuses what it claims to refuse, and lets the baseline through: all of
+    them, or the half of them that run_selftest_cases says "half" is, across "workers" processes."""
     # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
@@ -4900,7 +4988,7 @@ def run_selftest():
         "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
         if name in os.environ}
     try:
-        return run_selftest_cases()
+        return run_selftest_cases(half, workers)
     finally:
         os.environ.update(kept)
 
@@ -7917,7 +8005,7 @@ def run_incomplete_catalogue_cases():
     return failures
 
 
-def run_selftest_cases():
+def run_template_cases():
     failures = 0
 
     for base, cases in ((SELFTEST_TEMPLATE, OFFLINE_CASES), (SELFTEST_JINJA_TEMPLATE, JINJA_CASES)):
@@ -7943,6 +8031,11 @@ def run_selftest_cases():
                 failures += 1
                 print("selftest: FAILED (%s) -- expected %s, got %r"
                       % (purpose, "no problem" if needle is None else repr(needle), problems))
+    return failures
+
+
+def run_canned_catalogue_cases():
+    failures = 0
 
     for purpose, text, environment, answers, expected, status, check in online_cases():
         calls = []
@@ -7963,35 +8056,213 @@ def run_selftest_cases():
         else:
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
 
-    failures += run_incomplete_catalogue_cases()
-    failures += run_cloudflare_cases()
-    failures += run_coverage_cases()
-    failures += run_apply_cases()
-    failures += run_head_cases()
-    failures += run_pricing_page_cases()
-    failures += run_ranking_cases()
-    failures += run_contract_cases()
-    failures += run_epoch_cases()
-    failures += run_eci_cases()
-    failures += run_verify_cases()
-    failures += run_safety_net_case()
-    failures += run_online_apply_cases()
-    failures += run_confirmation_cases()
-    failures += run_lookup_cases()
-    failures += run_review_cases()
-    failures += run_keyset_cases()
-    failures += run_jinja_net_cases()
-    failures += run_hardening_cases()
-    failures += run_command_line_cases()
-    failures += run_proposal_cases()
-    failures += run_usage_cases()
-    failures += run_carried_cases()
-    failures += run_proposal_command_line_cases()
-    failures += run_bounded_key_set_cases()
-    failures += run_real_list_cases()
-    return 1 if failures else 0
+
+HALVES = 2
+
+# What a half runs is a list of units, each a group of the table above or a deletion from the real
+# model list, in the order their results are printed. The list is a function of the half alone; how its
+# units are shared between the processes of a pool is not, and does not need to be: each is run once, and
+# the results are read back in the order of the list.
+# "weight" is what a unit costs next to the others, which only decides which start first.
+Unit = collections.namedtuple("Unit", "name run weight", defaults=(0,))
+units_of_the_run = []
+
+
+def units_of_a_half(half):
+    """The units of one half, or of all of them where "half" is None: the groups of the table, then the
+    deletions real_halves deals to it, the CRLF ones being the first scenarios of the file read with
+    them. A unit runs in a process of its own pool, so it holds no state another needs."""
+    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
+    units = []
+    for group in (groups[half - 1] if half else [group for each in groups for group in each]):
+        units.append(Unit(group.__name__, lambda group=group: (leave_real_list_session(), group())[1], 10**6))
+    for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
+        text, layout, problems = real_text_and_layout(ending)
+        if layout is None:
+            units.append(Unit("the real model list", lambda problems=problems: print(
+                "selftest: FAILED (the real model list) -- it cannot be read: %s" % problems) or 1))
+            continue
+        scenarios = real_scenarios(layout)
+        numbers = real_halves(range(len(scenarios)))[half - 1] if half else range(len(scenarios))
+        for number in numbers if bound is None else [each for each in numbers if each < bound]:
+            units.append(Unit("deletion %d%s" % (number, " with CRLF line endings" if bound else ""),
+                              lambda ending=ending, number=number: run_real_list_deletion(ending, number),
+                              len(scenarios[number])))
+    return units
+
+
+def run_unit(number):
+    """Unit "number" of units_of_the_run, with what it printed kept to be printed in order."""
+    unit = units_of_the_run[number]
+    printed = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(printed), contextlib.redirect_stderr(printed):
+            failures = unit.run()
+    except Exception:  # a crash is a failure of the unit, named, and not of the whole pool
+        failures = 1
+        printed.write("selftest: FAILED (%s) -- it crashed:\n%s" % (unit.name, traceback.format_exc()))
+    return number, failures, printed.getvalue()
+
+
+def run_units(units, workers):
+    """Run the units across "workers" processes, and print what each printed in the order of the list.
+    The heaviest start first, so that the last to finish is not one of them, and each is run once.
+    Returns the failures of each unit, by its place in the list; a unit whose result never came back
+    has one."""
+    global units_of_the_run
+    earlier, units_of_the_run = units_of_the_run, units
+    failures = {}
+    workers = max(1, min(workers, len(units)))
+    died = False
+    if workers == 1:
+        pool = None
+        results = (run_unit(number) for number in range(len(units)))
+    else:
+        # The processes are forked from this one, which holds the module and the list of units and
+        # nothing else: every file the cases read, they read for themselves.
+        pool = concurrent.futures.ProcessPoolExecutor(
+            max_workers=workers, mp_context=multiprocessing.get_context("fork"))
+        futures = {}
+        for number in sorted(range(len(units)), key=lambda number: -units[number].weight):
+            futures[number] = pool.submit(run_unit, number)
+        results = (futures[number] for number in range(len(units)))
+    try:
+        for each in results:
+            try:
+                number, failed, printed = each if pool is None else each.result()
+            except concurrent.futures.process.BrokenProcessPool:
+                if not died:
+                    died = True
+                    print("selftest: FAILED (the pool) -- a process died, as one does that ran out of "
+                          "memory")
+                continue
+            failures[number] = failed
+            sys.stdout.write(printed)
+    finally:
+        if pool is not None:
+            pool.shutdown(wait=True, cancel_futures=True)
+        units_of_the_run = earlier
+    for number in sorted(set(range(len(units))) - set(failures)):
+        failures[number] = 1
+        print("selftest: FAILED (%s) -- it did not run" % units[number].name)
+    return failures
+
+
+def run_pool_cases():
+    """The units run across a pool as they do in one process: each result in the order of the list, a
+    unit that fails or raises named and counted, and a process that dies reported rather than waited for."""
+    failures = 0
+    out = io.StringIO()
+    for workers in (1, 3):
+        units = [Unit("quiet", lambda: 0), Unit("loud", lambda: print("said") or 0),
+                 Unit("wrong", lambda: print("refused") or 1), Unit("raising", lambda: 1 / 0),
+                 Unit("last", lambda: print("the last") or 0)]
+        with contextlib.redirect_stdout(out):
+            failed = run_units(units, workers)
+        seen = out.getvalue()
+        out.seek(0)
+        out.truncate()
+        if (failed != {0: 0, 1: 0, 2: 1, 3: 1, 4: 0} or seen.index("said") > seen.index("refused")
+                or seen.index("refused") > seen.index("raising") or "ZeroDivisionError" not in seen
+                or seen.index("raising") > seen.index("the last")):
+            failures += 1
+            print("selftest: FAILED (the pool, %d process(es)) -- %r, %r" % (workers, failed, seen))
+        else:
+            print("selftest: ok -- %d process(es) give each unit's result in the order of the list" % workers)
+    with contextlib.redirect_stdout(out):
+        failed = run_units([Unit("quiet", lambda: 0), Unit("dying", lambda: os._exit(1))], 2)
+    if not failed.get(1) or "the pool" not in out.getvalue() and "did not run" not in out.getvalue():
+        failures += 1
+        print("selftest: FAILED (the pool) -- a process that dies is not reported: %r" % failed)
+    else:
+        print("selftest: ok -- a process that dies is reported, and not waited for")
+    return failures
+
+
+# The groups of cases, each in the half that runs it, so that the two take about as long: the real
+# model list is dealt out between them by real_halves, and what is listed here is the rest. A group
+# listed in no half is a group nobody runs, which run_selftest_cases refuses.
+GROUPS_OF_THE_FIRST_HALF = (
+    run_pool_cases,
+    run_template_cases,
+    run_canned_catalogue_cases,
+    run_incomplete_catalogue_cases,
+    run_cloudflare_cases,
+    run_coverage_cases,
+    run_apply_cases,
+    run_pricing_page_cases,
+    run_ranking_cases,
+    run_contract_cases,
+    run_epoch_cases,
+    run_eci_cases,
+    run_verify_cases,
+    run_safety_net_case,
+    run_online_apply_cases,
+    run_confirmation_cases,
+    run_lookup_cases,
+    run_review_cases,
+    run_keyset_cases,
+    run_jinja_net_cases,
+    run_hardening_cases,
+    run_command_line_cases,
+    run_proposal_cases,
+    run_usage_cases,
+    run_carried_cases,
+    run_proposal_command_line_cases,
+    run_bounded_key_set_cases,
+)
+GROUPS_OF_THE_SECOND_HALF = (
+    run_head_cases,
+)
+
+
+def run_selftest_cases(half=None, workers=None):
+    """Every case, or the cases of one half, the first or the second, run side by side in two jobs of
+    the CI, each across "workers" processes. Whichever is run, the halves are first held to being a
+    partition of the cases."""
+    workers = workers or os.cpu_count() or 1
+    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
+    everything = [group for each in groups for group in each]
+    failures = run_real_list_partition_case()
+    if len(everything) != len(set(everything)):
+        failures += 1
+        print("selftest: FAILED (the halves of the cases) -- a group is in both of them or twice in one")
+    forgotten = sorted(name for name, value in globals().items()
+                       if re.fullmatch(r"run_\w+_cases?", name) and callable(value)
+                       and value not in everything and name not in ("run_selftest_cases",
+                                                                    "run_real_list_partition_case"))
+    if forgotten:
+        failures += 1
+        print("selftest: FAILED (the halves of the cases) -- %s in neither half, so never run"
+              % ", ".join(forgotten))
+    units = units_of_a_half(half)
+    deletions = [unit for unit in units if unit.name.startswith("deletion") and "CRLF" not in unit.name]
+    print("selftest: %s -- %d groups of cases and %d deletions from the real model list, on %d process(es)"
+          % ("half %d of %d" % (half, HALVES) if half else "every case",
+             len(units) - len([unit for unit in units if unit.name.startswith("deletion")]),
+             len(deletions), max(1, min(workers, len(units)))))
+    failed = run_units(units, workers)
+    if not any(failed[number] for number, unit in enumerate(units) if unit.name.startswith("deletion")):
+        print("selftest: ok -- %d deletions from the real model list leave what they should" % len(deletions))
+    return 1 if failures or any(failed.values()) else 0
+
+
+def parse_arguments(arguments):
+    """The half and the number of processes asked for: "--half 1" or "--half 2" for one half, none for
+    every case; "--workers N" for N processes, the number of cores by default and 1 for no pool at all."""
+    parser = argparse.ArgumentParser(description="The verification cases of check_LiteLLM_model_drift.py.")
+    parser.add_argument("--half", type=int, choices=range(1, HALVES + 1),
+                        help="run one half of the cases only, as one job of the CI does")
+    parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
+                        help="processes to run the cases across (default: the cores of the machine; "
+                             "1 runs them in this process, which is what to debug with)")
+    given = parser.parse_args(arguments)
+    if given.workers < 1:
+        parser.error("--workers must be at least 1")
+    return given.half, given.workers
 
 
 if __name__ == "__main__":
-    sys.exit(run_selftest())
+    sys.exit(run_selftest(*parse_arguments(sys.argv[1:])))

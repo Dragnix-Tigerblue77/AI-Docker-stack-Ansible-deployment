@@ -220,14 +220,22 @@ jobs:
       ROLE_RUN_CLAUDE_CODE_AGENT: "on"
     steps: *role_run_steps
 
+  # The verification cases of the drift check take far longer than every other check together, so they
+  # run beside them, in two halves side by side, each across the cores of its runner. Each half is a job
+  # of its own and not a matrix leg, for the reason given above the role runs, and the module checks
+  # that every case runs in exactly one half.
+  #
+  # The first half keeps the name this job always had: the live ruleset requires a check by name, and a
+  # new one there would leave every pull request waiting for the old one until it is imported again.
   LiteLLM-drift-selftest:
     name: "LiteLLM drift check: verification cases"
     runs-on: ubuntu-latest
-    # The cases take minutes on their own, which is why they run beside the other checks and not in
-    # their job: they would be the longest step of it. 45, because the real-list cases render the
-    # model list for each deletion they try, a time that grows with every entry and every provider.
-    timeout-minutes: 45
-    steps:
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow, and
+    # a half normally takes under twenty minutes.
+    timeout-minutes: 60
+    env:
+      DRIFT_SELFTEST_HALF: "1"
+    steps: &drift_selftest_steps
       - name: Check the repository out
         uses: actions/checkout@v7
 
@@ -241,9 +249,19 @@ jobs:
       - name: Install the tooling
         run: pip install -r requirements.txt
 
-      # The script's "--selftest" runs the module of the cases; the module is what is named here.
+      # The script's "--selftest" runs every case; the module is named here to run a half.
       - name: Run the verification cases
-        run: python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
+        run: python3 .github/scripts/check_LiteLLM_model_drift_selftest.py --half "$DRIFT_SELFTEST_HALF"
+
+  LiteLLM-drift-selftest-second-half:
+    name: "LiteLLM drift check: verification cases, second half"
+    runs-on: ubuntu-latest
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow, and
+    # a half normally takes under twenty minutes.
+    timeout-minutes: 60
+    env:
+      DRIFT_SELFTEST_HALF: "2"
+    steps: *drift_selftest_steps
 
   repository-rules:
     name: Repository rules
