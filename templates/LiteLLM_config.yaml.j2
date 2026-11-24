@@ -768,6 +768,22 @@ model_list:
       model: openrouter/liquid/lfm-3-1.7b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
 
+  # Added 2026-11-23. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
+  # 512,000-token context, text and image in and text out, and "tools" and "tool_choice" among its supported
+  # parameters. Its listing calls it an open-weight mixture of experts with 16B active parameters out of 280B,
+  # the lightest of the Dots 3 family, and gives it an "expiration_date" of 2026-12-31: free until then, with
+  # no price announced after, so it is taken and looked at again on that date, when the weekly run reports it.
+  # Neither Artificial Analysis nor Epoch AI lists it (the ranking, and the archive of benchmarks, read
+  # 2026-11-23), so it has no figure to be placed by: it ends the free entries of "Auto-Flash", behind
+  # "glyph-cluster-kilo" and ahead of OpenRouter's free router, and is in no other cascade, its tool calls
+  # being untried. Not tried by hand.
+  - model_name: dots-3-note-preview-free
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openrouter/dots-studio/dots-3-note-preview:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+
   # Looked at on 2026-11-02 and turned down for now (#305). Both are free with tool calls and a 262,144-token
   # context in "openrouter.ai/api/v1/models", but no entry of Artificial Analysis's ranking matched either,
   # so there are no figures to place them by. Remove a line to have its id reported again.
@@ -1020,7 +1036,13 @@ model_list:
       model: cloudflare/@cf/qwen/qwen3.8-27b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5
+  # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5; the form (forms.gle/kgvmkr6ucHN3xNuH6) was closed on 2026-11-24
+
+  # drift-ignore: cloudflare/@cf/thinkingmachines/inkling-2-small -- paid per "developers.cloudflare.com/workers-ai/platform/pricing/" (read 2026-11-23), which names it among the models that need a paid billing method, and its model page says "Paid access required"
+
+  # drift-ignore: cloudflare/@cf/utter-project/eurollm-9b-it -- access is by a request form per its model page (read 2026-11-23), which shows no price, and no figure of Artificial Analysis or Epoch AI measures it; the form (forms.gle/kgvmkr6ucHN3xNuH6) was closed on 2026-11-24
+
+  # drift-ignore: cloudflare/@cf/zai-org/glm-5.3 -- paid per "developers.cloudflare.com/workers-ai/platform/pricing/" (read 2026-11-23), which names it among the models that need a paid billing method, and its model page says "Paid access required"
 
 {% endif %}
 {% if has.Zai %}
@@ -1207,6 +1229,19 @@ model_list:
       access_groups: ["LLM"]
     litellm_params:
       model: openai/stealth/glyph-cluster
+      api_base: "https://ai-gateway.kilo.ai/api/v1"
+      api_key: "kilo-no-key-needed"
+      extra_headers:
+        Authorization: ""
+
+  # Added 2026-11-23, right behind "dots-3-note-preview-free", whose twin it is: the catalogue, read that day,
+  # flags it free, with the same 512,000-token context, "tools" and "tool_choice" among its supported
+  # parameters and the same "expiration_date" of 2026-12-31. Placed as its twin is, in "Auto-Flash" only.
+  - model_name: dots-3-note-preview-kilo
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openai/dots-studio/dots-3-note-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
       api_key: "kilo-no-key-needed"
       extra_headers:
@@ -1905,8 +1940,9 @@ router_settings:
     # "compound-groq" dropped by #169: decommissioned by Groq 2026-09-21, with no replacement.
     # Requesty's "gemma-4-31b-requesty" sits right behind its OpenRouter twin, a pool of its own.
     # Kilo's entries sit behind their keyed twins, ahead of the paid ones. The two of its own with no
-    # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, ahead of OpenRouter's free router,
-    # which has no record either and closes the free ones. "hy4-flash-cent-ai", which no figure places, follows
+    # figure, "flint-kilo" and "glyph-cluster-kilo", end the free entries, followed by the pair of
+    # "dots-3-note-preview-free" and "dots-3-note-preview-kilo", which no figure places either, ahead of
+    # OpenRouter's free router, which has no record either and closes the free ones. "hy4-flash-cent-ai", which no figure places, follows
     # that router. OVHcloud's entries follow it, behind the last free member and ahead of the paid ones, heaviest
     # first.
     # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
@@ -1972,6 +2008,10 @@ router_settings:
         - nemotron-super-vl-kilo
         - flint-kilo
         - glyph-cluster-kilo
+{% if has.OpenRouter %}
+        - dots-3-note-preview-free
+{% endif %}
+        - dots-3-note-preview-kilo
 {% if has.OpenRouter %}
         - openrouter-auto-free
 {% endif %}
