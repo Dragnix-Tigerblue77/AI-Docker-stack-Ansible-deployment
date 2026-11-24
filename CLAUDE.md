@@ -630,7 +630,7 @@ python3 .github/scripts/check_compose_template.py          # the one that matter
 python3 .github/scripts/check_LiteLLM_account_isolation.py --selftest
 python3 .github/scripts/check_LiteLLM_account_isolation.py
 python3 .github/scripts/check_LiteLLM_model_drift.py --selftest   # runs the next line's module
-python3 .github/scripts/check_LiteLLM_model_drift_selftest.py   # the same cases run directly; "--half 1" or "--half 2" runs the half one CI job runs, "--workers 1" with no pool
+python3 .github/scripts/check_LiteLLM_model_drift_selftest.py   # the same cases run directly; "--part 1" to "--part 4" runs the part one CI job runs, "--workers 1" with no pool
 python3 .github/scripts/check_LiteLLM_model_drift.py       # offline; --online reads the providers' catalogues
 python3 .github/scripts/check_no_inventory_data.py --selftest
 python3 .github/scripts/check_no_inventory_data.py
@@ -668,12 +668,16 @@ rather than fixture files, because a fixture on disk is reachable by `ansible-li
 The exception is the drift check, whose cases are too many to share a file with the script:
 they live in `check_LiteLLM_model_drift_selftest.py`, still as Python literals, which its
 `--selftest` imports and which can be run directly. They take far longer than every other check
-together, so CI runs them in two halves, each a job of its own, and each half across the cores of its
-runner; the module says how the cases are dealt out. A case is added to that module in a group
-that one half's table names, since the module refuses a group in neither half or in both, and
-`.github/rulesets/main.json` requires both jobs. The first half keeps the name the single job had: the
-live ruleset is imported by hand, so the second half's name is added there by the maintainer. Each
-job's `timeout-minutes` is a guard against a hung run, never a budget.
+together, so CI runs them in four parts, each a job of its own ("LiteLLM drift check: verification
+cases, part N of 4"), and each part across the cores of its runner; the module says how the cases are
+dealt out and what each group weighs. A case is added to that module in a group that one part's table
+names, since the module refuses a group in no part or in two, and a new group goes to the lightest part;
+`.github/rulesets/main.json` requires the four jobs, and the live ruleset is imported by hand, so a
+rename or a new part waits for the maintainer to import it. On a pull request the jobs run their cases
+only when the change touches a file they read or describe (the list is the first step of the job, with
+the reason of each entry); otherwise each ends in success at once with a notice saying so, because the
+checks are required and a job that is skipped or filtered out never reports. A push to `main` and a
+dispatch run everything. Each job's `timeout-minutes` is a guard against a hung run, never a budget.
 
 **`ansible-lint --fix` works, and stays working only because `.yamllint` agrees with ansible-lint's
 own yamllint profile on these settings**: `comments.min-spaces-from-content`, `comments-indentation`,
@@ -811,7 +815,7 @@ the role.
    matrix or has an expression in its `name:`: GitHub renders such a name per run, so `main.json`
    could only list the unrendered one, which the check accepts and no check run ever reports --
    every update would then wait for ever. That is why the role run is two jobs sharing one anchored
-   `steps:` list rather than a matrix, and so are the two halves of the drift verification cases.
+   `steps:` list rather than a matrix, and so are the four parts of the drift verification cases.
 
    The model-drift workflow keeps the same rule with two jobs, and a third, its gate, that
    holds neither keys nor a token that writes: the one that holds the providers' keys installs PyYAML

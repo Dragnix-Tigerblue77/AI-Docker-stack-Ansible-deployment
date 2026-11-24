@@ -10,8 +10,8 @@ The script's "--selftest" runs this module, and it can be run directly, from any
     python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
 
 The cases run across the cores of the machine; "--workers 1" runs them in this process, which is what
-to debug with. "--half 1" or "--half 2" runs one half of them, which is what each of the two jobs of the
-CI does: the two halves together are every case, and each case is in one of them.
+to debug with. "--part 1" to "--part 4" runs one part of them, which is what each of the four jobs of the
+CI does: the four parts together are every case, and each case is in one of them.
 
 It exits 0 when every case judged as expected and 1 otherwise. The cases are Python literals rather
 than fixture files, for the reason the script gives: a fixture on disk is reachable by
@@ -5024,13 +5024,12 @@ def run_bounded_key_set_cases():
     return failures
 
 
-def real_halves(items):
-    """The items of real_scenarios, or their places in it, dealt to the two halves of the cases: even
-    places to the first, odd to the second. Neighbours cost alike and a whole provider costs more, so
-    dealing out by place spreads both evenly where a cut in the middle would put the providers in one
-    half."""
-    return [[chosen for number, chosen in enumerate(items) if number % HALVES == half]
-            for half in range(HALVES)]
+def real_parts(items):
+    """The items of real_scenarios, or their places in it, dealt to the parts of the cases, one in turn
+    to each. Neighbours cost alike and a whole provider costs more, so dealing out by place spreads both
+    evenly where a cut in the middle would put the providers in one part."""
+    return [[chosen for number, chosen in enumerate(items) if number % PARTS == part]
+            for part in range(PARTS)]
 
 
 real_layouts = {}
@@ -5053,21 +5052,21 @@ def real_text_and_layout(ending):
 
 
 def run_real_list_partition_case():
-    """The halves of the real scenarios are disjoint and together are real_scenarios, in every mode: a
-    scenario dropped from both would pass for ever without being tried."""
+    """The parts of the real scenarios are disjoint and together are real_scenarios, in every mode: a
+    scenario dropped from all of them would pass for ever without being tried."""
     text, layout, problems = real_text_and_layout("\n")
     if layout is None:
         print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
         return 1
     scenarios = real_scenarios(layout)
-    halves = real_halves(range(len(scenarios)))
-    dealt = sorted(number for each in halves for number in each)
+    parts = real_parts(range(len(scenarios)))
+    dealt = sorted(number for each in parts for number in each)
     if dealt != list(range(len(scenarios))):
-        print("selftest: FAILED (the halves of the real model list) -- they are not a partition of its %d "
+        print("selftest: FAILED (the parts of the real model list) -- they are not a partition of its %d "
               "scenarios" % len(scenarios))
         return 1
-    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the halves, %s"
-          % (len(scenarios), " and ".join(str(len(each)) for each in halves)))
+    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the parts, %s"
+          % (len(scenarios), " and ".join(str(len(each)) for each in parts)))
     return 0
 
 
@@ -5119,9 +5118,9 @@ def run_real_list_deletion(ending, number):
     return 1 if why else 0
 
 
-def run_selftest(half=None, workers=None):
+def run_selftest(part=None, workers=None):
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through: all of
-    them, or the half of them that run_selftest_cases says "half" is, across "workers" processes."""
+    them, or the part of them that run_selftest_cases says "part" is, across "workers" processes."""
     # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
@@ -5129,7 +5128,7 @@ def run_selftest(half=None, workers=None):
         "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
         if name in os.environ}
     try:
-        return run_selftest_cases(half, workers)
+        return run_selftest_cases(part, workers)
     finally:
         os.environ.update(kept)
 
@@ -8504,10 +8503,10 @@ def run_canned_catalogue_cases():
     return failures
 
 
-HALVES = 2
+PARTS = 4
 
-# What a half runs is a list of units, each a group of the table above or a deletion from the real
-# model list, in the order their results are printed. The list is a function of the half alone; how its
+# What a part runs is a list of units, each a group of the table above or a deletion from the real
+# model list, in the order their results are printed. The list is a function of the part alone; how its
 # units are shared between the processes of a pool is not, and does not need to be: each is run once, and
 # the results are read back in the order of the list.
 # "weight" is what a unit costs next to the others, which only decides which start first.
@@ -8515,13 +8514,13 @@ Unit = collections.namedtuple("Unit", "name run weight", defaults=(0,))
 units_of_the_run = []
 
 
-def units_of_a_half(half):
-    """The units of one half, or of all of them where "half" is None: the groups of the table, then the
-    deletions real_halves deals to it, the CRLF ones being the first scenarios of the file read with
+def units_of_a_part(part):
+    """The units of one part, or of all of them where "part" is None: the groups of the table, then the
+    deletions real_parts deals to it, the CRLF ones being the first scenarios of the file read with
     them. A unit runs in a process of its own pool, so it holds no state another needs."""
-    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
     units = []
-    for group in (groups[half - 1] if half else [group for each in groups for group in each]):
+    for group in (GROUPS_OF_THE_PARTS[part - 1] if part else [group for each in GROUPS_OF_THE_PARTS
+                                                               for group in each]):
         units.append(Unit(group.__name__, lambda group=group: (leave_real_list_session(), group())[1], 10**6))
     for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
         text, layout, problems = real_text_and_layout(ending)
@@ -8530,7 +8529,7 @@ def units_of_a_half(half):
                 "selftest: FAILED (the real model list) -- it cannot be read: %s" % problems) or 1))
             continue
         scenarios = real_scenarios(layout)
-        numbers = real_halves(range(len(scenarios)))[half - 1] if half else range(len(scenarios))
+        numbers = real_parts(range(len(scenarios)))[part - 1] if part else range(len(scenarios))
         for number in numbers if bound is None else [each for each in numbers if each < bound]:
             units.append(Unit("deletion %d%s" % (number, " with CRLF line endings" if bound else ""),
                               lambda ending=ending, number=number: run_real_list_deletion(ending, number),
@@ -8626,67 +8625,90 @@ def run_pool_cases():
     return failures
 
 
-# The groups of cases, each in the half that runs it, so that the two take about as long: the real
-# model list is dealt out between them by real_halves, and what is listed here is the rest. A group
-# listed in no half is a group nobody runs, which run_selftest_cases refuses.
-GROUPS_OF_THE_FIRST_HALF = (
-    run_pool_cases,
-    run_template_cases,
-    run_canned_catalogue_cases,
-    run_incomplete_catalogue_cases,
-    run_deprecation_cases,
-    run_cloudflare_cases,
-    run_coverage_cases,
-    run_apply_cases,
-    run_pricing_page_cases,
-    run_ranking_cases,
-    run_contract_cases,
-    run_epoch_cases,
-    run_eci_cases,
-    run_verify_cases,
-    run_safety_net_case,
-    run_online_apply_cases,
-    run_confirmation_cases,
-    run_lookup_cases,
-    run_review_cases,
-    run_keyset_cases,
-    run_jinja_net_cases,
-    run_hardening_cases,
-    run_command_line_cases,
-    run_proposal_cases,
-    run_usage_cases,
-    run_carried_cases,
-    run_proposal_command_line_cases,
-    run_bounded_key_set_cases,
-)
-GROUPS_OF_THE_SECOND_HALF = (
-    run_head_cases,
+# The groups of cases, each in the part that runs it, so that the four take about as long: the real
+# model list is dealt out between them by real_parts, and what is listed here is the rest. A group
+# listed in no part is a group nobody runs, which run_selftest_cases refuses.
+#
+# What each costs, measured as the CPU seconds one process spends on it, on a machine far slower than a
+# runner and shared, so that only the ratios mean anything:
+#
+#   a deletion from the real model list    about 46 for one or two entries, 105 for four, 210 to 250 for twelve
+#                                          to twenty; the scenarios are dealt out by real_parts, which puts
+#                                          about the same in each part
+#   run_head_cases                         369
+#   run_apply_cases                        13
+#   run_coverage_cases                     1.1
+#   run_contract_cases, run_review_cases   0.9, 0.8
+#   run_online_apply_cases                 0.7
+#   each of the other twenty-three         0.5 or less, about 4 in all
+#
+# The deletions come to about 2,400 per part, so the groups are what evens the parts out: the one group
+# that costs as much as eight deletions goes alone to the part whose deletions cost least, and the rest
+# are spread over the other three, the heaviest first. A part's tuple lists its groups heaviest first, since
+# that is the order they start in. A new group goes to the part that is lightest once its own cost is
+# counted, with its weight added here.
+GROUPS_OF_THE_PARTS = (
+    (
+        run_coverage_cases,
+        run_online_apply_cases,
+        run_incomplete_catalogue_cases,
+        run_proposal_cases,
+        run_usage_cases,
+        run_cloudflare_cases,
+        run_template_cases,
+        run_hardening_cases,
+        run_eci_cases,
+        run_proposal_command_line_cases,
+        run_bounded_key_set_cases,
+        run_command_line_cases,
+    ),
+    (
+        run_apply_cases,
+    ),
+    (
+        run_contract_cases,
+        run_review_cases,
+        run_canned_catalogue_cases,
+        run_epoch_cases,
+        run_deprecation_cases,
+        run_confirmation_cases,
+        run_keyset_cases,
+        run_verify_cases,
+        run_carried_cases,
+        run_safety_net_case,
+        run_ranking_cases,
+        run_pool_cases,
+        run_jinja_net_cases,
+        run_pricing_page_cases,
+        run_lookup_cases,
+    ),
+    (
+        run_head_cases,
+    ),
 )
 
 
-def run_selftest_cases(half=None, workers=None):
-    """Every case, or the cases of one half, the first or the second, run side by side in two jobs of
-    the CI, each across "workers" processes. Whichever is run, the halves are first held to being a
-    partition of the cases."""
+def run_selftest_cases(part=None, workers=None):
+    """Every case, or the cases of one part, run side by side in the four jobs of the CI, each across
+    "workers" processes. Whichever is run, the parts are first held to being a partition of the cases."""
     workers = workers or os.cpu_count() or 1
-    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
-    everything = [group for each in groups for group in each]
+    everything = [group for each in GROUPS_OF_THE_PARTS for group in each]
     failures = run_real_list_partition_case()
     if len(everything) != len(set(everything)):
         failures += 1
-        print("selftest: FAILED (the halves of the cases) -- a group is in both of them or twice in one")
+        print("selftest: FAILED (the parts of the cases) -- a group is in two of them or twice in one")
     forgotten = sorted(name for name, value in globals().items()
                        if re.fullmatch(r"run_\w+_cases?", name) and callable(value)
                        and value not in everything and name not in ("run_selftest_cases",
                                                                     "run_real_list_partition_case"))
     if forgotten:
         failures += 1
-        print("selftest: FAILED (the halves of the cases) -- %s in neither half, so never run"
+        print("selftest: FAILED (the parts of the cases) -- %s in no part, so never run"
               % ", ".join(forgotten))
-    units = units_of_a_half(half)
+    units = units_of_a_part(part)
     deletions = [unit for unit in units if unit.name.startswith("deletion") and "CRLF" not in unit.name]
     print("selftest: %s -- %d groups of cases and %d deletions from the real model list, on %d process(es)"
-          % ("half %d of %d" % (half, HALVES) if half else "every case",
+          % ("part %d of %d" % (part, PARTS) if part else "every case",
              len(units) - len([unit for unit in units if unit.name.startswith("deletion")]),
              len(deletions), max(1, min(workers, len(units)))))
     failed = run_units(units, workers)
@@ -8696,18 +8718,18 @@ def run_selftest_cases(half=None, workers=None):
 
 
 def parse_arguments(arguments):
-    """The half and the number of processes asked for: "--half 1" or "--half 2" for one half, none for
+    """The part and the number of processes asked for: "--part 1" to "--part 4" for one part, none for
     every case; "--workers N" for N processes, the number of cores by default and 1 for no pool at all."""
     parser = argparse.ArgumentParser(description="The verification cases of check_LiteLLM_model_drift.py.")
-    parser.add_argument("--half", type=int, choices=range(1, HALVES + 1),
-                        help="run one half of the cases only, as one job of the CI does")
+    parser.add_argument("--part", type=int, choices=range(1, PARTS + 1),
+                        help="run one part of the cases only, as one job of the CI does")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
                         help="processes to run the cases across (default: the cores of the machine; "
                              "1 runs them in this process, which is what to debug with)")
     given = parser.parse_args(arguments)
     if given.workers < 1:
         parser.error("--workers must be at least 1")
-    return given.half, given.workers
+    return given.part, given.workers
 
 
 if __name__ == "__main__":
