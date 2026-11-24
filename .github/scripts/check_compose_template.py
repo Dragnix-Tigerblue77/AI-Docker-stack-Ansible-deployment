@@ -1790,6 +1790,13 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 LITELLM_CALLED_BY_NAME = {
     "gemini-4-hydrogen-xhigh": "the highest reasoning level of its model, too slow for any router, kept for whoever "
                                "asks for it by name",
+    "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
+                             "vision-capable models: no router takes images, so it is kept for whoever asks for it "
+                             "by name, and untried",
+    "omniroute-vision": "OmniRoute's curated vision route, vision-capable models with balanced weights: no router "
+                        "takes images, so it is kept for whoever asks for it by name, and untried",
+    "omniroute-multimodal": "OmniRoute's curated multimodal route, vision-capable models with balanced weights: no "
+                            "router takes images, so it is kept for whoever asks for it by name, and untried",
 }
 # The bases of the keyless gateways. Kilo's answered 401 to the placeholder sent as a bearer token and serves
 # a call whose header is empty or absent, so an entry on a base listed here sends the header empty.
