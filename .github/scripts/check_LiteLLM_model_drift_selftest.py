@@ -255,6 +255,10 @@ OFFLINE_CASES = (
     ("an active entry with no model at all is refused too",
      ("  - model_name: local\n", "  - model_name: stray\n\n  - model_name: local\n"),
      'the active entry "stray" (model: None)'),
+    ("the Auto router's entry is not refused: it calls only other routers, which no catalogue lists",
+     ("  - model_name: local\n",
+      "  - model_name: Auto\n    litellm_params:\n      model: auto_router/complexity_router\n\n"
+      "  - model_name: local\n"), None),
     ("a commented-out entry of a provider no reader covers is not refused: it is not routed",
      ("  # - model_name: paid-one\n  #   litellm_params:\n  #     model: openrouter/vendor/paid-one\n",
       "  # - model_name: paid-one\n  #   litellm_params:\n  #     model: acme/paid-one\n"), None),
@@ -5410,6 +5414,13 @@ def run_contract_cases():
                ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code", "fiction"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
                ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
                 == ["pro", "flash", "code", "claude-code", "fiction"], "no contract")))
+    routed_template = read_template(CONTRACT_TEMPLATE.replace("router_settings:\n", COMPLEXITY_ROUTER_ENTRY + "router_settings:\n", 1))[0]
+    judged("the entry that picks a router by complexity has no mapping to ask for: it is no model of any ranking",
+           first_wrong(
+               (routed_template is not None and any(entry["name"] == "Auto" for entry in routed_template["active"]),
+                "the entry is not read at all"),
+               (contracts_report(routed_template, contract_ranking(), document)["unmapped"] == ["hotel"],
+                "unmapped: %r" % contracts_report(routed_template, contract_ranking(), document)["unmapped"])))
 
     def derivation_text(**changes):
         differences = {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}
@@ -7004,6 +7015,17 @@ CLOUDFLARE_TEMPLATE = SELFTEST_TEMPLATE.replace(
     "        - large\n", "        - cf-large\n        - large\n", 1)
 
 
+# The entry that picks a router by the complexity of a request: it calls no provider, so no catalogue covers it.
+COMPLEXITY_ROUTER_ENTRY = """\
+  - model_name: Auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers: {SIMPLE: flash-lite, MEDIUM: flash, COMPLEX: pro, REASONING: pro}
+
+"""
+
+
 def cloudflare_model(name, task="Text Generation", planned=None, deprecated=None):
     """One model as the documentation's own catalogue holds it: the "@cf/..." id is the "name"."""
     properties = [{"property_id": "context_window", "value": "128000"}]
@@ -7093,6 +7115,13 @@ def run_cloudflare_cases():
                 "the report: %s" % report),
                (result["unattributed"] == ["openai/auto/best-free"], "an entry of Cloudflare is of no catalogue"),
                (hides_account(report, body) is None, hides_account(report, body))))
+    routed = run_online(CLOUDFLARE_TEMPLATE.replace("  - model_name: local\n", COMPLEXITY_ROUTER_ENTRY + "  - model_name: local\n", 1),
+                        CLOUDFLARE_ENVIRONMENT, canned_opener(cloudflare_answers(cloudflare_catalogue()), []), "2026-01-01")
+    judged("the entry that picks a router by complexity is not listed among the models no catalogue covers: it is "
+           "no model, and a list that named it every week would ask for an attribution it cannot have",
+           first_wrong(
+               ("Auto" in routed["names"], "the entry is not read at all"),
+               (routed["unattributed"] == ["openai/auto/best-free"], "unattributed: %r" % routed["unattributed"])))
     result, _, report, body = run(cloudflare_catalogue(
         cloudflare_model("@cf/vendor/new-text"), cloudflare_model("@cf/vendor/new-embed", task="Text Embeddings"),
         cloudflare_model("@cf/vendor/old-text", deprecated=True),
@@ -7641,28 +7670,32 @@ def run_coverage_cases():
                            (unreadable_providers(result) == [(name, "network")], unreadable_providers(result))))
 
     # The rule that holds every routed provider to a reader, on the real file: each of them is attributed
-    # entries, and the one entry of no catalogue is OmniRoute's.
+    # entries, and the entries of no catalogue are OmniRoute's routes and the Auto router.
     real = CONFIG.read_text(encoding="utf-8")
     template, problems = read_template(real)
     routed = {}
     for entry in template["active"]:
         attributed = attribute(entry["model"], entry["api_base"])
         routed.setdefault(attributed[0] if attributed else None, []).append(entry["name"])
-    judged("every active entry of the real model list belongs to a provider this check reads, bar OmniRoute's routes",
+    judged("every active entry of the real model list belongs to a provider this check reads, bar OmniRoute's "
+           "routes and the Auto router",
            first_wrong((problems == [], "the real file breaks a rule: %r" % problems[:1]),
                        (set(routed) - {None} <= set(PROVIDER_NAMES), "a provider is attributed that is not read"),
                        (all(len(routed.get(name, ())) > 0 for name in ("nvidia", "ovhcloud", "requesty", "zai", "centai")),
                         "an entry of the five is not attributed: %r" % {name: len(routed.get(name, ())) for name in routed}),
-                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) for entry in template["active"]
-                            if attribute(entry["model"], entry["api_base"]) is None),
-                        "an entry of no provider is not OmniRoute's")))
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"]))
+                            or entry["model"] == drift.COMPLEXITY_ROUTER_MODEL
+                            for entry in template["active"] if attribute(entry["model"], entry["api_base"]) is None),
+                        "an entry of no provider is neither OmniRoute's nor the Auto router")))
     result, calls, report, body = run(answers_listing(real), COVERAGE_KEYS, real)
     judged("a catalogue that lists what the real file holds reports nothing, and reads every provider of the table",
            first_wrong((found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
                        (all(each["status"] == "read" for each in result["providers"]),
                         [each["name"] for each in result["providers"] if each["status"] != "read"]),
-                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) is not None or
-                            attribute(entry["model"], entry["api_base"]) for entry in template["active"]), "an entry of nobody"),
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) is not None
+                            or entry["model"] == drift.COMPLEXITY_ROUTER_MODEL
+                            or attribute(entry["model"], entry["api_base"]) for entry in template["active"]),
+                        "an entry of nobody"),
                        (is_complete(result), "the coverage is partial")))
     return failures
 

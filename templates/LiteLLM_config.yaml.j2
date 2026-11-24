@@ -64,6 +64,9 @@
 # short one the checks and the routing document use, and the checks translate between the two. There is no
 # alias for the names the Claude Code CLI sends by default: a CLI that should use one of these routers is told
 # its name through its own model variables.
+# "Auto" is the one name that is not a router of that kind: it is a model_list entry that picks one of "Auto-Pro",
+# "Auto-Flash" and "Auto-Flash-Lite" for each request, by how complex the request looks, and it has no cascade and no
+# alias of its own, since the router it picks has its own. Its entry, at the end of the model list, says why it is built so.
 # Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
 # transcription, "TTS" for speech, "Embeddings" for vectors, "Decisions" for Clef's decisions ("evaluation") and
 # "Extraction" for Clairic's extraction. A virtual key limited to a group in "/ui" reaches
@@ -1865,6 +1868,53 @@ model_list:
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
+{% if head['pro'] and head['flash'] and head['flash-lite'] %}
+  # ============================================================================
+  # Auto -- picks "Auto-Flash-Lite", "Auto-Flash" or "Auto-Pro" for each request, by how complex it looks
+  # ============================================================================
+  # For a client that cannot, or does not want to, choose its router: LibreChat leaves the choice to the person, and an
+  # agent would have to hard-code it. LiteLLM's complexity router scores the request locally (its length, code, reasoning
+  # and technical words, a few multi-step patterns) and rewrites the model of the request to the one the tier names, in
+  # under a millisecond and with no call to a model: no classifier, no embedding, so no quota is spent to choose one.
+  # A client that wants a router in particular still names it.
+  #
+  # The tiers name the routers and not their head models, on purpose: a request that fails after the pick falls back
+  # under the name the tier gave, so each router keeps its own cascade. Measured 2026-11-23 with a head answering 429
+  # and the second members failing too, behind every tier, streamed or not: the request went on to the first member that
+  # answered, exactly as when the router is named. A tier naming a model directly would have none of that.
+  # LiteLLM does not check a tier's name when the file loads, and a request landing on a name nobody serves fails
+  # then, which is why this entry is rendered only when the three routers are.
+  #
+  # A model_list entry in the access group "LLM", like every entry that is not a router, because it is not an alias of
+  # a head: a key limited to that group reaches it, and so reaches the members of the cascades it falls back on. That
+  # second part is not optional: LiteLLM skips a fallback the caller is not authorised to call (measured 2026-11-23, a
+  # key naming only "Auto" got the head's 429 back), which holds for a router named directly just the same.
+  # It has no "api_key": it spends no quota of its own.
+  #
+  # REASONING goes to "Auto-Pro" with COMPLEX: one cascade serves both, and a copy of it for the last tier would be
+  # a second list to keep level. No scoring key is set (weights, boundaries, keywords): the defaults are what LiteLLM
+  # measured, and tuning the scorer is what its licence limits. Two settings are turned off because their
+  # defaults do something this gateway does not want:
+  # - "max_tokens_from_tier_model" replaces the caller's "max_tokens" with the output ceiling of the head of the picked
+  #   router (measured 2026-11-23: a caller asking for 100 reached the head asking for its ceiling), so a short answer
+  #   asked for is not honoured and the free quota of the head's tokens goes on a long one;
+  # - "context_compaction" has a model of the tiers summarise a conversation that nears the limit of the model picked,
+  #   which is a call nobody asked for and a rewrite of what the client sent.
+  - model_name: Auto
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: Auto-Flash-Lite
+          MEDIUM: Auto-Flash
+          COMPLEX: Auto-Pro
+          REASONING: Auto-Pro
+        max_tokens_from_tier_model: false
+        context_compaction: false
+
+{% endif %}
 router_settings:
   # A member that fails is not retried: the cascade below is the retry. Each retry was paid in full by
   # every member, and the head of a cascade is both what its alias points at and the first slot of its

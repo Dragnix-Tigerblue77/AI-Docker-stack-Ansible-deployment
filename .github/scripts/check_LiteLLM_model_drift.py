@@ -159,8 +159,9 @@ OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requ
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
 a key included, and the offline run refuses an active entry of any other: OmniRoute's virtual routes
 ("openai/auto/..." on a local "api_base"), which no catalogue lists because the machine itself picks the
-model, are the one exemption, and the report says how many there are. The names a "drift-ignore:" line
-takes are those of the table below, Cent AI's being "centai" and Aion Labs' "aionlabs": the workflow's tables read a name as plain letters.
+model, and the Auto router, which calls only other routers, are exempt, and the report says how many
+there are. The names a "drift-ignore:" line takes are those of the table below, Cent AI's being "centai" and Aion
+Labs' "aionlabs": the workflow's tables read a name as plain letters.
 
   provider    catalogue, and how its key is sent       what the provider's own filter keeps, for NEW
   openrouter  openrouter.ai/api/v1/models              ":free" and both prices "0"
@@ -1109,6 +1110,11 @@ def attribute(model, api_base):
     return None
 
 
+# The model of the entry that picks a router by the complexity of a request: it calls no provider and is no model of
+# any catalogue, so nothing is attributed to it, mapped for it or read about it.
+COMPLEXITY_ROUTER_MODEL = "auto_router/complexity_router"
+
+
 def entry_of(item):
     parameters = item.get("litellm_params") if isinstance(item, dict) else None
     parameters = parameters if isinstance(parameters, dict) else {}
@@ -1263,13 +1269,14 @@ def read_template(text):
     # retired nor reported, whatever its provider does.
     for entry in active:
         if (attribute(entry["model"], entry["api_base"]) is None
-                and not OMNIROUTE_BASE.match(str(entry["api_base"]))):
+                and not OMNIROUTE_BASE.match(str(entry["api_base"]))
+                and entry["model"] != COMPLEXITY_ROUTER_MODEL):
             problems.append(
                 'the active entry "%s" (model: %s) belongs to no provider whose catalogue this check reads.\n'
                 "    Every provider the list routes to has its catalogue read, one that needs a key included,\n"
                 "    so that a model it retires is deleted and one it announces is reported: add its reader to\n"
-                "    PROVIDERS and the tables that name the providers (OmniRoute's virtual routes, which no\n"
-                "    catalogue lists, are the one exemption)." % (entry["name"], entry["model"]))
+                "    PROVIDERS and the tables that name the providers (OmniRoute's virtual routes and the Auto\n"
+                "    router, which no catalogue lists, are exempt)." % (entry["name"], entry["model"]))
 
     # Commented-out entries: each block is uncommented and parsed like any other entry.
     commented = []
@@ -2625,6 +2632,7 @@ def run_online(text, environment, opener, today):
     result["unattributed"] = sorted({
         entry["model"] for entry in template["active"]
         if attribute(entry["model"], entry["api_base"]) is None and isinstance(entry["model"], str)
+        and entry["model"] != COMPLEXITY_ROUTER_MODEL
     })
     catalogues = {}
     for name, url, key_variable, send_key, reader, next_page in PROVIDERS:
@@ -3436,7 +3444,8 @@ def contracts_report(template, ranking, contracts, epoch=None):
     nothing and judges nothing: every violation in it is information."""
     archive = epoch if epoch and epoch["status"] == "read" else None
     lists = fallback_lists(template["document"])
-    names = [entry["name"] for entry in template["active"] if isinstance(entry["name"], str)]
+    names = [entry["name"] for entry in template["active"]
+             if isinstance(entry["name"], str) and entry["model"] != COMPLEXITY_ROUTER_MODEL]
     mappings = contracts["models"]
     by_slug, families = ranking_families(ranking["models"])
     tools = {name: mapping["tools"]["support"] for name, mapping in mappings.items()}
