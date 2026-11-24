@@ -624,6 +624,10 @@ models:
     no_record: "Artificial Analysis lists no ERNIE 5.5 Flash on 2026-11-21"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
     epoch: unknown
+  dots-3-note-preview-free:
+    no_record: "Artificial Analysis lists no Dots3-Note Preview on 2026-11-23, and the capabilities index and the code benchmarks of Epoch AI hold none either"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-23"}
+    epoch: unknown
   lfm-3-1-7b-free:
     slug: lfm3-1-7b
     level: unknown
@@ -691,6 +695,10 @@ models:
   glyph-cluster-kilo:
     no_record: "Artificial Analysis lists no Glyph Cluster on 2026-11-21"
     tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
+    epoch: unknown
+  dots-3-note-preview-kilo:
+    no_record: "Artificial Analysis lists no Dots3-Note Preview on 2026-11-23, and the capabilities index and the code benchmarks of Epoch AI hold none either"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-23"}
     epoch: unknown
   deepseek-v4-1-flash-ovh:
     slug: deepseek-v4-1-flash-1017-high
