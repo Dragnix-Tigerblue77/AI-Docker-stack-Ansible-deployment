@@ -196,6 +196,10 @@ copies drift.
   where it survives and where repeating it here is the second copy that drifts. Tables and lists
   over paragraphs. The measure is not length, it is whether each line is one the maintainer would
   otherwise have had to ask for.
+* **A notification that calls for nothing gets no message.** A CI run on a commit already replaced,
+  a check that passed, an event already handled: the session deals with it silently, and writes to
+  the maintainer only when there is something to decide, something done, or something broken. A line
+  saying that nothing needs doing is still a line to read.
 * **A request to merge says what the pull request brings.** Merging is the maintainer's act and
   nobody else's, Dependabot's minor and patch updates apart (see *Conventions*), so the ask carries
   what they need in order to decide, pull request by pull request: what it does, which goal it
