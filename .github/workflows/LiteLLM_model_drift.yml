@@ -226,8 +226,13 @@ name: LiteLLM model drift
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
 # where GitHub refuses a draft, as it does on a private repository of its free plan, it is opened
 # ready for review
-# and its body alone says to wait. Neither puts a model in a cascade: the places are suggestions in
-# the body, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
+# and its body alone says to wait. Every kind of model is written, not chat alone: an item that is no chat
+# model carries its usage, and its entry its "model_info.mode" and the access group of that mode (embeddings,
+# speech, transcription, decisions, extraction, and the kinds the gateway has no router or client for yet --
+# images, videos, rerank, moderation, OCR -- which only the "to verify" one carries, with a line saying so).
+# A model that is no chat one has no ranking: it is ready when its API states its free tier and the file
+# already serves the usage through that provider. An active entry whose mode has a router is written with a slot at
+# the tail of that router's cascade, under its provider's key condition (an entry that has a router is in a cascade); the places the body gives are suggestions, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
 # the deletions alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
 # commit on either means somebody is deciding, so the open pull request is left as it is, with no
 # failure; a person's commit on a branch whose pull request is no longer open fails the run until the
@@ -839,11 +844,13 @@ jobs:
             // the key and the base of its provider's last entry (its last active one, else its last
             // commented-out one, which it then follows commented out), so that no key name and no
             // address can come from elsewhere, and is written after that entry, under a comment of a
-            // fixed text, in no cascade. A provider with "free" states its free tier in that catalogue,
+            // fixed text, in no cascade. An item with a "usage" other than chat (ADDITION_USAGES) is modelled on
+            // the provider's last entry of that usage's mode instead, falling back on its last entry of no mode,
+            // and is written with that mode and its access group. A provider with "free" states its free tier in that catalogue,
             // and only its models can be ready, those of one with a "freeSuffix" only when their id ends
             // in it. A "keyless" provider's key is a literal marker, copied, and its entry always blanks
             // the Authorization header, which the gateway refuses a bearer marker for. A provider with a "group" is
-            // one whose models are kept out of "LLM" on purpose, and its entry is written in that group. Every
+            // one whose models are kept out of "LLM" on purpose, and its entry is written in that group, whatever its mode. Every
             // provider has a "data" group, written after the first: what its terms do with the data sent to it
             // ("Private-Data", or "Public-Data-Only" where it is not read or not good enough). Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
             // them to the script's own build_additions; keep the markers.
@@ -864,6 +871,83 @@ jobs:
               centai: { prefix: 'openai/', label: 'Cent AI', data: 'Public-Data-Only' },
               aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction', data: 'Private-Data' },
             };
+            // The usages other than chat an item may carry, each with the "model_info.mode" and the access
+            // group the template holds its entries to (check_compose_template.py). The first five are served
+            // by a router or a client of the gateway; the others are kinds of model it has none for yet, written
+            // all the same so that a person keeps one or turns it down. A model served by LiteLLM's chat route
+            // whatever it does (a voice, an agent, a music model) is an item with no usage, written as chat.
+            // A provider with a "group" of its own is in that group whatever the mode.
+            const ADDITION_USAGES = {
+              embeddings: { mode: 'embedding', group: 'Embeddings' },
+              speech: { mode: 'audio_speech', group: 'TTS' },
+              transcription: { mode: 'audio_transcription', group: 'STT' },
+              decision: { mode: 'evaluation', group: 'Decisions' },
+              extraction: { mode: 'extraction', group: 'Extraction' },
+              image: { mode: 'image_generation', group: 'Images' },
+              video: { mode: 'video_generation', group: 'Videos' },
+              rerank: { mode: 'rerank', group: 'Rerank' },
+              moderation: { mode: 'moderation', group: 'Moderation' },
+              ocr: { mode: 'ocr', group: 'OCR' },
+            };
+            // An "api_base" read whole from the environment, which only Cloudflare's embeddings carry: they go
+            // through its OpenAI-compatible endpoint, whose address holds the account's identifier.
+            const ADDITION_ENV_BASES = { 'os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE': 'cloudflare' };
+            // The cascade an active entry is given a slot in, at its tail: an entry whose mode has a router is in
+            // a cascade, or the template fails its checks. A text entry goes to "Auto-Flash-Lite", Aion Labs' to
+            // the router of their own, a typed one to the router of its mode; embeddings and the kinds the gateway
+            // has no router for get none. "providers" are those a router routes to, and "slotIf" the condition a
+            // provider's members are written under in a cascade (null for a provider that needs no key).
+            const ADDITION_ROUTERS = {
+              'flash-lite': { name: 'Auto-Flash-Lite' },
+              stt: { name: 'Auto-STT', providers: ['groq', 'gemini', 'mistral'] },
+              tts: { name: 'Auto-TTS', providers: ['gemini'] },
+              decision: { name: 'Auto-Decision', providers: ['cloudflare'] },
+              extraction: { name: 'Auto-Extraction', providers: ['cloudflare'] },
+              fiction: { name: 'Auto-Fiction', providers: ['aionlabs'] },
+            };
+            const ADDITION_ROUTER_OF_USAGE = { chat: 'flash-lite', speech: 'tts', transcription: 'stt', decision: 'decision', extraction: 'extraction' };
+            const ADDITION_SLOT_CONDITIONS = {
+              gemini: 'has.Gemini', mistral: 'has.Mistral', groq: 'has.Groq', openrouter: 'has.OpenRouter', deepseek: 'has.DeepSeek',
+              cloudflare: 'has.Cloudflare', zai: 'has.Zai', requesty: 'has.Requesty', nvidia: 'has.NVIDIA', centai: 'has.Cent_AI',
+              aionlabs: 'has.Aion_Labs', kilo: null, ovhcloud: null,
+            };
+            const slotRouter = (provider, usage) => {
+              if (provider === 'aionlabs') return usage === 'chat' ? 'fiction' : null;
+              return Object.hasOwn(ADDITION_ROUTER_OF_USAGE, usage) ? ADDITION_ROUTER_OF_USAGE[usage] : null;
+            };
+            const slotRefusal = (provider, usage) => {
+              const router = slotRouter(provider, usage);
+              if (router === null) return null;
+              const providers = ADDITION_ROUTERS[router].providers;
+              if (providers !== undefined && !providers.includes(provider)) return `${provider} is not one of the providers of the ${ADDITION_ROUTERS[router].name} router, which exists only when one of them has a key`;
+              if (!Object.hasOwn(ADDITION_SLOT_CONDITIONS, provider)) return `${provider} has no key variable to write a slot under`;
+              return null;
+            };
+            const slotLines = (provider, router, name) => {
+              const condition = ADDITION_SLOT_CONDITIONS[provider];
+              const providers = ADDITION_ROUTERS[router].providers;
+              if (condition === null || (providers !== undefined && providers.length === 1 && providers[0] === provider)) return [`        - ${name}`];
+              return [`{% if ${condition} %}`, `        - ${name}`, '{% endif %}'];
+            };
+            // The index of the line a slot at the tail of a router's cascade is written before: the "endif"
+            // that closes the router's own block, or the first line that is no member. null without such a
+            // cascade, and -1 for one that cannot be read (an else branch).
+            const cascadeTail = (lines, router) => {
+              const heading = `    - ${ADDITION_ROUTERS[router].name}:`;
+              const start = lines.findIndex((line) => line.trimEnd() === heading);
+              if (start < 0) return null;
+              let depth = 0;
+              for (let index = start + 1; index < lines.length; index++) {
+                const line = lines[index];
+                if (/^\{%-?\s*(else|elif)\b.*%\}$/.test(line)) return -1;
+                if (/^\{%-?\s*if\b.*%\}$/.test(line)) depth += 1;
+                else if (/^\{%-?\s*endif\s*-?%\}$/.test(line)) {
+                  if (depth === 0) return index;
+                  depth -= 1;
+                } else if (!/^        - [^\s#]+$/.test(line)) return index;
+              }
+              return lines.length;
+            };
             const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
             const ADDITION_ID = /^(?!.*(?:::|\/\/))(?:@cf\/)?[A-Za-z0-9][A-Za-z0-9._:\/+~-]{0,198}[A-Za-z0-9]$/;
@@ -879,6 +963,7 @@ jobs:
               const prefix = model.slice(0, model.indexOf('/'));
               if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai'].includes(prefix)) return prefix;
               if (prefix === 'nvidia_nim') return 'nvidia';
+              if (prefix === 'openai' && typeof apiBase === 'string' && Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';
@@ -927,24 +1012,39 @@ jobs:
               const known = new Set(entries.map((entry) => entry.fields.model).filter(Boolean));
               const names = new Set();
               const after = new Map();
+              const slots = new Map();
               for (const item of items) {
-                if (item === null || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).sort().join(',') !== 'id,name,provider') return { problem: 'an item is not {provider, id, name}' };
+                if (item === null || typeof item !== 'object' || Array.isArray(item) || !['id,name,provider', 'id,name,provider,usage'].includes(Object.keys(item).sort().join(','))) return { problem: 'an item is not {provider, id, name} or {provider, id, name, usage}' };
                 const { provider, id, name } = item;
                 if (typeof provider !== 'string' || !Object.hasOwn(ADDITION_PROVIDERS, provider)) return { problem: 'an item names no provider this reads' };
                 const spec = ADDITION_PROVIDERS[provider];
+                const hasUsage = Object.hasOwn(item, 'usage');
+                if (hasUsage && (typeof item.usage !== 'string' || !Object.hasOwn(ADDITION_USAGES, item.usage))) return { problem: 'an item\'s usage is none the template has a mode for' };
+                const usage = hasUsage ? ADDITION_USAGES[item.usage] : null;
+                const embedsThroughEnv = provider === 'cloudflare' && item.usage === 'embeddings';
+                const prefix = embedsThroughEnv ? 'openai/' : spec.prefix;
                 if (kind === 'ready' && spec.free === undefined) return { problem: 'a ready addition is of a provider whose API states its free tier, and only' };
                 if (typeof id !== 'string' || !ADDITION_ID.test(id)) return { problem: 'an id is not spelt like one' };
                 if (spec.freeSuffix !== undefined && !id.endsWith(spec.freeSuffix)) return { problem: 'an id of a provider whose API states its free tier does not end in ":free"' };
                 if (typeof name !== 'string' || name.length > 80 || !ADDITION_NAME.test(name)) return { problem: 'a name is not spelt like the file\'s' };
                 if (words.has(name) || names.has(name)) return { problem: `the name ${name} is already a word of the template or another item's` };
                 names.add(name);
-                if (known.has(spec.prefix + id)) return { problem: `${provider}/${id} is already an entry` };
+                if (known.has(prefix + id)) return { problem: `${provider}/${id} is already an entry` };
                 if (ignored.has(`${provider}/${id}`)) return { problem: `${provider}/${id} is set aside by a drift-ignore line` };
-                const own = entries.filter((entry) => entry.fields.mode !== 'embedding' && providerOf(entry.fields.model, entry.fields.api_base) === provider);
-                const anchor = [...own].reverse().find((entry) => !entry.commented) ?? own[own.length - 1];
+                const own = entries.filter((entry) => providerOf(entry.fields.model, entry.fields.api_base) === provider);
+                const lastOf = (pool) => [...pool].reverse().find((entry) => !entry.commented) ?? pool[pool.length - 1];
+                const usable = own.filter((entry) => !Object.hasOwn(ADDITION_ENV_BASES, entry.fields.api_base));
+                const same = usage ? own.filter((entry) => entry.fields.mode === usage.mode) : [];
+                const modeless = usable.filter((entry) => entry.fields.mode === undefined);
+                const anchor = same.length > 0 ? lastOf(same) : lastOf(modeless.length > 0 ? modeless : usable);
                 if (!anchor) return { problem: `the template has no entry of ${provider} to model one on` };
                 const key = anchor.fields.api_key;
-                const apiBase = anchor.fields.api_base;
+                let apiBase = anchor.fields.api_base;
+                const envBase = embedsThroughEnv ? apiBase : undefined;
+                if (embedsThroughEnv) {
+                  if (envBase === undefined || !Object.hasOwn(ADDITION_ENV_BASES, envBase)) return { problem: 'the template has no embedding entry of cloudflare to model one on' };
+                  apiBase = undefined;
+                }
                 if (spec.keyless) {
                   if (typeof key !== 'string' || !ADDITION_MARKER.test(key)) return { problem: `the key of the entry ${anchor.name} is not a plain marker, as a keyless gateway's is` };
                 } else if (typeof key !== 'string' || !ADDITION_KEY.test(key)) return { problem: `the key of the entry ${anchor.name} is not read from the environment` };
@@ -955,23 +1055,40 @@ jobs:
                 if (anchor.commented) note = `Not routed to: proposed by the drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
                 else if (spec.free !== undefined) note = `Proposed by the drift run on ${date}: listed free by "${spec.free}" that day.`;
                 else note = `Proposed by the drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
-                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["${spec.group ?? 'LLM'}", "${spec.data}"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
-                if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
+                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`];
+                if (usage) block.push(`${lead}    mode: ${usage.mode}`);
+                block.push(`${lead}    access_groups: ["${spec.group ?? (usage ? usage.group : 'LLM')}", "${spec.data}"]`, `${lead}  litellm_params:`, `${lead}    model: ${prefix}${id}`);
+                if (envBase !== undefined) block.push(`${lead}    api_base: "${envBase}"`);
+                else if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
                 if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);
                 after.set(anchor.last, (after.get(anchor.last) ?? []).concat([block]));
+                if (!anchor.commented) {
+                  const refusal = slotRefusal(provider, hasUsage ? item.usage : 'chat');
+                  if (refusal !== null) return { problem: refusal };
+                  const router = slotRouter(provider, hasUsage ? item.usage : 'chat');
+                  if (router !== null) slots.set(router, (slots.get(router) ?? []).concat(slotLines(provider, router, name)));
+                }
+              }
+              const slotsBefore = new Map();
+              for (const [router, written] of slots) {
+                const tail = cascadeTail(lines, router);
+                if (tail === -1) return { problem: `the cascade of ${ADDITION_ROUTERS[router].name} has an else branch, where a slot cannot be written` };
+                if (tail !== null) slotsBefore.set(tail, written);
               }
               // "notes" holds the index of each comment this wrote, the line after the blank one a
               // block opens with: only the builder knows them, since a base line can read the same.
               const out = [];
               const notes = [];
               lines.forEach((line, index) => {
+                if (index > 0) out.push(...(slotsBefore.get(index) ?? []));
                 out.push(line);
                 for (const block of after.get(index) ?? []) {
                   notes.push(out.length + 1);
                   out.push(...block);
                 }
               });
+              out.push(...(slotsBefore.get(lines.length) ?? []));
               return { text: out.join('\n'), notes };
             };
             // What "proposals.json" says of one kind: { complete, items } once its shape is checked,

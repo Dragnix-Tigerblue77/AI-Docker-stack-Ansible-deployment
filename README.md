@@ -670,10 +670,11 @@ Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit d
 | `Embeddings` | les modèles de vecteurs (`embedding`) |
 | `Decisions` | les modèles de décision de Cloudflare, Clef (`evaluation`), qu'atteint le routeur `Auto-Decision` |
 | `Extraction` | les modèles d'extraction de Cloudflare, Clairic (`extraction`), qu'atteint le routeur `Auto-Extraction` |
+| `Images`, `Videos`, `Rerank`, `Moderation`, `OCR` | les types de modèle pour lesquels la passerelle n'a ni routeur ni client (`image_generation`, `video_generation`, `rerank`, `moderation`, `ocr`) : aucune entrée du fichier aujourd'hui, mais la veille de modèles en écrit une quand le catalogue d'un fournisseur en liste un nouveau, dans aucune cascade, pour qu'une personne la garde ou l'écarte |
 | `Private-Data` | les entrées des fournisseurs auxquels on peut envoyer des données privées, quel que soit leur type (verdict par fournisseur plus bas) |
 | `Public-Data-Only` | toutes les autres : ce que leurs conditions permettent (entraînement, journalisation, relecture humaine, exploitant inconnu, juridiction sans équivalence) ne les rend bonnes que pour des données qu'on accepterait de voir publiées |
 
-En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses deux groupes, et le script de la veille de modèles écrit les entrées qu'il propose dans les groupes de leur fournisseur : `LLM` (ou `Fiction` pour Aion Labs) puis le groupe de données de ce fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme.
+En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses deux groupes, et le script de la veille de modèles écrit les entrées qu'il propose dans deux groupes : celui de leur usage (`LLM` pour le texte, `Embeddings`, `TTS`, `STT`, `Decisions`, `Extraction`, `Images`..., ou `Fiction` pour Aion Labs, quel que soit le mode), puis le groupe de données de leur fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme.
 
 La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `LLM` et aux routeurs de texte (`Artificial_Intelligence_LibreChat_gateway_key_models`), si bien que LibreChat ne liste pour ce compte que ce qu'il peut appeler : ni transcription, ni voix, ni vecteurs. Les routeurs sont nommés à côté du groupe parce que LiteLLM remplace un groupe par ses membres seulement (lu dans son code) : un routeur est l'alias de la tête de sa cascade et n'est dans aucun groupe, donc une clé limitée à `LLM` seul ne les listerait pas, tout en pouvant les appeler. `Auto` n'est pas un alias mais une entrée du groupe `LLM` : elle est listée avec lui, et n'a donc pas besoin d'être nommée.
 
@@ -1076,17 +1077,19 @@ sur les suppressions, les reprises ni l'issue, et sans cacher ce que les fournis
 eux-mêmes. Les entrées que LiteLLM atteint par `openai/<id>` chez Kilo Gateway, Requesty, Cent AI et
 Aion Labs n'ont pas de clé dans la carte et ne sont pas rapprochées.
 
-**Les nouveaux modèles de tous les usages sont signalés, chacun avec son usage.** Aucun filtre n'écarte un
-modèle parce qu'il sert à autre chose que le chat : un nouveau modèle de transcription, de synthèse
-vocale, d'embeddings, d'image ou de modération est listé comme les autres, dans les mêmes sections
-(« Nouveaux modèles gratuits » ou « à examiner », selon que l'API du fournisseur dit la gratuité ou non), et
-sa ligne dit son usage. L'usage vient du catalogue quand il le dit (la tâche chez Cloudflare, les
+**Les nouveaux modèles de tous les usages sont signalés, chacun avec son usage.** Aucun filtre n'écarte
+un modèle parce qu'il sert à autre chose que le chat : un nouveau modèle de transcription, de synthèse
+vocale, d'embeddings, d'image ou de modération est listé comme les autres, dans les mêmes sections («
+Nouveaux modèles gratuits » ou « à examiner », selon que l'API du fournisseur dit la gratuité ou non),
+et sa ligne dit son usage. L'usage vient du catalogue quand il le dit (la tâche chez Cloudflare, les
 modalités de sortie chez OpenRouter et Kilo Gateway, les méthodes chez Gemini, `completion_chat` chez
-Mistral) et de l'identifiant sinon (`USAGE_MARKERS` dans `check_LiteLLM_model_drift.py`) ; un modèle
-que ni l'un ni l'autre ne classe est dit « unclassified ». Seul un modèle de chat va plus loin : le
-classement d'Artificial Analysis, les pull requests d'ajout et l'entrée à coller ne portent que lui.
-L'entrée des autres usages s'écrit à la main, et la ligne donne le `model_info.mode` qu'elle demande
-quand le fichier en a un (`audio_transcription`, `audio_speech`, `embedding`).
+Mistral) et de l'identifiant sinon (`USAGE_MARKERS` dans `check_LiteLLM_model_drift.py`) ; un modèle que
+ni l'un ni l'autre ne classe est dit « unclassified ». Seul un modèle de chat va plus loin : le
+classement d'Artificial Analysis et l'entrée à coller ne portent que lui. Les pull requests d'ajout
+ci-dessous écrivent, elles, l'entrée de **tous** les usages, avec le `model_info.mode` de leur usage et
+le groupe d'accès qui va avec (voir « Les groupes d'accès ») ; seul un modèle dont l'exécution ne sait
+pas dire le type (un usage qu'elle ne classe pas, une tâche Cloudflare qu'elle ne connaît pas) reste une
+ligne du rapport, son entrée s'écrivant alors à la main.
 
 **Les ajouts arrivent en deux pull requests, qu'aucune fusion automatique ne prend.** Le workflow les
 tient à jour comme celle des suppressions (`main` plus un commit du bot Actions, refaite à chaque
@@ -1097,41 +1100,58 @@ les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur
 
 - **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
   informations qu'un ajout demande -- une gratuité que l'API du fournisseur dit elle-même (aujourd'hui
-  les modèles `:free` d'OpenRouter à 0 $ et les modèles `isFree` de Kilo Gateway) et un chiffre du classement
-  d'Artificial Analysis rapproché de façon sûre : la fin de l'identifiant, sans `:free`, s'écrit à la
-  casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte
-  aucune marque de variante entre parenthèses (« (Reasoning) », « (Xhigh) »...). Un fournisseur dont la
-  gratuité deviendrait lisible dans son API y arriverait sans que la règle change ;
+  les modèles `:free` d'OpenRouter à 0 $ et les modèles `isFree` de Kilo Gateway) et un chiffre du
+  classement d'Artificial Analysis rapproché de façon sûre : la fin de l'identifiant, sans `:free`,
+  s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement,
+  qui ne porte aucune marque de variante entre parenthèses (« (Reasoning) », « (Xhigh) »...). Un modèle
+  qui n'est pas du chat, qu'aucun classement ne mesure, est prêt quand l'API de son fournisseur dit sa
+  gratuité et que le fichier sert déjà cet usage chez le même fournisseur (une entrée du même `mode`),
+  ce qui montre que LiteLLM a la route sous ce préfixe. Un fournisseur dont la gratuité deviendrait
+  lisible dans son API y arriverait sans que la règle change ;
 - **`claude/LiteLLM-model-additions-to-verify`, les modèles à vérifier, en brouillon** : tous ceux à qui
   il manque au moins une de ces informations, quel que soit leur fournisseur -- une gratuité que l'API
   ne dit pas (tous les fournisseurs autres qu'OpenRouter aujourd'hui), aucun chiffre du classement, un
-  rapprochement approximatif ou ambigu. Son corps dit, pour chaque modèle, ce qui manque et comment
-  l'obtenir : la page de tarifs à ouvrir et ce qu'il faut y chercher, l'endroit du classement où le
-  chercher, une commande qui lit le modèle dans le catalogue du fournisseur sans rien afficher de
-  secret (celles qui demandent une clé se lancent en root sur la machine qui fait tourner la pile, et
-  lisent la clé dans le conteneur LiteLLM), le commentaire daté à écrire au-dessus de l'entrée, et la
-  ligne `drift-ignore` toute prête si la réponse est non. Là où GitHub refuse un brouillon, comme sur
-  un dépôt privé de son plan gratuit, elle est ouverte prête à relire, et son corps seul dit d'attendre.
+  rapprochement approximatif ou ambigu, ou, hors chat, une route que le fichier ne sert encore chez
+  aucune entrée du même fournisseur, ou un type de modèle (image, vidéo, reranking, modération, OCR)
+  pour lequel la passerelle n'a aujourd'hui ni routeur, ni groupe de clés, ni client : son entrée est
+  écrite quand même, avec le `mode` de LiteLLM pour ce type et un groupe nommé pour lui, dans aucune
+  cascade, et la personne la garde ou l'écarte par une ligne `drift-ignore`. Son corps dit, pour chaque
+  modèle, ce qui manque et comment l'obtenir : la page de tarifs à ouvrir et ce qu'il faut y chercher,
+  l'endroit du classement où le chercher, une commande qui lit le modèle dans le catalogue du
+  fournisseur sans rien afficher de secret (celles qui demandent une clé se lancent en root sur la
+  machine qui fait tourner la pile, et lisent la clé dans le conteneur LiteLLM), le commentaire daté à
+  écrire au-dessus de l'entrée, et la ligne `drift-ignore` toute prête si la réponse est non. Là où
+  GitHub refuse un brouillon, comme sur un dépôt privé de son plan gratuit, elle est ouverte prête à
+  relire, et son corps seul dit d'attendre.
 
-Le commit ajoute chaque entrée après la dernière entrée de son fournisseur (la dernière active, sinon la
-dernière commentée), dont elle reprend la clé et l'`api_base`, sous un commentaire qui dit d'où elle
-vient et quand ; elle est commentée, avec une raison provisoire, chez un fournisseur qui n'a aucune
-entrée active. Ni l'une ni l'autre ne la met dans une cascade : le corps donne ses chiffres et sa place
-suggérée dans chaque routeur (voir le classement ci-dessous), une suggestion calculée sur un classement
-lui-même en révision, et un modèle que le classement ne mesure pas n'est pas placé, mais nommé avec la
-ligne `drift-ignore` qui l'écarte. Pour **garder** un modèle, on fusionne,
-après avoir ajouté, dans un commit sur la branche, son nom aux cascades voulues ; pour l'**écarter**, on
-remplace son entrée par sa ligne `drift-ignore` avant de fusionner. Un modèle fusionné ou écarté ne
-revient plus ; fermer sans fusionner ne décide rien, la pull request revient le lendemain. Un
-commit d'une personne fige la branche : tant que sa pull request est ouverte, le workflow n'y touche
-plus, sans échouer ; une fois qu'elle est fermée sans être fusionnée, l'exécution échoue jusqu'à ce que
-la branche soit supprimée. Une case cochée dans le corps reste cochée tant que sa ligne ne change pas, et
-une exécution qui ne change que les dates des commentaires ne pousse rien (aucun contrôle ne repart) : chaque
-entrée garde le jour où elle a été proposée.
-Chacune se ferme, avec un commentaire, quand plus rien n'est à proposer, sauf si une source dont elle
-dépend (un catalogue, ou le classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écrit ne reçoit, par modèle, qu'un fournisseur, un identifiant et un
-nom, qu'il valide, et construit lui-même le fichier ; il ne pousse que si c'est le texte que le script
-a construit et relu (`check_drift_publish_guard.py` tient les deux au même résultat).
+Le commit ajoute chaque entrée après la dernière entrée de son fournisseur et du même usage (la dernière
+active, sinon la dernière commentée ; à défaut d'entrée du même `mode`, la dernière entrée de texte),
+dont elle reprend la clé et l'`api_base` (les embeddings de Cloudflare reprennent ceux de leur entrée,
+qui lit la base dans l'environnement), sous un commentaire qui dit d'où elle vient et quand ; elle est
+commentée, avec une raison provisoire, chez un fournisseur qui n'a aucune entrée active. Une entrée
+active d'un usage qui a un routeur est mise en **queue** de la cascade de ce routeur, sous la condition
+de la clé de son fournisseur, puisqu'une telle entrée est toujours dans une cascade : `Auto-Flash-Lite`,
+le routeur sans plancher, pour le texte (`Auto-Fiction` pour Aion Labs), `Auto-TTS`, `Auto-STT`,
+`Auto-Decision` ou `Auto-Extraction` pour la voix, la transcription, les décisions et l'extraction. Les
+embeddings et les types sans routeur n'ont aucune cascade. Un modèle dont le routeur ne route pas vers
+son fournisseur (la voix chez Groq, par exemple, `Auto-TTS` n'étant servi que par une clé Gemini) reste
+une ligne du rapport, son entrée s'écrivant à la main avec la table `head`. Le corps donne ses chiffres
+et sa place suggérée dans chaque routeur (voir le classement ci-dessous), une suggestion calculée sur un
+classement lui-même en révision, et un modèle que le classement ne mesure pas n'y est pas placé, mais
+nommé avec la ligne `drift-ignore` qui l'écarte. Pour **garder** un modèle, on fusionne, après avoir
+déplacé son nom, dans un commit sur la branche, à la place voulue des cascades, la queue n'étant que la
+place sûre ; pour l'**écarter**, on remplace son entrée par sa ligne `drift-ignore` avant de fusionner.
+Un modèle fusionné ou écarté ne revient plus ; fermer sans fusionner ne décide rien, la pull request
+revient le lendemain. Un commit d'une personne fige la branche : tant que sa pull request est ouverte,
+le workflow n'y touche plus, sans échouer ; une fois qu'elle est fermée sans être fusionnée, l'exécution
+échoue jusqu'à ce que la branche soit supprimée. Une case cochée dans le corps reste cochée tant que sa
+ligne ne change pas, et une exécution qui ne change que les dates des commentaires ne pousse rien (aucun
+contrôle ne repart) : chaque entrée garde le jour où elle a été proposée. Chacune se ferme, avec un
+commentaire, quand plus rien n'est à proposer, sauf si une source dont elle dépend (un catalogue, ou le
+classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écrit ne reçoit, par modèle,
+qu'un fournisseur, un identifiant, un nom et, hors chat, un usage, qu'il valide, et construit lui-même
+le fichier ; il ne pousse que si c'est le texte que le script a construit et relu
+(`check_drift_publish_guard.py` tient les deux au même résultat).
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
