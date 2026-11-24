@@ -52,8 +52,21 @@ name: Dependabot auto-merge
 #     App is configured), and carries one commit, which the Actions bot is the author of in both
 #     cases: the pull request's author widens with the App, the commit's does not. An App only the
 #     repository's administrator can install is what opens it, and nobody else can name it here;
-#   * it changes one file, the model list's template, and adds no line to it: a pull request that
-#     can only take lines away cannot bring in a model, an address or a key, whatever made it;
+#   * it changes the model list's template and adds no line to it: a pull request that can only take
+#     lines away cannot bring in a model, an address or a key, whatever made it. Beside it, and in no
+#     other way, it may rewrite two files generated in the same run, the catalogue of what the gateway
+#     serves and the figures file that catalogue shows (the Artificial Analysis and Epoch AI figures of
+#     each entry, which the drift workflow reads online and the CI cannot). Those two are not held to
+#     taking lines away: each must be a file that exists and is modified, not added, removed or renamed,
+#     with at least one changed line and at most REMOVALS_GENERATED_MAX_CHANGES, whatever lines it gains
+#     or loses, and the template must be there with them, never they alone. What they say is proved by
+#     the check every pull request runs, which the last bullet below requires green: it refuses a figures
+#     file that is not numbers, within bounds, for entries of the template, and a catalogue that is not
+#     what the template, the contracts and those figures produce. This is what the gate opens, and it is
+#     said here so that nobody reads it as less: a compromised job that reads the two sites could publish
+#     wrong figures, in the figures file and the catalogue, in a pull request that merges unseen. They
+#     steer no routing -- no cascade, entry or head reads them -- and a person who reads the catalogue
+#     reads them as the figures of the last run;
 #   * what it takes away is read line by line in the diff, not counted: whole model entries, the
 #     cascade slots that name an entry going in the same diff, comments and blank lines, and
 #     nothing else. A setting, an address, or the model of an entry that stays is not a model, and
@@ -164,6 +177,11 @@ jobs:
           # hyphens; anything else leaves the Actions bot alone.
           MODEL_DRIFT_APP_SLUG: ${{ vars.MODEL_DRIFT_APP_SLUG }}
           REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
+          # The catalogue generated from it and the figures file the catalogue shows, the two other files such
+          # a pull request may change: rewritten, under a cap on the lines each changes.
+          REMOVALS_CATALOG_FILE: docs/CATALOG.md
+          REMOVALS_SCORES_FILE: docs/catalog_scores.json
+          REMOVALS_GENERATED_MAX_CHANGES: '4000'
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
           # The title of the section of its body that asks a person to read.
@@ -371,18 +389,39 @@ jobs:
               const files = await github.paginate(github.rest.pulls.listFiles, {
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
-              const file = files[0];
-              if (files.length !== 1 || file.filename !== process.env.REMOVALS_FILE ||
+              // The template is the one file whose lines are read below. Beside it, the catalogue generated
+              // from it and the figures file the catalogue shows are the two files the same run rewrites,
+              // and they are let through for their identity, not their lines: each must be a file that
+              // exists and is changed as text (modified, not added, removed or renamed, and at least one
+              // line of it, so that no binary or mode-only change passes), under a cap, whatever lines it
+              // gains or loses. What they say is held by the check every pull request runs, which this
+              // step has just required green: it refuses a figures file that is not numbers for entries of
+              // the template, and a catalogue that is not what the template, the contracts and those
+              // figures produce. So what a compromised reader could still do through them is put wrong
+              // figures in the catalogue, which steer no routing.
+              const generatedNames = [process.env.REMOVALS_CATALOG_FILE, process.env.REMOVALS_SCORES_FILE];
+              const generated = files.filter((each) => generatedNames.includes(each.filename));
+              const others = files.filter((each) => !generatedNames.includes(each.filename));
+              const file = others[0] ?? {};
+              if (others.length !== 1 || file.filename !== process.env.REMOVALS_FILE ||
                   file.status !== 'modified' || file.additions !== 0 || !file.patch) {
-                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone. It is waiting for a human.`);
+                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone, beside ${generatedNames.join(' and ')}. It is waiting for a human.`);
                 return;
               }
               // A cap that is not a number would let every comparison below pass: refuse to merge
               // anything, loudly, rather than merge without it.
               const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
               const maxLines = Number(process.env.REMOVALS_MAX_LINES);
-              if (!Number.isInteger(maxEntries) || !Number.isInteger(maxLines) || maxEntries < 1 || maxLines < 1) {
-                core.setFailed(`REMOVALS_MAX_ENTRIES ("${process.env.REMOVALS_MAX_ENTRIES}") and REMOVALS_MAX_LINES ("${process.env.REMOVALS_MAX_LINES}") must be positive whole numbers: no deletion pull request merges until they are.`);
+              const maxGenerated = Number(process.env.REMOVALS_GENERATED_MAX_CHANGES);
+              if (!Number.isInteger(maxEntries) || !Number.isInteger(maxLines) || !Number.isInteger(maxGenerated) ||
+                  maxEntries < 1 || maxLines < 1 || maxGenerated < 1) {
+                core.setFailed(`REMOVALS_MAX_ENTRIES ("${process.env.REMOVALS_MAX_ENTRIES}"), REMOVALS_MAX_LINES ("${process.env.REMOVALS_MAX_LINES}") and REMOVALS_GENERATED_MAX_CHANGES ("${process.env.REMOVALS_GENERATED_MAX_CHANGES}") must be positive whole numbers: no deletion pull request merges until they are.`);
+                return;
+              }
+              const rewritten = generatedNames.map((name) => generated.filter((each) => each.filename === name));
+              if (rewritten.some((same) => same.length > 1 ||
+                  same.some((each) => each.status !== 'modified' || !(each.changes >= 1) || !(each.changes <= maxGenerated)))) {
+                core.notice(`${label} does not rewrite ${generatedNames.join(' and ')} as files that exist, changed as text and under ${maxGenerated} changed lines each. It is waiting for a human.`);
                 return;
               }
               // Every line of a patch that starts with "-" is a deleted one, a YAML list item

@@ -425,6 +425,22 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_routing_document.py
 
+      # "docs/CATALOG.md" is generated from the template, the router contracts and the figures file
+      # "docs/catalog_scores.json", and a copy that is not what they produce is refused, so a change to any of the
+      # three regenerates it in the same commit. The figures file is held to its shape too: numbers, for entries of
+      # the template, written the one way the drift script writes it. That is what lets the gate of the deletion
+      # pull request merge a rewritten catalogue and figures file without reading their lines, and it runs from
+      # main's code when the pull request touches only those files. It renders the template as the checks above do,
+      # and reads the tables of the compose check, which it imports. It needs PyYAML and Jinja2 and no ansible-core,
+      # because the job of the drift workflow that regenerates it has no more.
+      - name: "Catalogue: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/generate_catalog.py --selftest
+
+      - name: "Catalogue: hold docs/CATALOG.md to its sources"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/generate_catalog.py --check
+
       - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py --selftest
