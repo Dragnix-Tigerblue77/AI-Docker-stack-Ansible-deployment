@@ -366,10 +366,11 @@ key included, and the offline run fails on an active entry of a provider no read
 reader in the script, and the tables that name the providers, in the same change. A
 model its provider no longer lists is deleted by that script, not by a model, in a pull request the
 same workflow opens, wherever it can read the result back as the original minus the deletion; what it
-refuses to delete stays a person's, from that pull request and the summary. An addition stays a
-person's too, since each claim in the list cites the provider's page and the date: the workflow
-proposes the new models in two pull requests of their own, split by how much it knows of each, never
-by provider -- one for the models of which it knows every fact an addition needs, one, opened as a
+refuses to delete stays a person's, from that pull request and the summary. Z AI's catalogue omits
+its free models, so an absence there is a notice and never a deletion (`INCOMPLETE_CATALOGUES` in the
+script). An addition stays a person's too, since each claim in the list cites the provider's page
+and the date: the workflow proposes the new models in two pull requests of their own, split by how
+much it knows of each, never by provider -- one for the models of which it knows every fact an addition needs, one, opened as a
 draft where the plan allows, for those one fact of which is missing, saying which and how to get it --
 and nothing merges either. An announced retirement stays a person's, from the body of the deletion
 pull request, and a model free again or a new model no addition can carry from the body of an

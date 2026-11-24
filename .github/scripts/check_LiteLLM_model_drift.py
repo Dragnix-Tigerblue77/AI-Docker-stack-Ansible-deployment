@@ -184,7 +184,7 @@ takes are those of the table below, Cent AI's being "centai" and Aion Labs' "aio
               v1/models -- no key
   requesty    router.eu.requesty.ai/v1/models          "input_price" and "output_price" both 0
               -- no key
-  zai         api.z.ai/api/paas/v4/models -- Bearer    every model
+  zai         api.z.ai/api/paas/v4/models -- Bearer    every model listed, which omits the free ones
   centai      api.cent-ai.dev/v1/models -- Bearer      every model
   aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
 
@@ -270,8 +270,14 @@ deleted from the list alone, as OpenRouter's are, under the same refusals (an em
 the file's models missing).
 
 The answers of Z AI and Cent AI are read as the OpenAI-style list ("data", each with an "id") their
-documentation describes, and no run has read either: both answer 401 without a key and no session of this
-repository holds one. A shape that is not that list is the provider's error, never a retirement.
+documentation describes. Both answer 401 without a key and no session of this repository holds one: the drift
+run, which holds the keys, is what reads them, and first did on 2026-11-24. A shape that is not that list is the provider's error, never a retirement.
+
+Z AI's list omits its free "Flash" models although it serves them: a call to glm-4.7-flash on the account's
+key was answered with an overload error (HTTP 429, code 1305), which a model the provider does not know is
+not. Reading it as complete would delete a served model, so it is declared in INCOMPLETE_CATALOGUES and an
+entry of it that the list does not name is a NOTICE, never RETIRED or GONE (WHAT IS REPORTED). The list
+still decides NEW and every other notice. Only a provider known to omit what it serves is declared there.
 
 Whether a Cloudflare model is free is not read, and no check for it is made up: the pricing page names, in
 a note of prose, the models that need a paid billing method, and every other model draws on the
@@ -285,11 +291,15 @@ WHAT IS REPORTED
 RETIRED    an active entry whose id the catalogue no longer lists: delete it and its cascade slots.
 GONE       a commented-out entry whose id the catalogue no longer lists: delete it too -- the rule
            keeps no commented-out corpse of a retired model.
+           Neither is ever said of a provider whose catalogue is known to omit models it serves
+           (INCOMPLETE_CATALOGUES, Z AI's, which leaves out its free "Flash" models): there the same
+           absence, of an active or a commented-out entry, is a NOTICE that says so, and nothing is deleted.
 NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
            "expiration_date", Requesty's "retires", Aion Labs' "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the
            "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
            "planned_deprecation_date"; an active Kilo entry that is no longer flagged free, since
-           its keyless call would be refused; and an active Requesty entry that is no longer priced 0.
+           its keyless call would be refused; an active Requesty entry that is no longer priced 0;
+           and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list.
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -337,7 +347,10 @@ finding to a person, with that answer in the report, and so does a route that ca
 it has to answer 200 first for a model the list does name, of the same shape (with a slash in its
 id or without, since a slash may not be routed like a plain id). The references document the route
 and not the status of an unknown id, which is why nothing is deleted on any answer but a 404. The
-other providers, whose API has no such route, are deleted from on their list alone, as before.
+other providers, whose API has no such route, are deleted from on their list alone, as before --
+bar those of INCOMPLETE_CATALOGUES, whose list is known to omit models that are served: nothing is
+deleted from it, and no request asks the provider for a model, since the only way to ask Z AI is a chat
+call, which this check never makes.
 
 "--apply" deletes, for each such id, in a single pass over the file:
 
@@ -1774,8 +1787,7 @@ PROVIDERS = (
     ("kilo", "https://ai-gateway.kilo.ai/api/v1/models", None, None, read_kilo, None),
     # NVIDIA's, OVHcloud's and Requesty's catalogues are public. Requesty's is the European one the entries'
     # "api_base" names, and lists the same models as its other address. Z AI's and Cent AI's need a key, and
-    # their answer is read as the OpenAI-style list they document: no run has read either, which needs a key
-    # this repository's sessions do not hold.
+    # their answer is read as the OpenAI-style list they document, which the drift run first read on 2026-11-24.
     ("nvidia", "https://integrate.api.nvidia.com/v1/models", None, None, read_plain, None),
     ("ovhcloud", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", None, None, read_plain, None),
     ("requesty", "https://router.eu.requesty.ai/v1/models", None, None, read_requesty, None),
@@ -1784,6 +1796,17 @@ PROVIDERS = (
     ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
+# The providers whose catalogue omits models they serve, each with why, in English and in French: an entry
+# of theirs that the catalogue does not list proves nothing, so it is a NOTICE for a person and is never
+# RETIRED or GONE, hence never deleted. Only a provider known to omit models goes here, with what was
+# observed; a provider whose list is merely thought incomplete does not.
+INCOMPLETE_CATALOGUES = {
+    "zai": ("its catalogue omits its free \"Flash\" models, which are served all the same (a call to one "
+            "is answered, with an overload error at times, and never as an unknown model)",
+            "son catalogue omet ses modèles gratuits « Flash », qui sont servis malgré tout (un appel "
+            "à l'un d'eux reçoit une réponse, une erreur de surcharge parfois, jamais celle d'un modèle "
+            "inconnu)"),
+}
 # What a catalogue's address is made of besides its key: Cloudflare's carries the account's identifier in
 # its path, which the secret gives and nothing that is printed may. The address in PROVIDERS keeps the
 # placeholder, the identifier is put in at the last moment and is replaced like a key wherever a message
@@ -1938,15 +1961,23 @@ def diff(provider, catalogue, active, commented, ignored):
     """The findings for one provider: dicts with a "kind", an "id" and what explains it."""
     members = catalogue["members"]
     findings = []
+    incomplete = INCOMPLETE_CATALOGUES.get(provider)
+
+    def absent(kind, identifier, names):
+        if incomplete:
+            return {"kind": "notice", "id": identifier, "names": names,
+                    "notice": {"what": "unlisted", "reason": incomplete}}
+        return {"kind": kind, "id": identifier, "names": names}
+
     for identifier, names in sorted(active.items()):
         if identifier not in members:
-            findings.append({"kind": "retired", "id": identifier, "names": names})
+            findings.append(absent("retired", identifier, names))
         elif identifier in catalogue["notices"]:
             findings.append({"kind": "notice", "id": identifier, "names": names,
                              "notice": catalogue["notices"][identifier]})
     for identifier, names in sorted(commented.items()):
         if identifier not in members and identifier not in active:
-            findings.append({"kind": "gone", "id": identifier, "names": names})
+            findings.append(absent("gone", identifier, names))
 
     back = set()
     if provider == "openrouter":
@@ -4772,6 +4803,10 @@ def notice_text(notice, french=False):
     what = notice.get("what")
     date = notice.get("date")
     replacement = notice.get("replacement")
+    if what == "unlisted":
+        if french:
+            return "non listé ; %s : ce n'est pas un retrait" % notice["reason"][1]
+        return "not listed; %s, so the absence is not a retirement" % notice["reason"][0]
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
                 "inactive": "marqué inactif", "paid": "n'est plus gratuit",
@@ -4873,7 +4908,7 @@ def render_text(result, config_name):
     labels = {
         "retired": "RETIRED  active here, no longer listed -- delete it and its cascade slots",
         "gone": "GONE     commented out here, no longer listed -- delete the commented-out entry",
-        "notice": "NOTICE   active here, marked for removal upstream",
+        "notice": "NOTICE   marked for removal upstream, or not listed by a catalogue that omits served models",
         "back": "BACK     commented out here, free again on OpenRouter -- reconsider its reason",
         "new": "NEW      listed upstream, unknown here",
     }
@@ -5250,6 +5285,10 @@ def summary_body(result, config_name, link, snippets):
                    "Entrées actives que le fournisseur marque pour retrait : prévoir leur "
                    "remplacement dans les cascades. La pull request des suppressions les liste "
                    "aussi quand cette exécution l'ouvre ou la réécrit."),
+        "unlisted": ("Absents d'un catalogue incomplet",
+                     "Entrées, actives ou commentées, que le catalogue de leur fournisseur ne liste pas, "
+                     "alors qu'il omet des modèles qu'il sert : l'absence ne prouve pas un retrait, donc "
+                     "rien n'est supprimé. À vérifier à la main, par un appel au modèle."),
         "back": ("De nouveau gratuits sur OpenRouter",
                  "Entrées commentées dont la variante `:free` est au catalogue, à 0 $ : relire la "
                  "raison écrite au-dessus, et décommenter si elle ne tient plus. La pull request "
@@ -5267,7 +5306,7 @@ def summary_body(result, config_name, link, snippets):
                         "ci-dessus." + UNPROPOSED_ELSEWHERE + (" " + help_text if snippets else "")),
     }
     taken = set(result.get("names", ()))
-    for kind in ("removed", "retired", "gone", "notice", "back", "new_free", "new_examine"):
+    for kind in ("removed", "retired", "gone", "notice", "unlisted", "back", "new_free", "new_examine"):
         lines = []
         listed = []
         for report in result["providers"]:
@@ -5276,7 +5315,9 @@ def summary_body(result, config_name, link, snippets):
                 removal = finding.get("removal")
                 if finding.get("proposed"):
                     continue
-                if finding_kind == "new":
+                if finding_kind == "notice" and finding["notice"].get("what") == "unlisted":
+                    finding_kind = "unlisted"
+                elif finding_kind == "new":
                     finding_kind = "new_free" if finding["free"] else "new_examine"
                 elif removal and removal["status"] == "applied":
                     finding_kind = "removed"
@@ -5565,7 +5606,7 @@ def render_pr_body(result, link=None):
                        for report, finding in refused]) + [""]
 
     notices = [(report, finding) for report in result["providers"] for finding in report["findings"]
-               if finding["kind"] == "notice"]
+               if finding["kind"] == "notice" and finding["notice"].get("what") != "unlisted"]
     if notices:
         # Not the section that asks for a reading: an announced retirement does not hold back the
         # deletions this pull request makes.

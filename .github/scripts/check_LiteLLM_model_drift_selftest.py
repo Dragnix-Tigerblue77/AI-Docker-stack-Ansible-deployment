@@ -7267,7 +7267,8 @@ def run_coverage_cases():
                 % result["unattributed"]),
                (is_complete(result), "the coverage is partial")))
 
-    # A model a catalogue no longer lists is retired, whichever of the five serves it.
+    # A model a catalogue no longer lists is retired, whichever of the five serves it -- bar Z AI, whose
+    # catalogue omits models it serves, so that the same absence is a NOTICE and nothing is deleted.
     for name, identifier, fresh, entry in (
             ("nvidia", "vendor/nv-one", {"object": "list", "data": [{"id": "vendor/nv-embed-9"}]}, "nvidia_nim/vendor/nv-one"),
             ("ovhcloud", "OvhOne", {"object": "list", "data": [{"id": "OvhSet"}]}, "openai/OvhOne"),
@@ -7277,22 +7278,32 @@ def run_coverage_cases():
             ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
             ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
         result, calls, report, body = run(coverage_answers(**{name: fresh}))
-        expected = [("retired", identifier)]
+        incomplete = name in drift.INCOMPLETE_CATALOGUES
+        expected = [("notice" if incomplete else "retired", identifier)]
         outputs = apply_run(COVERAGE_TEMPLATE, coverage_answers(**{name: fresh}), COVERAGE_KEYS)
-        judged("%s: an active id the catalogue no longer lists is RETIRED, and the pull request deletes its entry%s" % (
-            name, " and its cascade slot" if name == "nvidia" else ""),
-               first_wrong(
-                   (found(result) == expected, "findings %r" % found(result)),
-                   (exit_status(result) == 1, "the status"),
-                   (entry not in outputs[1], "the entry is still in the file"),
-                   (name != "nvidia" or "- nv-one\n" not in outputs[1].split("router_settings:")[1], "its slot is still there"),
-                   (outputs[4] is not None and "`%s`" % entry in outputs[4], "the pull request does not name it"),
-                   (undeleted_count(outputs[0]) == 0, "something was left to a person")))
+        if incomplete:
+            judged("%s: an active id its incomplete catalogue does not list is a NOTICE, and nothing is deleted" % name,
+                   first_wrong(
+                       (found(result) == expected, "findings %r" % found(result)),
+                       (exit_status(result) == 1, "the status"),
+                       (outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
+                       (undeleted_count(outputs[0]) == 0, "something was left to a person as a deletion")))
+        else:
+            judged("%s: an active id the catalogue no longer lists is RETIRED, and the pull request deletes its entry%s" % (
+                name, " and its cascade slot" if name == "nvidia" else ""),
+                   first_wrong(
+                       (found(result) == expected, "findings %r" % found(result)),
+                       (exit_status(result) == 1, "the status"),
+                       (entry not in outputs[1], "the entry is still in the file"),
+                       (name != "nvidia" or "- nv-one\n" not in outputs[1].split("router_settings:")[1], "its slot is still there"),
+                       (outputs[4] is not None and "`%s`" % entry in outputs[4], "the pull request does not name it"),
+                       (undeleted_count(outputs[0]) == 0, "something was left to a person")))
         empty = coverage_answers(**{name: {"object": "list", "data": []}})
         outputs = apply_run(COVERAGE_TEMPLATE, empty, COVERAGE_KEYS)
         judged("%s: a catalogue that lists nothing deletes nothing, an empty answer being a failed read" % name,
                first_wrong((outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
-                           (undeleted_count(outputs[0]) >= 1, "the finding is not left to a person")))
+                           (undeleted_count(outputs[0]) >= (0 if incomplete else 1),
+                            "the finding is not left to a person")))
 
     # NEW models: where each provider's API says nothing of the free tier, they are to examine, with the page.
     answers = coverage_answers()
@@ -7487,6 +7498,138 @@ def run_coverage_cases():
     return failures
 
 
+# ------------------------------------------------------------------------------------------------
+# A provider whose catalogue omits models it serves: its absences are a NOTICE, never a deletion
+# ------------------------------------------------------------------------------------------------
+
+# SELFTEST_TEMPLATE with an active Z AI entry and a commented-out one, neither routed through a cascade.
+INCOMPLETE_BLOCK = """\
+  - model_name: zai-flash
+    litellm_params:
+      model: zai/glm-9-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+  # Served, but not routed to: selftest, set aside.
+  # - model_name: zai-flash-old
+  #   litellm_params:
+  #     model: zai/glm-8-flash
+  #     api_key: "os.environ/ZAI_API_KEY"
+
+  # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down
+
+"""
+INCOMPLETE_TEMPLATE = SELFTEST_TEMPLATE.replace(
+    "  - model_name: local\n", INCOMPLETE_BLOCK + "  - model_name: local\n", 1)
+
+
+def incomplete_catalogue_cases():
+    """(what the case proves, answers, a check on (result, new_text, report, summary, pr, commit)
+    returning None when it holds and why not otherwise, the exit status expected)."""
+    def changed(**replaced):
+        answers = selftest_answers()
+        answers.update(replaced)
+        return answers
+
+    # Z AI's catalogue lists a model of its own and none of the two the file holds for it.
+    zai_omitting = {"object": "list", "data": [{"id": "glm-9-pro"}]}
+    zai_listing = {"object": "list", "data": [{"id": "glm-9-pro"}, {"id": "glm-9-flash"}]}
+
+    def kinds(result, provider):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      if report["name"] == provider for finding in report["findings"])
+
+    def notice_only(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash"), ("notice", "glm-9-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if new_text != INCOMPLETE_TEMPLATE:
+            return "the file was changed"
+        if pr is not None or commit is not None:
+            return "a deletion pull request or commit message was written"
+        if undeleted_count(result) != 0:
+            return "something is counted as a deletion left to a person"
+        for needle in ("NOTICE", "zai/glm-9-flash", "zai/glm-8-flash", "not a retirement",
+                       "omits its free \"Flash\" models"):
+            if needle not in report:
+                return "the report lacks %r" % needle
+        for needle in ("Absents d'un catalogue incomplet", "`zai/glm-9-flash`", "`zai/glm-8-flash`",
+                       "ce n'est pas un retrait", "modèles gratuits « Flash »"):
+            if needle not in summary:
+                return "the summary lacks %r" % needle
+        for text in (report, summary):
+            if "RETIRED  " in text or "GONE     " in text or "Retirés" in text:
+                return "a retirement is reported"
+        if "Retraits annoncés" in summary:
+            return "the absence is reported as an announced withdrawal"
+        return None
+
+    def listed_is_quiet(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        return None
+
+    def others_still_retired(result, new_text, report, summary, pr, commit):
+        if kinds(result, "groq") != [("retired", "vendor/fast")]:
+            return "Groq findings are %r" % kinds(result, "groq")
+        if "groq/vendor/fast" in new_text:
+            return "Groq's retired entry was not deleted"
+        for entry in ("zai/glm-9-flash", "zai/glm-8-flash"):
+            if entry not in new_text:
+                return "%s was deleted" % entry
+        if "NOT DELETED" in report:
+            return "a finding was left to a person"
+        return None
+
+    return (
+        ("a Z AI entry its catalogue omits, active or commented out, is a NOTICE and is never deleted",
+         changed(zai=zai_omitting), notice_only, 1),
+        ("a Z AI entry its catalogue lists is no finding, and only the one it omits is a NOTICE",
+         changed(zai=zai_listing), listed_is_quiet, 1),
+        ("the same absence for another provider is still RETIRED, and deleted beside Z AI's NOTICE",
+         changed(zai=zai_omitting, groq=GROQ_WITHOUT_FAST), others_still_retired, 1),
+    )
+
+
+def run_incomplete_catalogue_cases():
+    failures = 0
+    for purpose, answers, check, status in incomplete_catalogue_cases():
+        outputs = apply_run(INCOMPLETE_TEMPLATE, answers)
+        result = outputs[0]
+        if exit_status(result) != status:
+            why = "exit status %d, expected %d" % (exit_status(result), status)
+        else:
+            why = check(*outputs)
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    # The set itself: only providers the script reads, each with its reason in both languages, none
+    # that can be asked for a model by its id (a provider that can needs no exemption), and Z AI in it.
+    declared = drift.INCOMPLETE_CATALOGUES
+    problems = []
+    if "zai" not in declared:
+        problems.append("Z AI is not declared")
+    for provider, reason in declared.items():
+        if provider not in PROVIDER_NAMES:
+            problems.append("%r is no provider this check reads" % provider)
+        if provider in LOOKUPS:
+            problems.append("%s can be asked for a model, so its list needs no exemption" % provider)
+        if not (isinstance(reason, tuple) and len(reason) == 2
+                and all(isinstance(text, str) and text.strip() for text in reason)):
+            problems.append("%s has no reason in English and in French" % provider)
+    # A provider outside the set keeps its deletions: no other one is declared by mistake.
+    undeclared = sorted(set(PROVIDER_NAMES) - set(declared))
+    if "groq" not in undeclared or "openrouter" not in undeclared:
+        problems.append("a provider known to list everything it serves is declared")
+    if problems:
+        failures += 1
+        print("selftest: FAILED (INCOMPLETE_CATALOGUES) -- %s" % "; ".join(problems))
+    else:
+        print("selftest: ok -- INCOMPLETE_CATALOGUES names only providers read here, each with its reason")
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -7534,6 +7677,7 @@ def run_selftest_cases():
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
+    failures += run_incomplete_catalogue_cases()
     failures += run_cloudflare_cases()
     failures += run_coverage_cases()
     failures += run_apply_cases()
