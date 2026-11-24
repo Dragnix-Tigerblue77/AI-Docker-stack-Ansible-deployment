@@ -355,7 +355,13 @@ the line above it: paid, bank card required, enterprise contract only, and so on
 the answer to "why is it not used", so it is written once instead of being rediscovered. New models
 are **added** as providers publish them, so the list tracks each provider's current catalogue rather
 than the day it was written. Each claim cites the provider's own page and the date it was checked
-(#169).
+(#169). An active entry is therefore either usable, and then a member of a cascade or the target of an alias,
+or it is not, and then it goes: deleted, or commented out with its reason. The two exceptions are the embedding
+models, addressed by their own name because their vector space ties a collection to them, and the few entries
+declared in `LITELLM_CALLED_BY_NAME` of `check_compose_template.py`, each with its reason, which must be the
+same ones as the section of `ROUTAGE.md` that lists the entries called by name. A model its provider redirects
+to another one is routed right behind that one for as long as it is not established that it has no counter of its
+own, and one still served with a free quota of its own until a stated date is routed until that date.
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'

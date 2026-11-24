@@ -391,6 +391,7 @@ models:
     level: unknown
     level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, has no row for gemini-3.7-flash"
     eci: "Gemini 3.7 Flash"
+    note: "Its endpoint routes to gemini-3.8-flash (ai.google.dev/gemini-api/docs/deprecations, read 2026-11-24): a twin of that model, placed behind it, whose own counter is not established"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       deepswe_external: [gemini-3.7-flash_high, gemini-3.7-flash_low, gemini-3.7-flash_medium]

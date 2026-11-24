@@ -33,6 +33,9 @@ section headed "### `Auto-Pro`" (the router's published name) with a table whose
 4. Every entry of the template that sets a static "reasoning_effort" is in the document, in a router
    table or in the section "### Entrées appelées par leur nom", which holds the entries in no cascade
    and is read the same way (an entry of that section that is in a cascade is refused).
+5. The entries of that section are exactly the ones "check_compose_template.py" declares called by name
+   ("LITELLM_CALLED_BY_NAME"): a row for an entry not declared there and a declared entry with no row are
+   each refused, since that check is what refuses every other entry that no router reaches.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -56,6 +59,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_LiteLLM_model_drift as drift  # noqa: E402  (the one place that knows how to render the template)
+import check_compose_template  # noqa: E402  (the one place that declares the entries called by name)
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCUMENT = ROOT / "ROUTAGE.md"
@@ -156,9 +160,12 @@ def order_problem(router, wanted, found):
     return None
 
 
-def document_problems(template, text):
+def document_problems(template, text, by_name=None):
     """(problems, notices) of a document against a template read by read_template: a notice is a row for
-    an entry the template no longer has, which is left for a person to remove and fails nothing."""
+    an entry the template no longer has, which is left for a person to remove and fails nothing. `by_name` is the
+    set of entries declared called by name, which the section of them has to list exactly."""
+    if by_name is None:
+        by_name = set(check_compose_template.LITELLM_CALLED_BY_NAME)
     problems = []
     lists = drift.fallback_lists(template["document"])
     efforts = {entry["name"]: entry["item"].get("litellm_params", {}).get("reasoning_effort")
@@ -195,10 +202,12 @@ def document_problems(template, text):
                 if message:
                     problems.append(message)
     named = sections.get(NAMED_SECTION, [])
+    listed = set()
     for _, entry, cell in named:
         name = entry_name(entry, 'the section "%s"' % NAMED_SECTION, problems)
         if name is None:
             continue
+        listed.add(name)
         seen.add(name)
         if name not in efforts:
             notices.append('the section "%s" has a row for "%s", which is no entry of the template any more: remove it.' % (
@@ -209,19 +218,26 @@ def document_problems(template, text):
             message = level_problem(name, cell, efforts[name], 'the section "%s"' % NAMED_SECTION)
             if message:
                 problems.append(message)
+    for name in sorted(listed - set(by_name)):
+        problems.append('the section "%s" lists "%s", which LITELLM_CALLED_BY_NAME of check_compose_template.py does not '
+                        "declare: an entry in no cascade is declared there, with its reason, or is routed, deleted or "
+                        "commented out" % (NAMED_SECTION, name))
+    for name in sorted(set(by_name) - listed):
+        problems.append('LITELLM_CALLED_BY_NAME of check_compose_template.py declares "%s", which the section "%s" does '
+                        "not list" % (name, NAMED_SECTION))
     for name, effort in efforts.items():
         if effort is not None and name not in seen:
             problems.append('"%s" sets reasoning_effort %s in the template and is in no table of the document' % (name, effort))
     return problems, notices
 
 
-def check(template_text, document_text):
+def check(template_text, document_text, by_name=None):
     """(status, problems, notices): 0 or 1 and what is wrong with the document against the template, or
     2 and why the template could not be read."""
     template, problems = drift.read_template(template_text)
     if template is None:
         return 2, problems, []
-    found, notices = document_problems(template, document_text)
+    found, notices = document_problems(template, document_text, by_name)
     return (1 if found else 0), found, notices
 
 
@@ -261,6 +277,16 @@ SELFTEST_NAMED = """\
 | --- | --- | --- | --- | --- |
 | 1 | `alpha-max` | Acme | `xhigh` | par son nom |
 """
+
+
+# What the cases declare called by name unless a case says otherwise below.
+SELFTEST_BY_NAME = {"alpha-max"}
+GHOST_ROW = "| 2 | `ghost` | Acme | défaut du fournisseur | non |\n"
+GHOST_DECLARED = "a row for an entry the template no longer has, in the section of named entries: said, and no failure"
+BY_NAME_OF_CASE = {
+    GHOST_DECLARED: SELFTEST_BY_NAME | {"ghost"},
+    "a declared entry that the section does not list": SELFTEST_BY_NAME | {"bravo"},
+}
 
 
 def selftest_row(number, name, level):
@@ -311,8 +337,13 @@ def selftest_cases():
         ("a row for an entry the template no longer has, in a router table: said, and no failure", SELFTEST_TEMPLATE,
          selftest_document(pro=(("alpha", "`high`"), ("ghost", "`low`"), ("bravo", "défaut du fournisseur"))), None,
          'has a row for "ghost"'),
-        ("a row for an entry the template no longer has, in the section of named entries: said, and no failure", SELFTEST_TEMPLATE,
-         selftest_document(named=SELFTEST_NAMED + "| 2 | `ghost` | Acme | défaut du fournisseur | non |\n"), None, 'has a row for "ghost"'),
+        (GHOST_DECLARED, SELFTEST_TEMPLATE,
+         selftest_document(named=SELFTEST_NAMED + GHOST_ROW), None, 'has a row for "ghost"'),
+        ("a row of the section of named entries that is not declared called by name", SELFTEST_TEMPLATE,
+         selftest_document(named=SELFTEST_NAMED + GHOST_ROW), "does not declare", 'has a row for "ghost"'),
+        ("a declared entry that the section does not list", SELFTEST_TEMPLATE, good, "does not list"),
+        ("a declared entry with no row in the section of named entries", SELFTEST_TEMPLATE,
+         selftest_document(named=SELFTEST_NAMED.split("| 1 |")[0]), 'declares "alpha-max"'),
         ("a row for a deleted entry does not hide a member out of place", SELFTEST_TEMPLATE,
          selftest_document(pro=(("bravo", "défaut du fournisseur"), ("ghost", "`low`"), ("alpha", "`high`"))), "another order",
          'has a row for "ghost"'),
@@ -330,7 +361,7 @@ def selftest_cases():
 def run_selftest():
     failures = 0
     for purpose, template, document, expected, *notice in selftest_cases():
-        status, problems, notices = check(template, document)
+        status, problems, notices = check(template, document, BY_NAME_OF_CASE.get(purpose, SELFTEST_BY_NAME))
         shown = " ".join(problems)
         if expected is None:
             wrong = None if status == 0 and not problems else "refused: %s" % shown

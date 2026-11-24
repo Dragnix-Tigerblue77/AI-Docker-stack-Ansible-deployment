@@ -751,6 +751,12 @@ donc LibreChat les propose toujours. À connaître :
   Il tient aussi le fichier compose à la même table : le conteneur de la passerelle doit recevoir chaque clé sous le
   nom que la configuration lit, qui n'est pas toujours celui du fournisseur (`NVIDIA_NIM_API_KEY`, pas
   `NVIDIA_API_KEY`).
+- Toute entrée d'un mode qui a un routeur (texte, transcription, synthèse vocale, décisions, extraction, modèles
+  gardés à part) est membre d'une cascade ou cible d'un alias, sauf celles que `check_compose_template.py` déclare
+  appelées par leur nom (`LITELLM_CALLED_BY_NAME`), chacune avec sa raison : un modèle qu'on peut appeler est
+  routé, et un modèle qu'on ne peut pas appeler est supprimé ou commenté avec sa raison. Les modèles d'embeddings,
+  qu'aucun routeur ne sert, sont exemptés. Ces entrées sont les mêmes que celles de la section « Entrées appelées
+  par leur nom » de `ROUTAGE.md`, ce que `check_routing_document.py` vérifie.
 
 #### NVIDIA : un service d'essai, des limites inconnues, et une place dans chaque cascade
 
@@ -1699,7 +1705,7 @@ Deux routeurs qui ne sont pas du chat, servis dès que la clé Cloudflare est do
 
 | Routeur | Route | Ce qu'on envoie | Ce qu'on reçoit | Cascade |
 | --- | --- | --- | --- | --- |
-| `Auto-Decision` | `POST /v1/systemone` | un `state` (texte, objet ou liste) et des `questions` typées : `noul` (oui ou non), `choice` (une option parmi des `criteria`), `score` (un niveau sur une échelle) | une probabilité pour chaque réponse permise de chaque question | Clef (27B), puis Clef Omni |
+| `Auto-Decision` | `POST /v1/systemone` | un `state` (texte, objet ou liste) et des `questions` typées : `noul` (oui ou non), `choice` (une option parmi des `criteria`), `score` (un niveau sur une échelle) | une probabilité pour chaque réponse permise de chaque question | Clef (27B), puis Clef Omni, puis Clef Flash |
 | `Auto-Extraction` | `POST /v1/extraction` | un `state` (texte), éventuellement des images ou des PDF, et des `fields` typés : texte, date, nombre, liste, estimation dans un intervalle | chaque valeur, avec sa confiance, ou `null` quand le texte ne la donne pas | Clairic, puis Clairic Flash |
 
 Exemple, le tri d'un message d'assistance :
@@ -1716,7 +1722,7 @@ curl -s "$GATEWAY/v1/systemone" -H "Authorization: Bearer $KEY" -H "Content-Type
 }'
 ```
 
-**Un repli doit tout accepter de ce qu'accepte la tête**, pour que la bascule ne se voie pas. Clef Omni prend le texte et les images comme Clef, avec 64 000 jetons de contexte contre 65 536 : seule une requête entre les deux échouerait sur lui. Clef Flash (9B) n'a que 24 576 jetons : il reste hors de la cascade et s'appelle par son nom, `clef-flash-cloudflare`. Clairic Flash, lui, prend exactement ce que prend Clairic.
+**Un repli doit tout accepter de ce qu'accepte la tête**, pour que la bascule ne se voie pas. Clef Omni prend le texte et les images comme Clef, avec 64 000 jetons de contexte contre 65 536 : seule une requête entre les deux échouerait sur lui. Clef Flash (9B) n'a que 24 576 jetons : il ferme la cascade, parce qu'une requête qu'il ne peut pas tenir aurait échoué de toute façon faute d'un autre repli, et qu'une requête qu'il tient reçoit une réponse au lieu d'un refus. Clairic Flash, lui, prend exactement ce que prend Clairic.
 
 **Le son et la vidéo** : seul Clef Omni les lit (quatre extraits audio de cinq minutes, deux vidéos d'une minute au plus) ; une requête qui en porte demande `clef-omni-cloudflare` par son nom.
 
