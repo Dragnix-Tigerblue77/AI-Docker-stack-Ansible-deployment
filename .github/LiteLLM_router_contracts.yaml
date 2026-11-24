@@ -3,17 +3,17 @@
 ---
 # What each LiteLLM router is held to, and which Artificial Analysis record describes each entry of
 # "templates/LiteLLM_config.yaml.j2". Read by "check_LiteLLM_model_drift.py", which reports how the
-# cascades stand against it in the summary of each weekly run ("Contrats par routeur"). It is a
+# cascades stand against it in the summary of each run ("Contrats par routeur"). It is a
 # REPORT: nothing here changes a cascade, an entry or a row of the "head" table, no member is removed
 # from a cascade by it, and a model that breaks a contract is information, never a failure. The one
 # thing that fails the plain run is the file's own shape (a router that does not exist, a number that
 # is not a number, a value with no reason, a malformed row or file, a key written twice). A name kept
 # here that is no entry of the template any more is not a failure, since a deletion leaves it: the
-# plain run prints a notice and the weekly summary lists it as a stale row, to be removed by a person.
+# plain run prints a notice and the summary lists it as a stale row, to be removed by a person.
 #
 # A router is named in this file, in the "head" table and in the script by its short id ("pro", "flash",
-# "flash-lite", "code", "claude-code"). The template publishes it under the name a client types, "Auto-Pro",
-# "Auto-Flash", "Auto-Flash-Lite", "Auto-Code" and "Auto-Claude-Code", and the script reads one for the other.
+# "flash-lite", "code", "claude-code", "fiction"). The template publishes it under the name a client types, "Auto-Pro",
+# "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Claude-Code" and "Auto-Fiction", and the script reads one for the other.
 #
 # VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
 # and the curve that estimates it, and the rules of the ranking below. Two of those rules were changed
@@ -82,7 +82,7 @@
 # Floors. A member past its router's floor is not removed: it goes to the router's last resort
 # tier, after the members that conform. A floor is an ANCHOR, never a number: "at least as good as
 # that model", whose figure the report reads at every run. Nothing is copied here, so nothing goes
-# stale when a source revises a figure, and an anchor that can no longer be read is said in the weekly
+# stale when a source revises a figure, and an anchor that can no longer be read is said in the
 # summary instead of leaving a figure nobody checks: the router is then judged against nothing until a
 # person names another anchor. The anchor tells the scale of the floor, and a floor keeps to one.
 #
@@ -125,7 +125,7 @@
 #
 # "code" (and so "claude-code") is ranked on the code position above, read from Epoch AI's benchmark
 # data (benchmark_data.zip of epoch.ai/benchmarks, free, no key, CC BY 4.0 with attribution, updated
-# daily) by the weekly online run, which cites it with the day it was read. Artificial Analysis
+# daily) by the online run, which cites it with the day it was read. Artificial Analysis
 # publishes no coding or agentic index on any tier any more. Five files are read (DeepSWE,
 # SWE-bench Verified, CursorBench, Terminal-Bench external, ALE-Bench), and WebDev Arena, and any design
 # or UI arena, never: web interface quality is design, not code. The router puts its members that have
@@ -137,7 +137,7 @@
 # of the last resort or past the floor goes to the tail as for every other router. Its known weaknesses:
 # the harnesses differ from one benchmark to the next, efforts are mixed, the sets of models differ per
 # benchmark, and the effort of some entries is not stated in the file. When the archive cannot be read,
-# the weekly summary says so, the floor of "code" is not found and judges nobody, and the intelligence
+# the summary says so, the floor of "code" is not found and judges nobody, and the intelligence
 # index orders the whole cascade, as a stand-in and nothing more. Each entry of "models" below
 # records the Epoch AI model ids it was found under, effort suffix included, or "unknown".
 #
@@ -208,6 +208,7 @@ inputs:
     requesty: "200 requests a day and 20 a minute for a new organization (1,000 and 60 for one that pays), counted across every free model of the organization together, per the Free models page of the Requesty docs (read 2026-11-22), which also says the models are free for now and that a change will be announced in the changelog ahead of time"
     nvidia: "40 requests per minute, shown on the account page (read 2026-11-22); no credit count, daily cap or end date is shown there or on any other page read, the API trial terms of service included"
     cent_ai: "no limit stated: the home page says \"Free until Nov 30 · no daily limit\" (read 2026-11-22) and nothing of what follows the 30th, when the model may be billed; a spending limit set on the key keeps a billed call from costing anything, since the call then fails and the cascade moves on"
+    aion_labs: "15 requests a minute, 20,000 tokens a minute and 20,000 tokens a day for the whole account, all models together, on the free tier of the Rate Limits page of its documentation (read 2026-11-23); its terms of 2026-10-17 call free use \"a courtesy that we may change or withdraw at any time\""
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -294,7 +295,7 @@ routers:
     ranking:
       criterion: code_quality
       source: "Epoch AI benchmark data (CC BY 4.0), median position over DeepSWE, SWE-bench Verified, CursorBench, Terminal-Bench and ALE-Bench, at least two benchmarks, WebDev Arena excluded"
-      # What the file declares: the weekly online run reads this source. The summary says what each run
+      # What the file declares: the online run reads this source. The summary says what each run
       # actually read, and the plain run reads nothing.
       source_status: "read"
       stand_in: intelligence
@@ -307,6 +308,20 @@ routers:
     derives_from: code
     requires: [tools]
     reason: "The router exists for tool calls: it is code without the models that cannot take them, ranked as code is, in the same order."
+  fiction:
+    intelligence_floor:
+      none: true
+      reason: "The router exists for what its models are tuned for, role-play and fiction, which no index measures, and no member has a figure to be held to a floor with: nothing goes under one."
+    level_gain:
+      min_points_per_second: 0
+      reason: "No member has a level the template sets or an index at a level to climb by: the provider's default level is the only one called, so there is no rate to ask."
+    ranking:
+      criterion: intelligence
+      tie_margin_points: 0
+      reason: "No member has an index, so no figure orders them and the report keeps each where it is, flagged; the order is the maintainer's, by hand: the newest and largest model first, the smallest last."
+    last_resort:
+      members: []
+      reason: "No member is paid apart from the others or keyless: all six are the same provider's models on the same account allowance, and none is a last resort."
 
 # One row per entry of the template's model_list. "tools" says whether the entry takes tool calls
 # as its provider or LiteLLM declares it ("yes", "no", or "unknown" where nothing is declared, never
@@ -994,6 +1009,30 @@ models:
   hy4-flash-cent-ai:
     no_record: "Artificial Analysis lists no Hy4 Flash on 2026-11-21: its one Tencent record, Tencent Hy4, is another model, and the capabilities index and the code benchmarks of Epoch AI hold none either"
     tools: {support: "unknown", source: "nothing read declares it: the pages of Cent AI read on 2026-11-22 give no capability data for the model"}
+    epoch: unknown
+  aion-3-5-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "yes", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls true"}
+    epoch: unknown
+  aion-3-5-mini-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "yes", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls true"}
+    epoch: unknown
+  aion-3-0-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "yes", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls true"}
+    epoch: unknown
+  aion-3-0-mini-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "yes", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls true"}
+    epoch: unknown
+  aion-2-0-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "yes", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls true"}
+    epoch: unknown
+  aion-rp-llama-3-1-8b-aion-labs:
+    no_record: "Artificial Analysis publishes no record of any Aion Labs model that this repository knows of (the ranking was not read when this row was written, 2026-11-23: no key), and neither Epoch AI's capabilities index nor its code benchmarks are read for it"
+    tools: {support: "no", source: "api.aionlabs.ai/v1/models, read 2026-11-23: tool_calls false"}
     epoch: unknown
   omniroute-free-auto:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"

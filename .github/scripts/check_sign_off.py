@@ -14,9 +14,11 @@ remember it.
 
 WHAT IT CAN AND CANNOT STOP
 ---------------------------
-It reports and stops nothing by itself. No ruleset is imported, so no check is required before a
-merge, and a red job informs the reviewer, whose review is the only gate on a human's merge. The one merge it decides is Dependabot's, because dependabot-auto-merge.yml reads it
-among the contexts of ".github/rulesets/main.json". Nothing in .githooks reads a sign-off either.
+It reports and stops nothing by itself. What stops a merge is the imported ruleset, which names
+this job among the contexts of ".github/rulesets/main.json", so GitHub refuses any merge, a human's
+included, while it is red or has not started. dependabot-auto-merge.yml reads the same contexts to
+decide Dependabot's merge and the model-deletion pull request's. Nothing in .githooks reads a
+sign-off.
 
 ON THE PULL REQUEST, AND ONLY THERE
 -----------------------------------
@@ -219,7 +221,7 @@ CONTRIBUTOR = ("Random J Developer", "random@example.invalid")
 SOMEBODY_ELSE = ("Somebody Else", "somebody@example.invalid")
 LOOK_ALIKE = ("Claude Code", "claude@example.invalid")
 DEPENDABOT = ("dependabot[bot]", "support@github.com")
-# The author and the sign-off of the commit the weekly model-drift workflow makes through the API.
+# The author and the sign-off of the commit the model-drift workflow makes through the API.
 ACTIONS_BOT = ("github-actions[bot]", "41898282+github-actions[bot]@users.noreply.github.com")
 
 

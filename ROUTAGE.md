@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Routage des modèles
 
-Ce document dit quel modèle est où, à quel niveau de réflexion et pourquoi. Il est tenu à la main, et `.github/scripts/check_routing_document.py` fait échouer la CI s'il dit autre chose que le gabarit `templates/LiteLLM_config.yaml.j2` sur deux points : l'ordre des membres de chaque routeur et le niveau fixé d'une entrée. Les chiffres et les raisons, eux, sont du texte qu'une personne relit. Les contrats (`.github/LiteLLM_router_contracts.yaml`) restent la source des chiffres, relus chaque semaine : ceux d'ici sont ceux d'Artificial Analysis (indice d'intelligence et délai moyen avant le premier mot de la réponse) et d'Epoch AI lus le 2026-11-21, et ceux des limites gratuites aux dates que donne le registre des fournisseurs du README.
+Ce document dit quel modèle est où, à quel niveau de réflexion et pourquoi. Il est tenu à la main, et `.github/scripts/check_routing_document.py` fait échouer la CI s'il dit autre chose que le gabarit `templates/LiteLLM_config.yaml.j2` sur deux points : l'ordre des membres de chaque routeur et le niveau fixé d'une entrée. Les chiffres et les raisons, eux, sont du texte qu'une personne relit. Les contrats (`.github/LiteLLM_router_contracts.yaml`) restent la source des chiffres, relus à chaque exécution : ceux d'ici sont ceux d'Artificial Analysis (indice d'intelligence et délai moyen avant le premier mot de la réponse) et d'Epoch AI lus le 2026-11-21, et ceux des limites gratuites aux dates que donne le registre des fournisseurs du README.
 
 Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fournisseurs. Sans la clé d'un fournisseur, ses entrées disparaissent et l'ordre des autres ne change pas.
 
@@ -28,6 +28,8 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 **Un membre de `Auto-Flash-Lite` ne mange pas le quota de `Auto-Pro` ou de `Auto-Flash`.** Chez un fournisseur dont le quota gratuit est compté par modèle (voir « Les limites gratuites des fournisseurs » plus bas), un membre de `Auto-Flash-Lite` qui est le même modèle chez le même fournisseur (même identifiant de modèle, même adresse) qu'un membre de `Auto-Pro` ou de `Auto-Flash` dépense le même compteur : il passe après tous les membres de `Auto-Flash-Lite` qui ont un quota à eux. Le rapport de contrat trouve ces membres tout seul dans le gabarit, il n'y en a pas de liste tenue à la main.
 
 **Plusieurs modèles d'un même fournisseur restent dans un même routeur, même quand son quota est compté pour tout le compte.** Quand le quota du compte est épuisé, chacun répond par un refus et la cascade passe au suivant : le second ne coûte qu'un refus d'une fraction de seconde. Mais le routeur passe aussi au membre suivant quand un seul modèle échoue, parce qu'il est en panne ou retiré, que la demande dépasse son contexte ou qu'il tarde à répondre, et là le second modèle du même fournisseur répond. LiteLLM ne sait pas faire la différence pour en tirer parti : il met en pause une entrée qui a échoué, jamais tout son fournisseur (lu dans son code le 2026-11-23). Décision du mainteneur du 2026-11-23.
+
+**`Auto-Fiction` : les modèles de jeu de rôle d'Aion Labs, à part.** Aion Labs les décrit comme réglés pour le jeu de rôle et la narration, y compris les « thèmes adultes et sombres », et n'en modère aucun. Ils sont donc dans un groupe d'accès à eux, `Fiction`, et non dans `LLM`, et dans un routeur à eux, `Auto-Fiction`, qui ne tient qu'eux : aucun autre routeur n'en tient un, et une clé qui a `LLM` ne les atteint pas. Aucun chiffre ne les place, l'ordre est donc écrit à la main, du plus récent et du plus grand au plus petit. Une clé les atteint quand `Fiction` ou `Auto-Fiction` est nommé dans ses modèles.
 
 **Les niveaux fixés.** Seules les entrées Gemini dont Artificial Analysis mesure les niveaux (Gemini 4 Hydrogen et Gemini 3.8 Flash) ont un niveau fixé, avec une entrée par niveau dont un routeur a besoin, nommée `<entrée>-<niveau>` (le nom sans suffixe porte le niveau que garde `Auto-Pro`). Ce niveau n'est qu'une valeur par défaut : si un client envoie son propre niveau, c'est le sien qui compte. Claude Code en envoie toujours un, donc `Auto-Claude-Code` n'est pas piloté par ces niveaux ; LibreChat et n8n n'en envoient pas, ils reçoivent le niveau fixé. Les autres entrées n'ont pas de niveau fixé :
 
@@ -63,6 +65,7 @@ Un seul tableau pour tous les fournisseurs que la passerelle appelle et pour tou
 | OVHcloud AI Endpoints | modèles sans clé | 2 requêtes par minute, observées, écrites sur aucune page | adresse IP et modèle | — |
 | Z AI | GLM-4.7-Flash | non publiées hors de la console du compte : inconnues | — | — |
 | Cent AI | `hy4-flash:free` | aucune annoncée ; gratuit jusqu'au 30 novembre, la suite est inconnue | — | — |
+| Aion Labs | six modèles de jeu de rôle, `Auto-Fiction` seul | 15 requêtes par minute, 20 000 jetons par minute et 20 000 jetons par jour, tous les modèles ensemble | compte | non relevé |
 | Mistral | tous | aucune : payant, sur un solde prépayé | — | — |
 | DeepSeek | tous | aucune : payant, sur un solde prépayé | — | — |
 | OmniRoute | tous | agrégateur local, aucun quota | — | — |
@@ -256,6 +259,19 @@ Tête : `gemini-4-hydrogen`, au niveau `high`. La cascade de `Auto-Code` sans le
 | 15 | `codestral` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
 | 16 | `codestral-2508` | Mistral | prépayé | défaut du fournisseur | — | — | — | aucun chiffre publié : garde sa place historique |
 | 17 | `deepseek-v4-pro-direct` | DeepSeek | prépayé | défaut du fournisseur | 20,8 | 22 % | 48,8 s | payant : après tous les gratuits, seul payant de ce routeur |
+
+### `Auto-Fiction`
+
+Tête : `aion-3-5-aion-labs`. Les six modèles d'Aion Labs et eux seuls, dans le groupe d'accès `Fiction`, du plus récent et du plus grand au plus petit. Aucun chiffre ne les place, l'ordre est celui de la main. Le quota gratuit est celui du compte, tous les modèles ensemble : une fois les 20 000 jetons du jour dépensés, chacun répond par un refus, et la cascade n'a plus de membre.
+
+| Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `aion-3-5-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | le plus récent et le plus grand : famille GLM, 262 144 jetons de contexte ; aucun chiffre publié |
+| 2 | `aion-3-5-mini-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | son petit frère, même contexte ; aucun chiffre publié |
+| 3 | `aion-3-0-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | la génération d'avant, famille GLM, 131 072 jetons de contexte ; aucun chiffre publié |
+| 4 | `aion-3-0-mini-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | famille DeepSeek, 131 072 jetons de contexte ; aucun chiffre publié |
+| 5 | `aion-2-0-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | variante de DeepSeek V3.2, 131 072 jetons de contexte ; aucun chiffre publié |
+| 6 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | au jeton, quota du compte | défaut du fournisseur | — | — | variante de Llama 3.1 8B, la seule des six qui ne raisonne pas et ne prend pas les appels d'outils, 32 768 jetons de contexte ; aucun chiffre publié |
 
 ### Entrées appelées par leur nom
 

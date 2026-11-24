@@ -6,15 +6,13 @@ name: Secret scan
 # Secret detection on every pull request. Nothing in this repository is a known secret waiting for
 # rotation, so there is no ".gitleaksignore": every finding is a finding.
 #
-# ! This workflow REPORTS, it does not block a human's merge. No ruleset is
-#   imported (the header of "ansible-ci.yml" says why), so no CI check is required before
-#   merging. The guard that really refuses is
-#   ".githooks/pre-commit".
+# ! Both jobs below are REQUIRED before any merge, a human's included: the imported ruleset names
+#   them, and the header of "ansible-ci.yml" says what that implies. ".githooks/pre-commit" refuses
+#   a secret earlier, at the commit.
 #
-#   The exceptions are Dependabot's own updates and the weekly model-deletion pull request:
-#   "dependabot-auto-merge.yml" merges one only once both jobs below have succeeded on it, reading
-#   their display names from ".github/rulesets/main.json" and listening for this workflow by its
-#   "name:" above. See the header of "ansible-ci.yml".
+#   "dependabot-auto-merge.yml" merges Dependabot's own updates and the model-deletion pull
+#   request only once both jobs below have succeeded on it, reading their display names from
+#   ".github/rulesets/main.json" and listening for this workflow by its "name:" above.
 #
 # The "sudo install" below needs a runner whose user has sudo without a password, which GitHub's
 # hosted image gives. The header of "ansible-ci.yml" says why every job runs on hosted runners only.

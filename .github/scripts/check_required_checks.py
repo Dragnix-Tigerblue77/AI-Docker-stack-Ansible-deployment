@@ -6,16 +6,18 @@
 
 WHY THIS CHECK EXISTS
 ---------------------
-".github/rulesets/main.json" is the list of checks a Dependabot update, or the weekly model-deletion
-pull request, has to pass before ".github/workflows/dependabot-auto-merge.yml" merges it. Nothing on GitHub's side reads that file:
-no ruleset is imported from it, so the merge workflow reads it itself. That makes it a file nothing else keeps honest, and it can go wrong in two directions, both
-of them silent:
+".github/rulesets/main.json" is the list of checks every merge has to pass: the ruleset GitHub
+enforces is imported from it, and ".github/workflows/dependabot-auto-merge.yml" reads it too, to
+merge a Dependabot update or the model-deletion pull request. GitHub reads its own copy of the file,
+imported by hand, and not this one. That makes the file a record nothing else keeps honest, and it
+can go wrong in two directions, both of them silent:
 
 * A context names a job no workflow reports. GitHub matches a check by the job's display "name:" --
   never the workflow's name, never the job's key -- so renaming a job without editing the file
   leaves a context that never reports. Every Dependabot update then waits for a human, each gate run
   saying only that the check "has not reported yet", which is also what it says on every ordinary
-  run while the other workflow is still going. Nothing about it looks broken.
+  run while the other workflow is still going. Nothing about it looks broken. Once the ruleset is
+  imported the same context keeps every other pull request unmerged too.
 * A job is missing from the file. The file names every job of the workflows the gate listens to,
   one by one, rather than a single aggregate job (the merge workflow's header says why). The price
   of that choice is that a job added to any of them gates nothing until somebody adds it here -- and
@@ -55,13 +57,13 @@ WHAT IT CHECKS
 6. Every NOT_DISPATCHED entry still excuses something: it names a workflow file that exists, that
    the gate listens to, that has no "workflow_dispatch" trigger and that the gate does not dispatch.
    An exclusion that has stopped being true would otherwise keep waving a workflow past item 5.
-7. The weekly model-drift workflow, when there is one, dispatches the very same files on the branch
+7. The model-drift workflow, when there is one, dispatches the very same files on the branch
    of the pull request it opens: its own "WORKFLOW_FILES" lists exactly the gate's. A pull
    request opened with GITHUB_TOKEN gets no check from GitHub either, so that list is a copy of the
    gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
    gate would leave the deletion pull request without it, which only shows as a check that is not
    there.
-8. The branch the weekly model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
+8. The branch the model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
    is the one the gate merges, and the `if:` of the gate's job lets a run on it through. The gate
    merges that pull request by itself, and a branch named differently on either side would leave
    it open for ever with every check green, which shows as nothing at all.
@@ -117,7 +119,7 @@ NOT_DISPATCHED = {
 # The environment variable, on a step of the gate, whose value is the space-separated FILE names of
 # the workflows that step dispatches on the default branch once the gate has merged (#180).
 DISPATCH_ENV = "WORKFLOW_FILES"
-# The branch of the weekly deletions, written where it is made and where it is merged.
+# The branch of the deletions, written where it is made and where it is merged.
 BRANCH_ENV = "REMOVALS_BRANCH"
 
 
@@ -285,7 +287,7 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
                          "the same." % (DRIFT, " ".join(sorted(set(drift_files))), GATE,
                                         " ".join(sorted(set(gate_files)))))
 
-    # The branch the weekly deletions are made on, which the gate merges: written in three places.
+    # The branch the deletions are made on, which the gate merges: written in three places.
     if GATE in workflows and DRIFT in workflows:
         made = sorted(set(env_values(workflows[DRIFT], BRANCH_ENV)))
         merged = sorted(set(env_values(workflows[GATE], BRANCH_ENV)))

@@ -28,20 +28,27 @@ Il faut aussi que `gitleaks` soit installé — depuis
 [ses releases](https://github.com/gitleaks/gitleaks/releases), à la version que la CI épingle, ou
 en déposant le binaire à la racine du dépôt sous le nom `gitleaks`. Le hook accepte les deux.
 
-**Ce hook est le seul garde-fou de ce dépôt qui refuse réellement quelque chose.** Aucun *ruleset*
-n'est importé, donc aucun contrôle de CI n'est obligatoire avant fusion : la CI *constate*, elle ne
-garde pas la porte. Le hook, lui, refuse le commit.
+**Ce hook refuse le commit, et le dépôt refuse ensuite la fusion.** Le *ruleset* de
+`.github/rulesets/main.json` est importé, sans acteur autorisé à le contourner : GitHub refuse toute
+fusion, y compris celle du mainteneur, tant que chaque contrôle qu'il nomme n'a pas réussi sur la
+pull request -- tous les jobs de `ansible-ci.yml`, de `gitleaks.yml` et de `sign-off.yml`, par leur
+`name:`. Le hook, lui, refuse plus tôt, au commit, et il est local.
 
-Les seules fusions que la CI décide, ce sont celles des mises à jour de Dependabot et de la pull
-request hebdomadaire qui supprime les modèles retirés :
+`.github/rulesets/main.json` n'est qu'un enregistrement : ce que GitHub applique est le ruleset
+importé. Renommer ou ajouter un job, c'est donc modifier ce fichier dans la même pull request
+(`check_required_checks.py` échoue tant que ce n'est pas fait), puis le faire réimporter par le
+mainteneur. Tant qu'il ne l'a pas fait, la pull request qui renomme un job reste bloquée, le
+ruleset en vigueur attendant toujours l'ancien nom, qu'aucun run ne rapporte, et un job ajouté n'est
+pas encore exigé : une pull request qui touche ce fichier le dit dans sa description.
+
+Deux fusions sont décidées par la CI elle-même : celles des mises à jour de Dependabot et de la
+pull request qui supprime les modèles retirés.
 `.github/workflows/dependabot-auto-merge.yml` fusionne une mise à jour mineure ou corrective une
-fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle — tous les jobs
-de `ansible-ci.yml`, de `gitleaks.yml` et de `sign-off.yml`, par leur `name:` (hors `sign-off` pour
-la seconde, qui ne le démarre jamais). Renommer ou ajouter
-un job, c'est donc modifier ce fichier dans la même pull request ; `check_required_checks.py` échoue
-tant que ce n'est pas fait. Ajouter un job laisse aussi chaque pull request de Dependabot déjà ouverte
-attendre un contrôle qu'elle n'a jamais lancé, et rien ne la réveille : `@dependabot rebase` sur
-chacune relance tous les workflows.
+fois que chaque contrôle nommé dans `.github/rulesets/main.json` est vert sur elle, `sign-off`
+compris. La pull request de suppression ne le voit démarrer que si la GitHub App du workflow
+l'ouvre, et sans elle le ruleset la laisse non fusionnée. Ajouter un job laisse aussi chaque pull
+request de Dependabot déjà ouverte attendre un contrôle qu'elle n'a jamais lancé, et rien ne la
+réveille : `@dependabot rebase` sur chacune relance tous les workflows.
 
 Cette fusion-là ne lance d'elle-même aucun workflow sur `main` : GitHub n'en démarre aucun pour un
 push fait avec `GITHUB_TOKEN`. Le workflow relance donc lui-même `Quality checks` et `Secret scan` sur
@@ -133,12 +140,12 @@ fichier, `check_LiteLLM_model_drift_selftest.py`, que son `--selftest` lance, et
 | Contrôle | Ce qu'il refuse |
 | --- | --- |
 | `check_LiteLLM_account_isolation.py` | Une configuration où le quota d'une personne peut payer l'appel d'une autre : un `model_name` qui regroupe deux comptes, un repli qui traverse une frontière de compte, une entrée dont l'étiquette ne dit pas la même chose que sa clé. |
-| `check_LiteLLM_model_drift.py` | Une liste de modèles qui ne se tient plus : une cascade ou un alias qui nomme une entrée absente ou commentée, un `model_name` en double, une entrée commentée qui ne donne pas sa raison (« not routed », et pourquoi), une ligne `drift-ignore:` mal formée, ou un modèle qui ne se rend plus. Il lit le modèle rendu avec toutes les clés de fournisseur données, par Jinja2 seul : un filtre que seul Ansible fournit lui est refusé. La moitié en ligne, qui compare la liste aux catalogues des fournisseurs, tourne chaque samedi dans `LiteLLM_model_drift.yml` et jamais sur une pull request : elle écrit son rapport dans le résumé du run, n'ouvre une issue que pour un catalogue encore illisible après trois reprises, et ouvre une pull request qui supprime les modèles que les fournisseurs ne listent plus, laquelle se fusionne seule quand elle ne retire que des entrées entières et ce qui les nomme, ne laisse rien à relire et passe les contrôles que le workflow de fusion attend (`dependabot-auto-merge.yml` dit les conditions et les seuils). Avec la clé facultative d'Artificial Analysis, l'issue donne aussi les chiffres de chaque nouveau modèle et une place suggérée par routeur, jamais appliquée et jamais proposée, dans `flash` et `flash-lite`, à un modèle plus lent que leur liste ; sans elle, le rapport dit « non couvert » ; `--online --apply` réécrit le fichier en place, donc jamais sur un arbre de travail. |
+| `check_LiteLLM_model_drift.py` | Une liste de modèles qui ne se tient plus : une cascade ou un alias qui nomme une entrée absente ou commentée, un `model_name` en double, une entrée commentée qui ne donne pas sa raison (« not routed », et pourquoi), une ligne `drift-ignore:` mal formée, ou un modèle qui ne se rend plus. Il lit le modèle rendu avec toutes les clés de fournisseur données, par Jinja2 seul : un filtre que seul Ansible fournit lui est refusé. La moitié en ligne, qui compare la liste aux catalogues des fournisseurs, tourne chaque jour dans `LiteLLM_model_drift.yml` et jamais sur une pull request : elle écrit son rapport dans le résumé du run, n'ouvre une issue que pour un catalogue encore illisible après trois reprises, et ouvre une pull request qui supprime les modèles que les fournisseurs ne listent plus, laquelle se fusionne seule quand elle ne retire que des entrées entières et ce qui les nomme, ne laisse rien à relire et passe les contrôles que le workflow de fusion attend (`dependabot-auto-merge.yml` dit les conditions et les seuils). Avec la clé facultative d'Artificial Analysis, l'issue donne aussi les chiffres de chaque nouveau modèle et une place suggérée par routeur, jamais appliquée et jamais proposée, dans `flash` et `flash-lite`, à un modèle plus lent que leur liste ; sans elle, le rapport dit « non couvert » ; `--online --apply` réécrit le fichier en place, donc jamais sur un arbre de travail. |
 | `check_no_inventory_data.py` | Une adresse IP ou un nom de domaine écrit en dur. Ils appartiennent à l'inventaire de l'appelant : un rôle qui les porte cesse d'être réutilisable, et publie le homelab au passage. Aussi un nom de personne dans l'interface du rôle (variable, variable d'environnement, service, volume, nom de tâche, lignes des tableaux de variables du README) : le rôle sert à des tiers, on nomme ce que la chose est, pas pour qui elle a été écrite. |
 | `check_routing_document.py` | `ROUTAGE.md`, tenu à la main, qui dit autre chose que le gabarit LiteLLM : l'ordre des membres d'un routeur, ou le niveau de réflexion fixé d'une entrée (`reasoning_effort`). Une entrée qui fixe un niveau et que le document ne cite pas est refusée aussi. Les chiffres et les raisons du document, eux, sont du texte qu'on relit. |
 | `check_required_checks.py` | Une liste de contrôles requis, `.github/rulesets/main.json`, qui ne correspond plus aux workflows : un contexte qu'aucun job ne rapporte (chaque mise à jour de Dependabot attendrait alors un humain sans que rien ne paraisse cassé), ou un job de `ansible-ci.yml`, de `gitleaks.yml` ou de `sign-off.yml` absent de la liste (une mise à jour rouge sur ce seul job fusionnerait quand même). Il refuse aussi un fichier qui ne vise plus la branche par défaut, et une liste de fichiers à relancer, dans `dependabot-auto-merge.yml` ou dans `LiteLLM_model_drift.yml`, qui n'est plus celle de l'autre : le workflow de dérive relance sur sa branche les mêmes contrôles que ceux qu'on attend d'une mise à jour ; et une branche de suppression que le workflow de dérive et la porte d'auto-fusion ne nomment pas pareil, ou que le filtre du job de la porte ne laisse pas passer, ce qui laisserait la pull request ouverte à jamais avec tous ses contrôles verts. |
-| `check_auto_merge_gate.py` | Une garde de l'étape qui fusionne (`dependabot-auto-merge.yml`) qui ne garde plus rien : une comparaison retournée, une condition perdue dans une modification. L'étape est du JavaScript dans une chaîne YAML, avec un jeton en écriture, et rien d'autre ne l'exécute. Le contrôle la joue avec Node contre des pull requests inventées (une mise à jour Dependabot, la suppression hebdomadaire de modèles : ce qui doit fusionner et chaque forme qui ne le doit pas) et compare ce qu'elle a fusionné à ce qu'elle aurait dû. |
-| `check_drift_publish_guard.py` | Une garde du job de `LiteLLM_model_drift.yml` qui pousse la pull request hebdomadaire et ne garde plus rien. Ce job détient le jeton qui écrit et n'accepte du template que le fichier de `main` avec des lignes retirées et des lignes de sa table `head` réécrites, sous une seule forme (des noms d'entrées du fichier, des fournisseurs que le modèle déclare). La règle est du JavaScript dans une chaîne YAML : le contrôle en extrait la fonction, la joue avec Node sur des modèles fictifs et sur le vrai, et son `--selftest` la casse un garde-fou à la fois. Il joue de même le job qui décide si une reprise du samedi a quelque chose à faire, sur des journées fictives, et l'étape qui tient l'issue des catalogues illisibles, sur des issues fictives. |
+| `check_auto_merge_gate.py` | Une garde de l'étape qui fusionne (`dependabot-auto-merge.yml`) qui ne garde plus rien : une comparaison retournée, une condition perdue dans une modification. L'étape est du JavaScript dans une chaîne YAML, avec un jeton en écriture, et rien d'autre ne l'exécute. Le contrôle la joue avec Node contre des pull requests inventées (une mise à jour Dependabot, la suppression de modèles : ce qui doit fusionner et chaque forme qui ne le doit pas) et compare ce qu'elle a fusionné à ce qu'elle aurait dû. |
+| `check_drift_publish_guard.py` | Une garde du job de `LiteLLM_model_drift.yml` qui pousse la pull request de suppression et ne garde plus rien. Ce job détient le jeton qui écrit et n'accepte du template que le fichier de `main` avec des lignes retirées et des lignes de sa table `head` réécrites, sous une seule forme (des noms d'entrées du fichier, des fournisseurs que le modèle déclare). La règle est du JavaScript dans une chaîne YAML : le contrôle en extrait la fonction, la joue avec Node sur des modèles fictifs et sur le vrai, et son `--selftest` la casse un garde-fou à la fois. Il joue de même le job qui décide si une reprise du jour a quelque chose à faire, sur des journées fictives, et l'étape qui tient l'issue des catalogues illisibles, sur des issues fictives. |
 | `check_sign_off.py` | Une pull request dont un commit n'a pas de `Signed-off-by` exploitable : absent, cité au milieu du message plutôt qu'en trailer, sans adresse, ou qui ne nomme que l'agent. Voir *Signer son travail* plus bas. |
 | `check_compose_template.py` | Arrivé avec #31, il rend le template de compose dans ses **deux** états et analyse le résultat — lire un diff n'est pas une vérification. Rien ne le lançait jusqu'ici, faute de workflow ; c'est cette PR qui le branche. |
 
@@ -273,10 +280,10 @@ Oublié sur le dernier commit ? `git commit --amend -s`. Sur plusieurs ? `git re
 
 Le job **sign-off** (`.github/workflows/sign-off.yml`) lit les commits de chaque pull request et
 passe au rouge sur celle où l'un d'eux n'a pas de sign-off exploitable. Comme tous les contrôles de
-ce dépôt, il informe la relecture et n'empêche aucune fusion de la main du mainteneur : le hook
-ci-dessus ne lit pas les sign-offs, la relecture est donc la seule barrière, et seules les mises à
-jour de Dependabot attendent ce job. Les règles exactes, et pourquoi elles sont ce qu'elles sont,
-sont dans la docstring de `.github/scripts/check_sign_off.py` ; ce qu'il faut en savoir :
+ce dépôt, il est exigé par le ruleset importé : tant qu'il n'a pas réussi, GitHub refuse la
+fusion, celle du mainteneur comprise. Le hook ci-dessus, lui, ne lit pas les sign-offs. Les règles
+exactes, et pourquoi elles sont ce qu'elles sont, sont dans la docstring de
+`.github/scripts/check_sign_off.py` ; ce qu'il faut en savoir :
 
 * il lit un *trailer* au sens de git, de la forme `Signed-off-by: Nom <adresse>` : une ligne citée au
   milieu d'un message n'en est pas un, et une ligne vide ou sans adresse ne certifie personne ;

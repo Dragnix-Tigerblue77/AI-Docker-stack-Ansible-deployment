@@ -98,6 +98,9 @@
         # Cent AI serves one model free until the end of November and has not said what follows: give a key
         # that carries a spending limit, so that a billed call fails instead of costing anything.
         Artificial_Intelligence_LiteLLM_Cent_AI_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Cent_AI_API_key }}"
+        # Aion Labs serves models for role-play and fiction, unmoderated, and only through the "Fiction" access group
+        # and the "Auto-Fiction" router: no key holding "LLM" reaches them. Its free allowance is 20,000 tokens a day.
+        Artificial_Intelligence_LiteLLM_Aion_Labs_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Aion_Labs_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

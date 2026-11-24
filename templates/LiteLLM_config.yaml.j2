@@ -27,7 +27,8 @@
   'Zai': Artificial_Intelligence_LiteLLM_Zai_API_key is string and Artificial_Intelligence_LiteLLM_Zai_API_key | length > 0,
   'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
   'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0,
-  'Cent_AI': Artificial_Intelligence_LiteLLM_Cent_AI_API_key is string and Artificial_Intelligence_LiteLLM_Cent_AI_API_key | length > 0
+  'Cent_AI': Artificial_Intelligence_LiteLLM_Cent_AI_API_key is string and Artificial_Intelligence_LiteLLM_Cent_AI_API_key | length > 0,
+  'Aion_Labs': Artificial_Intelligence_LiteLLM_Aion_Labs_API_key is string and Artificial_Intelligence_LiteLLM_Aion_Labs_API_key | length > 0
 } %}
 # The routers below, the transcription and text-to-speech routers included, are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
@@ -42,7 +43,8 @@
 # does. Requesty's members sit right ahead of Kilo's in "Auto-Flash", so Requesty heads it when no earlier
 # provider has a key.
 # Cent AI's sit behind Kilo's in "Auto-Pro" and "Auto-Flash", and among the last of "Auto-Flash-Lite", and in no other
-# router, so it heads none.
+# router, so it heads none. Aion Labs' sit in "Auto-Fiction" and in no other router, which they alone make up, so
+# it heads that one and no other.
 {% set head = {
   'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'beam-kilo',
   'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
@@ -52,10 +54,11 @@
   'stt': 'whisper-large-v3-groq' if has.Groq else 'gemini-3-5-transcribe' if has.Gemini else 'voxtral-mini-mistral' if has.Mistral else false,
   'tts': 'gemini-3-8-flash-tts' if has.Gemini else false,
   'decision': 'clef-cloudflare' if has.Cloudflare else false,
-  'extraction': 'clairic-cloudflare' if has.Cloudflare else false
+  'extraction': 'clairic-cloudflare' if has.Cloudflare else false,
+  'fiction': 'aion-3-5-aion-labs' if has.Aion_Labs else false
 } %}
 # A router is published under one name only, the one a client types: "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite",
-# "Auto-Code", "Auto-Claude-Code", "Auto-STT", "Auto-TTS", "Auto-Decision" and "Auto-Extraction". It has, under that name, the router's cascade:
+# "Auto-Code", "Auto-Claude-Code", "Auto-STT", "Auto-TTS", "Auto-Decision", "Auto-Extraction" and "Auto-Fiction". It has, under that name, the router's cascade:
 # LiteLLM looks for fallbacks under the name that was ASKED for, so a name that is an alias and has no cascade
 # of its own would not fall back at all. The name of this file's own variable ("head") is the
 # short one the checks and the routing document use, and the checks translate between the two. There is no
@@ -66,6 +69,9 @@
 # "Extraction" for Clairic's extraction. A virtual key limited to a group in "/ui" reaches
 # the entries of that type, and the routers with them, since a router is an alias of its head and LiteLLM lets a
 # key call an alias when the entry it resolves to is allowed. "check_compose_template.py" holds each entry to it.
+# One exception, on purpose: Aion Labs' text models, tuned for role-play and fiction and unmoderated, are in a group
+# of their own, "Fiction", and not in "LLM", so that no key holding "LLM" reaches them, "Auto-Fiction" being the one
+# router that holds them. A key reaches them only when "Fiction" or "Auto-Fiction" is named in its models.
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -343,14 +349,14 @@ model_list:
       mode: audio_speech
       access_groups: ["TTS"]
 
-  # Looked at on 2026-11-02 and turned down (#305): the weekly drift report stops listing these ids,
+  # Looked at on 2026-11-02 and turned down: the drift report stops listing these ids,
   # and each line says why.
   # drift-ignore: gemini/gemini-3.1-flash-lite-preview -- shut down on 2026-05-25 per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), which says to use gemini-3.1-flash-lite, routed above; the catalogue still listed it that day
   # drift-ignore: gemini/gemini-flash-latest -- a "latest" alias, which Google hot-swaps to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-flash-lite-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-pro-latest -- a "latest" alias, hot-swapped to each new release per "ai.google.dev/gemini-api/docs/models" (read 2026-11-02): the versions are routed above by their own ids
   # drift-ignore: gemini/gemini-omni-flash-preview -- a video generation and editing model per "ai.google.dev/gemini-api/docs/changelog" (read 2026-11-02), no text cascade has any use for it; its endpoint was announced for deprecation on 2026-09-30
-  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing these ids.
+  # Looked at on 2026-11-21 and turned down: the drift report stops listing these ids.
   # drift-ignore: gemini/gemini-4-carbon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Carbon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $2.00 in / $10.00 out per million tokens through 2026-11-30, then $4.00 / $20.00
   # drift-ignore: gemini/gemini-4-neon -- paid only: "ai.google.dev/gemini-api/docs/pricing" (read 2026-11-21) says "Gemini 4 Neon is not available on the Free tier" and gives "Not available" in its Free Tier column for input and output, which are $3.00 in / $15.00 out per million tokens
   # drift-ignore: gemini/gemini-omni-1.2-flash -- a video generation and editing model, not a chat model: "ai.google.dev/gemini-api/docs/models/gemini-omni-flash" (read 2026-11-21) calls it a model "for fast, conversational video generation and editing", with "Video with native Audio, Text" as its output and edits made through the Interactions API, and it is paid only, "Not available" in the Free Tier column of "ai.google.dev/gemini-api/docs/pricing" and "Not supported" for the Free tier on "ai.google.dev/gemini-api/docs/rate-limits"
@@ -580,6 +586,9 @@ model_list:
   # "docs.sambanova.ai/docs/en/models/rate-limits" still describes a Free Tier "Applied when there is
   # no payment method linked with your account", at 20 requests per day per model. The console is
   # the one a new account actually meets, so it is the one followed here.
+  # A call measured on 2026-11-23, after the daily reset, with a card linked and no credit bought, still
+  # answered HTTP 402 "CREDITS_EXHAUSTED" ("You have run out of credits"), and without a card the answer is a
+  # missing payment method: neither state is served the Free tier, so the account is a prepaid balance.
   # ============================================================================
   # - model_name: gemma-4-31b-sambanova
   #   litellm_params:
@@ -603,7 +612,7 @@ model_list:
   #     api_base: "https://api.sambanova.ai/v1"
   #     api_key: "os.environ/SAMBANOVA_API_KEY"
 
-  # Looked at on 2026-11-21 and turned down: the weekly drift report stops listing this id.
+  # Looked at on 2026-11-21 and turned down: the drift report stops listing this id.
   # drift-ignore: sambanova/GLM-5.3 -- no free tier: "api.sambanova.ai/v1/models" prices it per token ($2.80 in / $8.80 out per million), the Free Tier rows of "docs.sambanova.ai/docs/en/models/rate-limits" name only gpt-oss-120b and gemma-4-31B-it, and the Free plan of "cloud.sambanova.ai/plans" still reads "Add a payment method and purchase credits to run your first requests" with "signupCredits":false (all read 2026-11-21)
 
 {% if has.DeepSeek %}
@@ -1410,6 +1419,10 @@ model_list:
       api_key: "ovh-no-key-needed"
       extra_headers:
         Authorization: ""
+  # drift-ignore: ovhcloud/Meta-Llama-3_3-70B-Instruct -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
+  # drift-ignore: ovhcloud/Qwen3.6-27B -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
+  # drift-ignore: ovhcloud/Olala-v1.0-summarise -- a task-specific model, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: ovhcloud/Olala-v1.0-translate -- a task-specific model, which the header of this section sets aside (read 2026-11-22)
 
 {% if has.Requesty %}
   # ============================================================================
@@ -1471,6 +1484,9 @@ model_list:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
+  # drift-ignore: requesty/novita/ling-3.1-flash -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
+  # drift-ignore: requesty/nvidia/muse-glimmer-30b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
+  # drift-ignore: requesty/nvidia/nemotron-3-nano-30b-a3b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
 
 {% endif %}
 
@@ -1641,6 +1657,9 @@ model_list:
     litellm_params:
       model: nvidia_nim/google/gemma-3-4b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
+  # drift-ignore: nvidia/nvidia/cosmos-reason2-8b -- a vision model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: nvidia/nvidia/ising-calibration-1.5-31b -- a quantum calibration model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
+  # drift-ignore: nvidia/nvidia/riva-translate-4b-instruct-v2 -- a translation model whose card lists no function calling, which the header of this section sets aside (read 2026-11-22)
 
 {% endif %}
 
@@ -1676,6 +1695,90 @@ model_list:
       model: openai/hy4-flash:free
       api_base: "https://api.cent-ai.dev/v1"
       api_key: "os.environ/CENT_AI_API_KEY"
+
+{% endif %}
+
+{% if has.Aion_Labs %}
+  # ============================================================================
+  # Aion Labs ("openai/" through its OpenAI-compatible endpoint, models for role-play and fiction)
+  #
+  # Checked 2026-11-23. Aion Labs' public catalogue, "api.aionlabs.ai/v1/models" (no key), lists these six text
+  # models, all "text->text", all priced per token, none moderated ("is_moderated": false), and its documentation
+  # gives the same base address, "https://api.aionlabs.ai/v1". LiteLLM has no provider of that name, so each entry is
+  # "openai/<id>" with an "api_base": LiteLLM cuts the prefix once and the id, "aion-labs/<model>", reaches Aion Labs
+  # as written. No call was made while writing this, there being no key: the form is the one of the provider's own
+  # quickstart.
+  #
+  # Aion Labs describes these models as tuned for immersive role-play and storytelling, handling "mature and darker
+  # themes", and moderates nothing. That is why they are kept apart: their access group is "Fiction", not "LLM", so
+  # that no key holding "LLM" reaches them, and "Auto-Fiction" is the only router that holds them, in no other
+  # cascade. A key reaches them when "Fiction" or "Auto-Fiction" is named in its models.
+  #
+  # The free tier is the allowance of the whole account, not a price of a model: 15 requests and 20,000 tokens a
+  # minute, and 20,000 tokens a day, all six models together ("aionlabs.ai/docs/rate-limits/"), which a few
+  # requests to a model that reasons use up. The key is activated by verifying a payment card that is never
+  # charged, one card for one free account, and the terms ("aionlabs.ai/terms/", of 2026-10-17) call free use
+  # "a courtesy that we may change or withdraw at any time". They allow one account, forbid sharing the key itself
+  # and allow a gateway of one's own; the privacy policy says the content of a request is neither stored nor used
+  # to train models. The models are listed at a price, and any credit top-up moves the account to a tier with no daily
+  # token limit, where calls are billed at those prices: give the account none.
+  # ============================================================================
+  # The newest and largest first, which is the order of "Auto-Fiction". A multi-model system of the GLM family,
+  # 262,144 tokens of context. No figure is read for any of these models, so none places them: the contracts of the
+  # routers say why.
+  - model_name: aion-3-5-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-3.5
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
+
+  # Its smaller sibling, also of the GLM family, with the same 262,144 tokens of context.
+  - model_name: aion-3-5-mini-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-3.5-mini
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
+
+  # The generation before, of the GLM family, with 131,072 tokens of context.
+  - model_name: aion-3-0-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-3.0
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
+
+  # Of the DeepSeek family, with 131,072 tokens of context.
+  - model_name: aion-3-0-mini-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-3.0-mini
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
+
+  # A variant of DeepSeek V3.2, with 131,072 tokens of context.
+  - model_name: aion-2-0-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-2.0
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
+
+  # A variant of Llama 3.1 8B, the only one of the six that neither reasons nor takes tool calls, with 32,768 tokens
+  # of context.
+  - model_name: aion-rp-llama-3-1-8b-aion-labs
+    model_info:
+      access_groups: ["Fiction"]
+    litellm_params:
+      model: openai/aion-labs/aion-rp-llama-3.1-8b
+      api_base: "https://api.aionlabs.ai/v1"
+      api_key: "os.environ/AION_LABS_API_KEY"
 
 {% endif %}
   # ============================================================================
@@ -2201,7 +2304,22 @@ router_settings:
         - clairic-flash-cloudflare
 {% endif %}
 
-    # 10. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
+    # 10. FICTION -- the role-play and fiction models of Aion Labs, and only those: no other router holds them and
+    # no other model is in this one, so that the router follows its head into the "Fiction" group and no key without
+    # that group reaches it. Not ranked by a leaderboard, no figure being read for any of them, so the order is set by hand,
+    # the newest and largest first ("aion-3-5-aion-labs", with 262,144 tokens of context) and the smallest last
+    # ("aion-rp-llama-3-1-8b-aion-labs", with 32,768).
+{% if head['fiction'] %}
+    - Auto-Fiction:
+        - aion-3-5-aion-labs
+        - aion-3-5-mini-aion-labs
+        - aion-3-0-aion-labs
+        - aion-3-0-mini-aion-labs
+        - aion-2-0-aion-labs
+        - aion-rp-llama-3-1-8b-aion-labs
+{% endif %}
+
+    # 11. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
     # is slower than the router's own wait allows (see its entry), so when it fails or is given up the request
     # goes to the same model at the level the routers keep, and no further: whoever asked for that effort
     # wants that model.
@@ -2240,6 +2358,9 @@ router_settings:
 {% endif %}
 {% if head['extraction'] %}
     "Auto-Extraction": "{{ head['extraction'] }}"
+{% endif %}
+{% if head['fiction'] %}
+    "Auto-Fiction": "{{ head['fiction'] }}"
 {% endif %}
 
 general_settings:
