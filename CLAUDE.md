@@ -530,6 +530,12 @@ population finite or does it keep arriving**. A recurring cost justifies a stand
 finite one is paid off once, on the host as the rule above says, and a mechanism left behind to
 guard against its ghost is pure maintenance.
 
+**A time cap goes only where something can wait for ever.** A download, an install, a service or a
+container to answer can hang, and the step that waits on it gets a cap; a computation is bounded by its
+own logic, and a cap over a whole job or check only cancels work that is merely long, so a job that only
+computes carries none. A gateway entry's `timeout` follows the same rule: it guards against a provider
+that never answers, and a change that makes a model slower raises it in the same pull request.
+
 **Comments say why, once, and briefly.** A comment states what the code cannot, the reason, in a
 line or two; how it was found out belongs in the commit message and the issue, not above the line.
 The comment density of the surrounding code is not a reason to match it. The line

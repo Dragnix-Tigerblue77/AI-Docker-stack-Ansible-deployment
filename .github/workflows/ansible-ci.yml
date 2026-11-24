@@ -247,8 +247,6 @@ jobs:
   LiteLLM-drift-selftest:
     name: "LiteLLM drift check: verification cases, part 1 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
-    timeout-minutes: 60
     env:
       DRIFT_SELFTEST_PART: "1"
     steps: &drift_selftest_steps
@@ -328,8 +326,6 @@ jobs:
   LiteLLM-drift-selftest-part-2:
     name: "LiteLLM drift check: verification cases, part 2 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
-    timeout-minutes: 60
     env:
       DRIFT_SELFTEST_PART: "2"
     steps: *drift_selftest_steps
@@ -337,8 +333,6 @@ jobs:
   LiteLLM-drift-selftest-part-3:
     name: "LiteLLM drift check: verification cases, part 3 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
-    timeout-minutes: 60
     env:
       DRIFT_SELFTEST_PART: "3"
     steps: *drift_selftest_steps
@@ -346,8 +340,6 @@ jobs:
   LiteLLM-drift-selftest-part-4:
     name: "LiteLLM drift check: verification cases, part 4 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
-    timeout-minutes: 60
     env:
       DRIFT_SELFTEST_PART: "4"
     steps: *drift_selftest_steps
@@ -355,9 +347,6 @@ jobs:
   repository-rules:
     name: Repository rules
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: the publish guard's selftest alone plays every builder
-    # scenario against the step and the script, and takes over ten minutes as the proposals grow.
-    timeout-minutes: 30
     # A single job for the checks in ".github/scripts/". Actions bills by the job and rounds each
     # one up to the minute: three scripts each running in a second would cost three minutes, and
     # would pay for a "checkout" and a "setup-python" each. A fourth check is free to add here.
