@@ -422,7 +422,8 @@ client choosing between them chooses by luck. The short ids (`pro`, `flash`...) 
 key; `check_compose_template.py` refuses a router published under a short id or under a retired `auto*`
 name. A new router is added to the public-name table of each of those scripts in the same change.
 
-**`Auto` is the one name that is no router of that kind.** It is a model_list entry in the `LLM` group, built on
+**`Auto` is the one name that is no router of that kind.** It is a model_list entry in the `LLM` group and in `Public-Data-Only`, since the routers it picks mix both data
+groups, built on
 LiteLLM's complexity router in its heuristic mode, whose tiers name `Auto-Flash-Lite`, `Auto-Flash` and `Auto-Pro` and
 never a head model: a request falls back under the name the tier gave, so each router keeps its own cascade, and a
 tier naming a model would lose it. It has no cascade, no alias, no key and no row in the contracts, and it is
@@ -431,6 +432,18 @@ request that lands on a name nobody serves. Its configuration sets the tiers and
 caller's output limit replaced by the head's ceiling, a conversation summarised by a model) and nothing else:
 scoring tuning is what LiteLLM's licence limits, and every other classifier calls a model or an embedding per
 request. `check_compose_template.py` and `check_LiteLLM_account_isolation.py` hold all of it.
+
+**Every entry is in exactly one data group, decided by its provider and nothing else.** Beside its type group an
+entry carries `Private-Data` or `Public-Data-Only`, which say what the provider does with what it is sent: the first
+only where its own terms, for the tier the gateway uses, leave prompts and outputs untrained and unreviewed beyond
+what abuse monitoring flags, keep nothing past processing or a short stated abuse period, name a known company as
+operator, and process in the EU or Switzerland or under GDPR-equivalent terms; the second for every other provider,
+and by default for one whose terms could not be read. A LiteLLM group is an allow-list, so a key for sensitive work is
+given `Private-Data` by name and no router, whose cascades mix both groups; `Public-Data-Only` is a label no key is
+given. The verdicts, each with its reason and the page read, are `LITELLM_DATA_GROUPS` in `check_compose_template.py`,
+which holds every rendered entry to its provider's row; the drift script's table and the workflow's table of additions
+carry the same verdicts, and a new provider gets its row in the commit that adds its entries. A verdict is reread when
+the provider's terms change, and an entry is never moved to `Private-Data` to make a key work.
 
 **Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a
