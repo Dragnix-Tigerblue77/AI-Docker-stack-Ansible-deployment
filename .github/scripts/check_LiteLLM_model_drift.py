@@ -5525,6 +5525,23 @@ DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai
 # every other provider's entries are in. "check_compose_template.py" holds the template to the same table.
 ACCESS_GROUPS = {"aionlabs": "Fiction"}
 DEFAULT_ACCESS_GROUP = "LLM"
+# The second group of every entry, what its provider does with the data sent to it, written after the first. The
+# verdicts and their reasons are LITELLM_DATA_GROUPS of "check_compose_template.py", which holds the template to
+# them, so an entry written here with the wrong one fails that check on the pull request that adds it. A provider
+# whose terms were not read is "Public-Data-Only", which is also what a provider this table lacks gets.
+DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare": "Private-Data",
+               "aionlabs": "Private-Data", "ovhcloud": "Private-Data",
+               "openrouter": "Public-Data-Only", "groq": "Public-Data-Only", "deepseek": "Public-Data-Only",
+               "zai": "Public-Data-Only", "requesty": "Public-Data-Only", "nvidia": "Public-Data-Only",
+               "centai": "Public-Data-Only", "kilo": "Public-Data-Only", "cerebras": "Public-Data-Only",
+               "sambanova": "Public-Data-Only"}
+DEFAULT_DATA_GROUP = "Public-Data-Only"
+
+
+def access_groups_text(provider):
+    """The groups of an entry written for this provider, as the template writes them."""
+    return '["%s", "%s"]' % (ACCESS_GROUPS.get(provider, DEFAULT_ACCESS_GROUP),
+                             DATA_GROUPS.get(provider, DEFAULT_DATA_GROUP))
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
@@ -5591,7 +5608,7 @@ def propose_name(provider, identifier, taken):
 def snippet(provider, identifier, basis, name):
     lines = ["  - model_name: %s" % name,
              "    model_info:",
-             '      access_groups: ["%s"]' % ACCESS_GROUPS.get(provider, DEFAULT_ACCESS_GROUP),
+             "      access_groups: %s" % access_groups_text(provider),
              "    litellm_params:",
              "      model: %s" % litellm_id(provider, identifier)[0]]
     if basis["api_base"]:
@@ -6397,7 +6414,7 @@ def addition_block(kind, date, item, anchor):
     lead = "  # " if anchor["commented"] else "  "
     block = ["", "  # " + addition_note(kind, date, item["provider"], anchor["commented"]),
              "%s- model_name: %s" % (lead, item["name"]), "%s  model_info:" % lead,
-             '%s    access_groups: ["%s"]' % (lead, ACCESS_GROUPS.get(item["provider"], DEFAULT_ACCESS_GROUP)),
+             "%s    access_groups: %s" % (lead, access_groups_text(item["provider"])),
              "%s  litellm_params:" % lead,
              "%s    model: %s" % (lead, litellm_id(item["provider"], item["id"])[0])]
     if anchor["fields"].get("api_base") is not None:

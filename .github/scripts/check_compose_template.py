@@ -820,7 +820,7 @@ def check_librechat_gateway_key_models_default(defaults, failures):
     the text models, and the routers that group does not hold, since a router is in no group. The router of the
     agent is left out of what the default must hold, and may be named."""
     routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
-    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"}
+    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"} | set(LITELLM_DATA_GROUP_NAMES)
     # The models kept apart are a group and a router of the template, so that a key may be given them by name, and
     # are never in the default: an account that inherited them would reach what they were kept apart for.
     kept_apart = set(LITELLM_KEPT_APART_GROUPS.values()) | {
@@ -1594,6 +1594,8 @@ LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Auto-Claude-Code"]}, None),
     ("another group too is accepted",
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Embeddings"]}, None),
+    ("a data group too is accepted",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Private-Data"]}, None),
     ("the group forgotten",
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: ["Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]},
      "leaves out 'LLM'"),
@@ -1709,7 +1711,7 @@ LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
 
 
 def litellm_access_group(mode, reference=None):
-    """The group of an entry of this mode that reads this "api_key", written "os.environ/<VARIABLE>"."""
+    """The type group of an entry of this mode that reads this "api_key", written "os.environ/<VARIABLE>"."""
     variable = reference[len("os.environ/"):] if isinstance(reference, str) else None
     return LITELLM_KEPT_APART_GROUPS.get(variable) or LITELLM_ACCESS_GROUPS.get(mode, "LLM")
 
@@ -1799,6 +1801,139 @@ def positive_int(value):
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
+# What each provider does with the data sent to it, as two groups an entry carries after its type group. A key for
+# sensitive work is given "Private-Data" by name: a LiteLLM group is an allow-list, so "Public-Data-Only" is a label
+# that no key is given. A provider is "Private-Data" only when ALL hold, read in its own terms on the tier the
+# gateway uses: no training or product improvement on prompts and outputs; no human review beyond what abuse
+# monitoring flags; nothing kept beyond processing, or beyond a short stated abuse-monitoring period; an operator
+# that is a known company bound by those terms (no volunteer or decentralised network); processing in the EU or
+# Switzerland, or under terms with GDPR-equivalent guarantees. Anything else, and a provider whose terms could not
+# be read, is "Public-Data-Only". Each row is (group, why, the page and the day it was read), and the README holds
+# the same table with the sentences.
+LITELLM_DATA_PRIVATE = "Private-Data"
+LITELLM_DATA_PUBLIC = "Public-Data-Only"
+LITELLM_DATA_GROUP_NAMES = (LITELLM_DATA_PRIVATE, LITELLM_DATA_PUBLIC)
+LITELLM_DATA_GROUPS = {
+    "GEMINI_API_KEY": (
+        LITELLM_DATA_PRIVATE,
+        "in the EEA, Switzerland and the UK the terms of Paid Services apply to unpaid quota too: not used to improve "
+        "products, processed as a processor under Google's data processing addendum, logged for abuse monitoring "
+        "for 55 days at most (human access to flagged content only)",
+        "aistudio.google.com/docs/terms, aistudio.google.com/docs/usage-policies, 2026-11-24"),
+    "MISTRAL_API_KEY": (
+        LITELLM_DATA_PRIVATE,
+        "a French company: no training on customer data or outputs unless the account opts in (the opt-out toggle of "
+        "the admin panel must be off) or a Labs or Preview model is used, processor under a data processing "
+        "addendum, abuse monitoring excluded under zero data retention",
+        "legal.mistral.ai/terms/commercial-terms-of-service, legal.mistral.ai/terms/data-processing-addendum, "
+        "2026-11-24"),
+    "CLOUDFLARE_API_KEY": (
+        LITELLM_DATA_PRIVATE,
+        "no training on customer content, none kept beyond what a request needs, processor under a data processing "
+        "addendum with standard contractual clauses and the Data Privacy Framework",
+        "developers.cloudflare.com/workers-ai/platform/data-usage, www.cloudflare.com/cloudflare-customer-dpa, 2026-11-24"),
+    "AION_LABS_API_KEY": (
+        LITELLM_DATA_PRIVATE,
+        "a Polish company: the content of requests is not stored and not used to train models, GDPR safeguards for "
+        "transfers; where it is processed is not stated",
+        "aionlabs.ai/privacy, 2026-11-24"),
+    "OVHcloud": (
+        LITELLM_DATA_PRIVATE,
+        "hosted in the European Union, never used for training, only billing data kept; the page describes the service "
+        "with a key, and that anonymous access is held to it is stated only as 'we do not store user data'",
+        "www.ovhcloud.com/en/public-cloud/ai-endpoints, docs.ovhcloud.com ai-endpoints-getting-started, 2026-11-24"),
+    "GROQ_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "no training under its services agreement, but customer data is retained in the United States, abuse and "
+        "reliability logs are kept for 30 days, and the terms say nothing of human review or of the free tier",
+        "console.groq.com/docs/your-data, console.groq.com/docs/legal/services-agreement, 2026-11-24"),
+    "DEEPSEEK_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "stored in the People's Republic of China, inputs used 'to improve and develop the Services and to train and "
+        "improve our technology', kept while the account exists",
+        "cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html, 2026-11-24"),
+    "OPENROUTER_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "the ':free' models are served by upstream providers that 'may use your Inputs and Outputs for model training "
+        "or improvement'; OpenRouter does not choose them by their data policy",
+        "openrouter.ai/privacy, openrouter.ai/docs/guides/privacy/provider-logging, 2026-11-24"),
+    "ZAI_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "API content is not used to improve the services without agreement and not stored under its data processing "
+        "addendum, but it is processed 'generally in Singapore', no GDPR transfer mechanism is stated, and that "
+        "addendum is written for business and enterprise users, which a free account may not be",
+        "docs.z.ai/legal-agreement/privacy-policy, docs.z.ai/legal-agreement/terms-of-use, 2026-11-24"),
+    "REQUESTY_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "the gateway is in Frankfurt and keeps no bodies, but the free models are relayed to an upstream provider "
+        "nothing says is in the EU or does not train, and Requesty's own terms were not read",
+        "the pages of the documentation of Requesty, 2026-11-22 and 2026-11-24"),
+    "NVIDIA_NIM_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "trial terms: 'User Content and Generated Content' collected 'to improve NVIDIA products and services, "
+        "including AI models', personal data forbidden, no production use",
+        "NVIDIA API Trial Terms of Service, sections 3.3 and 4.3, 2026-11-24"),
+    "CENT_AI_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "run by an individual under draft terms (version 0.1), databases in Malaysia, relaying to third-party "
+        "providers whose own practices apply",
+        "cent-ai.dev/legal/terms and cent-ai.dev/legal/privacy, 2026-11-24"),
+    "Kilo": (
+        LITELLM_DATA_PUBLIC,
+        "free models may log prompts and outputs 'to improve their services', NVIDIA's are 'trial use only - do not "
+        "submit personal or confidential data'; a licence to use customer data to improve the services",
+        "kilo.ai/docs/gateway/models-and-providers, kilo.ai/terms, 2026-11-24"),
+    "OmniRoute": (
+        LITELLM_DATA_PUBLIC,
+        "a local router that sends each request to whichever keyless free provider answers, none of them chosen or read",
+        "github.com/diegosouzapw/OmniRoute, 2026-11-24"),
+    # Providers of the drift script's additions with no active entry: nothing was read, hence nothing allowed.
+    "CEREBRAS_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
+    "SAMBANOVA_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
+}
+# The gateways with no key, which the table above is read for by their address.
+LITELLM_DATA_GATEWAY_BASES = {
+    **LITELLM_KEYLESS_BASES,
+    "OmniRoute": "http://omniroute:20128/v1",
+}
+
+
+def litellm_data_provider(reference, api_base=None):
+    """The row of LITELLM_DATA_GROUPS an entry is read under: the variable its "api_key" reads, else the gateway its
+    "api_base" is. None when neither is a row, which "check_litellm_config" reports."""
+    if isinstance(reference, str) and reference.startswith("os.environ/"):
+        variable = reference[len("os.environ/"):]
+        return variable if variable in LITELLM_DATA_GROUPS else None
+    return next((name for name, base in LITELLM_DATA_GATEWAY_BASES.items()
+                 if api_base == base and name in LITELLM_DATA_GROUPS), None)
+
+
+def litellm_data_group(reference, api_base=None):
+    provider = litellm_data_provider(reference, api_base)
+    return LITELLM_DATA_GROUPS[provider][0] if provider else None
+
+
+def litellm_access_groups(mode, reference=None, api_base=None):
+    """Every group an entry is in: its type group, then the one for what its provider does with the data. An
+    entry of a provider with no row has the type group alone, and is reported for it."""
+    data = litellm_data_group(reference, api_base)
+    return [litellm_access_group(mode, reference)] + ([data] if data else [])
+
+
+def check_litellm_data_group_table(table, failures, providers=None):
+    """Hold the table of data groups to what it is for: one of the two groups, a reason and a page for every row,
+    and a row for every provider key of the template and every keyless gateway."""
+    providers = LITELLM_PROVIDERS if providers is None else providers
+    for name in (*providers.values(), *LITELLM_DATA_GATEWAY_BASES):
+        if name not in table:
+            failures.append(f"LITELLM_DATA_GROUPS has no row for {name}: its entries could not be put in a data group")
+    for name, row in table.items():
+        if not (isinstance(row, tuple) and len(row) == 3 and all(isinstance(part, str) and part for part in row)):
+            failures.append(f"LITELLM_DATA_GROUPS row {name} is not (group, reason, page and date), all non-empty")
+        elif row[0] not in LITELLM_DATA_GROUP_NAMES:
+            failures.append(f"LITELLM_DATA_GROUPS row {name} is in {row[0]!r}, which is neither of {LITELLM_DATA_GROUP_NAMES}")
+
+
 def litellm_key_sets():
     """Every non-empty set of the provider keys, in a stable order."""
     names = list(LITELLM_PROVIDERS)
@@ -1876,13 +2011,26 @@ def check_litellm_config(document, keys, failures):
 
     for entry in entries:
         info = mapping(entry, "model_info")
-        wanted = litellm_access_group(info.get("mode"), mapping(entry, "litellm_params").get("api_key"))
-        if info.get("access_groups") != [wanted]:
+        parameters = mapping(entry, "litellm_params")
+        wanted = litellm_access_group(info.get("mode"), parameters.get("api_key"))
+        # The entry that picks among the text routers calls no provider, and reaches all of them through the
+        # cascades it falls back on, which mix both data groups: it is in the group no key is given.
+        data = ("Public-Data-Only" if entry.get("model_name") == LITELLM_TIER_ROUTER
+                else litellm_data_group(parameters.get("api_key"), parameters.get("api_base")))
+        if data is None:
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} reads {parameters.get('api_key')!r} on "
+                f"{parameters.get('api_base')!r}, a provider with no row in LITELLM_DATA_GROUPS: nothing says what its "
+                "terms do with the data sent to it, so no group could be written, and the provider is Public-Data-Only "
+                "until a row says why it is not"
+            )
+        elif info.get("access_groups") != [wanted, data]:
             failures.append(
                 f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
-                f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry: a key limited to a "
-                "type of models reaches the entries of that type and no other, so each entry is in exactly one group, "
-                "and the models kept apart are in the group of their own, which no other entry is in"
+                f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry of the data group "
+                f"{data!r}: a key limited to a type of models reaches the entries of that type and no other, so each "
+                "entry is in its type group and in exactly one data group (the one its provider's row gives), and the "
+                "models kept apart are in the group of their own, which no other entry is in"
             )
 
     members = {member for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
@@ -2209,6 +2357,7 @@ def check_litellm_configs(failures):
             f"[LiteLLM config] the template reads {name}, which no set of keys here gives: add its provider to "
             "LITELLM_PROVIDERS, or its entries and cascade slots are never rendered and so never judged"
         )
+    check_litellm_data_group_table(LITELLM_DATA_GROUPS, failures)
     rendered = 0
     for keys in litellm_key_sets():
         try:
@@ -2259,7 +2408,7 @@ def _litellm_document(entries, cascades, aliases):
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
              "model_info": {**({"mode": mode[0]} if mode else {"max_input_tokens": 131072}),
-                            "access_groups": [litellm_access_group(mode[0] if mode else None, key)]}}
+                            "access_groups": litellm_access_groups(mode[0] if mode else None, key)}}
             for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases,
@@ -2279,7 +2428,9 @@ def _keyless_document(gateway="Kilo", **overrides):
             parameters[key] = value
     return {
         "model_list": [{"model_name": "a-keyless", "litellm_params": parameters,
-                        "model_info": {"access_groups": ["LLM"], "max_input_tokens": 131072}}],
+                        "model_info": {"access_groups": litellm_access_groups(None, parameters.get("api_key"),
+                                                                              parameters.get("api_base")),
+                                       "max_input_tokens": 131072}}],
         "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"},
                             "enable_pre_call_checks": True},
     }
@@ -2288,14 +2439,17 @@ def _keyless_document(gateway="Kilo", **overrides):
 def _window_document(name="a-member", info=None, parameters=None, in_cascade=True, pre_call=True):
     """One text entry with a window, in a cascade or not, with `info` and `parameters` merged into its model_info and
     litellm_params; a value of None drops the key."""
-    model_info = {"access_groups": ["LLM"], "max_input_tokens": 131072}
-    litellm_params = {"model": "x/model", "api_key": "os.environ/ANY_API_KEY"}
+    # On a keyless gateway, so that no key has to be given and the entry has a data group.
+    model_info = {"max_input_tokens": 131072}
+    litellm_params = {"model": "openai/vendor/model", "api_base": LITELLM_KEYLESS_BASES["Kilo"],
+                      "api_key": "no-key-needed", "extra_headers": {"Authorization": ""}}
     for target, changes in ((model_info, info or {}), (litellm_params, parameters or {})):
         for key, value in changes.items():
             if value is None:
                 target.pop(key, None)
             else:
                 target[key] = value
+    model_info["access_groups"] = litellm_access_groups(None, litellm_params.get("api_key"), litellm_params.get("api_base"))
     router_settings = {"fallbacks": [{"flash": [name]}], "model_group_alias": {"flash": name}} if in_cascade else {}
     if pre_call:
         router_settings["enable_pre_call_checks"] = True
@@ -2312,6 +2466,8 @@ def _keyless_member_document(gateway, left_out):
     )
     document["model_list"][1]["litellm_params"].update(
         api_base=LITELLM_KEYLESS_BASES[gateway], extra_headers={"Authorization": ""})
+    document["model_list"][1]["model_info"]["access_groups"] = litellm_access_groups(
+        None, "no-key-needed", LITELLM_KEYLESS_BASES[gateway])
     return _with_stt(document, "MISTRAL_API_KEY")
 
 
@@ -2320,7 +2476,7 @@ def _with_media(document, router="stt", variable="GROQ_API_KEY", entries=("whisp
     document["model_list"] += [
         {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": "os.environ/" + variable},
          "model_info": {"mode": LITELLM_MEDIA_ROUTERS[router][1],
-                        "access_groups": [litellm_access_group(LITELLM_MEDIA_ROUTERS[router][1])]}}
+                        "access_groups": litellm_access_groups(LITELLM_MEDIA_ROUTERS[router][1], "os.environ/" + variable)}}
         for name in entries
     ]
     if cascade:
@@ -2392,7 +2548,7 @@ def _entry_without_group():
 def _entry_in_the_wrong_group():
     document = _litellm_document([("a", "os.environ/GEMINI_API_KEY"), ("vectors", "os.environ/GEMINI_API_KEY", "embedding")],
                                  [("claude-code", ["a"])], {"claude-code": "a"})
-    document["model_list"][1]["model_info"]["access_groups"] = ["LLM"]
+    document["model_list"][1]["model_info"]["access_groups"] = ["LLM", LITELLM_DATA_PRIVATE]
     return document
 
 
@@ -2480,7 +2636,7 @@ def _tier_router_document(routers=("pro", "flash", "flash-lite"), tier_router=Tr
                                           for tier, router in LITELLM_TIER_ROUTER_TIERS.items()}),
             **faults.get("settings", LITELLM_TIER_ROUTER_SETTINGS), **faults.get("configuration", {}),
         }
-        entry = {"model_name": LITELLM_TIER_ROUTER, "model_info": {"access_groups": ["LLM"]},
+        entry = {"model_name": LITELLM_TIER_ROUTER, "model_info": {"access_groups": ["LLM", "Public-Data-Only"]},
                  "litellm_params": {"model": LITELLM_TIER_ROUTER_MODEL, "complexity_router_config": configuration,
                                     **faults.get("parameters", {})}}
         document["model_list"] += [entry, copy.deepcopy(entry)] if faults.get("twice") else [entry]
@@ -2491,7 +2647,60 @@ def _tier_router_document(routers=("pro", "flash", "flash-lite"), tier_router=Tr
     return document
 
 
+def _data_group_fault(base, groups=None, key=None, entry=0):
+    """The rendering `base` with the groups, or the key, of one entry replaced."""
+    document = copy.deepcopy(base)
+    if groups is not None:
+        document["model_list"][entry]["model_info"]["access_groups"] = groups
+    if key is not None:
+        document["model_list"][entry]["litellm_params"]["api_key"] = key
+    return document
+
+
+def _with_omniroute(document, name):
+    """The entry `name` of a rendering written the way the template writes OmniRoute's: its address, and its groups."""
+    for entry in document["model_list"]:
+        if entry["model_name"] == name:
+            entry["litellm_params"]["api_base"] = LITELLM_DATA_GATEWAY_BASES["OmniRoute"]
+            entry["model_info"]["access_groups"] = litellm_access_groups(
+                None, entry["litellm_params"]["api_key"], LITELLM_DATA_GATEWAY_BASES["OmniRoute"])
+    return document
+
+
+def _omniroute_document(**overrides):
+    """One entry on OmniRoute as the template writes it: a literal marker, its address, no header to blank."""
+    return _keyless_document("Kilo", api_base="http://omniroute:20128/v1", api_key="omniroute-no-key-needed",
+                             extra_headers=None, **overrides)
+
+
 LITELLM_CONFIG_CASES = [
+    ("an entry of a Private-Data provider in its type group and that data group", _TTS_ONLY, {"Gemini"}, None),
+    ("an entry in its type group alone, with no data group", _data_group_fault(_TTS_ONLY, ["LLM"]), {"Gemini"},
+     "of the data group 'Private-Data'"),
+    ("an entry in both data groups", _data_group_fault(_TTS_ONLY, ["LLM", "Private-Data", "Public-Data-Only"]),
+     {"Gemini"}, "of the data group 'Private-Data'"),
+    ("an entry of a Private-Data provider in the other data group",
+     _data_group_fault(_TTS_ONLY, ["LLM", "Public-Data-Only"]), {"Gemini"}, "of the data group 'Private-Data'"),
+    ("an entry of a Public-Data-Only provider in the group of the other",
+     _data_group_fault(_stt_document(), ["LLM", "Private-Data"]), {"Groq"}, "of the data group 'Public-Data-Only'"),
+    ("an entry of a Public-Data-Only provider in its data group", _stt_document(), {"Groq"}, None),
+    ("an entry with its groups the other way round", _data_group_fault(_TTS_ONLY, ["Private-Data", "LLM"]),
+     {"Gemini"}, "of the data group 'Private-Data'"),
+    ("an entry in a data group and no type group", _data_group_fault(_TTS_ONLY, ["Private-Data"]), {"Gemini"},
+     "of the data group 'Private-Data'"),
+    ("an entry of a provider the table has no row for",
+     _data_group_fault(_TTS_ONLY, ["LLM"], key="os.environ/UNKNOWN_API_KEY"), {"Gemini"},
+     "a provider with no row in LITELLM_DATA_GROUPS"),
+    ("an entry of OVHcloud in its data group", _keyless_document("OVHcloud"), set(), None),
+    ("an entry of OVHcloud in the other data group",
+     _data_group_fault(_keyless_document("OVHcloud"), ["LLM", "Public-Data-Only"]), set(),
+     "of the data group 'Private-Data'"),
+    ("an entry of Kilo in a Private-Data group",
+     _data_group_fault(_keyless_document("Kilo"), ["LLM", "Private-Data"]), set(),
+     "of the data group 'Public-Data-Only'"),
+    ("an entry of OmniRoute in its data group", _omniroute_document(), set(), None),
+    ("an entry of OmniRoute in a Private-Data group",
+     _data_group_fault(_omniroute_document(), ["LLM", "Private-Data"]), set(), "of the data group 'Public-Data-Only'"),
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
     ("the router of the models kept apart, served by its cascade's head", _fiction_document(), {"Aion_Labs"}, None),
     ("the router of the models kept apart, absent although Aion Labs has a key", _fiction_document(head=False),
@@ -2585,10 +2794,11 @@ LITELLM_CONFIG_CASES = [
      _litellm_document([("glm", "os.environ/NVIDIA_NIM_API_KEY")], [], {}),
      {"NVIDIA"}, "'claude-code' is absent"),
     ("claude-code as the cascade of code without the member it leaves out",
-     _with_stt(_litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
-                                  ("omniroute-free-code", "os.environ/OMNI")],
-                                 [("code", ["a", "b", "omniroute-free-code"]), ("claude-code", ["a", "b"])],
-                                 {"code": "a", "claude-code": "a"}), "MISTRAL_API_KEY"),
+     _with_stt(_with_omniroute(_litellm_document(
+         [("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY"),
+          ("omniroute-free-code", "omniroute-no-key-needed")],
+         [("code", ["a", "b", "omniroute-free-code"]), ("claude-code", ["a", "b"])],
+         {"code": "a", "claude-code": "a"}), "omniroute-free-code"), "MISTRAL_API_KEY"),
      {"Mistral"}, None),
     ("claude-code missing a member that code has",
      _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("b", "os.environ/MISTRAL_API_KEY")],
@@ -2603,9 +2813,11 @@ LITELLM_CONFIG_CASES = [
                        [("code", ["a", "b"]), ("claude-code", ["b", "a"])], {"code": "a", "claude-code": "b"}),
      {"Mistral"}, "have drifted apart"),
     ("claude-code holding the member it must leave out",
-     _litellm_document([("a", "os.environ/MISTRAL_API_KEY"), ("omniroute-free-code", "os.environ/OMNI")],
-                       [("code", ["a", "omniroute-free-code"]), ("claude-code", ["a", "omniroute-free-code"])],
-                       {"code": "a", "claude-code": "a"}),
+     _with_omniroute(_litellm_document([("a", "os.environ/MISTRAL_API_KEY"),
+                                        ("omniroute-free-code", "omniroute-no-key-needed")],
+                                       [("code", ["a", "omniroute-free-code"]),
+                                        ("claude-code", ["a", "omniroute-free-code"])],
+                                       {"code": "a", "claude-code": "a"}), "omniroute-free-code"),
      {"Mistral"}, "have drifted apart"),
     ("a router served as an alias by its cascade's head, Gemini having a key",
      _with_tts(_with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
@@ -2643,7 +2855,9 @@ LITELLM_CONFIG_CASES = [
     ("OpenRouter's free router needs no window",
      _window_document(info={"max_input_tokens": None}, parameters={"model": "openrouter/openrouter/free"}), set(), None),
     ("an OmniRoute route needs no window",
-     _window_document(info={"max_input_tokens": None}, parameters={"api_base": "http://omniroute:20128/v1"}), set(),
+     _window_document(info={"max_input_tokens": None},
+                      parameters={"api_base": "http://omniroute:20128/v1", "api_key": "omniroute-no-key-needed",
+                                  "extra_headers": None}), set(),
      None),
     ("a length under the maximum output", _window_document(info={"max_output_tokens": 65536},
                                                            parameters={"max_tokens": 32768}), set(), None),
@@ -2657,8 +2871,9 @@ LITELLM_CONFIG_CASES = [
     ("an image support that is no boolean", _window_document(info={"supports_vision": "yes"}), set(), "no boolean"),
     ("windows declared with the pre-call checks off", _window_document(pre_call=False), set(),
      "enable_pre_call_checks is not true"),
-    ("an entry on another base is not held to the keyless shape",
-     _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
+    ("an entry on another base is held to the table of data groups and not to the keyless shape",
+     _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(),
+     "a provider with no row in LITELLM_DATA_GROUPS"),
     ("a transcription router served by its cascade's head",
      _stt_document(entries=("whisper-a", "whisper-b")), {"Groq"}, None),
     ("a transcription router with no key it routes to",
@@ -2762,6 +2977,25 @@ LITELLM_CONFIG_CASES = [
      _tier_router_document(alias=True), {"OpenRouter"}, "'Auto' has an alias of its own"),
     ("the router that picks by complexity, written twice",
      _tier_router_document(twice=True), {"OpenRouter"}, "a model_list entry 2 times"),
+]
+
+
+def _table_without(*names):
+    return {name: row for name, row in LITELLM_DATA_GROUPS.items() if name not in names}
+
+
+# (what it is, the table of data groups, a fragment every run must report -- None when it must pass)
+LITELLM_DATA_TABLE_CASES = [
+    ("the table as it is", LITELLM_DATA_GROUPS, None),
+    ("a provider key with no row", _table_without("GROQ_API_KEY"), "has no row for GROQ_API_KEY"),
+    ("a keyless gateway with no row", _table_without("OmniRoute"), "has no row for OmniRoute"),
+    ("a row in a group that is neither", {**LITELLM_DATA_GROUPS, "GROQ_API_KEY": ("Sensitive", "x", "y")},
+     "is in 'Sensitive'"),
+    ("a row with no reason", {**LITELLM_DATA_GROUPS, "GROQ_API_KEY": (LITELLM_DATA_PUBLIC, "", "y")},
+     "all non-empty"),
+    ("a row with no page", {**LITELLM_DATA_GROUPS, "GROQ_API_KEY": (LITELLM_DATA_PUBLIC, "x", "")}, "all non-empty"),
+    ("a row that is not a triple", {**LITELLM_DATA_GROUPS, "GROQ_API_KEY": (LITELLM_DATA_PUBLIC, "x")},
+     "all non-empty"),
 ]
 
 
@@ -2871,6 +3105,11 @@ def selftest():
         except Exception as error:  # noqa: BLE001 - a crash IS the finding here
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, table, expected in LITELLM_DATA_TABLE_CASES:
+        failures = []
+        check_litellm_data_group_table(table, failures)
         problems.extend(_verdict(name, failures, expected))
 
     for name, document, expected, names in LITELLM_PUBLIC_NAME_CASES:
@@ -3063,7 +3302,8 @@ def selftest():
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
-        f"LiteLLM routing case(s), {len(LITELLM_PUBLIC_NAME_CASES)} LiteLLM public-name case(s) and "
+        f"LiteLLM routing case(s), {len(LITELLM_DATA_TABLE_CASES)} data group table case(s), "
+        f"{len(LITELLM_PUBLIC_NAME_CASES)} LiteLLM public-name case(s) and "
         f"{len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
     )
     return 0
