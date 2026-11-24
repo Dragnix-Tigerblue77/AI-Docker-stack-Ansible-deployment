@@ -2346,7 +2346,8 @@ def run_ranking_cases():
            first_wrong((section.count("\n| `openrouter/") == RANKING_LISTED, "the table holds %d rows" % section.count("\n| `openrouter/")),
                        ("inconnu de la source" not in section, "an unmatched row came before a matched one"),
                        ("… et 55 autre(s) nouveau(x) modèle(s) sans chiffres ici" in section, "the rest was not counted"),
-                       (len(body) < 47000, "the body is %d characters long" % len(body))))
+                       (len(body) <= drift.BODY_LIMIT, "the body is %d characters long, past the %d a body may hold"
+                        % (len(body), drift.BODY_LIMIT))))
 
     # Figures that are not figures are none, and the matching takes the spelling it can trust.
     junk = ranking_model("fresh-model", "Fresh Model", "NaN", True, float("inf"), "1.5")
