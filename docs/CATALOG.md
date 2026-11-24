@@ -62,6 +62,7 @@ Ces groupes s'ajoutent au groupe du type : une entrée qui en porte un est aussi
 | `Public-Data-Only` | `Embeddings` |
 | `Public-Data-Only` | `LLM` |
 | `Public-Data-Only` | `STT` |
+| `Public-Data-Only` | `TTS` |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
 
@@ -105,6 +106,7 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
 | `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
+| `ling-3-1-flash-requesty` | Requesty | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
@@ -139,6 +141,7 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
 | `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
+| `ling-3-1-flash-requesty` | Requesty | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
@@ -160,17 +163,25 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `nemotron-super-vl-free` | OpenRouter | — | — |
 | `nemotron-super-vl-nvidia` | NVIDIA | — | — |
 | `muse-glimmer-nvidia` | NVIDIA | — | — |
+| `muse-glimmer-requesty` | Requesty | — | — |
 | `nemotron-super-vl-kilo` | Kilo | — | — |
+| `flint-free` | OpenRouter | — | — |
 | `flint-kilo` | Kilo | — | — |
 | `glyph-cluster-kilo` | Kilo | — | — |
 | `dots-3-note-preview-free` | OpenRouter | — | — |
 | `dots-3-note-preview-kilo` | Kilo | — | — |
 | `openrouter-auto-free` | OpenRouter | — | dernier recours |
+| `kilo-auto-free` | Kilo | — | — |
+| `kilo-openrouter-free` | Kilo | — | — |
+| `ling-3-2-flash-free` | OpenRouter | — | — |
+| `ling-3-2-flash-kilo` | Kilo | — | — |
 | `hy4-flash-cent-ai` | Cent AI | — | — |
 | `deepseek-v4-1-flash-ovh` | OVHcloud | — | — |
 | `qwen3-5-397b-ovh` | OVHcloud | — | — |
 | `gpt-oss-120b-ovh` | OVHcloud | — | — |
+| `llama-3-3-70b-ovh` | OVHcloud | — | — |
 | `qwen3-8-27b-ovh` | OVHcloud | — | — |
+| `qwen3-6-27b-ovh` | OVHcloud | — | — |
 | `qwen3-8-27b-cloudflare` | Cloudflare | défaut : xhigh | — |
 | `qwen3-6-35b-ovh` | OVHcloud | — | — |
 | `nemotron3-omni-30b-ovh` | OVHcloud | — | — |
@@ -208,11 +219,14 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `gemma-4-26b-free` | OpenRouter | — | — |
 | `gemma-4-26b-cloudflare` | Cloudflare | — | — |
 | `qwen2-5-coder-32b-instruct-cloudflare` | Cloudflare | — | — |
+| `phonellm-mini-alpha-2-cloudflare` | Cloudflare | — | — |
 | `gemma-sea-lion-v4-27b-it-cloudflare` | Cloudflare | — | — |
 | `mistral-small-3-1-24b-instruct-cloudflare` | Cloudflare | — | — |
 | `llama-3-2-11b-vision-instruct-cloudflare` | Cloudflare | — | — |
+| `mistral-7b-instruct-v0-2-lora-cloudflare` | Cloudflare | — | — |
 | `granite-4-0-h-micro-cloudflare` | Cloudflare | — | — |
 | `nemotron-bolt-e4b-nvidia` | NVIDIA | — | — |
+| `nemotron-3-nano-30b-requesty` | Requesty | — | — |
 | `gpt-oss-20b-ovh` | OVHcloud | — | — |
 | `gemma-4-26b-ovh` | OVHcloud | — | — |
 | `nemotron3-nano-30b-ovh` | OVHcloud | — | — |
@@ -247,6 +261,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `laguna-xs-2-1-nvidia` | NVIDIA | — | — |
 | `glm-4-7-flash-cloudflare` | Cloudflare | — | — |
 | `glm-4-7-flash-zai` | Zai | — | — |
+| `glm-4-5-flash-zai` | Zai | — | — |
+| `phonellm-mini-alpha-2-cloudflare` | Cloudflare | — | — |
 | `deepseek-v4-1-flash-ovh` | OVHcloud | — | — |
 | `qwen3-5-397b-ovh` | OVHcloud | — | — |
 | `gpt-oss-120b-ovh` | OVHcloud | — | — |
@@ -280,6 +296,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `laguna-xs-2-1-nvidia` | NVIDIA | — | — |
 | `glm-4-7-flash-cloudflare` | Cloudflare | — | — |
 | `glm-4-7-flash-zai` | Zai | — | — |
+| `glm-4-5-flash-zai` | Zai | — | — |
+| `phonellm-mini-alpha-2-cloudflare` | Cloudflare | — | — |
 | `qwen3-8-27b-cloudflare` | Cloudflare | défaut : xhigh | — |
 | `codestral` | Mistral | — | — |
 | `codestral-2508` | Mistral | — | — |
@@ -447,6 +465,12 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gemini-3-flash-preview` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | `high` | 1 048 576 | 65 536 | 5 | 250 000 | 20 |
 | `gemma-4-31b-gemini` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — | 30 | 16 000 | 14 400 |
 | `gemma-4-26b-gemini` | Gemini | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 262 144 | — | 30 | 16 000 | 14 400 |
+| `gemini-flash-latest` | Gemini | chat | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
+| `gemini-flash-lite-latest` | Gemini | chat | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
+| `gemini-3-8-live` | Gemini | `realtime` | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
+| `gemini-3-8-live-extended-thinking` | Gemini | `realtime` | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
+| `gemini-3-1-flash-live-preview` | Gemini | `realtime` | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
+| `gemini-3-5-live-translate-preview` | Gemini | `realtime` | `LLM`, `Private-Data` | — | — | — | — | — | — | — |
 | `gemini-embedding-2` | Gemini | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | 100 | 30 000 | 1 000 |
 | `gemini-3-8-flash-tts` | Gemini | `audio_speech` | `TTS`, `Private-Data` | `Auto-TTS` | — | — | — | 3 | 10 000 | 10 |
 | `gemini-3-8-flash-lite-tts` | Gemini | `audio_speech` | `TTS`, `Private-Data` | `Auto-TTS` | — | — | — | 3 | 10 000 | 10 |
@@ -459,12 +483,16 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `ministral-8b` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | — | — | — | — |
 | `ministral-3b` | Mistral | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 262 144 | — | — | — | — |
 | `mistral-embed` | Mistral | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `codestral-embed` | Mistral | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
 | `voxtral-mini-mistral` | Mistral | `audio_transcription` | `STT`, `Private-Data` | `Auto-STT` | — | — | — | — | — | — |
+| `voxtral-mini-tts-mistral` | Mistral | `audio_speech` | `TTS`, `Private-Data` | — | — | — | — | — | — | — |
 | `gpt-oss-120b-groq` | Groq | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | défaut : medium | 131 072 | 65 536 | 30 | 8 000 | 1 000 |
 | `gpt-oss-20b-groq` | Groq | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | défaut : medium | 131 072 | 65 536 | 30 | 8 000 | 1 000 |
 | `qwen3-8-27b-groq` | Groq | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | défaut : non-reasoning | 131 072 | 16 384 | 30 | 8 000 | 1 000 |
 | `whisper-large-v3-groq` | Groq | `audio_transcription` | `STT`, `Public-Data-Only` | `Auto-STT` | — | — | — | 20 | — | 2 000 |
 | `whisper-large-v3-turbo-groq` | Groq | `audio_transcription` | `STT`, `Public-Data-Only` | `Auto-STT` | — | — | — | 20 | — | 2 000 |
+| `orpheus-v1-english-groq` | Groq | `audio_speech` | `TTS`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `orpheus-arabic-saudi-groq` | Groq | `audio_speech` | `TTS`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `deepseek-v4-pro-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 000 000 | 393 216 | — | — | — |
 | `deepseek-flash-direct` | DeepSeek | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | défaut : high | 1 000 000 | 393 216 | — | — | — |
 | `nemotron-ultra-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 | — | — | — |
@@ -478,6 +506,8 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `ernie-5-5-flash-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 1 024 000 | 921 600 | — | — | — |
 | `lfm-3-1-7b-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 8 192 | — | — | — |
 | `dots-3-note-preview-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 512 000 | 460 800 | — | — | — |
+| `flint-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 235 929 | — | — | — |
+| `ling-3-2-flash-free` | OpenRouter | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 262 144 | — | — | — |
 | `nemotron-3-embed-1b-free` | OpenRouter | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `nemotron-3-5-embed-1b-free` | OpenRouter | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `nemotron-3-5-embed-8b-free` | OpenRouter | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
@@ -486,6 +516,7 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gemma-4-26b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 256 000 | — | — | — | — |
 | `llama-3-3-70b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 24 000 | — | — | — | — |
 | `glm-4-7-flash-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 131 072 | — | — | — | — |
+| `phonellm-mini-alpha-2-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Flash-Lite`, `Auto-Code`, `Auto-Claude-Code` | — | 262 140 | — | — | — | — |
 | `gemma-sea-lion-v4-27b-it-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 128 000 | — | — | — | — |
 | `clef-cloudflare` | Cloudflare | `evaluation` | `Decisions`, `Private-Data` | `Auto-Decision` | — | — | — | — | — | — |
 | `clef-omni-cloudflare` | Cloudflare | `evaluation` | `Decisions`, `Private-Data` | `Auto-Decision` | — | — | — | — | — | — |
@@ -495,11 +526,20 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `granite-4-0-h-micro-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 131 000 | — | — | — | — |
 | `llama-3-2-11b-vision-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 128 000 | — | — | — | — |
 | `llama-4-scout-17b-16e-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 131 000 | — | — | — | — |
+| `mistral-7b-instruct-v0-2-lora-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 15 000 | — | — | — | — |
 | `mistral-small-3-1-24b-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 128 000 | — | — | — | — |
 | `qwen2-5-coder-32b-instruct-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 32 768 | — | — | — | — |
 | `qwen3-8-27b-cloudflare` | Cloudflare | chat | `LLM`, `Private-Data`, `Claude-Code` | `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : xhigh | 262 144 | — | — | — | — |
 | `bge-m3-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `embeddinggemma-2-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `qwen3-embedding-0-6b-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `plamo-embedding-1b-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `bge-small-en-v1-5-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `bge-base-en-v1-5-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `bge-large-en-v1-5-cloudflare` | Cloudflare | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
 | `glm-4-7-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 200 000 | 128 000 | — | — | — |
+| `glm-4-5-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Code`, `Auto-Claude-Code` | — | 128 000 | 96 000 | — | — | — |
+| `glm-4-6v-flash-zai` | Zai | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `nemotron-ultra-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `high` | 1 000 000 | 65 536 | — | — | — |
 | `nemotron-reasoning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 256 000 | 65 536 | — | — | — |
 | `nemotron-lightning-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 65 536 | — | — | — |
@@ -511,6 +551,9 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `flint-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 235 929 | — | — | — |
 | `glyph-cluster-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 256 000 | — | — | — |
 | `dots-3-note-preview-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 512 000 | 460 800 | — | — | — |
+| `kilo-auto-free` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 768 | — | — | — |
+| `kilo-openrouter-free` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | — | — | — | — |
+| `ling-3-2-flash-kilo` | Kilo | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 262 144 | — | — | — |
 | `deepseek-v4-1-flash-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code` | — | 1 048 576 | 262 144 | — | — | — |
 | `qwen3-5-397b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code` | — | 262 144 | 262 144 | — | — | — |
 | `gpt-oss-120b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Pro`, `Auto-Flash`, `Auto-Code` | — | 131 072 | 131 072 | — | — | — |
@@ -524,10 +567,30 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `qwen3-5-9b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 262 144 | 65 536 | — | — | — |
 | `olala-mini-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash-Lite` | — | 32 768 | 16 384 | — | — | — |
 | `laguna-xs-2-1-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Code` | — | 131 072 | 65 536 | — | — | — |
+| `llama-3-3-70b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `qwen3-6-27b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | `Auto-Flash` | — | 262 144 | 262 144 | — | — | — |
+| `olala-summarise-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 32 768 | 16 384 | — | — | — |
+| `olala-translate-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 8 192 | 8 192 | — | — | — |
+| `qwen3-vl-30b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 32 768 | 16 384 | — | — | — |
+| `qwen2-5-vl-72b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 32 768 | 32 768 | — | — | — |
+| `qwen3guard-gen-0-6b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 32 768 | 16 384 | — | — | — |
+| `qwen3guard-gen-8b-ovh` | OVHcloud | chat | `LLM`, `Private-Data` | — | — | 32 768 | 16 384 | — | — | — |
+| `bge-m3-ovh` | OVHcloud | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `bge-multilingual-gemma2-ovh` | OVHcloud | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `qwen3-embedding-8b-ovh` | OVHcloud | `embedding` | `Embeddings`, `Private-Data` | — | — | — | — | — | — | — |
+| `whisper-large-v3-ovh` | OVHcloud | `audio_transcription` | `STT`, `Private-Data` | — | — | — | — | — | — | — |
+| `whisper-large-v3-turbo-ovh` | OVHcloud | `audio_transcription` | `STT`, `Private-Data` | — | — | — | — | — | — | — |
+| `nvr-tts-en-us-ovh` | OVHcloud | `audio_speech` | `TTS`, `Private-Data` | — | — | — | — | — | — | — |
+| `nvr-tts-es-es-ovh` | OVHcloud | `audio_speech` | `TTS`, `Private-Data` | — | — | — | — | — | — | — |
+| `nvr-tts-it-it-ovh` | OVHcloud | `audio_speech` | `TTS`, `Private-Data` | — | — | — | — | — | — | — |
+| `nvr-tts-de-de-ovh` | OVHcloud | `audio_speech` | `TTS`, `Private-Data` | — | — | — | — | — | — | — |
 | `nemotron-ultra-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `max` | 1 048 576 | 65 536 | — | — | — |
 | `nemotron-reasoning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | `max` | 131 072 | 20 480 | — | — | — |
 | `nemotron-lightning-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 048 576 | 65 536 | — | — | — |
 | `gemma-4-31b-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | `high` | 262 144 | 8 192 | — | — | — |
+| `ling-3-1-flash-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 262 144 | 32 768 | — | — | — |
+| `muse-glimmer-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 20 480 | — | — | — |
+| `nemotron-3-nano-30b-requesty` | Requesty | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | — | — | — | — |
 | `kimi-k3-1-pro-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | — | 1 048 576 | — | — | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only`, `Claude-Code` | `Auto-Pro`, `Auto-Flash`, `Auto-Code`, `Auto-Claude-Code` | défaut : high | 1 048 576 | — | — | — | — |
 | `nemotron-ultra-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 048 576 | — | — | — | — |
@@ -543,6 +606,20 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gemma-4-31b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | — | — | — | — |
 | `gemma-3-12b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | — | — | — | — | — |
 | `gemma-3-4b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | — | — | — | — | — |
+| `cosmos-reason2-8b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `ising-calibration-1-5-31b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `riva-translate-4b-instruct-v2-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemoguard-topic-control-8b-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemotron-safety-guard-8b-v3-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemotron-3-5-content-safety-nvidia` | NVIDIA | chat | `LLM`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `embed-qa-4-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemoretriever-1b-vlm-embed-v1-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nv-embedqa-1b-v1-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemotron-3-5-embed-1b-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nemotron-3-5-embed-8b-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nv-embedqa-mistral-7b-v2-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `arctic-embed-l-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `nvclip-nvidia` | NVIDIA | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `hy4-flash-cent-ai` | Cent AI | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite` | — | 1 048 576 | — | — | — | — |
 | `aion-3-5-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 262 144 | 32 768 | — | — | — |
 | `aion-3-5-mini-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 262 144 | 32 768 | — | — | — |
@@ -624,6 +701,8 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `nemotron-reasoning-requesty` | `nemotron-3-nano-omni-30b-a3b` (`max`) | — | — | — | — | — |
 | `nemotron-lightning-requesty` | `nemotron-3-5-lightning` | — | — | — | — | — |
 | `gemma-4-31b-requesty` | `gemma-4-31b` (`reasoning`) | — | — | `Gemma 4 31B IT` | 144,12 | — |
+| `ling-3-1-flash-requesty` | `ling-3-1-flash` | — | — | — | — | — |
+| `muse-glimmer-requesty` | `muse-glimmer` | — | — | — | — | — |
 | `kimi-k3-1-pro-nvidia` | `kimi-k3-1-pro` | — | — | `Kimi K3.1 Pro` | 161,2 | — |
 | `mistral-large-4-nvidia` | `mistral-large-4` (`high`) | — | — | `Mistral Large 4` | 154,57 | — |
 | `nemotron-ultra-nvidia` | `nvidia-nemotron-3-ultra-550b-a55b` | — | — | `Nemotron 3 Ultra` | 147,02 | — |
