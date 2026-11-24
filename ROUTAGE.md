@@ -31,6 +31,8 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 
 **`Auto-Fiction` : les modèles de jeu de rôle d'Aion Labs, à part.** Aion Labs les décrit comme réglés pour le jeu de rôle et la narration, y compris les « thèmes adultes et sombres », et n'en modère aucun. Ils sont donc dans un groupe d'accès à eux, `Fiction`, et non dans `LLM`, et dans un routeur à eux, `Auto-Fiction`, qui ne tient qu'eux : aucun autre routeur n'en tient un, et une clé qui a `LLM` ne les atteint pas. Aucun chiffre ne les place, l'ordre est donc écrit à la main, du plus récent et du plus grand au plus petit. Une clé les atteint quand `Fiction` ou `Auto-Fiction` est nommé dans ses modèles.
 
+**Les groupes de données : `Private-Data` et `Public-Data-Only`.** Chaque entrée porte, après son groupe de type, un de ces deux groupes, d'après ce que les conditions de son fournisseur disent de ce qu'on lui envoie (la table et les phrases sont dans le README, « Les groupes de données »). Une clé pour des données privées reçoit `Private-Data` par son nom et aucun routeur : un routeur est dans aucun groupe, et les cascades ci-dessous mélangent les deux groupes, si bien qu'un repli pourrait quitter les entrées `Private-Data` (non vérifié sur une passerelle réelle).
+
 **Les niveaux fixés.** Seules les entrées Gemini dont Artificial Analysis mesure les niveaux (Gemini 4 Hydrogen et Gemini 3.8 Flash) ont un niveau fixé, avec une entrée par niveau dont un routeur a besoin, nommée `<entrée>-<niveau>` (le nom sans suffixe porte le niveau que garde `Auto-Pro`). Ce niveau n'est qu'une valeur par défaut : si un client envoie son propre niveau, c'est le sien qui compte. Claude Code en envoie toujours un, donc `Auto-Claude-Code` n'est pas piloté par ces niveaux ; LibreChat et n8n n'en envoient pas, ils reçoivent le niveau fixé. Les autres entrées n'ont pas de niveau fixé :
 
 - chez OpenRouter, NVIDIA, OVHcloud, Kilo et Requesty (facturés à la requête), on ne sait pas si le fournisseur tient compte du niveau que LiteLLM lui envoie : « non fixé : non vérifié chez ce fournisseur » ;
@@ -205,7 +207,8 @@ Tête : `gemini-3-5-flash-lite`. Demandes simples et courtes : le score moins 3 
 | 31 | `gemini-4-hydrogen-low` | Google AI Studio | à la requête, quota par modèle | `low` | 26,9 | 7,6 s | niveau gardé par `Auto-Flash-Lite` : `low`, car `medium` rapporte 2,6 points par seconde, moins que les 3 demandés ; score 4,0, mais même modèle que la tête de `Auto-Pro` : dans les derniers pour ne pas manger ses 20 requêtes par jour |
 | 32 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur | 10,0 | 5,1 s | score -5,2, mais c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
 | 33 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié, et c'est la même entrée que celle de `Auto-Flash` : même quota, donc dans les derniers |
-| 34 | `ministral-3b` | Mistral | prépayé | défaut du fournisseur | — | 1,7 s | payant : tout à la fin, après les gratuits |
+| 34 | `ministral-3b` | Mistral | prépayé | défaut du fournisseur | — | 1,7 s | payant : après les gratuits |
+| 35 | `omniroute-free-fast` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin, après le payant |
 
 ### `Auto-Code`
 
@@ -302,7 +305,7 @@ Aucune de ces montées de niveau n'atteint les 0,2 point par seconde que `Auto-P
 3. **Chez OpenRouter, NVIDIA, OVHcloud, Kilo et Requesty, rien n'est fixé** tant qu'on n'a pas vérifié que le fournisseur tient compte du niveau que LiteLLM lui envoie. Tant que ce n'est pas fait, le niveau gardé par le contrat y reste un simple rapport.
 4. **Les 20 requêtes par jour de Hydrogen et de 3.8 Flash.** Les têtes de `Auto-Pro` et de `Auto-Flash` s'épuisent vite, `gemini-4-hydrogen-xhigh` dépense les mêmes : la cascade passe alors au membre suivant.
 5. **Dans `Auto-Flash-Lite`, les membres sans chiffres passent avant `gemini-3-8-flash-low`**, parce que la règle veut que les membres à quota partagé viennent après tous ceux qui ont un quota à eux, même ceux dont les chiffres ne s'appliquent pas. À revoir si on préfère que Gemini 3.8 Flash, à 5,1 s, passe devant des modèles de 34 s ou sans chiffre.
-6. **Le payant `ministral-3b` reste le dernier** de `Auto-Flash-Lite`, comme tous les payants du gabarit : le contrat le déclare en dernier recours.
+6. **Le payant `ministral-3b` précède `omniroute-free-fast`** dans `Auto-Flash-Lite`, comme les payants précèdent l'entrée locale dans `Auto-Pro` et `Auto-Flash` : le contrat les déclare en dernier recours, dans cet ordre.
 
 ## Tenir ce document à jour
 

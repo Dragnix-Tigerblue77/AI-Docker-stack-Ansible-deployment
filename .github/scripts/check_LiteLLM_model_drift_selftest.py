@@ -721,7 +721,7 @@ def online_cases():
         line = next((line for line in report.splitlines() if "aion-three" in line), "")
         if "openai/aion-labs/aion-three on Aion Labs: to examine, its free tier is not machine-readable" not in line:
             return "the report does not list the new Aion Labs model as one to examine, with no claim that it is free"
-        if 'access_groups: ["Fiction"]' not in body:
+        if 'access_groups: ["Fiction", "Private-Data"]' not in body:
             return "the entry to paste is not in the group of the models kept apart"
         if "## Nouveaux modèles à examiner" not in body or "aionlabs.ai/docs/rate-limits" not in body:
             return "the summary does not list the new Aion Labs model to examine, with the page that states its free tier"
@@ -2346,7 +2346,8 @@ def run_ranking_cases():
            first_wrong((section.count("\n| `openrouter/") == RANKING_LISTED, "the table holds %d rows" % section.count("\n| `openrouter/")),
                        ("inconnu de la source" not in section, "an unmatched row came before a matched one"),
                        ("… et 55 autre(s) nouveau(x) modèle(s) sans chiffres ici" in section, "the rest was not counted"),
-                       (len(body) < 47000, "the body is %d characters long" % len(body))))
+                       (len(body) <= drift.BODY_LIMIT, "the body is %d characters long, past the %d a body may hold"
+                        % (len(body), drift.BODY_LIMIT))))
 
     # Figures that are not figures are none, and the matching takes the spelling it can trust.
     junk = ranking_model("fresh-model", "Fresh Model", "NaN", True, float("inf"), "1.5")
@@ -3769,14 +3770,14 @@ def run_proposal_cases():
                (not any(line.startswith("- ") for line in added), "a line of the file was changed: %r" % added[:3]),
                ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
-                '    model_info:\n      access_groups: ["LLM"]\n'
+                '    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
                 '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
                ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the drift run on 2026-01-01: '
                 'listed free by "ai-gateway.kilo.ai/api/v1/models" that day.\n  - model_name: gateway-fresh-kilo\n'
-                '    model_info:\n      access_groups: ["LLM"]\n'
+                '    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n'
                 '    litellm_params:\n      model: openai/vendor/gateway-fresh:free\n'
                 '      api_base: "https://ai-gateway.kilo.ai/api/v1"\n      api_key: "kilo-selftest-marker"\n'
                 '      extra_headers:\n        Authorization: ""\n' in ready["text"],
@@ -3786,11 +3787,11 @@ def run_proposal_cases():
                 "the Kilo entry to verify is wrong, or another entry lost its header"),
                ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
                 'drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
-                '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM"]\n'
+                '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM", "Public-Data-Only"]\n'
                 '  #   litellm_params:\n  #     model: openai/SN-Two\n'
                 '  #     api_base: "https://api.sambanova.ai/v1"\n' in to_verify["text"],
                 "the SambaNova entry is not a commented-out one after sn-one, with its base"),
-               ("  - model_name: quick-groq\n    model_info:\n      access_groups: [\"LLM\"]\n"
+               ("  - model_name: quick-groq\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
                 "    litellm_params:\n      model: groq/vendor/quick\n"
                 '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"' in to_verify["text"], "the Groq entry is wrong"),
                (addition_problem(SELFTEST_TEMPLATE, to_verify["text"], to_verify["items"]) is None
@@ -4148,14 +4149,14 @@ def run_proposal_cases():
     judged("a keyless gateway's entries are written with the literal marker and the header that blanks Authorization",
            first_wrong(
                (kilo_problem is None and kilo_text, "refused for %r" % kilo_problem),
-               (("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+               (("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
                  "    litellm_params:\n      model: openai/vendor/gw-two:free\n"
                  + kilo_entry) in kilo_text, "the entry with a :free id is wrong"),
-               (("  - model_name: gw-three-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+               (("  - model_name: gw-three-kilo\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
                  "    litellm_params:\n      model: openai/vendor/gw-three\n"
                  + kilo_entry) in kilo_text, "the entry without :free is wrong, or was refused for it"),
                (addition_problem(ADDITIONS_TEMPLATE, kilo_text, kilo_items) is None, "the file does not read back")))
-    head = ("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\"]\n"
+    head = ("  - model_name: gw-two-kilo\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
             "    litellm_params:\n      model: openai/vendor/gw-two:free\n")
     unblanked = kilo_text.replace(head + kilo_entry, head + kilo_entry.split("      extra_headers")[0])
     judged("a file whose entry of a keyless gateway does not blank the Authorization header is refused",
@@ -4173,7 +4174,7 @@ def run_proposal_cases():
     judged("an entry of the models kept apart is written in the group of its own, with the key and the base of the provider's",
            first_wrong(
                (aion_problem is None and aion_text, "refused for %r" % aion_problem),
-               (("  - model_name: aion-two-aion-labs\n    model_info:\n      access_groups: [\"Fiction\"]\n"
+               (("  - model_name: aion-two-aion-labs\n    model_info:\n      access_groups: [\"Fiction\", \"Private-Data\"]\n"
                  "    litellm_params:\n      model: openai/aion-labs/aion-two\n"
                  '      api_base: "https://api.aionlabs.ai/v1"\n      api_key: "os.environ/AION_LABS_API_KEY"\n')
                 in aion_text, "the entry is not in the group Fiction, or lost the key or the base of its provider's"),
@@ -4223,6 +4224,20 @@ def run_proposal_cases():
                (all(command.count("'") == 2 for command in commands), "a command holds a quote of its own"),
                (all(("docker exec" in command) == keyed(name) for name, command in zip(PROVIDER_NAMES, commands)),
                 "a keyed command does not run in the container, or a keyless one does")))
+
+    # The data group of an entry written for each provider: one of the two, a verdict for every provider the
+    # script reads, and the first group of the entry stays its type group.
+    data_groups = {name: drift.access_groups_text(name) for name in PROVIDER_NAMES}
+    judged("an entry written for any provider is in its type group and in exactly one data group",
+           first_wrong(
+               (all(text in ('["LLM", "Private-Data"]', '["LLM", "Public-Data-Only"]',
+                             '["Fiction", "Private-Data"]', '["Fiction", "Public-Data-Only"]')
+                    for text in data_groups.values()), "an entry would carry a group that is neither"),
+               (set(drift.DATA_GROUPS) >= set(PROVIDER_NAMES), "a provider the script reads has no data group"),
+               (drift.access_groups_text("no-such-provider") == '["LLM", "Public-Data-Only"]',
+                "a provider with no verdict is not Public-Data-Only"),
+               (data_groups["gemini"] == '["LLM", "Private-Data"]' and data_groups["aionlabs"] == '["Fiction", "Private-Data"]'
+                and data_groups["groq"] == '["LLM", "Public-Data-Only"]', "a verdict is not the one the template holds")))
     return failures
 
 
@@ -4667,6 +4682,11 @@ REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
 ONE_KEY_CONDITION = re.compile(r"\{%-?\s*(?:el)?if\s+(?:not\s+)?has\.\w+\s*-?%\}")
 
 
+# The script's own keyset_documents, kept because bounded_key_sets puts bounded_keyset_documents in its
+# place, and a file the bounds do not fit has to reach the plain one rather than itself.
+plain_keyset_documents = keyset_documents
+
+
 def bounded_keyset_documents(text):
     """keyset_documents over each key alone, every key, and every key but one, rather than every set of
     them: 2n + 1 renderings for n keys where every set is 2^n - 1, which doubled with each provider. A
@@ -4683,7 +4703,7 @@ def bounded_keyset_documents(text):
     if len(names) < 3 or not all(ONE_KEY_CONDITION.fullmatch(condition) or "has." not in condition
                                  and not any(name in condition for name in names)
                                  for condition in conditions):
-        return keyset_documents(text)
+        return plain_keyset_documents(text)
     sets = [(name,) for name in names] + [tuple(names)] + [
         tuple(other for other in names if other != name) for name in names]
     return [(given, drift.render_keyset(text, given)) for given in sets]
@@ -4904,6 +4924,18 @@ def run_bounded_key_set_cases():
             print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted" % (what, got, wanted))
         else:
             print("selftest: ok -- the bounded sets of keys of a file with %s are %d" % (what, wanted))
+    # While the sets are bounded, keyset_documents is bounded_keyset_documents, which must still reach
+    # the plain function for a file the bounds do not fit, and not itself.
+    with bounded_key_sets():
+        try:
+            got = len(keyset_documents(two))
+        except RecursionError:
+            got = None
+    if got != 2 ** 4 - 1:
+        failures += 1
+        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, 2 ** 4 - 1))
+    else:
+        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets every set")
     return failures
 
 
@@ -7277,7 +7309,7 @@ def run_cloudflare_cases():
                (proposals["ready"]["items"] == [], "a Cloudflare model was ready"),
                (part["items"] == [{"provider": "cloudflare", "id": "@cf/vendor/new-text", "name": "new-text-cloudflare"}],
                 "items %r" % part["items"]),
-               ('  - model_name: new-text-cloudflare\n    model_info:\n      access_groups: ["LLM"]\n'
+               ('  - model_name: new-text-cloudflare\n    model_info:\n      access_groups: ["LLM", "Private-Data"]\n'
                 '    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
                 '      api_key: "os.environ/CLOUDFLARE_API_KEY"\n' in part["text"], "the entry"),
                ("api_base" not in part["text"].split("new-text-cloudflare")[1].split("\n\n")[0], "an api_base was invented"),
@@ -7589,7 +7621,7 @@ def run_coverage_cases():
                ([(item["provider"], item["id"]) for item in proposals["to_verify"]["items"]]
                 == [("requesty", "vendor/req-unranked")], "to verify %r" % proposals["to_verify"]["items"]),
                ('  # Proposed by the drift run on 2026-01-01: listed free by "router.eu.requesty.ai/v1/models" that day.\n'
-                '  - model_name: req-fresh-requesty\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+                '  - model_name: req-fresh-requesty\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
                 '      model: openai/vendor/req-fresh\n      api_base: "https://router.eu.requesty.ai/v1"\n'
                 '      api_key: "os.environ/REQUESTY_API_KEY"\n' in ready["text"], "the entry"),
                (addition_problem(COVERAGE_TEMPLATE, ready["text"], ready["items"]) is None, "it does not read back"),
@@ -7611,11 +7643,11 @@ def run_coverage_cases():
                (proposals["ready"]["items"] == [], "one was ready"),
                (sorted(item["id"] for item in part["items"]) == ["Ovh-New.2", "glm-9-new", "hy9-new:free", "vendor/nv-new.1"],
                 "items %r" % part["items"]),
-               ('  - model_name: ovh-new-2-ovh\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+               ('  - model_name: ovh-new-2-ovh\n    model_info:\n      access_groups: ["LLM", "Private-Data"]\n    litellm_params:\n'
                 '      model: openai/Ovh-New.2\n      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"\n'
                 '      api_key: "ovh-no-key-needed"\n      extra_headers:\n        Authorization: ""\n' in part["text"],
                 "the OVHcloud entry"),
-               ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM"]\n    litellm_params:\n'
+               ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
                 '      model: nvidia_nim/vendor/nv-new.1\n      api_key: "os.environ/NVIDIA_NIM_API_KEY"\n' in part["text"],
                 "the NVIDIA entry"),
                ('      model: zai/glm-9-new\n      api_key: "os.environ/ZAI_API_KEY"\n' in part["text"], "the Z AI entry"),
