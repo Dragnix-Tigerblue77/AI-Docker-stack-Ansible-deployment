@@ -151,6 +151,9 @@ PROVIDER_COLOURS = {
     # The dominant pixel of the logo, aionlabs.ai/static/images/logos/aion-logo.f40cfec9b77a.png, a dark navy: the site
     # serves only a one-colour black mask as an SVG.
     "Aion_Labs": "061929",
+    # The dominant pixel of the favicon, vercel.com/favicon.ico, the black of the square behind the white triangle:
+    # the site serves no SVG of its logo at an address of its own.
+    "Vercel_AI_Gateway": "000000",
     # The fill of the square behind the mark, in kilo.ai/favicon/favicon.svg.
     "Kilo": "FFDD00",
     # The fill of the mark, "cls-1", in www.ovhcloud.com/icon.svg.
