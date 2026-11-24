@@ -54,6 +54,13 @@ none to protect. It is exempt from rules 1 and 2 (nothing to group, nothing to a
 never appears in "accounts_seen" -- a real account's grouping and labelling rules are unaffected by
 its presence.
 
+A second shape needs no key and is not reported either: an entry whose model is LiteLLM's complexity router
+("auto_router/complexity_router"). It calls no provider itself, it only rewrites a request's model to the one
+a tier names, so there is no quota behind it and no account on it: like a literal key it is exempt from rules 1
+to 3. What it does carry is a list of names, and rule 6 holds those: each is a group the file declares, none
+is a router, and together they belong to one account at most, since a router that spans two would hand one
+person's request to the other's quota under a single name.
+
 WHY THE YAML IS PARSED, AND NO LONGER READ LINE BY LINE
 -------------------------------------------------------
 The first version of this file read lines with regular expressions, so as to carry no dependency.
@@ -116,6 +123,9 @@ SETTINGS_SECTIONS = ("router_settings", "litellm_settings")
 # "os.environ/GROQ_API_KEY" -> the default account; "os.environ/GROQ_API_KEY_<ACCOUNT>" -> <ACCOUNT>.
 ENVIRONMENT_REFERENCE = re.compile(r"^os\.environ/(?P<variable>[A-Za-z0-9_]+)$")
 ACCOUNT_FROM_VARIABLE = re.compile(r"_API_KEY(?:_(?P<account>[A-Za-z0-9_]+))?$")
+
+# The model of an entry that routes by the complexity of a request and calls no provider itself.
+COMPLEXITY_ROUTER_MODEL = "auto_router/complexity_router"
 
 # The label of the account whose key carries no suffix. Parenthesised so that it can never equal a
 # label a caller picks (an environment variable name has no parenthesis), and so that rules 3's
@@ -218,6 +228,28 @@ def normalise_fallbacks(section):
     return found
 
 
+def tier_names(configuration):
+    """Every model group the tiers of a complexity router's configuration name, in the order written. A tier is a
+    name, a list of names or an entry with a "model_name", and a router that sets no tier gets LiteLLM's own
+    defaults, which this file declares nowhere: it names none here, and rule 6 says so."""
+    tiers = configuration.get("tiers") if isinstance(configuration, dict) else None
+    names = []
+    for value in tiers.values() if isinstance(tiers, dict) else []:
+        for item in value if isinstance(value, list) else [value]:
+            name = item.get("model_name") if isinstance(item, dict) else item
+            if isinstance(name, str):
+                names.append(name)
+    return names
+
+
+def account_of_entry(entry):
+    """The account of an entry, or why it has none: a complexity router has no key and no account, like a backend
+    that needs no credential."""
+    if entry["is_router"]:
+        return SHARED, None
+    return account_of_reference(entry["api_key"])
+
+
 def read_entries(document):
     """The "model_list" entries, in a usable shape."""
     entries = []
@@ -230,10 +262,13 @@ def read_entries(document):
         parameters = entry.get("litellm_params") or {}
         information = entry.get("model_info") or {}
         groups = information.get("access_groups") if isinstance(information, dict) else None
+        is_router = isinstance(parameters, dict) and parameters.get("model") == COMPLEXITY_ROUTER_MODEL
         entries.append({
             "model_name": entry.get("model_name"),
             "api_key": parameters.get("api_key") if isinstance(parameters, dict) else None,
             "access_groups": [g for g in (groups or []) if isinstance(g, str)],
+            "is_router": is_router,
+            "tiers": tier_names(parameters.get("complexity_router_config")) if is_router else [],
         })
     return entries
 
@@ -247,7 +282,7 @@ def check_document(path, document):
 
     accounts_seen = set()
     for entry in entries:
-        account, _ = account_of_reference(entry["api_key"])
+        account, _ = account_of_entry(entry)
         if account and account is not SHARED:
             accounts_seen.add(account)
 
@@ -265,7 +300,7 @@ def check_document(path, document):
     for name, group in sorted(by_name.items()):
         accounts = sorted({
             account for account, _ in
-            (account_of_reference(entry["api_key"]) for entry in group)
+            (account_of_entry(entry) for entry in group)
             if account and account is not SHARED
         })
         if len(accounts) == 1:
@@ -283,7 +318,7 @@ def check_document(path, document):
 
     # Rule 2 -- an entry the check cannot attribute is reported, not ignored.
     for entry in entries:
-        account, reason = account_of_reference(entry["api_key"])
+        account, reason = account_of_entry(entry)
         if account:
             continue
         problems.append(
@@ -297,7 +332,7 @@ def check_document(path, document):
     # A mislabelled entry is not a typo: it is what makes rule 4 unreadable, since a reviewer
     # judges a fallback on the name they see.
     for entry in entries:
-        account, _ = account_of_reference(entry["api_key"])
+        account, _ = account_of_entry(entry)
         if not account or account is SHARED or not isinstance(entry["model_name"], str):
             continue
         # A label is written the way an environment variable suffix is, in upper case with
@@ -373,6 +408,58 @@ def check_document(path, document):
                         "    Remove it from the cascade, or declare it."
                         % (path, section_name, key, name)
                     )
+
+    # Rule 6 -- a complexity router's tiers name groups this file declares, that are no router, of one account.
+    # LiteLLM does not look at a tier's name when the file loads, and a request that lands on a name nobody
+    # serves fails then (measured), so a tier naming a retired or misspelt group breaks the requests of that
+    # tier and nothing at start-up shows it. A router naming a router is a loop or a second hop nobody decided.
+    # And a router whose tiers span two accounts is a group of two accounts under one name: rule 1's failure,
+    # reached through the tiers instead of a shared "model_name".
+    alias_targets = {}
+    for section_name in SETTINGS_SECTIONS:
+        section = document.get(section_name) if isinstance(document, dict) else None
+        aliases = section.get("model_group_alias") if isinstance(section, dict) else None
+        if isinstance(aliases, dict):
+            alias_targets.update({name: target for name, target in aliases.items()
+                                  if isinstance(name, str) and isinstance(target, str)})
+    routers = {entry["model_name"] for entry in entries if entry["is_router"]}
+    for entry in entries:
+        if not entry["is_router"]:
+            continue
+        if not entry["tiers"]:
+            problems.append(
+                "%s: the complexity router \"%s\" names no tier.\n"
+                "    LiteLLM then sends each request to the models it ships as defaults, which this file\n"
+                "    declares nowhere. Name every tier."
+                % (path, entry["model_name"])
+            )
+        tier_accounts = set()
+        for name in entry["tiers"]:
+            if name not in declared:
+                problems.append(
+                    "%s: a tier of the complexity router \"%s\" names \"%s\", which no model_list entry or\n"
+                    "    alias declares. LiteLLM loads the file all the same and fails the requests that\n"
+                    "    land on that tier. Declare the name or change the tier."
+                    % (path, entry["model_name"], name)
+                )
+                continue
+            if name in routers:
+                problems.append(
+                    "%s: a tier of the complexity router \"%s\" names the complexity router \"%s\".\n"
+                    "    A router over a router is a loop at best and a second hop nobody decided at worst."
+                    % (path, entry["model_name"], name)
+                )
+                continue
+            account = account_of_model.get(alias_targets.get(name, name))
+            if account is not None:
+                tier_accounts.add(account)
+        if len(tier_accounts) > 1:
+            problems.append(
+                "%s: the tiers of the complexity router \"%s\" belong to several accounts (%s).\n"
+                "    One name would then send a person's request to another's quota: give each account\n"
+                "    a router of its own."
+                % (path, entry["model_name"], ", ".join(sorted(tier_accounts)))
+            )
     return problems
 
 

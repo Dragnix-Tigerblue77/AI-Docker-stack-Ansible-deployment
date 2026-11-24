@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 0
+---
+# A complexity router has no "api_key", and rule 2 does not report it: it calls no provider, it only rewrites
+# the model of a request to the group a tier names, so there is no quota behind it. Its tiers name two routers
+# (aliases, one cascade each) and a model, all of one account, which is what rule 6 asks.
+model_list:
+  - model_name: fast-model
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: strong-model
+    litellm_params:
+      model: provider/other-identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: router-fast
+          MEDIUM: router-fast
+          COMPLEX: router-strong
+          REASONING: strong-model
+
+router_settings:
+  fallbacks:
+    - router-fast: ["fast-model", "strong-model"]
+    - router-strong: ["strong-model", "fast-model"]
+  model_group_alias:
+    "router-fast": "fast-model"
+    "router-strong": "strong-model"

@@ -14,6 +14,8 @@
 # A router is named in this file, in the "head" table and in the script by its short id ("pro", "flash",
 # "flash-lite", "code", "claude-code", "fiction"). The template publishes it under the name a client types, "Auto-Pro",
 # "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Claude-Code" and "Auto-Fiction", and the script reads one for the other.
+# "Auto", which picks one of three of these routers for each request by the complexity of the request, has no row below:
+# it has no member of its own to hold to a floor, and the router it picks is held to its own.
 #
 # VALIDATED by the maintainer on 2026-11-22: the floors, the margin, the exchange rates, the code scale
 # and the curve that estimates it, and the rules of the ranking below. Two of those rules were changed

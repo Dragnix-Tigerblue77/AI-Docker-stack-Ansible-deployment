@@ -55,7 +55,7 @@ Un seul tableau pour tous les fournisseurs que la passerelle appelle et pour tou
 | Google Gemini | Synthèse vocale : 3.8 Flash TTS, 3.8 Flash Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS | 3 par minute, 10 000 jetons par minute, 10 par jour | modèle et projet | minuit, heure du Pacifique |
 | Google Gemini | Gemini 3.5 Transcribe | 3 par minute, 10 000 jetons par minute, 25 par jour | modèle et projet | minuit, heure du Pacifique |
 | Google Gemini | Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon et Carbon | aucune : pas servis en gratuit | — | — |
-| Groq | gpt-oss, qwen3.8-27b | 30 requêtes par minute, 8 000 jetons par minute ; par jour : non relevé | modèle et organisation | non relevé |
+| Groq | gpt-oss, qwen3.8-27b | 30 requêtes par minute, 8 000 jetons par minute ; 1 000 requêtes et 200 000 jetons par jour (page des limites relue le 2026-11-24). Les jetons de raisonnement comptent dans le quota de jetons (sonde du 2026-11-22 : effort bas, 8 jetons de raisonnement ; haut, 562) ; une valeur d'effort que Groq ne liste pas peut recevoir un 400 | modèle et organisation | non relevé |
 | Groq | whisper-large-v3, whisper-large-v3-turbo | 20 requêtes par minute, 7 200 secondes d'audio par heure (plan non établi), 25 Mo par fichier | modèle et organisation | non relevé |
 | Cloudflare Workers AI | tous | 10 000 « neurons » par jour ; texte : 300 requêtes par minute | compte | 00:00 UTC |
 | NVIDIA API Catalog | tous | 40 requêtes par minute ; plafond quotidien inconnu | compte | — |
@@ -80,6 +80,8 @@ Ce que ça change, en clair :
 ## Les routeurs
 
 Dans chaque tableau, « Niveau » dit ce que fixe le gabarit : un niveau entre apostrophes inversées s'il en fixe un, sinon « défaut du fournisseur » ou « non fixé : non vérifié chez ce fournisseur ». « Indice » et « Délai » sont ceux du niveau où l'entrée est appelée, « (estimé) » marquant un indice tiré de l'indice de capacités d'Epoch AI faute d'indice d'Artificial Analysis. Un tiret veut dire qu'aucun chiffre ne s'applique.
+
+`Auto` n'a pas de tableau : il n'a aucun membre à lui. C'est une entrée qui choisit, pour chaque requête, entre `Auto-Flash-Lite` (niveau `SIMPLE`), `Auto-Flash` (`MEDIUM`) et `Auto-Pro` (`COMPLEX` et `REASONING`) par le classement heuristique de LiteLLM, et la cascade qui s'applique ensuite est celle du routeur choisi, décrite ci-dessous. Elle ne change aucune cascade, et `README.md` dit comment elle se comporte.
 
 ### `Auto-Pro`
 

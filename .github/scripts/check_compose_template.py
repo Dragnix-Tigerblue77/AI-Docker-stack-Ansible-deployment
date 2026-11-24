@@ -74,6 +74,10 @@ otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same sh
 endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
 A text entry of Cloudflare or Groq states the length of its answer, as "max_tokens" or "max_completion_tokens":
 both cut an answer that names no limit short, at 256 tokens on most Cloudflare models and at 2,048 or 3,072 on Groq.
+Every member of a text cascade declares its context window, "model_info.max_input_tokens", which the router's pre-call
+checks hold a request to, and those checks are on; OmniRoute's routes and OpenRouter's free router, which pick a model at
+run time, are exempt, and so is a member whose provider publishes no window, listed with where it was looked for. A
+length an entry sets stays under its declared maximum output and its window.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1762,6 +1766,15 @@ LITELLM_ROUTER_RETIRED_NAMES = {
 # 128k of context, and nothing says that of the model OmniRoute's free combo picks. The entries on a keyless
 # base below are left out too, whatever they are: that router is reserved for keyed providers.
 LITELLM_CLAUDE_CODE_LEAVES_OUT = frozenset({"omniroute-free-code"})
+# The one entry that is neither a model nor an alias of a router: it picks one of the text routers by the complexity of
+# the request and has no cascade of its own, since the router it picks has one. It is a model_list entry under the
+# name a client types, served exactly when the three routers its tiers name are, and its configuration is held to
+# what was measured: the tiers below, the two defaults turned off, and no scoring key, whose tuning LiteLLM
+# licenses. A tier names a router by its public name, which LiteLLM reads as a model group at the request.
+LITELLM_TIER_ROUTER = "Auto"
+LITELLM_TIER_ROUTER_MODEL = "auto_router/complexity_router"
+LITELLM_TIER_ROUTER_TIERS = {"SIMPLE": "flash-lite", "MEDIUM": "flash", "COMPLEX": "pro", "REASONING": "pro"}
+LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_compaction": False}
 # The bases of the keyless gateways. Kilo's answered 401 to the placeholder sent as a bearer token and serves
 # a call whose header is empty or absent, so an entry on a base listed here sends the header empty.
 LITELLM_KEYLESS_BASES = {
@@ -1773,6 +1786,24 @@ LITELLM_KEYLESS_BASES = {
 # first, and Groq's models were measured stopping at 2,048 or 3,072. A text entry of theirs states its own limit,
 # as "max_tokens" or "max_completion_tokens".
 LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES = ("cloudflare/", "groq/")
+# A member of a text cascade declares the context window its provider serves it with, "model_info.max_input_tokens":
+# the router's pre-call checks skip without a call a member a request does not fit, and call blindly one that declares
+# none. The entries that pick their model at run time have no window of their own: OmniRoute's routes and
+# OpenRouter's free router, told apart by their model or their base.
+LITELLM_RUN_TIME_ROUTER_MODELS = ("openrouter/openrouter/",)
+LITELLM_RUN_TIME_ROUTER_BASES = ("http://omniroute:",)
+# The members whose provider publishes no window, each with where it was looked for. A row whose entry is gone is
+# ignored, so that a deletion needs no edit here.
+LITELLM_WINDOW_UNPUBLISHED = {
+    "glm-5-3-flash-nvidia": "NVIDIA's model card is drawn in the browser and its API's model list carries no limit "
+                            "(read 2026-11-24)",
+    "gemma-3-4b-nvidia": "same as glm-5-3-flash-nvidia",
+    "gemma-3-12b-nvidia": "same as glm-5-3-flash-nvidia",
+}
+
+
+def positive_int(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def litellm_key_sets():
@@ -1874,6 +1905,42 @@ def check_litellm_config(document, keys, failures):
                 "max_completion_tokens: its provider cuts an answer that names no limit short, at 256 tokens on most "
                 "Cloudflare models and at 2,048 or 3,072 on Groq, which empties the answer of a model that reasons first"
             )
+    members = {member for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
+               for cascade in item.values() if isinstance(cascade, list) for member in cascade}
+    windows_declared = False
+    for entry in entries:
+        info, parameters = mapping(entry, "model_info"), mapping(entry, "litellm_params")
+        name = entry.get("model_name")
+        if info.get("mode"):
+            continue
+        window, output, vision = info.get("max_input_tokens"), info.get("max_output_tokens"), info.get("supports_vision")
+        windows_declared = windows_declared or window is not None
+        router = (str(parameters.get("model", "")).startswith(LITELLM_RUN_TIME_ROUTER_MODELS)
+                  or str(parameters.get("api_base", "")).startswith(LITELLM_RUN_TIME_ROUTER_BASES))
+        if name in members and not router and name not in LITELLM_WINDOW_UNPUBLISHED and not positive_int(window):
+            failures.append(
+                f"[{state}] the entry {name!r} is a member of a cascade and declares no positive "
+                "model_info.max_input_tokens: the pre-call checks cannot skip it for a request it does not fit, "
+                "so such a request pays a call to learn it. Write the window its provider serves it with, or, if "
+                "the provider publishes none, add the entry to LITELLM_WINDOW_UNPUBLISHED with where it was looked for"
+            )
+        for field, value in (("max_input_tokens", window), ("max_output_tokens", output)):
+            if value is not None and not positive_int(value):
+                failures.append(f"[{state}] the entry {name!r} has model_info.{field} {value!r}, which is no positive "
+                                "integer")
+        if vision is not None and not isinstance(vision, bool):
+            failures.append(f"[{state}] the entry {name!r} has model_info.supports_vision {vision!r}, which is no boolean")
+        length = next((value for value in (parameters.get("max_tokens"), parameters.get("max_completion_tokens"))
+                       if positive_int(value)), None)
+        if length is not None and positive_int(output) and length > output:
+            failures.append(f"[{state}] the entry {name!r} sets a length of {length} tokens above its "
+                            f"model_info.max_output_tokens of {output}: the provider refuses or cuts it")
+        if length is not None and positive_int(window) and length >= window:
+            failures.append(f"[{state}] the entry {name!r} sets a length of {length} tokens, which leaves no room in its "
+                            f"window of {window} for the request")
+    if windows_declared and router_settings.get("enable_pre_call_checks") is not True:
+        failures.append(f"[{state}] entries declare their window and router_settings.enable_pre_call_checks is not "
+                        "true: no request is held to them")
 
     read = set()
     for entry in entries:
@@ -2047,6 +2114,7 @@ def check_litellm_config(document, keys, failures):
                     "kept apart is in the router of its own and in no other cascade, or a key without that group "
                     "would reach it through the router it asked for"
                 )
+    check_litellm_tier_router(entries, declared, aliases, cascades, state, failures)
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
     if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
         failures.append(
@@ -2063,6 +2131,62 @@ def check_litellm_config(document, keys, failures):
                 f"without {sorted(left_out)} is {wanted!r}: the two lists are written by hand "
                 "side by side and have drifted apart"
             )
+
+
+def check_litellm_tier_router(entries, declared, aliases, cascades, state, failures):
+    """Hold the router that picks a text router by complexity to its shape: served exactly when the routers its
+    tiers name are, and a model_list entry that reads no key, has no cascade or alias, and sets nothing else
+    than the tiers and the two defaults turned off."""
+    named = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_TIER_ROUTER_TIERS.values()}
+    expected = all(router in declared or router in aliases for router in set(LITELLM_TIER_ROUTER_TIERS.values()))
+    mine = [entry for entry in entries if entry.get("model_name") == LITELLM_TIER_ROUTER]
+    if bool(mine) != expected:
+        failures.append(
+            f"[{state}] {LITELLM_TIER_ROUTER!r} is {'absent' if expected else 'served'}, although the routers its tiers "
+            f"name ({', '.join(sorted(named))}) are {'all' if expected else 'not all'} served: LiteLLM loads a tier "
+            "naming a group nobody serves and fails the requests that land on it, so it is served exactly when they are"
+        )
+    if len(mine) > 1:
+        failures.append(f"[{state}] {LITELLM_TIER_ROUTER!r} is a model_list entry {len(mine)} times")
+    if LITELLM_TIER_ROUTER in cascades or LITELLM_TIER_ROUTER in aliases:
+        failures.append(
+            f"[{state}] {LITELLM_TIER_ROUTER!r} has {'a cascade' if LITELLM_TIER_ROUTER in cascades else 'an alias'} "
+            "of its own: the router it picks has its own, and a request falls back under the name it was given "
+            "after the pick"
+        )
+    for entry in mine:
+        parameters = mapping(entry, "litellm_params")
+        if parameters.get("model") != LITELLM_TIER_ROUTER_MODEL:
+            failures.append(f"[{state}] {LITELLM_TIER_ROUTER!r} has the model {parameters.get('model')!r}, not "
+                            f"{LITELLM_TIER_ROUTER_MODEL!r}")
+        extra = sorted(set(parameters) - {"model", "complexity_router_config"})
+        if extra:
+            failures.append(
+                f"[{state}] {LITELLM_TIER_ROUTER!r} sets {extra!r} in its litellm_params: it calls no provider, so it "
+                "reads no key and has no base, and a key here would give it an account the isolation check cannot see"
+            )
+        configuration = mapping(parameters, "complexity_router_config")
+        unknown = sorted(set(configuration) - {"tiers"} - set(LITELLM_TIER_ROUTER_SETTINGS))
+        if unknown:
+            failures.append(
+                f"[{state}] the configuration of {LITELLM_TIER_ROUTER!r} sets {unknown!r}: the scorer is left at its "
+                "defaults, which are what was measured and what LiteLLM does not license a change of, and every "
+                "other classifier makes a call to a model or an embedding for each request"
+            )
+        wanted_tiers = {tier: LITELLM_ROUTER_PUBLIC_NAMES[router] for tier, router in LITELLM_TIER_ROUTER_TIERS.items()}
+        if configuration.get("tiers") != wanted_tiers:
+            failures.append(
+                f"[{state}] the tiers of {LITELLM_TIER_ROUTER!r} are {configuration.get('tiers')!r}, where the routers "
+                f"it chooses among are {wanted_tiers!r}: a tier names a router and not its head, so that the cascade "
+                "still applies after the pick"
+            )
+        for setting, value in LITELLM_TIER_ROUTER_SETTINGS.items():
+            if configuration.get(setting) is not value:
+                failures.append(
+                    f"[{state}] {LITELLM_TIER_ROUTER!r} sets {setting} to {configuration.get(setting)!r}, not "
+                    f"{value!r}: its default replaces the caller's max_tokens with the head's output ceiling, or has a "
+                    "model summarise a conversation near the limit, and neither is wanted here"
+                )
 
 
 LITELLM_KEY_VARIABLE = re.compile(r"Artificial_Intelligence_LiteLLM_[A-Za-z0-9_]+_API_key")
@@ -2149,15 +2273,17 @@ LITELLM_VARIABLE_CASES = [
 
 
 def _litellm_document(entries, cascades, aliases):
-    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode"."""
+    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode". A text entry declares a
+    window, as the template's do."""
     return {
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
-             "model_info": {**({"mode": mode[0]} if mode else {}),
+             "model_info": {**({"mode": mode[0]} if mode else {"max_input_tokens": 131072}),
                             "access_groups": [litellm_access_group(mode[0] if mode else None, key)]}}
             for name, key, *mode in entries
         ],
-        "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
+        "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases,
+                            "enable_pre_call_checks": True},
     }
 
 
@@ -2173,8 +2299,9 @@ def _keyless_document(gateway="Kilo", **overrides):
             parameters[key] = value
     return {
         "model_list": [{"model_name": "a-keyless", "litellm_params": parameters,
-                        "model_info": {"access_groups": ["LLM"]}}],
-        "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"}},
+                        "model_info": {"access_groups": ["LLM"], "max_input_tokens": 131072}}],
+        "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"},
+                            "enable_pre_call_checks": True},
     }
 
 
@@ -2189,12 +2316,29 @@ def _short_answer_document(mode=None, **overrides):
             parameters[key] = value
     return {
         "model_list": [{"model_name": "a-cloudflare", "litellm_params": parameters,
-                        "model_info": {**({"mode": mode} if mode else {}),
+                        "model_info": {**({"mode": mode} if mode else {"max_input_tokens": 131072}),
                                        "access_groups": [litellm_access_group(mode)]}}],
         # An entry that is no text model belongs in no text cascade, which another rule holds.
         "router_settings": {} if mode else {"fallbacks": [{"flash": ["a-cloudflare"]}],
-                                            "model_group_alias": {"flash": "a-cloudflare"}},
+                                            "model_group_alias": {"flash": "a-cloudflare"},
+                                            "enable_pre_call_checks": True},
     }
+def _window_document(name="a-member", info=None, parameters=None, in_cascade=True, pre_call=True):
+    """One text entry with a window, in a cascade or not, with `info` and `parameters` merged into its model_info and
+    litellm_params; a value of None drops the key."""
+    model_info = {"access_groups": ["LLM"], "max_input_tokens": 131072}
+    litellm_params = {"model": "x/model", "api_key": "os.environ/ANY_API_KEY"}
+    for target, changes in ((model_info, info or {}), (litellm_params, parameters or {})):
+        for key, value in changes.items():
+            if value is None:
+                target.pop(key, None)
+            else:
+                target[key] = value
+    router_settings = {"fallbacks": [{"flash": [name]}], "model_group_alias": {"flash": name}} if in_cascade else {}
+    if pre_call:
+        router_settings["enable_pre_call_checks"] = True
+    return {"model_list": [{"model_name": name, "litellm_params": litellm_params, "model_info": model_info}],
+            "router_settings": router_settings}
 
 
 def _keyless_member_document(gateway, left_out):
@@ -2361,6 +2505,30 @@ def _fiction_fault(fault):
     return document
 
 
+def _tier_router_document(routers=("pro", "flash", "flash-lite"), tier_router=True, **faults):
+    """The three text routers over one OpenRouter model, and the router that picks among them as the template writes
+    it, with `faults` replacing parts of it: "tiers", "settings" and "configuration" for what its configuration
+    holds, "parameters" for what sits beside it in litellm_params, "cascade" and "alias" for what it must not have,
+    "twice" for a second entry."""
+    document = _litellm_document([("a", "os.environ/OPENROUTER_API_KEY")], [(router, ["a"]) for router in routers],
+                                 {router: "a" for router in routers})
+    if tier_router:
+        configuration = {
+            "tiers": faults.get("tiers", {tier: LITELLM_ROUTER_PUBLIC_NAMES[router]
+                                          for tier, router in LITELLM_TIER_ROUTER_TIERS.items()}),
+            **faults.get("settings", LITELLM_TIER_ROUTER_SETTINGS), **faults.get("configuration", {}),
+        }
+        entry = {"model_name": LITELLM_TIER_ROUTER, "model_info": {"access_groups": ["LLM"]},
+                 "litellm_params": {"model": LITELLM_TIER_ROUTER_MODEL, "complexity_router_config": configuration,
+                                    **faults.get("parameters", {})}}
+        document["model_list"] += [entry, copy.deepcopy(entry)] if faults.get("twice") else [entry]
+    if faults.get("cascade"):
+        document["router_settings"]["fallbacks"].append({LITELLM_TIER_ROUTER: ["a"]})
+    if faults.get("alias"):
+        document["router_settings"]["model_group_alias"][LITELLM_TIER_ROUTER] = "a"
+    return document
+
+
 LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
     ("the router of the models kept apart, served by its cascade's head", _fiction_document(), {"Aion_Labs"}, None),
@@ -2520,6 +2688,32 @@ LITELLM_CONFIG_CASES = [
      _short_answer_document(mode="audio_transcription", model="groq/whisper", max_tokens=None), set(), None),
     ("a text entry of another provider needs no limit",
      _short_answer_document(model="gemini/vendor-model", max_tokens=None), set(), None),
+    ("a member of a cascade with its window", _window_document(), set(), None),
+    ("a member of a cascade with no window", _window_document(info={"max_input_tokens": None}), set(),
+     "declares no positive model_info.max_input_tokens"),
+    ("a member of a cascade whose window is a string", _window_document(info={"max_input_tokens": "131072"}), set(),
+     "declares no positive model_info.max_input_tokens"),
+    ("an entry in no cascade needs no window", _window_document(info={"max_input_tokens": None}, in_cascade=False),
+     set(), None),
+    ("a member whose provider publishes no window, listed",
+     _window_document(name="glm-5-3-flash-nvidia", info={"max_input_tokens": None}), set(), None),
+    ("OpenRouter's free router needs no window",
+     _window_document(info={"max_input_tokens": None}, parameters={"model": "openrouter/openrouter/free"}), set(), None),
+    ("an OmniRoute route needs no window",
+     _window_document(info={"max_input_tokens": None}, parameters={"api_base": "http://omniroute:20128/v1"}), set(),
+     None),
+    ("a length under the maximum output", _window_document(info={"max_output_tokens": 65536},
+                                                           parameters={"max_tokens": 32768}), set(), None),
+    ("a length above the maximum output", _window_document(info={"max_output_tokens": 16384},
+                                                           parameters={"max_completion_tokens": 32768}), set(),
+     "above its model_info.max_output_tokens"),
+    ("a length that fills the window", _window_document(info={"max_input_tokens": 8192},
+                                                        parameters={"max_tokens": 8192}), set(), "leaves no room"),
+    ("a maximum output that is no integer", _window_document(info={"max_output_tokens": 1.5}), set(),
+     "max_output_tokens 1.5, which is no positive integer"),
+    ("an image support that is no boolean", _window_document(info={"supports_vision": "yes"}), set(), "no boolean"),
+    ("windows declared with the pre-call checks off", _window_document(pre_call=False), set(),
+     "enable_pre_call_checks is not true"),
     ("an entry on another base is not held to the keyless shape",
      _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a transcription router served by its cascade's head",
@@ -2591,6 +2785,40 @@ LITELLM_CONFIG_CASES = [
     ("a text model in the speech cascade", _tts_fault("text-member"), {"Gemini"}, "model_info.mode is None"),
     ("a speech model in a text cascade", _tts_fault("in-text-cascade"), {"Gemini"},
      "the cascade of 'pro' names 'a-tts'"),
+    ("the router that picks by complexity, as the template writes it", _tier_router_document(), {"OpenRouter"}, None),
+    ("the router that picks by complexity, absent although the three routers are served",
+     _tier_router_document(tier_router=False), {"OpenRouter"}, "'Auto' is absent"),
+    ("the router that picks by complexity, served although a router its tiers name is not",
+     _tier_router_document(routers=("pro", "flash")), {"OpenRouter"}, "'Auto' is served"),
+    ("the router that picks by complexity, with one tier on a head model", _tier_router_document(
+        tiers={"SIMPLE": "a", "MEDIUM": "Auto-Flash", "COMPLEX": "Auto-Pro", "REASONING": "Auto-Pro"}),
+     {"OpenRouter"}, "a tier names a router and not its head"),
+    ("the router that picks by complexity, with a tier missing", _tier_router_document(
+        tiers={"SIMPLE": "Auto-Flash-Lite", "MEDIUM": "Auto-Flash", "COMPLEX": "Auto-Pro"}),
+     {"OpenRouter"}, "the tiers of 'Auto' are"),
+    ("the router that picks by complexity, with the output ceiling of the tier left to its default",
+     _tier_router_document(settings={"context_compaction": False}), {"OpenRouter"},
+     "sets max_tokens_from_tier_model to None"),
+    ("the router that picks by complexity, with the compaction left on",
+     _tier_router_document(settings={"max_tokens_from_tier_model": False, "context_compaction": True}),
+     {"OpenRouter"}, "sets context_compaction to True"),
+    ("the router that picks by complexity, with an LLM classifier",
+     _tier_router_document(configuration={"classifier_type": "llm"}), {"OpenRouter"}, "the scorer is left at its defaults"),
+    ("the router that picks by complexity, with its scoring tuned",
+     _tier_router_document(configuration={"dimension_weights": {"codePresence": 0.5}}), {"OpenRouter"},
+     "the scorer is left at its defaults"),
+    ("the router that picks by complexity, reading a key",
+     _tier_router_document(parameters={"api_key": "os.environ/OPENROUTER_API_KEY"}), {"OpenRouter"},
+     "reads no key and has no base"),
+    ("the router that picks by complexity, on another model",
+     _tier_router_document(parameters={"model": "auto_router/auto_router_1"}), {"OpenRouter"},
+     "not 'auto_router/complexity_router'"),
+    ("the router that picks by complexity, with a cascade of its own",
+     _tier_router_document(cascade=True), {"OpenRouter"}, "'Auto' has a cascade of its own"),
+    ("the router that picks by complexity, with an alias of its own",
+     _tier_router_document(alias=True), {"OpenRouter"}, "'Auto' has an alias of its own"),
+    ("the router that picks by complexity, written twice",
+     _tier_router_document(twice=True), {"OpenRouter"}, "a model_list entry 2 times"),
 ]
 
 
