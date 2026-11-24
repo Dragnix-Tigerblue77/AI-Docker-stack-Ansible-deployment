@@ -758,8 +758,8 @@ donc LibreChat les propose toujours. À connaître :
   à ces valeurs, modèle par modèle ; une entrée plus lente que l'attente du routeur a la sienne. Un client qui envoie
   son niveau l'emporte. `ROUTAGE.md` dit le niveau de chaque entrée.
 - Un routeur n'a qu'**un nom**, celui que tape un client (`Auto-Pro`, `Auto-Flash`...), et sa cascade est écrite sous ce nom : LiteLLM cherche les replis sous le nom qui a été demandé, donc un nom sans cascade ne retomberait sur rien quand la tête échoue. Deux noms pour un routeur seraient deux cascades à tenir au même niveau et un client qui choisit au hasard entre les deux : les anciens noms (`pro`, `flash`, `auto`, `auto-fast`, `auto-pro`...) n'existent plus, et `check_compose_template.py` refuse un routeur publié sous un autre nom que le sien.
-- `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
-  rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
+- `check_compose_template.py` rend la configuration pour des ensembles de clés qui couvrent chaque cas de chaque
+  condition du template (voir la section sur ce que `check_compose_template.py` vérifie), et tient chaque rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
   Il tient aussi le fichier compose à la même table : le conteneur de la passerelle doit recevoir chaque clé sous le
   nom que la configuration lit, qui n'est pas toujours celui du fournisseur (`NVIDIA_NIM_API_KEY`, pas
   `NVIDIA_API_KEY`). Il tient enfin les identifiants à leur forme : un par clé donnée et aucun pour une clé qui ne
@@ -2353,8 +2353,9 @@ chaque bloc de service aux conventions que le modèle commenté du template docu
 limite mémoire quand l'appelant en pose une (aucune par défaut), `restart_policy.condition: any`, pas de `container_name`, pas de `build:` (une image se
 récupère, elle ne se construit pas ici), et tout réseau ou volume référencé effectivement déclaré.
 
-Il rend aussi `LiteLLM_config.yaml.j2` pour chaque ensemble non vide de clés fournisseurs (#296), et tient
-chaque rendu aux règles de « Les clés fournisseurs » plus haut.
+Il rend aussi `LiteLLM_config.yaml.j2` pour des ensembles de clés fournisseurs, et tient chaque rendu aux règles de « Les clés fournisseurs » plus haut.
+
+Ce n'est pas chaque ensemble de clés : cela faisait 2^n - 1 rendus, qui doublaient avec chaque fournisseur jusqu'à dépasser le temps des vérifications. Chaque condition du template lit certaines clés (`has.X`, ou la ligne d'un routeur dans `head`, qui lit les clés de sa chaîne). Avec t le plus grand nombre de clés lues par une seule condition, les ensembles sont un tableau de couverture de force t, où toute combinaison de t clés quelconques figure sous chacune de ses 2^t valeurs, plus chaque clé seule, toutes les clés et toutes sauf une. Chaque cas de chaque condition est donc rendu, et le nombre d'ensembles croît comme le logarithme du nombre de clés. Le calcul est `key_set_plan` de `check_LiteLLM_model_drift.py`, que les deux vérifications partagent, et `check_compose_template.py` imprime t et le nombre d'ensembles à chaque passage. Une condition qui lit plus de clés que `KEY_SET_STRENGTH_LIMIT` est refusée, avec sa ligne et ses clés : elle se coupe en conditions plus petites, sans quoi la garantie s'éroderait sans bruit.
 
 Il le rend aussi avec les sommes de contrôle des configurations montées renseignées (#161), que les
 défauts laissent à `false` : chaque fichier doit être monté par `configs` -- jamais en bind mount dans

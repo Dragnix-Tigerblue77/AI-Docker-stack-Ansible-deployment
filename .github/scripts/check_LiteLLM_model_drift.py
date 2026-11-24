@@ -52,8 +52,8 @@ in the same change.
 * The branch written only when a key is MISSING -- the aliases of the routers that have no entry of
   their own without Gemini -- is not rendered, so nothing that would only fail there is seen; the
   names it reads are still held to the provider keys, since that check reads the template without
-  rendering it. Rendering every other set of keys and holding each alias to the first member of its
-  cascade is "check_compose_template.py"'s job.
+  rendering it. Rendering the file for the other sets of keys and holding each alias to the first member
+  of its cascade is "check_compose_template.py"'s job.
 * A template that does not render -- a Jinja syntax error, a variable that is none of the provider
   keys or of the configuration's switches (TEMPLATE_SWITCHES, rendered at their default), however the
   template reads it -- is a finding that names the problem, and ends the run with
@@ -461,9 +461,9 @@ for that model (all of its entries or none):
 
 * a model_name that a cascade starts from (the virtual routers: "pro", "flash"...), or that a
   "model_group_alias" points at, since what should answer for that name is a choice;
-* the last target of a cascade, decided on the whole set at once and for each set of provider keys
-  separately, not on the union: the cascade that holds the members of a single provider is empty
-  for every set of keys that leaves that provider out. Two models that are each the other's only
+* the last target of a cascade, decided on the whole set at once and for each of the sets of provider keys
+  separately (key_set_plan says which), not on the union: the cascade that holds the members of a single
+  provider is empty for the sets of keys that leave that provider out. Two models that are each the other's only
   companion in a cascade are neither of them deleted;
 * a cascade slot that is not a line of its own (a flow list, "- flash: free-one"), which this does
   not edit, and a name that is used anywhere else in the file, which it knows nothing about: in a
@@ -502,16 +502,16 @@ A router is an alias of the first model of its cascade whose provider has a key,
 says which in a "set head" table, one row per router: "'flash': 'a' if has.Groq else 'b' if
 has.Mistral else 'c'". That is a copy of the order of the cascades, and a deletion that takes a
 model a row names has to write the row again. It is written FROM THE CASCADES and never patched: the
-file is rendered for every set of providers, the first member of each router's cascade is read, and
+file is rendered for the sets of providers that key_set_plan gives, the first member of each router's cascade is read, and
 the row is made of the providers in the order their first member comes in the cascade, with the
 model that is there whatever the keys as its last term (or "false" when there is none). The row is
-checked against every set of providers before it is kept. Taking a provider's first model out can
+checked against those sets before it is kept. Taking a provider's first model out can
 move the provider behind another, which is why a name is not simply replaced.
 
 A row is written again only when the same writing gives exactly the row as it stands in the
 untouched file: a row tuned by hand, or already out of step with its cascade, is not trusted, and
 its models are refused as before. The result must also leave every alias on the first member of the
-cascade kept under its name, for every set of providers. A pull request that rewrites a row ADDS
+cascade kept under its name, for those sets. A pull request that rewrites a row ADDS
 lines, so `dependabot-auto-merge.yml` does not merge it by itself: a person reads the rows, which
 the pull request lists. And the job of "LiteLLM_model_drift.yml" that pushes it, which holds the
 token that writes, accepts a changed line only if it is such a row, naming entries of the file and
@@ -1256,23 +1256,168 @@ def fallback_lists(document):
     return found
 
 
+# The key sets a template is rendered for are a covering array, not every set: a template that reads n keys has
+# 2^n - 1 of them, which doubled with each provider until the checks that render them outran their time. Each
+# condition of the file reads some of the keys, "strength" of them at most; a covering array of that strength gives
+# every assignment of any "strength" keys to some rendering, so every condition meets its whole truth table. The
+# strength is held to this limit: past it the array grows too fast to keep, and the condition has to be split so
+# that none reads more keys than that. A condition that is a decision list over its keys (a router's head, the
+# first provider given along a chain) reads all of them, which is why the limit sits above what one plain
+# condition reads.
+KEY_SET_STRENGTH_LIMIT = 8
+
+
+class KeySetRefusal(ValueError):
+    """The file has a condition that reads more keys than KEY_SET_STRENGTH_LIMIT: it cannot be rendered for sets
+    of keys that hold every case of that condition, so nothing is judged until it is split."""
+
+
+def key_conditions(text, variables=None):
+    """[(line, source, keys)] of every condition of a Jinja file that reads at least one of "variables" (the
+    provider keys by default): an "if" or an "elif", a conditional expression and the "if" of a loop. "keys" is
+    the frozenset of variables the condition reads, directly, through a name the file sets (read as what it holds)
+    and through one item of such a name when it is a mapping written out and the item is named with a constant:
+    "has.Gemini" reads the keys of the value of 'Gemini' in "has", and "head['pro']" those of the chain written
+    for 'pro', not every key "head" mentions. Raises jinja2.TemplateSyntaxError for text that is not Jinja."""
+    from jinja2 import nodes
+    from jinja2.sandbox import SandboxedEnvironment
+    variables = set(PROVIDER_KEY_VARIABLES if variables is None else variables)
+    tree = SandboxedEnvironment().parse(text)
+    assigned = {}
+    for statement in tree.find_all(nodes.Assign):
+        if isinstance(statement.target, nodes.Name):
+            assigned.setdefault(statement.target.name, []).append(statement.node)
+
+    def reads(node, seen=()):
+        if isinstance(node, nodes.Name):
+            if node.name in variables:
+                return {node.name}
+            if node.name in assigned and node.name not in seen:
+                return set().union(*(reads(value, seen + (node.name,)) for value in assigned[node.name]))
+            return set()
+        if isinstance(node, (nodes.Getitem, nodes.Getattr)) and isinstance(node.node, nodes.Name) \
+                and node.node.name in assigned and node.node.name not in seen:
+            item = node.attr if isinstance(node, nodes.Getattr) else (
+                node.arg.value if isinstance(node.arg, nodes.Const) else None)
+            found = [pair.value for value in assigned[node.node.name] if isinstance(value, nodes.Dict)
+                     for pair in value.items if isinstance(pair.key, nodes.Const) and pair.key.value == item]
+            if item is not None and found:
+                return set().union(*(reads(value, seen + (node.node.name,)) for value in found))
+        return set().union(*(reads(child, seen) for child in node.iter_child_nodes()))
+
+    lines = text.splitlines()
+    found = []
+    for node in tree.find_all((nodes.If, nodes.CondExpr, nodes.For)):
+        keys = frozenset(reads(node.test)) if node.test is not None else frozenset()
+        if keys:
+            source = lines[node.lineno - 1].strip() if 0 < node.lineno <= len(lines) else ""
+            found.append((node.lineno, source, keys))
+    return found
+
+
+@functools.lru_cache(maxsize=None)
+def covering_array(columns, strength):
+    """Rows of 0 and 1, "columns" wide, in which every assignment of every "strength" columns appears: IPOG, built
+    one column at a time, each row taking the value that covers most of what is still missing, and a few rows
+    added for what no row could. Nothing in it is chosen at random: the same size gives the same rows."""
+    if columns <= strength:
+        return tuple(itertools.product((0, 1), repeat=columns))
+    rows = [list(row) for row in itertools.product((0, 1), repeat=strength)]
+    for column in range(strength, columns):
+        groups = list(itertools.combinations(range(column), strength - 1))
+        missing = {(group, values, value) for group in groups
+                   for values in itertools.product((0, 1), repeat=strength - 1) for value in (0, 1)}
+        for row in rows:
+            seen = [(group, tuple(row[each] for each in group)) for group in groups]
+            gains = [sum((group, values, value) in missing for group, values in seen) for value in (0, 1)]
+            row.append(0 if gains[0] >= gains[1] else 1)
+            missing.difference_update((group, values, row[column]) for group, values in seen)
+        added = []
+        for group, values, value in sorted(missing):
+            for row in added:
+                if row[column] in (None, value) and all(row[each] in (None, wanted)
+                                                         for each, wanted in zip(group, values)):
+                    break
+            else:
+                row = [None] * (column + 1)
+                added.append(row)
+            row[column] = value
+            for each, wanted in zip(group, values):
+                row[each] = wanted
+        rows += [[0 if cell is None else cell for cell in row] for row in added]
+    return tuple(tuple(row) for row in rows)
+
+
+def covering_key_sets(count, strength, with_empty=False):
+    """The sets of "count" keys, as tuples of the indexes given, that a template whose conditions read at most
+    "strength" keys each is rendered for: the covering array of that strength and the boundary sets, which are
+    each key alone, every key and every key but one. Unless "with_empty" the empty set is none of them, and the one
+    assignment only it could cover, "strength" keys all missing, gets a set of its own wherever no other has it."""
+    if count == 0:
+        return [()]
+    array = covering_array(count, strength)
+    everything = tuple(range(count))
+    boundary = [(index,) for index in everything] + [everything] + [
+        tuple(other for other in everything if other != index) for index in everything]
+    found = list(dict.fromkeys(boundary + [tuple(index for index, value in enumerate(row) if value)
+                                           for row in array]))
+    if with_empty:
+        return list(dict.fromkeys(found + [()]))
+    found = [each for each in found if each]
+    if count > strength and any(not any(row) for row in array):
+        absent = [sum(1 << index for index in everything if index not in each) for each in found]
+        for columns in itertools.combinations(everything, strength):
+            mask = sum(1 << index for index in columns)
+            if not any(missing & mask == mask for missing in absent):
+                found.append(tuple(index for index in everything if index not in columns))
+                absent.append(mask)
+    return found
+
+
+KeySetPlan = collections.namedtuple("KeySetPlan", "sets strength conditions keys")
+
+
+@functools.lru_cache(maxsize=16)
+def key_set_plan(text, variables=None, with_empty=False):
+    """The sets of keys to render the Jinja file "text" for: KeySetPlan(sets, strength, conditions, keys). "keys"
+    are the variables, of "variables" (the provider keys by default), that the file reads, in their order; "sets"
+    are tuples of them, none empty unless "with_empty"; "strength" is the most keys a single condition reads, at
+    least one; "conditions" are those of key_conditions. A file that reads no key is rendered once, for no key.
+    Raises KeySetRefusal for a file whose strength is above KEY_SET_STRENGTH_LIMIT, and
+    jinja2.TemplateSyntaxError for text that is not Jinja."""
+    import jinja2.meta
+    from jinja2.sandbox import SandboxedEnvironment
+    variables = tuple(PROVIDER_KEY_VARIABLES if variables is None else variables)
+    read = jinja2.meta.find_undeclared_variables(SandboxedEnvironment().parse(text)) & set(variables)
+    keys = tuple(variable for variable in variables if variable in read)
+    conditions = key_conditions(text, variables)
+    strength = max([len(each[2]) for each in conditions] + [1])
+    if strength > KEY_SET_STRENGTH_LIMIT:
+        widest = max(conditions, key=lambda each: len(each[2]))
+        raise KeySetRefusal(
+            "line %d of the file has a condition that reads %d provider keys at once (%s): %s\n"
+            "    The file is rendered for a covering array of the keys, in which every case of the keys one condition\n"
+            "    reads is rendered, and that holds for up to %d keys per condition: past it the number of renderings\n"
+            "    grows too fast to keep. Split the condition so that none reads more keys, or raise\n"
+            "    KEY_SET_STRENGTH_LIMIT of check_LiteLLM_model_drift.py knowing what it costs."
+            % (widest[0], len(widest[2]), ", ".join(provider_name(each) for each in keys if each in widest[2]),
+               widest[1], KEY_SET_STRENGTH_LIMIT))
+    sets = [tuple(keys[index] for index in each) for each in covering_key_sets(len(keys), strength, with_empty)]
+    return KeySetPlan(tuple(sets), strength if keys else 0, tuple(conditions), keys)
+
+
 def keyset_documents(text):
-    """[(given, parsed document)] of the file rendered for each non-empty set of the provider keys
-    it reads, "given" being a tuple of the names of the keys given; the document is None for a set
-    that does not render. A file that reads no key renders once. The rest of this check reads the
-    file with every key given, and a cascade that holds only the members of one provider is empty
-    for the sets that leave that provider out: what is judged here is each of them."""
+    """[(given, parsed document)] of the file rendered for each of the sets of the provider keys it reads that
+    key_set_plan gives, "given" being a tuple of the names of the keys given; the document is None for a set that
+    does not render. A file that reads no key renders once. The rest of this check reads the file with every key
+    given, and a cascade that holds only the members of one provider is empty for the sets that leave that provider
+    out: what is judged here is each of them. Raises KeySetRefusal, which read_layout reports."""
     try:
-        import jinja2
-        import jinja2.meta
-        from jinja2.sandbox import SandboxedEnvironment
-        tree = SandboxedEnvironment().parse(text)
-        read = jinja2.meta.find_undeclared_variables(tree) & set(PROVIDER_KEY_VARIABLES)
+        sets = key_set_plan(text).sets
+    except KeySetRefusal:
+        raise
     except Exception:  # the file is not valid Jinja: read_template has said so
         return []
-    names = [variable for variable in PROVIDER_KEY_VARIABLES if variable in read]
-    sets = [tuple(chosen) for size in range(1, len(names) + 1)
-            for chosen in itertools.combinations(names, size)] or [tuple()]
     return [(given, render_keyset(text, given)) for given in sets]
 
 
@@ -1339,6 +1484,12 @@ def read_template(text):
                       "so there is nothing to check"]
 
     problems = []
+    try:
+        key_set_plan(text)
+    except KeySetRefusal as refusal:
+        problems.append(str(refusal))
+    except Exception:  # not Jinja: the rendering above has already said so
+        pass
     active = [entry_of(item) for item in document["model_list"] if isinstance(item, dict)]
 
     # (e) Every active entry belongs to a provider whose catalogue is read: an entry of any other is never
@@ -4374,31 +4525,40 @@ def head_row_text(router, row, chain):
     return "%s'%s': %s%s" % (row["lead"], router, chain, row["comma"])
 
 
+class HeadFallbacks(dict):
+    """The cascades of head_fallbacks, which is keyed by the sets of the providers the file reads: "read" is
+    them, and a set of any providers stands for its intersection with it."""
+    read = frozenset()
+
+
 def head_fallbacks(text, rows):
-    """{frozenset of providers: {router: [members]}} of the fallback cascades for EVERY set of
-    providers, empty set included, read from "text" with each row of the table replaced by a name that
-    is always set: a router whose row is empty would have no cascade to read, and the row is what is
-    being worked out. None when a set does not render."""
+    """{frozenset of providers: {router: [members]}} of the fallback cascades for the sets of providers that
+    key_set_plan gives, empty set included, read from "text" with each row of the table replaced by a name that
+    is always set: a router whose row is empty would have no cascade to read, and the row is what is being worked
+    out. None when a set does not render or the file reads more keys in a condition than the sets can cover."""
     lines = text.split("\n")
     for router, row in rows.items():
         lines[row["line"]] = head_row_text(router, row, HEAD_PLACEHOLDER)
     probe = "\n".join(lines)
-    found = {}
-    for size in range(len(HEAD_PROVIDERS) + 1):
-        for chosen in itertools.combinations(HEAD_PROVIDERS, size):
-            document = render_keyset(
-                probe, ["Artificial_Intelligence_LiteLLM_%s_API_key" % provider for provider in chosen])
-            if not isinstance(document, dict):
-                return None
-            found[frozenset(chosen)] = {
-                source: members for (where, source), members in fallback_lists(document).items()
-                if where == "router_settings.fallbacks" and source is not None}
+    found = HeadFallbacks()
+    try:
+        plan = key_set_plan(probe, with_empty=True)
+    except KeySetRefusal:
+        return None
+    found.read = frozenset(provider_name(variable) for variable in plan.keys)
+    for given in plan.sets:
+        document = render_keyset(probe, given)
+        if not isinstance(document, dict):
+            return None
+        found[frozenset(provider_name(variable) for variable in given)] = {
+            source: members for (where, source), members in fallback_lists(document).items()
+            if where == "router_settings.fallbacks" and source is not None}
     return found
 
 
 def head_chains(text, rows):
     """{router: the row's chain, written from the cascades} for each router of "rows" that has a
-    cascade; None when a row cannot be written so that it gives, for every set of providers, the
+    cascade; None when a row cannot be written so that it gives, for each of the sets of providers, the
     first member of the cascade -- the table is a decision list over providers, and a cascade that
     is not one is not something to rewrite."""
     fallbacks = head_fallbacks(text, rows)
@@ -4411,10 +4571,10 @@ def head_chains(text, rows):
             continue
 
         def first(chosen):
-            members = fallbacks[frozenset(chosen)].get(router)
+            members = fallbacks[frozenset(chosen) & fallbacks.read].get(router)
             return members[0] if members else None
 
-        full = fallbacks[everything].get(router) or []
+        full = fallbacks[everything & fallbacks.read].get(router) or []
         default = first(())
         if default is not None and default not in full:
             return None
@@ -4517,6 +4677,10 @@ def read_layout(text, template):
     file's: the lines are found in the file as written, Jinja made parsable, and the two are held
     to say the same thing before a line is trusted."""
     lines = text.splitlines()
+    try:
+        keysets = keyset_documents(text)
+    except KeySetRefusal as refusal:
+        return None, str(refusal)
     neutral = neutralise_jinja(text)
     if len(neutral.splitlines()) != len(lines):
         return None, "the file with its Jinja made parsable does not keep its line numbers"
@@ -4630,7 +4794,7 @@ def read_layout(text, template):
             "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
             "references": references, "groups": groups, "strays": strays, "heads": heads,
             "jinja": structure[0], "jinja_single": structure[1], "jinja_spanning": spanning,
-            "keysets": keyset_documents(text)}, None
+            "keysets": keysets}, None
 
 
 def comments_above(layout, start, entry=None):
@@ -6208,7 +6372,7 @@ def render_pr_body(result, link=None):
                 "fournisseurs données : elle recopie l'ordre des listes de secours. Une suppression "
                 "qui retire le premier modèle d'un fournisseur la change, et le workflow a **réécrit "
                 "les lignes concernées à partir des listes qui restent**, puis relu le résultat pour "
-                "chaque ensemble de clés. Cette pull request ajoute donc des lignes : elle ne se "
+                "les ensembles de clés qui couvrent chaque cas. Cette pull request ajoute donc des lignes : elle ne se "
                 "fusionne pas seule, une personne relit celles-ci.", "", "```diff"]
         for router, before, after in heads:
             out += ["-  '%s': %s" % (router, before), "+  '%s': %s" % (router, after)]
@@ -6319,8 +6483,8 @@ def render_commit_message(result):
     written_again = ("\n\n" + wrapped(
         "The head table of the template repeats the order of the cascades and names the model each "
         "router is an alias of. A deletion took a model it names, so its rows were written again "
-        "from the cascades that are left, and the result was read back for every set of provider "
-        "keys.")) if heads else ""
+        "from the cascades that are left, and the result was read back for the sets of provider "
+        "keys that cover each case of the keys a condition reads.")) if heads else ""
     return (
         "Delete the models their provider has retired from the LiteLLM model list (#243)\n\n"
         + wrapped("The drift check read each provider's own model catalogue on %s "

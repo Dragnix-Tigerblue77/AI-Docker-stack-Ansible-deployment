@@ -74,7 +74,7 @@ GitHub fires a cron with "github.event.schedule" spelt as "on.schedule" writes i
 the attempt before it, or lists the runs and artifacts as the made-up one does; no scheduled run can be
 played here. Nor
 that "the rows of the table written again" are right -- "check_compose_template.py" holds each alias
-to the first member of its cascade for every set of keys. Nor that GitHub answers as the made-up one
+to the first member of its cascade for each of its sets of keys. Nor that GitHub answers as the made-up one
 does: its answers are octokit's as the documentation gives them, not recorded, and the refusal of a
 draft is matched on its status and the word "draft" alone. Node is needed on the PATH, and PyYAML
 and Jinja2, since the drift script is imported to compare its build with the step's.
