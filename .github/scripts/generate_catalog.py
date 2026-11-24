@@ -603,30 +603,35 @@ def without_entry(template_text, name):
 
 
 def deletion_targets(template_text):
-    """{what it is: the name of an entry of the real template that shows it}: one in the middle of a cascade, the last
-    of a cascade, one called by name. An entry that is the head of a router or a last resort is left out, since
-    deleting it rewrites the head of that router in the template itself, which no format of this file can avoid."""
+    """({what it is: the name of an entry of the template that shows it}, [what no entry of it shows]): an entry that
+    is in the cascades of several routers, the last member of a cascade, and an entry called by name. They are
+    found in the template as it is, so that no entry is named here and any of them can go. A head of a router or a
+    last resort is never chosen, since deleting one rewrites the head of that router in the template itself, which no
+    format of this file can avoid."""
     document = yaml.safe_load(drift.render_with_keys(template_text, None))
     lists = cascades(document)
     heads = set(aliases(document).values())
     contracts, _ = drift.load_contracts(CONTRACTS)
     last = {member for router in ((contracts or {}).get("routers") or {}).values() if isinstance(router, dict)
             for member in ((router.get("last_resort") or {}).get("members") or [])}
-    in_routers = collections.Counter(member for public, members in lists.items()
-                                     if public in drift.ROUTER_OF_PUBLIC_NAME for member in members)
+    routed = {public: members for public, members in lists.items() if public in drift.ROUTER_OF_PUBLIC_NAME}
+    in_routers = collections.Counter(member for members in routed.values() for member in set(members))
 
-    def free(members):
-        return [member for member in members if member not in heads and member not in last]
+    def free(member):
+        return member not in heads and member not in last
 
-    cascade = free([member for public, members in lists.items() if public in drift.ROUTER_OF_PUBLIC_NAME
-                    for member in members])
-    middle = next((member for member in cascade if in_routers[member] > 1), cascade[len(cascade) // 2])
-    tail = free(next(members for public, members in lists.items() if public == "Auto-Flash-Lite"))[-1]
+    targets = {}
+    several = [member for members in routed.values() for member in members if free(member) and in_routers[member] > 1]
+    if several:
+        targets["an entry in the cascades of several routers"] = several[len(several) // 2]
+    ends = [members[-1] for members in routed.values() if members and free(members[-1])]
+    if ends:
+        targets["the last member of a cascade"] = ends[0]
     named = [name for name in lists if name not in drift.ROUTER_OF_PUBLIC_NAME]
-    targets = {"an entry in the middle of cascades": middle, "the last member of a cascade": tail}
     if named:
         targets["an entry called by name"] = named[0]
-    return targets
+    wanted = ("an entry in the cascades of several routers", "the last member of a cascade", "an entry called by name")
+    return targets, [what for what in wanted if what not in targets]
 
 
 def deletion_wrong(template_text, contracts, name):
@@ -712,9 +717,10 @@ def selftest_cases():
          else "the arguments are not read as they should be"),
         ("deleting an entry of the real template, wherever it stands, only removes lines from the catalogue",
          lambda: next((wrong for wrong in (deletion_wrong(*real_sources(), name) for name in
-                                           deletion_targets(real_sources()[0]).values()) if wrong), None)),
-        ("the entries it deletes show a cascade of several routers, the end of one, and one called by name",
-         lambda: None if len(deletion_targets(real_sources()[0])) == 3 else "got %r" % deletion_targets(real_sources()[0])),
+                                           deletion_targets(real_sources()[0])[0].values()) if wrong), None)),
+        ("the template has an entry in several cascades, the end of a cascade and an entry called by name to delete",
+         lambda: None if not deletion_targets(real_sources()[0])[1] else
+         "no entry of the template shows: %s" % ", ".join(deletion_targets(real_sources()[0])[1])),
         ("a catalogue that is not there is refused", lambda: verdict(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS, None, 1, "does not exist")),
         ("a template that does not render cannot be read", lambda: verdict("model_list: [", SELFTEST_CONTRACTS, good, 2)),
     ]
