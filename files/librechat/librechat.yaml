@@ -25,5 +25,7 @@ endpoints:
         # dropped the second outright, since no working SambaNova substitute exists to offer instead.
         default: ["Auto", "Auto-Flash", "Auto-Code", "Auto-Pro", "Auto-Flash-Lite", "gemini-3-8-flash", "gpt-oss-120b-groq", "codestral"]
         fetch: true
-      titleModel: "Auto-Flash"
+      # A title is a short answer, and a router that thinks first can spend a small "max_tokens" on thinking and
+      # return nothing: "Auto-Flash-Lite" is the router whose members answer fast and think least.
+      titleModel: "Auto-Flash-Lite"
       dropParams: ["stop"]

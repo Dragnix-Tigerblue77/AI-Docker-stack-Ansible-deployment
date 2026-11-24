@@ -66,15 +66,17 @@
 # 3.8 Flash (Low 22.5 in 5.1 s, Medium 30.1 in 14.5 s, High 30.8 in 28.1 s) they buy 0.81 and 0.05:
 # 0.2 stops at Medium, 1 and 3 at Low (Artificial Analysis free API, read 2026-11-21).
 #
-# The kept levels are realised only where the level can be set and its effect is verified: on the Gemini
-# entries whose levels Artificial Analysis measures, one entry per level a router needs, named
-# "<entry>-<level>" (the unsuffixed name keeps the level "pro" keeps), each with a static
-# "reasoning_effort" that LiteLLM sends to Google as the thinking level. That level is only a DEFAULT:
-# an effort a client sends replaces it, and Claude Code always sends one. Every other entry keeps the
-# provider's default level, since whether a provider honours an effort that LiteLLM sends is not
-# verified for the request-metered ones (OpenRouter, NVIDIA, OVHcloud, Kilo, Requesty), and a provider
-# that meters tokens, neurons or a prepaid balance (Groq, Cloudflare, DeepSeek direct, Mistral) is not
-# touched at all, since a higher level costs there. "ROUTAGE.md" records where each model stands.
+# The level an entry is CALLED at is no longer the one "level_gain" keeps, which stays a report of what
+# each router would keep. Since 2026-11-24 the maintainer sets it by how the provider counts its free tier:
+# the highest level the model takes where requests are counted (Gemini, OpenRouter, Kilo, Requesty), since
+# thinking more then costs time only; "low" where tokens are counted (Groq, Aion Labs), since thinking
+# empties the quota; none on a paid provider (Mistral, DeepSeek direct). "flash-lite" is ranked on time,
+# so a model it shares with another router has one entry per level, named "<entry>-<level>", and an entry
+# it holds is never raised. A level is set only where the values the model takes are known, and
+# "check_compose_template.py" holds each to them: LiteLLM forwards none to NVIDIA, Cloudflare and Z AI,
+# and no page gives them for OVHcloud's or Cent AI's models, so those keep the provider's default. A
+# static level is only a DEFAULT: an effort a client sends replaces it, and Claude Code always sends one.
+# "ROUTAGE.md" records where each model stands.
 #
 # How the figures are read. The time is the mean time to the first ANSWER token ("performance_v3"
 # of the free API: the time the model spends thinking is part of it), the intelligence is the
@@ -330,9 +332,8 @@ routers:
 # guessed). "slug" is the Artificial Analysis record that
 # describes the entry at the level it is CALLED at ("level" names the record's level: minimal, low,
 # medium, high, xhigh, max, reasoning, non-reasoning); the template sets a static "reasoning_effort"
-# on the Gemini entries that say so in their "level_source" and on no other, so the level of every
-# other entry is the provider's default, and "level_source" gives the provider's page and
-# the day it was read, or says "unknown". An entry with no record at all says why in "no_record".
+# on the entries whose "level_source" says so, the level of every other entry is the provider's
+# default, and "level_source" gives the provider's page and the day it was read, or says "unknown". An entry with no record at all says why in "no_record".
 # "eci" names the model of Epoch AI's capabilities index (its display name, spelt as the index has it)
 # that describes the entry, for the floors and for a member the ranking has no index for; an entry
 # whose model the index does not hold says nothing.
@@ -344,10 +345,11 @@ routers:
 # the highest level the model could be called at by default.
 models:
   gemini-4-hydrogen:
-    slug: gemini-4-hydrogen-high
-    level: high
-    level_source: "static reasoning_effort high in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22, the default of a request that sends none); ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: high is also Google's default for gemini-4-hydrogen"
+    slug: gemini-4-hydrogen
+    level: xhigh
+    level_source: "static reasoning_effort xhigh in the template, the highest level ai.google.dev/gemini-api/docs/thinking (read 2026-11-24) gives the model, which LiteLLM sends to Google as the thinking level (its source, read 2026-11-24)"
     eci: "Gemini 4 Hydrogen"
+    note: "Artificial Analysis's record of the Xhigh level carries the bare slug of the model"
     tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
     epoch:
       cursorbench_external: [gemini-4-hydrogen_high, gemini-4-hydrogen_low, gemini-4-hydrogen_medium, gemini-4-hydrogen_xhigh]
@@ -363,7 +365,7 @@ models:
   gemini-4-hydrogen-xhigh:
     slug: gemini-4-hydrogen
     level: xhigh
-    level_source: "static reasoning_effort xhigh in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); in no cascade, called by name only"
+    level_source: "static reasoning_effort xhigh in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); in no cascade, called by name only, at the level gemini-4-hydrogen runs at too"
     eci: "Gemini 4 Hydrogen"
     note: "Artificial Analysis's record of the Xhigh level carries the bare slug of the model"
     tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
@@ -372,9 +374,10 @@ models:
       ale_bench_external: [gemini-4-hydrogen_xhigh]
   gemini-3-8-flash:
     slug: gemini-3-8-flash-medium
-    level: medium
-    level_source: "static reasoning_effort medium in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22, the default of a request that sends none); ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: medium is also Google's default for gemini-3.8-flash"
+    level: high
+    level_source: "static reasoning_effort high in the template, the highest level ai.google.dev/gemini-api/docs/thinking (read 2026-11-24) gives the model, which LiteLLM sends to Google as the thinking level (its source, read 2026-11-24)"
     eci: "Gemini 3.8 Flash"
+    note: "The slug names the Medium record, the one known to exist; the level picks the High record of the same family"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       deepswe_external: [gemini-3.8-flash_high, gemini-3.8-flash_medium]
@@ -382,7 +385,7 @@ models:
   gemini-3-8-flash-low:
     slug: gemini-3-8-flash-low
     level: low
-    level_source: "static reasoning_effort low in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); the level the exchange rates of flash and flash-lite keep"
+    level_source: "static reasoning_effort low in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); the level the exchange rate of flash-lite keeps, and in flash-lite only"
     eci: "Gemini 3.8 Flash"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch: unknown
@@ -398,8 +401,8 @@ models:
       ale_bench_external: [gemini-3.7-flash_high]
   gemini-3-6-flash:
     slug: gemini-3-6-flash
-    level: medium
-    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level medium for gemini-3.6-flash"
+    level: high
+    level_source: "static reasoning_effort high in the template, the highest level ai.google.dev/gemini-api/docs/thinking (read 2026-11-24) gives the model, whose default is medium"
     eci: "Gemini 3.6 Flash"
     note: "Artificial Analysis ranks it at High only"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
@@ -428,7 +431,7 @@ models:
   gemini-3-flash-preview:
     slug: gemini-3-flash-reasoning
     level: reasoning
-    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: default thinking level high for gemini-3-flash-preview"
+    level_source: "static reasoning_effort high in the template, the highest level and the default ai.google.dev/gemini-api/docs/thinking (read 2026-11-24) gives gemini-3-flash-preview"
     eci: "Gemini 3 Flash"
     note: "Artificial Analysis splits this model into Reasoning and Non-reasoning only, so high maps to Reasoning"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
@@ -524,10 +527,10 @@ models:
     epoch: unknown
   gpt-oss-120b-groq:
     slug: gpt-oss-120b
-    level: medium
-    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-120b"
+    level: low
+    level_source: "static reasoning_effort low in the template, the lowest of the levels console.groq.com/docs/reasoning (read 2026-11-24) gives openai/gpt-oss-120b, Groq counting tokens"
     eci: "gpt-oss-120b"
-    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    note: "Artificial Analysis ranks it at Low and High only; the level picks the Low record"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
@@ -535,10 +538,10 @@ models:
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
   gpt-oss-20b-groq:
     slug: gpt-oss-20b
-    level: medium
-    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-20b"
+    level: low
+    level_source: "static reasoning_effort low in the template, the lowest of the levels console.groq.com/docs/reasoning (read 2026-11-24) gives openai/gpt-oss-20b, Groq counting tokens"
     eci: "gpt-oss-20b"
-    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
+    note: "Artificial Analysis ranks it at Low and High only; the level picks the Low record"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]
@@ -570,8 +573,8 @@ models:
       ale_bench_external: [deepseek-v4.1-flash-1017_max, deepseek-v4.1-flash_max]
   nemotron-ultra-free:
     slug: nvidia-nemotron-3-ultra-550b-a55b
-    level: unknown
-    level_source: "unknown: openrouter.ai/nvidia/nemotron-3-ultra-550b-a55b:free, read 2026-11-21, says nothing of a reasoning default"
+    level: reasoning
+    level_source: "static reasoning_effort high in the template, the highest and the default of the supported_efforts openrouter.ai/api/v1/models (read 2026-11-24) gives the model; Artificial Analysis has one Reasoning record"
     eci: "Nemotron 3 Ultra"
     note: "Artificial Analysis publishes one record, named Reasoning"
     tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-21"}
@@ -622,8 +625,8 @@ models:
     epoch: unknown
   nemotron-ultra-kilo:
     slug: nvidia-nemotron-3-ultra-550b-a55b
-    level: unknown
-    level_source: "unknown: the Kilo gateway catalogue, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-ultra-550b-a55b:free"
+    level: reasoning
+    level_source: "static reasoning_effort high in the template, the highest of the reasoning_options the Kilo gateway catalogue (read 2026-11-24) gives nvidia/nemotron-3-ultra-550b-a55b:free; Artificial Analysis has one Reasoning record"
     eci: "Nemotron 3 Ultra"
     note: "Artificial Analysis publishes one record, named Reasoning"
     tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-22"}
@@ -853,16 +856,16 @@ models:
     epoch: unknown
   nemotron-ultra-requesty:
     slug: nvidia-nemotron-3-ultra-550b-a55b
-    level: unknown
-    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-ultra-550b-a55b"
+    level: reasoning
+    level_source: "static reasoning_effort max in the template, the highest of the supported_efforts Requesty's catalogue (read 2026-11-24) gives nvidia/nemotron-3-ultra-550b-a55b, which Requesty replaces by the nearest level the model has; Artificial Analysis has one Reasoning record"
     eci: "Nemotron 3 Ultra"
     note: "Artificial Analysis publishes one record, named Reasoning"
     tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin nemotron-ultra-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
     epoch: unknown
   nemotron-reasoning-requesty:
     slug: nemotron-3-nano-omni-30b-a3b
-    level: unknown
-    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+    level: max
+    level_source: "static reasoning_effort max in the template, the highest of the supported_efforts Requesty's catalogue (read 2026-11-24) gives nvidia/nemotron-3-nano-omni-30b-a3b-reasoning, which Requesty replaces by the nearest level the model has"
     note: "Artificial Analysis publishes one record and no figure for it"
     tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin nemotron-reasoning-free lists them in OpenRouter's catalogue (read 2026-11-21)"}
     epoch: unknown
@@ -875,8 +878,8 @@ models:
     epoch: unknown
   gemma-4-31b-requesty:
     slug: gemma-4-31b
-    level: unknown
-    level_source: "unknown: the Free models page of the Requesty docs, read 2026-11-22, says nothing of a reasoning default for google/gemma-4-31b-it"
+    level: reasoning
+    level_source: "static reasoning_effort high in the template, the one supported_effort Requesty's catalogue (read 2026-11-24) gives google/gemma-4-31b-it, which turns its thinking on: the Reasoning record"
     eci: "Gemma 4 31B IT"
     note: "Artificial Analysis has a Reasoning and a Non-reasoning record"
     tools: {support: "unknown", source: "no page read says whether Requesty passes tool calls for this model; its twin gemma-4-31b-free lists them in OpenRouter's catalogue (read 2026-11-21)"}

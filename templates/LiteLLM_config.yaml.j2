@@ -122,14 +122,20 @@ model_list:
   # ("ai.google.dev/gemini-api/docs/rate-limits", read 2026-11-22): 20 requests a day for this model on the
   # gateway's project, 500 for each Flash-Lite, which the "inputs" of the router contracts give in full.
   #
-  # The entries of this model, and "gemini-3-8-flash" and "gemini-3-8-flash-low" below, set a static
-  # "reasoning_effort", which LiteLLM sends to Google as the thinking level. One entry per level a router
-  # keeps, named "<entry>-<level>", the unsuffixed name carrying the level "Auto-Pro", "Auto-Code" and "Auto-Claude-Code"
-  # keep: High here, which "Auto-Flash" keeps too, since High buys 9.6 points over Medium for 8.4 s, 1.1 a second,
-  # above the 1 it asks (Artificial Analysis, read 2026-11-21). A static level is only a DEFAULT, a client that sends an effort replaces
-  # it, and Claude Code always sends one, so it steers LibreChat and n8n and not the Claude Code agent. The
-  # entries of one model draw on the same quota, which is why "Auto-Flash-Lite", whose members should not spend
-  # the quota "Auto-Pro" and "Auto-Flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
+  # The level an entry sets follows how its provider counts the free tier: the highest level the model accepts
+  # where requests are counted, as Google counts them, since thinking longer then costs time only; "low" where
+  # tokens are counted; none on a paid provider. "Auto-Flash-Lite" is ranked on time, so a model it shares with
+  # another router has one entry per level, named "<entry>-<level>", the unsuffixed name carrying the highest.
+  # "check_compose_template.py" holds each level to the values its model accepts, and "ROUTAGE.md" says where
+  # each entry stands. A static level is only a DEFAULT: a client that sends an effort replaces it, and Claude
+  # Code always sends one. The entries of one model draw on the same quota, which is why "Auto-Flash-Lite",
+  # whose members should not spend the quota "Auto-Pro" and "Auto-Flash" need, holds its own last.
+  #
+  # Xhigh, the highest level Hydrogen takes, is slower to answer than the router waits: Artificial Analysis
+  # (read 2026-11-21) gives it 47 s on average to the first answer token and 76 s in the median, so the entry
+  # waits 180 s for that token, more than twice the median, and 240 s for a whole answer that is not streamed,
+  # where a minute more writes thousands of tokens at its 164 a second. LiteLLM reads an entry's own timeouts
+  # before the router's (its source, read 2026-11-24).
   - model_name: gemini-4-hydrogen
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -142,7 +148,9 @@ model_list:
       rpm: 5
       tpm: 250000
       rpd: 20
-      reasoning_effort: high
+      reasoning_effort: xhigh
+      stream_timeout: 180
+      timeout: 240
 
   # The level "Auto-Flash-Lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
   # lowest level Hydrogen has (it cannot be turned off).
@@ -160,11 +168,9 @@ model_list:
       rpd: 20
       reasoning_effort: low
 
-  # In no cascade at all, reachable only when asked for by name: the highest level, which buys 3.1 points of the
-  # index over High for 25.9 more seconds, 0.12 a second, under what any router asks (Artificial Analysis,
-  # read 2026-11-21). Its mean time to the first answer token is 47 s and its median 76 s, so it has a
-  # "stream_timeout" of its own, longer than the router's, and gives way to "gemini-4-hydrogen" when it fails.
-  # It draws on the 20 requests a day of the entries above.
+  # In no cascade at all, reachable only when asked for by name. It was the one entry at the highest level; since
+  # "gemini-4-hydrogen" runs at that level too, it is the same model at the same level under a second name, with
+  # the same timeouts and the same 20 requests a day, and it gives way to "gemini-4-hydrogen" when it fails.
   - model_name: gemini-4-hydrogen-xhigh
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -179,12 +185,16 @@ model_list:
       rpd: 20
       reasoning_effort: xhigh
       stream_timeout: 180
+      timeout: 240
 
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
   # model, engineered for long-horizon software engineering, autonomous agents, and complex
   # enterprise workflows." Free of charge on the Standard tier per "ai.google.dev/gemini-api/docs/
   # pricing" -- verified directly against both pages, not assumed from the naming pattern alone.
+  # High is the highest level it takes ("ai.google.dev/gemini-api/docs/thinking", read 2026-11-24): 28.1 s to the
+  # first answer token (Artificial Analysis, read 2026-11-21), under a third of the router's wait, so it keeps
+  # the router's timeouts.
   - model_name: gemini-3-8-flash
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -197,10 +207,10 @@ model_list:
       rpm: 5
       tpm: 250000
       rpd: 20
-      reasoning_effort: medium
+      reasoning_effort: high
 
-  # The level "Auto-Flash" and "Auto-Flash-Lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
-  # the 1 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
+  # The level "Auto-Flash-Lite" keeps: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under the 3 it
+  # asks (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
   - model_name: gemini-3-8-flash-low
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -233,6 +243,8 @@ model_list:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY"
 
+  # High, the highest level it takes ("ai.google.dev/gemini-api/docs/thinking", read 2026-11-24), is the one level
+  # Artificial Analysis ranks it at, 12.6 s to the first answer token (read 2026-11-21): the router's timeouts hold.
   - model_name: gemini-3-6-flash
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -245,6 +257,7 @@ model_list:
       rpm: 5
       tpm: 250000
       rpd: 20
+      reasoning_effort: high
 
   # Served, but not routed to: "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-22, says
   # "gemini-3.5-flash" is no longer available in Google AI Studio and that its endpoint "automatically
@@ -304,6 +317,8 @@ model_list:
       tpm: 250000
       rpd: 500
 
+  # High, the highest level it takes and Google's default for it ("ai.google.dev/gemini-api/docs/thinking", read
+  # 2026-11-24): written out so that the level it runs at is stated, not inferred.
   - model_name: gemini-3-flash-preview
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -316,6 +331,7 @@ model_list:
       rpm: 5
       tpm: 250000
       rpd: 20
+      reasoning_effort: high
 
   # Served, but not routed to, for two reasons either of which would do. It is paid only:
   # "ai.google.dev/gemini-api/docs/pricing", checked 2026-09-27, gives "Not available" in its Free
@@ -628,6 +644,9 @@ model_list:
   # read the same day). "check_compose_template.py" refuses a text entry of Groq without one.
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
+  # Groq counts tokens, and thinking spends them, so the two gpt-oss entries think at "low", the lowest of the
+  # "low", "medium" and "high" that "console.groq.com/docs/reasoning" (read 2026-11-24) gives them, where
+  # Groq's default is "medium".
   - model_name: gpt-oss-120b-groq
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
@@ -642,6 +661,7 @@ model_list:
       tpm: 8000
       rpd: 1000
       tpd: 200000
+      reasoning_effort: low
 
   - model_name: gpt-oss-20b-groq
     model_info:
@@ -657,6 +677,7 @@ model_list:
       tpm: 8000
       rpd: 1000
       tpd: 200000
+      reasoning_effort: low
 
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
@@ -802,6 +823,10 @@ model_list:
   # credits, all time. Those are counted across every ":free" model of the account together, not per
   # model: the whole section shares one daily count, which is why a model also reachable through its
   # own provider's key is listed ahead of its OpenRouter twin in the cascades.
+  #
+  # Requests are counted, so an entry thinks at the highest level its model takes, which the same catalogue
+  # gives under "reasoning.supported_efforts" (read 2026-11-24). LiteLLM sends "max" to OpenRouter as "xhigh",
+  # so "xhigh" is the highest it can ask. A model the catalogue gives no levels for sets none.
   # ============================================================================
   - model_name: nemotron-ultra-free
     model_info:
@@ -812,6 +837,7 @@ model_list:
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
+      reasoning_effort: high
 
   - model_name: nemotron-reasoning-free
     model_info:
@@ -896,6 +922,7 @@ model_list:
   # whether prompts are retained. Tried by hand on 2026-11-21, nine requests: all but one answered (the
   # other was refused with a 429 by the shared upstream), the first answer token came in about 0.5 s, and
   # the tool call was well formed. The probes were easy and rank nothing.
+  # At "xhigh" from its default "high": no figure times either level, so it keeps the router's timeouts.
   - model_name: particle-1-free
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
@@ -905,6 +932,7 @@ model_list:
     litellm_params:
       model: openrouter/particle-ai/particle-1:free
       api_key: "os.environ/OPENROUTER_API_KEY"
+      reasoning_effort: xhigh
 
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
   # 1,024,000-token context, "tools" and "tool_choice" among its supported parameters and no
@@ -923,6 +951,7 @@ model_list:
     litellm_params:
       model: openrouter/baidu/ernie-5.5-flash-preview:free
       api_key: "os.environ/OPENROUTER_API_KEY"
+      reasoning_effort: high
 
   # Added 2026-11-21. "openrouter.ai/api/v1/models", read that day, lists it free (a price of 0), with a
   # 262,144-token context and "tools" among its supported parameters; its listing says prompts and
@@ -1044,7 +1073,9 @@ model_list:
   # be steered: asked a hard question on 2026-11-22 with "reasoning_effort" low and xhigh, and with
   # "chat_template_kwargs" turning thinking off, it answered in 2,547, 1,770 and 2,616 tokens over 109, 81 and
   # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
-  # past the gateway's limit on a hard question.
+  # past the gateway's limit on a hard question. LiteLLM's "cloudflare/" provider does not forward a
+  # "reasoning_effort" at all (its source, read 2026-11-24): the effort of those calls never left the gateway, and
+  # no entry below can set a level, although the neurons are spent per token.
   # ============================================================================
   # Second source of "gpt-oss-120b-groq", right behind it in "Auto-Flash": the same weights through an allowance
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
@@ -1339,6 +1370,9 @@ model_list:
   # does not use the content of an API customer for improving its services without agreement, and its data
   # processing agreement says it does not store the content, processed generally in Singapore.
   #
+  # No entry sets a level: LiteLLM's "zai/" provider forwards "thinking", on or off, and not a "reasoning_effort"
+  # (its source, read 2026-11-24).
+  #
   # Looked at the same day and not routed. GLM-4.5-Flash: free and in LiteLLM's model map at 128,000 tokens
   # with function calling, but it comes from the same account and the same unpublished limit as GLM-4.7-Flash,
   # so a slot behind it would be tried only once the first has failed for a reason it shares, and neither
@@ -1390,6 +1424,10 @@ model_list:
   # otherwise only show up at run time. "openai/" is cut once by LiteLLM, so the id after it, slash and
   # ":free" included, reaches the gateway whole.
   #
+  # Requests are counted, so an entry thinks at the highest level its model takes: the catalogue gives the
+  # levels under "opencode.reasoning_options" (read 2026-11-24), and an entry sets one only where
+  # "reasoning_effort", the field LiteLLM sends, is among the model's "supported_parameters" too.
+  #
   # Second sources, each right behind its twin, of the OpenRouter entries above for the same ids: that they
   # are the same weights behind both gateways rests on the ids alone. Tried by hand on 2026-11-22 with a tool
   # request each: every entry below answered with a well formed tool call, "ernie-5-5-flash-kilo" four times
@@ -1405,6 +1443,7 @@ model_list:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
       api_key: "kilo-no-key-needed"
+      reasoning_effort: high
       extra_headers:
         Authorization: ""
 
@@ -1447,6 +1486,8 @@ model_list:
       extra_headers:
         Authorization: ""
 
+  # At "max", which LiteLLM sends unchanged to this gateway where it turns it into "xhigh" for OpenRouter: no
+  # figure times either level, so it keeps the router's timeouts.
   - model_name: particle-1-kilo
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
@@ -1457,6 +1498,7 @@ model_list:
       model: openai/particle-ai/particle-1:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
       api_key: "kilo-no-key-needed"
+      reasoning_effort: max
       extra_headers:
         Authorization: ""
 
@@ -1470,6 +1512,7 @@ model_list:
       model: openai/baidu/ernie-5.5-flash-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
       api_key: "kilo-no-key-needed"
+      reasoning_effort: high
       extra_headers:
         Authorization: ""
 
@@ -1598,6 +1641,9 @@ model_list:
   # token is UNTRIED against its real endpoint: the empty header is the form known to work elsewhere, and
   # "check_compose_template.py" holds every entry on a keyless base to it. "openai/" is cut once by LiteLLM,
   # so the id after it reaches the endpoint whole.
+  #
+  # No entry sets a level, although requests are counted: neither the models list nor the catalogue page (read
+  # 2026-11-24) says which "reasoning_effort" values these models take.
   #
   # Not routed: the models the catalogue marks "Being retired" (Qwen3.6-27B, Llama 3.3 70B, end of life
   # 2027-02-10), the task-specific Olala summarise and translate models, the Qwen3-VL vision model, the guard
@@ -1805,6 +1851,13 @@ model_list:
   # Nemotron 3.5 content safety, Muse Glimmer, Laguna, Ling and Leanstral, all on that page. The Gemma 4 26B
   # and the Nemotron 3.5 Super VL of the OpenRouter section have no counterpart on it. Tool calls through
   # these entries are untried: LiteLLM forwards them, and no page read says each model takes them.
+  #
+  # Requests are counted, so an entry thinks at the highest level its model takes. The catalogue of the base
+  # below, "/v1/models", gives the levels under "reasoning.supported_efforts", and the "Reasoning" page of the
+  # Requesty docs says the top-level "reasoning_effort" LiteLLM sends is read and that a level the model lacks
+  # is replaced by the nearest one (both read 2026-11-24). No figure times the levels set here, so the entries
+  # keep the router's timeouts: Gemma 4 31B, which thinks only when asked, answers in 35.4 s at its Reasoning
+  # record (Artificial Analysis, read 2026-11-21), under half the router's wait.
   # ============================================================================
   - model_name: nemotron-ultra-requesty
     model_info:
@@ -1816,6 +1869,7 @@ model_list:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
+      reasoning_effort: max
 
   - model_name: nemotron-reasoning-requesty
     model_info:
@@ -1827,6 +1881,7 @@ model_list:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
+      reasoning_effort: max
 
   - model_name: nemotron-lightning-requesty
     model_info:
@@ -1849,6 +1904,7 @@ model_list:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
       api_key: "os.environ/REQUESTY_API_KEY"
+      reasoning_effort: high
   # drift-ignore: requesty/novita/ling-3.1-flash -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
   # drift-ignore: requesty/nvidia/muse-glimmer-30b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
   # drift-ignore: requesty/nvidia/nemotron-3-nano-30b-a3b -- one of the free models of the Free models page that the header of this section names and does not route (read 2026-11-22)
@@ -1875,6 +1931,9 @@ model_list:
   # confidential or sensitive data and personal data "unless expressly permitted by an API Service", and end
   # the right to use the service automatically, without notice, on a failure to comply. Whoever gives the key
   # takes those on.
+  #
+  # No entry sets a level: LiteLLM's "nvidia_nim/" provider does not forward a "reasoning_effort" (its source,
+  # read 2026-11-24), so each model thinks at the endpoint's default.
   #
   # Placed by the same figures as the other entries: Artificial Analysis's index (read 2026-11-21) and, for
   # "Auto-Code" and "Auto-Claude-Code", Epoch AI's coding benchmarks where it has them. The Nemotron and Gemma entries are
@@ -2069,6 +2128,9 @@ model_list:
   # given here. The site also draws one free "event" model a day, whose id changes every day: it cannot be
   # routed, and nothing here names it.
   #
+  # The entry sets no level: no page of Cent AI read on 2026-11-24 says which "reasoning_effort" values the model
+  # takes.
+  #
   # The operator is an individual whose terms are a draft, and the requests are relayed to vendors it does not
   # name: whoever gives the key lets a third party read the prompts. One account only.
   # ============================================================================
@@ -2113,6 +2175,10 @@ model_list:
   # and allow a gateway of one's own; the privacy policy says the content of a request is neither stored nor used
   # to train models. The models are listed at a price, and any credit top-up moves the account to a tier with no daily
   # token limit, where calls are billed at those prices: give the account none.
+  #
+  # Tokens are counted, and thinking spends them, so each model that reasons thinks at "low", which the catalogue
+  # above lists among its "reasoning_effort.levels" (read 2026-11-24) and LiteLLM sends unchanged. The Llama
+  # variant does not reason and sets none.
   # ============================================================================
   # The newest and largest first, which is the order of "Auto-Fiction". A multi-model system of the GLM family,
   # 262,144 tokens of context. No figure is read for any of these models, so none places them: the contracts of the
@@ -2127,6 +2193,7 @@ model_list:
       model: openai/aion-labs/aion-3.5
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
+      reasoning_effort: low
 
   # Its smaller sibling, also of the GLM family, with the same 262,144 tokens of context.
   - model_name: aion-3-5-mini-aion-labs
@@ -2139,6 +2206,7 @@ model_list:
       model: openai/aion-labs/aion-3.5-mini
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
+      reasoning_effort: low
 
   # The generation before, of the GLM family, with 131,072 tokens of context.
   - model_name: aion-3-0-aion-labs
@@ -2151,6 +2219,7 @@ model_list:
       model: openai/aion-labs/aion-3.0
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
+      reasoning_effort: low
 
   # Of the DeepSeek family, with 131,072 tokens of context.
   - model_name: aion-3-0-mini-aion-labs
@@ -2163,6 +2232,7 @@ model_list:
       model: openai/aion-labs/aion-3.0-mini
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
+      reasoning_effort: low
 
   # A variant of DeepSeek V3.2, with 131,072 tokens of context.
   - model_name: aion-2-0-aion-labs
@@ -2175,6 +2245,7 @@ model_list:
       model: openai/aion-labs/aion-2.0
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
+      reasoning_effort: low
 
   # A variant of Llama 3.1 8B, the only one of the six that neither reasons nor takes tool calls, with 32,768 tokens
   # of context.
@@ -2334,7 +2405,8 @@ router_settings:
   # not in "litellm_settings", where "stream_timeout" has no effect on the router. 90 s for a stream
   # because a model that reasons before it answers is silent until its first answer token, which the
   # slowest of our members reaches after about a minute on average; a stream whose first chunk has not
-  # come by then is given up.
+  # come by then is given up. An entry set to a level slower than that carries its own "stream_timeout" and
+  # "timeout" in its "litellm_params", which LiteLLM reads before these (its source, read 2026-11-24).
   timeout: 120
   stream_timeout: 90
   # Holds each request to the "max_input_tokens" of the member about to be called, counting its tokens first: a
@@ -2473,7 +2545,7 @@ router_settings:
         - kimi-k3-1-pro-nvidia
 {% endif %}
 {% if has.Gemini %}
-        - gemini-3-8-flash-low
+        - gemini-3-8-flash
         - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
@@ -2852,10 +2924,9 @@ router_settings:
         - aion-rp-llama-3-1-8b-aion-labs
 {% endif %}
 
-    # 11. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. The highest level of a model
-    # is slower than the router's own wait allows (see its entry), so when it fails or is given up the request
-    # goes to the same model at the level the routers keep, and no further: whoever asked for that effort
-    # wants that model.
+    # 11. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. When one fails or is given up
+    # the request goes to the same model under the name the routers use, and no further: whoever asked for that
+    # model wants that model. The routers now run Hydrogen at this entry's level too (see its entry).
 {% if has.Gemini %}
     - gemini-4-hydrogen-xhigh:
         - gemini-4-hydrogen
