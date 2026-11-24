@@ -2164,12 +2164,13 @@ def check_litellm_config(document, keys, failures):
     # alias, unless it is declared called by name. A usable model that no router reaches is quota nobody spends, and
     # one that is not usable is deleted or commented out, so there is no third state. The modes with no router (an
     # embedding model, addressed by its own name alone) are exempt, and so is any other mode the gateway has no router
-    # for: only the modes of the routers above are judged.
+    # for: only the modes of the routers above are judged. The entry that picks among the text routers is a router
+    # itself, which no cascade holds, and is exempt as well.
     routed_modes = {None, "chat"} | {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
     reached = set(aliases.values()) | {member for members in cascades.values() for member in members}
     for entry in entries:
         name = entry.get("model_name")
-        if mapping(entry, "model_info").get("mode") not in routed_modes:
+        if name == LITELLM_TIER_ROUTER or mapping(entry, "model_info").get("mode") not in routed_modes:
             continue
         if name in LITELLM_CALLED_BY_NAME and name in reached:
             failures.append(
@@ -2918,7 +2919,8 @@ LITELLM_CONFIG_CASES = [
      "declares no positive model_info.max_input_tokens"),
     ("a member of a cascade whose window is a string", _window_document(info={"max_input_tokens": "131072"}), set(),
      "declares no positive model_info.max_input_tokens"),
-    ("an entry in no cascade needs no window", _window_document(info={"max_input_tokens": None}, in_cascade=False),
+    ("an entry called by name, in no cascade, needs no window",
+     _window_document(name=next(iter(LITELLM_CALLED_BY_NAME)), info={"max_input_tokens": None}, in_cascade=False),
      set(), None),
     ("a member whose provider publishes no window, listed",
      _window_document(name="glm-5-3-flash-nvidia", info={"max_input_tokens": None}), set(), None),
