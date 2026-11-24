@@ -131,6 +131,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
       reasoning_effort: high
 
   # The level "Auto-Flash-Lite" keeps: Medium buys 2.6 points a second, under the 3 it asks, and Low is the
@@ -144,6 +147,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
       reasoning_effort: low
 
   # In no cascade at all, reachable only when asked for by name: the highest level, which buys 3.1 points of the
@@ -160,6 +166,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
       reasoning_effort: xhigh
       stream_timeout: 180
 
@@ -177,6 +186,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
       reasoning_effort: medium
 
   # The level "Auto-Flash" and "Auto-Flash-Lite" keep: Medium buys 7.6 points over Low for 9.4 s, 0.81 a second, under
@@ -190,6 +202,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
       reasoning_effort: low
 
   - model_name: gemini-3-7-flash
@@ -211,6 +226,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.6-flash
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
 
   # Served, but not routed to: "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-22, says
   # "gemini-3.5-flash" is no longer available in Google AI Studio and that its endpoint "automatically
@@ -230,6 +248,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 15
+      tpm: 250000
+      rpd: 500
 
   # Served, but not routed to: paid only. "ai.google.dev/gemini-api/docs/pricing", checked
   # 2026-09-27, gives "Not available" in the Free Tier column for both its input and output price,
@@ -263,6 +284,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 15
+      tpm: 250000
+      rpd: 500
 
   - model_name: gemini-3-flash-preview
     model_info:
@@ -273,6 +297,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3-flash-preview
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 5
+      tpm: 250000
+      rpd: 20
 
   # Served, but not routed to, for two reasons either of which would do. It is paid only:
   # "ai.google.dev/gemini-api/docs/pricing", checked 2026-09-27, gives "Not available" in its Free
@@ -347,6 +374,9 @@ model_list:
     litellm_params:
       model: gemini/gemma-4-31b-it
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 30
+      tpm: 16000
+      rpd: 14400
 
   - model_name: gemma-4-26b-gemini
     model_info:
@@ -356,6 +386,9 @@ model_list:
     litellm_params:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 30
+      tpm: 16000
+      rpd: 14400
 
   # An embedding model, added 2026-11-22, in no cascade and behind no alias, reached by its own name
   # alone: the vectors of two models are not comparable, so a fallback or an alias that followed the
@@ -374,6 +407,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-embedding-2
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 100
+      tpm: 30000
+      rpd: 1000
     model_info:
       mode: embedding
       access_groups: ["Embeddings"]
@@ -391,6 +427,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.8-flash-tts
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 3
+      tpm: 10000
+      rpd: 10
     model_info:
       mode: audio_speech
       access_groups: ["TTS"]
@@ -399,6 +438,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.8-flash-lite-tts
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 3
+      tpm: 10000
+      rpd: 10
     model_info:
       mode: audio_speech
       access_groups: ["TTS"]
@@ -428,6 +470,9 @@ model_list:
     litellm_params:
       model: gemini/gemini-3.5-transcribe
       api_key: "os.environ/GEMINI_API_KEY"
+      rpm: 3
+      tpm: 10000
+      rpd: 25
     model_info:
       mode: audio_transcription
       access_groups: ["STT"]
@@ -599,6 +644,10 @@ model_list:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY"
       max_completion_tokens: 32768
+      rpm: 30
+      tpm: 8000
+      rpd: 1000
+      tpd: 200000
 
   - model_name: gpt-oss-20b-groq
     model_info:
@@ -610,6 +659,10 @@ model_list:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY"
       max_completion_tokens: 32768
+      rpm: 30
+      tpm: 8000
+      rpd: 1000
+      tpd: 200000
 
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
@@ -629,6 +682,10 @@ model_list:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
       max_completion_tokens: 16384
+      rpm: 30
+      tpm: 8000
+      rpd: 1000
+      tpd: 200000
 
   # Speech to text, the first two slots of the "Auto-STT" cascade. "console.groq.com/docs/speech-to-text"
   # ("Speech to Text"), read 2026-11-22, lists "whisper-large-v3" at $0.111 per hour and
@@ -645,6 +702,8 @@ model_list:
     litellm_params:
       model: groq/whisper-large-v3
       api_key: "os.environ/GROQ_API_KEY"
+      rpm: 20
+      rpd: 2000
     model_info:
       mode: audio_transcription
       access_groups: ["STT"]
@@ -653,6 +712,8 @@ model_list:
     litellm_params:
       model: groq/whisper-large-v3-turbo
       api_key: "os.environ/GROQ_API_KEY"
+      rpm: 20
+      rpd: 2000
     model_info:
       mode: audio_transcription
       access_groups: ["STT"]
@@ -2162,6 +2223,14 @@ model_list:
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
+  - model_name: omniroute-free-fast
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: openai/auto/best-fast
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
 {% if head['pro'] and head['flash'] and head['flash-lite'] %}
   # ============================================================================
   # Auto -- picks "Auto-Flash-Lite", "Auto-Flash" or "Auto-Pro" for each request, by how complex it looks
@@ -2218,6 +2287,15 @@ router_settings:
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # Counts each entry's requests and tokens against the free limits its "rpm", "tpm", "rpd" and "tpd" state, in Redis
+  # so that every worker shares the count, and skips without a call a member that has reached one: a provider at its
+  # limit answers 429 only after a round trip, and the head of a cascade with 20 requests a day spends every request
+  # after the twentieth that way. The figures are the free tier's, from Gemini's rate-limit page in AI Studio (per
+  # model and project) and Groq's "console.groq.com/docs/rate-limits" (per model and organisation), both read
+  # 2026-11-24; a provider that publishes none, or counts one quota across all its models, declares nothing, since
+  # LiteLLM counts each entry apart. Entries of one model each count up to its full limit, so together they can
+  # still exceed it. An "rpm" also caps the calls each worker sends to that entry at once.
+  optional_pre_call_checks: ["enforce_model_rate_limits"]
   # How long a member may stay silent before the cascade moves on to the next one. They belong here and
   # not in "litellm_settings", where "stream_timeout" has no effect on the router. 90 s for a stream
   # because a model that reasons before it answers is silent until its first answer token, which the
@@ -2451,7 +2529,7 @@ router_settings:
     # quota of a member of "Auto-Pro" or "Auto-Flash" come last, so as not to eat it: "gemini-3-8-flash-low" and
     # "gemini-4-hydrogen-low" are the same Google models as those routers' heads, with 20 requests a day each
     # against 500 for a Flash-Lite, and "qwen3-8-27b-groq" and "hy4-flash-cent-ai" are the entries of "Auto-Flash" itself. The paid
-    # "ministral-3b" closes the cascade. Where a twin exists, the OpenRouter entry stands ahead of the
+    # "ministral-3b" comes last of the keyed members and the keyless "omniroute-free-fast", OmniRoute's latency-first route, closes the cascade. Where a twin exists, the OpenRouter entry stands ahead of the
     # entries of Requesty, of NVIDIA and of Kilo, in that order, and the Cloudflare twins
     # ("gpt-oss-20b-cloudflare", "gemma-4-26b-cloudflare") sit right behind the last slot of theirs. NVIDIA's two
     # Gemma 3 entries are placed by the time Artificial Analysis gives them, "nemotron-bolt-e4b-nvidia", which has no
@@ -2537,6 +2615,7 @@ router_settings:
 {% if has.Mistral %}
         - ministral-3b
 {% endif %}
+        - omniroute-free-fast
 {% endif %}
 
     # 4. CODE -- refactoring, Ansible playbooks, Bash/Python scripts. Excludes FIM (raw token) models.
