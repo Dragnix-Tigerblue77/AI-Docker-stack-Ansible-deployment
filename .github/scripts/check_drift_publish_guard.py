@@ -88,7 +88,7 @@ GitHub fires a cron with "github.event.schedule" spelt as "on.schedule" writes i
 the attempt before it, or lists the runs and artifacts as the made-up one does; no scheduled run can be
 played here. Nor
 that "the rows of the table written again" are right -- "check_compose_template.py" holds each alias
-to the first member of its cascade for every set of keys. Nor that GitHub answers as the made-up one
+to the first member of its cascade for each of its sets of keys. Nor that GitHub answers as the made-up one
 does: its answers are octokit's as the documentation gives them, not recorded, and the refusal of a
 draft is matched on its status and the word "draft" alone. Node is needed on the PATH, and PyYAML
 and Jinja2, since the drift script is imported to compare its build with the step's.
@@ -824,8 +824,10 @@ def builder_scenarios(real, drift):
         [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
         "has no embedding entry of cloudflare", kind="to_verify",
         base=real.replace("os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE", "https://upstream-host/v1"))
+    # Every Cloudflare embedding entry, since a base read from the environment on any one of them is an entry to model on.
     plain_base = real.replace('      model: openai/@cf/baai/bge-m3\n      api_base: "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE"',
-                              '      model: cloudflare/@cf/baai/bge-m3\n      api_base: "https://upstream-host/v1"')
+                              '      model: cloudflare/@cf/baai/bge-m3\n      api_base: "https://upstream-host/v1"'
+                              ).replace("os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE", "https://upstream-host/v1")
     assert plain_base != real
     add("an embedding model of Cloudflare modelled on an entry whose base is a plain address is refused",
         [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
@@ -925,8 +927,13 @@ def builder_scenarios(real, drift):
         [item("ovhcloud", "Fresh-Eight.1", "fresh-eight-1-ovh")], "free tier, and only")
     add("a ready model of a provider that states nothing is refused",
         [item("nvidia", "vendor/fresh-seven", "fresh-seven-nvidia")], "free tier, and only")
-    add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "kilo-auto/free", "auto-kilo")],
-        "set aside by a drift-ignore line")
+    kilo_set_aside = miniature.replace(
+        "# drift-ignore: openrouter/vendor/set-aside:free -- turned down\n",
+        "# drift-ignore: openrouter/vendor/set-aside:free -- turned down\n"
+        "# drift-ignore: kilo/vendor/set-aside:free -- a test\n")
+    assert kilo_set_aside != miniature
+    add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "vendor/set-aside:free", "set-aside-kilo")],
+        "set aside by a drift-ignore line", base=kilo_set_aside)
     add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
         "is already an entry", base=miniature, kind="to_verify")
     add("an id set aside by drift-ignore is refused", [item("openrouter", "vendor/set-aside:free", "fresh-free")],

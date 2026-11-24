@@ -365,18 +365,19 @@ never built here: a service carries no `build:` key, and `check_compose_template
 **The model list keeps only what can be called.** In `templates/LiteLLM_config.yaml.j2`, a model its
 provider has retired is **deleted**, entry and cascade slots alike -- git keeps the record, a
 commented-out corpse only misleads the next audit into re-checking it. A model the provider still
-serves but that this list deliberately does not route to stays **commented out, with its reason** on
-the line above it: paid, bank card required, enterprise contract only, and so on -- that comment is
-the answer to "why is it not used", so it is written once instead of being rediscovered. New models
-are **added** as providers publish them, so the list tracks each provider's current catalogue rather
-than the day it was written. Each claim cites the provider's own page and the date it was checked
-(#169). An active entry is therefore either usable, and then a member of a cascade or the target of an alias,
-or it is not, and then it goes: deleted, or commented out with its reason. The two exceptions are the embedding
-models, addressed by their own name because their vector space ties a collection to them, and the few entries
-declared in `LITELLM_CALLED_BY_NAME` of `check_compose_template.py`, each with its reason, which must be the
-same ones as the section of `ROUTAGE.md` that lists the entries called by name. A model its provider redirects
-to another one is routed right behind that one for as long as it is not established that it has no counter of its
-own, and one still served with a free quota of its own until a stated date is routed until that date.
+serves but that costs money to call, or that only a contract opens, stays **commented out, with its
+reason** on the line above it: paid, a trial or a one-time credit, an enterprise contract only, and so
+on -- that comment is the answer to "why is it not used", so it is written once instead of being
+rediscovered. New models are **added** as providers publish them, so the list tracks each provider's
+current catalogue rather than the day it was written. Each claim cites the provider's own page and the
+date it was checked (#169). An active entry is therefore either usable, and then a member of a cascade
+or the target of an alias, or it is not, and then it goes: deleted, or commented out with its reason.
+The two exceptions are the embedding models, addressed by their own name because their vector space ties
+a collection to them, and the entries declared in `LITELLM_CALLED_BY_NAME` of `check_compose_template.py`,
+each with its reason, which must be the same ones as the section of `ROUTAGE.md` that lists the entries
+called by name. A model its provider redirects to another one is routed right behind that one for as long
+as it is not established that it has no counter of its own, and one still served with a free quota of its
+own until a stated date is routed until that date.
 `check_LiteLLM_model_drift.py` holds the file to it on every pull request, reading it rendered with
 every provider key given (it needs PyYAML and Jinja2) -- every cascade slot and alias names an
 active entry, and a commented-out one says it is "not routed" and why -- and reads the providers'
@@ -415,6 +416,22 @@ its body names, under "À relire", the entries whose length the new sheet no lon
 `check_compose_template.py` refuses and a person adjusts by hand. An issue is opened for one thing
 only, a provider's catalogue still unreadable after the day's two retries. What the workflow needs
 and what it refuses to delete are in its header and in the docstring of the script.
+
+The checks render that file for a covering array of the provider keys, never for every set of them, which
+doubled with each provider: every case of the keys any one condition reads is rendered, plus each key alone,
+every key and every key but one. `key_set_plan` in `check_LiteLLM_model_drift.py` works the sets out for both
+checks, and `check_compose_template.py` prints, on every run, the most keys one condition reads and the number of
+sets. A condition that reads more keys than `KEY_SET_STRENGTH_LIMIT` is refused with its line and its keys, so a
+guarantee cannot erode unseen: it is split, and the limit is raised only knowing what the larger array costs.
+A router's `head` row reads the keys of its whole chain, so a chain longer than the limit is the case to watch.
+
+**What a cleanup of the model list may remove.** A cleanup removes only what its provider has retired or
+redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, what a
+person set aside for a data or operator reason, or a second entry for the same model at the same
+level, which is a duplicate and not a model. A free model that can be called is never removed,
+commented out, set aside by a `drift-ignore:` line or kept out of every cascade for being redundant,
+unmeasured, too small a window (the router's pre-call checks skip a member a request does not fit)
+or deemed not needed: it goes by its figure, at the tail of the free members, or by name.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
@@ -525,6 +542,12 @@ answered by reading the code, settle whether it is worth that: **who reads the v
 population finite or does it keep arriving**. A recurring cost justifies a standing mechanism; a
 finite one is paid off once, on the host as the rule above says, and a mechanism left behind to
 guard against its ghost is pure maintenance.
+
+**A time cap goes only where something can wait for ever.** A download, an install, a service or a
+container to answer can hang, and the step that waits on it gets a cap; a computation is bounded by its
+own logic, and a cap over a whole job or check only cancels work that is merely long, so a job that only
+computes carries none. A gateway entry's `timeout` follows the same rule: it guards against a provider
+that never answers, and a change that makes a model slower raises it in the same pull request.
 
 **Comments say why, once, and briefly.** A comment states what the code cannot, the reason, in a
 line or two; how it was found out belongs in the commit message and the issue, not above the line.

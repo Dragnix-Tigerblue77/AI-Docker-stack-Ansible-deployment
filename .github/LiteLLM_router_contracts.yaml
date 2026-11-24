@@ -1027,6 +1027,123 @@ models:
   omniroute-free-fast:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}
+  flint-free:
+    no_record: "No Artificial Analysis record was matched to Flint on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-24"}
+    epoch: unknown
+  ling-3-2-flash-free:
+    no_record: "No Artificial Analysis record was matched to Ling 3.2 Flash on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "OpenRouter catalogue, tools among supported_parameters, read 2026-11-24"}
+    epoch: unknown
+  ling-3-2-flash-kilo:
+    no_record: "No Artificial Analysis record was matched to Ling 3.2 Flash on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-24"}
+    epoch: unknown
+  kilo-auto-free:
+    no_record: "No Artificial Analysis record was matched to the free router of Kilo, which picks a model per request on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-24"}
+    epoch: unknown
+  kilo-openrouter-free:
+    no_record: "No Artificial Analysis record was matched to OpenRouter's free router, which picks a model per request on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "Kilo gateway catalogue, tools among supported_parameters, read 2026-11-24"}
+    epoch: unknown
+  phonellm-mini-alpha-2-cloudflare:
+    no_record: "No Artificial Analysis record was matched to PhoneLLM on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "developers.cloudflare.com/workers-ai/models/phonellm-mini-alpha-2/, function calling, read 2026-11-24"}
+    epoch: unknown
+  glm-4-5-flash-zai:
+    no_record: "No Artificial Analysis record was matched to GLM-4.5-Flash on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling (read 2026-11-22)"}
+    epoch: unknown
+  glm-4-6v-flash-zai:
+    no_record: "No Artificial Analysis record was matched to GLM-4.6V-Flash on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "no page read declares it"}
+    epoch: unknown
+  mistral-7b-instruct-v0-2-lora-cloudflare:
+    no_record: "No Artificial Analysis record was matched to Mistral 7B Instruct v0.2 on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "developers.cloudflare.com/workers-ai/models/mistral-7b-instruct-v0.2-lora/, read 2026-11-24: no function calling listed"}
+    epoch: unknown
+  muse-glimmer-requesty:
+    slug: muse-glimmer
+    level: unknown
+    level_source: "unknown: the Requesty catalogue, read 2026-11-24, says nothing of a reasoning default for nvidia/muse-glimmer-30b"
+    note: "Artificial Analysis publishes one record, named High"
+    tools: {support: "yes", source: "router.requesty.ai/v1/models, supports_tool_calling true, read 2026-11-24"}
+    epoch: unknown
+  ling-3-1-flash-requesty:
+    slug: ling-3-1-flash
+    level: unknown
+    level_source: "unknown: the Requesty catalogue, read 2026-11-24, says nothing of a reasoning default for novita/ling-3.1-flash"
+    note: "Artificial Analysis publishes one record, Ling 3.1 Flash 1019 (index 30, time to the first answer token not available on its page, read 2026-11-24), matched by name: that Requesty serves that snapshot is not stated"
+    tools: {support: "yes", source: "router.requesty.ai/v1/models, supports_tool_calling true, read 2026-11-24"}
+    epoch: unknown
+  nemotron-3-nano-30b-requesty:
+    no_record: "No Artificial Analysis record was matched to Nemotron 3 Nano 30B A3B at Requesty (the ranking was not read: no key) on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "router.requesty.ai/v1/models, supports_tool_calling true, read 2026-11-24"}
+    epoch: unknown
+  llama-3-3-70b-ovh:
+    no_record: "No Artificial Analysis record was matched to Llama 3.3 70B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, Function Calling on the model card, read 2026-11-22"}
+    epoch: unknown
+  qwen3-6-27b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3.6 27B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "yes", source: "OVHcloud AI Endpoints catalogue, marked Being retired, read 2026-11-22: the card was not read again, a keyless chat call answered on 2026-11-24"}
+    epoch: unknown
+  olala-summarise-ovh:
+    no_record: "No Artificial Analysis record was matched to Olala-v1.0-summarise on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "no card read declares it"}
+    epoch: unknown
+  olala-translate-ovh:
+    no_record: "No Artificial Analysis record was matched to Olala-v1.0-translate on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "no card read declares it"}
+    epoch: unknown
+  qwen3-vl-30b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3-VL 30B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "no card read declares it"}
+    epoch: unknown
+  qwen2-5-vl-72b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen2.5-VL 72B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "an earlier reading of the catalogue, 2026-11-22, said it takes no tool calls"}
+    epoch: unknown
+  qwen3guard-gen-0-6b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3Guard-Gen-0.6B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "a guard model that answers a verdict on a text"}
+    epoch: unknown
+  qwen3guard-gen-8b-ovh:
+    no_record: "No Artificial Analysis record was matched to Qwen3Guard-Gen-8B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "a guard model that answers a verdict on a text"}
+    epoch: unknown
+  cosmos-reason2-8b-nvidia:
+    no_record: "No Artificial Analysis record was matched to Cosmos Reason 2 8B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "the NVIDIA API Catalog card, read 2026-11-22, lists no function calling"}
+    epoch: unknown
+  ising-calibration-1-5-31b-nvidia:
+    no_record: "No Artificial Analysis record was matched to Ising Calibration 1.5 31B on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "the NVIDIA API Catalog card, read 2026-11-22, lists no function calling"}
+    epoch: unknown
+  riva-translate-4b-instruct-v2-nvidia:
+    no_record: "No Artificial Analysis record was matched to Riva Translate 4B Instruct v2 on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "the NVIDIA API Catalog card, read 2026-11-22, lists no function calling"}
+    epoch: unknown
+  nemoguard-topic-control-8b-nvidia:
+    no_record: "No Artificial Analysis record was matched to Llama 3.1 NemoGuard 8B Topic Control on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "a guard model that answers a verdict on a text"}
+    epoch: unknown
+  nemotron-safety-guard-8b-v3-nvidia:
+    no_record: "No Artificial Analysis record was matched to Llama 3.1 Nemotron Safety Guard 8B v3 on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "a guard model that answers a verdict on a text"}
+    epoch: unknown
+  nemotron-3-5-content-safety-nvidia:
+    no_record: "No Artificial Analysis record was matched to Nemotron 3.5 Content Safety on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "no", source: "a guard model that answers a verdict on a text"}
+    epoch: unknown
+  gemini-flash-latest:
+    no_record: "No Artificial Analysis record was matched to the Flash alias, which Google hot-swaps on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "ai.google.dev/gemini-api/docs/models, read 2026-11-24, says nothing of the tools of the model behind an alias"}
+    epoch: unknown
+  gemini-flash-lite-latest:
+    no_record: "No Artificial Analysis record was matched to the Flash-Lite alias, which Google hot-swaps on 2026-11-24, and neither the capabilities index nor the code benchmarks of Epoch AI hold it"
+    tools: {support: "unknown", source: "ai.google.dev/gemini-api/docs/models, read 2026-11-24, says nothing of the tools of the model behind an alias"}
     epoch: unknown
   omniroute-free-vision:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
