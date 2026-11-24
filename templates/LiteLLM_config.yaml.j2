@@ -795,10 +795,13 @@ model_list:
   # zero data retention.
   #
   # Every text model below states the length of its answer: a request that names none is cut at the default
-  # its model page gives, 256 tokens on most of them (read 2026-11-23), which empties the answer of a model
-  # that reasons first. 32,768 where the context reaches 128,000 tokens, 8,192 under it, so that the request
-  # keeps most of the context; a client that sends its own limit replaces it.
-  # "check_compose_template.py" refuses a text entry of Cloudflare without one.
+  # its model page gives, 256 tokens on most of them (read 2026-11-23, and measured through the gateway on
+  # 2026-11-24 for both gpt-oss and Llama 3.3), which empties the answer of a model that reasons first. The
+  # pages of GLM 4.7 Flash, Gemma 4 26B and Qwen3.8 give no default and name "max_completion_tokens" in place
+  # of a deprecated "max_tokens", so their entries use it; GLM and Gemma answered uncut without one that day,
+  # and carry it all the same so that one rule holds every entry. 32,768 where the context reaches 128,000
+  # tokens, 8,192 under it, so that the request keeps most of the context; a client that sends its own limit
+  # replaces it. "check_compose_template.py" refuses a text entry of Cloudflare without one.
   #
   # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
   # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
@@ -839,6 +842,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # New to the gateway, and in "Auto-Flash-Lite" only, as the last of its free members: 24,000 tokens of context
   # in LiteLLM's model map and on its page (read 2026-11-22), which is what "Auto-Flash-Lite" takes, and no
@@ -865,6 +869,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # SEA-LION v4, a Gemma 3 27B tuned for the languages of Southeast Asia, with 128,000 tokens of context
   # (its model page, read 2026-11-22). Not among the models the pricing page
@@ -1028,6 +1033,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/qwen/qwen3.8-27b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5
 
