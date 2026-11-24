@@ -72,8 +72,8 @@ provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a 
 call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
 otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
 endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
-A text entry of Cloudflare states the length of its answer, as "max_tokens" or "max_completion_tokens":
-Cloudflare cuts an answer that names no limit at the default its model page gives, 256 tokens on most of them.
+A text entry of Cloudflare or Groq states the length of its answer, as "max_tokens" or "max_completion_tokens":
+both cut an answer that names no limit short, at 256 tokens on most Cloudflare models and at 2,048 or 3,072 on Groq.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1770,8 +1770,9 @@ LITELLM_KEYLESS_BASES = {
 }
 # The model prefixes of the providers that cut an answer short when the request names no limit: Cloudflare's model
 # pages give 256 tokens as the default of most of its text models, which empties the answer of one that reasons
-# first. A text entry of theirs states its own limit, as "max_tokens" or "max_completion_tokens".
-LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES = ("cloudflare/",)
+# first, and Groq's models were measured stopping at 2,048 or 3,072. A text entry of theirs states its own limit,
+# as "max_tokens" or "max_completion_tokens".
+LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES = ("cloudflare/", "groq/")
 
 
 def litellm_key_sets():
@@ -1870,8 +1871,8 @@ def check_litellm_config(document, keys, failures):
         if not any(isinstance(limit, int) and not isinstance(limit, bool) and limit > 0 for limit in limits):
             failures.append(
                 f"[{state}] the text entry {entry.get('model_name')!r} ({model}) sets no positive max_tokens nor "
-                "max_completion_tokens: its provider cuts an answer that names no limit at a default its model page "
-                "gives, 256 tokens on most of them, which empties the answer of a model that reasons first"
+                "max_completion_tokens: its provider cuts an answer that names no limit short, at 256 tokens on most "
+                "Cloudflare models and at 2,048 or 3,072 on Groq, which empties the answer of a model that reasons first"
             )
 
     read = set()
@@ -2513,8 +2514,12 @@ LITELLM_CONFIG_CASES = [
      "sets no positive max_tokens nor max_completion_tokens"),
     ("an entry of Cloudflare that is no text model needs no limit",
      _short_answer_document(mode="evaluation", max_tokens=None), set(), None),
+    ("a text entry of Groq with no limit", _short_answer_document(model="groq/vendor/model", max_tokens=None), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a transcription entry of Groq needs no limit",
+     _short_answer_document(mode="audio_transcription", model="groq/whisper", max_tokens=None), set(), None),
     ("a text entry of another provider needs no limit",
-     _short_answer_document(model="groq/vendor/model", max_tokens=None), set(), None),
+     _short_answer_document(model="gemini/vendor-model", max_tokens=None), set(), None),
     ("an entry on another base is not held to the keyless shape",
      _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a transcription router served by its cascade's head",

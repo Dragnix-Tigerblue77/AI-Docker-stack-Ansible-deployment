@@ -513,6 +513,12 @@ model_list:
   #     api_key: "os.environ/CEREBRAS_API_KEY"
 
 {% if has.Groq %}
+  # Every text model of Groq states the length of its answer, as "max_completion_tokens", the name Groq's API
+  # reference gives in place of a deprecated "max_tokens": through the gateway on 2026-11-24, a request that
+  # named none was cut at 2,048 tokens (gpt-oss-20b, Qwen3.8) and 3,072 (gpt-oss-120b), although the reference
+  # gives no default. On a short request the same day, the free tier accepted every limit from 4,096 to 32,768
+  # tokens. 32,768, or the model's own maximum output where it is lower: 16,384 for Qwen3.8 (its model page,
+  # read the same day). "check_compose_template.py" refuses a text entry of Groq without one.
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
@@ -521,6 +527,7 @@ model_list:
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 32768
 
   - model_name: gpt-oss-20b-groq
     model_info:
@@ -528,6 +535,7 @@ model_list:
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 32768
 
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
@@ -543,6 +551,7 @@ model_list:
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 16384
 
   # Speech to text, the first two slots of the "Auto-STT" cascade. "console.groq.com/docs/speech-to-text"
   # ("Speech to Text"), read 2026-11-22, lists "whisper-large-v3" at $0.111 per hour and
