@@ -1011,6 +1011,9 @@ OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
                 "centai": "api.cent-ai.dev", "aionlabs": "api.aionlabs.ai"}
 # The one provider whose entries no catalogue backs: OmniRoute is a local gateway that picks among the models the
 # machine itself holds, so its virtual "auto/..." routes are listed nowhere upstream and no reader could cover them.
+# An "api_base" read whole from the environment, because the address holds the account's identifier: LiteLLM's
+# "cloudflare/" provider has no embedding route, so Cloudflare's embedding entries are "openai/<id>" on it.
+OPENAI_ENV_BASES = {"os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE": "cloudflare"}
 OMNIROUTE_BASE = re.compile(r"https?://omniroute[:/]")
 
 
@@ -1022,6 +1025,8 @@ def attribute(model, api_base):
     for provider in NATIVE_PROVIDERS:
         if prefix == LITELLM_PREFIXES.get(provider, provider):
             return provider, identifier
+    if prefix == "openai" and api_base in OPENAI_ENV_BASES:
+        return OPENAI_ENV_BASES[api_base], identifier
     if prefix == "openai" and isinstance(api_base, str):
         for provider, host in OPENAI_HOSTS.items():
             if host in api_base:
@@ -5763,9 +5768,11 @@ def addition_entries(lines):
 
 def addition_anchor(entries, provider):
     """The entry a new one of "provider" is modelled on and written after: its last active entry,
-    else its last commented-out one, else None."""
+    else its last commented-out one, else None. An entry whose "api_base" is read from the environment is
+    never the model: it is an embedding, which a new chat model is not written after."""
     own = [entry for entry in entries
-           if (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0]
+           if entry["fields"].get("api_base") not in OPENAI_ENV_BASES
+           and (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0]
            == provider]
     active = [entry for entry in own if not entry["commented"]]
     return (active or own or [None])[-1]
