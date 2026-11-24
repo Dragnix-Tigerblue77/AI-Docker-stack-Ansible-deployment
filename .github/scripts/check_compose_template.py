@@ -1869,6 +1869,8 @@ _REQUESTY = ('"reasoning.supported_efforts" of router.eu.requesty.ai/v1/models, 
 _OVHCLOUD = ("neither the models list of the endpoint nor the OVHcloud AI Endpoints catalogue page, read 2026-11-24, "
              "says which values the model takes")
 _AION = '"reasoning_effort.levels" of api.aionlabs.ai/v1/models, read 2026-11-24'
+_CLOUDFLARE_FORCED = ('a call through the gateway with "allowed_openai_params" on 2026-11-24, where "low" and "high" '
+                      'changed the length of the reasoning, and the model page, which gives "medium" as its default')
 _KILO_BASE = LITELLM_KEYLESS_BASES["Kilo"]
 _OVHCLOUD_BASE = LITELLM_KEYLESS_BASES["OVHcloud"]
 _REQUESTY_BASE = "https://router.eu.requesty.ai/v1"
@@ -1921,9 +1923,12 @@ LITELLM_REASONING_EFFORTS = {
     **{(f"openai/aion-labs/{model}", _AION_BASE): (("none", "low", "medium", "high", "max"), _AION) for model in (
         "aion-3.0", "aion-3.0-mini", "aion-2.0")},
     ("openai/aion-labs/aion-rp-llama-3.1-8b", _AION_BASE): ((), _AION + ": it does not reason"),
+    **{(f"cloudflare/@cf/openai/{model}", None): (("low", "medium", "high"), _CLOUDFLARE_FORCED) for model in (
+        "gpt-oss-120b", "gpt-oss-20b")},
 }
-# The LiteLLM providers that do not forward a "reasoning_effort" at all: with "drop_params" on, it is dropped
-# without a word, so a level set on one of their entries is a level that never reaches the model.
+# The LiteLLM providers that do not forward a "reasoning_effort" of their own: with "drop_params" on, it is dropped
+# without a word, so a level set on one of their entries never reaches the model, unless the entry names it in
+# "allowed_openai_params", which makes LiteLLM send it as it is.
 LITELLM_EFFORT_NOT_FORWARDED = {
     "nvidia_nim": "LiteLLM's nvidia_nim provider lists no reasoning_effort among the parameters it forwards",
     "cloudflare": "LiteLLM's cloudflare provider lists no reasoning_effort among the parameters it forwards",
@@ -1941,10 +1946,12 @@ def check_litellm_reasoning_efforts(entries, state, failures):
             continue
         name, model = entry.get("model_name"), parameters.get("model")
         provider = model.split("/", 1)[0] if isinstance(model, str) else None
-        if provider in LITELLM_EFFORT_NOT_FORWARDED:
+        forced = "reasoning_effort" in (parameters.get("allowed_openai_params") or [])
+        if provider in LITELLM_EFFORT_NOT_FORWARDED and not forced:
             failures.append(
                 f"[{state}] the entry {name!r} sets reasoning_effort {effort!r}, which never reaches its model: "
-                f"{LITELLM_EFFORT_NOT_FORWARDED[provider]}, so it is dropped without a word"
+                f"{LITELLM_EFFORT_NOT_FORWARDED[provider]}, so it is dropped without a word unless allowed_openai_params "
+                "names it"
             )
             continue
         known = LITELLM_REASONING_EFFORTS.get((model, parameters.get("api_base")))
@@ -3339,6 +3346,16 @@ LITELLM_EFFORT_CASES = [
      "has no row in LITELLM_REASONING_EFFORTS"),
     ("a level on a provider LiteLLM does not forward it to", _effort_entry("nvidia_nim/z-ai/glm-5.3-flash", "max"),
      "never reaches its model"),
+    ("a level on Cloudflare without allowed_openai_params", _effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low"),
+     "never reaches its model"),
+    ("a level on Cloudflare that allowed_openai_params sends",
+     {**_effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low"),
+      "litellm_params": {**_effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low")["litellm_params"],
+                         "allowed_openai_params": ["reasoning_effort"]}}, None),
+    ("a level sent to Cloudflare that its model does not take",
+     {**_effort_entry("cloudflare/@cf/openai/gpt-oss-20b", "max"),
+      "litellm_params": {**_effort_entry("cloudflare/@cf/openai/gpt-oss-20b", "max")["litellm_params"],
+                         "allowed_openai_params": ["reasoning_effort"]}}, "does not take"),
 ]
 
 

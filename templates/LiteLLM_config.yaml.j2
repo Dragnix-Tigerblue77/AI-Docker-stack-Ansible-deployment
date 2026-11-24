@@ -1073,9 +1073,10 @@ model_list:
   # be steered: asked a hard question on 2026-11-22 with "reasoning_effort" low and xhigh, and with
   # "chat_template_kwargs" turning thinking off, it answered in 2,547, 1,770 and 2,616 tokens over 109, 81 and
   # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
-  # past the gateway's limit on a hard question. LiteLLM's "cloudflare/" provider does not forward a
-  # "reasoning_effort" at all (its source, read 2026-11-24): the effort of those calls never left the gateway, and
-  # no entry below can set a level, although the neurons are spent per token.
+  # past the gateway's limit on a hard question. LiteLLM's "cloudflare/" provider forwards a "reasoning_effort"
+  # only when an entry names it in "allowed_openai_params" (its source, read 2026-11-24). The two gpt-oss entries
+  # do, at "low", since the neurons are spent per token: through the gateway on 2026-11-24, "low" gave 42 and 60
+  # tokens where the default gave 135 and 143.
   # ============================================================================
   # Second source of "gpt-oss-120b-groq", right behind it in "Auto-Flash": the same weights through an allowance
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
@@ -1089,6 +1090,9 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
       max_tokens: 32768
+      # "low", Cloudflare counting neurons; LiteLLM forwards a level to Cloudflare only when it is named here.
+      reasoning_effort: low
+      allowed_openai_params: ["reasoning_effort"]
 
   # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
@@ -1101,6 +1105,9 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
       max_tokens: 32768
+      # "low", Cloudflare counting neurons; LiteLLM forwards a level to Cloudflare only when it is named here.
+      reasoning_effort: low
+      allowed_openai_params: ["reasoning_effort"]
 
   # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
