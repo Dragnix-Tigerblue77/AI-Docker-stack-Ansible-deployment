@@ -485,8 +485,8 @@ def load_builder():
              "stop when the script's build is another text"),
             (r"const content = kept !== null && onlyDaysDiffer\(kept, built\) \? kept : built\.text;",
              "push the text it built, or the branch's own where only the days differ"),
-            (r"publish\(spec\.branch, head, \[\[template, content\], \[catalog, handedCatalog\]\], message,",
-             "push that text and the catalogue generated from it")):
+            (r"publish\(spec\.branch, head, \[\[template, content\], \[catalog, handedCatalog\], \[scores, handedScores\]\], message,",
+             "push that text, the catalogue generated from it and the figures it shows")):
         if not re.search(pattern, script):
             raise SystemExit("the step does not %s" % what)
     return script.split(BUILDER_BEGIN, 1)[1].split(BUILDER_END, 1)[0]
@@ -792,12 +792,16 @@ def step_scenarios(real, drift, folder):
     out = []
     count = [0]
     empty_parts = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
-    # The catalogue each proposal is handed with: the step commits it with the template and reads nothing of it.
+    # The catalogue and the figures each proposal is handed with: the step commits them with the template and reads
+    # nothing of them but their size, and that the figures are a JSON object.
     catalogs = {"ready": "# Catalogue des ajouts prêts\n", "to_verify": "# Catalogue des ajouts à vérifier\n"}
+    figures = {"ready": '{\n "entries": {"a": 1}\n}\n', "to_verify": '{\n "entries": {"b": 2}\n}\n'}
     removal_catalog = "# Catalogue après suppression\n"
+    removal_figures = '{\n "entries": {"c": 3}\n}\n'
+    files_of_a_commit = ["templates/LiteLLM_config.yaml.j2", "docs/CATALOG.md", "docs/catalog_scores.json"]
 
     def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None,
-                 without=(), **extra):
+                 without=(), without_figures=(), **extra):
         count[0] += 1
         where = pathlib.Path(folder) / ("s%d" % count[0])
         where.mkdir()
@@ -809,6 +813,8 @@ def step_scenarios(real, drift, folder):
                 (where / ("%s_template.j2" % kind)).write_text(built[kind], encoding="utf-8")
                 if kind not in without:
                     (where / ("%s_catalog.md" % kind)).write_text(catalogs[kind], encoding="utf-8")
+                if kind not in without_figures:
+                    (where / ("%s_scores.json" % kind)).write_text(figures[kind], encoding="utf-8")
                 (where / ("%s_body.md" % kind)).write_text(body[kind], encoding="utf-8")
                 (where / ("%s_commit.txt" % kind)).write_text("Propose them\n", encoding="utf-8")
         for name_of, text in (files or {}).items():
@@ -818,7 +824,8 @@ def step_scenarios(real, drift, folder):
         environment.update(NATIVE_CHECKS="false", DRIFT_STATUS="1", COVERED="complete", ISSUE_OUTCOME="success",
                            CHANGED="false", UNDELETED="0", BASE_SHA=BASE_SHA, PROPOSALS=str(where),
                            PR_BODY=str(where / "none"), COMMIT_MESSAGE=str(where / "none"),
-                           TEMPLATE_FILE=str(where / "none"), CATALOG_FILE=str(where / "none"))
+                           TEMPLATE_FILE=str(where / "none"), CATALOG_FILE=str(where / "none"),
+                           SCORES_FILE=str(where / "none"))
         environment.update(env or {})
         environment.update(env_files(str(where)) if env_files else {})
         play = {"env": environment, "refs": refs or {}, "pulls": pulls or [], "ancestry": "ahead"}
@@ -841,12 +848,13 @@ def step_scenarios(real, drift, folder):
     def blob_texts(result):
         return [base64.b64decode(args["content"]).decode("utf-8") for args in calls(result, "git.createBlob")]
 
-    def ours(branch, text, catalog=None):
-        """A branch the workflow made, holding "text" as the template and "catalog" as the catalogue, which is the
-        one the proposals of its kind come with unless another is given."""
+    def ours(branch, text, catalog=None, scores=None):
+        """A branch the workflow made, holding "text" as the template, "catalog" as the catalogue and "scores" as the
+        figures, which are the ones the proposals of its kind come with unless others are given."""
         kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify"}.get(branch)
         catalog = catalogs.get(kind, removal_catalog) if catalog is None else catalog
-        return {branch: {"sha": "head-" + branch, "tree": tree_of_files([text, catalog]), "text": text,
+        scores = figures.get(kind, removal_figures) if scores is None else scores
+        return {branch: {"sha": "head-" + branch, "tree": tree_of_files([text, catalog, scores]), "text": text,
                          "commits": [{"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]}]}}
 
     def pull(number, branch, text, draft=False):
@@ -865,11 +873,11 @@ def step_scenarios(real, drift, folder):
                   "the ready pull request was not opened ready for review"),
                  (len(created(r, branches["to_verify"])) == 1 and created(r, branches["to_verify"])[0]["draft"] is True,
                   "the pull request to verify was not opened as a draft"),
-                 (sorted(blob_texts(r)) == sorted(list(built.values()) + list(catalogs.values())),
-                  "it pushed another text than the template built and the catalogue handed over"),
-                 (all([entry["path"] for entry in args["tree"]] == ["templates/LiteLLM_config.yaml.j2", "docs/CATALOG.md"]
+                 (sorted(blob_texts(r)) == sorted(list(built.values()) + list(catalogs.values()) + list(figures.values())),
+                  "it pushed another text than the template built and the catalogue and figures handed over"),
+                 (all([entry["path"] for entry in args["tree"]] == files_of_a_commit
                       for args in calls(r, "git.createTree")) and len(calls(r, "git.createTree")) == 2,
-                  "a commit does not hold the template and the catalogue, in one tree"),
+                  "a commit does not hold the template, the catalogue and the figures, in one tree"),
                  (all(args["parents"] == [BASE_SHA] for args in calls(r, "git.createCommit")),
                   "a commit is not on the commit the other job worked on"),
                  (all("Signed-off-by: github-actions[bot]" in args["message"] for args in calls(r, "git.createCommit")),
@@ -923,7 +931,7 @@ def step_scenarios(real, drift, folder):
     moved = earlier["ready"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
     scenario("a branch whose other lines differ is built again, with this run's days",
              lambda r: first(
-                 (blob_texts(r) == [built["ready"], catalogs["ready"]],
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]],
                   "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
                  (len(pushed(r, branches["ready"])) == 1, "the branch was not moved")),
              parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
@@ -1028,20 +1036,20 @@ def step_scenarios(real, drift, folder):
     deleted = real.replace("\n".join(real.split("\n")[real.split("\n").index("  - model_name: gemma-4-26b-gemini"):][:5])
                            + "\n", "", 1)
     removal_files = {"removed.j2": deleted, "removal_body.md": "Suppressions.\n", "removal_commit.txt": "Delete\n",
-                     "removed_catalog.md": removal_catalog}
+                     "removed_catalog.md": removal_catalog, "removed_scores.json": removal_figures}
 
     def removal_env(where_files):
         return {"CHANGED": "true", "TEMPLATE_FILE": where_files + "/removed.j2",
-                "CATALOG_FILE": where_files + "/removed_catalog.md",
+                "CATALOG_FILE": where_files + "/removed_catalog.md", "SCORES_FILE": where_files + "/removed_scores.json",
                 "PR_BODY": where_files + "/removal_body.md", "COMMIT_MESSAGE": where_files + "/removal_commit.txt"}
 
     scenario("the deletions: a template with lines deleted is pushed, and its pull request opened ready for review",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
-                 (blob_texts(r) == [deleted, removal_catalog], "it pushed another text than the template and its catalogue"),
+                 (blob_texts(r) == [deleted, removal_catalog, removal_figures],
+                  "it pushed another text than the template, its catalogue and its figures"),
                  ([[entry["path"] for entry in args["tree"]] for args in calls(r, "git.createTree")]
-                  == [["templates/LiteLLM_config.yaml.j2", "docs/CATALOG.md"]],
-                  "the commit does not hold the template and the catalogue, in one tree"),
+                  == [files_of_a_commit], "the commit does not hold the template, the catalogue and the figures, in one tree"),
                  ([args["draft"] for args in created(r, removals_branch)] == [False], "it was not opened ready"),
                  (r["outputs"].get("numbers") == "101", "the number to assign is %r" % r["outputs"].get("numbers"))),
              parts=empty_parts, files=removal_files, env_files=removal_env)
@@ -1081,10 +1089,15 @@ def step_scenarios(real, drift, folder):
              env_files=lambda where_files: dict(removal_env(where_files), CATALOG_FILE=where_files + "/missing.md"))
     scenario("the deletions: a branch whose catalogue is the old one is moved, whatever its template",
              lambda r: first((len(pushed(r, removals_branch)) == 1, "the branch was not moved"),
-                             (blob_texts(r) == [deleted, removal_catalog], "it pushed another text")),
+                             (blob_texts(r) == [deleted, removal_catalog, removal_figures], "it pushed another text")),
              parts=empty_parts, files=removal_files, env_files=removal_env,
              refs=ours(removals_branch, deleted, "# Catalogue avant\n"), pulls=[pull(9, removals_branch, "b")])
-    scenario("the deletions: a branch that holds the template and the catalogue is left as it is",
+    scenario("the deletions: a branch whose figures are the old ones is moved, whatever its template and catalogue",
+             lambda r: first((len(pushed(r, removals_branch)) == 1, "the branch was not moved"),
+                             (blob_texts(r) == [deleted, removal_catalog, removal_figures], "it pushed another text")),
+             parts=empty_parts, files=removal_files, env_files=removal_env,
+             refs=ours(removals_branch, deleted, scores='{\n "entries": {}\n}\n'), pulls=[pull(9, removals_branch, "b")])
+    scenario("the deletions: a branch that holds the template, the catalogue and the figures is left as it is",
              lambda r: first((not calls(r, "git.createCommit"), "a commit was made")),
              parts=empty_parts, files=removal_files, env_files=removal_env,
              refs=ours(removals_branch, deleted), pulls=[pull(9, removals_branch, "Suppressions.\n")])
@@ -1108,10 +1121,43 @@ def step_scenarios(real, drift, folder):
     scenario("a branch with the template of the build and a stale catalogue is moved",
              lambda r: first(
                  (len(pushed(r, branches["ready"])) == 1, "the branch was not moved"),
-                 (blob_texts(r) == [built["ready"], catalogs["ready"]], "it pushed another text")),
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]], "it pushed another text")),
              parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
              refs=ours(branches["ready"], built["ready"], "# Catalogue d'hier\n"),
              pulls=[pull(7, branches["ready"], body["ready"])])
+    scenario("a branch with the template of the build and the figures of yesterday is moved",
+             lambda r: first(
+                 (len(pushed(r, branches["ready"])) == 1, "the branch was not moved"),
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]], "it pushed another text")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], built["ready"], scores='{\n "entries": {}\n}\n'),
+             pulls=[pull(7, branches["ready"], body["ready"])])
+    # The figures file is bounded as a catalogue is, and must be a JSON object; its shape is the generator's.
+    for what, text in (("empty", ""), ("larger than a figures file is", "x" * 1000001), ("not JSON", "not json"),
+                       ("an array", "[1]"), ("null", "null")):
+        scenario("the deletions: figures that are %s are not pushed, and nothing is opened" % what,
+                 lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                                 (not calls(r, "pulls.create"), "a pull request was opened"),
+                                 (any("figures file the other job handed over is refused" in failure
+                                      for failure in r["failures"]), "it did not fail")),
+                 parts=empty_parts, files=dict(removal_files, **{"removed_scores.json": text}), env_files=removal_env)
+        scenario("a proposal's figures that are %s: nothing is pushed for it, the other one is opened" % what,
+                 lambda r: first(
+                     (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                     (any("figures file handed over for" in failure for failure in r["failures"]), "it did not fail"),
+                     (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+                 files={"ready_scores.json": text})
+    scenario("the deletions: a template handed over with no figures is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("the deletion pull request" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=removal_files,
+             env_files=lambda where_files: dict(removal_env(where_files), SCORES_FILE=where_files + "/missing.json"))
+    scenario("a proposal handed no figures: nothing is pushed for it, the other one is opened",
+             lambda r: first(
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                 (any("without the files that go with them" in failure for failure in r["failures"]), "it did not fail"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             without_figures=("ready",))
     scenario("a commit of the other job that is not on main: nothing is pushed",
              lambda r: first((not calls(r, "git.createCommit"), "a commit was made"),
                              (any("is not on main" in failure for failure in r["failures"]), "it did not fail")),
@@ -1273,10 +1319,24 @@ ADDITION_MUTATIONS = [
     ("cap the number of items", "|| items.length > ADDITION_LIMIT", ""),
     ("refuse carriage returns", "|| baseText.includes('\\r')", ""),
     ("push only the text the script built too", "if (handed !== built.text) {", "if (false) {"),
-    ("commit the catalogue of an addition with its template", "[[template, content], [catalog, handedCatalog]]",
-     "[[template, content]]"),
-    ("commit the catalogue of the deletions with their template", "[[template, content], [catalog, catalogText]]",
-     "[[template, content]]"),
+    ("commit the catalogue and the figures of an addition with its template",
+     "[[template, content], [catalog, handedCatalog], [scores, handedScores]]", "[[template, content]]"),
+    ("commit the figures of an addition with its template",
+     "[[template, content], [catalog, handedCatalog], [scores, handedScores]]",
+     "[[template, content], [catalog, handedCatalog]]"),
+    ("commit the catalogue and the figures of the deletions with their template",
+     "[[template, content], [catalog, catalogText], [scores, scoresText]]", "[[template, content]]"),
+    ("commit the figures of the deletions with their template",
+     "[[template, content], [catalog, catalogText], [scores, scoresText]]",
+     "[[template, content], [catalog, catalogText]]"),
+    ("read the figures each proposal is handed with", "fs.readFileSync(`${folder}/${kind}_scores.json`, 'utf8')", "''"),
+    ("refuse figures that are not JSON", "JSON.parse(text);", "{};"),
+    ("refuse figures that are not an object", "parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)",
+     "false"),
+    ("refuse the figures of an addition that are refused", "const scoresFlaw = scoresProblem(handedScores);",
+     "const scoresFlaw = null;"),
+    ("refuse the figures of the deletions that are refused", "const scoresFlaw = scoresProblem(scoresText);",
+     "const scoresFlaw = null;"),
     ("read the catalogue each proposal is handed with", "fs.readFileSync(`${folder}/${kind}_catalog.md`, 'utf8')",
      "''"),
     ("refuse a catalogue that is empty", "text.length === 0", "false"),
