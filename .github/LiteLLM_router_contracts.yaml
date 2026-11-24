@@ -391,6 +391,7 @@ models:
     level: unknown
     level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, has no row for gemini-3.7-flash"
     eci: "Gemini 3.7 Flash"
+    note: "Its endpoint routes to gemini-3.8-flash (ai.google.dev/gemini-api/docs/deprecations, read 2026-11-24): a twin of that model, placed behind it, whose own counter is not established"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       deepswe_external: [gemini-3.7-flash_high, gemini-3.7-flash_low, gemini-3.7-flash_medium]
@@ -436,24 +437,6 @@ models:
       terminalbench_external: [gemini-3-flash-preview]
       ale_bench_external: [gemini-3-flash-preview]
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
-  gemini-2-5-flash:
-    slug: gemini-2-5-flash-reasoning
-    level: unknown
-    level_source: "unknown: ai.google.dev/gemini-api/docs/thinking, read 2026-11-21, gives gemini-2.5-flash thinking on with no level"
-    eci: "Gemini 2.5 Flash (Jun 2025)"
-    note: "A thinking budget, not a level: the Reasoning record is the nearest"
-    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
-    epoch:
-      terminalbench_external: [gemini-2.5-flash]
-      ale_bench_external: [gemini-2.5-flash]
-    epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
-  gemini-2-5-flash-lite:
-    slug: gemini-2-5-flash-lite
-    level: non-reasoning
-    level_source: "ai.google.dev/gemini-api/docs/thinking, read 2026-11-21: gemini-2.5-flash-lite has thinking off by default"
-    eci: "Gemini 2.5 Flash-Lite (Jun 2025)"
-    tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
-    epoch: unknown
   gemma-4-31b-gemini:
     slug: gemma-4-31b
     level: unknown
@@ -1049,6 +1032,18 @@ models:
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown
   omniroute-free-fast:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-free-vision:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-vision:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-multimodal:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown

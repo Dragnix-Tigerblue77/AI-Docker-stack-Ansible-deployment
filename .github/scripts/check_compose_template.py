@@ -72,10 +72,20 @@ provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a 
 call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
 otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
 endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
+A text entry of Cloudflare or Groq states the length of its answer, as "max_tokens" or "max_completion_tokens":
+both cut an answer that names no limit short, at 256 tokens on most Cloudflare models and at 2,048 or 3,072 on Groq.
 Every member of a text cascade declares its context window, "model_info.max_input_tokens", which the router's pre-call
 checks hold a request to, and those checks are on; OmniRoute's routes and OpenRouter's free router, which pick a model at
 run time, are exempt, and so is a member whose provider publishes no window, listed with where it was looked for. A
 length an entry sets stays under its declared maximum output and its window.
+
+Every entry of a mode that has a router (text, speech to text, speech, decisions, extraction, and the models kept
+apart) has to be a member of a cascade or the target of an alias: a model that can be called is routed, and one
+that cannot is deleted or commented out with its reason. The entries called by name on purpose are declared in
+"LITELLM_CALLED_BY_NAME", each with its reason, and an entry declared there that a router reaches is refused as
+well; "check_routing_document.py" holds the set to the section of "ROUTAGE.md" that lists them. An embedding model,
+which no router serves and which is addressed by its own name alone, and any other mode the gateway has no router
+for, are exempt.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1704,7 +1714,12 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSee
 # LiteLLM lets a key call an alias when the entry it resolves to is in an allowed group, so the routers follow their
 # heads without a group of their own.
 LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings",
-                         "evaluation": "Decisions", "extraction": "Extraction"}
+                         "evaluation": "Decisions", "extraction": "Extraction",
+                         "image_generation": "Images", "video_generation": "Videos", "rerank": "Rerank",
+                         "moderation": "Moderation", "ocr": "OCR"}
+# The modes of the kinds of model the gateway has no router for: an entry of one is reached by its own name and
+# is in no cascade, whichever it is, since a text request sent to it can only fail.
+LITELLM_UNROUTED_MODES = frozenset({"image_generation", "video_generation", "rerank", "moderation", "ocr"})
 # The one exception: text models kept out of "LLM" on purpose, each group named for the key an entry reads. Such an
 # entry is in that group whatever its mode, and no other entry is, so that no key holding "LLM" reaches it.
 LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
@@ -1775,12 +1790,32 @@ LITELLM_TIER_ROUTER = "Auto"
 LITELLM_TIER_ROUTER_MODEL = "auto_router/complexity_router"
 LITELLM_TIER_ROUTER_TIERS = {"SIMPLE": "flash-lite", "MEDIUM": "flash", "COMPLEX": "pro", "REASONING": "pro"}
 LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_compaction": False}
+
+# The entries of a mode that has a router which are in no cascade and behind no alias on purpose, each with its
+# reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
+# unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
+LITELLM_CALLED_BY_NAME = {
+    "gemini-4-hydrogen-xhigh": "the highest reasoning level of its model, too slow for any router, kept for whoever "
+                               "asks for it by name",
+    "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
+                             "vision-capable models: no router takes images, so it is kept for whoever asks for it "
+                             "by name, and untried",
+    "omniroute-vision": "OmniRoute's curated vision route, vision-capable models with balanced weights: no router "
+                        "takes images, so it is kept for whoever asks for it by name, and untried",
+    "omniroute-multimodal": "OmniRoute's curated multimodal route, vision-capable models with balanced weights: no "
+                            "router takes images, so it is kept for whoever asks for it by name, and untried",
+}
 # The bases of the keyless gateways. Kilo's answered 401 to the placeholder sent as a bearer token and serves
 # a call whose header is empty or absent, so an entry on a base listed here sends the header empty.
 LITELLM_KEYLESS_BASES = {
     "Kilo": "https://ai-gateway.kilo.ai/api/v1",
     "OVHcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
 }
+# The model prefixes of the providers that cut an answer short when the request names no limit: Cloudflare's model
+# pages give 256 tokens as the default of most of its text models, which empties the answer of one that reasons
+# first, and Groq's models were measured stopping at 2,048 or 3,072. A text entry of theirs states its own limit,
+# as "max_tokens" or "max_completion_tokens".
+LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES = ("cloudflare/", "groq/")
 # A member of a text cascade declares the context window its provider serves it with, "model_info.max_input_tokens":
 # the router's pre-call checks skip without a call a member a request does not fit, and call blindly one that declares
 # none. The entries that pick their model at run time have no window of their own: OmniRoute's routes and
@@ -2033,6 +2068,19 @@ def check_litellm_config(document, keys, failures):
                 "models kept apart are in the group of their own, which no other entry is in"
             )
 
+    for entry in entries:
+        parameters = mapping(entry, "litellm_params")
+        model = parameters.get("model")
+        if mapping(entry, "model_info").get("mode") or not (
+                isinstance(model, str) and model.startswith(LITELLM_SHORT_DEFAULT_ANSWER_PREFIXES)):
+            continue
+        limits = [parameters.get(key) for key in ("max_tokens", "max_completion_tokens")]
+        if not any(isinstance(limit, int) and not isinstance(limit, bool) and limit > 0 for limit in limits):
+            failures.append(
+                f"[{state}] the text entry {entry.get('model_name')!r} ({model}) sets no positive max_tokens nor "
+                "max_completion_tokens: its provider cuts an answer that names no limit short, at 256 tokens on most "
+                "Cloudflare models and at 2,048 or 3,072 on Groq, which empties the answer of a model that reasons first"
+            )
     members = {member for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
                for cascade in item.values() if isinstance(cascade, list) for member in cascade}
     windows_declared = False
@@ -2144,6 +2192,31 @@ def check_litellm_config(document, keys, failures):
                 "under its public name, so that a second name for one is not a second cascade to keep level"
             )
 
+    # Every entry of a mode that has a router is reached by that router: a member of a cascade or the target of an
+    # alias, unless it is declared called by name. A usable model that no router reaches is quota nobody spends, and
+    # one that is not usable is deleted or commented out, so there is no third state. The modes with no router (an
+    # embedding model, addressed by its own name alone) are exempt, and so is any other mode the gateway has no router
+    # for: only the modes of the routers above are judged. The entry that picks among the text routers is a router
+    # itself, which no cascade holds, and is exempt as well.
+    routed_modes = {None, "chat"} | {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
+    reached = set(aliases.values()) | {member for members in cascades.values() for member in members}
+    for entry in entries:
+        name = entry.get("model_name")
+        if name == LITELLM_TIER_ROUTER or mapping(entry, "model_info").get("mode") not in routed_modes:
+            continue
+        if name in LITELLM_CALLED_BY_NAME and name in reached:
+            failures.append(
+                f"[{state}] the entry {name!r} is declared as called by name and a cascade or an alias reaches it: "
+                "it belongs to that router, so take it out of LITELLM_CALLED_BY_NAME and out of the section of "
+                "ROUTAGE.md that lists the entries called by name"
+            )
+        elif name not in LITELLM_CALLED_BY_NAME and name not in reached:
+            failures.append(
+                f"[{state}] the entry {name!r} is in no cascade and behind no alias: a model that can be called belongs "
+                "in the cascade of its router, and one that cannot is deleted, or commented out with its reason; "
+                "only an entry declared in LITELLM_CALLED_BY_NAME, with its reason, stays out of every router"
+            )
+
     # An embedding model is reached by its own name alone: the vectors of two models are not comparable, and
     # LiteLLM does walk fallbacks for an embedding call, so one in a cascade, or one an alias resolves to
     # whichever keys were given, would change the vector space of a filled collection without a word.
@@ -2188,7 +2261,7 @@ def check_litellm_config(document, keys, failures):
                 f"{cascades[router][0]!r}: the template's list of heads and its cascade have drifted apart"
             )
     modes = {entry.get("model_name"): mapping(entry, "model_info").get("mode") for entry in entries}
-    media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()}
+    media_modes = {mode for _, mode in LITELLM_MEDIA_ROUTERS.values()} | LITELLM_UNROUTED_MODES
     for router, (providers, mode) in LITELLM_MEDIA_ROUTERS.items():
         expected = bool(keys & providers)
         if (router in declared or router in aliases) != expected:
@@ -2359,14 +2432,22 @@ def check_litellm_configs(failures):
         )
     check_litellm_data_group_table(LITELLM_DATA_GROUPS, failures)
     rendered = 0
+    named = set()
     for keys in litellm_key_sets():
         try:
             document = yaml.safe_load(render_litellm_config(keys))
         except Exception as error:  # noqa: BLE001 - the message is the whole point
             failures.append(f"[LiteLLM config, keys: {'+'.join(sorted(keys))}] does not render: {error}")
             continue
+        named.update(entry.get("model_name") for entry in document.get("model_list") or [] if isinstance(entry, dict))
         check_litellm_config(litellm_logical_document(document, litellm_state(keys), failures), keys, failures)
         rendered += 1
+    for name in LITELLM_CALLED_BY_NAME:
+        if name not in named:
+            failures.append(
+                f"[LiteLLM config] LITELLM_CALLED_BY_NAME declares {name!r}, which no rendering has as an entry: "
+                "drop it from the set, and from the section of ROUTAGE.md that lists the entries called by name"
+            )
     for switch in (False, True):
         try:
             document = yaml.safe_load(render_litellm_config(frozenset({"Gemini"}), switch))
@@ -2436,6 +2517,30 @@ def _keyless_document(gateway="Kilo", **overrides):
     }
 
 
+def _short_answer_document(mode=None, **overrides):
+    """One text entry of Cloudflare as the template writes it, with `overrides` replacing parts of its
+    litellm_params; a value of None drops the key."""
+    parameters = {"model": "cloudflare/@cf/vendor/model", "max_tokens": 32768}
+    for key, value in overrides.items():
+        if value is None:
+            parameters.pop(key, None)
+        else:
+            parameters[key] = value
+    # Through a keyless gateway, as the window cases are, so that no key has to be given and the entry has a data
+    # group: the rule reads the model's prefix alone.
+    parameters.update({"api_base": LITELLM_KEYLESS_BASES["Kilo"], "api_key": "no-key-needed",
+                       "extra_headers": {"Authorization": ""}})
+    return {
+        "model_list": [{"model_name": "a-cloudflare", "litellm_params": parameters,
+                        "model_info": {**({"mode": mode} if mode else {"max_input_tokens": 131072}),
+                                       "access_groups": litellm_access_groups(mode, parameters["api_key"],
+                                                                              parameters["api_base"])}}],
+        # An entry that is no text model belongs in no text cascade, which another rule holds; the cases give it the
+        # mode of embeddings, which no router serves, so that the rule that every entry is routed does not apply.
+        "router_settings": {} if mode else {"fallbacks": [{"flash": ["a-cloudflare"]}],
+                                            "model_group_alias": {"flash": "a-cloudflare"},
+                                            "enable_pre_call_checks": True},
+    }
 def _window_document(name="a-member", info=None, parameters=None, in_cascade=True, pre_call=True):
     """One text entry with a window, in a cascade or not, with `info` and `parameters` merged into its model_info and
     litellm_params; a value of None drops the key."""
@@ -2673,6 +2778,20 @@ def _omniroute_document(**overrides):
                              extra_headers=None, **overrides)
 
 
+def _with_extra_entry(name, mode=None, cascaded=False):
+    """The Mistral-only rendering with one more entry, uncascaded unless `cascaded` puts it in both text cascades."""
+    document = copy.deepcopy(_MISTRAL_ONLY)
+    document["model_list"].append(
+        {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": "os.environ/MISTRAL_API_KEY"},
+         "model_info": {**({"mode": mode} if mode else {}), "access_groups": litellm_access_groups(mode, "os.environ/MISTRAL_API_KEY")}})
+    if cascaded:
+        for cascade in document["router_settings"]["fallbacks"]:
+            for members in cascade.values():
+                if "mistral-large" in members:
+                    members.append(name)
+    return document
+
+
 LITELLM_CONFIG_CASES = [
     ("an entry of a Private-Data provider in its type group and that data group", _TTS_ONLY, {"Gemini"}, None),
     ("an entry in its type group alone, with no data group", _data_group_fault(_TTS_ONLY, ["LLM"]), {"Gemini"},
@@ -2701,6 +2820,14 @@ LITELLM_CONFIG_CASES = [
     ("an entry of OmniRoute in its data group", _omniroute_document(), set(), None),
     ("an entry of OmniRoute in a Private-Data group",
      _data_group_fault(_omniroute_document(), ["LLM", "Private-Data"]), set(), "of the data group 'Public-Data-Only'"),
+    ("an entry in no cascade and behind no alias", _with_extra_entry("orphan"), {"Mistral"},
+     "'orphan' is in no cascade and behind no alias"),
+    ("an entry declared called by name, in no cascade", _with_extra_entry("gemini-4-hydrogen-xhigh"), {"Mistral"}, None),
+    ("an embedding entry in no cascade", _with_extra_entry("an-embedding", "embedding"), {"Mistral"}, None),
+    ("an entry declared called by name that a cascade reaches", _with_extra_entry("gemini-4-hydrogen-xhigh", cascaded=True),
+     {"Mistral"}, "declared as called by name and a cascade or an alias reaches it"),
+    ("an entry of a mode with a router in no cascade", _with_extra_entry("a-decision", "evaluation"), {"Mistral"},
+     "'a-decision' is in no cascade and behind no alias"),
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
     ("the router of the models kept apart, served by its cascade's head", _fiction_document(), {"Aion_Labs"}, None),
     ("the router of the models kept apart, absent although Aion Labs has a key", _fiction_document(head=False),
@@ -2843,12 +2970,32 @@ LITELLM_CONFIG_CASES = [
         (f"claude-code holding a member of {gateway} that code holds", _keyless_member_document(gateway, False),
          {"Mistral"}, "have drifted apart"),
     )],
+    ("a text entry of Cloudflare as the template writes it", _short_answer_document(), set(), None),
+    ("a text entry of Cloudflare limited by max_completion_tokens",
+     _short_answer_document(max_tokens=None, max_completion_tokens=32768), set(), None),
+    ("a text entry of Cloudflare with no limit", _short_answer_document(max_tokens=None), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare limited to zero", _short_answer_document(max_tokens=0), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare whose limit is a string", _short_answer_document(max_tokens="32768"), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("a text entry of Cloudflare whose limit is a boolean", _short_answer_document(max_tokens=True), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("an entry of Cloudflare that is no text model needs no limit",
+     _short_answer_document(mode="embedding", max_tokens=None), set(), None),
+    ("a text entry of Groq with no limit", _short_answer_document(model="groq/vendor/model", max_tokens=None), set(),
+     "sets no positive max_tokens nor max_completion_tokens"),
+    ("an entry of Groq that is no text model needs no limit",
+     _short_answer_document(mode="embedding", model="groq/vendor-embedding", max_tokens=None), set(), None),
+    ("a text entry of another provider needs no limit",
+     _short_answer_document(model="gemini/vendor-model", max_tokens=None), set(), None),
     ("a member of a cascade with its window", _window_document(), set(), None),
     ("a member of a cascade with no window", _window_document(info={"max_input_tokens": None}), set(),
      "declares no positive model_info.max_input_tokens"),
     ("a member of a cascade whose window is a string", _window_document(info={"max_input_tokens": "131072"}), set(),
      "declares no positive model_info.max_input_tokens"),
-    ("an entry in no cascade needs no window", _window_document(info={"max_input_tokens": None}, in_cascade=False),
+    ("an entry called by name, in no cascade, needs no window",
+     _window_document(name=next(iter(LITELLM_CALLED_BY_NAME)), info={"max_input_tokens": None}, in_cascade=False),
      set(), None),
     ("a member whose provider publishes no window, listed",
      _window_document(name="glm-5-3-flash-nvidia", info={"max_input_tokens": None}), set(), None),
@@ -2931,6 +3078,34 @@ LITELLM_CONFIG_CASES = [
                         ("embed", ["gemini-3-8-flash"])],
                        {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash", "embed": "gemini-embedding-2"}),
      {"Gemini"}, "involves the embedding model 'gemini-embedding-2'"),
+    # The kinds of model the gateway has no router for are entries in a group of their own, reached by name.
+    *[(f"a {mode} model in no cascade, in the group {group!r} that a key can be limited to",
+       _with_tts(_with_stt(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                                              ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                                             [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                                             {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+                           "GEMINI_API_KEY")),
+       {"Gemini"}, None)
+      for mode, group in LITELLM_ACCESS_GROUPS.items() if mode in LITELLM_UNROUTED_MODES],
+    *[(f"a {mode} model in a text cascade",
+       _litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                          ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                         [("pro", ["gemini-3-8-flash", "a-" + mode]), ("claude-code", ["gemini-3-8-flash"])],
+                         {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+       {"Gemini"}, "a member of a non-chat router")
+      for mode in sorted(LITELLM_UNROUTED_MODES)],
+    *[(f"a {mode} entry in the text group",
+       dict(_litellm_document([("gemini-3-8-flash", "os.environ/GEMINI_API_KEY"),
+                               ("a-" + mode, "os.environ/GEMINI_API_KEY", mode)],
+                              [("pro", ["gemini-3-8-flash"]), ("claude-code", ["gemini-3-8-flash"])],
+                              {"pro": "gemini-3-8-flash", "claude-code": "gemini-3-8-flash"}),
+            model_list=[{"model_name": "gemini-3-8-flash", "litellm_params": {"model": "x/g",
+                                                                                  "api_key": "os.environ/GEMINI_API_KEY"},
+                         "model_info": {"access_groups": ["LLM"]}},
+                        {"model_name": "a-" + mode, "litellm_params": {"model": "x/a", "api_key": "os.environ/GEMINI_API_KEY"},
+                         "model_info": {"mode": mode, "access_groups": ["LLM"]}}]),
+       {"Gemini"}, f"makes it a {LITELLM_ACCESS_GROUPS[mode]!r} entry")
+      for mode in sorted(LITELLM_UNROUTED_MODES)],
     ("the speech router served as an alias by its cascade's head", _TTS_ONLY, {"Gemini"}, None),
     ("the speech router written as an entry of the model list", _tts_fault("entry"), {"Gemini"},
      "'tts' is a model_list entry"),

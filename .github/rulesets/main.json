@@ -19,40 +19,52 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "yamllint"
+            "context": "yamllint",
+            "integration_id": 15368
           },
           {
-            "context": "REUSE compliance"
+            "context": "REUSE compliance",
+            "integration_id": 15368
           },
           {
-            "context": "ansible-lint"
+            "context": "ansible-lint",
+            "integration_id": 15368
           },
           {
-            "context": "ansible-playbook --syntax-check"
+            "context": "ansible-playbook --syntax-check",
+            "integration_id": 15368
           },
           {
-            "context": "role run (Claude Code agent off)"
+            "context": "role run (Claude Code agent off)",
+            "integration_id": 15368
           },
           {
-            "context": "role run (Claude Code agent on)"
+            "context": "role run (Claude Code agent on)",
+            "integration_id": 15368
           },
           {
-            "context": "LiteLLM drift check: verification cases"
+            "context": "LiteLLM drift check: verification cases",
+            "integration_id": 15368
           },
           {
-            "context": "LiteLLM drift check: verification cases, second half"
+            "context": "LiteLLM drift check: verification cases, second half",
+            "integration_id": 15368
           },
           {
-            "context": "Repository rules"
+            "context": "Repository rules",
+            "integration_id": 15368
           },
           {
-            "context": "gitleaks"
+            "context": "gitleaks",
+            "integration_id": 15368
           },
           {
-            "context": "Pre-commit hook blocks a secret"
+            "context": "Pre-commit hook blocks a secret",
+            "integration_id": 15368
           },
           {
-            "context": "sign-off"
+            "context": "sign-off",
+            "integration_id": 15368
           }
         ]
       }

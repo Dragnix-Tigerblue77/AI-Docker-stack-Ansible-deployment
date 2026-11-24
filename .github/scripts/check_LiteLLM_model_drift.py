@@ -205,11 +205,17 @@ the id where it does not (USAGE_MARKERS: "tts", "whisper", "embed", "guard"...):
                     Generation" -> the id decides, any other task its own name
   the others        the id decides, a chat model if it names nothing
 
-Only a chat model goes on to what assumes one: the ranking (THE RANKINGS), the pull requests of
-additions (PROPOSING WHAT IS NEW) and the entry to paste. A NEW model of another usage is listed in the
-same sections as the rest, with its usage and the "model_info.mode" its entry would need when it is
-known (USAGE_MODES), and its entry is written by hand: the template's chat entries carry no mode, and
-the routers of the other usages have their own rules (check_compose_template.py). The filters narrow
+Only a chat model goes on to what assumes one: the ranking (THE RANKINGS) and the entry to paste. A NEW
+model of another usage is listed in the same sections as the rest, with its usage and the
+"model_info.mode" its entry needs (USAGE_MODES), and the pull requests of additions write its entry like
+any other (PROPOSING WHAT IS NEW): in the access group of its mode (USAGE_GROUPS, which
+check_compose_template.py holds the template to), with a slot at the tail of the cascade of its router
+where it has one. A text entry is written with no "model_info.max_input_tokens": the window is the model's
+own, no catalogue read here gives it, and check_compose_template.py refuses a cascade member without one until
+a person writes it, which the pull request says. Cloudflare's Clef and Clairic families are
+read as "decision" and "extraction" by their id (CLOUDFLARE_FAMILY_USAGES), since their task is not
+documented. Only a model of which the run cannot tell the kind (a usage it did not classify, a Cloudflare
+task it does not know) has no mode to write, and is a report line with that reason. The filters narrow
 NEW only. Whether a model is RETIRED is decided against everything the provider lists, so that no
 filter can ever make a served model look retired -- which is also why OpenRouter is read with
 "output_modalities=all", its default being "text" only.
@@ -619,10 +625,40 @@ use of that API ask, and the figures are shown as published.
 
 PROPOSING WHAT IS NEW
 --------------------
-"--proposals DIR" proposes the NEW chat models in two pull requests of their own, which the workflow keeps
-and which only a person merges. They are split by how much the run knows of each model, never by its
-provider. A NEW model of another usage is proposed in neither: it is listed with its usage and its
-"model_info.mode", and its entry is written by hand.
+"--proposals DIR" proposes the NEW models, whatever their kind, in two pull requests of their own, which the
+workflow keeps and which only a person merges. They are split by how much the run knows of each model,
+never by its provider. A model of a usage other than chat is written with its "model_info.mode" and the
+access group of that mode, after the provider's last entry of the same mode (its last entry of no mode when
+it has none).
+
+An active entry whose mode has a router is also given a slot, because an entry that has a router and is in
+none of its cascades is one the template's own checks refuse. The slot is the safe place, the TAIL of the
+cascade, written under the provider's key condition ("{% if has.Groq %}") unless the router has that provider
+alone, so that the cascade holds no name the rendering does not have; the person who reviews moves it. A text
+model goes to the tail of Auto-Flash-Lite (the router that takes every model that answers, held to no floor),
+Aion Labs' to Auto-Fiction. A slot never changes the "head" table: a tail is never the first member, and it is
+verified for the key sets that matter (slot_keysets_problem). A model whose router does not route to its
+provider (a Groq speech model, since only Gemini has a key that serves Auto-TTS) cannot be given the slot the
+template needs, so it is a report line with that reason, its entry being written by hand along with the "head"
+row. A commented-out entry has no slot.
+
+  * embeddings: addressed by its own name alone, the way the template's embedding entries are, so with no slot.
+    Cloudflare's are written through its OpenAI-compatible endpoint, with the "api_base" read from the
+    environment, modelled on the entry that already has it;
+  * speech, transcription, decision, extraction: written with their mode and group, and a slot at the tail of
+    Auto-TTS, Auto-STT, Auto-Decision or Auto-Extraction;
+  * image, video, rerank, moderation, ocr: the kinds of model the gateway has no router, no client and no key
+    group for. They are written with LiteLLM's mode for them and a group named for the kind, with no slot, and
+    the pull request of the models to verify says the gateway has nothing for that kind yet, so that the person
+    keeps it or turns it down by a "drift-ignore" line;
+  * audio, agent, music: models LiteLLM serves through its chat route, written as chat entries with the same
+    remark;
+  * a model of which the kind is not known has no mode to write, and stays a report line.
+
+A model of a usage other than chat has no ranking to be matched to. It is ready when its provider's API
+states its free tier and the file already serves the usage through that provider (route_known: an entry of
+the mode, active or commented out), which shows LiteLLM has the route under that prefix; any other is to
+verify, whose body says which of the two is missing.
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
   tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
@@ -648,8 +684,8 @@ its literal marker and writes the "extra_headers" that blank the Authorization h
 gateway answers 401 to otherwise), and written right after it (after the comment
 block, for a commented-out one, so that a run and its reason stay together), under a comment of a
 fixed text that says where it comes from and when; it is commented out, with a "not routed" reason
-to replace, when the provider has no active entry. Neither pull request puts a model in a cascade:
-the body gives its figures and its suggested place in each router (THE RANKINGS), which are
+to replace, when the provider has no active entry. Neither pull request puts a model anywhere but at the
+tail of a cascade (above): the body gives its figures and its suggested place in each router (THE RANKINGS), which are
 suggestions computed on a ranking under revision, or, for a model the ranking does not measure, says
 it is not placed and gives the "drift-ignore" line that sets it aside. A model merged, or set aside by
 "drift-ignore", is known and never proposed again.
@@ -855,6 +891,7 @@ import collections
 import copy
 import csv
 import datetime
+import functools
 import http.client
 import io
 import itertools
@@ -940,8 +977,44 @@ USAGE_MARKERS = (
 CHAT = "chat"
 UNCLASSIFIED = "unclassified"
 # The "model_info.mode" an entry of a usage needs where the file has one: an entry of no mode is a text
-# model, and only these modes have an access group of their own.
-USAGE_MODES = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding"}
+# model, and each of these modes has an access group of its own (check_compose_template.py holds the groups
+# to its own table, and the selftest holds the two tables to each other). The first five are served by a
+# router or a client of the gateway; the rest are the modes LiteLLM has for kinds of model the gateway has no
+# router, no client and no key for yet, which an addition still writes so that a person keeps it or turns
+# it down.
+USAGE_MODES = {"transcription": "audio_transcription", "speech": "audio_speech", "embeddings": "embedding",
+               "decision": "evaluation", "extraction": "extraction",
+               "image": "image_generation", "video": "video_generation", "rerank": "rerank",
+               "moderation": "moderation", "ocr": "ocr"}
+USAGE_GROUPS = {"transcription": "STT", "speech": "TTS", "embeddings": "Embeddings",
+                "decision": "Decisions", "extraction": "Extraction",
+                "image": "Images", "video": "Videos", "rerank": "Rerank",
+                "moderation": "Moderation", "ocr": "OCR"}
+# The usages the gateway has a router or a client for. Any other typed usage is one it has none for: its entry
+# says so in the pull request, and nothing routes to it.
+SERVED_USAGES = {"transcription", "speech", "embeddings", "decision", "extraction"}
+# Usages LiteLLM serves through its chat route although the model does more than text (a voice in and out, an
+# agent that browses or uses a computer, a music model reached by "generateContent"): written like a chat entry,
+# in the group of the text models, and said in the pull request to be of a kind the gateway has no client for.
+CHAT_LIKE_USAGES = {"audio", "agent", "music"}
+KEPT_APART_PROVIDERS = {"aionlabs"}
+
+
+def servable(provider, usage):
+    """Whether the additions pull requests write an entry for a NEW model of this usage: chat, a usage with a
+    mode and a group, and the chat-like ones. Only a model whose kind the run could not tell (a usage it did
+    not classify, or a Cloudflare task it does not know) has no entry to write, since it has no mode."""
+    return usage == CHAT or usage in USAGE_MODES or usage in CHAT_LIKE_USAGES
+
+
+def entry_usage(usage):
+    """The usage an item carries: a chat-like one is written as chat, and an item says nothing of it."""
+    return CHAT if usage in CHAT_LIKE_USAGES else usage
+
+
+# Cloudflare names the task of most of its models, but the decision and extraction ones (Clef and Clairic
+# families) are told by their id, which is what the template's entries are written for.
+CLOUDFLARE_FAMILY_USAGES = (("@cf/cloudflare/clef", "decision"), ("@cf/cloudflare/clairic", "extraction"))
 
 # The title of the section of the pull request body that lists what a person has to read.
 # "dependabot-auto-merge.yml" lets the pull request merge itself only when the body has no section
@@ -1949,7 +2022,10 @@ def read_cloudflare(pages):
                 catalogue["not_deprecated"].add(name)
             task = model.get("task")
             task = task.get("name") if isinstance(task, dict) else None
-            if task == CLOUDFLARE_TEXT_TASK or not isinstance(task, str) or not task:
+            family = next((usage for prefix, usage in CLOUDFLARE_FAMILY_USAGES if name.startswith(prefix)), None)
+            if family:
+                usage = family
+            elif task == CLOUDFLARE_TEXT_TASK or not isinstance(task, str) or not task:
                 usage = usage_of_id(name, CHAT if task == CLOUDFLARE_TEXT_TASK else UNCLASSIFIED)
             else:
                 usage = CLOUDFLARE_TASK_USAGES.get(task) or " ".join(task.lower().split())
@@ -5700,17 +5776,24 @@ def litellm_id(provider, identifier):
     return "%s/%s" % (LITELLM_PREFIXES.get(provider, provider), identifier), ""
 
 
-def by_hand_text(usage):
-    """What a NEW model of a usage other than chat needs of a person, in English."""
+def by_hand_text(usage, provider=None):
+    """What a NEW model of a usage other than chat gets, in English: an entry the pull requests of additions
+    write, or none when the run cannot tell what the model is or its router does not route to its provider."""
     mode = USAGE_MODES.get(usage)
-    return "its entry is written by hand" + (", with model_info.mode %s" % mode if mode else "")
+    if provider and servable(provider, usage) and slot_refusal(provider, entry_usage(usage)):
+        return "its entry is written by hand, with model_info.mode %s, and a slot its router does not route to" % mode
+    if mode:
+        return "its entry is proposed, with model_info.mode %s" % mode + (
+            "" if usage in SERVED_USAGES else " (the gateway has no router or client for it yet)")
+    if usage in CHAT_LIKE_USAGES:
+        return "its entry is proposed as a chat one (the gateway has no client for this kind yet)"
+    return "its entry is written by hand, the kind of model being unknown"
 
 
 def by_hand_reason(usage):
     """The same, in French, as the reason no pull request of additions carries such a model."""
-    mode = USAGE_MODES.get(usage)
-    return ("l'usage `%s` n'est pas le chat : aucune pull request n'en écrit l'entrée, qui s'écrit à la main%s"
-            % (usage, ", avec `model_info.mode: %s`" % mode if mode else ""))
+    return ("le workflow ne sait pas de quel type de modèle il s'agit (`%s`), donc quel `model_info.mode` écrire : "
+            "l'entrée s'écrit à la main" % usage)
 
 
 def sheet_value(value):
@@ -5851,7 +5934,7 @@ def render_text(result, config_name):
                              else ": to examine, its free tier is not machine-readable")
                     line += " -- usage: " + finding["usage"]
                     if finding["usage"] != CHAT:
-                        line += ", " + by_hand_text(finding["usage"])
+                        line += ", " + by_hand_text(finding["usage"], report["name"])
                 removal = finding.get("removal")
                 if removal and removal["status"] == "applied":
                     line += " -- DELETED from the file"
@@ -5972,10 +6055,22 @@ DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare"
 DEFAULT_DATA_GROUP = "Public-Data-Only"
 
 
-def access_groups_text(provider):
-    """The groups of an entry written for this provider, as the template writes them."""
-    return '["%s", "%s"]' % (ACCESS_GROUPS.get(provider, DEFAULT_ACCESS_GROUP),
-                             DATA_GROUPS.get(provider, DEFAULT_DATA_GROUP))
+def addition_group(provider, usage=CHAT):
+    """The first group of an entry: the models kept out of "LLM" on purpose are in the group of their own
+    whatever their mode, as check_compose_template.py holds them to, and any other is in the group of its
+    usage."""
+    return ACCESS_GROUPS.get(provider) or USAGE_GROUPS.get(usage) or DEFAULT_ACCESS_GROUP
+
+
+def access_groups(provider, usage=CHAT):
+    """The groups of an entry written for this provider and usage, as the template writes them."""
+    return [addition_group(provider, usage), DATA_GROUPS.get(provider, DEFAULT_DATA_GROUP)]
+
+
+def access_groups_text(provider, usage=CHAT):
+    return '["%s", "%s"]' % tuple(access_groups(provider, usage))
+
+
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
@@ -6806,18 +6901,21 @@ def addition_entries(lines):
     return entries
 
 
-def addition_anchor(entries, provider):
-    """The entry a new one of "provider" is modelled on and written after: its last active entry,
-    else its last commented-out one, else None. An entry whose "api_base" is read from the environment is
-    never the model, nor is one whose "mode" is "embedding" (OpenRouter's free embedding models): an embedding is
-    not what a new chat model is written after."""
+def addition_anchor(entries, provider, usage=CHAT):
+    """The entry a new one of "provider" and "usage" is modelled on and written after: for a usage other than
+    chat, the provider's last entry of the same mode, active before commented out; failing that, and for chat,
+    its last entry of no mode, then any of its entries, with the same preference. An entry whose "api_base" is
+    read from the environment is only the model of an embedding, which a chat model is not written after."""
     own = [entry for entry in entries
-           if entry["fields"].get("api_base") not in OPENAI_ENV_BASES
-           and entry["fields"].get("mode") != "embedding"
-           and (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0]
-           == provider]
-    active = [entry for entry in own if not entry["commented"]]
-    return (active or own or [None])[-1]
+           if (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0] == provider]
+    usable = [entry for entry in own if entry["fields"].get("api_base") not in OPENAI_ENV_BASES]
+    mode = USAGE_MODES.get(usage)
+    if mode:
+        same = [entry for entry in own if entry["fields"].get("mode") == mode]
+        if same:
+            return ([entry for entry in same if not entry["commented"]] or same)[-1]
+    pool = [entry for entry in usable if "mode" not in entry["fields"]] or usable
+    return ([entry for entry in pool if not entry["commented"]] or pool or [None])[-1]
 
 
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
@@ -6844,20 +6942,108 @@ def addition_note(kind, date, provider, commented):
         date, label)
 
 
+def addition_model(provider, identifier, usage=CHAT):
+    """The "model:" value of an entry for this id and usage: Cloudflare's embeddings go through its
+    OpenAI-compatible endpoint, since LiteLLM's "cloudflare/" provider has no embedding route."""
+    if provider == "cloudflare" and usage == "embeddings":
+        return "openai/%s" % identifier
+    return litellm_id(provider, identifier)[0]
+
+
 def addition_block(kind, date, item, anchor):
     """The lines a proposed entry adds after its anchor: a blank line, its comment, the entry."""
     lead = "  # " if anchor["commented"] else "  "
+    usage = item.get("usage", CHAT)
     block = ["", "  # " + addition_note(kind, date, item["provider"], anchor["commented"]),
-             "%s- model_name: %s" % (lead, item["name"]), "%s  model_info:" % lead,
-             "%s    access_groups: %s" % (lead, access_groups_text(item["provider"])),
-             "%s  litellm_params:" % lead,
-             "%s    model: %s" % (lead, litellm_id(item["provider"], item["id"])[0])]
+             "%s- model_name: %s" % (lead, item["name"]), "%s  model_info:" % lead]
+    if usage in USAGE_MODES:
+        block.append("%s    mode: %s" % (lead, USAGE_MODES[usage]))
+    block += ["%s    access_groups: %s" % (lead, access_groups_text(item["provider"], usage)),
+              "%s  litellm_params:" % lead,
+              "%s    model: %s" % (lead, addition_model(item["provider"], item["id"], usage))]
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
     block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
     if item["provider"] in KEYLESS_GATEWAYS:
         block += keyless_header_lines(lead + "    ")
     return block
+
+
+# The cascade an active entry is given a slot in, at its tail, which is where a person reorders it from: an
+# entry whose mode has a router is in a cascade or is an alias target, or the template fails its checks. A text
+# entry goes to "Auto-Flash-Lite", the router that holds every model that answers; Aion Labs' to the router of
+# their own; a typed one to the router of its mode. Embeddings and the kinds the gateway has no router for are
+# reached by their own name and get no slot.
+ROUTER_OF_USAGE = {CHAT: "flash-lite", "speech": "tts", "transcription": "stt", "decision": "decision",
+                   "extraction": "extraction"}
+ROUTER_OF_PROVIDER = {"aionlabs": "fiction"}
+# The providers a router routes to (check_compose_template.py's LITELLM_MEDIA_ROUTERS): the router exists
+# when one of them has a key, so a member of another provider could be in none of its renderings.
+ROUTER_PROVIDERS = {"stt": {"groq", "gemini", "mistral"}, "tts": {"gemini"}, "decision": {"cloudflare"},
+                    "extraction": {"cloudflare"}, "fiction": {"aionlabs"}}
+# The condition each provider's members are written under in a cascade, None where the provider needs no key.
+SLOT_CONDITIONS = {"gemini": "has.Gemini", "mistral": "has.Mistral", "groq": "has.Groq",
+                   "openrouter": "has.OpenRouter", "deepseek": "has.DeepSeek", "cloudflare": "has.Cloudflare",
+                   "zai": "has.Zai", "requesty": "has.Requesty", "nvidia": "has.NVIDIA", "centai": "has.Cent_AI",
+                   "aionlabs": "has.Aion_Labs", "kilo": None, "ovhcloud": None}
+ROUTER_NAMES = ROUTER_PUBLIC_NAMES
+SLOT_INDENT = "        - "
+JINJA_IF_LINE = re.compile(r"\{%-?\s*if\b.*%\}")
+JINJA_ENDIF_LINE = re.compile(r"\{%-?\s*endif\s*-?%\}")
+JINJA_OTHER_BRANCH = re.compile(r"\{%-?\s*(else|elif)\b.*%\}")
+
+
+def slot_router(provider, usage):
+    """The short id of the router an entry of this provider and usage is given a slot in, or None."""
+    if provider in ROUTER_OF_PROVIDER:
+        return ROUTER_OF_PROVIDER[provider] if usage == CHAT else None
+    return ROUTER_OF_USAGE.get(usage)
+
+
+def slot_refusal(provider, usage):
+    """Why an entry of this provider and usage cannot be given the slot its router needs, or None."""
+    router = slot_router(provider, usage)
+    if router is None:
+        return None
+    if router in ROUTER_PROVIDERS and provider not in ROUTER_PROVIDERS[router]:
+        return ("%s is not one of the providers of the %s router, which exists only when one of them has a key"
+                % (provider, ROUTER_NAMES[router]))
+    if provider not in SLOT_CONDITIONS:
+        return "%s has no key variable to write a slot under" % provider
+    return None
+
+
+def slot_lines(provider, router, name):
+    """The lines that put "name" at the tail of a cascade: under its provider's key, unless the router has
+    that provider alone, in which case the template writes its members bare."""
+    condition = SLOT_CONDITIONS[provider]
+    if condition is None or ROUTER_PROVIDERS.get(router) == {provider}:
+        return [SLOT_INDENT + name]
+    return ["{%% if %s %%}" % condition, SLOT_INDENT + name, "{% endif %}"]
+
+
+def cascade_tail(lines, router):
+    """The index of the line a slot at the tail of the cascade of "router" is written before: the
+    "{% endif %}" that closes the router's own block, or the first line that is no member. None when the
+    template has no such cascade, "" when it has one that cannot be read (an else branch)."""
+    heading = "    - %s:" % ROUTER_NAMES[router]
+    start = next((index for index, line in enumerate(lines) if line.rstrip() == heading), None)
+    if start is None:
+        return None
+    depth = 0
+    for index in range(start + 1, len(lines)):
+        line = lines[index]
+        if JINJA_OTHER_BRANCH.fullmatch(line):
+            return ""
+        if JINJA_IF_LINE.fullmatch(line):
+            depth += 1
+        elif JINJA_ENDIF_LINE.fullmatch(line):
+            if depth == 0:
+                return index
+            depth -= 1
+        elif not re.fullmatch(r"        - [^\s#]+", line):
+            return index
+    return len(lines)
 
 
 def build_additions(text, date, kind, items):
@@ -6881,12 +7067,17 @@ def build_additions(text, date, kind, items):
     known = {entry["fields"]["model"] for entry in entries if entry["fields"].get("model")}
     names = set()
     after = {}
+    slots = {}
     for item in items:
-        if not isinstance(item, dict) or sorted(item) != ["id", "name", "provider"]:
-            return None, "an item is not {provider, id, name}"
+        if not isinstance(item, dict) or sorted(item) not in (["id", "name", "provider"],
+                                                                ["id", "name", "provider", "usage"]):
+            return None, "an item is not {provider, id, name} or {provider, id, name, usage}"
         provider, identifier, name = item["provider"], item["id"], item["name"]
+        usage = item.get("usage", CHAT)
         if not isinstance(provider, str) or provider not in PROVIDER_LABELS:
             return None, "an item names no provider this reads"
+        if "usage" in item and not (isinstance(usage, str) and usage in USAGE_MODES):
+            return None, "an item's usage is none the template has a mode for"
         if kind == "ready" and provider not in FREE_CATALOGUES:
             return None, "a ready addition is of a provider whose API states its free tier, and only"
         if not isinstance(identifier, str) or not ADDITION_ID.fullmatch(identifier):
@@ -6899,14 +7090,20 @@ def build_additions(text, date, kind, items):
         if name in words or name in names:
             return None, "the name %s is already a word of the template or another item's" % name
         names.add(name)
-        if litellm_id(provider, identifier)[0] in known:
+        if addition_model(provider, identifier, usage) in known:
             return None, "%s/%s is already an entry" % (provider, identifier)
         if "%s/%s" % (provider, identifier) in ignored:
             return None, "%s/%s is set aside by a drift-ignore line" % (provider, identifier)
-        anchor = addition_anchor(entries, provider)
+        anchor = addition_anchor(entries, provider, usage)
         if anchor is None:
             return None, "the template has no entry of %s to model one on" % provider
         key, base = anchor["fields"].get("api_key"), anchor["fields"].get("api_base")
+        # Cloudflare's embeddings are the one entry with a base read from the environment, and only one
+        # that already has it is modelled on, since the base holds the account's identifier.
+        if provider == "cloudflare" and usage == "embeddings":
+            if base not in OPENAI_ENV_BASES:
+                return None, "the template has no embedding entry of cloudflare to model one on"
+            base = None
         if provider in KEYLESS_GATEWAYS:
             if not isinstance(key, str) or not ADDITION_MARKER.fullmatch(key):
                 return None, "the key of the entry %s is not a plain marker, as a keyless gateway's is" % anchor["name"]
@@ -6917,11 +7114,76 @@ def build_additions(text, date, kind, items):
         if kind == "ready" and anchor["commented"]:
             return None, "a ready addition follows an active entry"
         after.setdefault(anchor["last"], []).extend(addition_block(kind, date, item, anchor))
+        refusal = slot_refusal(provider, usage)
+        if refusal and not anchor["commented"]:
+            return None, refusal
+        router = slot_router(provider, usage)
+        if router and not anchor["commented"]:
+            slots.setdefault(router, []).extend(slot_lines(provider, router, name))
+    before = {}
+    for router, written in slots.items():
+        tail = cascade_tail(lines, router)
+        if tail == "":
+            return None, "the cascade of %s has an else branch, where a slot cannot be written" % ROUTER_NAMES[router]
+        if tail is not None:
+            before[tail] = written
     out = []
     for index, line in enumerate(lines):
+        out += before.get(index, []) if index else []
         out.append(line)
         out += after.get(index, [])
+    out += before.get(len(lines), [])
     return "\n".join(out), None
+
+
+@functools.lru_cache(maxsize=256)
+def keyset_render(text, given):
+    return render_keyset(text, given)
+
+
+def key_variable(provider):
+    """The key variable of a provider, or None for one that needs none."""
+    condition = SLOT_CONDITIONS.get(provider)
+    return None if condition is None else "Artificial_Intelligence_LiteLLM_%s_API_key" % condition[len("has."):]
+
+
+def slot_keysets_problem(text, new_text, slotted, written):
+    """Why the slots written do not hold when only some of the keys are given, or None. Rendered with every
+    key, a slot is easy; it is with a provider's key alone, or without it, that a cascade is emptied, a slot
+    names an entry that is not there, or an entry of a router is left in none."""
+    if not slotted:
+        return None
+    every = list(PROVIDER_KEY_VARIABLES)
+    sets = []
+    for provider in dict.fromkeys(provider for provider, _, _ in slotted):
+        variable = key_variable(provider)
+        sets += [(variable,) if variable else (every[0],), tuple(v for v in every if v != variable)]
+    for given in dict.fromkeys(tuple(each) for each in sets):
+        before, after = keyset_render(text, given), keyset_render(new_text, given)
+        if not isinstance(before, dict):
+            continue
+        if not isinstance(after, dict):
+            return "the file does not render when only %s given" % given_text(given)
+        names_before = [item.get("model_name") for item in before.get("model_list") or [] if isinstance(item, dict)]
+        names_after = [item.get("model_name") for item in after.get("model_list") or [] if isinstance(item, dict)]
+        if [name for name in names_after if name not in written] != names_before:
+            return "the model list is not the file's when only %s given" % given_text(given)
+        lists_before, lists_after = fallback_lists(before), fallback_lists(after)
+        for key, members in lists_before.items():
+            wanted = members + [name for _, router, name in slotted if key[1] == router and name in names_after
+                                and key[0].endswith(".fallbacks")]
+            if lists_after.get(key) != wanted:
+                return "%s is not what it was plus the slots when only %s given" % (place(key), given_text(given))
+        if set(lists_after) != set(lists_before):
+            return "a cascade appears or disappears when only %s given" % given_text(given)
+        if set(alias_drift(after)) - set(alias_drift(before)):
+            return "an alias leaves the head of its cascade when only %s given" % given_text(given)
+        # A slot whose entry renders is in a cascade, and a cascade that renders names entries that render.
+        for _, router, name in slotted:
+            if name in names_after and not any(name in members for key, members in lists_after.items()
+                                               if key[1] == router):
+                return "the entry %s is in no cascade when only %s given" % (name, given_text(given))
+    return None
 
 
 def addition_problem(text, new_text, items):
@@ -6939,13 +7201,39 @@ def addition_problem(text, new_text, items):
     def pairs(template):
         return {(entry["name"], entry["model"]) for entry in template["active"] + template["commented"]}
 
-    wanted = pairs(before) | {(item["name"], litellm_id(item["provider"], item["id"])[0])
+    wanted = pairs(before) | {(item["name"], addition_model(item["provider"], item["id"], item.get("usage", CHAT)))
                               for item in items}
     if pairs(after) != wanted or len(after["active"]) + len(after["commented"]) != (
             len(before["active"]) + len(before["commented"]) + len(items)):
         return "the entries it reads are not the file's and the proposed ones"
-    if fallback_lists(after["document"]) != fallback_lists(before["document"]):
-        return "a cascade is not what it was"
+    # Every cascade is what it was, plus the slots the active entries were given at the tail of their router's.
+    lines_before = text.split("\n")
+    active_names = {entry["name"] for entry in after["active"]}
+    expected = {key: list(members) for key, members in fallback_lists(before["document"]).items()}
+    slotted = []
+    for item in items:
+        router = slot_router(item["provider"], item.get("usage", CHAT))
+        if router and item["name"] in active_names and cascade_tail(lines_before, router) is not None:
+            key = next((key for key in expected if key[1] == router and key[0].endswith(".fallbacks")), None)
+            if key is None:
+                return "the cascade of %s is not one the file reads" % ROUTER_NAMES[router]
+            expected[key].append(item["name"])
+            slotted.append((item["provider"], router, item["name"]))
+    if fallback_lists(after["document"]) != expected:
+        return "a cascade is not what it was plus the slots of the entries written"
+    problem = slot_keysets_problem(text, new_text, slotted, {item["name"] for item in items})
+    if problem:
+        return problem
+    # An entry is in the one access group its mode makes it: a key limited to a type of models reaches that
+    # type and no other, which check_compose_template.py holds the template to.
+    for item in items:
+        entry = next(entry for entry in after["active"] + after["commented"] if entry["name"] == item["name"])
+        info = entry["item"].get("model_info") if isinstance(entry["item"], dict) else None
+        info = info if isinstance(info, dict) else {}
+        usage = item.get("usage", CHAT)
+        if info.get("mode") != USAGE_MODES.get(usage) or info.get("access_groups") != access_groups(
+                item["provider"], usage):
+            return "the entry %s is not in the mode and the access group of its usage" % item["name"]
     # A keyless gateway's entry that does not blank the Authorization header is refused with a 401 at run time.
     for item in items:
         if item.get("provider") in KEYLESS_GATEWAYS:
@@ -6970,13 +7258,31 @@ def certain_match(row):
     return bool(model) and row["how"] == "identifiant" and not VARIANT_MARKER.search(model["name"])
 
 
-def missing_facts(result, provider, finding):
+def route_known(entries, provider, usage):
+    """Whether the file already serves this usage through this provider (an entry of the mode, active or
+    commented out), which is what shows LiteLLM has a route for it under the provider's prefix."""
+    return any(entry["fields"].get("mode") == USAGE_MODES[usage]
+               and (attribute(entry["fields"].get("model"), entry["fields"].get("api_base")) or (None,))[0] == provider
+               for entry in entries)
+
+
+def missing_facts(result, provider, finding, entries=()):
     """[(what, sentence)] of what the run does not know of a NEW model, in French: a model of which it
     knows both its free tier, from its provider's API, and a figure of the ranking matched for certain,
-    is ready; any other is to verify."""
+    is ready; any other is to verify. A model that is no chat one has no ranking to be matched to: it needs
+    its free tier, and a route, which the file shows when it already serves the usage through the provider."""
     missing = []
     if not finding.get("free"):
         missing.append(("free", "sa gratuité ne se lit pas dans l'API de %s" % PROVIDER_LABELS[provider]))
+    if finding["usage"] != CHAT:
+        if finding["usage"] not in SERVED_USAGES:
+            missing.append(("kind", "la passerelle n'a ni routeur, ni groupe de clés, ni client pour le type `%s` "
+                            "aujourd'hui : l'entrée est écrite pour qu'une personne la garde ou l'écarte"
+                            % finding["usage"]))
+        elif not route_known(entries, provider, finding["usage"]):
+            missing.append(("route", "le fichier ne sert encore l'usage `%s` par aucune entrée de %s : rien ne montre "
+                            "que LiteLLM le route sous ce préfixe" % (finding["usage"], PROVIDER_LABELS[provider])))
+        return missing
     ranking = result.get("rankings") or {"status": "no key"}
     row = next((row for row in result.get("ranked") or []
                 if (row["provider"], row["id"]) == (provider, finding["id"])), None)
@@ -7034,20 +7340,28 @@ def propose_additions(text, result, link=None):
         for finding in report["findings"]:
             if finding["kind"] != "new":
                 continue
-            anchor = addition_anchor(entries, report["name"])
+            anchor = addition_anchor(entries, report["name"], finding["usage"])
             name = None
-            if finding["usage"] != CHAT:
+            if not servable(report["name"], finding["usage"]):
                 finding["unproposed"] = by_hand_reason(finding["usage"])
             elif not ADDITION_ID.fullmatch(finding["id"]):
                 finding["unproposed"] = "son identifiant n'a pas une forme que le workflow écrit dans le fichier"
             elif anchor is None:
                 finding["unproposed"] = "le fichier n'a aucune entrée de ce fournisseur sur laquelle modeler la sienne"
+            elif not anchor["commented"] and slot_refusal(report["name"], entry_usage(finding["usage"])):
+                finding["unproposed"] = ("le workflow ne sait pas lui donner la place que son routeur exige : %s ; "
+                                         "son entrée s'écrit à la main, avec la table `head` du modèle de "
+                                         "configuration" % slot_refusal(report["name"], entry_usage(finding["usage"])))
+            elif (report["name"], finding["usage"]) == ("cloudflare", "embeddings") and anchor["fields"].get(
+                    "api_base") not in OPENAI_ENV_BASES:
+                finding["unproposed"] = ("le fichier n'a aucune entrée d'embeddings de Cloudflare, dont l'`api_base` "
+                                         "se lit dans l'environnement, sur laquelle modeler la sienne")
             else:
                 name = addition_name(report["name"], finding["id"], taken)
                 if name is None:
                     finding["unproposed"] = "aucun nom libre pour son entrée"
             if name is not None:
-                finding["missing"] = missing_facts(result, report["name"], finding)
+                finding["missing"] = missing_facts(result, report["name"], finding, entries)
                 candidates["to_verify" if finding["missing"] else "ready"].append((report, finding, name))
 
     for kind in PROPOSAL_KINDS:
@@ -7056,7 +7370,8 @@ def propose_additions(text, result, link=None):
             finding["unproposed"] = "au-delà des %d entrées qu'une pull request porte" % PROPOSAL_LIMIT
         chosen = chosen[:PROPOSAL_LIMIT]
         while chosen:
-            items = [{"provider": report["name"], "id": finding["id"], "name": name}
+            items = [dict({"provider": report["name"], "id": finding["id"], "name": name},
+                          **({"usage": finding["usage"]} if entry_usage(finding["usage"]) != CHAT else {}))
                      for report, finding, name in chosen]
             built, problem = build_additions(text, result["date"], kind, items)
             problem = problem or addition_problem(text, built, items)
@@ -7222,10 +7537,51 @@ def ranked_row(result, provider, identifier):
                  if (row["provider"], row["id"]) == (provider, identifier)), None)
 
 
-def placing_lines(result, provider, identifier):
+# The router each usage other than embeddings is served through, by the name a client types.
+USAGE_ROUTERS = {"speech": "tts", "transcription": "stt", "decision": "decision", "extraction": "extraction"}
+
+
+def usage_lines(usage):
+    """What a proposed model of a usage other than chat is placed by, as list items in French: no ranking
+    measures it, and where it goes is a person's to say."""
+    if usage == "embeddings":
+        return ["**Aucun routeur** : un modèle d'embeddings s'appelle par son nom, seul, et aucune cascade ni "
+                "aucun alias ne le porte (les vecteurs de deux modèles ne se comparent pas). Dimension du "
+                "vecteur à lire sur la première réponse, pas sur une page."]
+    if usage not in USAGE_ROUTERS:
+        return ["**Aucun routeur** : la passerelle n'a ni routeur ni client pour ce type de modèle, et l'entrée "
+                "s'appelle par son nom. La garder, c'est décider d'un routeur, d'un groupe de clés et d'un "
+                "client qui l'appelle ; l'écarter, c'est la ligne `drift-ignore` ci-dessus."]
+    router = ROUTER_PUBLIC_NAMES[USAGE_ROUTERS[usage]]
+    return ["**Place laissée à une personne** : aucun classement ne mesure ce modèle, et l'ordre de la cascade de "
+            "`%s` se règle à la main, sans règle qui dise où il va : l'entrée est en queue de cette cascade, la "
+            "place sûre, et se déplace dans un commit sur cette branche (avec la table `head` du modèle de "
+            "configuration si elle devient le premier membre)." % router]
+
+
+def slot_sentence(provider, usage, name, commented):
+    """Where the entry written for a model is put in the cascades, in French."""
+    router = slot_router(provider, entry_usage(usage))
+    if commented:
+        return "Aucune cascade : l'entrée est commentée, sa raison étant provisoire."
+    if router is None:
+        return ("Aucune cascade : un modèle d'embeddings s'appelle par son nom, et la passerelle n'a pas de routeur "
+                "pour ce type de modèle." if usage == "embeddings" else
+                "Aucune cascade : la passerelle n'a pas de routeur pour ce type de modèle, l'entrée s'appelle par "
+                "son nom.")
+    condition = SLOT_CONDITIONS[provider]
+    return ("Cascade : en **queue** de `%s`%s, la place sûre, à déplacer à la relecture." % (
+        ROUTER_NAMES[router], " sous `{%% if %s %%}`" % condition
+        if condition and ROUTER_PROVIDERS.get(router) != {provider} else ""))
+
+
+def placing_lines(result, provider, identifier, usage=CHAT):
     """What the ranking says of a proposed model, as list items: its figures and the place it would
     take in each router, or that it is not placed, and why. The second value is the reason, in
-    English, of the drift-ignore line that sets an unmeasured model aside, or None for a measured one."""
+    English, of the drift-ignore line that sets an unmeasured model aside, or None for a measured one.
+    A model of another usage has no ranking: see usage_lines()."""
+    if usage != CHAT:
+        return usage_lines(usage), None
     ranking = result.get("rankings") or {"status": "no key"}
     row = ranked_row(result, provider, identifier)
     model = row["model"] if row else None
@@ -7264,6 +7620,11 @@ MISSING_HOWTO = {
     "match": "ouvrir sa fiche sur <%s> et vérifier que c'est bien ce modèle (même éditeur, même taille, "
              "même variante d'effort de raisonnement) ; si oui, les places suggérées plus bas tiennent" % RANKING_SITE,
     "figures": "attendre que le classement le mesure, ou le placer à la main",
+    "kind": "décider si la passerelle doit un jour servir ce type de modèle (un routeur, un groupe de clés et un "
+            "client qui l'appelle) ; sinon, supprimer l'entrée et écrire la ligne `drift-ignore` ci-dessous",
+    "route": "la fusion ne suffit pas à le savoir : appeler le modèle par son nom depuis la passerelle une fois "
+             "l'entrée fusionnée, ou lire la documentation de LiteLLM pour ce fournisseur et cet usage ; si la "
+             "route n'existe pas, supprimer l'entrée et écrire la ligne `drift-ignore` ci-dessous",
 }
 
 
@@ -7288,33 +7649,45 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         out = ["Ajouts **prêts**, proposés **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, %s. "
                "Pour chaque modèle ci-dessous, l'exécution tient tout ce qu'il faut pour l'ajouter sans y "
                "réfléchir : sa gratuité, lue dans l'API de son fournisseur (%s), et "
-               "un chiffre du classement d'Artificial Analysis rapproché de façon sûre (son identifiant, sans `:free`, s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte aucune marque de variante entre parenthèses). Les nouveaux "
+               "un chiffre du classement d'Artificial Analysis rapproché de façon sûre (son identifiant, sans `:free`, s'écrit à la casse et à la ponctuation près comme le slug ou le nom d'une seule entrée du classement, qui ne porte aucune marque de variante entre parenthèses) ; pour un modèle qui n'est pas du chat (embeddings, voix, transcription, décisions, extraction), qu'aucun classement ne mesure, sa gratuité et une route déjà servie par le fichier chez le même fournisseur. Les nouveaux "
                "modèles auxquels il manque une de ces informations, de quelque fournisseur qu'ils soient, sont "
                "dans une pull request à part, en brouillon%s." % (
                    run, FREE_READING, " (branche %s)" % code_span(other) if other else ""),
                "",
-               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
-               "commentaire qui cite le catalogue et le jour, et ne la met dans **aucune cascade** : "
-               "fusionnée telle quelle, l'entrée s'appelle par son nom et aucun routeur ne s'en sert. Les "
+               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur du même usage (de chat, "
+               "à défaut), sous un commentaire qui cite le catalogue et le jour, avec le `model_info.mode` et le "
+               "groupe d'accès de son usage quand ce n'est pas du chat, et la met en **queue** de la cascade de son routeur "
+               "(`Auto-Flash-Lite` pour le texte, celui de son mode pour la voix, la transcription, les "
+               "décisions et l'extraction ; aucune cascade pour les embeddings et les types sans routeur), car "
+               "une entrée qui a un routeur est dans une cascade. Les "
                "places données plus bas sont des **suggestions, calculées sur le classement actuel, qui est "
                "en cours de révision** : son chiffre est celui d'une seule variante d'effort de "
                "raisonnement, et sa vitesse en jetons par seconde ne dit rien du temps jusqu'à la réponse "
-               "d'un modèle qui raisonne. Rien ne les applique."]
+               "d'un modèle qui raisonne. Rien ne les applique. Le commit n'écrit aucune fenêtre de contexte, aucun "
+               "catalogue lu ici n'en donnant : une entrée de texte en cascade n'a donc pas de `model_info.max_input_tokens`, "
+               "et `check_compose_template.py` la refuse tant qu'une personne ne l'a pas écrit."]
     else:
         out = ["**Brouillon : à ne pas fusionner avant d'avoir fait, pour chaque modèle, les vérifications "
                "listées sous lui.** Ajouts **à vérifier**, proposés **sans IA** par "
                "`.github/workflows/LiteLLM_model_drift.yml`, %s. À chaque modèle ci-dessous, il manque au "
                "moins une information pour l'ajouter sans y réfléchir : sa gratuité, quand l'API de son "
                "fournisseur ne la dit pas, un chiffre du classement d'Artificial Analysis, ou un rapprochement "
-               "sûr avec lui. Ce qui manque est dit sous chacun, avec la façon de l'obtenir. Les modèles dont "
+               "sûr avec lui (pour un modèle qui n'est pas du chat : une route que le fichier sert déjà chez ce "
+               "fournisseur). Ce qui manque est dit sous chacun, avec la façon de l'obtenir. Les modèles dont "
                "l'exécution sait tout sont dans une pull request à part, prête à relire%s." % (
                    run, " (branche %s)" % code_span(other) if other else ""),
                "",
-               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur, sous un "
-               "commentaire qui dit d'où elle vient et quand. L'entrée est active, sauf chez un fournisseur "
+               "Le commit ajoute chaque entrée après la dernière entrée de son fournisseur du même usage (de chat, "
+               "à défaut), sous un commentaire qui dit d'où elle vient et quand, avec le `model_info.mode` et le "
+               "groupe d'accès de son usage quand ce n'est pas du chat. L'entrée est active, sauf chez un fournisseur "
                "dont le fichier n'a aucune entrée active : elle suit alors, commentée, sa dernière entrée "
-               "commentée, avec une raison provisoire. Elle n'est mise dans **aucune cascade** : les places "
-               "données plus bas, quand elles se calculent, sont des suggestions."]
+               "commentée, avec une raison provisoire. Elle est mise en **queue** de la cascade de son routeur (celle de "
+               "`Auto-Flash-Lite` pour le texte, de son mode pour la voix, la transcription, les décisions et "
+               "l'extraction), la place sûre ; les types sans routeur et les embeddings n'ont aucune cascade. Les "
+               "places données plus bas, quand elles se calculent, sont des suggestions. Le commit n'écrit aucune "
+               "fenêtre de contexte, aucun catalogue lu ici n'en donnant : une entrée de texte en cascade n'a donc pas "
+               "de `model_info.max_input_tokens`, et `check_compose_template.py` la refuse tant qu'une personne ne "
+               "l'a pas écrit."]
     out += ["",
             "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît que la "
             "branche des suppressions, et celle-ci%s attend tigerblue77." % (
@@ -7337,8 +7710,10 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
     anchors = {}
     for report, finding, name in chosen:
         provider, identifier = report["name"], finding["id"]
-        anchor = anchors.setdefault(provider, addition_anchor(entries, provider))
-        item = {"provider": provider, "id": identifier, "name": name}
+        usage = finding["usage"]
+        anchor = anchors.setdefault((provider, usage), addition_anchor(entries, provider, usage))
+        item = dict({"provider": provider, "id": identifier, "name": name},
+                    **({"usage": usage} if entry_usage(usage) != CHAT else {}))
         block = addition_block(kind, date, item, anchor)[1:]
         full = "%s/%s" % (provider, identifier)
         out += ["### %s → %s" % (code_span(litellm_id(provider, identifier)[0], 220), code_span(name)), ""]
@@ -7348,7 +7723,14 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
                                          PROVIDER_LABELS[provider], code_span(finding["label"])), ""]
         out += ["Entrée %s par le commit :" % ("commentée ajoutée" if anchor["commented"] else "ajoutée"), ""]
         out += yaml_fence(block) + [""]
-        placing, unmeasured = placing_lines(result, provider, identifier)
+        out += [slot_sentence(provider, usage, name, anchor["commented"]), ""]
+        placing, unmeasured = placing_lines(result, provider, identifier, usage)
+        if usage in USAGE_MODES:
+            out.append("Usage : `%s`, `model_info.mode: %s`, groupe d'accès `%s`." % (
+                usage, USAGE_MODES[usage], addition_group(provider, usage)))
+            out.append("")
+        elif usage != CHAT:
+            out += ["Usage : `%s`, écrit comme une entrée de chat, LiteLLM le servant par sa route de chat." % usage, ""]
         if ready:
             out.append("- Gratuité : lue dans <https://%s>, le %s." % (FREE_CATALOGUES[provider], date))
             out += [line if line.startswith("  - ") else "- " + line for line in placing]
@@ -7376,9 +7758,19 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         for what, _ in missing:
             if what in MISSING_HOWTO:
                 out.append("- [ ] **%s.** %s." % (
-                    {"ranking": "Classement", "match": "Rapprochement", "figures": "Chiffres"}[what], MISSING_HOWTO[what][0].upper() + MISSING_HOWTO[what][1:]))
-        out.append("- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :")
-        out += ["  - " + line if not line.startswith("  - ") else "  " + line for line in placing]
+                    {"ranking": "Classement", "match": "Rapprochement", "figures": "Chiffres",
+                     "route": "Route", "kind": "Type"}[what], MISSING_HOWTO[what][0].upper() + MISSING_HOWTO[what][1:]))
+        if any(what in ("route", "kind") for what, _ in missing):
+            reason = ("no route for %s in LiteLLM under this prefix" if any(what == "route" for what, _ in missing)
+                      else "the gateway has no router or client for %s models") % usage
+            out += ["", "  Pour l'écarter, la ligne est :", ""]
+            out += yaml_fence(["  # drift-ignore: %s -- %s (read %s)" % (full, reason, date)], "  ")
+            out.append("")
+        if usage == "embeddings":
+            out += ["- " + line for line in placing]
+        else:
+            out.append("- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :")
+            out += ["  - " + line if not line.startswith("  - ") else "  " + line for line in placing]
         if unmeasured:
             out += ["", "  Pour l'écarter faute de mesure, la ligne est :", ""]
             out += yaml_fence(["  # drift-ignore: %s -- %s" % (full, unmeasured)], "  ")
@@ -7432,22 +7824,26 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
 
 def render_additions_commit(result, kind, chosen):
     """The commit that carries the proposed entries, in English like every commit here."""
-    identifiers = ", ".join(litellm_id(report["name"], finding["id"])[0] for report, finding, _ in chosen)
+    identifiers = ", ".join(addition_model(report["name"], finding["id"], entry_usage(finding["usage"]))
+                            for report, finding, _ in chosen)
     count = count_phrase(len(chosen), "model", "models")
     if kind == "ready":
         subject = "Propose the new LiteLLM models the drift check knows everything of (#346)"
         found = ("The drift check found on %s %s the model list does not know and of which it holds "
-                 "every fact an addition needs: a free tier its provider's API states, and a figure of the "
-                 "Artificial Analysis ranking matched for certain: %s. Each is added after the last "
-                 "entry of its provider, modelled on it, under a comment citing the catalogue and the day, "
-                 "in no cascade: the places the pull request suggests are computed on a ranking that is "
+                 "every fact an addition needs: a free tier its provider's API states, and, for a chat model, a "
+                 "figure of the Artificial Analysis ranking matched for certain, or, for any other usage, a route "
+                 "the file already serves through the provider: %s. Each is added after the last "
+                 "entry of its provider of the same usage, modelled on it, with the mode and the access group "
+                 "of its usage, under a comment citing the catalogue and the day, "
+                 "at the tail of its router's cascade: the places the pull request suggests are computed on a ranking that is "
                  "under revision." % (result["date"], count, identifiers))
     else:
         subject = "Propose the new LiteLLM models a person has to check before adding (#346)"
         found = ("The drift check found on %s %s the model list does not know and of which at least "
                  "one fact an addition needs is missing (a free tier the provider's API does not state, a "
-                 "figure of the ranking, a certain match with it): %s. Each is added after the last "
-                 "entry of its provider, modelled on it, in no cascade, and the draft pull request says what "
+                 "figure of the ranking, a certain match with it, or, for a model that is no chat one, a route "
+                 "the file serves through the provider): %s. Each is added after the last "
+                 "entry of its provider of the same usage, modelled on it, at the tail of its router's cascade, and the draft pull request says what "
                  "is missing for each and how to get it." % (result["date"], count, identifiers))
     return subject + "\n\n" + wrapped(found) + "\n\n" + wrapped("Nothing merges it but a person.") + "\n"
 

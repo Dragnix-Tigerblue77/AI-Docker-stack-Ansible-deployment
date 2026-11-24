@@ -215,6 +215,14 @@ model_list:
       rpd: 20
       reasoning_effort: low
 
+  # A twin of "gemini-3-8-flash", placed right behind it in every cascade that holds that model.
+  # "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-24, says "gemini-3.7-flash" is no longer available in
+  # Google AI Studio and that its endpoint "is not shutting down and automatically routes API requests to
+  # gemini-3.8-flash". Whether a call to this id draws on a counter of its own or on the one of Gemini 3.8 Flash is
+  # not established: the rate-limits page of the gateway's project in Google AI Studio has no row for it (read
+  # 2026-11-22). The slot costs one refusal when the counter is shared and is 20 more requests a day when it is
+  # not. To settle it, send one request to this id and see which counter moves on the usage page of AI Studio; if it
+  # is the one of Gemini 3.8 Flash, delete the entry.
   - model_name: gemini-3-7-flash
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -328,32 +336,6 @@ model_list:
   #   litellm_params:
   #     model: gemini/gemini-2.5-pro
   #     api_key: "os.environ/GEMINI_API_KEY"
-
-  # In no cascade at all, reachable only when asked for by name. The same page, read 2026-11-22, says
-  # "gemini-2.5-flash" is deprecated and no longer available to select in Google AI Studio, and that
-  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It goes when Google
-  # shuts it down.
-  - model_name: gemini-2-5-flash
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1048576
-      max_output_tokens: 65536
-      supports_vision: true
-    litellm_params:
-      model: gemini/gemini-2.5-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  # The same page, read 2026-11-22, says "gemini-2.5-flash-lite" is not deprecated and "remains
-  # available through the API until further notice".
-  - model_name: gemini-2-5-flash-lite
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1048576
-      max_output_tokens: 65536
-      supports_vision: true
-    litellm_params:
-      model: gemini/gemini-2.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
 
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
   # "ai.google.dev/gemini-api/docs/models/deep-research-pro-preview-12-2025" gives its "Agent code"
@@ -518,6 +500,10 @@ model_list:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY"
 
+  # In "Auto-Flash", ahead of "mistral-small" as the larger model. Epoch AI's capabilities index puts it at 141.6 against
+  # 140.8 for Gemini 2.5 Flash (Jun 2025), the floor of that router, and under the floor of "Auto-Pro"; Artificial
+  # Analysis gives it an index of 4.6 in 26.8 s (read 2026-11-24 and 2026-11-21). Paid like the rest of this section,
+  # so after every free member.
   - model_name: mistral-medium
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -634,6 +620,12 @@ model_list:
   #     api_key: "os.environ/CEREBRAS_API_KEY"
 
 {% if has.Groq %}
+  # Every text model of Groq states the length of its answer, as "max_completion_tokens", the name Groq's API
+  # reference gives in place of a deprecated "max_tokens": through the gateway on 2026-11-24, a request that
+  # named none was cut at 2,048 tokens (gpt-oss-20b, Qwen3.8) and 3,072 (gpt-oss-120b), although the reference
+  # gives no default. On a short request the same day, the free tier accepted every limit from 4,096 to 32,768
+  # tokens. 32,768, or the model's own maximum output where it is lower: 16,384 for Qwen3.8 (its model page,
+  # read the same day). "check_compose_template.py" refuses a text entry of Groq without one.
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
@@ -645,6 +637,7 @@ model_list:
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 32768
       rpm: 30
       tpm: 8000
       rpd: 1000
@@ -659,6 +652,7 @@ model_list:
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 32768
       rpm: 30
       tpm: 8000
       rpd: 1000
@@ -681,6 +675,7 @@ model_list:
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
+      max_completion_tokens: 16384
       rpm: 30
       tpm: 8000
       rpd: 1000
@@ -1033,6 +1028,15 @@ model_list:
   # content processed and does not retain it for a standard inference, and each model page below lists
   # zero data retention.
   #
+  # Every text model below states the length of its answer: a request that names none is cut at the default
+  # its model page gives, 256 tokens on most of them (read 2026-11-23, and measured through the gateway on
+  # 2026-11-24 for both gpt-oss and Llama 3.3), which empties the answer of a model that reasons first. The
+  # pages of GLM 4.7 Flash, Gemma 4 26B and Qwen3.8 give no default and name "max_completion_tokens" in place
+  # of a deprecated "max_tokens", so their entries use it; GLM and Gemma answered uncut without one that day,
+  # and carry it all the same so that one rule holds every entry. 32,768 where the context reaches 128,000
+  # tokens, 8,192 under it, so that the request keeps most of the context; a client that sends its own limit
+  # replaces it. "check_compose_template.py" refuses a text entry of Cloudflare without one.
+  #
   # Looked at the same day and not routed: Kimi, GLM-5 and DeepSeek V4, which are paid per the note above;
   # Nemotron 3 120B, whose page says "Deprecated 11/20/2026" while LiteLLM's model map still lists it; and
   # Qwen 3.8 27B, whose page gives a 262,144-token context and function calling but which LiteLLM's model
@@ -1053,6 +1057,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
@@ -1064,6 +1069,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
@@ -1076,6 +1082,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # New to the gateway, and in "Auto-Flash-Lite" only, as the last of its free members: 24,000 tokens of context
   # in LiteLLM's model map and on its page (read 2026-11-22), which is what "Auto-Flash-Lite" takes, and no
@@ -1090,6 +1097,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 8192
 
   # New to the gateway, and in "Auto-Code" and "Auto-Claude-Code" only, as the last of their free members, ahead of
   # the paid ones: 131,072 tokens and function calling in LiteLLM's model map and on its page (read
@@ -1105,6 +1113,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # SEA-LION v4, a Gemma 3 27B tuned for the languages of Southeast Asia, with 128,000 tokens of context
   # (its model page, read 2026-11-22). Not among the models the pricing page
@@ -1119,6 +1128,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Cloudflare's own models that are not chat models, each called on a route of its own rather than on
   # "/chat/completions", which LiteLLM gives them since it learnt them: Clef on "/v1/systemone" (a "state" and
@@ -1148,7 +1158,8 @@ model_list:
       model: cloudflare/@cf/cloudflare/clef-omni
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Clef Flash: 9B, 24,576 tokens, text and images; in no router, its context being under its siblings'.
+  # Clef Flash: 9B, 24,576 tokens, text and images; the last member of "Auto-Decision", its context being under its
+  # siblings'.
   - model_name: clef-flash-cloudflare
     model_info:
       mode: evaluation
@@ -1194,6 +1205,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/ibm-granite/granite-4.0-h-micro
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Meta's Llama 3.2 11B with vision, with 128,000 tokens of context (its model page, read 2026-11-22).
   # Not among the models the pricing page
@@ -1211,6 +1223,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.2-11b-vision-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Meta's Llama 4 Scout, a mixture of experts with 17B active parameters, 131,000 tokens of context and
   # function calling (its model page, read 2026-11-22). Not among the models the pricing page
@@ -1226,6 +1239,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora -- a LoRA base model with a 15,000-token context, under the 24,000 that "Auto-Flash-Lite" takes, and no figure measures v0.2 (read 2026-11-22)
 
@@ -1241,6 +1255,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 32768
 
   # Qwen2.5 Coder 32B, with 32,768 tokens of context and no function calling listed (its model page, read
   # 2026-11-22). Not among the models the pricing page
@@ -1257,6 +1272,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_tokens: 8192
 
   # Qwen3.8 27B, the model Groq and OVHcloud serve above, with 262,144 tokens of context and function calling
   # (its model page, read 2026-11-22). Not among the models the pricing page
@@ -1275,6 +1291,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/qwen/qwen3.8-27b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
+      max_completion_tokens: 32768
 
   # drift-ignore: cloudflare/@cf/swiss-ai/apertus-v1.5-8b -- access is by a request form per its model page (read 2026-11-22), which shows no price, and no figure measures v1.5; the form (forms.gle/kgvmkr6ucHN3xNuH6) was closed on 2026-11-24
 
@@ -2203,9 +2220,42 @@ model_list:
 
   - model_name: omniroute-free-fast
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openai/auto/best-fast
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
+  # Three vision routes, in no cascade and behind no alias, called by name alone. Read in OmniRoute's source
+  # ("open-sse/services/autoCombo/builtinCatalog.ts") and its "docs/AUTO-COMBO.md" on 2026-11-24, and none was
+  # called for real from here: all three are untried. "auto/best-vision" resolves to the "vision" category, a
+  # candidate filter that keeps only the vision-capable models among the providers OmniRoute has connected.
+  # "auto/vision" and "auto/multimodal" are curated "auto/<category>" ids: vision-capable models with balanced
+  # weights.
+  - model_name: omniroute-free-vision
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/best-vision
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omniroute-vision
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/vision
+      api_base: "http://omniroute:20128/v1"
+      api_key: "omniroute-no-key-needed"
+
+  - model_name: omniroute-multimodal
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      supports_vision: true
+    litellm_params:
+      model: openai/auto/multimodal
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
@@ -2266,6 +2316,11 @@ router_settings:
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # A member that answers "not found" is set aside for "cooldown_time" from its first such answer: its provider has
+  # retired or lost it, and every request would otherwise pay that call again before moving on. Without this policy a
+  # member reached through a cascade is never set aside, whatever it answers.
+  allowed_fails_policy:
+    NotFoundErrorAllowedFails: 0
   # Counts each entry's requests and tokens against the free limits its "rpm", "tpm", "rpd" and "tpd" state, in Redis
   # so that every worker shares the count, and skips without a call a member that has reached one: a provider at its
   # limit answers 429 only after a round trip, and the head of a cascade with 20 requests a day spends every request
@@ -2341,6 +2396,7 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
@@ -2418,6 +2474,7 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-8-flash-low
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
@@ -2434,6 +2491,8 @@ router_settings:
 {% endif %}
 {% if has.Cloudflare %}
         - gpt-oss-120b-cloudflare
+{% endif %}
+{% if has.Gemini %}
 {% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
@@ -2490,6 +2549,7 @@ router_settings:
         - nemotron3-omni-30b-ovh
         - mistral-small-3-2-ovh
 {% if has.Mistral %}
+        - mistral-medium
         - mistral-small
         - ministral-14b
         - ministral-8b
@@ -2538,9 +2598,6 @@ router_settings:
         - nemotron-lightning-nvidia
 {% endif %}
         - nemotron-lightning-kilo
-{% if has.Gemini %}
-        - gemini-2-5-flash-lite
-{% endif %}
 {% if has.Cloudflare %}
         - llama-4-scout-17b-16e-instruct-cloudflare
 {% endif %}
@@ -2583,6 +2640,7 @@ router_settings:
         - olala-mini-ovh
 {% if has.Gemini %}
         - gemini-3-8-flash-low
+        - gemini-3-7-flash
         - gemini-4-hydrogen-low
 {% endif %}
 {% if has.Groq %}
@@ -2615,6 +2673,7 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - glm-5-3-flash-nvidia
@@ -2631,6 +2690,10 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - muse-glimmer-nvidia
+{% endif %}
+{% if has.Gemini %}
+{% endif %}
+{% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
 {% endif %}
 {% if has.Cloudflare %}
@@ -2675,6 +2738,7 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - glm-5-3-flash-nvidia
@@ -2691,6 +2755,10 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - muse-glimmer-nvidia
+{% endif %}
+{% if has.Gemini %}
+{% endif %}
+{% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
 {% endif %}
 {% if has.Cloudflare %}
@@ -2749,12 +2817,15 @@ router_settings:
     # 8. DECISION -- Clef's typed decisions, for "/v1/systemone" and "/v1/decisions". Not ranked by a leaderboard
     # and with no contract, so the order is set by hand, and a fallback has to take every request its head takes,
     # so that switching to it is invisible to the caller. Clef Omni does: text and images like Clef, with
-    # 64,000 tokens of context against Clef's 65,536. Clef Flash does not, with 24,576, and is called by name; so
-    # is Clef Omni for a request that carries audio or video, which Clef does not read.
+    # 64,000 tokens of context against Clef's 65,536. Clef Flash takes the same text and images but only 24,576
+    # tokens, so it comes last: a request it cannot hold would have failed with nothing behind it anyway, and one it
+    # can hold is answered instead of refused. Clef Omni is also called by name for a request that carries audio or
+    # video, which Clef does not read.
 {% if head['decision'] %}
     - Auto-Decision:
         - clef-cloudflare
         - clef-omni-cloudflare
+        - clef-flash-cloudflare
 {% endif %}
 
     # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above,

@@ -679,8 +679,8 @@ def node(harness, payload):
     return json.loads(done.stdout)
 
 
-def item(provider, identifier, name):
-    return {"provider": provider, "id": identifier, "name": name}
+def item(provider, identifier, name, usage=None):
+    return dict({"provider": provider, "id": identifier, "name": name}, **({"usage": usage} if usage else {}))
 
 
 # Kilo's free ids are flagged by its catalogue, and some are spelt without ":free": both are written.
@@ -703,6 +703,26 @@ TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendo
              item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs")]
 
 
+# One model of every usage other than chat, each of a provider that can have it and none of which has to be
+# first of its kind: the real template has entries of each mode.
+USAGE_ITEMS = [item("gemini", "gemini-9-embed", "gemini-9-embed", "embeddings"),
+               item("mistral", "voxtral-9-transcribe", "voxtral-9-transcribe", "transcription"),
+               item("groq", "whisper-9", "whisper-9-groq", "transcription"),
+               item("gemini", "gemini-9-tts", "gemini-9-tts", "speech"),
+               item("gemini", "gemini-9-transcribe", "gemini-9-transcribe", "transcription"),
+               item("mistral", "mistral-embed-9", "mistral-embed-9", "embeddings"),
+               item("cloudflare", "@cf/cloudflare/clef-9", "clef-9-cloudflare", "decision"),
+               item("cloudflare", "@cf/cloudflare/clairic-9", "clairic-9-cloudflare", "extraction"),
+               item("cloudflare", "@cf/vendor/embed-8", "embed-8-cloudflare", "embeddings"),
+               item("openrouter", "vendor/embed-two:free", "embed-two-free", "embeddings"),
+               item("nvidia", "vendor/embed-nine", "embed-nine-nvidia", "embeddings"),
+               item("openrouter", "vendor/paint-nine:free", "paint-nine-free", "image"),
+               item("gemini", "gemini-9-video", "gemini-9-video", "video"),
+               item("mistral", "mistral-rerank-9", "mistral-rerank-9", "rerank"),
+               item("groq", "vendor/guard-nine", "guard-nine-groq", "moderation"),
+               item("mistral", "mistral-ocr-9", "mistral-ocr-9", "ocr"),
+               item("cloudflare", "@cf/vendor/paint-8", "paint-8-cloudflare", "image")]
+
 
 def builder_scenarios(real, drift):
     """[(name, base, date, kind, items, expected)], "expected" None for a file both builders must write
@@ -716,6 +736,68 @@ def builder_scenarios(real, drift):
 
     add("real template: models of which everything is known", READY_ITEMS)
     add("real template: one model of every other provider", TO_VERIFY, kind="to_verify")
+    add("real template: a model of every usage other than chat, each after the last entry of its mode",
+        USAGE_ITEMS, kind="to_verify")
+    add("real template: an embedding model free on OpenRouter is ready, with the mode and the group of its usage",
+        [item("openrouter", "vendor/embed-one:free", "embed-one-free", "embeddings")])
+    add("real template: Cloudflare's embedding goes through the OpenAI-compatible endpoint, its base read from the "
+        "environment", [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
+        kind="to_verify")
+    add("real template: a chat model of Cloudflare is not written after its embedding entry or a typed one",
+        [item("cloudflare", "@cf/vendor/chat-9", "chat-9-cloudflare")], kind="to_verify")
+    add("miniature: an embedding model of a provider with no entry of the mode follows its chat entry",
+        [item("gemini", "gem-embed", "gem-embed", "embeddings")], base=miniature, kind="to_verify")
+    add("miniature: a speech model of a provider with commented-out entries only is followed commented out",
+        [item("cerebras", "cb-voice", "cb-voice-cerebras", "speech")], base=miniature, kind="to_verify")
+    for usage, provider, identifier, router in (
+            ("decision", "gemini", "gemini-9-decide", "Auto-Decision"), ("extraction", "groq", "vendor/extract-9", "Auto-Extraction"),
+            ("speech", "cloudflare", "@cf/vendor/say-9", "Auto-TTS"), ("speech", "groq", "vendor/say-9", "Auto-TTS"),
+            ("speech", "openrouter", "vendor/say-9:free", "Auto-TTS"),
+            ("transcription", "cloudflare", "@cf/vendor/hear-9", "Auto-STT")):
+        add("a %s model of %s is refused: the %s router does not route to it" % (usage, provider, router),
+            [item(provider, identifier, "fresh-" + provider, usage)], "is not one of the providers of the %s router" % router,
+            kind="to_verify")
+    add("a typed model of Aion Labs with no router is written in the group of its own",
+        [item("aionlabs", "aion-labs/embed-9", "embed-9-aion-labs", "embeddings")], kind="to_verify")
+    cascaded = miniature.replace("    - flash:\n", "    - Auto-Flash-Lite:\n")
+    assert cascaded != miniature
+    add("miniature: a text model is written at the tail of the Auto-Flash-Lite cascade, under its provider's key",
+        [item("openrouter", "vendor/tail:free", "tail-free"), item("gemini", "gem-tail", "gem-tail")],
+        base=cascaded, kind="to_verify")
+    add("miniature: a keyless gateway's entry is written at the tail with no condition",
+        [item("kilo", "vendor/tail:free", "tail-kilo")], base=cascaded)
+    add("miniature: a cascade closed by its own block is written at its tail, inside the block",
+        [item("gemini", "gem-tail", "gem-tail")], kind="to_verify",
+        base=cascaded.replace("router_settings:\n  fallbacks:\n    - Auto-Flash-Lite:\n",
+                              "router_settings:\n  fallbacks:\n{% if has.OpenRouter %}\n    - Auto-Flash-Lite:\n")
+        .replace("        - free-one\n", "        - free-one\n{% endif %}\n    - other:\n        - gem-one\n"))
+    add("miniature: a cascade with an else branch is refused, since a slot would land in one branch only",
+        [item("gemini", "gem-tail", "gem-tail")], "has an else branch", kind="to_verify",
+        base=cascaded.replace("        - gem-one\n", "{% if has.Gemini %}\n        - gem-one\n{% else %}\n        - free-one\n{% endif %}\n", 1))
+    add("a typed model of a router whose cascade the template lacks is written with no slot",
+        [item("gemini", "gem-voice", "gem-voice", "speech")], base=miniature, kind="to_verify")
+    add("an embedding model of Cloudflare is refused where the template has no embedding entry of it",
+        [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
+        "has no embedding entry of cloudflare", kind="to_verify",
+        base=real.replace("os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE", "https://upstream-host/v1"))
+    plain_base = real.replace('      model: openai/@cf/baai/bge-m3\n      api_base: "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE"',
+                              '      model: cloudflare/@cf/baai/bge-m3\n      api_base: "https://upstream-host/v1"')
+    assert plain_base != real
+    add("an embedding model of Cloudflare modelled on an entry whose base is a plain address is refused",
+        [item("cloudflare", "@cf/vendor/embed-9", "embed-9-cloudflare", "embeddings")],
+        "has no embedding entry of cloudflare", kind="to_verify", base=plain_base)
+    for usage in ("chat", "unclassified", "audio", "", "Embeddings", "embedding", None, ["speech"]):
+        add("a usage the template has no mode for is refused: %r" % (usage,),
+            [dict(item("openrouter", "vendor/a:free", "a-free"), usage=usage)], "usage is none")
+    add("a typed item with a key more is refused",
+        [dict(item("openrouter", "vendor/a:free", "a-free", "embeddings"), api_base="https://x")], "an item is not")
+    add("a ready typed model of a provider whose API does not state its free tier is refused",
+        [item("gemini", "gemini-9-embed", "gemini-9-embed", "embeddings")], "free tier, and only")
+    add("a typed id already an entry is refused",
+        [item("cloudflare", "@cf/baai/bge-m3", "fresh-embed-cloudflare", "embeddings")], "is already an entry",
+        kind="to_verify")
+    add("a typed id set aside is refused", [item("openrouter", "vendor/set-aside:free", "fresh-free", "embeddings")],
+        "set aside by a drift-ignore line", base=miniature)
     add("miniature: a provider with commented-out entries only is followed commented out, after its run",
         [item("cerebras", "cb-three", "cb-three-cerebras")], base=miniature, kind="to_verify")
     add("miniature: a commented-out entry with a base is followed with that base",
@@ -1369,8 +1451,32 @@ ADDITION_MUTATIONS = [
      "if (false)"),
     ("keep a ready addition active", "if (kind === 'ready' && anchor.commented)", "if (false)"),
     ("ask an id of such a provider for its suffix, where it has one", "spec.freeSuffix !== undefined && !id.endsWith(spec.freeSuffix)", "false"),
-    ("refuse an item of another shape", "Object.keys(item).sort().join(',') !== 'id,name,provider'", "false"),
-    ("refuse an id already an entry", "if (known.has(spec.prefix + id))", "if (false)"),
+    ("refuse an item of another shape",
+     "!['id,name,provider', 'id,name,provider,usage'].includes(Object.keys(item).sort().join(','))", "false"),
+    ("refuse a usage the template has no mode for", "!Object.hasOwn(ADDITION_USAGES, item.usage)", "false"),
+    ("write the mode of a typed entry", "if (usage) block.push(`${lead}    mode: ${usage.mode}`);", ""),
+    ("write a typed entry in the group of its usage", "spec.group ?? (usage ? usage.group : 'LLM')", "spec.group ?? 'LLM'"),
+    ("model a typed entry on the last entry of its mode",
+     "const anchor = same.length > 0 ? lastOf(same) : lastOf(modeless.length > 0 ? modeless : usable);",
+     "const anchor = lastOf(usable);"),
+    ("model a text entry on an entry of no mode first", "lastOf(modeless.length > 0 ? modeless : usable)", "lastOf(usable)"),
+    ("write Cloudflare's embeddings through its OpenAI-compatible endpoint",
+     "const prefix = embedsThroughEnv ? 'openai/' : spec.prefix;", "const prefix = spec.prefix;"),
+    ("refuse an embedding of Cloudflare with no entry to read its base from",
+     "!Object.hasOwn(ADDITION_ENV_BASES, envBase)", "false"),
+    ("attribute the entries whose base is read from the environment to Cloudflare",
+     "Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];", "false) return null;"),
+    ("refuse a provider that the router of the mode does not route to",
+     "if (providers !== undefined && !providers.includes(provider)) return `", "if (false) return `"),
+    ("give an entry a slot at the tail of its router", "if (tail !== null) slotsBefore.set(tail, written);", ""),
+    ("write a slot under the key of its provider",
+     "return [`{% if ${condition} %}`, `        - ${name}`, '{% endif %}'];", "return [`        - ${name}`];"),
+    ("write a slot inside the block that closes the cascade", "if (depth === 0) return index;", "if (depth === 99) return index;"),
+    ("refuse a cascade with an else branch", r"if (/^\{%-?\s*(else|elif)\b.*%\}$/.test(line)) return -1;", ""),
+    ("give an embedding no slot", "chat: 'flash-lite', speech: 'tts'", "chat: 'flash-lite', embeddings: 'flash-lite', speech: 'tts'"),
+    ("give Aion Labs' text models the slot of their own router", "if (provider === 'aionlabs') return usage === 'chat' ? 'fiction' : null;", ""),
+    ("write a slot only for an active entry", "if (!anchor.commented) {\n      const refusal", "if (true) {\n      const refusal"),
+    ("refuse an id already an entry", "if (known.has(prefix + id))", "if (false)"),
     ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),
     ("model an entry on a key read from the environment", "!ADDITION_KEY.test(key)", "false"),
     ("model a keyless gateway's entry on a plain marker", "!ADDITION_MARKER.test(key)", "false"),
@@ -1388,11 +1494,17 @@ ADDITION_MUTATIONS = [
     ("attribute the entries served through Aion Labs' endpoint to it", "apiBase.includes('api.aionlabs.ai')) return 'aionlabs';",
      "apiBase.includes('api.aionlabs.ai')) return null;"),
     ("write the entry of a provider kept out of LLM in the group of its own",
-     "[\"${spec.group ?? 'LLM'}\", \"${spec.data}\"]", "[\"LLM\", \"${spec.data}\"]"),
+     "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
+     "[\"${usage ? usage.group : 'LLM'}\", \"${spec.data}\"]"),
+    ("write the entry of a usage in the group of its own",
+     "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
+     "[\"${spec.group ?? 'LLM'}\", \"${spec.data}\"]"),
     ("write the entry of a provider in the data group of its own",
-     "[\"${spec.group ?? 'LLM'}\", \"${spec.data}\"]", "[\"${spec.group ?? 'LLM'}\", \"Public-Data-Only\"]"),
+     "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
+     "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"Public-Data-Only\"]"),
     ("write the data group after the type group",
-     "[\"${spec.group ?? 'LLM'}\", \"${spec.data}\"]", "[\"${spec.data}\", \"${spec.group ?? 'LLM'}\"]"),
+     "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
+     "[\"${spec.data}\", \"${spec.group ?? (usage ? usage.group : 'LLM')}\"]"),
     ("name every provider the script reads in the table of additions",
      "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, data: 'Public-Data-Only' },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
