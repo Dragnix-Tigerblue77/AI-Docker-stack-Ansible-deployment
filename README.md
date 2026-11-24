@@ -1883,11 +1883,6 @@ rien sur l'appelant ; seuls les caches *sémantiques* y ajoutent son identité. 
 presque rien ici : un client de conversation renvoie un historique qui diffère à chaque tour, donc il
 ne tombe presque jamais sur une requête identique. La raison est écrite dans `LiteLLM_config.yaml.j2`.
 
-**Un modèle repéré comme vieillissant, laissé en place.** `gemini-2-5-flash` est plusieurs générations
-derrière la ligne `gemini-3.x`, et #2 le signale comme tel -- mais rien ne confirme qu'il soit
-réellement retiré. Il ne figure dans aucune cascade : on ne l'atteint qu'en le demandant par son
-nom. Retiré ou confirmé au prochain audit de #2, pas ici.
-
 ## L'agent Claude Code (#13)
 
 Déployé **tel quel** depuis l'image que publie `Claude-Code-Docker-container`

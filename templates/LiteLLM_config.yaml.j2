@@ -250,26 +250,6 @@ model_list:
   #     model: gemini/gemini-2.5-pro
   #     api_key: "os.environ/GEMINI_API_KEY"
 
-  # In no cascade at all, reachable only when asked for by name. The same page, read 2026-11-22, says
-  # "gemini-2.5-flash" is deprecated and no longer available to select in Google AI Studio, and that
-  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It goes when Google
-  # shuts it down.
-  - model_name: gemini-2-5-flash
-    model_info:
-      access_groups: ["LLM"]
-    litellm_params:
-      model: gemini/gemini-2.5-flash
-      api_key: "os.environ/GEMINI_API_KEY"
-
-  # The same page, read 2026-11-22, says "gemini-2.5-flash-lite" is not deprecated and "remains
-  # available through the API until further notice".
-  - model_name: gemini-2-5-flash-lite
-    model_info:
-      access_groups: ["LLM"]
-    litellm_params:
-      model: gemini/gemini-2.5-flash-lite
-      api_key: "os.environ/GEMINI_API_KEY"
-
   # Served, but not routed to: it is an agent, not a chat model, and it is paid. Checked 2026-09-27:
   # "ai.google.dev/gemini-api/docs/models/deep-research-pro-preview-12-2025" gives its "Agent code"
   # under the "Interactions API", and ".../docs/deep-research" says the agent "is exclusively
@@ -1874,6 +1854,11 @@ router_settings:
   retry_after: 2
   cooldown_time: 60
   allowed_fails: 1
+  # A member that answers "not found" is set aside for "cooldown_time" from its first such answer: its provider has
+  # retired or lost it, and every request would otherwise pay that call again before moving on. Without this policy a
+  # member reached through a cascade is never set aside, whatever it answers.
+  allowed_fails_policy:
+    NotFoundErrorAllowedFails: 0
   # How long a member may stay silent before the cascade moves on to the next one. They belong here and
   # not in "litellm_settings", where "stream_timeout" has no effect on the router. 90 s for a stream
   # because a model that reasons before it answers is silent until its first answer token, which the
@@ -2133,9 +2118,6 @@ router_settings:
         - nemotron-lightning-nvidia
 {% endif %}
         - nemotron-lightning-kilo
-{% if has.Gemini %}
-        - gemini-2-5-flash-lite
-{% endif %}
 {% if has.Cloudflare %}
         - llama-4-scout-17b-16e-instruct-cloudflare
 {% endif %}
