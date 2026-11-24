@@ -381,8 +381,12 @@ public price map, which speaks for the providers that publish nothing. One sourc
 enough and is cited; two that disagree, on the day or because the provider says the model is active,
 keep the earliest day and print a warning naming both. The map never deletes anything, and an
 unreadable map costs the report only its own signal. A model free again or a new model no addition
-can carry stays a person's from the body of an addition pull request. An issue is opened for one
-thing only, a provider's catalogue still unreadable after the day's three retries. What the workflow
+can carry stays a person's from the body of an addition pull request. A sheet (`model_info`'s
+`max_input_tokens`, `max_output_tokens` and `supports_vision`) that differs from what its provider's
+catalogue states is corrected in a pull request of its own, one value to a line, read back like a deletion
+and merged by a person who has read the provider's page; its body names the entries whose length the new
+sheet no longer allows, which `check_compose_template.py` refuses and a person adjusts by hand. An issue is
+opened for one thing only, a provider's catalogue still unreadable after the day's three retries. What the workflow
 needs and what it refuses to delete are in its header and in the docstring of the script.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the

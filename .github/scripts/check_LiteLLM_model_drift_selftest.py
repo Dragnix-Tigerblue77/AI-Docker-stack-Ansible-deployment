@@ -5040,7 +5040,7 @@ def run_selftest(half=None, workers=None):
     # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
-        "REMOVALS_BRANCH", "ADDITIONS_BRANCH", "ADDITIONS_TO_VERIFY_BRANCH", "GITHUB_SERVER_URL",
+        "REMOVALS_BRANCH", "ADDITIONS_BRANCH", "ADDITIONS_TO_VERIFY_BRANCH", "SHEETS_BRANCH", "GITHUB_SERVER_URL",
         "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
         if name in os.environ}
     try:
@@ -8078,6 +8078,41 @@ model_list:
 """
 
 
+def sheet_answers(openrouter=None, gemini=None, mistral=None, groq=None, cloudflare=None):
+    """The catalogues of a run that list exactly the models of SHEET_TEMPLATE, each as the arguments say (a dict
+    of what that model states)."""
+    answers = {name: {"data": []} for name, *_ in PROVIDERS}
+    answers["openrouter"] = {"data": [
+        dict(openrouter_model("vendor/one:free"), **(openrouter or {})),
+        openrouter_model("vendor/paid-one", price="0.000001", outputs=("text",)),
+    ]}
+    answers["gemini"] = [{"models": [dict({"name": "models/gemini-9-flash",
+                                           "supportedGenerationMethods": ["generateContent"]}, **(gemini or {}))]}]
+    answers["mistral"] = {"data": [dict({"id": "mistral-large-2609", "aliases": ["mistral-large-latest"],
+                                         "capabilities": {"completion_chat": True}}, **(mistral or {}))]}
+    answers["groq"] = {"data": [dict({"id": "vendor/fast", "active": True}, **(groq or {}))]}
+    answers["cloudflare"] = [{"result": [dict(cloudflare_model("@cf/vendor/seeing-9"), **(cloudflare or {}))],
+                              "success": True}]
+    return answers
+
+
+def sheet_listing(template=SHEET_TEMPLATE, environment=SELFTEST_KEYS, **states):
+    """The result, the text report and the summary of a run on "template" whose catalogues are sheet_answers."""
+    result = run_online(template, environment, canned_opener(sheet_answers(**states), []), "2026-01-01")
+    return result, render_text(result, "selftest"), render_summary(result, "selftest")
+
+
+# What each catalogue of SHEET_TEMPLATE states of its model, the sheet of the template exactly.
+SHEET_FULL = dict(
+    openrouter={"context_length": 131072, "top_provider": {"max_completion_tokens": 8192},
+                "architecture": {"output_modalities": ["text"], "input_modalities": ["text"]}},
+    gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 65536},
+    mistral={"max_context_length": 128000, "capabilities": {"completion_chat": True, "vision": False}},
+    groq={"context_window": 32768},
+    cloudflare={"properties": [{"property_id": "context_window", "value": "128000"},
+                               {"property_id": "vision", "value": "true"}]})
+
+
 def run_sheet_cases():
     """The sheets of the entries against what their catalogues state: a matching sheet gives no line, a different
     window, longest answer or image flag each give one that names the entry, the field and both values, and a field
@@ -8095,36 +8130,13 @@ def run_sheet_cases():
     def first_wrong(*checks):
         return next((message for ok, message in checks if not ok), None)
 
-    def listing(openrouter=None, gemini=None, mistral=None, groq=None, cloudflare=None, template=SHEET_TEMPLATE):
-        """The result, the text report and the summary of a run whose catalogues list exactly the models of the
-        template, each as the arguments say (a dict of what that model states)."""
-        answers = {name: {"data": []} for name, *_ in PROVIDERS}
-        answers["openrouter"] = {"data": [
-            dict(openrouter_model("vendor/one:free"), **(openrouter or {})),
-            openrouter_model("vendor/paid-one", price="0.000001", outputs=("text",)),
-        ]}
-        answers["gemini"] = [{"models": [dict({"name": "models/gemini-9-flash",
-                                               "supportedGenerationMethods": ["generateContent"]}, **(gemini or {}))]}]
-        answers["mistral"] = {"data": [dict({"id": "mistral-large-2609", "aliases": ["mistral-large-latest"],
-                                             "capabilities": {"completion_chat": True}}, **(mistral or {}))]}
-        answers["groq"] = {"data": [dict({"id": "vendor/fast", "active": True}, **(groq or {}))]}
-        answers["cloudflare"] = [{"result": [dict(cloudflare_model("@cf/vendor/seeing-9"), **(cloudflare or {}))],
-                                  "success": True}]
-        result = run_online(template, SELFTEST_KEYS, canned_opener(answers, []), "2026-01-01")
-        return result, render_text(result, "selftest"), render_summary(result, "selftest")
+    listing = sheet_listing
 
     def lines(result):
         return sorted((difference["name"], difference["field"], difference["declared"], difference["listed"])
                       for difference in result["sheets"])
 
-    full = dict(
-        openrouter={"context_length": 131072, "top_provider": {"max_completion_tokens": 8192},
-                    "architecture": {"output_modalities": ["text"], "input_modalities": ["text"]}},
-        gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 65536},
-        mistral={"max_context_length": 128000, "capabilities": {"completion_chat": True, "vision": False}},
-        groq={"context_window": 32768},
-        cloudflare={"properties": [{"property_id": "context_window", "value": "128000"},
-                                   {"property_id": "vision", "value": "true"}]})
+    full = SHEET_FULL
 
     result, text, body = listing(**full)
     judged("a sheet that matches its catalogue gives no line",
@@ -8201,6 +8213,350 @@ def run_sheet_cases():
                        ("Aucune dérive." in body, "the verdict moved"),
                        ("0 finding(s)" in text and "1 sheet difference(s), which are no finding." in text, text)))
 
+    return failures
+
+
+# What every catalogue of SHEET_TEMPLATE states otherwise than the template: each of the five sheets that can
+# differ does.
+SHEET_OTHER = dict(
+    openrouter=dict(SHEET_FULL["openrouter"], context_length=262144),
+    gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 8192},
+    mistral={"max_context_length": 128000, "capabilities": {"completion_chat": True, "vision": True}},
+    groq=SHEET_FULL["groq"],
+    cloudflare={"properties": [{"property_id": "context_window", "value": "24000"},
+                               {"property_id": "vision", "value": "false"}]})
+SHEET_OTHER_TEXT = (
+    ("      max_input_tokens: 131072\n      max_output_tokens: 8192\n",
+     "      max_input_tokens: 262144\n      max_output_tokens: 8192\n"),
+    ("      max_input_tokens: 1048576\n      max_output_tokens: 65536\n",
+     "      max_input_tokens: 1048576\n      max_output_tokens: 8192\n"),
+    ("      max_output_tokens: 4096\n      supports_vision: false\n",
+     "      max_output_tokens: 4096\n      supports_vision: true\n"),
+    ("      max_input_tokens: 128000\n      supports_vision: true\n",
+     "      max_input_tokens: 24000\n      supports_vision: false\n"))
+SHEET_ENTRY = ("  - model_name: sheet-openrouter\n    model_info:\n      max_input_tokens: 131072\n"
+               "      max_output_tokens: 8192\n      supports_vision: false\n    litellm_params:\n"
+               "      model: openrouter/vendor/one:free\n      api_key: \"os.environ/OPENROUTER_API_KEY_SELFTEST\"\n")
+
+
+def sheet_difference(name="sheet-openrouter", field="max_input_tokens", declared=131072, listed=262144,
+                     provider="openrouter", identifier="vendor/one:free"):
+    return {"provider": provider, "id": identifier, "name": name, "field": field, "declared": declared,
+            "listed": listed}
+
+
+def run_sheet_rewrite_cases():
+    """The pull request of the sheet corrections, on the script's side: the rewrite changes exactly the values
+    that differ, refuses what it cannot rewrite as plain text and says why, reads each result back, leaves the
+    file alone when nothing differs, flags what CI will refuse, writes the files the workflow takes over, and
+    never changes the status of the run."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def changed_lines(before, after):
+        return [number + 1 for number, (old, new) in enumerate(zip(before.splitlines(), after.splitlines()))
+                if old != new]
+
+    def reason_codes(outcomes):
+        return [outcome["reason"][0] if outcome["status"] == "refused" else outcome["status"]
+                for outcome in outcomes]
+
+    expected = edited(SHEET_TEMPLATE, SHEET_OTHER_TEXT, "the sheets that differ")
+    result, _, _ = sheet_listing(**SHEET_OTHER)
+    proposal = drift.propose_sheets(SHEET_TEMPLATE, result, None)
+    before_template, _ = read_template(SHEET_TEMPLATE)
+    after_template, after_problems = read_template(proposal.get("text", ""))
+    judged("the rewrite changes exactly the values that differ, each on its own line, and nothing else",
+           first_wrong((proposal["changes"] == 5 and proposal["left"] == 0,
+                        "changes %r, left %r" % (proposal["changes"], proposal["left"])),
+                       (proposal.get("text") == expected, "the text is not the expected one:\n%s" % "\n".join(
+                           difflib.unified_diff(expected.splitlines(), proposal.get("text", "").splitlines(),
+                                                "expected", "got", lineterm="", n=0))),
+                       (len(changed_lines(SHEET_TEMPLATE, proposal["text"])) == 5, "other lines changed"),
+                       (after_template is not None and not after_problems, "the result breaks a rule: %r" % after_problems),
+                       (all(difference["rewrite"]["status"] == "applied" and difference["rewrite"]["line"]
+                            for difference in result["sheets"]), "a difference is not marked applied"),
+                       (exit_status(result) == 0, "the status is %d" % exit_status(result))))
+
+    again, _, _ = sheet_listing(**SHEET_FULL)
+    nothing = drift.propose_sheets(SHEET_TEMPLATE, again, None)
+    same_text, same_outcomes = drift.apply_sheets(SHEET_TEMPLATE, [])
+    judged("a file whose every sheet matches is left alone, and nothing is proposed",
+           first_wrong((nothing["changes"] == 0 and nothing["left"] == 0 and nothing["complete"] is True,
+                        "the proposal is %r" % {key: nothing[key] for key in ("changes", "left", "complete")}),
+                       ("text" not in nothing and "body" not in nothing and "commit" not in nothing,
+                        "a text was written"),
+                       (same_text == SHEET_TEMPLATE and same_outcomes == [], "the file moved")))
+
+    # What it will not write by editing text, each said with its reason, the others still being made.
+    def variant(old, new, purpose):
+        return edited(SHEET_TEMPLATE, [(old, new)], purpose)
+
+    window, first_entry = "      max_input_tokens: 131072\n", SHEET_ENTRY
+    cases = (
+        ("a value written through Jinja", variant(window, "      max_input_tokens: {{ 131072 }}\n", "jinja"), "jinja"),
+        ("an entry inside a loop",
+         variant(first_entry, "{% for each in [1] %}\n" + first_entry + "{% endfor %}\n", "loop"), "loop"),
+        ("an entry in the else of a block",
+         variant(first_entry, "{% if not Artificial_Intelligence_LiteLLM_OpenRouter_API_key %}\n{% else %}\n"
+                 + first_entry + "{% endif %}\n", "else"), "branch"),
+        ("a line that a block of the entry makes conditional",
+         variant(window, "{% if Artificial_Intelligence_LiteLLM_OpenRouter_API_key %}\n" + window + "{% endif %}\n",
+                 "conditional"), "conditional"),
+        ("a model_info written in flow style",
+         variant("    model_info:\n      max_input_tokens: 131072\n      max_output_tokens: 8192\n"
+                 "      supports_vision: false\n", "    model_info: {max_input_tokens: 131072}\n", "flow"),
+         "unlocated"))
+    for purpose, text, code in cases:
+        got, _, _ = sheet_listing(template=text, **SHEET_OTHER)
+        made = drift.propose_sheets(text, got, None)
+        by_name = {(difference["name"], difference["field"]): difference["rewrite"] for difference in got["sheets"]}
+        refused = by_name.get(("sheet-openrouter", "max_input_tokens"))
+        judged("%s is left to a person, with its reason, and the other values are still written" % purpose,
+               first_wrong((refused is not None and refused["status"] == "refused" and refused["reason"][0] == code,
+                            "the outcome is %r" % [refused and (refused["status"], refused["reason"])]),
+                           (made["left"] >= 1 and made["changes"] >= 3, "changes %d, left %d" % (made["changes"], made["left"])),
+                           (changed_lines(text, made["text"]) and "262144" not in made["text"],
+                            "the value that cannot be rewritten was written"),
+                           ("## Écarts que le workflow n'a pas réécrits" in made["body"]
+                            and drift.SHEET_REFUSALS[code] in made["body"], "the body does not say why"),
+                           ("à corriger à la main : %s" % drift.SHEET_REFUSALS[code]
+                            in render_summary(got, "selftest"), "the summary does not say why")))
+
+    yes = variant("      supports_vision: false\n    litellm_params:\n      model: openrouter/vendor/one:free\n",
+                  "      supports_vision: no\n    litellm_params:\n      model: openrouter/vendor/one:free\n", "form")
+    got, _, _ = sheet_listing(template=yes, openrouter=dict(SHEET_FULL["openrouter"], architecture={
+        "output_modalities": ["text"], "input_modalities": ["text", "image"]}))
+    new_text, outcomes = drift.apply_sheets(yes, got["sheets"])
+    judged("a flag written in another form than true or false is left to a person",
+           first_wrong((reason_codes(outcomes) == ["form"], "outcomes %r" % reason_codes(outcomes)),
+                       (new_text == yes, "the file moved")))
+
+    undeclared = sheet_difference(name="no-sheet", field="max_output_tokens", declared=1, listed=5)
+    absent = sheet_difference(name="nowhere")
+    missing = sheet_difference(name="sheet-cloudflare", field="max_output_tokens", declared=1, listed=5,
+                               provider="cloudflare", identifier="@cf/vendor/seeing-9")
+    new_text, outcomes = drift.apply_sheets(SHEET_TEMPLATE, [undeclared, absent, missing])
+    judged("a field the entry does not declare is never added, nor a line written for an entry the file lacks",
+           first_wrong((reason_codes(outcomes) == ["unlocated"] * 3, "outcomes %r" % reason_codes(outcomes)),
+                       (new_text == SHEET_TEMPLATE, "the file moved")))
+
+    # Read back: the result must be the original with exactly those values changed.
+    template, problems = read_template(SHEET_TEMPLATE)
+    original = (template, problems)
+    good = SHEET_TEMPLATE.replace(window, "      max_input_tokens: 262144\n", 1)
+    change = {"line": 3, "name": "sheet-openrouter", "field": "max_input_tokens", "value": 262144}
+    other_line = good.replace("      max_output_tokens: 65536\n", "      max_output_tokens: 1\n", 1)
+    judged("a result that is the original with those values changed reads back",
+           None if drift.verify_sheets(SHEET_TEMPLATE, original, good, [change]) is None
+           else drift.verify_sheets(SHEET_TEMPLATE, original, good, [change]))
+    for purpose, new, changes, needle in (
+            ("another line changed too", other_line, [change], "other lines than the ones rewritten"),
+            ("a value that is not the one asked for", good, [dict(change, value=5)], "does not read back"),
+            ("a line fewer", good.replace("      supports_vision: false\n", "", 1), [change],
+             "does not have the lines"),
+            ("a line that now holds a Jinja delimiter",
+             SHEET_TEMPLATE.replace(window, "      max_input_tokens: {5}\n", 1), [change], "Jinja delimiter"),
+            ("a result that is not YAML any more", SHEET_TEMPLATE.replace(window, "      max_input_tokens: [\n", 1),
+             [change], "the result is not readable"),
+            ("a change for an entry with no model_info", good, [dict(change, name="no-sheet")],
+             "no model_info mapping")):
+        problem = drift.verify_sheets(SHEET_TEMPLATE, original, new, changes)
+        judged("the read-back refuses %s" % purpose,
+               None if problem and needle in problem else "answered %r, expected %r" % (problem, needle))
+    kept = drift.verify_sheets
+    try:
+        drift.verify_sheets = lambda *arguments: "made up for the case"
+        new_text, outcomes = drift.apply_sheets(SHEET_TEMPLATE, [sheet_difference()])
+    finally:
+        drift.verify_sheets = kept
+    judged("a rewrite that does not read back is not made, and the file stays as it was",
+           first_wrong((new_text == SHEET_TEMPLATE, "the file moved"),
+                       (outcomes[0]["status"] == "refused" and outcomes[0]["reason"][0] == "verification",
+                        "outcome %r" % [outcomes[0]["reason"]])))
+
+    # What CI will refuse once the sheet is merged.
+    judged("the length an entry sets is held against the new longest answer and the new window",
+           first_wrong((drift.sheet_ci_problem({"litellm_params": {"max_tokens": 100}}, "max_output_tokens", 99)
+                        == ("output", 100), "an answer shorter than the length is not flagged"),
+                       (drift.sheet_ci_problem({"litellm_params": {"max_tokens": 100}}, "max_output_tokens", 100) is None,
+                        "an answer as long as the length is flagged"),
+                       (drift.sheet_ci_problem({"litellm_params": {"max_completion_tokens": 100}}, "max_input_tokens", 100)
+                        == ("window", 100), "a window that is not above the length is not flagged"),
+                       (drift.sheet_ci_problem({"litellm_params": {"max_completion_tokens": 100}}, "max_input_tokens", 101)
+                        is None, "a window above the length is flagged"),
+                       (drift.sheet_ci_problem({"litellm_params": {"model": "x"}}, "max_input_tokens", 1) is None,
+                        "an entry that sets no length is flagged"),
+                       (drift.sheet_ci_problem({"litellm_params": {"max_tokens": 100}}, "supports_vision", True) is None,
+                        "an image flag is flagged"),
+                       (drift.sheet_ci_problem({}, "max_output_tokens", 1) is None, "an entry with no parameters is flagged")))
+    with_length = edited(SHEET_TEMPLATE, [
+        ('      model: openrouter/vendor/one:free\n', '      model: openrouter/vendor/one:free\n      max_tokens: 40000\n'),
+        ('      model: gemini/gemini-9-flash\n', '      model: gemini/gemini-9-flash\n      max_tokens: 6000\n'),
+        ('      max_input_tokens: 131072\n      max_output_tokens: 8192\n',
+         '      max_input_tokens: 131072\n      max_output_tokens: 65536\n')], "lengths")
+    got, _, _ = sheet_listing(template=with_length, **dict(SHEET_FULL, openrouter=dict(
+        SHEET_FULL["openrouter"], context_length=30000, top_provider={"max_completion_tokens": 65536}),
+        gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 4096}))
+    made = drift.propose_sheets(with_length, got, None)
+    flagged = {(difference["name"], difference["field"]): difference["rewrite"]["ci"] for difference in got["sheets"]}
+    section = made["body"].split("## À ajuster à la main", 1)[1].split("\n## ", 1)[0] if "## À ajuster à la main" in made["body"] else ""
+    judged("an entry whose length the new sheet no longer allows is flagged in the body, and the others are not",
+           first_wrong((flagged == {("sheet-openrouter", "max_input_tokens"): ("window", 40000),
+                                    ("sheet-gemini", "max_output_tokens"): ("output", 6000)},
+                        "flags %r" % flagged),
+                       ("`check_compose_template.py` refusera cette pull request" in made["body"], "no section says so"),
+                       ("`sheet-openrouter` : la longueur de 40000" in section
+                        and "`sheet-gemini` : la longueur de 6000" in section, "the section is %r" % section),
+                       ("sheet-mistral" not in section, "an entry that fits is flagged"),
+                       ("`check_compose_template.py` la refusera" in render_summary(got, "selftest"),
+                        "the summary does not say it")))
+    without = drift.propose_sheets(SHEET_TEMPLATE, sheet_listing(**SHEET_OTHER)[0], None)
+    judged("a body with nothing for CI to refuse has no such section",
+           None if "À ajuster à la main" not in without["body"] else "the section is there")
+
+    # What the body and the commit say.
+    result, _, _ = sheet_listing(**SHEET_OTHER)
+    made = drift.propose_sheets(SHEET_TEMPLATE, result, None)
+    body = made["body"]
+    judged("the body lists, for each value, the entry, the provider, the catalogue's id, the field, both values, "
+           "the catalogue read and the day, and asks a person to read the provider's page",
+           first_wrong(("| `sheet-openrouter` | OpenRouter | `vendor/one:free` | `max_input_tokens` | `131072` | "
+                        "`262144` | <%s>, lu le 2026-01-01 |" % catalogue_url("openrouter") in body, body),
+                       ("| `sheet-mistral` | Mistral | `mistral-large-latest` | `supports_vision` | `false` | `true` |"
+                        in body, "the Mistral row"),
+                       ("Une personne vérifie, avant de fusionner, chaque valeur sur la page du fournisseur" in body,
+                        "no reading of the page asked"),
+                       ("Rien ne la fusionne seule" in body and "dependabot-auto-merge.yml" in body, "the gate is not named"),
+                       ("- [ ]" not in body, "a box to tick"),
+                       (body.endswith(drift.SHEETS_SIGNATURE), "the body is not signed"),
+                       (hostile_lines(body.replace(drift.SHEETS_SIGNATURE, "")) is None,
+                        str(hostile_lines(body.replace(drift.SHEETS_SIGNATURE, ""))))))
+    shorter = drift.render_sheets_body(result, [difference["rewrite"] for difference in result["sheets"]], [], None,
+                                       urls=False)
+    judged("a body too long for GitHub names each catalogue once instead of on every row",
+           first_wrong(("<%s>" % catalogue_url("openrouter") in shorter, "no catalogue named"),
+                       (shorter.count("<%s>" % catalogue_url("openrouter")) == 1, "a catalogue named twice"),
+                       ("| Catalogue lu |" not in shorter, "the column is still there"),
+                       (len(shorter) < len(body), "it is not shorter")))
+    commit = made["commit"]
+    judged("the commit message is in English, sentence case, and says what was read back",
+           first_wrong((commit.splitlines()[0] == "Correct the model sheets that differ from what their provider's "
+                        "catalogue states", commit.splitlines()[0]),
+                       (all(len(line) <= 100 for line in commit.splitlines()), "a line is wider than 100 columns"),
+                       ("5 values" in commit and "2026-01-01" in commit, commit),
+                       ("nothing merges it but a person" in commit, "no word on who merges")))
+
+    # The file and the summary.
+    kept_env = {name: os.environ.get(name) for name in ("SHEETS_BRANCH", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY")}
+    os.environ.update(SHEETS_BRANCH="claude/selftest-sheets", GITHUB_SERVER_URL="https://selftest.invalid",
+                      GITHUB_REPOSITORY="owner/repo")
+    try:
+        result, _, _ = sheet_listing(**SHEET_OTHER)
+        before = render_summary(result, "selftest")
+        made = drift.propose_sheets(SHEET_TEMPLATE, result, None)
+        summary = render_summary(result, "selftest")
+        body = made["body"]
+    finally:
+        for name, value in kept_env.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    link = "(https://selftest.invalid/owner/repo/pulls?q=is%3Apr+is%3Aopen+head%3Aclaude%2Fselftest-sheets)"
+    judged("the summary says the pull request carries the corrections, and links it, once one is proposed",
+           first_wrong((" -- dans la pull request" not in before and "([la pull request]" not in before.split(
+                            "## Fiches qui diffèrent du catalogue", 1)[1], "the summary names a pull request that does not exist"),
+                       ("Une personne corrige" not in before and "une personne vérifie sur la page du fournisseur, puis "
+                        "corrige la fiche à la main" in before, "the plain wording moved"),
+                       ("Le workflow propose 5 corrections dans une pull request à part" in summary, summary),
+                       (link in summary, "no link"),
+                       (summary.count(" -- dans la pull request") == 5, "the lines are not marked"),
+                       ("celle-ci (`claude/selftest-sheets`) attend tigerblue77" in body, "the body does not name its branch")))
+
+    with tempfile.TemporaryDirectory() as directory:
+        config = os.path.join(directory, "config.yaml.j2")
+        folder = os.path.join(directory, "sheets")
+        Path(config).write_text(SHEET_TEMPLATE, encoding="utf-8")
+
+        def run(answers, flags):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    return main(flags, opener=canned_opener(answers, []), environment=SELFTEST_KEYS)
+                except SystemExit as error:
+                    return error.code
+
+        def files():
+            return sorted(os.listdir(folder)) if os.path.isdir(folder) else []
+
+        arguments = ["--online", "--config", config, "--sheets", folder]
+        status = run(sheet_answers(**SHEET_OTHER), arguments)
+        data = json.loads(Path(folder, "sheets.json").read_text(encoding="utf-8"))
+        judged("--sheets writes the data, and the body, the commit and the file of the pull request, and changes "
+               "neither the status nor the file read",
+               first_wrong((status == 0, "the status is %r" % status),
+                           (files() == ["sheets.json", "sheets_body.md", "sheets_commit.txt", "sheets_template.j2"],
+                            "files %r" % files()),
+                           (data == {"date": data["date"], "complete": True, "changes": 5, "left": 0},
+                            "sheets.json %r" % data),
+                           (Path(folder, "sheets_template.j2").read_text(encoding="utf-8") == expected, "the file differs"),
+                           (Path(config).read_text(encoding="utf-8") == SHEET_TEMPLATE, "the file read was changed")))
+        status = run(sheet_answers(**SHEET_FULL), arguments)
+        data = json.loads(Path(folder, "sheets.json").read_text(encoding="utf-8"))
+        judged("a run with no difference takes back the files of the last one, and says it is complete",
+               first_wrong((files() == ["sheets.json"], "files %r" % files()),
+                           (data["changes"] == 0 and data["left"] == 0 and data["complete"] is True, "sheets.json %r" % data)))
+        judged("--sheets without --online is refused",
+               None if run({}, ["--config", config, "--sheets", folder]) == 2 else "it was not")
+        without_key = {name: value for name, value in SELFTEST_KEYS.items() if name != "MODEL_DRIFT_GEMINI_API_KEY"}
+        with contextlib.redirect_stdout(io.StringIO()):
+            main(arguments, opener=canned_opener(sheet_answers(**SHEET_OTHER), []), environment=without_key)
+        data = json.loads(Path(folder, "sheets.json").read_text(encoding="utf-8"))
+        judged("a catalogue not read, of a provider whose entry declares a sheet, makes the run incomplete",
+               None if data["complete"] is False and data["changes"] == 4 else "sheets.json %r" % data)
+        without_zai = {name: value for name, value in SELFTEST_KEYS.items() if name != "MODEL_DRIFT_ZAI_API_KEY"}
+        with contextlib.redirect_stdout(io.StringIO()):
+            main(arguments, opener=canned_opener(sheet_answers(**SHEET_FULL), []), environment=without_zai)
+        data = json.loads(Path(folder, "sheets.json").read_text(encoding="utf-8"))
+        judged("a catalogue not read, of a provider none of whose entries declares a sheet, does not",
+               None if data["complete"] is True else "sheets.json %r" % data)
+
+    kept_limit = drift.SHEETS_LIMIT
+    try:
+        drift.SHEETS_LIMIT = 2
+        result, _, _ = sheet_listing(**SHEET_OTHER)
+        limited = drift.propose_sheets(SHEET_TEMPLATE, result, None)
+    finally:
+        drift.SHEETS_LIMIT = kept_limit
+    judged("past the limit of a pull request, the rest is left to the next run, and said",
+           first_wrong((limited["changes"] == 2 and limited["left"] == 3, "changes %r, left %r" % (limited["changes"], limited["left"])),
+                       (sum(1 for difference in result["sheets"] if difference["rewrite"]["reason"] == ("limit", "")) == 3,
+                        "the outcomes are not marked")))
+
+    crlf = SHEET_TEMPLATE.replace("\n", "\r\n")
+    commented = SHEET_TEMPLATE.replace(window, "      max_input_tokens:  131072   # read on the page\n", 1)
+    new_crlf, outcomes = drift.apply_sheets(crlf, [sheet_difference()])
+    new_commented, comment_outcomes = drift.apply_sheets(commented, [sheet_difference()])
+    judged("a line ending and a comment after the value are kept, and so is the spacing",
+           first_wrong((reason_codes(outcomes) == ["applied"] and new_crlf == crlf.replace(
+               "max_input_tokens: 131072", "max_input_tokens: 262144", 1), "the CRLF file: %r" % reason_codes(outcomes)),
+                       (reason_codes(comment_outcomes) == ["applied"] and new_commented == commented.replace(
+                           "131072   # read", "262144   # read", 1), "the comment: %r" % reason_codes(comment_outcomes))))
+
+    judged("the providers whose sheet is compared are providers the script reads, and those of a template are found",
+           first_wrong((drift.SHEET_PROVIDERS <= set(PROVIDER_NAMES), "a provider the script does not read"),
+                       (drift.sheet_providers(read_template(SHEET_TEMPLATE)[0]) ==
+                        ["cloudflare", "gemini", "groq", "mistral", "openrouter"], "the providers found")))
     return failures
 
 
@@ -8756,6 +9112,7 @@ GROUPS_OF_THE_FIRST_HALF = (
 GROUPS_OF_THE_SECOND_HALF = (
     run_head_cases,
     run_sheet_cases,
+    run_sheet_rewrite_cases,
 )
 
 

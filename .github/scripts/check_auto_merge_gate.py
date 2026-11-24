@@ -33,9 +33,10 @@ WHAT IT RUNS
   wait for a human, and every other condition holds for the App's pull request as for the Actions
   bot's (a wrong branch, a second commit, a commit that is not the Actions bot's, a draft, a line
   added, a check red or missing, a sign-off that never started or started and is not green);
-* the two pull requests of additions the same workflow opens, on the branches it names for them: as
-  it opens them, lines added, and as the worst they could be, a deletion that would merge on the
-  deletions' branch, by either bot, every check green, which only their branch keeps from merging;
+* the two pull requests of additions and the one of sheet corrections the same workflow opens, on the
+  branches it names for them: as it opens them, lines added, or one line of a sheet rewritten, and as the
+  worst they could be, a deletion that would merge on the deletions' branch, by either bot, every check
+  green, which only their branch keeps from merging;
 * every check the ruleset names, "sign-off" included, each tried missing and red, so that excusing
   one is noticed; a check posted by another app; and the latest of several runs of one check,
   whichever order the API lists them in.
@@ -276,21 +277,24 @@ def review_heading():
     return found.group(1)
 
 
-def additions_branches():
-    """The branches of the two pull requests of additions, as the drift workflow names them: they must
-    be neither the branch of the deletions nor one the gate takes for Dependabot's."""
+def person_branches():
+    """The branches of the pull requests only a person merges, the two of additions and the one of sheet
+    corrections, as the drift workflow names them: they must be neither the branch of the deletions nor one the
+    gate takes for Dependabot's."""
     workflow = yaml.safe_load(DRIFT_WORKFLOW.read_text(encoding="utf-8"))
     env = workflow["jobs"]["publish"].get("env") or {}
-    branches = [env.get("ADDITIONS_BRANCH"), env.get("ADDITIONS_TO_VERIFY_BRANCH")]
+    branches = [env.get("ADDITIONS_BRANCH"), env.get("ADDITIONS_TO_VERIFY_BRANCH"), env.get("SHEETS_BRANCH")]
     gate = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["merge"]
     for branch in branches:
         if not isinstance(branch, str) or not branch:
-            raise SystemExit("%s names no branch of additions in its publish job." % DRIFT_WORKFLOW.relative_to(ROOT))
+            raise SystemExit("%s names no branch of additions or of sheet corrections in its publish job."
+                             % DRIFT_WORKFLOW.relative_to(ROOT))
         if branch == env.get("REMOVALS_BRANCH") or branch.startswith("dependabot/") or branch in str(gate.get("if")):
-            raise SystemExit("%s: the branch of additions %r is one the gate may take for a pull request it merges."
-                             % (DRIFT_WORKFLOW.relative_to(ROOT), branch))
-    if branches[0] == branches[1]:
-        raise SystemExit("%s gives both pull requests of additions one branch." % DRIFT_WORKFLOW.relative_to(ROOT))
+            raise SystemExit("%s: the branch %r of a pull request only a person merges is one the gate may take for "
+                             "a pull request it merges." % (DRIFT_WORKFLOW.relative_to(ROOT), branch))
+    if len(set(branches)) != len(branches):
+        raise SystemExit("%s gives two pull requests of additions or of sheet corrections one branch."
+                         % DRIFT_WORKFLOW.relative_to(ROOT))
     return branches
 
 
@@ -665,15 +669,24 @@ def scenarios():
     add("App: a Dependabot major is refused as ever with the slug set", "not merged",
         dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
 
-    # --- the additions, which nothing but a person merges ---------------------------------------
-    # Each is tried as the workflow opens it, lines added, and as the worst it could be: a deletion that
-    # would merge on the deletions' branch, by the Actions bot or the App, every check green. Only the
-    # branch tells them apart, and it must.
+    # --- the additions and the sheet corrections, which nothing but a person merges ----------------
+    # Each is tried as the workflow opens it, lines added, or a line of a sheet rewritten, and as the worst it
+    # could be: a deletion that would merge on the deletions' branch, by the Actions bot or the App, every check
+    # green. Only the branch tells them apart, and it must.
+    rewritten = list(base)
+    at = rewritten.index("      model: provider/m1")
+    rewritten[at] = "      model: provider/m1-rewritten"
+    rewriting = patch_between(base, rewritten)
     added = list(base)
     added[base.index("router_settings:"):base.index("router_settings:")] = entry("fresh")
     adding = patch_between(base, added)
-    for branch in additions_branches():
+    for branch in person_branches():
         tag = "additions on %s: " % branch
+        add(tag + "a line rewritten, as the sheet corrections are", "not merged",
+            removals(rewriting, branch=branch, files=[file_of(additions=1, deletions=1, patch=rewriting)]),
+            needle=gone)
+        add(tag + "a line rewritten, opened by the App", "not merged",
+            by_app(branch=branch, files=[file_of(additions=1, deletions=1, patch=rewriting)]), needle=gone)
         add(tag + "entries added, as the workflow opens it", "not merged",
             removals(adding, branch=branch, files=[file_of(additions=counts(adding)[0], deletions=0, patch=adding)]),
             needle=gone)

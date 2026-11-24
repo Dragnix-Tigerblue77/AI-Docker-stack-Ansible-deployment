@@ -941,7 +941,7 @@ améliorer les services sans accord (article IV.7), l'accord de traitement des d
 traitement se fait en général à Singapour. Une carte ou un téléphone exigé à l'inscription, une date d'arrêt des modèles gratuits :
 aucune page lue n'en parle.
 
-### Chaque jour : une pull request pour ce qui se supprime, deux pour ce qui s'ajoute, une issue pour un catalogue illisible
+### Chaque jour : une pull request pour ce qui se supprime, deux pour ce qui s'ajoute, une pour les fiches qui diffèrent, une issue pour un catalogue illisible
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
@@ -959,9 +959,9 @@ même temps, et que ce qu'il propose est prêt avant l'usage de la pile (de 17 h
 Le rapport entier, section « Contrats par routeur » comprise, va dans le **résumé du run** (l'onglet
 *Summary* de l'exécution), qui ne notifie personne. Le résumé donne aussi, dans une section à part, les
 entrées actives dont la fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`) dit autre chose
-que le catalogue de leur fournisseur, quand ce catalogue publie le champ : rien n'en est modifié, et une
-personne corrige la fiche à la main. Ce qu'une personne doit lire va dans le corps de la pull request qu'il
-concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
+que le catalogue de leur fournisseur, quand ce catalogue publie le champ, avec ce que la pull request des
+fiches (plus bas) en porte et ce qu'elle laisse à corriger à la main. Ce qu'une personne doit lire va dans le
+corps de la pull request qu'il concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
 suppressions, les modèles redevenus gratuits sur OpenRouter dans celle des modèles prêts (dans celle
 des modèles à vérifier quand la première n'est pas ouverte), et les nouveaux modèles qu'aucun ajout ne
 peut porter -- un identifiant d'une autre forme, un fournisseur sans entrée, au-delà du plafond, un
@@ -1135,6 +1135,25 @@ Chacune se ferme, avec un commentaire, quand plus rien n'est à proposer, sauf s
 dépend (un catalogue, ou le classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écrit ne reçoit, par modèle, qu'un fournisseur, un identifiant et un
 nom, qu'il valide, et construit lui-même le fichier ; il ne pousse que si c'est le texte que le script
 a construit et relu (`check_drift_publish_guard.py` tient les deux au même résultat).
+
+**Les fiches qui diffèrent du catalogue ont leur pull request, que personne d'autre qu'une personne ne fusionne.**
+Le `model_info` d'une entrée active porte sa fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`), que
+le routeur lit pour ne pas envoyer une requête à un membre où elle ne tient pas. Quand le catalogue du fournisseur
+publie le même champ (la table est dans la docstring du script) et dit autre chose, le workflow écrit la valeur du
+catalogue dans une pull request de la branche `claude/LiteLLM-model-drift-sheets`, tenue comme celles des ajouts :
+prête à relire et jamais en brouillon, assignée à tigerblue77, réécrite à chaque exécution qui trouve encore un écart,
+et `dependabot-auto-merge.yml`, qui ne reconnaît que la branche des suppressions, ne la fusionne pas. Elle ne change
+que la valeur, sur sa ligne : aucun champ n'est ajouté, aucun commentaire touché, et le script relit chaque
+réécriture contre le fichier d'origine. Un écart qu'il ne sait pas écrire ainsi (une ligne écrite avec du Jinja, une
+entrée dans une boucle ou dans un `else`...) reste dans le résumé, et le corps de la pull request le liste. Ce corps
+cite, par valeur, l'entrée, le fournisseur, l'identifiant au catalogue, le champ, la valeur du fichier et celle du
+catalogue, le catalogue lu et le jour, et demande à une personne de relire la valeur sur la page du fournisseur avant
+de fusionner : un catalogue n'est pas cette page. Quand une entrée fixe une longueur de réponse (`max_tokens`) que la
+nouvelle fiche ne permet plus, `check_compose_template.py` refuse la pull request : le corps nomme ces entrées, et la
+longueur, qui est un choix, s'adapte à la main dans un commit sur la branche. La pull request se ferme, avec un
+commentaire, quand plus aucun écart ne reste, sauf si le catalogue d'un fournisseur dont une entrée déclare une fiche
+n'a pas pu être lu (« rien vu » n'est pas « rien à corriger »), si un écart attend une personne ou si le rapport n'est
+pas fiable ; le commit d'une personne la fige comme les autres.
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,

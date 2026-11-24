@@ -325,9 +325,10 @@ SHEET      not a finding: an active entry whose "model_info" declares a context 
            longest answer ("max_output_tokens") or an image input ("supports_vision") that its provider's
            catalogue states otherwise for the same model. The line names the entry, the field, the value the
            file declares and the one the catalogue gives, and sits in its own section of the summary, which
-           says it changes nothing: the run's exit status, the deletions, the retries and the pull requests
-           are what they would be without it. Only a field both sides state is compared, so an entry with no
-           sheet and a catalogue silent on a field give nothing (see THE SHEETS).
+           says it changes nothing: the run's exit status, the deletions and the retries are what they would
+           be without it. "--sheets" proposes the correction in a pull request of its own, which only a person
+           merges. Only a field both sides state is compared, so an entry with no sheet and a catalogue silent
+           on a field give nothing (see THE SHEETS and THE SHEET CORRECTIONS).
 WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
            RETIREMENTS): the earliest day is kept, and both sources and what each says are named. Not a
            finding of its own: it qualifies a NOTICE, and holds nothing back.
@@ -387,6 +388,29 @@ positive whole number, 0 being how some lists say "unknown", is no statement). W
 NVIDIA's list gives an id and nothing else, Z AI and Cent AI document no such field, and no active entry is
 Cerebras' or SambaNova's, so none of them is compared. A field a catalogue has no name for is never compared whatever the file says,
 and neither is one the file does not declare. What a sheet means is the template's comment, not this one's.
+
+THE SHEET CORRECTIONS
+---------------------
+"--sheets DIR" proposes, in a pull request of its own, the value each difference above gives, and nothing else of
+the file. It is edited text like a deletion, and read back like one. The line it rewrites is the one line
+"max_input_tokens", "max_output_tokens" or "supports_vision" of the entry's own "model_info", with its indentation,
+spacing and trailing comment kept and only its value replaced; a field the entry does not declare is never
+added. It leaves to a person, and says why in the pull request and in the summary, a difference it cannot make
+that way: a line written through Jinja, an entry in a loop or in the "else" of a block, a line a block of the entry
+makes conditional, a "model_info" in flow style, a value not written as a number or as true or false, a rewrite
+that does not read back, or a pull request already carrying its limit. The read-back holds each rewrite alone and
+all together to being the original with exactly those values changed: the same lines but those, the file
+rendered with every provider key given equal to the original's but for those values, no rule broken that was
+not already, and the Jinja blocks unchanged (the lines rewritten hold no Jinja, so the file renders alike for
+every other set of keys, which is why that rendering, the slow one a deletion repeats, is not).
+
+The pull request is closed, with a comment, only when "sheets.json" says the run is complete -- every provider
+of SHEET_PROVIDERS with an entry that declares a sheet had its catalogue read, a missing key or an error
+meaning that nothing was seen -- and no difference is left, rewritten or not. Where an entry sets a length
+("max_tokens" or "max_completion_tokens"), a new longest answer under it or a new window not above it makes
+"check_compose_template.py" refuse the pull request: the body says which entries, and the length is a choice
+that stays a person's. Nothing here is a judgment on whether the catalogue is right, which is why nothing merges
+the pull request but a person who reads the provider's page.
 
 THE SECOND SOURCE OF ANNOUNCED RETIREMENTS
 ------------------------------------------
@@ -783,11 +807,11 @@ WHAT IT DELIBERATELY DOES NOT DO
 * It never adds a model to main, and never writes a reason a person has not. Every claim in the list
   cites the provider's own page and the date it was checked. A deletion can cite the catalogue it
   read and the day it read it, and the pull request body does; an addition is a choice, and a reason
-  is somebody's statement, so what the check produces for those -- the pull requests of additions,
-  BACK, NOTICE -- is where a person's check starts, not a substitute for it.
+  is somebody's statement, so what the check produces for those -- the pull requests of additions and
+  of sheet corrections, BACK, NOTICE -- is where a person's check starts, not a substitute for it.
 * It opens no pull request and pushes nothing: it edits a file and writes the texts it is given
   a path for (the summary, the catalogues it could not read, the pull request, the commit message,
-  the coverage, the count of what it did not delete, the proposals). The workflow that runs it does
+  the coverage, the count of what it did not delete, the proposals, the sheet corrections). The workflow that runs it does
   the rest, the issue included, whose text it writes itself.
 * It calls no model, bar the one-token probe of a provider of INCOMPLETE_CATALOGUES for an active entry
   its list omits. A listed model can still refuse a given key -- Google restricts
@@ -823,7 +847,7 @@ and, on a checkout you can throw away, what the workflow runs:
     python3 .github/scripts/check_LiteLLM_model_drift.py --online --apply --summary /tmp/summary.md \\
         --unreadable /tmp/unreadable.txt --pr-body /tmp/pull_request.md \\
         --commit-message /tmp/commit.txt --coverage /tmp/coverage.txt \\
-        --undeleted /tmp/undeleted.txt --proposals /tmp/proposals
+        --undeleted /tmp/undeleted.txt --proposals /tmp/proposals --sheets /tmp/sheets
 """
 
 import argparse
@@ -1594,6 +1618,9 @@ def offer(catalogue, identifier, label="", usage=CHAT):
 # no other, so that a field the provider says nothing of is never compared. A count is a positive whole number: 0
 # is how some lists say "unknown", and Cloudflare's property values are strings.
 SHEET_FIELDS = ("max_input_tokens", "max_output_tokens", "supports_vision")
+# The providers whose catalogue states a field of a sheet (see THE SHEETS): the readers above that record one.
+SHEET_PROVIDERS = frozenset({"openrouter", "kilo", "gemini", "groq", "mistral", "deepseek", "cloudflare",
+                             "requesty", "ovhcloud", "aionlabs"})
 
 
 def sheet_number(value):
@@ -2826,6 +2853,7 @@ def run_online(text, environment, opener, today):
     result["litellm"] = read_litellm_map(opener, today)
     add_litellm_dates(result, template, catalogues, today)
     result["sheets"] = sheet_differences(template, catalogues)
+    result["sheet_providers"] = sheet_providers(template)
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
@@ -4567,13 +4595,15 @@ def alias_drift(document):
     return drifted
 
 
-def read_layout(text, template):
+def read_layout(text, template, for_deletion=True):
     """Where everything a deletion has to touch sits in "text". Returns (layout, None), or
     (None, why) when the file cannot be located reliably, in which case nothing is edited.
 
     "template" is what read_template made of the RENDERED file, which has no line numbers of the
     file's: the lines are found in the file as written, Jinja made parsable, and the two are held
-    to say the same thing before a line is trusted."""
+    to say the same thing before a line is trusted. What a deletion alone needs, the rows of the "head"
+    table it may write again and the file rendered for each set of provider keys, takes most of the time
+    (a render for each set): "for_deletion" False leaves both out, for an edit of a single line."""
     lines = text.splitlines()
     neutral = neutralise_jinja(text)
     if len(neutral.splitlines()) != len(lines):
@@ -4602,7 +4632,7 @@ def read_layout(text, template):
                     strays.setdefault(name, []).append(first + offset + 1)
     # The rows of the "head" table are written again after a deletion (rewrite_heads), so a name that
     # only they hold is not out of reach: every other place a Jinja statement names it still is.
-    heads = trusted_heads(text)
+    heads = trusted_heads(text) if for_deletion else {}
     written = {row["line"] + 1 for row in heads.values()}
     for name in list(strays):
         strays[name] = [number for number in strays[name] if number not in written]
@@ -4688,7 +4718,7 @@ def read_layout(text, template):
             "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
             "references": references, "groups": groups, "strays": strays, "heads": heads,
             "jinja": structure[0], "jinja_single": structure[1], "jinja_spanning": spanning,
-            "keysets": keyset_documents(text)}, None
+            "keysets": keyset_documents(text) if for_deletion else None}, None
 
 
 def comments_above(layout, start, entry=None):
@@ -5345,6 +5375,210 @@ def apply_to_result(text, result):
 
 
 # ------------------------------------------------------------------------------------------------
+# Correcting the sheets: edited text, read back, like the deletions
+# ------------------------------------------------------------------------------------------------
+# A line of "model_info" is rewritten only where it is a plain "max_input_tokens", "max_output_tokens" or
+# "supports_vision" line of the entry, with its indentation, its spacing and its trailing comment kept, and
+# only its value replaced. What takes more than that is left to a person, and said.
+SHEET_MODEL_INFO = re.compile(r"[ \t]*model_info:[ \t]*(?:#.*)?")
+SHEET_LINE = re.compile(r"(?P<lead>[ \t]+)(?P<field>max_input_tokens|max_output_tokens|supports_vision):"
+                        r"(?P<gap>[ \t]+)(?P<value>[0-9]+|true|false)(?P<tail>(?:[ \t]+#.*)?[ \t]*)")
+# What the sheets of one pull request carry at most: the rest stays in the summary, for the next run.
+SHEETS_LIMIT = 150
+SHEET_REFUSALS = {
+    "unlocated": "l'entrée ou la ligne de sa fiche n'est pas là où ce workflow sait la lire",
+    "jinja": "la ligne est écrite avec du Jinja, dont le résultat ne se lit pas dans le texte",
+    "loop": "l'entrée est dans un bloc Jinja qui n'est pas un `if` (une boucle, par exemple), que le workflow ne réécrit pas",
+    "branch": "l'entrée est dans la branche « else » ou « elif » d'un bloc Jinja, que le workflow ne réécrit pas",
+    "conditional": "la ligne est dans un bloc Jinja de l'entrée, qui la rend conditionnelle",
+    "form": "la ligne n'est pas de la forme `champ: valeur` (un nombre ou `true`/`false`) que ce workflow réécrit",
+    "verification": "le fichier réécrit ne se relit pas comme l'original dont seules ces valeurs ont changé",
+    "limit": "au-delà des corrections qu'une pull request porte, à une prochaine exécution",
+}
+
+
+def jinja_tags(line):
+    """The names of the Jinja statements that open or continue a block on "line"."""
+    return [match.group(2) for match in JINJA_TAG.finditer(JINJA_COMMENT.sub("", line)) if not match.group(1)]
+
+
+def sheet_jinja_refusal(layout, entry, number):
+    """None, or the refusal code for line "number" of "entry": it takes part in a Jinja construct whose effect
+    the text does not show. An entry inside a plain "{% if %}" is the usual one and is edited like any other;
+    one inside a loop, or in the "else" of a block, or a line that a block of the entry itself makes conditional,
+    is not."""
+    lines = layout["lines"]
+    if number in layout["jinja_spanning"]:
+        return "jinja"
+    for block in layout["jinja"]:
+        first, last = min(block), max(block)
+        if not first <= number <= last:
+            continue
+        if first > entry["start"]:
+            return "conditional"
+        if "if" not in jinja_tags(lines[first]):
+            return "loop"
+        if any(tag in ("else", "elif") for each in block if first < each < entry["start"]
+               for tag in jinja_tags(lines[each])):
+            return "branch"
+    return None
+
+
+def locate_sheet_line(layout, entry, field):
+    """(line number, None) of the line of "model_info" in "entry" that gives "field", or (None, (code, detail))."""
+    lines = layout["lines"]
+    dash = indentation(lines[entry["start"]])
+    info = next((number for number in range(entry["start"] + 1, entry["end"])
+                 if SHEET_MODEL_INFO.fullmatch(lines[number]) and indentation(lines[number]) > dash), None)
+    if info is None:
+        return None, ("unlocated", "no `model_info:` line of its own in the entry")
+    block = []
+    for number in range(info + 1, entry["end"]):
+        line = lines[number]
+        if not line.strip() or is_comment(line) or is_statement(line):
+            continue
+        if indentation(line) <= indentation(lines[info]):
+            break
+        block.append(number)
+    child = indentation(lines[block[0]]) if block else None
+    found = [number for number in block if re.match(r"[ \t]*%s[ \t]*:" % field, lines[number])]
+    if len(found) != 1 or indentation(lines[found[0]]) != child:
+        return None, ("unlocated", "the field is not written once, as a line of `model_info`")
+    number = found[0]
+    refusal = sheet_jinja_refusal(layout, entry, number)
+    if refusal:
+        return None, (refusal, "")
+    return number, None
+
+
+def sheet_ci_problem(item, field, value):
+    """What "check_compose_template.py" will refuse once the sheet of the entry "item" says "value" for "field",
+    as (kind, length): the length the entry sets, which a longest answer under it or a window not above it leaves
+    unusable. None when the entry sets no length, or when it fits."""
+    parameters = item.get("litellm_params") if isinstance(item, dict) else None
+    parameters = parameters if isinstance(parameters, dict) else {}
+    length = next((each for each in (parameters.get("max_tokens"), parameters.get("max_completion_tokens"))
+                   if isinstance(each, int) and not isinstance(each, bool) and each > 0), None)
+    if length is None or isinstance(value, bool):
+        return None
+    if field == "max_output_tokens" and length > value:
+        return ("output", length)
+    if field == "max_input_tokens" and length >= value:
+        return ("window", length)
+    return None
+
+
+def verify_sheets(text, original, new_text, changes):
+    """None when "new_text" is "text" with the value of each of "changes" ({"line", "name", "field", "value"})
+    replaced on its own line and nothing else, and breaks no rule "text" did not already break; otherwise why
+    not. "original" is (template, problems) of "text". Only lines with no Jinja in them are rewritten, so what
+    the file renders for any set of provider keys differs by those values alone: the rendering with every key
+    given is read back, and the lines are compared one by one."""
+    template, problems = original
+    before, after = text.splitlines(), new_text.splitlines()
+    if len(before) != len(after):
+        return "the result does not have the lines of the original"
+    changed = [number for number, (old, new) in enumerate(zip(before, after)) if old != new]
+    if changed != sorted(change["line"] for change in changes):
+        return "the result differs from the original on other lines than the ones rewritten"
+    if any("{" in before[number] or "}" in before[number] or "{" in after[number] or "}" in after[number]
+           for number in changed):
+        return "a line rewritten holds a Jinja delimiter"
+    result, result_problems = read_template(new_text)
+    if result is None:
+        return "the result is not readable: %s" % result_problems[0]
+    worse = collections.Counter(normalised(result_problems)) - collections.Counter(normalised(problems))
+    if worse:
+        return "the offline rules fail on the result: %s" % next(iter(worse))
+    if jinja_balance(text) != jinja_balance(new_text):
+        return "the Jinja blocks of the result are not those of the original"
+    expected = copy.deepcopy(template["document"])
+    for change in changes:
+        info = next((item.get("model_info") for item in expected["model_list"]
+                     if isinstance(item, dict) and item.get("model_name") == change["name"]), None)
+        if not isinstance(info, dict):
+            return "the entry %s has no model_info mapping to change" % change["name"]
+        info[change["field"]] = change["value"]
+    if expected != result["document"]:
+        return "the result does not read back as the original with exactly these values changed"
+    return None
+
+
+def apply_sheets(text, differences):
+    """Rewrite in "text" the value of each of "differences" (from sheet_differences) with the one its catalogue
+    states. Returns (new_text, outcomes), one outcome per difference, in order: "status" is "applied" or
+    "refused", a refusal carries its "reason" (a code of SHEET_REFUSALS and a detail), an applied one the "line"
+    it rewrote, and "ci" says what "check_compose_template.py" will refuse on that entry once it is merged (see
+    sheet_ci_problem). Only the one line of the entry's own "model_info" is edited, and a field the entry does
+    not declare is never added. Each rewrite is read back alone, and all together, like a deletion: what does
+    not read back as the original with those values changed is not made. Nothing is written anywhere here."""
+    outcomes = [dict(difference, status="refused", reason=None, line=None, ci=None) for difference in differences]
+    template, problems = read_template(text)
+    layout, why = read_layout(text, template, for_deletion=False) if template else (None, problems[0])
+    if layout is None:
+        for outcome in outcomes:
+            outcome["reason"] = ("unlocated", why)
+        return text, outcomes
+    by_name = {entry["name"]: entry for entry in layout["entries"] if entry["state"] == "active"}
+    items = {item.get("model_name"): item for item in template["document"]["model_list"] if isinstance(item, dict)}
+    raw = layout["raw"]
+    planned = []
+    for outcome in outcomes:
+        entry = by_name.get(outcome["name"])
+        if entry is None:
+            outcome["reason"] = ("unlocated", "no entry of that name")
+            continue
+        number, reason = locate_sheet_line(layout, entry, outcome["field"])
+        if reason:
+            outcome["reason"] = reason
+            continue
+        line = layout["lines"][number]
+        if "{" in line or "}" in line:
+            outcome["reason"] = ("jinja", "")
+            continue
+        parsed = SHEET_LINE.fullmatch(line)
+        if not parsed or parsed.group("field") != outcome["field"] or (
+                (parsed.group("value") in ("true", "false")) != (outcome["field"] == "supports_vision")):
+            outcome["reason"] = ("form", "")
+            continue
+        ending = raw[number][len(line):]
+        if ending not in ("", "\n", "\r\n"):
+            outcome["reason"] = ("form", "")
+            continue
+        value = sheet_value(outcome["listed"])
+        rewritten = "%s%s:%s%s%s%s" % (parsed.group("lead"), outcome["field"], parsed.group("gap"), value,
+                                      parsed.group("tail"), ending)
+        planned.append((outcome, number, rewritten, {"line": number, "name": outcome["name"],
+                                                     "field": outcome["field"], "value": outcome["listed"]}))
+
+    def written(chosen):
+        lines = list(raw)
+        for _, number, rewritten, _ in chosen:
+            lines[number] = rewritten
+        return "".join(lines)
+
+    kept = []
+    for each in planned:
+        problem = verify_sheets(text, (template, problems), written([each]), [each[3]])
+        if problem:
+            each[0]["reason"] = ("verification", problem)
+        else:
+            kept.append(each)
+    if not kept:
+        return text, outcomes
+    new_text = written(kept)
+    problem = verify_sheets(text, (template, problems), new_text, [each[3] for each in kept])
+    if problem:
+        for outcome, *_ in kept:
+            outcome["reason"] = ("verification", "taken together, " + problem)
+        return text, outcomes
+    for outcome, number, _, _ in kept:
+        outcome["status"], outcome["line"] = "applied", number + 1
+        outcome["ci"] = sheet_ci_problem(items.get(outcome["name"]), outcome["field"], outcome["listed"])
+    return new_text, outcomes
+
+
+# ------------------------------------------------------------------------------------------------
 # The renderings: the run's report in English, the summary, pull request and commit in the language
 # the people who read each of them write in
 # ------------------------------------------------------------------------------------------------
@@ -5486,22 +5720,49 @@ def sheet_value(value):
 
 def sheets_section(result):
     """The differences between the sheets of the active entries and their catalogues, in French, for the summary:
-    each entry with the field and both values. Information only: it holds back nothing and fails nothing."""
+    each entry with the field and both values, and, when the run proposes the corrections in a pull request, which
+    of them it carries. Information only: it holds back nothing and fails nothing."""
     sheets = result.get("sheets") or []
     if not sheets:
         return []
+    proposal = result.get("sheet_proposal")
     out = ["## Fiches qui diffèrent du catalogue", "",
            "Le `model_info` de ces entrées actives (`max_input_tokens`, `max_output_tokens`, `supports_vision`) "
            "ne dit pas ce que le catalogue de leur fournisseur publie du modèle. Seul un champ que les deux "
-           "donnent est comparé. Rien n'est modifié ni supprimé, et cette section ne fait échouer ni "
-           "l'exécution ni une pull request : une personne vérifie sur la page du fournisseur, puis corrige la "
-           "fiche à la main avec la date de lecture.", ""]
-    return out + capped([
-        "- `%s` (`%s`%s) : `%s` vaut `%s` ici et `%s` au catalogue"
-        % ((difference["name"],) + tuple(part.replace(" on ", " chez ") for part in litellm_id(
-            difference["provider"], difference["id"])) + (difference["field"], sheet_value(difference["declared"]),
-                                                          sheet_value(difference["listed"])))
-        for difference in sheets]) + [""]
+           "donnent est comparé. Cette section ne fait échouer ni l'exécution ni une pull request, et ne "
+           "supprime rien."]
+    if proposal is None:
+        out[-1] += (" Rien n'est modifié : une personne vérifie sur la page du fournisseur, puis corrige la "
+                    "fiche à la main avec la date de lecture.")
+    else:
+        link = branch_link(SHEETS_BRANCH)
+        out[-1] += (" Le workflow propose %s dans une pull request à part%s, que rien ne fusionne seul : une "
+                    "personne vérifie chaque valeur sur la page du fournisseur avant de la fusionner."
+                    % (count_phrase(proposal["changes"], "correction", "corrections")
+                       if proposal["changes"] else "aucune correction",
+                       " ([la pull request](%s))" % link if link and proposal["changes"] else ""))
+        if proposal["left"]:
+            out[-1] += (" Les %d autres, qu'il n'a pas su réécrire, sont marquées ci-dessous : une personne les "
+                        "corrige à la main, avec la date de lecture." % proposal["left"]
+                        if proposal["changes"] else
+                        " Il n'a su réécrire aucun de ces écarts, marqués ci-dessous : une personne les corrige à "
+                        "la main, avec la date de lecture.")
+    out.append("")
+    lines = []
+    for difference in sheets:
+        line = ("- `%s` (`%s`%s) : `%s` vaut `%s` ici et `%s` au catalogue"
+                % ((difference["name"],) + tuple(part.replace(" on ", " chez ") for part in litellm_id(
+                    difference["provider"], difference["id"])) + (difference["field"], sheet_value(
+                        difference["declared"]), sheet_value(difference["listed"]))))
+        rewrite = difference.get("rewrite")
+        if rewrite and rewrite["status"] == "applied":
+            line += " -- dans la pull request"
+            if rewrite["ci"]:
+                line += ", où `check_compose_template.py` la refusera tant qu'une longueur n'est pas adaptée"
+        elif rewrite:
+            line += " -- à corriger à la main : %s" % SHEET_REFUSALS[rewrite["reason"][0]]
+        lines.append(line)
+    return out + capped(lines) + [""]
 
 
 def removals_of(result, status):
@@ -7192,6 +7453,187 @@ def render_additions_commit(result, kind, chosen):
 
 
 # ------------------------------------------------------------------------------------------------
+# Proposing the sheet corrections: one pull request, which only a person merges
+# ------------------------------------------------------------------------------------------------
+# "--sheets DIR" writes what the drift workflow keeps a pull request of its own with: "sheets.json", and, when
+# the run can correct something, the body, the commit message and the file with the values rewritten. The job
+# that writes does not build that file: it takes it as data, and pushes it only if it is the template on main
+# with the value of sheet lines written again and nothing else (its "sheet guard", which
+# "check_drift_publish_guard.py" plays). Nothing merges it but a person, who reads each value on the provider's
+# page first: a catalogue is not the page the file cites.
+
+SHEETS_BRANCH = "SHEETS_BRANCH"
+# Signed like everything posted from a session here, and ended with an open HTML comment that hides any footer
+# added after it.
+SHEETS_SIGNATURE = ("---\n\n_Generated by [Claude Code](https://claude.ai/code/"
+                    "session_01B988iHZauw519utAMzW3AH) and supervised by @tigerblue77._\n\n<!--\n")
+
+
+def table_cell(text):
+    return code_span(text).replace("|", "\\|")
+
+
+def sheets_ci_text(outcome):
+    """In French, what CI will refuse on an entry whose rewritten value meets the length it sets."""
+    kind, length = outcome["ci"]
+    if kind == "output":
+        return ("`%s` : la longueur de %d jetons que l'entrée fixe dépasse le nouveau `max_output_tokens` de %s"
+                % (outcome["name"], length, outcome["listed"]))
+    return ("`%s` : la longueur de %d jetons que l'entrée fixe n'est plus sous la nouvelle fenêtre `max_input_tokens` "
+            "de %s" % (outcome["name"], length, outcome["listed"]))
+
+
+def render_sheets_body(result, applied, left, link=None, urls=True):
+    """The body of the pull request of the sheet corrections, in French: what it is, that a person reads each
+    value on the provider's page, then each correction with the catalogue it was read in, what CI will refuse
+    and what the workflow could not rewrite."""
+    date = result["date"]
+    branch = os.environ.get(SHEETS_BRANCH)
+    out = ["Corrections de fiches proposées **sans IA** par `.github/workflows/LiteLLM_model_drift.yml`, à "
+           "l'exécution du %s%s. Le `model_info` de chaque entrée ci-dessous (`max_input_tokens`, "
+           "`max_output_tokens`, `supports_vision`) ne dit pas ce que le catalogue de son fournisseur publie du "
+           "même modèle. Le commit remplace **la seule valeur qui diffère**, sur sa ligne, par celle du "
+           "catalogue, et ne change rien d'autre : ni ajout d'un champ que l'entrée ne déclare pas, ni entrée, "
+           "ni commentaire, ni date de lecture." % (date, " (%s)" % link if link else ""),
+           "",
+           "**Une personne vérifie, avant de fusionner, chaque valeur sur la page du fournisseur** que le fichier "
+           "cite pour sa fiche : un catalogue n'est pas cette page, et la fiche dit ce que le fournisseur sert "
+           "au modèle. Une valeur que la page ne confirme pas se retire par un commit sur la branche.",
+           "",
+           "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît que la "
+           "branche des suppressions, et celle-ci%s attend tigerblue77. Elle est réécrite à chaque exécution "
+           "qui trouve encore un écart, titre et corps compris, à partir de `main`. Un commit d'une personne "
+           "sur la branche la fige : tant que la pull request est ouverte, le workflow n'y touche plus ; une "
+           "fois fermée sans être fusionnée, son exécution échoue chaque jour jusqu'à ce que la branche soit "
+           "supprimée. Elle se ferme quand plus aucun écart ne reste, à condition que l'exécution ait lu le "
+           "catalogue de chaque fournisseur qui publie une fiche et dont le fichier en déclare une."
+           % (" (%s)" % code_span(branch) if branch else ""),
+           "",
+           "## %s" % ("Correction" if len(applied) == 1 else "Corrections"), ""]
+    if urls:
+        out += ["| Entrée | Fournisseur | Identifiant au catalogue | Champ | Dans le fichier | Au catalogue | "
+                "Catalogue lu |", "| --- | --- | --- | --- | --- | --- | --- |"]
+    else:
+        out += ["Chaque catalogue a été lu le %s :" % date, ""]
+        out += ["- %s : <%s>" % (PROVIDER_LABELS[name], catalogue_url(name))
+                for name in sorted({outcome["provider"] for outcome in applied})]
+        out += ["", "| Entrée | Fournisseur | Identifiant au catalogue | Champ | Dans le fichier | Au catalogue |",
+                "| --- | --- | --- | --- | --- | --- |"]
+    for outcome in applied:
+        row = [table_cell(outcome["name"]), PROVIDER_LABELS[outcome["provider"]], table_cell(outcome["id"]),
+               table_cell(outcome["field"]), table_cell(sheet_value(outcome["declared"])),
+               table_cell(sheet_value(outcome["listed"]))]
+        if urls:
+            row.append("<%s>, lu le %s" % (catalogue_url(outcome["provider"]), date))
+        out.append("| %s |" % " | ".join(row))
+    out.append("")
+
+    refused_by_ci = [outcome for outcome in applied if outcome["ci"]]
+    if refused_by_ci:
+        out += ["## À ajuster à la main : `check_compose_template.py` refusera cette pull request", "",
+                "Ces entrées fixent une longueur de réponse (`max_tokens` ou `max_completion_tokens`) que leur nouvelle "
+                "fiche ne permet plus : le contrôle refuse une longueur au-dessus du `max_output_tokens`, ou qui ne "
+                "laisse aucune place dans la fenêtre. Le workflow ne touche pas cette longueur, qui est un choix : une "
+                "personne l'adapte à la main, dans un commit sur la branche, ou retire la correction.", ""]
+        out += capped(["- " + sheets_ci_text(outcome) + "." for outcome in refused_by_ci]) + [""]
+
+    if left:
+        out += ["## Écarts que le workflow n'a pas réécrits", "",
+                "Ces écarts sont dans le résumé de l'exécution ; une personne les corrige à la main, avec la "
+                "page du fournisseur et la date de lecture.", ""]
+        out += capped(["- `%s` (`%s`) : `%s` vaut `%s` ici et `%s` au catalogue : %s." % (
+            outcome["name"], outcome["id"], outcome["field"], sheet_value(outcome["declared"]),
+            sheet_value(outcome["listed"]), SHEET_REFUSALS[outcome["reason"][0]]) for outcome in left]) + [""]
+
+    out += ["## Vérification", "",
+            "Le résultat est relu avant d'être écrit : il doit se lire comme le fichier d'origine dont seules ces "
+            "valeurs ont changé, ligne par ligne et une fois rendu, et ne casser aucune règle du mode hors ligne "
+            "que le fichier d'origine ne cassait pas déjà. Cette relecture ne dit rien de la justesse d'une "
+            "valeur : c'est la page du fournisseur, lue par une personne. Une pull request ouverte avec le jeton "
+            "du workflow ne lance aucun contrôle : le workflow relance `ansible-ci.yml` et `gitleaks.yml` sur la "
+            "branche, leurs résultats s'affichent ici.", "", SHEETS_SIGNATURE]
+    return "\n".join(out)
+
+
+def render_sheets_commit(result, applied):
+    """The commit that carries the corrected sheets, in English like every commit here."""
+    counts = collections.Counter(PROVIDER_LABELS[outcome["provider"]] for outcome in applied)
+    by_provider = ", ".join("%s (%d)" % (label, count) for label, count in sorted(counts.items()))
+    return (
+        "Correct the model sheets that differ from what their provider's catalogue states\n\n"
+        + wrapped("The drift check read each provider's own model catalogue on %s and found %s in the "
+                  "\"model_info\" of an active entry that the catalogue states otherwise for the same model, "
+                  "from %s. Each is rewritten on its own line, with the value the catalogue gives, and "
+                  "nothing else of the file changes."
+                  % (result["date"], count_phrase(len(applied), "value", "values"), by_provider))
+        + "\n\n"
+        + wrapped("The result was read back against the original, alone for each value and all together. "
+                  "Nothing here says the value is right: a catalogue is not the page the file cites for the "
+                  "sheet, so the pull request asks a person to read each value there before merging, and "
+                  "nothing merges it but a person.")
+        + "\n")
+
+
+def sheet_providers(template):
+    """The providers of SHEET_PROVIDERS with an active entry whose "model_info" declares a field of a sheet:
+    only the catalogues of those have to be read for "no difference" to mean that there is none."""
+    found = set()
+    for entry in template["active"]:
+        attributed = attribute(entry["model"], entry["api_base"])
+        info = entry["item"].get("model_info") if isinstance(entry["item"], dict) else None
+        if attributed and attributed[0] in SHEET_PROVIDERS and isinstance(info, dict) and any(
+                field in info for field in SHEET_FIELDS):
+            found.add(attributed[0])
+    return sorted(found)
+
+
+def propose_sheets(text, result, link=None):
+    """{"complete", "changes", "left", "text", "body", "commit"} for the pull request of the sheet corrections.
+    "changes" is how many differences the file is rewritten for (SHEETS_LIMIT at most), "left" how many are
+    not, each of them marked with its "rewrite" outcome for the summary. "complete" says whether the catalogue of
+    every provider whose entries declare a sheet was read: the pull request is closed over "no difference left"
+    only then, since a catalogue not read says nothing. Without a readable file, nothing is proposed and nothing
+    is complete."""
+    proposal = {"complete": False, "changes": 0, "left": 0}
+    if result["unreadable"]:
+        return proposal
+    read = {report["name"]: report["status"] == "read" for report in result["providers"]}
+    proposal["complete"] = all(read.get(name) for name in result.get("sheet_providers", ()))
+    differences = result.get("sheets") or []
+    new_text, outcomes = apply_sheets(text, differences[:SHEETS_LIMIT])
+    outcomes += [dict(difference, status="refused", reason=("limit", ""), line=None, ci=None)
+                 for difference in differences[SHEETS_LIMIT:]]
+    for difference, outcome in zip(differences, outcomes):
+        difference["rewrite"] = outcome
+    applied = [outcome for outcome in outcomes if outcome["status"] == "applied"]
+    left = [outcome for outcome in outcomes if outcome["status"] != "applied"]
+    proposal.update(changes=len(applied), left=len(left))
+    if applied:
+        body = render_sheets_body(result, applied, left, link)
+        if len(body) > BODY_LIMIT:
+            body = render_sheets_body(result, applied, left, link, urls=False)
+        proposal.update(text=new_text, body=body, commit=render_sheets_commit(result, applied))
+    result["sheet_proposal"] = {"changes": proposal["changes"], "left": proposal["left"]}
+    return proposal
+
+
+def write_sheets(directory, proposal, date):
+    """"sheets.json" (the date, whether the run is complete, how many values the file is rewritten for and how
+    many differences are left), and, when there is something to rewrite, the body, the commit message and the
+    file, which the job that writes checks and pushes. A file of an earlier run is removed first."""
+    folder = Path(directory)
+    folder.mkdir(parents=True, exist_ok=True)
+    for suffix, key in (("body.md", "body"), ("commit.txt", "commit"), ("template.j2", "text")):
+        path = folder / ("sheets_%s" % suffix)
+        path.unlink(missing_ok=True)
+        if proposal["changes"]:
+            path.write_bytes(proposal[key].encode("utf-8"))
+    data = {"date": date, "complete": proposal["complete"], "changes": proposal["changes"],
+            "left": proposal["left"]}
+    (folder / "sheets.json").write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
+
+
+# ------------------------------------------------------------------------------------------------
 
 def main(argv=None, opener=urllib_opener, environment=None):
     """The command line. "opener" and "environment" are what the selftest replaces: how a catalogue
@@ -7235,6 +7677,10 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "to DIR what the workflow keeps them with: "
                              "proposals.json, and for each pull request with something to propose its "
                              "body, its commit message and the file with the entries added")
+    parser.add_argument("--sheets", metavar="DIR",
+                        help="with --online, write to DIR what the workflow keeps the pull request of the "
+                             "sheet corrections with: sheets.json, and when a sheet can be rewritten its body, "
+                             "its commit message and the file with the values rewritten")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
     parser.add_argument("--contracts", metavar="PATH",
@@ -7248,8 +7694,8 @@ def main(argv=None, opener=urllib_opener, environment=None):
         import check_LiteLLM_model_drift_selftest
         return check_LiteLLM_model_drift_selftest.run_selftest()
     if (arguments.summary or arguments.coverage or arguments.undeleted or arguments.proposals
-            or arguments.unreadable) and not arguments.online:
-        parser.error("--summary, --coverage, --undeleted, --proposals and --unreadable need --online")
+            or arguments.unreadable or arguments.sheets) and not arguments.online:
+        parser.error("--summary, --coverage, --undeleted, --proposals, --sheets and --unreadable need --online")
     if arguments.apply and not arguments.online:
         parser.error("--apply needs --online")
     if (arguments.pr_body or arguments.commit_message) and not arguments.apply:
@@ -7311,6 +7757,9 @@ def main(argv=None, opener=urllib_opener, environment=None):
         # Made on the file as main has it, whatever was deleted: the additions are pull requests of
         # their own, built on main.
         write_proposals(arguments.proposals, propose_additions(text, result, run_link()), today)
+    if arguments.sheets:
+        # Made on the file as main has it too: a pull request of its own, which only changes values of lines.
+        write_sheets(arguments.sheets, propose_sheets(text, result, run_link()), today)
     sys.stdout.write(render_text(result, shown))
     if arguments.coverage:
         Path(arguments.coverage).write_text(
