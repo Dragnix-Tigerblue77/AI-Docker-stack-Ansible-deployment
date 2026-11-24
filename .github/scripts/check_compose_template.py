@@ -1811,6 +1811,47 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 # reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
 # unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
 LITELLM_CALLED_BY_NAME = {
+    "gemini-3-8-flash-high": "the highest level of its model, which buys less than any router asks for the time it "
+                             "costs, kept for whoever asks for it by name",
+    "gemini-flash-latest": "an alias Google moves to the latest Flash release, with no quota stated for it, kept for "
+                           "whoever wants to follow releases without editing the file",
+    "gemini-flash-lite-latest": "an alias Google moves to the latest Flash-Lite release, with no quota stated for it, "
+                                "kept for whoever wants to follow releases without editing the file",
+    "glm-4-6v-flash-zai": "a vision model whose context and tool support no page gives, so no cascade that asks for "
+                          "either holds it",
+    "mistral-7b-instruct-v0-2-lora-cloudflare": "15,000 tokens of context and no function calling, under what any "
+                                                "router asks, so no cascade holds it",
+    "olala-summarise-ovh": "a task-specific summary model, which no cascade holds",
+    "olala-translate-ovh": "a task-specific translation model that asks for a 'source_language' field of its own, "
+                           "which no cascade holds",
+    "qwen3-vl-30b-ovh": "a vision model, which no cascade holds",
+    "qwen2-5-vl-72b-ovh": "a vision model, which no cascade holds",
+    "qwen3guard-gen-0-6b-ovh": "a guard model that answers with a verdict on a text rather than a reply",
+    "qwen3guard-gen-8b-ovh": "a guard model that answers with a verdict on a text rather than a reply",
+    "cosmos-reason2-8b-nvidia": "a vision model whose card declares no tool support, so no cascade that asks for "
+                                "tools holds it",
+    "ising-calibration-1-5-31b-nvidia": "a quantum calibration model, not a conversation model, which no cascade "
+                                        "holds",
+    "riva-translate-4b-instruct-v2-nvidia": "a translation model, which no cascade holds",
+    "nemoguard-topic-control-8b-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                         "reply",
+    "nemotron-safety-guard-8b-v3-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                          "reply",
+    "nemotron-3-5-content-safety-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                          "reply",
+    "whisper-large-v3-ovh": "a speech-to-text model on a keyless provider, untried: the speech router exists only when "
+                            "a keyed provider can answer, which a keyless member would change",
+    "whisper-large-v3-turbo-ovh": "the turbo version of the one above, for the same reason",
+    "nvr-tts-en-us-ovh": "a Riva voice with no French on a keyless provider, untried: the speech router exists only "
+                         "when a keyed provider can answer, which a keyless member would change",
+    "nvr-tts-es-es-ovh": "a Riva voice, for the same reason as the English one",
+    "nvr-tts-it-it-ovh": "a Riva voice, for the same reason as the English one",
+    "nvr-tts-de-de-ovh": "a Riva voice, for the same reason as the English one",
+    "voxtral-mini-tts-mistral": "its French voices have to be asked for by their own id, which a cascade shared with "
+                                "Gemini's members, who take the OpenAI voice names, cannot do",
+    "orpheus-v1-english-groq": "text to speech with no French, which the speech router asks for, and untried: no page "
+                               "read confirms LiteLLM's route for this id",
+    "orpheus-arabic-saudi-groq": "text to speech with no French, for the same reason as the English one",
     "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
                              "vision-capable models: no router takes images, so it is kept for whoever asks for it "
                              "by name, and untried",

@@ -331,6 +331,15 @@ Aucune cascade, aucun alias : on les appelle par leur nom. Aucun chiffre ne les 
 | 18 | `nemoguard-topic-control-8b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
 | 19 | `nemotron-safety-guard-8b-v3-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
 | 20 | `nemotron-3-5-content-safety-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : non vérifié chez ce fournisseur | — | — | modèle de garde : répond un verdict sur un texte |
+| 21 | `whisper-large-v3-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | transcription, jamais essayée : `Auto-STT` n'en tient aucune, parce que ce routeur n'existe que si un fournisseur à clé peut répondre, ce qu'un membre sans clé changerait |
+| 22 | `whisper-large-v3-turbo-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | la version turbo du précédent, mêmes raisons, jamais essayée |
+| 23 | `nvr-tts-en-us-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en anglais, sans voix française, jamais essayée : `Auto-TTS` n'en tient aucune, parce que ce routeur n'existe que si un fournisseur à clé peut répondre |
+| 24 | `nvr-tts-es-es-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en espagnol, mêmes raisons |
+| 25 | `nvr-tts-it-it-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en italien, mêmes raisons |
+| 26 | `nvr-tts-de-de-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : sans objet pour la parole | — | — | voix Riva de NVIDIA en allemand, mêmes raisons |
+| 27 | `voxtral-mini-tts-mistral` | Mistral | prépayé | défaut du fournisseur | — | — | synthèse vocale de Mistral : ses voix françaises se demandent par leur identifiant, ce que ne peut pas faire une cascade partagée avec les membres de Gemini, qui prennent les noms de voix d'OpenAI |
+| 28 | `orpheus-v1-english-groq` | Groq | à la requête, 10 par minute et 100 par jour | défaut du fournisseur | — | — | synthèse vocale sans voix française, que demande `Auto-TTS` ; jamais essayée : aucune page lue ne confirme la route de LiteLLM pour cet identifiant |
+| 29 | `orpheus-arabic-saudi-groq` | Groq | à la requête, 10 par minute et 100 par jour | défaut du fournisseur | — | — | synthèse vocale en arabe, sans voix française, mêmes raisons ; même quota que le précédent |
 
 ## Ce qui a été regardé et n'a pas été créé
 
