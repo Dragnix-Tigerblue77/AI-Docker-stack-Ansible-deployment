@@ -183,7 +183,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `Auto-Claude-Code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
-| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le rôle ne réconcilie pas une clé qui existe : un changement n'atteint un agent déjà déployé qu'une fois sa clé supprimée depuis `/ui` (voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le groupe `LLM` s'ajoute à la clé quelle que soit cette liste, pour que les cascades fonctionnent. Le rôle remet à chaque passage la liste d'une clé existante à niveau : un changement atteint un agent déjà déployé au passage suivant (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -2093,14 +2093,23 @@ prêt (l'attente décrite plus haut, trois minutes au plus), le rôle demande à
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour liste blanche l'alias du modèle
-(`Artificial_Intelligence_Claude_code_model`) suivi des routeurs de
-`Artificial_Intelligence_Claude_code_additional_models` : c'est elle qui tient le conteneur à l'écart
-du quota de tous les autres comptes. Les appels s'authentifient avec la clé maîtresse, que l'agent ne
-détient jamais, et leurs tâches sont en `no_log`. Un second passage trouve la clé et ne change rien.
+(`Artificial_Intelligence_Claude_code_model`), les routeurs de
+`Artificial_Intelligence_Claude_code_additional_models` et le groupe `LLM`. Les appels s'authentifient avec
+la clé maîtresse, que l'agent ne détient jamais, et leurs tâches sont en `no_log`.
 
-Ce que cela ne fait pas : le rôle **crée** la clé, il ne **réconcilie** pas une clé qui existe déjà -- elle
-garde les modèles avec lesquels elle a été créée (la liste de `Artificial_Intelligence_Claude_code_additional_models`
-comprise, #307). Et **faire tourner la clé** demande d'abord de supprimer
+**Le groupe `LLM` est ce qui fait fonctionner les cascades.** Avant chaque secours, LiteLLM vérifie que la clé
+qui appelle a le droit d'appeler le modèle suivant, et saute celui qu'elle n'autorise pas (lu dans son code,
+`litellm/router_utils/fallback_event_handlers.py`, pas mesuré sur une passerelle réelle). Une clé limitée aux noms
+des routeurs n'atteint donc que la tête de chaque cascade : quand elle échoue, l'erreur revient à l'agent sans
+qu'aucun autre modèle soit essayé. Les cascades des routeurs de texte ne sont faites que de modèles du groupe
+`LLM`. Ce groupe contient les modèles de texte de tous les comptes que le gabarit sert, aujourd'hui le seul compte
+par défaut : les modèles de texte d'un second compte demanderaient un groupe à eux pour rester hors de portée de
+l'agent, comme `Fiction` tient à part ceux d'Aion Labs.
+
+**Le rôle remet la liste de la clé à niveau à chaque passage.** Si la clé existe déjà avec une autre liste, il la
+remplace par `POST /key/update`, qui prend le même SHA-256 ; un passage qui la trouve à niveau ne change rien. Un
+changement de `Artificial_Intelligence_Claude_code_additional_models` atteint donc l'agent au passage suivant,
+sans rien supprimer à la main. **Faire tourner la clé**, en revanche, demande toujours de supprimer
 l'ancienne depuis `/ui` : son alias est unique, `POST /key/generate` refuserait la nouvelle tant que
 l'ancienne existe, et la tâche étant en `no_log`, l'échec n'en dit pas la cause. Le conteneur peut
 démarrer quelques secondes avant que sa clé existe : il n'appelle la passerelle que lorsqu'on s'en sert,
@@ -2109,9 +2118,9 @@ et sa politique de redémarrage (`any`) le relance s'il sort entre-temps. Le rô
 
 Les champs de la requête (`key`, `key_alias`, `models`, le préfixe `sk-` et les 16 caractères minimum, le
 `404` de `/key/info` pour une clé inconnue, le SHA-256 en paramètre) sont lus dans le code de LiteLLM
-v1.106.6 (`litellm/proxy/management_endpoints/key_management_endpoints.py`), pas exécutés contre une
-passerelle vivante. Les valeurs refusées par LiteLLM (`disable_custom_api_keys`, un alias déjà pris) font
-échouer la tâche.
+v1.106.6 (`litellm/proxy/management_endpoints/key_management_endpoints.py`), et le SHA-256 que `/key/update`
+prend comme `key` dans celui de v1.110.2, pas exécutés contre une passerelle vivante. Les valeurs refusées par
+LiteLLM (`disable_custom_api_keys`, un alias déjà pris) font échouer la tâche.
 
 **Le service démarre comme l'image le prévoit.** L'entrée de l'image publiée est `claude` seul, sans
 `CMD`, et le bloc du service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance

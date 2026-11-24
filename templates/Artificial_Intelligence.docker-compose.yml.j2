@@ -696,10 +696,9 @@ services:
       ANTHROPIC_API_KEY: {{ Artificial_Intelligence_Claude_code_virtual_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # Every variable Claude Code reads a model from carries the SAME alias (#287). Its background
       # requests (titles, summaries) go to the Haiku-class model and its subagents and aliases to
-      # others, each under a name the agent's virtual key does not allow -- the key allows the alias
-      # and the routers of "Artificial_Intelligence_Claude_code_additional_models" (#307) and no
-      # other name, which is what keeps this container off the other accounts' quotas -- so the
-      # gateway would refuse them. The cost is that all of it runs on the main model, unless a
+      # others, each under a name the agent's virtual key does not allow -- the key allows the alias,
+      # the routers of "Artificial_Intelligence_Claude_code_additional_models" and the text models
+      # their cascades are made of, and no other name -- so the gateway would refuse them. The cost is that all of it runs on the main model, unless a
       # router is chosen by name ("/model flash").
 {% set Claude_code_model = Artificial_Intelligence_Claude_code_model | replace('$', '$$') | to_json(ensure_ascii=False) %}
 {% for Claude_code_model_variable in ['ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL'] %}

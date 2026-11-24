@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+---
+# The second run of the agent-on job: a list other than the first run's, which the role must bring the
+# key it registered then to.
+Artificial_Intelligence_Claude_code_additional_models:
+  - "Auto-Pro"

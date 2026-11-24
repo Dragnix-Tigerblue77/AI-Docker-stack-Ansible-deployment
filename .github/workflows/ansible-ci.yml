@@ -201,7 +201,7 @@ jobs:
         run: nohup python3 .github/role_run/stand_in_gateway.py > "$RUNNER_TEMP/stand_in_gateway.log" 2>&1 &
 
       - name: Run the example playbook
-        env:
+        env: &role_run_playbook_environment
           ANSIBLE_ROLES_PATH: ${{ github.workspace }}/.github/role_run/roles:~/.ansible/roles
           ANSIBLE_FORCE_COLOR: "1"
         run: |
@@ -215,6 +215,17 @@ jobs:
               ;;
           esac
           ansible-playbook -i .github/role_run/inventory.ini "${extra_vars[@]}" playbook.Artificial_Intelligence.example.yaml
+
+      # What a deployed gateway sees when the agent's list changes: the key exists with the first run's list,
+      # and the role must bring it to the new one rather than leave it. Agent off, there is no key to change.
+      - name: Run the example playbook again, with the agent key's list changed
+        if: env.ROLE_RUN_CLAUDE_CODE_AGENT == 'on'
+        env: *role_run_playbook_environment
+        run: |
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash Auto-Flash-Lite Auto-Code LLM
+          ansible-playbook -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml \
+            -e @.github/role_run/vars.claude_code_key_changed.yml playbook.Artificial_Intelligence.example.yaml
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro LLM
 
   role-run-agent-on:
     name: role run (Claude Code agent on)
