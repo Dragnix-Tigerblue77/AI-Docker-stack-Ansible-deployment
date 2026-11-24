@@ -931,7 +931,7 @@ model_list:
       api_key: "os.environ/OPENROUTER_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
 
   - model_name: nemotron-3-5-embed-1b-free
     litellm_params:
@@ -939,7 +939,7 @@ model_list:
       api_key: "os.environ/OPENROUTER_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
 
   - model_name: nemotron-3-5-embed-8b-free
     litellm_params:
@@ -947,7 +947,7 @@ model_list:
       api_key: "os.environ/OPENROUTER_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Public-Data-Only"]
 
 {% endif %}
 {% if has.Cloudflare %}
