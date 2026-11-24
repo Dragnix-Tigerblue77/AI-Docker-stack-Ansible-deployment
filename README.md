@@ -916,8 +916,11 @@ même temps, et que ce qu'il propose est prêt avant l'usage de la pile (de 17 h
 10 h à 22 h le week-end et les jours fériés).
 
 Le rapport entier, section « Contrats par routeur » comprise, va dans le **résumé du run** (l'onglet
-*Summary* de l'exécution), qui ne notifie personne. Ce qu'une personne doit lire va dans le corps de la
-pull request qu'il concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
+*Summary* de l'exécution), qui ne notifie personne. Le résumé donne aussi, dans une section à part, les
+entrées actives dont la fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`) dit autre chose
+que le catalogue de leur fournisseur, quand ce catalogue publie le champ : rien n'en est modifié, et une
+personne corrige la fiche à la main. Ce qu'une personne doit lire va dans le corps de la pull request qu'il
+concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
 suppressions, les modèles redevenus gratuits sur OpenRouter dans celle des modèles prêts (dans celle
 des modèles à vérifier quand la première n'est pas ouverte), et les nouveaux modèles qu'aucun ajout ne
 peut porter -- un identifiant d'une autre forme, un fournisseur sans entrée, au-delà du plafond, un

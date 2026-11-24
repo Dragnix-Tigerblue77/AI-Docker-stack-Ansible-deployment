@@ -7993,6 +7993,185 @@ def incomplete_catalogue_cases():
     return tuple(cases)
 
 
+SHEET_TEMPLATE = """\
+model_list:
+  - model_name: sheet-openrouter
+    model_info:
+      max_input_tokens: 131072
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: openrouter/vendor/one:free
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+
+  - model_name: sheet-gemini
+    model_info:
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
+    litellm_params:
+      model: gemini/gemini-9-flash
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+
+  - model_name: sheet-mistral
+    model_info:
+      max_input_tokens: 128000
+      max_output_tokens: 4096
+      supports_vision: false
+    litellm_params:
+      model: mistral/mistral-large-latest
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+
+  - model_name: sheet-groq
+    model_info:
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: groq/vendor/fast
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+
+  - model_name: sheet-cloudflare
+    model_info:
+      max_input_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: cloudflare/@cf/vendor/seeing-9
+      api_key: "os.environ/CLOUDFLARE_API_KEY_SELFTEST"
+
+  - model_name: no-sheet
+    litellm_params:
+      model: openrouter/vendor/paid-one
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+"""
+
+
+def run_sheet_cases():
+    """The sheets of the entries against what their catalogues state: a matching sheet gives no line, a different
+    window, longest answer or image flag each give one that names the entry, the field and both values, and a field
+    a catalogue does not state, or an entry that declares no sheet, gives none. A report, never a finding."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def listing(openrouter=None, gemini=None, mistral=None, groq=None, cloudflare=None, template=SHEET_TEMPLATE):
+        """The result, the text report and the summary of a run whose catalogues list exactly the models of the
+        template, each as the arguments say (a dict of what that model states)."""
+        answers = {name: {"data": []} for name, *_ in PROVIDERS}
+        answers["openrouter"] = {"data": [
+            dict(openrouter_model("vendor/one:free"), **(openrouter or {})),
+            openrouter_model("vendor/paid-one", price="0.000001", outputs=("text",)),
+        ]}
+        answers["gemini"] = [{"models": [dict({"name": "models/gemini-9-flash",
+                                               "supportedGenerationMethods": ["generateContent"]}, **(gemini or {}))]}]
+        answers["mistral"] = {"data": [dict({"id": "mistral-large-2609", "aliases": ["mistral-large-latest"],
+                                             "capabilities": {"completion_chat": True}}, **(mistral or {}))]}
+        answers["groq"] = {"data": [dict({"id": "vendor/fast", "active": True}, **(groq or {}))]}
+        answers["cloudflare"] = [{"result": [dict(cloudflare_model("@cf/vendor/seeing-9"), **(cloudflare or {}))],
+                                  "success": True}]
+        result = run_online(template, SELFTEST_KEYS, canned_opener(answers, []), "2026-01-01")
+        return result, render_text(result, "selftest"), render_summary(result, "selftest")
+
+    def lines(result):
+        return sorted((difference["name"], difference["field"], difference["declared"], difference["listed"])
+                      for difference in result["sheets"])
+
+    full = dict(
+        openrouter={"context_length": 131072, "top_provider": {"max_completion_tokens": 8192},
+                    "architecture": {"output_modalities": ["text"], "input_modalities": ["text"]}},
+        gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 65536},
+        mistral={"max_context_length": 128000, "capabilities": {"completion_chat": True, "vision": False}},
+        groq={"context_window": 32768},
+        cloudflare={"properties": [{"property_id": "context_window", "value": "128000"},
+                                   {"property_id": "vision", "value": "true"}]})
+
+    result, text, body = listing(**full)
+    judged("a sheet that matches its catalogue gives no line",
+           first_wrong((result["sheets"] == [], "differences %r" % result["sheets"]),
+                       ("SHEET " not in text, "the report has a section"),
+                       ("## Fiches" not in body, "the summary has a section"),
+                       (exit_status(result) == 0, "the status is %d" % exit_status(result))))
+
+    other = dict(full, openrouter=dict(full["openrouter"], context_length=262144))
+    result, text, body = listing(**other)
+    judged("a different context window gives a line naming the entry, the field and both values",
+           first_wrong((lines(result) == [("sheet-openrouter", "max_input_tokens", 131072, 262144)],
+                        "differences %r" % lines(result)),
+                       ("sheet-openrouter (openrouter/vendor/one:free): max_input_tokens: declared here 131072, "
+                        "catalogue says 262144" in text, "the report: %s" % text),
+                       ("## Fiches qui diffèrent du catalogue" in body, "the summary has no section"),
+                       ("- `sheet-openrouter` (`openrouter/vendor/one:free`) : `max_input_tokens` vaut `131072` "
+                        "ici et `262144` au catalogue" in body, "the summary line: %s" % body)))
+
+    other = dict(full, gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 8192})
+    result, text, body = listing(**other)
+    judged("a different longest answer gives a line naming the entry, the field and both values",
+           first_wrong((lines(result) == [("sheet-gemini", "max_output_tokens", 65536, 8192)],
+                        "differences %r" % lines(result)),
+                       ("`max_output_tokens` vaut `65536` ici et `8192` au catalogue" in body, body)))
+
+    other = dict(full, mistral={"max_context_length": 128000,
+                                "capabilities": {"completion_chat": True, "vision": True}},
+                 cloudflare={"properties": [{"property_id": "context_window", "value": "128000"}]})
+    result, text, body = listing(**other)
+    judged("a different image flag gives a line naming the entry, the field and both values",
+           first_wrong((lines(result) == [("sheet-mistral", "supports_vision", False, True)],
+                        "differences %r" % lines(result)),
+                       ("supports_vision: declared here false, catalogue says true" in text, text),
+                       ("`supports_vision` vaut `false` ici et `true` au catalogue" in body, body)))
+
+    other = dict(full, cloudflare={"properties": [{"property_id": "context_window", "value": "24000"},
+                                                  {"property_id": "vision", "value": "false"}]})
+    result, _, _ = listing(**other)
+    judged("a Cloudflare window is read from its string property, and its vision property when it is there",
+           None if lines(result) == [("sheet-cloudflare", "max_input_tokens", 128000, 24000),
+                                     ("sheet-cloudflare", "supports_vision", True, False)]
+           else "differences %r" % lines(result))
+
+    result, text, body = listing(
+        openrouter={"context_length": 0, "top_provider": {"max_completion_tokens": None},
+                    "architecture": {"output_modalities": ["text"], "input_modalities": []}},
+        gemini={}, mistral={"capabilities": {"completion_chat": True}}, groq={},
+        cloudflare={"properties": []})
+    judged("a catalogue that states nothing for a field leaves it unchecked, 0 and an empty list included",
+           first_wrong((result["sheets"] == [], "differences %r" % result["sheets"]),
+                       ("## Fiches" not in body, body)))
+
+    result, _, _ = listing(**dict(full, gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 65536,
+                                                "supportedGenerationMethods": ["generateContent"]}))
+    judged("a field its provider has no name for (Gemini's images, Groq's longest answer) is never compared",
+           None if result["sheets"] == [] else "differences %r" % result["sheets"])
+
+    result, _, _ = listing(openrouter=dict(
+        full["openrouter"], context_length=1, top_provider={"max_completion_tokens": 1},
+        architecture={"output_modalities": ["text"], "input_modalities": ["text", "image"]}),
+        **{key: value for key, value in full.items() if key != "openrouter"})
+    judged("an entry that declares no sheet gives no line, whatever its catalogue states",
+           first_wrong((all(difference["name"] != "no-sheet" for difference in result["sheets"]),
+                        "differences %r" % lines(result)),
+                       (len(result["sheets"]) == 3, "differences %r" % lines(result))))
+
+    result, text, body = listing(**dict(full, openrouter=dict(full["openrouter"], context_length=262144)))
+    findings = [finding for report in result["providers"] for finding in report["findings"]]
+    judged("a difference of sheets is a report and no finding: status, findings and the verdict do not move",
+           first_wrong((findings == [], "findings %r" % findings),
+                       (exit_status(result) == 0, "the status is %d" % exit_status(result)),
+                       (undeleted_count(result) == 0 and is_complete(result), "the deletions or the coverage moved"),
+                       ("Aucune dérive." in body, "the verdict moved"),
+                       ("0 finding(s)" in text and "1 sheet difference(s), which are no finding." in text, text)))
+
+    return failures
+
+
 def run_incomplete_catalogue_cases():
     failures = 0
     for purpose, template, answers, check, status in incomplete_catalogue_cases():
@@ -8544,6 +8723,7 @@ GROUPS_OF_THE_FIRST_HALF = (
 )
 GROUPS_OF_THE_SECOND_HALF = (
     run_head_cases,
+    run_sheet_cases,
 )
 
 

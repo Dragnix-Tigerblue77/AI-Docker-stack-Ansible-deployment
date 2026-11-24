@@ -321,6 +321,13 @@ NOTICE     an entry, active or commented out, that a source announces for retire
            its keyless call would be refused; an active Requesty entry that is no longer priced 0;
            and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list
            and that asking it could not settle (a commented-out one is not asked).
+SHEET      not a finding: an active entry whose "model_info" declares a context window ("max_input_tokens"), a
+           longest answer ("max_output_tokens") or an image input ("supports_vision") that its provider's
+           catalogue states otherwise for the same model. The line names the entry, the field, the value the
+           file declares and the one the catalogue gives, and sits in its own section of the summary, which
+           says it changes nothing: the run's exit status, the deletions, the retries and the pull requests
+           are what they would be without it. Only a field both sides state is compared, so an entry with no
+           sheet and a catalogue silent on a field give nothing (see THE SHEETS).
 WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
            RETIREMENTS): the earliest day is kept, and both sources and what each says are named. Not a
            finding of its own: it qualifies a NOTICE, and holds nothing back.
@@ -356,6 +363,30 @@ the file's other commented-out entries have it (a "# " in front of the indentati
 this check does not read as an entry), and the reason goes above, with the provider's page and the
 date, which only a person can write. The snippets are left out when they would take the text past
 the size GitHub accepts.
+
+THE SHEETS
+----------
+The template gives each text entry a sheet in its "model_info", as its provider serves the model, and a catalogue
+can say it too, so each reader keeps, per id, the fields of its answer that state one (a count that is not a
+positive whole number, 0 being how some lists say "unknown", is no statement). What each states:
+
+  provider    context window            longest answer                   image input
+  openrouter  "context_length"          "top_provider".                  "architecture"."input_modalities"
+  and kilo                              "max_completion_tokens"          holds "image"
+  gemini      "inputTokenLimit"         "outputTokenLimit"               -- (no field)
+  groq        "context_window"          -- (only the answer for one      -- (no field)
+                                        model has "max_completion_tokens")
+  mistral     "max_context_length"      -- (no field)                    "capabilities"."vision"
+  deepseek    "context_window"          "max_output_tokens"              "input_modalities" holds "image"
+  cloudflare  "context_window" property -- (no property)                 "vision" property, which only a model
+                                                                         that takes images has
+  requesty    "context_window"          "max_output_tokens"              "supports_vision"
+  ovhcloud    "context_length"          "max_completion_tokens"          -- (no field)
+  aionlabs    "context_length"          "max_completion_tokens"          the input side of "architecture"."modality"
+
+NVIDIA's list gives an id and nothing else, Z AI and Cent AI document no such field, and no active entry is
+Cerebras' or SambaNova's, so none of them is compared. A field a catalogue has no name for is never compared whatever the file says,
+and neither is one the file does not declare. What a sheet means is the template's comment, not this one's.
 
 THE SECOND SOURCE OF ANNOUNCED RETIREMENTS
 ------------------------------------------
@@ -1545,7 +1576,7 @@ def safe_text(value, limit=80):
 
 def new_catalogue():
     return {"members": set(), "candidates": {}, "usages": {}, "notices": {}, "aliases": {}, "unsafe": 0,
-            "not_deprecated": set()}
+            "not_deprecated": set(), "sheets": {}}
 
 
 def offer(catalogue, identifier, label="", usage=CHAT):
@@ -1556,6 +1587,52 @@ def offer(catalogue, identifier, label="", usage=CHAT):
         catalogue["usages"][identifier] = safe_text(usage, 40)
     else:
         catalogue["unsafe"] += 1
+
+
+# The sheet of an entry, "model_info.max_input_tokens", "max_output_tokens" and "supports_vision", as a catalogue
+# states it: each reader puts into catalogue["sheets"][id] the fields its provider's answer gives for that model and
+# no other, so that a field the provider says nothing of is never compared. A count is a positive whole number: 0
+# is how some lists say "unknown", and Cloudflare's property values are strings.
+SHEET_FIELDS = ("max_input_tokens", "max_output_tokens", "supports_vision")
+
+
+def sheet_number(value):
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def sheet_of(window=None, output=None, vision=None):
+    """The fields of a sheet that a catalogue states: counts that are numbers, a vision flag that is a boolean."""
+    sheet = {}
+    for field, value in (("max_input_tokens", sheet_number(window)), ("max_output_tokens", sheet_number(output))):
+        if value is not None:
+            sheet[field] = value
+    if isinstance(vision, bool):
+        sheet["supports_vision"] = vision
+    return sheet
+
+
+def takes_images(modalities):
+    """Whether a list of input modalities holds "image", or None when the catalogue gives no such list."""
+    if not isinstance(modalities, list) or not modalities:
+        return None
+    return "image" in modalities
+
+
+def record_sheet(catalogue, identifiers, sheet):
+    if sheet:
+        for identifier in identifiers:
+            catalogue["sheets"][identifier] = sheet
+
+
+def gateway_sheet(model):
+    """The sheet of an OpenRouter-shaped model, which Kilo Gateway's list has too: the context window, the longest
+    completion of the top provider and the input modalities of the architecture."""
+    top = model.get("top_provider") if isinstance(model.get("top_provider"), dict) else {}
+    architecture = model.get("architecture") if isinstance(model.get("architecture"), dict) else {}
+    return sheet_of(model.get("context_length"), top.get("max_completion_tokens"),
+                    takes_images(architecture.get("input_modalities")))
 
 
 # What a model that is not text-only is, by an output modality it lists: the first of these it holds.
@@ -1580,6 +1657,7 @@ def read_openrouter(pages):
     for model in listed(pages[0]):
         identifier = model["id"]
         catalogue["members"].add(identifier)
+        record_sheet(catalogue, (identifier,), gateway_sheet(model))
         if model.get("expiration_date"):
             catalogue["notices"][identifier] = {"what": "expiration",
                                                 "date": safe_text(model["expiration_date"])}
@@ -1602,6 +1680,7 @@ def read_kilo(pages):
     for model in models:
         identifier = model["id"]
         catalogue["members"].add(identifier)
+        record_sheet(catalogue, (identifier,), gateway_sheet(model))
         if model.get("isFree") is not True:
             catalogue["notices"][identifier] = {"what": "paid"}
             continue
@@ -1638,6 +1717,8 @@ def read_requesty(pages):
     for model in models:
         identifier = model["id"]
         catalogue["members"].add(identifier)
+        record_sheet(catalogue, (identifier,), sheet_of(model.get("context_window"), model.get("max_output_tokens"),
+                                                         model.get("supports_vision")))
         retires = retirement_date(model.get("retires"))
         if retires:
             catalogue["notices"][identifier] = {"what": "expiration", "date": retires}
@@ -1657,15 +1738,18 @@ def read_aionlabs(pages):
     for model in listed(pages[0]):
         identifier = model["id"]
         catalogue["members"].add(identifier)
+        architecture = model.get("architecture")
+        modality = architecture.get("modality") if isinstance(architecture, dict) else None
+        sides = modality.split("->") if isinstance(modality, str) else []
+        record_sheet(catalogue, (identifier,), sheet_of(
+            model.get("context_length"), model.get("max_completion_tokens"),
+            "image" in sides[0] if len(sides) == 2 else None))
         if model.get("expires_at"):
             replacement = model.get("replacement_model_id")
             catalogue["notices"][identifier] = {
                 "what": "expiration", "date": safe_text(model["expires_at"]),
                 "replacement": safe_text(replacement) if isinstance(replacement, str) and replacement else None}
             continue
-        architecture = model.get("architecture")
-        modality = architecture.get("modality") if isinstance(architecture, dict) else None
-        sides = modality.split("->") if isinstance(modality, str) else []
         if len(sides) == 2 and sides[1].strip() != "text":
             usage = next((usage for kind, usage in MODALITY_USAGES if kind in sides[1]),
                          usage_of_id(identifier, UNCLASSIFIED))
@@ -1702,6 +1786,7 @@ def read_gemini(pages):
                 continue
             identifier = name[len("models/"):] if name.startswith("models/") else name
             catalogue["members"].add(identifier)
+            record_sheet(catalogue, (identifier,), sheet_of(model.get("inputTokenLimit"), model.get("outputTokenLimit")))
             methods = model.get("supportedGenerationMethods")
             methods = methods if isinstance(methods, list) else []
             if "generateContent" in methods:
@@ -1719,6 +1804,7 @@ def read_groq(pages):
     for model in listed(pages[0]):
         identifier = model["id"]
         catalogue["members"].add(identifier)
+        record_sheet(catalogue, (identifier,), sheet_of(model.get("context_window")))
         if model.get("active") is False:
             catalogue["notices"][identifier] = {"what": "inactive"}
         else:
@@ -1738,6 +1824,10 @@ def read_mistral(pages):
         catalogue["members"].add(identifier)
         catalogue["members"].update(aliases)
         catalogue["aliases"].setdefault(identifier, set()).update(aliases)
+        capabilities = model.get("capabilities")
+        capabilities = capabilities if isinstance(capabilities, dict) else {}
+        record_sheet(catalogue, {identifier} | aliases, sheet_of(model.get("max_context_length"), None,
+                                                                  capabilities.get("vision")))
         deprecation = model.get("deprecation")
         if deprecation:
             replacement = model.get("deprecation_replacement_model")
@@ -1746,8 +1836,6 @@ def read_mistral(pages):
             for name in {identifier} | aliases:
                 catalogue["notices"][name] = notice
             continue
-        capabilities = model.get("capabilities")
-        capabilities = capabilities if isinstance(capabilities, dict) else {}
         if not identifier.startswith("ft:"):
             chat = capabilities.get("completion_chat") is True
             offer(catalogue, identifier, model.get("name") or "",
@@ -1761,6 +1849,25 @@ def read_plain(pages):
     for model in listed(pages[0]):
         catalogue["members"].add(model["id"])
         offer(catalogue, model["id"], usage=usage_of_id(model["id"]))
+    return catalogue
+
+
+def read_deepseek(pages):
+    """DeepSeek: the plain list, and its sheet: "context_window", "max_output_tokens" and the "input_modalities"."""
+    catalogue = read_plain(pages)
+    for model in listed(pages[0]):
+        record_sheet(catalogue, (model["id"],), sheet_of(model.get("context_window"), model.get("max_output_tokens"),
+                                                          takes_images(model.get("input_modalities"))))
+    return catalogue
+
+
+def read_ovhcloud(pages):
+    """OVHcloud: the plain list, and its sheet: "context_length" and "max_completion_tokens", which are 0 for a
+    model it does not give them for, and say nothing of images."""
+    catalogue = read_plain(pages)
+    for model in listed(pages[0]):
+        record_sheet(catalogue, (model["id"],), sheet_of(model.get("context_length"),
+                                                          model.get("max_completion_tokens")))
     return catalogue
 
 
@@ -1800,6 +1907,11 @@ def read_cloudflare(pages):
                 # The same model on two pages is a server that ignored the page asked for.
                 raise FetchError("the pages of the answer repeat a model")
             catalogue["members"].add(name)
+            # A "vision" property is there for a model that takes images; one without it states nothing.
+            vision = cloudflare_property(model, "vision")
+            if isinstance(vision, str):
+                vision = {"true": True, "false": False}.get(vision)
+            record_sheet(catalogue, (name,), sheet_of(cloudflare_property(model, "context_window"), None, vision))
             planned = cloudflare_property(model, "planned_deprecation_date")
             if model.get("deprecated") is True or (isinstance(planned, str) and planned):
                 catalogue["notices"][name] = {"what": "deprecation"}
@@ -1859,7 +1971,7 @@ PROVIDERS = (
     ("mistral", "https://api.mistral.ai/v1/models", "MODEL_DRIFT_MISTRAL_API_KEY", bearer,
      read_mistral, None),
     ("deepseek", "https://api.deepseek.com/models", "MODEL_DRIFT_DEEPSEEK_API_KEY", bearer,
-     read_plain, None),
+     read_deepseek, None),
     # Deprecated models are asked for, which the API lists for three months after their date: a model is
     # then retired when it has left that list, not on the day its date passes.
     ("cloudflare", "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search"
@@ -1870,7 +1982,7 @@ PROVIDERS = (
     # "api_base" names, and lists the same models as its other address. Z AI's and Cent AI's need a key, and
     # their answer is read as the OpenAI-style list they document, which the drift run first read on 2026-11-24.
     ("nvidia", "https://integrate.api.nvidia.com/v1/models", None, None, read_plain, None),
-    ("ovhcloud", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", None, None, read_plain, None),
+    ("ovhcloud", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/models", None, None, read_ovhcloud, None),
     ("requesty", "https://router.eu.requesty.ai/v1/models", None, None, read_requesty, None),
     ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
     ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
@@ -2620,6 +2732,30 @@ def deprecation_conflicts(result):
             if finding["kind"] == "notice" and finding["notice"].get("conflict")]
 
 
+def sheet_differences(template, catalogues):
+    """Where the sheet an active entry declares in its "model_info" differs from what its provider's catalogue states
+    of the model: [{"provider", "id", "name", "field", "declared", "listed"}], in the order of the file. Only a
+    field both sides state is compared, so an entry with no sheet, and a catalogue that is silent on a field, give
+    nothing. This is a report and no finding: nothing in it changes the exit status or what is deleted."""
+    differences = []
+    for entry in template["active"]:
+        attributed = attribute(entry["model"], entry["api_base"])
+        info = entry["item"].get("model_info") if isinstance(entry["item"], dict) else None
+        if not attributed or not isinstance(info, dict) or attributed[0] not in catalogues:
+            continue
+        provider, identifier = attributed
+        stated = catalogues[provider]["sheets"].get(identifier, {})
+        for field in SHEET_FIELDS:
+            if field not in stated or field not in info:
+                continue
+            declared = info[field]
+            # A boolean is never a count: True == 1 in Python, which is no agreement about a window.
+            if declared != stated[field] or isinstance(declared, bool) != isinstance(stated[field], bool):
+                differences.append({"provider": provider, "id": identifier, "name": entry["name"], "field": field,
+                                    "declared": declared, "listed": stated[field]})
+    return differences
+
+
 def run_online(text, environment, opener, today):
     """Read every catalogue and diff it against the file. Returns the result the renderers read."""
     template, problems = read_template(text)
@@ -2689,6 +2825,7 @@ def run_online(text, environment, opener, today):
         catalogues[name] = catalogue
     result["litellm"] = read_litellm_map(opener, today)
     add_litellm_dates(result, template, catalogues, today)
+    result["sheets"] = sheet_differences(template, catalogues)
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
@@ -5342,6 +5479,31 @@ def by_hand_reason(usage):
             % (usage, ", avec `model_info.mode: %s`" % mode if mode else ""))
 
 
+def sheet_value(value):
+    """A sheet's figure as it is written in the file: a count as it is, a flag as YAML spells it."""
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
+def sheets_section(result):
+    """The differences between the sheets of the active entries and their catalogues, in French, for the summary:
+    each entry with the field and both values. Information only: it holds back nothing and fails nothing."""
+    sheets = result.get("sheets") or []
+    if not sheets:
+        return []
+    out = ["## Fiches qui diffèrent du catalogue", "",
+           "Le `model_info` de ces entrées actives (`max_input_tokens`, `max_output_tokens`, `supports_vision`) "
+           "ne dit pas ce que le catalogue de leur fournisseur publie du modèle. Seul un champ que les deux "
+           "donnent est comparé. Rien n'est modifié ni supprimé, et cette section ne fait échouer ni "
+           "l'exécution ni une pull request : une personne vérifie sur la page du fournisseur, puis corrige la "
+           "fiche à la main avec la date de lecture.", ""]
+    return out + capped([
+        "- `%s` (`%s`%s) : `%s` vaut `%s` ici et `%s` au catalogue"
+        % ((difference["name"],) + tuple(part.replace(" on ", " chez ") for part in litellm_id(
+            difference["provider"], difference["id"])) + (difference["field"], sheet_value(difference["declared"]),
+                                                          sheet_value(difference["listed"])))
+        for difference in sheets]) + [""]
+
+
 def removals_of(result, status):
     """[(report, finding)] of the RETIRED and GONE findings a run deleted, or left to a person."""
     return [(report, finding) for report in result["providers"] for finding in report["findings"]
@@ -5461,6 +5623,15 @@ def render_text(result, config_name):
                 line += " (%s)" % ", ".join(str(name) for name in finding["names"])
             out.append(line)
         out.append("")
+    sheets = result.get("sheets") or []
+    if sheets:
+        out.append("SHEET    an active entry's model_info differs from what its provider's catalogue states -- "
+                   "information only, nothing is changed or deleted")
+        out += ["  %s (%s%s): %s: declared here %s, catalogue says %s"
+                % ((difference["name"],) + litellm_id(difference["provider"], difference["id"])
+                   + (difference["field"], sheet_value(difference["declared"]), sheet_value(difference["listed"])))
+                for difference in sheets]
+        out.append("")
     if result["rules"]:
         out.append("RULES    the file breaks the rules the offline mode holds it to")
         out += ["  " + problem for problem in result["rules"]] + [""]
@@ -5470,6 +5641,8 @@ def render_text(result, config_name):
     uncovered = sum(1 for report in result["providers"] if report["status"] == "no key")
     summary = ("%d finding(s), %d provider(s) in error, %d not covered (no key)."
                % (count, errors, uncovered))
+    if sheets:
+        summary += " %d sheet difference(s), which are no finding." % len(sheets)
     if "removals" in result:
         summary += (" %d deletion(s) made, %d left to a person."
                     % (len(removals_of(result, "applied")), len(removals_of(result, "refused"))))
@@ -5867,6 +6040,7 @@ def summary_body(result, config_name, link, snippets):
                                       if finding.get("names") else "")
                        for report, finding in served]) + [""]
 
+    out += sheets_section(result)
     out += proposals_section(result)
     out += ranking_section(result)
     out += contracts_section(result)
