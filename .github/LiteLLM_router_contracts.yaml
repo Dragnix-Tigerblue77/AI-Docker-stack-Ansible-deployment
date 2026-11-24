@@ -200,7 +200,7 @@ code_fallback:
 
 inputs:
   quota:
-    gemini: "Free tier, counted per Google project and per model, not per API key, and the daily quotas reset at midnight Pacific time, per ai.google.dev/gemini-api/docs/rate-limits (read 2026-11-22). The page of the rate limits of Google AI Studio for the gateway's project, free tier, read 2026-11-22, gives requests per minute / tokens per minute / requests per day per model: Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash and Gemini 2.5 Flash 5 / 250K / 20; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite 15 / 250K / 500; Gemini 2.5 Flash-Lite 10 / 250K / 20; Gemma 4 31B and Gemma 4 26B 30 / 16K / 14,400; Gemini Embedding 1 and 2 100 / 30K / 1,000; the text-to-speech models 3 / 10K / 10; Gemini 3.5 Transcribe 3 / 10K / 25; Gemini 3.1 Pro, Gemini 2.5 Pro and Gemini 4 Argon, Neon and Carbon 0, not served on the free tier; Gemini 3.7 Flash is not on that page. Every entry of one model draws on that model's quota: gemini-4-hydrogen, gemini-4-hydrogen-medium, gemini-4-hydrogen-low and gemini-4-hydrogen-xhigh share one 20 requests a day, and so do gemini-3-8-flash and gemini-3-8-flash-low"
+    gemini: "Free tier, counted per Google project and per model, not per API key, and the daily quotas reset at midnight Pacific time, per ai.google.dev/gemini-api/docs/rate-limits (read 2026-11-22). The page of the rate limits of Google AI Studio for the gateway's project, free tier, read 2026-11-22, gives requests per minute / tokens per minute / requests per day per model: Gemini 4 Hydrogen, Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3 Flash and Gemini 2.5 Flash 5 / 250K / 20; Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite 15 / 250K / 500; Gemini 2.5 Flash-Lite 10 / 250K / 20; Gemma 4 31B and Gemma 4 26B 30 / 16K / 14,400; Gemini Embedding 1 and 2 100 / 30K / 1,000; the text-to-speech models 3 / 10K / 10; Gemini 3.5 Transcribe 3 / 10K / 25; Gemini 3.1 Pro, Gemini 2.5 Pro and Gemini 4 Argon, Neon and Carbon 0, not served on the free tier; Gemini 3.7 Flash is not on that page. Every entry of one model draws on that model's quota: gemini-4-hydrogen and gemini-4-hydrogen-low share one 20 requests a day, and so do gemini-3-8-flash and gemini-3-8-flash-low"
     groq: "Free plan, 30 requests and 8K tokens per minute for these models, per console.groq.com/docs/rate-limits as the template quotes it (checked 2026-09-27)"
     mistral: "Paid, a prepaid balance: Free mode no longer includes the API, per docs.mistral.ai/admin/billing-usage/usage-limits (read 2026-11-21); per-model limits only in the account's admin panel"
     deepseek: "No free quota: a prepaid balance, per api-docs.deepseek.com/faq as the template quotes it (checked 2026-09-27)"
@@ -362,16 +362,6 @@ models:
     tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
     epoch:
       cursorbench_external: [gemini-4-hydrogen_low]
-  gemini-4-hydrogen-xhigh:
-    slug: gemini-4-hydrogen
-    level: xhigh
-    level_source: "static reasoning_effort xhigh in the template, which LiteLLM sends to Google as the thinking level (run locally 2026-11-22); in no cascade, called by name only, at the level gemini-4-hydrogen runs at too"
-    eci: "Gemini 4 Hydrogen"
-    note: "Artificial Analysis's record of the Xhigh level carries the bare slug of the model"
-    tools: {support: "yes", source: "ai.google.dev/gemini-api/docs/models/gemini-4-hydrogen, read 2026-11-21: function calling supported"}
-    epoch:
-      cursorbench_external: [gemini-4-hydrogen_xhigh]
-      ale_bench_external: [gemini-4-hydrogen_xhigh]
   gemini-3-8-flash:
     slug: gemini-3-8-flash-medium
     level: high

@@ -1799,8 +1799,6 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 # reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
 # unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
 LITELLM_CALLED_BY_NAME = {
-    "gemini-4-hydrogen-xhigh": "the highest reasoning level of its model, too slow for any router, kept for whoever "
-                               "asks for it by name",
     "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
                              "vision-capable models: no router takes images, so it is kept for whoever asks for it "
                              "by name, and untried",
@@ -2958,9 +2956,9 @@ LITELLM_CONFIG_CASES = [
      _data_group_fault(_omniroute_document(), ["LLM", "Private-Data"]), set(), "of the data group 'Public-Data-Only'"),
     ("an entry in no cascade and behind no alias", _with_extra_entry("orphan"), {"Mistral"},
      "'orphan' is in no cascade and behind no alias"),
-    ("an entry declared called by name, in no cascade", _with_extra_entry("gemini-4-hydrogen-xhigh"), {"Mistral"}, None),
+    ("an entry declared called by name, in no cascade", _with_extra_entry("omniroute-free-vision"), {"Mistral"}, None),
     ("an embedding entry in no cascade", _with_extra_entry("an-embedding", "embedding"), {"Mistral"}, None),
-    ("an entry declared called by name that a cascade reaches", _with_extra_entry("gemini-4-hydrogen-xhigh", cascaded=True),
+    ("an entry declared called by name that a cascade reaches", _with_extra_entry("omniroute-free-vision", cascaded=True),
      {"Mistral"}, "declared as called by name and a cascade or an alias reaches it"),
     ("an entry of a mode with a router in no cascade", _with_extra_entry("a-decision", "evaluation"), {"Mistral"},
      "'a-decision' is in no cascade and behind no alias"),

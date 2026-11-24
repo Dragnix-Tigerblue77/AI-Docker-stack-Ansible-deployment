@@ -82,7 +82,7 @@ Gemini 3.7 Flash ne figure pas du tout dans la liste de la page de Google : son 
 
 Ce que ça change, en clair :
 
-- **Quand le compteur est celui d'un modèle**, toutes les entrées de ce modèle chez ce fournisseur le partagent, quel que soit leur niveau de réflexion. Par exemple, les têtes de `Auto-Pro` et de `Auto-Flash` n'ont que 20 requêtes par jour : `gemini-4-hydrogen`, `gemini-4-hydrogen-low` et `gemini-4-hydrogen-xhigh` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. L'entrée `gemini-4-hydrogen-xhigh` dépense donc les 20 requêtes du jour de la tête de `Auto-Pro` et de `Auto-Flash`. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `Auto-Flash-Lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
+- **Quand le compteur est celui d'un modèle**, toutes les entrées de ce modèle chez ce fournisseur le partagent, quel que soit leur niveau de réflexion. Par exemple, les têtes de `Auto-Pro` et de `Auto-Flash` n'ont que 20 requêtes par jour : `gemini-4-hydrogen` et `gemini-4-hydrogen-low` puisent dans les mêmes 20, et `gemini-3-8-flash` et `gemini-3-8-flash-low` dans les mêmes 20 aussi. Les deux Flash-Lite ont 500 requêtes par jour chacun : c'est pourquoi ils ouvrent `Auto-Flash-Lite` et pourquoi les entrées Hydrogen et 3.8 Flash y sont en dernier.
 - **Quand le compteur est celui d'un compte ou d'une adresse IP**, toutes les entrées du fournisseur le partagent, quel que soit le modèle : une fois épuisé, chacune répond par un refus, et la cascade passe au membre suivant.
 
 ## Les routeurs
@@ -295,10 +295,9 @@ Aucune cascade, aucun alias : on les appelle par leur nom, et elles n'ont pas de
 
 | Rang | Entrée | Fournisseur | Facturation | Niveau | Indice | Délai | Raison |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `gemini-4-hydrogen-xhigh` | Google AI Studio | à la requête, quota par modèle | `xhigh` | 53,9 | 47,4 s | niveau le plus haut de Gemini 4 Hydrogen, celui où les routeurs l'appellent aussi désormais : même modèle, même niveau, mêmes attentes (180 s, 240 s sans flux) et mêmes 20 requêtes par jour que `gemini-4-hydrogen`, sur lequel il se replie ; c'est un doublon (point ouvert) |
-| 2 | `omniroute-free-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la catégorie `vision` d'OmniRoute : un filtre qui ne garde, parmi les fournisseurs qu'il a connectés, que les modèles capables de lire une image ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
-| 3 | `omniroute-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/vision` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
-| 4 | `omniroute-multimodal` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/multimodal` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 1 | `omniroute-free-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la catégorie `vision` d'OmniRoute : un filtre qui ne garde, parmi les fournisseurs qu'il a connectés, que les modèles capables de lire une image ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 2 | `omniroute-vision` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/vision` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
+| 3 | `omniroute-multimodal` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | la route `auto/multimodal` d'OmniRoute, des modèles capables de lire une image, aux poids équilibrés ; aucun routeur ne prend d'images, d'où l'appel par le nom ; jamais appelée pour de bon |
 
 ## Ce qui a été regardé et n'a pas été créé
 
@@ -318,7 +317,7 @@ Des niveaux que la règle demanderait, mais qu'on ne peut pas fixer aujourd'hui.
 1. **`kimi-k3-1-pro-nvidia` dans `Auto-Pro` et `Auto-Flash`.** Son indice (46,5) est le deuxième de `Auto-Pro`, mais il met 155 s en moyenne avant son premier mot, au-delà des 90 s de patience du routeur (médiane de 71 s). L'ordre des contrats, au niveau gardé, le mettrait en tête de `Auto-Flash` ; il n'a pas été appliqué. Il garde la deuxième place du gabarit dans `Auto-Pro` et dans `Auto-Flash`, et la décision est à prendre : le descendre, ou le garder.
 2. **Les niveaux fixés ne sont que des valeurs par défaut.** Tout client qui envoie son propre niveau l'emporte, et Claude Code en envoie toujours un : `Auto-Claude-Code` ne tient donc pas le niveau que garde son contrat.
 3. **Les niveaux montés sans chiffre.** `particle-1-free` (`xhigh`), `particle-1-kilo` (`max`) et les deux Nemotron de Requesty (`max`) n'ont aucun délai mesuré à ce niveau : ils gardent l'attente du routeur, et un niveau trop lent serait abandonné et passerait au suivant.
-4. **Les 20 requêtes par jour de Hydrogen et de 3.8 Flash.** Les têtes de `Auto-Pro` et de `Auto-Flash` s'épuisent vite, `gemini-4-hydrogen-xhigh` dépense les mêmes : la cascade passe alors au membre suivant. Comme les routeurs appellent maintenant Hydrogen en `xhigh`, `gemini-4-hydrogen-xhigh` est un doublon de `gemini-4-hydrogen` : le supprimer est une décision à prendre.
+4. **Les 20 requêtes par jour de Hydrogen et de 3.8 Flash.** Les têtes de `Auto-Pro` et de `Auto-Flash` s'épuisent vite : la cascade passe alors au membre suivant.
 5. **Dans `Auto-Flash-Lite`, les membres sans chiffres passent avant `gemini-3-8-flash-low`**, parce que la règle veut que les membres à quota partagé viennent après tous ceux qui ont un quota à eux, même ceux dont les chiffres ne s'appliquent pas. À revoir si on préfère que Gemini 3.8 Flash, à 5,1 s, passe devant des modèles de 34 s ou sans chiffre.
 6. **Le payant `ministral-3b` précède `omniroute-free-fast`** dans `Auto-Flash-Lite`, comme les payants précèdent l'entrée locale dans `Auto-Pro` et `Auto-Flash` : le contrat les déclare en dernier recours, dans cet ordre.
 

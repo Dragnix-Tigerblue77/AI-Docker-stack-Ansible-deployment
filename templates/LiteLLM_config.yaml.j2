@@ -169,25 +169,6 @@ model_list:
       rpd: 20
       reasoning_effort: low
 
-  # In no cascade at all, reachable only when asked for by name. It was the one entry at the highest level; since
-  # "gemini-4-hydrogen" runs at that level too, it is the same model at the same level under a second name, with
-  # the same timeouts and the same 20 requests a day, and it gives way to "gemini-4-hydrogen" when it fails.
-  - model_name: gemini-4-hydrogen-xhigh
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1048576
-      max_output_tokens: 65536
-      supports_vision: true
-    litellm_params:
-      model: gemini/gemini-4-hydrogen
-      api_key: "os.environ/GEMINI_API_KEY"
-      rpm: 5
-      tpm: 250000
-      rpd: 20
-      reasoning_effort: xhigh
-      stream_timeout: 180
-      timeout: 240
-
   # GA 2026-09-02 per "ai.google.dev/gemini-api/docs/changelog", checked 2026-09-27 (this line said
   # 2026-09-13 until then). "ai.google.dev/gemini-api/docs/latest-model": "our most intelligent Flash
   # model, engineered for long-horizon software engineering, autonomous agents, and complex
@@ -2917,14 +2898,6 @@ router_settings:
         - aion-3-0-mini-aion-labs
         - aion-2-0-aion-labs
         - aion-rp-llama-3-1-8b-aion-labs
-{% endif %}
-
-    # 11. HIGHER-EFFORT ENTRIES -- in no router and behind no alias, called by name. When one fails or is given up
-    # the request goes to the same model under the name the routers use, and no further: whoever asked for that
-    # model wants that model. The routers now run Hydrogen at this entry's level too (see its entry).
-{% if has.Gemini %}
-    - gemini-4-hydrogen-xhigh:
-        - gemini-4-hydrogen
 {% endif %}
 
   # Transparent alias mappings.
