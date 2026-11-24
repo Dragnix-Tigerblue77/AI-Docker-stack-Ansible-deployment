@@ -69,10 +69,10 @@
 # The level an entry is CALLED at is no longer the one "level_gain" keeps, which stays a report of what
 # each router would keep. Since 2026-11-24 the maintainer sets it by how the provider counts its free tier:
 # the highest level the model takes where requests are counted (Gemini, OpenRouter, Kilo, Requesty), since
-# thinking more then costs time only; "low" where tokens are counted (Groq, Aion Labs), since thinking
-# empties the quota; none on a paid provider (Mistral, DeepSeek direct). "flash-lite" is ranked on time,
-# so a model it shares with another router has one entry per level, named "<entry>-<level>", and an entry
-# it holds is never raised. A level is set only where the values the model takes are known, and
+# thinking more then costs time only; none where tokens are counted (Groq, Aion Labs, Cloudflare), since
+# thinking empties the quota and the model keeps the balance its maker chose, and none on a paid provider
+# (Mistral, DeepSeek direct). "flash-lite" is ranked on time, so a model it shares with another router has
+# one entry per level, named "<entry>-<level>", and an entry it holds is never raised. A level is set only where the values the model takes are known, and
 # "check_compose_template.py" holds each to them: LiteLLM forwards none to NVIDIA, Cloudflare and Z AI,
 # and no page gives them for OVHcloud's or Cent AI's models, so those keep the provider's default. A
 # static level is only a DEFAULT: an effort a client sends replaces it, and Claude Code always sends one.
@@ -527,10 +527,10 @@ models:
     epoch: unknown
   gpt-oss-120b-groq:
     slug: gpt-oss-120b
-    level: low
-    level_source: "static reasoning_effort low in the template, the lowest of the levels console.groq.com/docs/reasoning (read 2026-11-24) gives openai/gpt-oss-120b, Groq counting tokens"
+    level: medium
+    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-120b"
     eci: "gpt-oss-120b"
-    note: "Artificial Analysis ranks it at Low and High only; the level picks the Low record"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       terminalbench_external: [gpt-oss-120b, gpt-oss-120b_unknown]
@@ -538,10 +538,10 @@ models:
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
   gpt-oss-20b-groq:
     slug: gpt-oss-20b
-    level: low
-    level_source: "static reasoning_effort low in the template, the lowest of the levels console.groq.com/docs/reasoning (read 2026-11-24) gives openai/gpt-oss-20b, Groq counting tokens"
+    level: medium
+    level_source: "console.groq.com/docs/api-reference, read 2026-11-21: reasoning_effort 'medium' is the default of openai/gpt-oss-20b"
     eci: "gpt-oss-20b"
-    note: "Artificial Analysis ranks it at Low and High only; the level picks the Low record"
+    note: "Artificial Analysis ranks it at Low and High only, the record kept is High"
     tools: {support: "yes", source: "LiteLLM model map, supports_function_calling"}
     epoch:
       terminalbench_external: [gpt-oss-20b, gpt-oss-20b_unknown]

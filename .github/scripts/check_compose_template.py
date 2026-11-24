@@ -1845,6 +1845,8 @@ def positive_int(value):
 # immediate 400: the entry is then never used, and the cascade moves on without a word. So an entry that sets
 # a level must find its model here and the level among its values. A model with no values says why: an entry
 # of it sets none. The paid providers' models are left out on purpose, since a level is never forced on them.
+# The models of the providers that count tokens (Groq, Aion Labs, Cloudflare) stay: no entry sets a level there,
+# but the rows say what the models take, for whoever sets one by hand.
 # Each set is what the provider's own page gives, cut to what LiteLLM forwards unchanged (its source, read
 # 2026-11-24): for Gemini 3 and later it sends the level as Google's thinking level, "xhigh" only for a model
 # its map flags for it, and "minimal" as "low" for a model its map refuses it for; for an older Gemini or a

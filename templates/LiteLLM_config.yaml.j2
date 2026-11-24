@@ -123,9 +123,10 @@ model_list:
   # gateway's project, 500 for each Flash-Lite, which the "inputs" of the router contracts give in full.
   #
   # The level an entry sets follows how its provider counts the free tier: the highest level the model accepts
-  # where requests are counted, as Google counts them, since thinking longer then costs time only; "low" where
-  # tokens are counted; none on a paid provider. "Auto-Flash-Lite" is ranked on time, so a model it shares with
-  # another router has one entry per level, named "<entry>-<level>", the unsuffixed name carrying the highest.
+  # where requests are counted, as Google counts them, since thinking longer then costs time only; none where
+  # tokens are counted or on a paid provider, which keeps the model's own default. "Auto-Flash-Lite" is ranked
+  # on time, so a model it shares with another router has one entry per level, named "<entry>-<level>", the
+  # unsuffixed name carrying the highest.
   # "check_compose_template.py" holds each level to the values its model accepts, and "ROUTAGE.md" says where
   # each entry stands. A static level is only a DEFAULT: a client that sends an effort replaces it, and Claude
   # Code always sends one. The entries of one model draw on the same quota, which is why "Auto-Flash-Lite",
@@ -644,9 +645,9 @@ model_list:
   # read the same day). "check_compose_template.py" refuses a text entry of Groq without one.
   # #2 names this exact identifier as Groq's own designated replacement for the retired
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
-  # Groq counts tokens, and thinking spends them, so the two gpt-oss entries think at "low", the lowest of the
-  # "low", "medium" and "high" that "console.groq.com/docs/reasoning" (read 2026-11-24) gives them, where
-  # Groq's default is "medium".
+  # Groq counts tokens, and thinking spends them, so no level is set on the two gpt-oss entries: the model keeps
+  # the balance its maker chose, which Groq's default is ("console.groq.com/docs/reasoning", read 2026-11-24:
+  # "medium").
   - model_name: gpt-oss-120b-groq
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
@@ -661,7 +662,6 @@ model_list:
       tpm: 8000
       rpd: 1000
       tpd: 200000
-      reasoning_effort: low
 
   - model_name: gpt-oss-20b-groq
     model_info:
@@ -677,7 +677,6 @@ model_list:
       tpm: 8000
       rpd: 1000
       tpd: 200000
-      reasoning_effort: low
 
   # Groq's designated successor to "qwen/qwen3.6-27b" (retired 2026-09-14), and so its replacement in the
   # flash-lite cascade (#169). Verified 2026-09-27 against Groq's own pages rather than assumed from
@@ -1074,9 +1073,10 @@ model_list:
   # "chat_template_kwargs" turning thinking off, it answered in 2,547, 1,770 and 2,616 tokens over 109, 81 and
   # 85 seconds, every time with a reasoning field, so no setting shortens it and its default time to answer is
   # past the gateway's limit on a hard question. LiteLLM's "cloudflare/" provider forwards a "reasoning_effort"
-  # only when an entry names it in "allowed_openai_params" (its source, read 2026-11-24). The two gpt-oss entries
-  # do, at "low", since the neurons are spent per token: through the gateway on 2026-11-24, "low" gave 42 and 60
-  # tokens where the default gave 135 and 143.
+  # only when an entry names it in "allowed_openai_params" (its source, read 2026-11-24), and no entry does: the
+  # neurons are spent per token, but the model keeps the balance its maker chose. Through the gateway on
+  # 2026-11-24, gpt-oss-120b and gpt-oss-20b gave 42 and 60 tokens at "low", 135 and 143 by default and 280 and
+  # 262 at "high", which is what a level would have changed.
   # ============================================================================
   # Second source of "gpt-oss-120b-groq", right behind it in "Auto-Flash": the same weights through an allowance
   # of their own. LiteLLM's model map gives 128,000 tokens and function calling, which its page repeats
@@ -1090,9 +1090,6 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
       max_tokens: 32768
-      # "low", Cloudflare counting neurons; LiteLLM forwards a level to Cloudflare only when it is named here.
-      reasoning_effort: low
-      allowed_openai_params: ["reasoning_effort"]
 
   # Second source of "gpt-oss-20b-groq", right behind it in "Auto-Flash-Lite", for the same reason. 128,000 tokens
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
@@ -1105,9 +1102,6 @@ model_list:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
       max_tokens: 32768
-      # "low", Cloudflare counting neurons; LiteLLM forwards a level to Cloudflare only when it is named here.
-      reasoning_effort: low
-      allowed_openai_params: ["reasoning_effort"]
 
   # Third source of Gemma 4 26B in "Auto-Flash-Lite", right behind the two others ("gemma-4-26b-gemini", then
   # "gemma-4-26b-free"). 256,000 tokens and function calling in LiteLLM's model map and on its page (read
@@ -2183,9 +2177,8 @@ model_list:
   # to train models. The models are listed at a price, and any credit top-up moves the account to a tier with no daily
   # token limit, where calls are billed at those prices: give the account none.
   #
-  # Tokens are counted, and thinking spends them, so each model that reasons thinks at "low", which the catalogue
-  # above lists among its "reasoning_effort.levels" (read 2026-11-24) and LiteLLM sends unchanged. The Llama
-  # variant does not reason and sets none.
+  # Tokens are counted, and thinking spends them, so no entry sets a level: each model keeps the balance its
+  # maker chose, the provider's default.
   # ============================================================================
   # The newest and largest first, which is the order of "Auto-Fiction". A multi-model system of the GLM family,
   # 262,144 tokens of context. No figure is read for any of these models, so none places them: the contracts of the
@@ -2200,7 +2193,6 @@ model_list:
       model: openai/aion-labs/aion-3.5
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
-      reasoning_effort: low
 
   # Its smaller sibling, also of the GLM family, with the same 262,144 tokens of context.
   - model_name: aion-3-5-mini-aion-labs
@@ -2213,7 +2205,6 @@ model_list:
       model: openai/aion-labs/aion-3.5-mini
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
-      reasoning_effort: low
 
   # The generation before, of the GLM family, with 131,072 tokens of context.
   - model_name: aion-3-0-aion-labs
@@ -2226,7 +2217,6 @@ model_list:
       model: openai/aion-labs/aion-3.0
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
-      reasoning_effort: low
 
   # Of the DeepSeek family, with 131,072 tokens of context.
   - model_name: aion-3-0-mini-aion-labs
@@ -2239,7 +2229,6 @@ model_list:
       model: openai/aion-labs/aion-3.0-mini
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
-      reasoning_effort: low
 
   # A variant of DeepSeek V3.2, with 131,072 tokens of context.
   - model_name: aion-2-0-aion-labs
@@ -2252,7 +2241,6 @@ model_list:
       model: openai/aion-labs/aion-2.0
       api_base: "https://api.aionlabs.ai/v1"
       api_key: "os.environ/AION_LABS_API_KEY"
-      reasoning_effort: low
 
   # A variant of Llama 3.1 8B, the only one of the six that neither reasons nor takes tool calls, with 32,768 tokens
   # of context.

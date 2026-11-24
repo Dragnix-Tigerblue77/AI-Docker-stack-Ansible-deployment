@@ -750,10 +750,11 @@ donc LibreChat les propose toujours. À connaître :
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
 - Le **niveau de réflexion** qu'une entrée fixe (`reasoning_effort`) suit la façon dont son fournisseur compte la
   gratuité : le plus haut que le modèle accepte là où l'on compte des requêtes (réfléchir ne coûte que du temps),
-  `low` là où l'on compte des jetons, aucun chez un fournisseur payant ; une entrée de `Auto-Flash-Lite`, classé sur le
-  délai, n'est jamais montée. Un niveau n'est fixé que là où l'on sait quelles valeurs le modèle accepte, et
-  `check_compose_template.py` le tient à ces valeurs, modèle par modèle ; une entrée plus lente que l'attente du
-  routeur a la sienne. Un client qui envoie son niveau l'emporte. `ROUTAGE.md` dit le niveau de chaque entrée.
+  aucun là où l'on compte des jetons ni chez un fournisseur payant, le modèle gardant alors l'équilibre choisi par son
+  concepteur, le défaut du fournisseur ; une entrée de `Auto-Flash-Lite`, classé sur le délai, n'est jamais montée.
+  Un niveau n'est fixé que là où l'on sait quelles valeurs le modèle accepte, et `check_compose_template.py` le tient
+  à ces valeurs, modèle par modèle ; une entrée plus lente que l'attente du routeur a la sienne. Un client qui envoie
+  son niveau l'emporte. `ROUTAGE.md` dit le niveau de chaque entrée.
 - Un routeur n'a qu'**un nom**, celui que tape un client (`Auto-Pro`, `Auto-Flash`...), et sa cascade est écrite sous ce nom : LiteLLM cherche les replis sous le nom qui a été demandé, donc un nom sans cascade ne retomberait sur rien quand la tête échoue. Deux noms pour un routeur seraient deux cascades à tenir au même niveau et un client qui choisit au hasard entre les deux : les anciens noms (`pro`, `flash`, `auto`, `auto-fast`, `auto-pro`...) n'existent plus, et `check_compose_template.py` refuse un routeur publié sous un autre nom que le sien.
 - `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
