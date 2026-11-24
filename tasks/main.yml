@@ -818,16 +818,21 @@
 # covers the case where it exits meanwhile.
 #
 # The master key authenticates the calls and is never what the agent holds. The allow-list is the
-# model alias the agent asks for and the routers it may also be told to use (#307), nothing else, which
-# is what keeps it away from every other account's quota. The alias comes first and a router that is
-# listed twice is written once.
+# model alias the agent asks for, the routers it may also be told to use and "Claude-Code", the
+# access group of the members of the alias's cascade: LiteLLM checks the calling key before each
+# fallback and skips a member the key does not allow, so a key holding the routers' names alone
+# reaches the head of each cascade and nothing behind it. The group holds the models that take strict
+# tool calls on enough context and no other, so a router the agent asks for by name keeps its head and
+# falls back only to models the agent can drive. The alias comes first and a name listed twice is
+# written once.
 #
 # Idempotent by LOOKING FIRST rather than by trusting "/key/generate" on a repeat: "/key/info" answers
 # 404 for a key it has never seen and 200 for one it has, and it takes the key's SHA-256 (what LiteLLM
 # stores) so that the secret stays out of the URL. A key LiteLLM reports as "deleted" is registered
-# again. The role creates the key and does not reconcile one that exists: an existing key keeps the
-# models it was created with. Rotating it means deleting the old key from "/ui" first -- its alias is
-# unique, so "/key/generate" would refuse the new one while the old stays -- and then deploying.
+# again. A key that exists with another list is brought to this one through "/key/update", which takes
+# the same SHA-256, and a run that finds it level changes nothing. Rotating the key means deleting the
+# old one from "/ui" first -- its alias is unique, so "/key/generate" would refuse the new one while the
+# old stays -- and then deploying.
 #
 # Skipped in "--check": the stack is only rendered then, and there is no LiteLLM to ask.
 #
@@ -838,6 +843,10 @@
   when:
     - Artificial_Intelligence_Claude_code_enabled
     - not ansible_check_mode
+  vars:
+    Artificial_Intelligence_Claude_code_key_models: >-
+      {{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models + ['Claude-Code'])
+      | unique | list }}
   block:
     - name: "Look up the Claude Code agent's LiteLLM virtual key"
       ansible.builtin.uri:
@@ -849,6 +858,26 @@
       no_log: true
       changed_when: false
 
+    - name: "Bring the models of the Claude Code agent's LiteLLM virtual key to its list"
+      ansible.builtin.uri:
+        url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/update"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ Artificial_Intelligence_LiteLLM_master_key }}"
+        body_format: json
+        body:
+          key: "{{ Artificial_Intelligence_Claude_code_virtual_key | hash('sha256') }}"
+          models: "{{ Artificial_Intelligence_Claude_code_key_models }}"
+        status_code: [200]
+      no_log: true
+      changed_when: true
+      when:
+        - Artificial_Intelligence_Claude_code_key_lookup.status == 200
+        - Artificial_Intelligence_Claude_code_key_lookup.json.info.status | default('') != 'deleted'
+        - >-
+          (Artificial_Intelligence_Claude_code_key_lookup.json.info.models | default([]) | sort)
+          != (Artificial_Intelligence_Claude_code_key_models | sort)
+
     - name: "Register the Claude Code agent's LiteLLM virtual key where it is missing"
       ansible.builtin.uri:
         url: "{{ Artificial_Intelligence_LiteLLM_admin_API_URL }}/key/generate"
@@ -859,7 +888,7 @@
         body:
           key: "{{ Artificial_Intelligence_Claude_code_virtual_key }}"
           key_alias: "claude_code"
-          models: "{{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models) | unique | list }}"
+          models: "{{ Artificial_Intelligence_Claude_code_key_models }}"
         status_code: [200]
       no_log: true
       changed_when: true

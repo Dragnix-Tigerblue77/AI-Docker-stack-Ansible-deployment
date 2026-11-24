@@ -190,7 +190,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `Auto-Claude-Code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
-| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le rôle ne réconcilie pas une clé qui existe : un changement n'atteint un agent déjà déployé qu'une fois sa clé supprimée depuis `/ui` (voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le groupe `Claude-Code` s'ajoute à la clé quelle que soit cette liste, pour que les cascades fonctionnent : un routeur demandé par son nom garde sa tête, puis ne bascule que sur des modèles de la cascade de l'agent. Le rôle remet à chaque passage la liste d'une clé existante à niveau : un changement atteint un agent déjà déployé au passage suivant (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -669,11 +669,12 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les groupes d'accès : limiter une clé à un type de modèles
 
-Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit dans son `model_info.access_groups` d'après son `model_info.mode`, à une exception près, voulue : les modèles de texte d'Aion Labs ont un groupe à eux, pour qu'aucune clé qui a `LLM` ne les atteigne. Elle est **aussi** dans exactement un des deux groupes de données, écrit après le premier : `["LLM", "Private-Data"]`, `["STT", "Public-Data-Only"]`. LiteLLM accepte une liste libre de groupes, et le second dit ce que le fournisseur fait de ce qu'on lui envoie (voir « Les groupes de données » plus bas).
+Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit dans son `model_info.access_groups` d'après son `model_info.mode`, à une exception près, voulue : les modèles de texte d'Aion Labs ont un groupe à eux, pour qu'aucune clé qui a `LLM` ne les atteigne. Elle est **aussi** dans exactement un des deux groupes de données, écrit après le premier : `["LLM", "Private-Data"]`, `["STT", "Public-Data-Only"]`. LiteLLM accepte une liste libre de groupes, et le second dit ce que le fournisseur fait de ce qu'on lui envoie (voir « Les groupes de données » plus bas). Les membres de la cascade de `Auto-Claude-Code` sont **en plus** dans `Claude-Code`, celui que tient la clé de l'agent, écrit en dernier : `["LLM", "Private-Data", "Claude-Code"]`.
 
 | Groupe | Entrées |
 | --- | --- |
 | `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code` et `Auto-Claude-Code` placent en tête, et l'entrée `Auto` qui choisit entre trois de ces routeurs (voir « Choisir à la place du client : le routeur `Auto` ») |
+| `Claude-Code` | en plus de `LLM`, les membres de la cascade de `Auto-Claude-Code` et eux seuls : les modèles qui acceptent des appels d'outils stricts sur 128 000 jetons de contexte au moins. C'est le groupe de la clé de l'agent (voir « L'agent Claude Code ») |
 | `Fiction` | les six modèles d'Aion Labs, réglés pour le jeu de rôle et la narration, qu'atteint le routeur `Auto-Fiction` et aucun autre (voir « Les modèles de jeu de rôle ») ; **jamais** dans `LLM` |
 | `STT` | les modèles de transcription (`audio_transcription`) |
 | `TTS` | les modèles de synthèse vocale (`audio_speech`) |
@@ -684,7 +685,7 @@ Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit d
 | `Private-Data` | les entrées des fournisseurs auxquels on peut envoyer des données privées, quel que soit leur type (verdict par fournisseur plus bas) |
 | `Public-Data-Only` | toutes les autres : ce que leurs conditions permettent (entraînement, journalisation, relecture humaine, exploitant inconnu, juridiction sans équivalence) ne les rend bonnes que pour des données qu'on accepterait de voir publiées |
 
-En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses deux groupes, et le script de la veille de modèles écrit les entrées qu'il propose dans deux groupes : celui de leur usage (`LLM` pour le texte, `Embeddings`, `TTS`, `STT`, `Decisions`, `Extraction`, `Images`..., ou `Fiction` pour Aion Labs, quel que soit le mode), puis le groupe de données de leur fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme.
+En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses groupes, dans cet ordre (type, données, puis `Claude-Code` pour les seuls membres de la cascade de `Auto-Claude-Code`), et le script de la veille de modèles écrit les entrées qu'il propose dans deux groupes : celui de leur usage (`LLM` pour le texte, `Embeddings`, `TTS`, `STT`, `Decisions`, `Extraction`, `Images`..., ou `Fiction` pour Aion Labs, quel que soit le mode), puis le groupe de données de leur fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme. Il ne place aucun modèle dans la cascade de `Auto-Claude-Code` : qui y ajoute un modèle lui ajoute aussi `Claude-Code`, et le contrôle le refuse sinon.
 
 La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `LLM` et aux routeurs de texte (`Artificial_Intelligence_LibreChat_gateway_key_models`), si bien que LibreChat ne liste pour ce compte que ce qu'il peut appeler : ni transcription, ni voix, ni vecteurs. Les routeurs sont nommés à côté du groupe parce que LiteLLM remplace un groupe par ses membres seulement (lu dans son code) : un routeur est l'alias de la tête de sa cascade et n'est dans aucun groupe, donc une clé limitée à `LLM` seul ne les listerait pas, tout en pouvant les appeler. `Auto` n'est pas un alias mais une entrée du groupe `LLM` : elle est listée avec lui, et n'a donc pas besoin d'être nommée.
 
@@ -756,6 +757,13 @@ donc LibreChat les propose toujours. À connaître :
   (`Artificial_Intelligence_Claude_code_model`).
 - La tête de cascade est atteinte par l'alias, puis listée de nouveau comme premier repli : une tête en échec coûte
   une tentative de plus, une fois par fenêtre de refroidissement (`cooldown_time`).
+- Le **niveau de réflexion** qu'une entrée fixe (`reasoning_effort`) suit la façon dont son fournisseur compte la
+  gratuité : le plus haut que le modèle accepte là où l'on compte des requêtes (réfléchir ne coûte que du temps),
+  aucun là où l'on compte des jetons ni chez un fournisseur payant, le modèle gardant alors l'équilibre choisi par son
+  concepteur, le défaut du fournisseur ; une entrée de `Auto-Flash-Lite`, classé sur le délai, n'est jamais montée.
+  Un niveau n'est fixé que là où l'on sait quelles valeurs le modèle accepte, et `check_compose_template.py` le tient
+  à ces valeurs, modèle par modèle ; une entrée plus lente que l'attente du routeur a la sienne. Un client qui envoie
+  son niveau l'emporte. `ROUTAGE.md` dit le niveau de chaque entrée.
 - Un routeur n'a qu'**un nom**, celui que tape un client (`Auto-Pro`, `Auto-Flash`...), et sa cascade est écrite sous ce nom : LiteLLM cherche les replis sous le nom qui a été demandé, donc un nom sans cascade ne retomberait sur rien quand la tête échoue. Deux noms pour un routeur seraient deux cascades à tenir au même niveau et un client qui choisit au hasard entre les deux : les anciens noms (`pro`, `flash`, `auto`, `auto-fast`, `auto-pro`...) n'existent plus, et `check_compose_template.py` refuse un routeur publié sous un autre nom que le sien.
 - `check_compose_template.py` rend la configuration pour chaque ensemble non vide de clés, et tient chaque
   rendu aux règles ci-dessus ; en particulier, un alias de routeur doit pointer sur le premier membre de sa cascade.
@@ -966,10 +974,9 @@ fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, toutes l
 fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
 de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
-`.github/workflows/LiteLLM_model_drift.yml` la lit chaque jour à 07:17 UTC (8 h 17 à Paris en hiver,
-9 h 17 en été) dans le catalogue des fournisseurs. Chaque jour, pour qu'un modèle qu'un fournisseur
-publie ou retire attende au plus un jour avant qu'une pull request le propose ou le supprime ; à 07:17
-parce que ce n'est pas le haut de l'heure, quand tous les workflows planifiés de GitHub démarrent en
+`.github/workflows/LiteLLM_model_drift.yml` la lit chaque jour à 4 h 17, heure de Paris en hiver comme
+en été, dans le catalogue des fournisseurs. Chaque jour, pour qu'un modèle qu'un fournisseur publie ou
+retire attende au plus un jour avant qu'une pull request le propose ou le supprime ; à 4 h 17 parce que ce n'est pas le haut de l'heure, quand tous les workflows planifiés de GitHub démarrent en
 même temps, et que ce qu'il propose est prêt avant l'usage de la pile (de 17 h à 22 h en semaine, de
 10 h à 22 h le week-end et les jours fériés).
 
@@ -983,12 +990,13 @@ corps trop long --, avec leur entrée à compléter et la raison, dans celle des
 exécution sans pull request pour le porter, cela n'est que dans le résumé.
 
 **Une issue, et pour une seule chose : un catalogue qui reste illisible.** Un catalogue qui ne se lit
-pas (une erreur HTTP, pas de réponse, une réponse illisible) est relu le même jour à 09:17, 11:17 et
-13:17 UTC ; une reprise ne refait le run que si la tentative d'avant n'a pas pu lire un catalogue, et
-se termine sinon en quelques secondes sans rien faire. Si la quatrième tentative ne le lit toujours
+pas (une erreur HTTP, pas de réponse, une réponse illisible) est relu le même jour à 6 h 17 et 8 h 17,
+heure de Paris : trois tentatives en tout. Une reprise ne refait le run que si la tentative d'avant n'a
+pas pu lire un catalogue, et se termine sinon en quelques secondes sans rien faire. Si la troisième
+tentative ne le lit toujours
 pas, le workflow ouvre l'issue « Catalogue de fournisseur illisible pour la liste de modèles LiteLLM »,
 assignée à tigerblue77, ou rouvre la même, avec les fournisseurs, la classe de leur statut HTTP (jamais
-une clé ni une réponse) et l'heure des trois tentatives précédentes ; la première exécution qui lit
+une clé ni une réponse) et l'heure des deux tentatives précédentes ; la première exécution qui lit
 chaque catalogue la ferme. Une clé absente n'est pas un échec de lecture : le résumé dit le fournisseur
 « non couvert ». Une exécution lancée à la main est une seule tentative : elle peut fermer l'issue,
 jamais l'ouvrir. D'une tentative à l'autre, rien n'est gardé que GitHub ne garde déjà : le numéro de la
@@ -1194,7 +1202,7 @@ une lecture qui échoue est signalée et ne change ni le statut du run, ni ce qu
 suivent la forme que documente l'API (aucune clé n'était disponible pour en enregistrer une vraie).
 
 **Où chaque modèle est placé, à quel niveau de réflexion et pourquoi** : `ROUTAGE.md`, à la racine, écrit à la main. Il dit les
-règles en mots simples (le niveau que garde chaque routeur, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
+règles en mots simples (le niveau de réflexion de chaque entrée, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
 règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
 chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
 `check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
@@ -1208,7 +1216,8 @@ qui est celle de `Auto-Code` et de `Auto-Claude-Code`, l'ancre nomme les version
 représentent un modèle (`code_epoch`). Un plancher sur l'indice peut porter une `margin`, en points d'indice (0 si elle
 est omise) : un membre est conforme tant que son chiffre n'est pas plus de la marge sous le plancher, et le rapport dit
 la marge partout où il dit le plancher. Le fichier dit aussi le gain d'indice qu'un niveau de raisonnement de plus doit
-apporter pour valoir qu'on y monte (`min_points_per_second`), la façon d'ordonner les membres, les membres exemptés du
+apporter pour valoir qu'on y monte (`min_points_per_second`, rapporté seulement : le niveau fixé suit la règle de
+facturation dite plus haut), la façon d'ordonner les membres, les membres exemptés du
 plancher à dessein (le « dernier recours »), et, pour chaque entrée du modèle de configuration, l'enregistrement
 d'Artificial Analysis qui la décrit au niveau de raisonnement où elle est appelée, avec la page du fournisseur qui donne
 ce niveau, ou « unknown ». **Il n'y a aucun budget de temps** : le but est d'utiliser au maximum les modèles gratuits,
@@ -1396,7 +1405,7 @@ Ce registre existe pour qu'un fournisseur déjà regardé ne soit pas ré-examin
 | --- | --- | --- | --- |
 | Google Gemini API | Palier gratuit « Standard », modèles Flash et Gemma 4 | Les modèles « Not available » en gratuit (gamme Pro, Gemini 4 Argon) sont commentés, non routés | Routé, tête des cascades |
 | Groq | Palier gratuit | 30 requêtes par minute, 1K par jour, 8K jetons par minute et 200K par jour (gpt-oss, qwen3.8-27b ; page des limites relue le 2026-11-24, dont le texte lu ne sépare pas nettement le palier gratuit du palier Developer : à confirmer sur la page des limites du compte) ; qwen3.8-27b est en préversion. Les jetons de raisonnement comptent dans le quota de jetons (sonde du 2026-11-22 : `reasoning_effort` bas a consommé 8 jetons de raisonnement, haut 562, et `x-ratelimit-remaining-tokens` a baissé d'autant ; la page n'en parle pas) ; une valeur d'effort que Groq ne liste pas peut recevoir un 400 | Routé |
-| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, pour tout le compte, remis à zéro à 00:00 UTC ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. La page des tarifs (relue le 2026-11-24) nomme les modèles à accès payant (Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling) : ils ne s'ouvrent qu'avec l'abonnement Workers Paid (à partir de 5 $ par mois) ou avec des crédits prépayés d'AI Gateway (facturation unifiée, prix par million de jetons sur cette page) ; une carte bancaire seule n'ouvre rien. La voie des crédits est du crédit dépensé, une réserve payante, jamais un palier gratuit. Aucun de ces modèles n'est routé (les pages de GLM-5.3 et d'Inkling 2 Small disent « Paid access required »). EuroLLM 9B (`eurollm-9b-it`) et Apertus v1.5 8B sont écartés : leurs pages ne donnent aucun prix et renvoient à un même formulaire de demande d'accès, fermé le 2026-11-24. Les modèles routés n'y figurent pas et seraient donc gratuits : **déduction, à confirmer sur le compte**. Écarté : nemotron-3-120b (sa page dit « Deprecated 11/20/2026 »). Qwen3.8 27B est routé (`qwen3-8-27b-cloudflare`) mais en repli de ses jumeaux : absent de la table de modèles de LiteLLM le 2026-11-22, il réfléchit en Xhigh par défaut et rien ne l'abaisse (sur une question difficile, `reasoning_effort` bas ou très haut et `enable_thinking` désactivé ont donné chacun 1 770 à 2 616 jetons et 81 à 109 s) | Routé (page relue le 2026-11-22) : deuxième source derrière Groq pour gpt-oss, troisième pour gemma-4-26b, en queue des membres gratuits pour llama-3.3-70b (`Auto-Flash-Lite`) et glm-4.7-flash (`Auto-Code`, `Auto-Claude-Code`) ; les autres entrées Cloudflare du template sont détaillées dans la section dédiée. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas. Lu par le contrôle de dérive (secrets `MODEL_DRIFT_CLOUDFLARE_*`) : un modèle qui a quitté le catalogue est supprimé, un retrait annoncé est signalé |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, pour tout le compte, remis à zéro à 00:00 UTC ; point d'accès compatible OpenAI et fournisseur natif de LiteLLM (préfixe `cloudflare/`) | Texte : 300 requêtes par minute. La page des tarifs (relue le 2026-11-24) nomme les modèles à accès payant (Kimi K2.6 et K2.7, GLM-5.x, DeepSeek V4.x, Inkling) : ils ne s'ouvrent qu'avec l'abonnement Workers Paid (à partir de 5 $ par mois) ou avec des crédits prépayés d'AI Gateway (facturation unifiée, prix par million de jetons sur cette page) ; une carte bancaire seule n'ouvre rien. La voie des crédits est du crédit dépensé, une réserve payante, jamais un palier gratuit. Aucun de ces modèles n'est routé (les pages de GLM-5.3 et d'Inkling 2 Small disent « Paid access required »). EuroLLM 9B (`eurollm-9b-it`) et Apertus v1.5 8B sont écartés : leurs pages ne donnent aucun prix et renvoient à un même formulaire de demande d'accès, fermé le 2026-11-24. Les modèles routés n'y figurent pas et seraient donc gratuits : **déduction, à confirmer sur le compte**. Écarté : nemotron-3-120b (sa page dit « Deprecated 11/20/2026 »). Qwen3.8 27B est routé (`qwen3-8-27b-cloudflare`) mais en repli de ses jumeaux : absent de la table de modèles de LiteLLM le 2026-11-22, il réfléchit en Xhigh par défaut et rien ne l'abaisse (sur une question difficile, `reasoning_effort` bas ou très haut et `enable_thinking` désactivé ont donné chacun 1 770 à 2 616 jetons et 81 à 109 s ; LiteLLM ne transmet pas `reasoning_effort` au fournisseur `cloudflare/`, lu dans son code le 2026-11-24, si bien qu'aucun niveau n'était parti) | Routé (page relue le 2026-11-22) : deuxième source derrière Groq pour gpt-oss, troisième pour gemma-4-26b, en queue des membres gratuits pour llama-3.3-70b (`Auto-Flash-Lite`) et glm-4.7-flash (`Auto-Code`, `Auto-Claude-Code`) ; les autres entrées Cloudflare du template sont détaillées dans la section dédiée. Ne s'entraîne pas sur le contenu client et ne le conserve pas pour l'inférence standard ; un seul compte, en ouvrir un second pour doubler le quota tombe sous la clause contre le contournement des quotas. Lu par le contrôle de dérive (secrets `MODEL_DRIFT_CLOUDFLARE_*`) : un modèle qui a quitté le catalogue est supprimé, un retrait annoncé est signalé |
 | OpenRouter | Trois modèles `:free` au catalogue public des embeddings (`/api/v1/embeddings/models`, lu le 2026-11-24), à tarif 0 en entrée comme en sortie : `nvidia/nemotron-3.5-embed-1b:free` et `nvidia/nemotron-3.5-embed-8b:free` (multilingues, 32 768 jetons, texte et images de pages), `nvidia/nemotron-3-embed-1b:free` (4 096 jetons, texte) ; la route d'embeddings d'OpenRouter existe dans LiteLLM (source lue le 2026-11-24, non essayée) | Les limites des modèles gratuits d'OpenRouter, déjà au registre du texte : 20 requêtes par minute et 50 par jour pour tout le compte, 1 000 par jour une fois 10 crédits achetés, partagées avec les modèles de texte gratuits ; taille du vecteur non lue sur une page | `nemotron-3-embed-1b-free`, `nemotron-3-5-embed-1b-free` et `nemotron-3-5-embed-8b-free` routés par leur nom, avec la clé que le rôle connaît déjà. Chaque page de modèle dit de ne pas envoyer d'information confidentielle ou personnelle à ce point d'accès gratuit, que l'usage est journalisé et qu'NVIDIA collecte et emploie ce qui est envoyé selon ses conditions d'essai : pas pour des documents privés. Le contrôle de dérive retire une entrée que le catalogue ne liste plus, comme toute entrée OpenRouter |
 | Z AI (Zhipu) | GLM-4.7-Flash, GLM-4.5-Flash et GLM-4.6V-Flash gratuits d'après la page « Pricing » (lue le 2026-11-22) ; fournisseur natif de LiteLLM (préfixe `zai/`) | Non publiées hors de la console du compte : **inconnues ici** (une limite d'une requête simultanée, citée par un tiers, n'est **pas vérifiée**). Seul GLM-4.7-Flash est routé ; GLM-4.5-Flash (même compte, même limite, aucun classement) et GLM-4.6V-Flash (vision, absent de la table de LiteLLM) sont écartés | Routé (pages relues le 2026-11-22) : fin des cascades `Auto-Code` et `Auto-Claude-Code`, devant les payants, modèle non mesuré. Les conditions interdisent de partager les clés, et n'ont rien donné sur les passerelles ni sur les comptes multiples ; contenu des clients de l'API non utilisé pour améliorer les services sans accord, non stocké d'après l'accord de traitement, traitement généralement à Singapour. Carte ou téléphone à l'inscription, date d'arrêt des modèles gratuits : aucune page lue n'en parle. Lu par le contrôle de dérive (secret `MODEL_DRIFT_ZAI_API_KEY`) : son catalogue omet les modèles gratuits, donc une entrée active absente est vérifiée sur la page des tarifs de Z AI, puis par un appel d'un jeton, et supprimée sur le code 1211 (voir la section de la dérive) |
 | NVIDIA API Catalog (build) | Inférence « gratuite » d'essai sur les modèles du catalogue, annoncée pour le service et non modèle par modèle ; fournisseur natif de LiteLLM (préfixe `nvidia_nim/`) | 40 requêtes par minute, affichées sur la page du compte (lue le 2026-11-22) ; aucun crédit, plafond quotidien ni date de fin sur une page lue : **inconnus ici** | Routé (pages lues le 2026-11-22), un compte à créer. Conditions d'un service d'essai : « limited trial purposes only and without use ... in production », contenu collecté pour améliorer les produits NVIDIA, modèles d'IA compris, données personnelles interdites. Le mainteneur choisit de s'en servir malgré tout et accepte le risque d'une clé coupée. Clé après vérification par SMS, d'après les forums seulement. Lu par le contrôle de dérive, dont le catalogue est public : un modèle qui a quitté le catalogue est supprimé, un nouveau est proposé à vérifier |
@@ -1427,6 +1436,8 @@ Ce qui suit est écrit une fois ici, et les autres sections de ce document y ren
 
 **Plusieurs projets.** Les limites s'appliquent par projet et non par clé ([rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)), et les conditions générales des API de Google (page « Google APIs Terms of Service », « Last modified: November 9, 2021 », section 2(d)) disent : « You agree to, and will not attempt to circumvent, such limitations documented with each API. » Ouvrir plusieurs projets pour multiplier le quota gratuit d'une même application est ce que cette clause interdit ; des projets séparés pour des environnements séparés ne le sont pas.
 
+Essayé le 2026-11-24 : un second projet, sans facturation, sur le compte qui sert déjà la passerelle, reçoit bien son propre palier gratuit. Ce jour-là, `gemini-3.5-flash-lite`, `gemma-4-26b-a4b-it` et `gemini-embedding-2` y ont répondu, `gemini-3.1-flash-lite` et `gemini-4-hydrogen` ont répondu 503 « high demand », la surcharge que le projet principal voit aussi aux heures chargées. Le mainteneur a décidé le même jour de ne pas s'en servir et a supprimé ce projet : le gain (Gemini 4 Hydrogen à 40 requêtes par jour au lieu de 20) ne vaut pas le risque, que la section 2(d) rend possible, de voir Google couper la clé, le projet ou le compte qui sert la passerelle. Les pages lues ne disent pas si Google applique cette clause, ni comment ; aucun cas publié n'a été cherché.
+
 **Les quotas**, lus le 2026-11-22 dans la page des limites de Google AI Studio pour un projet au niveau sans frais. Ils sont par projet et par modèle, et les quotas quotidiens se remettent à zéro à minuit, heure du Pacifique.
 
 | Modèles | Requêtes par minute | Jetons par minute | Requêtes par jour |
@@ -1442,7 +1453,7 @@ Ce qui suit est écrit une fois ici, et les autres sections de ce document y ren
 | Modèles de l'API Live | aucune limite | 65 K ou 20 K | aucune limite |
 | Gemini 3.1 Pro, 2.5 Pro, Gemini 4 Argon, Neon, Carbon | 0 | 0 | 0 : non servis en gratuit |
 
-**La facturation.** La page de facturation de l'API Gemini (relue le 2026-11-24, [aistudio.google.com/docs/billing](https://aistudio.google.com/docs/billing)) dit que les nouveaux utilisateurs sont par défaut en prépayé (le prépayé étant annoncé obligatoire pour les nouveaux comptes à partir du 2026-03-23) et, à solde nul, « all API keys in all projects linked to that billing account will stop working simultaneously » : les requêtes échouent en 402, et « Your projects aren't automatically downgraded to the Free Tier ». La facturation ne doit donc pas être liée au projet de la clé gratuite : à solde nul, cette clé s'arrêterait au lieu de retomber sur le palier gratuit. Délier la facturation d'un projet le ramène au palier gratuit.
+**La facturation.** La page de facturation de l'API Gemini (relue le 2026-11-24, [aistudio.google.com/docs/billing](https://aistudio.google.com/docs/billing)) dit que les nouveaux utilisateurs sont par défaut en prépayé (le prépayé étant annoncé obligatoire pour les nouveaux comptes à partir du 2026-03-23) et, à solde nul, « all API keys in all projects linked to that billing account will stop working simultaneously » : les requêtes échouent en 402, et « Your projects aren't automatically downgraded to the Free Tier ». La facturation ne doit donc pas être liée au projet de la clé gratuite : à solde nul, cette clé s'arrêterait au lieu de retomber sur le palier gratuit. Délier la facturation d'un projet le ramène au palier gratuit. Essayé le 2026-11-24 sur un projet lié à un compte de facturation prépayé sans crédit : chaque modèle appelé, Gemma et `gemini-embedding-2` compris, répond 402 « Your prepayment credits are depleted ». Une carte ou un compte de facturation n'ajoute donc aucun quota gratuit : il fait passer le projet au niveau payant, dont les limites plus hautes se paient.
 
 Les 20 requêtes par jour de Gemini 4 Hydrogen sont des quotas d'API, par projet. Le chat d'AI Studio sans clé n'y est pas compté : les deux ne se comparent pas.
 
@@ -2091,14 +2102,25 @@ prêt (l'attente décrite plus haut, trois minutes au plus), le rôle demande à
 son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'URL -- puis, si elle est
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour liste blanche l'alias du modèle
-(`Artificial_Intelligence_Claude_code_model`) suivi des routeurs de
-`Artificial_Intelligence_Claude_code_additional_models` : c'est elle qui tient le conteneur à l'écart
-du quota de tous les autres comptes. Les appels s'authentifient avec la clé maîtresse, que l'agent ne
-détient jamais, et leurs tâches sont en `no_log`. Un second passage trouve la clé et ne change rien.
+(`Artificial_Intelligence_Claude_code_model`), les routeurs de
+`Artificial_Intelligence_Claude_code_additional_models` et le groupe `Claude-Code`. Les appels s'authentifient
+avec la clé maîtresse, que l'agent ne détient jamais, et leurs tâches sont en `no_log`.
 
-Ce que cela ne fait pas : le rôle **crée** la clé, il ne **réconcilie** pas une clé qui existe déjà -- elle
-garde les modèles avec lesquels elle a été créée (la liste de `Artificial_Intelligence_Claude_code_additional_models`
-comprise, #307). Et **faire tourner la clé** demande d'abord de supprimer
+**Le groupe `Claude-Code` est ce qui fait fonctionner les cascades.** Avant chaque secours, LiteLLM vérifie que la
+clé qui appelle a le droit d'appeler le modèle suivant, et saute celui qu'elle n'autorise pas (lu dans son code,
+`litellm/router_utils/fallback_event_handlers.py`, pas mesuré sur une passerelle réelle). Une clé limitée aux noms
+des routeurs n'atteint donc que la tête de chaque cascade : quand elle échoue, l'erreur revient à l'agent sans
+qu'aucun autre modèle soit essayé. Le groupe réunit les membres de la cascade de `Auto-Claude-Code`, et eux seuls :
+les modèles qui acceptent des appels d'outils stricts sur 128 000 jetons de contexte au moins, sans lesquels
+l'agent ne peut rien faire. `check_compose_template.py` tient chaque membre de cette cascade dans le groupe, et
+aucune autre entrée. Le groupe `LLM`, que tiennent les clés LibreChat, serait trop large ici : il contient aussi des
+modèles qui ne prennent pas d'outils. Un routeur que l'agent demande par son nom (`/model Auto-Flash`) garde sa
+tête, appelée par le nom du routeur, puis ne bascule que sur des modèles du groupe.
+
+**Le rôle remet la liste de la clé à niveau à chaque passage.** Si la clé existe déjà avec une autre liste, il la
+remplace par `POST /key/update`, qui prend le même SHA-256 ; un passage qui la trouve à niveau ne change rien. Un
+changement de `Artificial_Intelligence_Claude_code_additional_models` atteint donc l'agent au passage suivant,
+sans rien supprimer à la main. **Faire tourner la clé**, en revanche, demande toujours de supprimer
 l'ancienne depuis `/ui` : son alias est unique, `POST /key/generate` refuserait la nouvelle tant que
 l'ancienne existe, et la tâche étant en `no_log`, l'échec n'en dit pas la cause. Le conteneur peut
 démarrer quelques secondes avant que sa clé existe : il n'appelle la passerelle que lorsqu'on s'en sert,
@@ -2107,9 +2129,9 @@ et sa politique de redémarrage (`any`) le relance s'il sort entre-temps. Le rô
 
 Les champs de la requête (`key`, `key_alias`, `models`, le préfixe `sk-` et les 16 caractères minimum, le
 `404` de `/key/info` pour une clé inconnue, le SHA-256 en paramètre) sont lus dans le code de LiteLLM
-v1.106.6 (`litellm/proxy/management_endpoints/key_management_endpoints.py`), pas exécutés contre une
-passerelle vivante. Les valeurs refusées par LiteLLM (`disable_custom_api_keys`, un alias déjà pris) font
-échouer la tâche.
+v1.106.6 (`litellm/proxy/management_endpoints/key_management_endpoints.py`), et le SHA-256 que `/key/update`
+prend comme `key` dans celui de v1.110.2, pas exécutés contre une passerelle vivante. Les valeurs refusées par
+LiteLLM (`disable_custom_api_keys`, un alias déjà pris) font échouer la tâche.
 
 **Le service démarre comme l'image le prévoit.** L'entrée de l'image publiée est `claude` seul, sans
 `CMD`, et le bloc du service ne pose ni `command:`, ni `user:`, ni `working_dir:` : le conteneur lance

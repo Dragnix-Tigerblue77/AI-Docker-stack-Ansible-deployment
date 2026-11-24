@@ -508,8 +508,8 @@ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Claude_code_w
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
 # subscription may ever sit behind it. Every model variable of the agent's container carries it (#287):
-# the key allows this alias and the routers below, so a request under any other model name would be
-# refused.
+# the key allows this alias, the routers below and the models of the alias's cascade, so a request under
+# any other model name would be refused.
 Artificial_Intelligence_Claude_code_model: "Auto-Claude-Code"
 
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias
@@ -519,9 +519,9 @@ Artificial_Intelligence_Claude_code_model: "Auto-Claude-Code"
 # Kilo Gateway and OVHcloud AI Endpoints, so the agent reaches no other account's quota, but their anonymous
 # ones, which the alias does not serve. A router none of whose members has a key or needs none is absent from the gateway and a
 # name that nothing serves is refused there, not here; "check_compose_template.py" keeps this list level
-# with the template's routers. The role creates the key and does not reconcile an
-# existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui". "Auto" is not
-# one of them: its tiers can pick "Auto-Flash-Lite", whose members are not held to the strict tool calls the agent needs.
+# with the template's routers. The role brings an existing key to the list at every run, so a change here
+# reaches a deployed agent by itself. "Auto" is not one of them: its tiers can pick "Auto-Flash-Lite", whose
+# members are not held to the strict tool calls the agent needs.
 Artificial_Intelligence_Claude_code_additional_models:
   - "Auto-Pro"
   - "Auto-Flash"
