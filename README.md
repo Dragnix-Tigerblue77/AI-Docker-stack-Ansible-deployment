@@ -965,10 +965,9 @@ fichier à chaque pull request, en le lisant **rendu** par Jinja2 seul, toutes l
 fournisseur données (il lui faut PyYAML et Jinja2, épinglés dans `requirements.txt`) -- chaque place
 de cascade et chaque alias nomment une entrée active, aucun nom n'est déclaré deux fois, chaque entrée
 commentée dit au-dessus d'elle qu'elle est « not routed », et pourquoi. L'autre moitié,
-`.github/workflows/LiteLLM_model_drift.yml` la lit chaque jour à 07:17 UTC (8 h 17 à Paris en hiver,
-9 h 17 en été) dans le catalogue des fournisseurs. Chaque jour, pour qu'un modèle qu'un fournisseur
-publie ou retire attende au plus un jour avant qu'une pull request le propose ou le supprime ; à 07:17
-parce que ce n'est pas le haut de l'heure, quand tous les workflows planifiés de GitHub démarrent en
+`.github/workflows/LiteLLM_model_drift.yml` la lit chaque jour à 4 h 17, heure de Paris en hiver comme
+en été, dans le catalogue des fournisseurs. Chaque jour, pour qu'un modèle qu'un fournisseur publie ou
+retire attende au plus un jour avant qu'une pull request le propose ou le supprime ; à 4 h 17 parce que ce n'est pas le haut de l'heure, quand tous les workflows planifiés de GitHub démarrent en
 même temps, et que ce qu'il propose est prêt avant l'usage de la pile (de 17 h à 22 h en semaine, de
 10 h à 22 h le week-end et les jours fériés).
 
@@ -982,12 +981,13 @@ corps trop long --, avec leur entrée à compléter et la raison, dans celle des
 exécution sans pull request pour le porter, cela n'est que dans le résumé.
 
 **Une issue, et pour une seule chose : un catalogue qui reste illisible.** Un catalogue qui ne se lit
-pas (une erreur HTTP, pas de réponse, une réponse illisible) est relu le même jour à 09:17, 11:17 et
-13:17 UTC ; une reprise ne refait le run que si la tentative d'avant n'a pas pu lire un catalogue, et
-se termine sinon en quelques secondes sans rien faire. Si la quatrième tentative ne le lit toujours
+pas (une erreur HTTP, pas de réponse, une réponse illisible) est relu le même jour à 6 h 17 et 8 h 17,
+heure de Paris : trois tentatives en tout. Une reprise ne refait le run que si la tentative d'avant n'a
+pas pu lire un catalogue, et se termine sinon en quelques secondes sans rien faire. Si la troisième
+tentative ne le lit toujours
 pas, le workflow ouvre l'issue « Catalogue de fournisseur illisible pour la liste de modèles LiteLLM »,
 assignée à tigerblue77, ou rouvre la même, avec les fournisseurs, la classe de leur statut HTTP (jamais
-une clé ni une réponse) et l'heure des trois tentatives précédentes ; la première exécution qui lit
+une clé ni une réponse) et l'heure des deux tentatives précédentes ; la première exécution qui lit
 chaque catalogue la ferme. Une clé absente n'est pas un échec de lecture : le résumé dit le fournisseur
 « non couvert ». Une exécution lancée à la main est une seule tentative : elle peut fermer l'issue,
 jamais l'ouvrir. D'une tentative à l'autre, rien n'est gardé que GitHub ne garde déjà : le numéro de la

@@ -30,25 +30,26 @@ name: LiteLLM model drift
 # request proposes or deletes it. A retirement is announced weeks ahead (Groq gave four weeks for
 # Compound, announced 2026-08-24 and shut 2026-09-21) but not always where an API carries it, and the
 # run sees a model gone within a day: a cascade one entry shorter for that day, since a refused call
-# only moves the request on. At 07:17 UTC -- 8:17 in Paris in winter, 9:17 in summer -- off the top
-# of the hour, when every scheduled workflow on GitHub starts at once, and ready before the stack is
-# used, from 17:00 to 22:00 on weekdays and from 10:00 to 22:00 at weekends and on holidays.
+# only moves the request on. At 04:17 in Paris, winter and summer alike since the crons name that time
+# zone, off the top of the hour, when every scheduled workflow on GitHub starts at once, and ready
+# before the stack is used, from 17:00 to 22:00 on weekdays and from 10:00 to 22:00 at weekends and on
+# holidays. All three attempts fall on one day in UTC as well, which the gate counts its day in.
 #
-# Three retries, the same day at 09:17, 11:17 and 13:17 UTC, for a catalogue that could not be
+# Two retries, the same day at 06:17 and 08:17 in Paris, for a catalogue that could not be
 # read: a provider's incident, a network error or a rate limit usually passes within hours, and an
 # issue for every one of them would teach a person to ignore the issue. A retry runs the whole
 # pipeline only when the attempt before it ended with a catalogue it could not read (a request that
 # failed, the catalogue of a provider with a key that did not answer); otherwise its "gate" job ends
-# within seconds having done nothing, so a healthy day costs one run and three of a few seconds. The
-# issue is opened, or updated, only by the fourth attempt, when a catalogue is still unreadable: it
+# within seconds having done nothing, so a healthy day costs one run and two of a few seconds. The
+# issue is opened, or updated, only by the third attempt, when a catalogue is still unreadable: it
 # names the providers, the class of each one's HTTP status (never a key, never an answer) and the
-# times of the three attempts before. It is closed by the first run that reads every catalogue. A run
+# times of the two attempts before. It is closed by the first run that reads every catalogue. A run
 # started by hand is one attempt and no chain: it may close the issue, and never opens one, since the
 # person who started it is watching it, and its summary says what it could not read.
 #
 # What carries one attempt to the next is GitHub's own record of the runs, and nothing this workflow
 # writes elsewhere. The attempt is the place of the cron that fired the run ("github.event.schedule")
-# among the four, which no earlier run has to have left behind. What the attempt before ended with is
+# among the three, which no earlier run has to have left behind. What the attempt before ended with is
 # the NAME of an artifact its "read" job uploads, "LiteLLM-model-drift-outcome-read" or
 # "...-unreadable", kept one day: the gate lists the artifacts of the day's earlier scheduled runs
 # with a read-only token and reads no content, so neither a key nor a model's text can travel that
@@ -251,13 +252,15 @@ name: LiteLLM model drift
 # says why hosted runners only.
 
 on:
-  # The first attempt, then the three retries; the gate numbers them in this order, from its
+  # The first attempt, then the two retries; the gate numbers them in this order, from its
   # SCHEDULES, which "check_drift_publish_guard.py" holds equal to this list.
   schedule:
-    - cron: "17 7 * * *"
-    - cron: "17 9 * * *"
-    - cron: "17 11 * * *"
-    - cron: "17 13 * * *"
+    - cron: "17 4 * * *"
+      timezone: "Europe/Paris"
+    - cron: "17 6 * * *"
+      timezone: "Europe/Paris"
+    - cron: "17 8 * * *"
+      timezone: "Europe/Paris"
   workflow_dispatch:
 
 permissions: {}
@@ -281,7 +284,7 @@ jobs:
     outputs:
       # "true" when this attempt reads the catalogues, "false" when it has nothing to do.
       run: ${{ steps.decide.outputs.run }}
-      # The attempt of the day, 1 to 4; 1 for a run started by hand.
+      # The attempt of the day, 1 to 3; 1 for a run started by hand.
       attempt: ${{ steps.decide.outputs.attempt }}
       # "true" for the day's last scheduled attempt, the one that may open the issue.
       last: ${{ steps.decide.outputs.last }}
@@ -294,10 +297,9 @@ jobs:
         env:
           # The crons of "on.schedule", in their order: the place of the one that fired is the attempt.
           SCHEDULES: |
-            17 7 * * *
-            17 9 * * *
-            17 11 * * *
-            17 13 * * *
+            17 4 * * *
+            17 6 * * *
+            17 8 * * *
           # The "read" job names the artifact it uploads this, followed by "read" or "unreadable".
           OUTCOME_PREFIX: LiteLLM-model-drift-outcome-
         with:
