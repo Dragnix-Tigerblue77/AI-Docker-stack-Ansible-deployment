@@ -72,6 +72,10 @@ provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a 
 call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
 otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
 endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
+Every member of a text cascade declares its context window, "model_info.max_input_tokens", which the router's pre-call
+checks hold a request to, and those checks are on; OmniRoute's routes and OpenRouter's free router, which pick a model at
+run time, are exempt, and so is a member whose provider publishes no window, listed with where it was looked for. A
+length an entry sets stays under its declared maximum output and its window.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -1775,6 +1779,24 @@ LITELLM_KEYLESS_BASES = {
     "Kilo": "https://ai-gateway.kilo.ai/api/v1",
     "OVHcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
 }
+# A member of a text cascade declares the context window its provider serves it with, "model_info.max_input_tokens":
+# the router's pre-call checks skip without a call a member a request does not fit, and call blindly one that declares
+# none. The entries that pick their model at run time have no window of their own: OmniRoute's routes and
+# OpenRouter's free router, told apart by their model or their base.
+LITELLM_RUN_TIME_ROUTER_MODELS = ("openrouter/openrouter/",)
+LITELLM_RUN_TIME_ROUTER_BASES = ("http://omniroute:",)
+# The members whose provider publishes no window, each with where it was looked for. A row whose entry is gone is
+# ignored, so that a deletion needs no edit here.
+LITELLM_WINDOW_UNPUBLISHED = {
+    "glm-5-3-flash-nvidia": "NVIDIA's model card is drawn in the browser and its API's model list carries no limit "
+                            "(read 2026-11-24)",
+    "gemma-3-4b-nvidia": "same as glm-5-3-flash-nvidia",
+    "gemma-3-12b-nvidia": "same as glm-5-3-flash-nvidia",
+}
+
+
+def positive_int(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def litellm_key_sets():
@@ -1862,6 +1884,43 @@ def check_litellm_config(document, keys, failures):
                 "type of models reaches the entries of that type and no other, so each entry is in exactly one group, "
                 "and the models kept apart are in the group of their own, which no other entry is in"
             )
+
+    members = {member for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
+               for cascade in item.values() if isinstance(cascade, list) for member in cascade}
+    windows_declared = False
+    for entry in entries:
+        info, parameters = mapping(entry, "model_info"), mapping(entry, "litellm_params")
+        name = entry.get("model_name")
+        if info.get("mode"):
+            continue
+        window, output, vision = info.get("max_input_tokens"), info.get("max_output_tokens"), info.get("supports_vision")
+        windows_declared = windows_declared or window is not None
+        router = (str(parameters.get("model", "")).startswith(LITELLM_RUN_TIME_ROUTER_MODELS)
+                  or str(parameters.get("api_base", "")).startswith(LITELLM_RUN_TIME_ROUTER_BASES))
+        if name in members and not router and name not in LITELLM_WINDOW_UNPUBLISHED and not positive_int(window):
+            failures.append(
+                f"[{state}] the entry {name!r} is a member of a cascade and declares no positive "
+                "model_info.max_input_tokens: the pre-call checks cannot skip it for a request it does not fit, "
+                "so such a request pays a call to learn it. Write the window its provider serves it with, or, if "
+                "the provider publishes none, add the entry to LITELLM_WINDOW_UNPUBLISHED with where it was looked for"
+            )
+        for field, value in (("max_input_tokens", window), ("max_output_tokens", output)):
+            if value is not None and not positive_int(value):
+                failures.append(f"[{state}] the entry {name!r} has model_info.{field} {value!r}, which is no positive "
+                                "integer")
+        if vision is not None and not isinstance(vision, bool):
+            failures.append(f"[{state}] the entry {name!r} has model_info.supports_vision {vision!r}, which is no boolean")
+        length = next((value for value in (parameters.get("max_tokens"), parameters.get("max_completion_tokens"))
+                       if positive_int(value)), None)
+        if length is not None and positive_int(output) and length > output:
+            failures.append(f"[{state}] the entry {name!r} sets a length of {length} tokens above its "
+                            f"model_info.max_output_tokens of {output}: the provider refuses or cuts it")
+        if length is not None and positive_int(window) and length >= window:
+            failures.append(f"[{state}] the entry {name!r} sets a length of {length} tokens, which leaves no room in its "
+                            f"window of {window} for the request")
+    if windows_declared and router_settings.get("enable_pre_call_checks") is not True:
+        failures.append(f"[{state}] entries declare their window and router_settings.enable_pre_call_checks is not "
+                        "true: no request is held to them")
 
     read = set()
     for entry in entries:
@@ -2194,15 +2253,17 @@ LITELLM_VARIABLE_CASES = [
 
 
 def _litellm_document(entries, cascades, aliases):
-    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode"."""
+    """An entry is (name, key), or (name, key, mode) for one that carries a "model_info.mode". A text entry declares a
+    window, as the template's do."""
     return {
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
-             "model_info": {**({"mode": mode[0]} if mode else {}),
+             "model_info": {**({"mode": mode[0]} if mode else {"max_input_tokens": 131072}),
                             "access_groups": [litellm_access_group(mode[0] if mode else None, key)]}}
             for name, key, *mode in entries
         ],
-        "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
+        "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases,
+                            "enable_pre_call_checks": True},
     }
 
 
@@ -2218,9 +2279,28 @@ def _keyless_document(gateway="Kilo", **overrides):
             parameters[key] = value
     return {
         "model_list": [{"model_name": "a-keyless", "litellm_params": parameters,
-                        "model_info": {"access_groups": ["LLM"]}}],
-        "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"}},
+                        "model_info": {"access_groups": ["LLM"], "max_input_tokens": 131072}}],
+        "router_settings": {"fallbacks": [{"flash": ["a-keyless"]}], "model_group_alias": {"flash": "a-keyless"},
+                            "enable_pre_call_checks": True},
     }
+
+
+def _window_document(name="a-member", info=None, parameters=None, in_cascade=True, pre_call=True):
+    """One text entry with a window, in a cascade or not, with `info` and `parameters` merged into its model_info and
+    litellm_params; a value of None drops the key."""
+    model_info = {"access_groups": ["LLM"], "max_input_tokens": 131072}
+    litellm_params = {"model": "x/model", "api_key": "os.environ/ANY_API_KEY"}
+    for target, changes in ((model_info, info or {}), (litellm_params, parameters or {})):
+        for key, value in changes.items():
+            if value is None:
+                target.pop(key, None)
+            else:
+                target[key] = value
+    router_settings = {"fallbacks": [{"flash": [name]}], "model_group_alias": {"flash": name}} if in_cascade else {}
+    if pre_call:
+        router_settings["enable_pre_call_checks"] = True
+    return {"model_list": [{"model_name": name, "litellm_params": litellm_params, "model_info": model_info}],
+            "router_settings": router_settings}
 
 
 def _keyless_member_document(gateway, left_out):
@@ -2551,6 +2631,32 @@ LITELLM_CONFIG_CASES = [
         (f"claude-code holding a member of {gateway} that code holds", _keyless_member_document(gateway, False),
          {"Mistral"}, "have drifted apart"),
     )],
+    ("a member of a cascade with its window", _window_document(), set(), None),
+    ("a member of a cascade with no window", _window_document(info={"max_input_tokens": None}), set(),
+     "declares no positive model_info.max_input_tokens"),
+    ("a member of a cascade whose window is a string", _window_document(info={"max_input_tokens": "131072"}), set(),
+     "declares no positive model_info.max_input_tokens"),
+    ("an entry in no cascade needs no window", _window_document(info={"max_input_tokens": None}, in_cascade=False),
+     set(), None),
+    ("a member whose provider publishes no window, listed",
+     _window_document(name="glm-5-3-flash-nvidia", info={"max_input_tokens": None}), set(), None),
+    ("OpenRouter's free router needs no window",
+     _window_document(info={"max_input_tokens": None}, parameters={"model": "openrouter/openrouter/free"}), set(), None),
+    ("an OmniRoute route needs no window",
+     _window_document(info={"max_input_tokens": None}, parameters={"api_base": "http://omniroute:20128/v1"}), set(),
+     None),
+    ("a length under the maximum output", _window_document(info={"max_output_tokens": 65536},
+                                                           parameters={"max_tokens": 32768}), set(), None),
+    ("a length above the maximum output", _window_document(info={"max_output_tokens": 16384},
+                                                           parameters={"max_completion_tokens": 32768}), set(),
+     "above its model_info.max_output_tokens"),
+    ("a length that fills the window", _window_document(info={"max_input_tokens": 8192},
+                                                        parameters={"max_tokens": 8192}), set(), "leaves no room"),
+    ("a maximum output that is no integer", _window_document(info={"max_output_tokens": 1.5}), set(),
+     "max_output_tokens 1.5, which is no positive integer"),
+    ("an image support that is no boolean", _window_document(info={"supports_vision": "yes"}), set(), "no boolean"),
+    ("windows declared with the pre-call checks off", _window_document(pre_call=False), set(),
+     "enable_pre_call_checks is not true"),
     ("an entry on another base is not held to the keyless shape",
      _keyless_document(api_base="https://api.example.test/v1", extra_headers=None), set(), None),
     ("a transcription router served by its cascade's head",
