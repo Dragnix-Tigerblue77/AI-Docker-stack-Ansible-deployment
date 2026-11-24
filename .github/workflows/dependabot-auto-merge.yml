@@ -55,7 +55,21 @@ name: Dependabot auto-merge
 #     App is configured), and carries one commit, which the Actions bot is the author of in both
 #     cases: the pull request's author widens with the App, the commit's does not. An App only the
 #     repository's administrator can install is what opens it, and nobody else can name it here;
-#   * it changes one file, the model list's template;
+#   * it changes the model list's template, and beside it, in no other way, the two files generated in
+#     the same run: the catalogue of what the gateway serves and the figures file that catalogue shows
+#     (the Artificial Analysis and Epoch AI figures of each entry, which the drift workflow reads online
+#     and the CI cannot). What is allowed of the template is the one thing each kind adds, below. The two
+#     generated files are not held to lines: each is let through for its identity, which must be a file
+#     that exists and is modified, not added, removed or renamed, with at least one changed line and at
+#     most DRIFT_GENERATED_MAX_CHANGES, whatever lines it gains or loses, and the template must be there
+#     with them, never they alone. What they say is proved by the check every pull request runs, which
+#     the last bullet below requires green: it refuses a figures file that is not numbers, within
+#     bounds, for entries of the template, and a catalogue that is not what the template, the contracts
+#     and those figures produce. This is what the gate opens, and it is said here so that nobody reads
+#     it as less: a compromised job that reads the two sites could publish wrong figures, in the
+#     figures file and the catalogue, in a pull request that merges unseen. They steer no routing -- no
+#     cascade, entry or head reads them -- and a person who reads the catalogue reads them as the
+#     figures of the last run. The counts below are of the template's patch alone;
 #   * its body has no "À relire" section. The script lists there what a person has to read (for
 #     the deletions a comment that names a model that is gone, the reason of a group that lost a
 #     member; for the sheets a correction it could not write, and the entries
@@ -71,7 +85,7 @@ name: Dependabot auto-merge
 #
 # What the deletions add:
 #
-#   * it adds no line to the file: a pull request that can only take lines away cannot bring in a
+#   * it adds no line to the template: a pull request that can only take lines away cannot bring in a
 #     model, an address or a key, whatever made it;
 #   * what it takes away is read line by line in the diff, not counted: whole model entries, the
 #     cascade slots that name an entry going in the same diff, comments and blank lines, and
@@ -87,8 +101,8 @@ name: Dependabot auto-merge
 # catalogue needs no judgment, and CI refuses the one thing that would contradict an entry, a length
 # it sets that the new sheet no longer allows:
 #
-#   * every changed line is a sheet line rewritten in place, read in the whole file as it is on main
-#     and as it is on the head, not in the patch alone, which shows too few lines to tell which entry
+#   * every changed line of the template is a sheet line rewritten in place, read in the whole file as it
+#     is on main and as it is on the head, not in the patch alone, which shows too few lines to tell which entry
 #     a line is in: the same number of lines, and on each changed line the same key, indentation,
 #     spacing and trailing comment, a positive whole number or true or false, in the "model_info" of
 #     an entry. Nothing is added, removed or moved. The function that asks it is the "sheet guard" of
@@ -191,8 +205,12 @@ jobs:
           # App is configured. Used only if it is a slug, which is lowercase letters, digits and
           # hyphens; anything else leaves the Actions bot alone.
           MODEL_DRIFT_APP_SLUG: ${{ vars.MODEL_DRIFT_APP_SLUG }}
-          # The one file either changes.
+          # The one model file either changes, and the two files generated from it that either may rewrite
+          # beside it, under a cap on the lines each changes.
           DRIFT_FILE: templates/LiteLLM_config.yaml.j2
+          DRIFT_CATALOG_FILE: docs/CATALOG.md
+          DRIFT_SCORES_FILE: docs/catalog_scores.json
+          DRIFT_GENERATED_MAX_CHANGES: '4000'
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
           # How many sheet values one pull request may rewrite and still merge itself. A catalogue
@@ -457,10 +475,37 @@ jobs:
               const files = await github.paginate(github.rest.pulls.listFiles, {
                 owner, repo, pull_number: pr.number, per_page: 100,
               });
-              const file = files[0];
-              if (files.length !== 1 || file.filename !== process.env.DRIFT_FILE ||
+              // The template is the one file whose lines are read below. Beside it, the catalogue generated
+              // from it and the figures file the catalogue shows are the two files the same run rewrites,
+              // and they are let through for their identity, not their lines: each must be a file that
+              // exists and is changed as text (modified, not added, removed or renamed, and at least one
+              // line of it, so that no binary or mode-only change passes), under a cap, whatever lines it
+              // gains or loses. What they say is held by the check every pull request runs, which this
+              // step has just required green: it refuses a figures file that is not numbers for entries of
+              // the template, and a catalogue that is not what the template, the contracts and those
+              // figures produce. So what a compromised reader could still do through them is put wrong
+              // figures in the catalogue, which steer no routing. Every count and rule below is of the
+              // template's patch alone.
+              const generatedNames = [process.env.DRIFT_CATALOG_FILE, process.env.DRIFT_SCORES_FILE];
+              const generated = files.filter((each) => generatedNames.includes(each.filename));
+              const others = files.filter((each) => !generatedNames.includes(each.filename));
+              const file = others[0] ?? {};
+              if (others.length !== 1 || file.filename !== process.env.DRIFT_FILE ||
                   file.status !== 'modified' || (removals && file.additions !== 0) || !file.patch) {
-                core.notice(`${label} is not ${removals ? 'a deletion of lines from' : 'a rewrite of sheet values in'} ${process.env.DRIFT_FILE} alone. It is waiting for a human.`);
+                core.notice(`${label} is not ${removals ? 'a deletion of lines from' : 'a rewrite of sheet values in'} ${process.env.DRIFT_FILE} alone, beside ${generatedNames.join(' and ')}. It is waiting for a human.`);
+                return;
+              }
+              // A cap that is not a number would let every comparison below pass: refuse to merge
+              // anything, loudly, rather than merge without it.
+              const maxGenerated = Number(process.env.DRIFT_GENERATED_MAX_CHANGES);
+              if (!Number.isInteger(maxGenerated) || maxGenerated < 1) {
+                core.setFailed(`DRIFT_GENERATED_MAX_CHANGES ("${process.env.DRIFT_GENERATED_MAX_CHANGES}") must be a positive whole number: no drift pull request merges until it is.`);
+                return;
+              }
+              const rewritten = generatedNames.map((name) => generated.filter((each) => each.filename === name));
+              if (rewritten.some((same) => same.length > 1 ||
+                  same.some((each) => each.status !== 'modified' || !(each.changes >= 1) || !(each.changes <= maxGenerated)))) {
+                core.notice(`${label} does not rewrite ${generatedNames.join(' and ')} as files that exist, changed as text and under ${maxGenerated} changed lines each. It is waiting for a human.`);
                 return;
               }
               if (removals) {

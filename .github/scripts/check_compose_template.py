@@ -121,7 +121,8 @@ What it deliberately does NOT flag
 Dependencies: ansible-core, which CI installs anyway, and the jinja2 and PyYAML that arrive with it.
 ansible-core itself is imported for one thing: the "to_json" filter the template uses, which plain
 Jinja2 does not have. It is Ansible's own, not an imitation of it, so what this renders is what the
-"template" module writes.
+"template" module writes. It is imported when a template is rendered, not when the file is, so that
+another script can read the tables of this one with Jinja2 and PyYAML alone.
 """
 
 import copy
@@ -132,7 +133,6 @@ from pathlib import Path
 
 import jinja2.meta
 import yaml
-from ansible.plugins.filter.core import to_json
 from jinja2 import Environment, FileSystemLoader, meta
 
 # The sets of keys the routing configuration is rendered for are worked out where the drift check reads the same
@@ -419,6 +419,9 @@ def describe_template_error(error):
 
 def template_environment(**options):
     """A Jinja2 environment carrying the one Ansible filter the template uses, Ansible's own."""
+    # Imported here and not at the top: the tables of this file are read by "generate_catalog.py", which runs in the
+    # job of the drift workflow that has Jinja2 and PyYAML and no ansible-core, and never renders through this.
+    from ansible.plugins.filter.core import to_json
     environment = Environment(**options)
     environment.filters["to_json"] = to_json
     return environment

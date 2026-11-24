@@ -1056,7 +1056,7 @@ supprimer ».
 de ce que le workflow y a écrit, sauf une : `.github/workflows/dependabot-auto-merge.yml`, le même qui
 fusionne les mises à jour de Dependabot, la fusionne quand elle est ouverte par le bot Actions ou par
 l'App du workflow (dont la variable `MODEL_DRIFT_APP_SLUG` donne le nom) et porte un seul commit, celui
-du bot Actions dans les deux cas ; qu'elle ne touche que le modèle de configuration et n'y ajoute aucune ligne ; que les
+du bot Actions dans les deux cas ; qu'elle ne touche que le modèle de configuration, sans y ajouter aucune ligne, et les deux fichiers générés avec lui, le catalogue `docs/CATALOG.md` et les scores `docs/catalog_scores.json` d'Artificial Analysis et d'Epoch AI, que le job de lecture réécrit dans chaque pull request qu'il ouvre : chacun doit être réécrit (modifié, ni ajouté, ni supprimé, ni renommé, une ligne au moins et au plus 4 000), quelles que soient les lignes qu'il gagne ou perd, jamais sans le modèle, et c'est le contrôle des règles du dépôt, exigé vert, qui prouve que les scores sont des nombres pour des entrées du modèle et que le catalogue est ce que le modèle, les contrats et les scores produisent. Ce que cela ouvre : un job de lecture compromis pourrait publier de faux scores, sans que personne les voie, dans une pull request qui fusionne seule ; ils ne pilotent aucun routage ; que les
 lignes qu'elle retire sont, une à une, des entrées de modèle entières, les places de cascade qui
 nomment une entrée retirée dans la même pull request, des commentaires ou des lignes vides, et rien
 d'autre (un réglage, une adresse ou le modèle d'une entrée qui reste n'en sont pas) ; qu'elle
@@ -1212,15 +1212,19 @@ qu'un fournisseur, un identifiant, un nom et, hors chat, un usage, qu'il valide,
 le fichier ; il ne pousse que si c'est le texte que le script a construit et relu
 (`check_drift_publish_guard.py` tient les deux au même résultat).
 
-**Les fiches qui diffèrent du catalogue ont leur pull request, qui se fusionne seule quand elle ne change que la valeur de lignes de fiche.**
+**Les fiches qui diffèrent du catalogue ont leur pull request, qui se fusionne seule quand elle ne change, dans le modèle de configuration, que la valeur de lignes de fiche.**
 Le `model_info` d'une entrée active porte sa fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`), que
 le routeur lit pour ne pas envoyer une requête à un membre où elle ne tient pas. Quand le catalogue du fournisseur
 publie le même champ (la table est dans la docstring du script) et dit autre chose, le workflow écrit la valeur du
 catalogue dans une pull request de la branche `claude/LiteLLM-model-drift-sheets`, tenue comme celles des ajouts :
 prête à relire et jamais en brouillon, assignée à tigerblue77, réécrite à chaque exécution qui trouve encore un écart,
-et `dependabot-auto-merge.yml` la fusionne, à des conditions que GitHub seul atteste, comme pour les suppressions :
+avec le catalogue `docs/CATALOG.md` et les scores `docs/catalog_scores.json` qui suivent son modèle, comme dans toute
+pull request du workflow, et `dependabot-auto-merge.yml` la fusionne, à des conditions que GitHub seul atteste, comme pour les suppressions :
 ouverte par le bot Actions ou par l'App du workflow sur cette branche, un seul commit, celui du bot Actions, un seul
-fichier (le modèle de configuration), et, lues dans le fichier entier de `main` et dans celui de sa tête, non dans le
+fichier lu, le modèle de configuration, avec le catalogue et les scores réécrits à côté, aux conditions des suppressions
+(chacun modifié, ni ajouté, ni supprimé, ni renommé, une ligne au moins et au plus 4 000, quelles que soient les lignes
+qu'il gagne ou perd, jamais sans le modèle, et aucun autre fichier), et, pour le modèle seul, lues dans le fichier
+entier de `main` et dans celui de sa tête, non dans le
 seul patch, qui montre trop peu de lignes pour dire de quelle entrée une ligne est : rien d'ajouté, rien de retiré, et
 sur chaque ligne changée la même clé (`max_input_tokens`, `max_output_tokens` ou `supports_vision`), la même
 indentation, le même espacement et le même commentaire, seule la valeur différant (un entier strictement positif, ou
@@ -1244,8 +1248,8 @@ commit sur la branche. Un commit d'une personne fait attendre la fusion, le text
 commentaire, quand plus aucun écart ne reste, sauf si le catalogue d'un fournisseur dont une entrée déclare une fiche
 n'a pas pu être lu (« rien vu » n'est pas « rien à corriger »), si un écart attend une personne ou si le rapport n'est
 pas fiable ; le commit d'une personne la fige comme les autres. Un `read` compromis lui ferait au pire fusionner,
-sous ce plafond, des valeurs de fiche fausses : un `revert` les défait, et les routeurs ne les lisent que pour écarter
-un membre ou un autre.
+sous ce plafond, des valeurs de fiche fausses, et de faux scores dans le catalogue, qui ne pilotent aucun routage : un
+`revert` défait les premières, et les routeurs ne les lisent que pour écarter un membre ou un autre.
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
@@ -1272,7 +1276,7 @@ suivent la forme que documente l'API (aucune clé n'était disponible pour en en
 règles en mots simples (le niveau de réflexion de chaque entrée, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
 règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
 chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
-`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
+`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici. Pour une vue d'ensemble de tout ce que sert la passerelle (groupes d'accès, routeurs et leurs membres, fournisseurs avec la couleur de leur logo, modèles avec leurs quotas `rpm`, `tpm` et `rpd`, et leurs scores d'Artificial Analysis et d'Epoch AI), voir `docs/CATALOG.md`, généré à partir du gabarit, des contrats et de `docs/catalog_scores.json`. Les limites gratuites de chaque fournisseur ne sont pas recopiées : le catalogue renvoie au tableau ci-dessous. Les scores sont lus en ligne, ce que la CI ne peut pas faire : le job de lecture du workflow de dérive les réécrit dans `docs/catalog_scores.json` (des nombres, pour des entrées du gabarit, avec le jour de lecture de chaque source, qu'il garde du fichier précédent quand une source n'a pas pu être lue) à chaque pull request qu'il ouvre. Le catalogue n'est jamais en retard : toute modification du gabarit embarque le catalogue régénéré dans le même commit, celles du workflow de dérive comprises (son job `read` le génère à partir du gabarit qu'il édite ou qu'il propose, son job `publish` commite le gabarit, le catalogue et les scores ensemble), et `generate_catalog.py --check`, contrôle requis, prouve que les scores ont la forme attendue et que le catalogue est bien ce que produisent le gabarit, les contrats et les scores. C'est ce contrôle qui permet à la porte d'auto-fusion de laisser la pull request de suppression réécrire ces deux fichiers sans en lire les lignes.
 
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
 écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié
@@ -1452,8 +1456,9 @@ pull request qui supprime des lignes du fichier, et cette pull request peut se f
 plus haut), à des conditions qui bornent les lignes retirées (cinq entrées et deux cents lignes au plus,
 et rien d'autre que des entrées de modèle, leurs places de cascade, des commentaires et des lignes vides),
 dans un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée. Il peut aussi lui faire
-ouvrir, pour les fiches, une pull request qui se fusionne seule sous un plafond de valeurs et ne change que la
-valeur de lignes de fiche existantes, ou les deux pull requests d'ajout, avec des entrées d'une forme fixe,
+ouvrir, pour les fiches, une pull request qui se fusionne seule sous un plafond de valeurs et ne change, dans le
+modèle, que la valeur de lignes de fiche existantes (le catalogue et les scores réécrits à côté, comme pour les
+suppressions), ou les deux pull requests d'ajout, avec des entrées d'une forme fixe,
 calquées sur celles du fichier (une clé et une adresse qu'il a déjà, un identifiant et un nom d'une orthographe
 étroite), qu'une personne seule fusionne. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
 partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
