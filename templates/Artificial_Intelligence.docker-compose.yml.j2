@@ -81,6 +81,14 @@ services:
     # ! The image runs "/docker-entrypoint-initdb.d/" on an EMPTY data directory only. On a volume
     # initialised before this, nothing below runs: LiteLLM keeps its old superuser role and keeps
     # working. The README's "Un volume créé avant le rôle dédié de LiteLLM" gives the way across.
+    #
+    # "tcp_keepalives_idle=300": Swarm's service address is IPVS, which forgets a connection after
+    # 900 s without a packet, and LiteLLM keeps pooled connections that sit idle longer than that. A
+    # forgotten one is dead without either end knowing: the next query on it waits out TCP's
+    # retransmissions before failing. A keepalive every five minutes keeps the address's entry alive.
+    # Measured on a Swarm: idle through the service address, a connection survived 600 s and was lost
+    # at 960 s; idle straight to the task, it survived 960 s. Under Compose there is no IPVS, and the
+    # setting costs a probe every five minutes on an idle connection.
     command:
       - "sh"
       - "-c"
@@ -92,7 +100,7 @@ services:
         CREATE ROLE :"role" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
         ALTER DATABASE :"database" OWNER TO :"role";
         EOF
-        exec docker-entrypoint.sh postgres
+        exec docker-entrypoint.sh postgres -c tcp_keepalives_idle=300
 
     environment:
       TZ: "{{ Artificial_Intelligence_server_time_zone }}"
