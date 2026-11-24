@@ -183,7 +183,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_workspace_directory` | `false` | **Facultatif** ; `false` veut dire « non fourni » : le dossier de travail de l'agent est alors le volume nommé ci-dessous, sans rien à préparer sur l'hôte. Une chaîne est un chemin **absolu** de l'hôte, monté en bind à la place ; le rôle ne crée pas ce dossier, et le refuse s'il n'est pas absolu. |
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `Auto-Claude-Code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
-| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le groupe `LLM` s'ajoute à la clé quelle que soit cette liste, pour que les cascades fonctionnent. Le rôle remet à chaque passage la liste d'une clé existante à niveau : un changement atteint un agent déjà déployé au passage suivant (voir « L'agent Claude Code »). |
+| `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le groupe `Claude-Code` s'ajoute à la clé quelle que soit cette liste, pour que les cascades fonctionnent : un routeur demandé par son nom garde sa tête, puis ne bascule que sur des modèles de la cascade de l'agent. Le rôle remet à chaque passage la liste d'une clé existante à niveau : un changement atteint un agent déjà déployé au passage suivant (voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -661,11 +661,12 @@ forme et l'exempte des règles 1 et 2 : il n'y a aucun quota à lui attribuer, d
 
 ### Les groupes d'accès : limiter une clé à un type de modèles
 
-Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit dans son `model_info.access_groups` d'après son `model_info.mode`, à une exception près, voulue : les modèles de texte d'Aion Labs ont un groupe à eux, pour qu'aucune clé qui a `LLM` ne les atteigne. Elle est **aussi** dans exactement un des deux groupes de données, écrit après le premier : `["LLM", "Private-Data"]`, `["STT", "Public-Data-Only"]`. LiteLLM accepte une liste libre de groupes, et le second dit ce que le fournisseur fait de ce qu'on lui envoie (voir « Les groupes de données » plus bas).
+Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit dans son `model_info.access_groups` d'après son `model_info.mode`, à une exception près, voulue : les modèles de texte d'Aion Labs ont un groupe à eux, pour qu'aucune clé qui a `LLM` ne les atteigne. Elle est **aussi** dans exactement un des deux groupes de données, écrit après le premier : `["LLM", "Private-Data"]`, `["STT", "Public-Data-Only"]`. LiteLLM accepte une liste libre de groupes, et le second dit ce que le fournisseur fait de ce qu'on lui envoie (voir « Les groupes de données » plus bas). Les membres de la cascade de `Auto-Claude-Code` sont **en plus** dans `Claude-Code`, celui que tient la clé de l'agent, écrit en dernier : `["LLM", "Private-Data", "Claude-Code"]`.
 
 | Groupe | Entrées |
 | --- | --- |
 | `LLM` | les modèles de texte (aucun `mode`), y compris ceux que les routeurs `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`, `Auto-Code` et `Auto-Claude-Code` placent en tête, et l'entrée `Auto` qui choisit entre trois de ces routeurs (voir « Choisir à la place du client : le routeur `Auto` ») |
+| `Claude-Code` | en plus de `LLM`, les membres de la cascade de `Auto-Claude-Code` et eux seuls : les modèles qui acceptent des appels d'outils stricts sur 128 000 jetons de contexte au moins. C'est le groupe de la clé de l'agent (voir « L'agent Claude Code ») |
 | `Fiction` | les six modèles d'Aion Labs, réglés pour le jeu de rôle et la narration, qu'atteint le routeur `Auto-Fiction` et aucun autre (voir « Les modèles de jeu de rôle ») ; **jamais** dans `LLM` |
 | `STT` | les modèles de transcription (`audio_transcription`) |
 | `TTS` | les modèles de synthèse vocale (`audio_speech`) |
@@ -676,7 +677,7 @@ Chaque entrée du `model_list` est dans **un groupe d'accès de type**, écrit d
 | `Private-Data` | les entrées des fournisseurs auxquels on peut envoyer des données privées, quel que soit leur type (verdict par fournisseur plus bas) |
 | `Public-Data-Only` | toutes les autres : ce que leurs conditions permettent (entraînement, journalisation, relecture humaine, exploitant inconnu, juridiction sans équivalence) ne les rend bonnes que pour des données qu'on accepterait de voir publiées |
 
-En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses deux groupes, et le script de la veille de modèles écrit les entrées qu'il propose dans deux groupes : celui de leur usage (`LLM` pour le texte, `Embeddings`, `TTS`, `STT`, `Decisions`, `Extraction`, `Images`..., ou `Fiction` pour Aion Labs, quel que soit le mode), puis le groupe de données de leur fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme.
+En créant une clé dans `/ui`, on choisit un groupe plutôt que les modèles un à un : la clé atteint les modèles de ce type et aucun autre, par exemple `LLM` pour LibreChat, sans la voix. **Les routeurs suivent la tête de leur cascade** : un routeur est un alias de son premier membre, et LiteLLM laisse une clé appeler un alias quand l'entrée vers laquelle il se résout est autorisée (lu dans son code, pas encore essayé sur une passerelle réelle). `check_compose_template.py` tient chaque entrée à ses groupes, dans cet ordre (type, données, puis `Claude-Code` pour les seuls membres de la cascade de `Auto-Claude-Code`), et le script de la veille de modèles écrit les entrées qu'il propose dans deux groupes : celui de leur usage (`LLM` pour le texte, `Embeddings`, `TTS`, `STT`, `Decisions`, `Extraction`, `Images`..., ou `Fiction` pour Aion Labs, quel que soit le mode), puis le groupe de données de leur fournisseur, `Public-Data-Only` pour un fournisseur qu'aucune ligne ne nomme. Il ne place aucun modèle dans la cascade de `Auto-Claude-Code` : qui y ajoute un modèle lui ajoute aussi `Claude-Code`, et le contrôle le refuse sinon.
 
 La clé qu'un compte LibreChat reçoit de `gateway_key` est limitée au groupe `LLM` et aux routeurs de texte (`Artificial_Intelligence_LibreChat_gateway_key_models`), si bien que LibreChat ne liste pour ce compte que ce qu'il peut appeler : ni transcription, ni voix, ni vecteurs. Les routeurs sont nommés à côté du groupe parce que LiteLLM remplace un groupe par ses membres seulement (lu dans son code) : un routeur est l'alias de la tête de sa cascade et n'est dans aucun groupe, donc une clé limitée à `LLM` seul ne les listerait pas, tout en pouvant les appeler. `Auto` n'est pas un alias mais une entrée du groupe `LLM` : elle est listée avec lui, et n'a donc pas besoin d'être nommée.
 
@@ -2094,17 +2095,19 @@ son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'U
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour liste blanche l'alias du modèle
 (`Artificial_Intelligence_Claude_code_model`), les routeurs de
-`Artificial_Intelligence_Claude_code_additional_models` et le groupe `LLM`. Les appels s'authentifient avec
-la clé maîtresse, que l'agent ne détient jamais, et leurs tâches sont en `no_log`.
+`Artificial_Intelligence_Claude_code_additional_models` et le groupe `Claude-Code`. Les appels s'authentifient
+avec la clé maîtresse, que l'agent ne détient jamais, et leurs tâches sont en `no_log`.
 
-**Le groupe `LLM` est ce qui fait fonctionner les cascades.** Avant chaque secours, LiteLLM vérifie que la clé
-qui appelle a le droit d'appeler le modèle suivant, et saute celui qu'elle n'autorise pas (lu dans son code,
+**Le groupe `Claude-Code` est ce qui fait fonctionner les cascades.** Avant chaque secours, LiteLLM vérifie que la
+clé qui appelle a le droit d'appeler le modèle suivant, et saute celui qu'elle n'autorise pas (lu dans son code,
 `litellm/router_utils/fallback_event_handlers.py`, pas mesuré sur une passerelle réelle). Une clé limitée aux noms
 des routeurs n'atteint donc que la tête de chaque cascade : quand elle échoue, l'erreur revient à l'agent sans
-qu'aucun autre modèle soit essayé. Les cascades des routeurs de texte ne sont faites que de modèles du groupe
-`LLM`. Ce groupe contient les modèles de texte de tous les comptes que le gabarit sert, aujourd'hui le seul compte
-par défaut : les modèles de texte d'un second compte demanderaient un groupe à eux pour rester hors de portée de
-l'agent, comme `Fiction` tient à part ceux d'Aion Labs.
+qu'aucun autre modèle soit essayé. Le groupe réunit les membres de la cascade de `Auto-Claude-Code`, et eux seuls :
+les modèles qui acceptent des appels d'outils stricts sur 128 000 jetons de contexte au moins, sans lesquels
+l'agent ne peut rien faire. `check_compose_template.py` tient chaque membre de cette cascade dans le groupe, et
+aucune autre entrée. Le groupe `LLM`, que tiennent les clés LibreChat, serait trop large ici : il contient aussi des
+modèles qui ne prennent pas d'outils. Un routeur que l'agent demande par son nom (`/model Auto-Flash`) garde sa
+tête, appelée par le nom du routeur, puis ne bascule que sur des modèles du groupe.
 
 **Le rôle remet la liste de la clé à niveau à chaque passage.** Si la clé existe déjà avec une autre liste, il la
 remplace par `POST /key/update`, qui prend le même SHA-256 ; un passage qui la trouve à niveau ne change rien. Un

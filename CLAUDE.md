@@ -454,7 +454,10 @@ given `Private-Data` by name and no router, whose cascades mix both groups; `Pub
 given. The verdicts, each with its reason and the page read, are `LITELLM_DATA_GROUPS` in `check_compose_template.py`,
 which holds every rendered entry to its provider's row; the drift script's table and the workflow's table of additions
 carry the same verdicts, and a new provider gets its row in the commit that adds its entries. A verdict is reread when
-the provider's terms change, and an entry is never moved to `Private-Data` to make a key work.
+the provider's terms change, and an entry is never moved to `Private-Data` to make a key work. The members of the `Auto-Claude-Code` cascade, and
+no other entry, carry a third group after those two, `Claude-Code`, the one the agent's key holds: an entry's groups
+are `[<type group>, <data group>]`, with `Claude-Code` written last on those members, and `check_compose_template.py`
+requires exactly that shape and no other.
 
 **Every free tier that lasts is taken, whether or not it beats what is already routed.** The gateway
 serves every application of the homelab, not only the Claude Code agent, and a second quota or a

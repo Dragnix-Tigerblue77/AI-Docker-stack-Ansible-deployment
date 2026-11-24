@@ -222,10 +222,10 @@ jobs:
         if: env.ROLE_RUN_CLAUDE_CODE_AGENT == 'on'
         env: *role_run_playbook_environment
         run: |
-          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash Auto-Flash-Lite Auto-Code LLM
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash Auto-Flash-Lite Auto-Code Claude-Code
           ansible-playbook -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml \
             -e @.github/role_run/vars.claude_code_key_changed.yml playbook.Artificial_Intelligence.example.yaml
-          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro LLM
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Claude-Code
 
   role-run-agent-on:
     name: role run (Claude Code agent on)

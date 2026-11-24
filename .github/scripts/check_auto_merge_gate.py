@@ -468,7 +468,12 @@ def scenarios():
     private = [line.replace('"Public-Data-Only"', '"Private-Data"') for line in base]
     add("deletion: an entry of a provider that is Private-Data", "merged",
         removals(deletion(private, set(block_of(private, "m1")))[0]))
-    for what, groups in (("with no data group", '["LLM"]'), ("with a data group of its own making", '["LLM", "Public"]'),
+    agent = [line.replace('["LLM", "Public-Data-Only"]', '["LLM", "Public-Data-Only", "Claude-Code"]') for line in base]
+    add("deletion: an entry of the agent's cascade, in its three groups", "merged",
+        removals(deletion(agent, set(block_of(agent, "m1")))[0]))
+    for what, groups in (("with no data group", '["LLM"]'),
+                         ("with its agent group before its data group", '["LLM", "Claude-Code", "Public-Data-Only"]'),
+                         ("with its agent group and no data group", '["LLM", "Claude-Code"]'), ("with a data group of its own making", '["LLM", "Public"]'),
                          ("with its data group first", '["Public-Data-Only", "LLM"]'),
                          ("with both data groups", '["LLM", "Private-Data", "Public-Data-Only"]')):
         odd = [line.replace('["LLM", "Public-Data-Only"]', groups) for line in base]

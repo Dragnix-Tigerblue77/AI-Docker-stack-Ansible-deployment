@@ -484,8 +484,8 @@ Artificial_Intelligence_Claude_code_workspace_Docker_volume_name: "Claude_code_w
 # The model name the agent asks for. It is an ALIAS "model_group_alias" resolves inside LiteLLM (#2),
 # not a literal provider model -- #13's compliance note is that no Anthropic model backed by a
 # subscription may ever sit behind it. Every model variable of the agent's container carries it (#287):
-# the key allows this alias, the routers below and the text models their cascades are made of, so a
-# request under any other model name would be refused.
+# the key allows this alias, the routers below and the models of the alias's cascade, so a request under
+# any other model name would be refused.
 Artificial_Intelligence_Claude_code_model: "Auto-Claude-Code"
 
 # The routers the agent may ALSO ask for by name, typing "/model flash" for one (#307), besides the alias

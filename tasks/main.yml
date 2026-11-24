@@ -806,13 +806,13 @@
 # covers the case where it exits meanwhile.
 #
 # The master key authenticates the calls and is never what the agent holds. The allow-list is the
-# model alias the agent asks for, the routers it may also be told to use and "LLM", the access
-# group of the text models their cascades are made of: LiteLLM checks the calling key before each
+# model alias the agent asks for, the routers it may also be told to use and "Claude-Code", the
+# access group of the members of the alias's cascade: LiteLLM checks the calling key before each
 # fallback and skips a member the key does not allow, so a key holding the routers' names alone
-# reaches the head of each cascade and nothing behind it. The group holds the text models of every
-# account the template serves, the default one alone today: a second account's would need a group of
-# their own to stay out of the agent's reach. The alias comes first and a name listed twice is written
-# once.
+# reaches the head of each cascade and nothing behind it. The group holds the models that take strict
+# tool calls on enough context and no other, so a router the agent asks for by name keeps its head and
+# falls back only to models the agent can drive. The alias comes first and a name listed twice is
+# written once.
 #
 # Idempotent by LOOKING FIRST rather than by trusting "/key/generate" on a repeat: "/key/info" answers
 # 404 for a key it has never seen and 200 for one it has, and it takes the key's SHA-256 (what LiteLLM
@@ -833,7 +833,7 @@
     - not ansible_check_mode
   vars:
     Artificial_Intelligence_Claude_code_key_models: >-
-      {{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models + ['LLM'])
+      {{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models + ['Claude-Code'])
       | unique | list }}
   block:
     - name: "Look up the Claude Code agent's LiteLLM virtual key"
