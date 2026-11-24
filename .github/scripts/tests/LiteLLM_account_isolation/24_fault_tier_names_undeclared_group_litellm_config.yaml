@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Tigerblue77 and the AI Docker stack Ansible deployment contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# EXPECTED: 1 CONTAINS: names "router-gone"
+---
+# LiteLLM loads a complexity router whose tier names a group nobody declares, and fails the requests that land
+# on that tier. Here the alias was removed and the tier still names it; rule 5 has nothing to say, since no
+# fallback is involved, so only rule 6 does.
+model_list:
+  - model_name: fast-model
+    litellm_params:
+      model: provider/identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: strong-model
+    litellm_params:
+      model: provider/other-identifier
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: router-fast
+          COMPLEX: router-gone
+
+router_settings:
+  fallbacks:
+    - router-fast: ["fast-model", "strong-model"]
+  model_group_alias:
+    "router-fast": "fast-model"

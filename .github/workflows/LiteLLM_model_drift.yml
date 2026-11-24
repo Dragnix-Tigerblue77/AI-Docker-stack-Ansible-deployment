@@ -109,8 +109,8 @@ name: LiteLLM model drift
 # followed, since the keys travel in the headers.
 #
 # Every provider the model list routes to has its catalogue read here, one that needs a key included, and
-# the offline run fails on an active entry of a provider no reader covers (OmniRoute's virtual routes, which
-# no catalogue lists, apart).
+# the offline run fails on an active entry of a provider no reader covers (OmniRoute's virtual routes and the
+# Auto router, which no catalogue lists, apart).
 #
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
 # at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud
@@ -136,6 +136,13 @@ name: LiteLLM model drift
 #                                 API is expected to give, which no run has read: the catalogue answers
 #                                 401 without a key, and no session of this repository holds one.
 #   MODEL_DRIFT_CENT_AI_API_KEY   Cent AI -- "openai/" entries on its "api_base". Read as Z AI's is.
+#
+# Announced retirements have a second source that needs no key: the "deprecation_date" of LiteLLM's
+# public price map, which one request per run reads. It doubles what the providers' own APIs announce
+# and speaks for those that announce nothing; when the two disagree the earliest day is kept and the
+# summary and the body of the deletion pull request carry a warning naming both. It never deletes
+# anything, and a map that cannot be read is reported as the error of that source alone: no retry, no
+# issue, no effect on a deletion.
 #
 # One more, which is no provider's: MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY, the free key of the
 # Artificial Analysis API (https://artificialanalysis.ai/, 1,000 requests a day, one made per run).

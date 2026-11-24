@@ -64,6 +64,9 @@
 # short one the checks and the routing document use, and the checks translate between the two. There is no
 # alias for the names the Claude Code CLI sends by default: a CLI that should use one of these routers is told
 # its name through its own model variables.
+# "Auto" is the one name that is not a router of that kind: it is a model_list entry that picks one of "Auto-Pro",
+# "Auto-Flash" and "Auto-Flash-Lite" for each request, by how complex the request looks, and it has no cascade and no
+# alias of its own, since the router it picks has its own. Its entry, at the end of the model list, says why it is built so.
 # Every entry is in exactly one access group, by its "model_info.mode": "LLM" for a text model, "STT" for
 # transcription, "TTS" for speech, "Embeddings" for vectors, "Decisions" for Clef's decisions ("evaluation") and
 # "Extraction" for Clairic's extraction. A virtual key limited to a group in "/ui" reaches
@@ -72,6 +75,17 @@
 # One exception, on purpose: Aion Labs' text models, tuned for role-play and fiction and unmoderated, are in a group
 # of their own, "Fiction", and not in "LLM", so that no key holding "LLM" reaches them, "Auto-Fiction" being the one
 # router that holds them. A key reaches them only when "Fiction" or "Auto-Fiction" is named in its models.
+# A text entry's "model_info" also carries its sheet as its provider serves it, which is often smaller than what the
+# model's maker announces: "max_input_tokens", the context window, which the router's pre-call checks hold a request
+# to, skipping without a call a member it does not fit; "max_output_tokens", the longest answer, which a length an
+# entry sets may not exceed; "supports_vision", whether it takes images. A figure the provider does not publish is
+# left out. Read 2026-11-24 from: Gemini "ai.google.dev/gemini-api/docs/models/<model>" and, for Gemma,
+# "ai.google.dev/gemma/docs/core"; Groq "console.groq.com/docs/model/<id>"; Cloudflare
+# "developers.cloudflare.com/workers-ai/models/<slug>/"; OpenRouter, Kilo, Requesty, OVHcloud and Aion Labs, the
+# "/models" list of their API ("openrouter.ai/api/v1/models" and the same path on the others' "api_base");
+# NVIDIA "build.nvidia.com/<publisher>/<model>/modelcard"; Mistral "docs.mistral.ai/models/<model>.md"; DeepSeek
+# "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7"; Cent AI "cent-ai.dev/models".
+# "check_compose_template.py" requires the window of every member of a cascade.
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -111,6 +125,9 @@ model_list:
   - model_name: gemini-4-hydrogen
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -121,6 +138,9 @@ model_list:
   - model_name: gemini-4-hydrogen-low
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -134,6 +154,9 @@ model_list:
   - model_name: gemini-4-hydrogen-xhigh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-4-hydrogen
       api_key: "os.environ/GEMINI_API_KEY"
@@ -148,6 +171,9 @@ model_list:
   - model_name: gemini-3-8-flash
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -158,6 +184,9 @@ model_list:
   - model_name: gemini-3-8-flash-low
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.8-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -166,6 +195,9 @@ model_list:
   - model_name: gemini-3-7-flash
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.7-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -173,6 +205,9 @@ model_list:
   - model_name: gemini-3-6-flash
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.6-flash
       api_key: "os.environ/GEMINI_API_KEY"
@@ -189,6 +224,9 @@ model_list:
   - model_name: gemini-3-5-flash-lite
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.5-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
@@ -219,6 +257,9 @@ model_list:
   - model_name: gemini-3-1-flash-lite
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
       api_key: "os.environ/GEMINI_API_KEY"
@@ -226,6 +267,9 @@ model_list:
   - model_name: gemini-3-flash-preview
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: gemini/gemini-3-flash-preview
       api_key: "os.environ/GEMINI_API_KEY"
@@ -272,6 +316,8 @@ model_list:
   - model_name: gemma-4-31b-gemini
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: gemini/gemma-4-31b-it
       api_key: "os.environ/GEMINI_API_KEY"
@@ -279,6 +325,8 @@ model_list:
   - model_name: gemma-4-26b-gemini
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: gemini/gemma-4-26b-a4b-it
       api_key: "os.environ/GEMINI_API_KEY"
@@ -376,6 +424,8 @@ model_list:
   - model_name: codestral
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: mistral/codestral-latest
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -383,6 +433,8 @@ model_list:
   - model_name: codestral-2508
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -390,6 +442,8 @@ model_list:
   - model_name: mistral-medium
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: mistral/mistral-medium-latest
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -397,6 +451,8 @@ model_list:
   - model_name: mistral-small
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: mistral/mistral-small-latest
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -409,6 +465,8 @@ model_list:
   - model_name: ministral-14b
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: mistral/ministral-14b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -416,6 +474,8 @@ model_list:
   - model_name: ministral-8b
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: mistral/ministral-8b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -423,6 +483,8 @@ model_list:
   - model_name: ministral-3b
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: mistral/ministral-3b-2512
       api_key: "os.environ/MISTRAL_API_KEY"
@@ -498,6 +560,9 @@ model_list:
   - model_name: gpt-oss-120b-groq
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY"
@@ -505,6 +570,9 @@ model_list:
   - model_name: gpt-oss-20b-groq
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: groq/openai/gpt-oss-20b
       api_key: "os.environ/GROQ_API_KEY"
@@ -520,6 +588,9 @@ model_list:
   - model_name: qwen3-8-27b-groq
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 16384
+      supports_vision: true
     litellm_params:
       model: groq/qwen/qwen3.8-27b
       api_key: "os.environ/GROQ_API_KEY"
@@ -613,6 +684,9 @@ model_list:
   - model_name: deepseek-v4-pro-direct
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 393216
+      supports_vision: false
     litellm_params:
       model: deepseek/deepseek-v4-pro
       api_key: "os.environ/DEEPSEEK_API_KEY"
@@ -620,6 +694,9 @@ model_list:
   - model_name: deepseek-flash-direct
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 393216
+      supports_vision: true
     litellm_params:
       model: deepseek/deepseek-flash
       api_key: "os.environ/DEEPSEEK_API_KEY"
@@ -639,6 +716,9 @@ model_list:
   - model_name: nemotron-ultra-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -646,6 +726,9 @@ model_list:
   - model_name: nemotron-reasoning-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 256000
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -653,6 +736,9 @@ model_list:
   - model_name: nemotron-lightning-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-lightning:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -667,6 +753,9 @@ model_list:
   - model_name: nemotron-super-vl-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: openrouter/nvidia/nemotron-3.5-super-vl:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -674,6 +763,9 @@ model_list:
   - model_name: gemma-4-31b-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: openrouter/google/gemma-4-31b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -681,6 +773,9 @@ model_list:
   - model_name: gemma-4-26b-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: true
     litellm_params:
       model: openrouter/google/gemma-4-26b-a4b-it:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -714,6 +809,9 @@ model_list:
   - model_name: particle-1-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: openrouter/particle-ai/particle-1:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -729,6 +827,9 @@ model_list:
   - model_name: ernie-5-5-flash-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1024000
+      max_output_tokens: 921600
+      supports_vision: false
     litellm_params:
       model: openrouter/baidu/ernie-5.5-flash-preview:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -744,6 +845,9 @@ model_list:
   - model_name: lfm-3-1-7b-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: openrouter/liquid/lfm-3-1.7b:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -760,6 +864,9 @@ model_list:
   - model_name: dots-3-note-preview-free
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 512000
+      max_output_tokens: 460800
+      supports_vision: true
     litellm_params:
       model: openrouter/dots-studio/dots-3-note-preview:free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -846,6 +953,8 @@ model_list:
   - model_name: gpt-oss-120b-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-120b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -855,6 +964,8 @@ model_list:
   - model_name: gpt-oss-20b-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/openai/gpt-oss-20b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -865,6 +976,8 @@ model_list:
   - model_name: gemma-4-26b-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 256000
+      supports_vision: true
     litellm_params:
       model: cloudflare/@cf/google/gemma-4-26b-a4b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -877,6 +990,8 @@ model_list:
   - model_name: llama-3-3-70b-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 24000
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -890,6 +1005,8 @@ model_list:
   - model_name: glm-4-7-flash-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/zai-org/glm-4.7-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -902,6 +1019,8 @@ model_list:
   - model_name: gemma-sea-lion-v4-27b-it-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -975,6 +1094,8 @@ model_list:
   - model_name: granite-4-0-h-micro-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131000
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/ibm-granite/granite-4.0-h-micro
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -990,6 +1111,8 @@ model_list:
   - model_name: llama-3-2-11b-vision-instruct-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
+      supports_vision: true
     litellm_params:
       model: cloudflare/@cf/meta/llama-3.2-11b-vision-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1003,6 +1126,8 @@ model_list:
   - model_name: llama-4-scout-17b-16e-instruct-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131000
+      supports_vision: true
     litellm_params:
       model: cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1017,6 +1142,7 @@ model_list:
   - model_name: mistral-small-3-1-24b-instruct-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 128000
     litellm_params:
       model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1031,6 +1157,8 @@ model_list:
   - model_name: qwen2-5-coder-32b-instruct-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1047,6 +1175,8 @@ model_list:
   - model_name: qwen3-8-27b-cloudflare
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: cloudflare/@cf/qwen/qwen3.8-27b
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1114,6 +1244,9 @@ model_list:
   - model_name: glm-4-7-flash-zai
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 200000
+      max_output_tokens: 128000
+      supports_vision: false
     litellm_params:
       model: zai/glm-4.7-flash
       api_key: "os.environ/ZAI_API_KEY"
@@ -1153,6 +1286,9 @@ model_list:
   - model_name: nemotron-ultra-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1163,6 +1299,9 @@ model_list:
   - model_name: nemotron-reasoning-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 256000
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1173,6 +1312,9 @@ model_list:
   - model_name: nemotron-lightning-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/nvidia/nemotron-3.5-lightning:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1183,6 +1325,9 @@ model_list:
   - model_name: nemotron-super-vl-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: openai/nvidia/nemotron-3.5-super-vl:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1193,6 +1338,9 @@ model_list:
   - model_name: particle-1-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: openai/particle-ai/particle-1:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1203,6 +1351,9 @@ model_list:
   - model_name: ernie-5-5-flash-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1024000
+      max_output_tokens: 921600
+      supports_vision: false
     litellm_params:
       model: openai/baidu/ernie-5.5-flash-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1213,6 +1364,9 @@ model_list:
   - model_name: lfm-3-1-7b-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 8192
+      supports_vision: false
     litellm_params:
       model: openai/liquid/lfm-3-1.7b:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1233,6 +1387,9 @@ model_list:
   - model_name: beam-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: openai/reflection/beam-free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1249,6 +1406,9 @@ model_list:
   - model_name: flint-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 235929
+      supports_vision: false
     litellm_params:
       model: openai/recursive/flint-v1.0:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1263,6 +1423,9 @@ model_list:
   - model_name: glyph-cluster-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: false
     litellm_params:
       model: openai/stealth/glyph-cluster
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1276,6 +1439,9 @@ model_list:
   - model_name: dots-3-note-preview-kilo
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 512000
+      max_output_tokens: 460800
+      supports_vision: true
     litellm_params:
       model: openai/dots-studio/dots-3-note-preview:free
       api_base: "https://ai-gateway.kilo.ai/api/v1"
@@ -1329,6 +1495,9 @@ model_list:
   - model_name: deepseek-v4-1-flash-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: openai/DeepSeek-V4.1-Flash-1017
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1339,6 +1508,9 @@ model_list:
   - model_name: qwen3-5-397b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: openai/Qwen3.5-397B-A17B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1349,6 +1521,9 @@ model_list:
   - model_name: gpt-oss-120b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
     litellm_params:
       model: openai/gpt-oss-120b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1359,6 +1534,9 @@ model_list:
   - model_name: qwen3-8-27b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: openai/Qwen3.8-27B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1369,6 +1547,9 @@ model_list:
   - model_name: qwen3-6-35b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/qwen3.6-35b-a3b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1379,6 +1560,9 @@ model_list:
   - model_name: nemotron3-omni-30b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: openai/nemotron3-omni-30b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1389,6 +1573,9 @@ model_list:
   - model_name: mistral-small-3-2-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: openai/Mistral-Small-3.2-24B-Instruct-2506
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1399,6 +1586,9 @@ model_list:
   - model_name: gpt-oss-20b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/gpt-oss-20b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1409,6 +1599,9 @@ model_list:
   - model_name: gemma-4-26b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/gemma-4-26b-a4b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1419,6 +1612,9 @@ model_list:
   - model_name: nemotron3-nano-30b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/nemotron3-nano-30b
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1429,6 +1625,9 @@ model_list:
   - model_name: qwen3-5-9b-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: true
     litellm_params:
       model: openai/Qwen3.5-9B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1439,6 +1638,9 @@ model_list:
   - model_name: olala-mini-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 32768
+      max_output_tokens: 16384
+      supports_vision: false
     litellm_params:
       model: openai/Olala-v1.0-mini-7A1B
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1449,6 +1651,9 @@ model_list:
   - model_name: laguna-xs-2-1-ovh
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/laguna-xs-2.1
       api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
@@ -1492,6 +1697,9 @@ model_list:
   - model_name: nemotron-ultra-requesty
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/nvidia/nemotron-3-ultra-550b-a55b
       api_base: "https://router.eu.requesty.ai/v1"
@@ -1500,6 +1708,9 @@ model_list:
   - model_name: nemotron-reasoning-requesty
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      max_output_tokens: 20480
+      supports_vision: false
     litellm_params:
       model: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_base: "https://router.eu.requesty.ai/v1"
@@ -1508,6 +1719,9 @@ model_list:
   - model_name: nemotron-lightning-requesty
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: openai/nvidia/nemotron-3.5-lightning-30b-a3b
       api_base: "https://router.eu.requesty.ai/v1"
@@ -1516,6 +1730,9 @@ model_list:
   - model_name: gemma-4-31b-requesty
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      max_output_tokens: 8192
+      supports_vision: true
     litellm_params:
       model: openai/google/gemma-4-31b-it
       api_base: "https://router.eu.requesty.ai/v1"
@@ -1562,6 +1779,8 @@ model_list:
   - model_name: kimi-k3-1-pro-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/moonshotai/kimi-k3.1-pro
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1572,6 +1791,8 @@ model_list:
   - model_name: mistral-large-4-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/mistralai/mistral-large-4-1t-a52b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1580,6 +1801,8 @@ model_list:
   - model_name: nemotron-ultra-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-ultra-550b-a55b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1588,6 +1811,8 @@ model_list:
   - model_name: nemotron-reasoning-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1596,6 +1821,8 @@ model_list:
   - model_name: nemotron-lightning-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-lightning-30b-a3b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1604,6 +1831,8 @@ model_list:
   - model_name: nemotron-super-vl-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-super-vl-120b-a12b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1614,6 +1843,8 @@ model_list:
   - model_name: nemotron-bolt-e4b-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 65536
+      supports_vision: false
     litellm_params:
       model: nvidia_nim/nvidia/nemotron-3.5-bolt-e4b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1634,6 +1865,8 @@ model_list:
   - model_name: minimax-m3-1-flash-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/minimaxai/minimax-m3.1-flash
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1643,6 +1876,9 @@ model_list:
   - model_name: step-5-preview-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1000000
+      max_output_tokens: 1000000
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/stepfun-ai/step-5-preview
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1653,6 +1889,8 @@ model_list:
   - model_name: laguna-xs-2-1-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: false
     litellm_params:
       model: nvidia_nim/poolside/laguna-xs-2.1
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1663,6 +1901,8 @@ model_list:
   - model_name: muse-glimmer-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 131072
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/meta/muse-glimmer-30b
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1671,6 +1911,8 @@ model_list:
   - model_name: gemma-4-31b-nvidia
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 262144
+      supports_vision: true
     litellm_params:
       model: nvidia_nim/google/gemma-4-31b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1727,6 +1969,7 @@ model_list:
   - model_name: hy4-flash-cent-ai
     model_info:
       access_groups: ["LLM"]
+      max_input_tokens: 1048576
     litellm_params:
       model: openai/hy4-flash:free
       api_base: "https://api.cent-ai.dev/v1"
@@ -1765,6 +2008,9 @@ model_list:
   - model_name: aion-3-5-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-3.5
       api_base: "https://api.aionlabs.ai/v1"
@@ -1774,6 +2020,9 @@ model_list:
   - model_name: aion-3-5-mini-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-3.5-mini
       api_base: "https://api.aionlabs.ai/v1"
@@ -1783,6 +2032,9 @@ model_list:
   - model_name: aion-3-0-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 131072
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-3.0
       api_base: "https://api.aionlabs.ai/v1"
@@ -1792,6 +2044,9 @@ model_list:
   - model_name: aion-3-0-mini-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 131072
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-3.0-mini
       api_base: "https://api.aionlabs.ai/v1"
@@ -1801,6 +2056,9 @@ model_list:
   - model_name: aion-2-0-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 131072
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-2.0
       api_base: "https://api.aionlabs.ai/v1"
@@ -1811,6 +2069,9 @@ model_list:
   - model_name: aion-rp-llama-3-1-8b-aion-labs
     model_info:
       access_groups: ["Fiction"]
+      max_input_tokens: 32768
+      max_output_tokens: 32768
+      supports_vision: false
     litellm_params:
       model: openai/aion-labs/aion-rp-llama-3.1-8b
       api_base: "https://api.aionlabs.ai/v1"
@@ -1845,6 +2106,53 @@ model_list:
       api_base: "http://omniroute:20128/v1"
       api_key: "omniroute-no-key-needed"
 
+{% if head['pro'] and head['flash'] and head['flash-lite'] %}
+  # ============================================================================
+  # Auto -- picks "Auto-Flash-Lite", "Auto-Flash" or "Auto-Pro" for each request, by how complex it looks
+  # ============================================================================
+  # For a client that cannot, or does not want to, choose its router: LibreChat leaves the choice to the person, and an
+  # agent would have to hard-code it. LiteLLM's complexity router scores the request locally (its length, code, reasoning
+  # and technical words, a few multi-step patterns) and rewrites the model of the request to the one the tier names, in
+  # under a millisecond and with no call to a model: no classifier, no embedding, so no quota is spent to choose one.
+  # A client that wants a router in particular still names it.
+  #
+  # The tiers name the routers and not their head models, on purpose: a request that fails after the pick falls back
+  # under the name the tier gave, so each router keeps its own cascade. Measured 2026-11-23 with a head answering 429
+  # and the second members failing too, behind every tier, streamed or not: the request went on to the first member that
+  # answered, exactly as when the router is named. A tier naming a model directly would have none of that.
+  # LiteLLM does not check a tier's name when the file loads, and a request landing on a name nobody serves fails
+  # then, which is why this entry is rendered only when the three routers are.
+  #
+  # A model_list entry in the access group "LLM", like every entry that is not a router, because it is not an alias of
+  # a head: a key limited to that group reaches it, and so reaches the members of the cascades it falls back on. That
+  # second part is not optional: LiteLLM skips a fallback the caller is not authorised to call (measured 2026-11-23, a
+  # key naming only "Auto" got the head's 429 back), which holds for a router named directly just the same.
+  # It has no "api_key": it spends no quota of its own.
+  #
+  # REASONING goes to "Auto-Pro" with COMPLEX: one cascade serves both, and a copy of it for the last tier would be
+  # a second list to keep level. No scoring key is set (weights, boundaries, keywords): the defaults are what LiteLLM
+  # measured, and tuning the scorer is what its licence limits. Two settings are turned off because their
+  # defaults do something this gateway does not want:
+  # - "max_tokens_from_tier_model" replaces the caller's "max_tokens" with the output ceiling of the head of the picked
+  #   router (measured 2026-11-23: a caller asking for 100 reached the head asking for its ceiling), so a short answer
+  #   asked for is not honoured and the free quota of the head's tokens goes on a long one;
+  # - "context_compaction" has a model of the tiers summarise a conversation that nears the limit of the model picked,
+  #   which is a call nobody asked for and a rewrite of what the client sent.
+  - model_name: Auto
+    model_info:
+      access_groups: ["LLM"]
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers:
+          SIMPLE: Auto-Flash-Lite
+          MEDIUM: Auto-Flash
+          COMPLEX: Auto-Pro
+          REASONING: Auto-Pro
+        max_tokens_from_tier_model: false
+        context_compaction: false
+
+{% endif %}
 router_settings:
   # A member that fails is not retried: the cascade below is the retry. Each retry was paid in full by
   # every member, and the head of a cascade is both what its alias points at and the first slot of its
@@ -1866,6 +2174,10 @@ router_settings:
   # come by then is given up.
   timeout: 120
   stream_timeout: 90
+  # Holds each request to the "max_input_tokens" of the member about to be called, counting its tokens first: a
+  # member the request does not fit is skipped without a call, where it would have answered an error after a round
+  # trip, and the cascade moves on. A member that declares no window is called as before.
+  enable_pre_call_checks: true
 
   # Shares cooldown state between the "--num_workers" processes below: without it, each worker tracks
   # its own 429s independently, and a deployment can be considered healthy by one worker while another

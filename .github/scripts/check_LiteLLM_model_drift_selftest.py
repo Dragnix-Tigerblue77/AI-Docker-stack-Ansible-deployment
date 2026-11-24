@@ -255,6 +255,10 @@ OFFLINE_CASES = (
     ("an active entry with no model at all is refused too",
      ("  - model_name: local\n", "  - model_name: stray\n\n  - model_name: local\n"),
      'the active entry "stray" (model: None)'),
+    ("the Auto router's entry is not refused: it calls only other routers, which no catalogue lists",
+     ("  - model_name: local\n",
+      "  - model_name: Auto\n    litellm_params:\n      model: auto_router/complexity_router\n\n"
+      "  - model_name: local\n"), None),
     ("a commented-out entry of a provider no reader covers is not refused: it is not routed",
      ("  # - model_name: paid-one\n  #   litellm_params:\n  #     model: openrouter/vendor/paid-one\n",
       "  # - model_name: paid-one\n  #   litellm_params:\n  #     model: acme/paid-one\n"), None),
@@ -567,6 +571,19 @@ def zai_error(code, status):
     return (status, {"error": {"code": str(code), "message": "selftest"}})
 
 
+def litellm_map(dates=None, silent=()):
+    """LiteLLM's price map as the canned opener serves it: the "sample_spec" entry the real one starts with,
+    one model of OpenAI's, every key of "dates" ({key: "YYYY-MM-DD", or a value to serve as it is}) with that
+    "deprecation_date", and every key of "silent" carrying the model with none."""
+    models = {"sample_spec": {"deprecation_date": "date when the model becomes deprecated in the format YYYY-MM-DD"},
+              "gpt-selftest": {"litellm_provider": "openai", "mode": "chat"}}
+    for key in silent:
+        models[key] = {"litellm_provider": "selftest", "mode": "chat"}
+    for key, date in (dates or {}).items():
+        models[key] = {"litellm_provider": "selftest", "mode": "chat", "deprecation_date": date}
+    return models
+
+
 def canned_opener(answers, calls):
     """An opener serving "answers" by provider. An answer that is an exception is raised. The ranking
     source's answer is a list of pages, or a single page served for every page asked for.
@@ -606,6 +623,13 @@ def canned_opener(answers, calls):
             if isinstance(answer, Exception):
                 raise answer
             return answer if isinstance(answer, bytes) else answer.encode()
+        if url == drift.LITELLM_MAP_URL:
+            # LiteLLM's map: a case serves one in "answers" (see litellm_map), and the others get a map
+            # in which no model is deprecated.
+            answer = answers.get("litellm_map", litellm_map())
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
         if url == EPOCH_URL:
             # The archive of Epoch AI, which a case serves in "answers" as bytes, and which nobody
             # served is a 404.
@@ -5390,6 +5414,13 @@ def run_contract_cases():
                ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code", "fiction"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
                ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
                 == ["pro", "flash", "code", "claude-code", "fiction"], "no contract")))
+    routed_template = read_template(CONTRACT_TEMPLATE.replace("router_settings:\n", COMPLEXITY_ROUTER_ENTRY + "router_settings:\n", 1))[0]
+    judged("the entry that picks a router by complexity has no mapping to ask for: it is no model of any ranking",
+           first_wrong(
+               (routed_template is not None and any(entry["name"] == "Auto" for entry in routed_template["active"]),
+                "the entry is not read at all"),
+               (contracts_report(routed_template, contract_ranking(), document)["unmapped"] == ["hotel"],
+                "unmapped: %r" % contracts_report(routed_template, contract_ranking(), document)["unmapped"])))
 
     def derivation_text(**changes):
         differences = {"extra": [], "refused": [], "missing": [], "unordered": False, "unknown": []}
@@ -6984,6 +7015,17 @@ CLOUDFLARE_TEMPLATE = SELFTEST_TEMPLATE.replace(
     "        - large\n", "        - cf-large\n        - large\n", 1)
 
 
+# The entry that picks a router by the complexity of a request: it calls no provider, so no catalogue covers it.
+COMPLEXITY_ROUTER_ENTRY = """\
+  - model_name: Auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        tiers: {SIMPLE: flash-lite, MEDIUM: flash, COMPLEX: pro, REASONING: pro}
+
+"""
+
+
 def cloudflare_model(name, task="Text Generation", planned=None, deprecated=None):
     """One model as the documentation's own catalogue holds it: the "@cf/..." id is the "name"."""
     properties = [{"property_id": "context_window", "value": "128000"}]
@@ -7073,6 +7115,13 @@ def run_cloudflare_cases():
                 "the report: %s" % report),
                (result["unattributed"] == ["openai/auto/best-free"], "an entry of Cloudflare is of no catalogue"),
                (hides_account(report, body) is None, hides_account(report, body))))
+    routed = run_online(CLOUDFLARE_TEMPLATE.replace("  - model_name: local\n", COMPLEXITY_ROUTER_ENTRY + "  - model_name: local\n", 1),
+                        CLOUDFLARE_ENVIRONMENT, canned_opener(cloudflare_answers(cloudflare_catalogue()), []), "2026-01-01")
+    judged("the entry that picks a router by complexity is not listed among the models no catalogue covers: it is "
+           "no model, and a list that named it every week would ask for an attribution it cannot have",
+           first_wrong(
+               ("Auto" in routed["names"], "the entry is not read at all"),
+               (routed["unattributed"] == ["openai/auto/best-free"], "unattributed: %r" % routed["unattributed"])))
     result, _, report, body = run(cloudflare_catalogue(
         cloudflare_model("@cf/vendor/new-text"), cloudflare_model("@cf/vendor/new-embed", task="Text Embeddings"),
         cloudflare_model("@cf/vendor/old-text", deprecated=True),
@@ -7621,28 +7670,32 @@ def run_coverage_cases():
                            (unreadable_providers(result) == [(name, "network")], unreadable_providers(result))))
 
     # The rule that holds every routed provider to a reader, on the real file: each of them is attributed
-    # entries, and the one entry of no catalogue is OmniRoute's.
+    # entries, and the entries of no catalogue are OmniRoute's routes and the Auto router.
     real = CONFIG.read_text(encoding="utf-8")
     template, problems = read_template(real)
     routed = {}
     for entry in template["active"]:
         attributed = attribute(entry["model"], entry["api_base"])
         routed.setdefault(attributed[0] if attributed else None, []).append(entry["name"])
-    judged("every active entry of the real model list belongs to a provider this check reads, bar OmniRoute's routes",
+    judged("every active entry of the real model list belongs to a provider this check reads, bar OmniRoute's "
+           "routes and the Auto router",
            first_wrong((problems == [], "the real file breaks a rule: %r" % problems[:1]),
                        (set(routed) - {None} <= set(PROVIDER_NAMES), "a provider is attributed that is not read"),
                        (all(len(routed.get(name, ())) > 0 for name in ("nvidia", "ovhcloud", "requesty", "zai", "centai")),
                         "an entry of the five is not attributed: %r" % {name: len(routed.get(name, ())) for name in routed}),
-                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) for entry in template["active"]
-                            if attribute(entry["model"], entry["api_base"]) is None),
-                        "an entry of no provider is not OmniRoute's")))
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"]))
+                            or entry["model"] == drift.COMPLEXITY_ROUTER_MODEL
+                            for entry in template["active"] if attribute(entry["model"], entry["api_base"]) is None),
+                        "an entry of no provider is neither OmniRoute's nor the Auto router")))
     result, calls, report, body = run(answers_listing(real), COVERAGE_KEYS, real)
     judged("a catalogue that lists what the real file holds reports nothing, and reads every provider of the table",
            first_wrong((found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
                        (all(each["status"] == "read" for each in result["providers"]),
                         [each["name"] for each in result["providers"] if each["status"] != "read"]),
-                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) is not None or
-                            attribute(entry["model"], entry["api_base"]) for entry in template["active"]), "an entry of nobody"),
+                       (all(OMNIROUTE_BASE.match(str(entry["api_base"])) is not None
+                            or entry["model"] == drift.COMPLEXITY_ROUTER_MODEL
+                            or attribute(entry["model"], entry["api_base"]) for entry in template["active"]),
+                        "an entry of nobody"),
                        (is_complete(result), "the coverage is partial")))
     return failures
 
@@ -8005,6 +8058,281 @@ def run_incomplete_catalogue_cases():
     return failures
 
 
+def run_deprecation_cases():
+    """LiteLLM's map as the second source of announced retirements: each line of the table the run holds
+    them to (both silent, one announcing, both announcing the same day, the two contradicting), an entry
+    commented out, a date already passed, a provider that was not read, an entry no key of the map
+    covers, and a map that cannot be read, which never deletes anything and never hides what the
+    providers say."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def section(body, heading):
+        return body.split(heading, 1)[1].split("\n## ", 1)[0] if heading in body else ""
+
+    warning_heading = "## Avertissement : sources en désaccord sur un retrait"
+
+    def play(dates=None, silent=(), openrouter=None, groq=None, environment=SELFTEST_KEYS, served=None,
+             template=SELFTEST_TEMPLATE):
+        answers = selftest_answers()
+        if openrouter is not None:
+            answers["openrouter"] = openrouter
+        if groq is not None:
+            answers["groq"] = groq
+        answers["litellm_map"] = served if served is not None else litellm_map(dates, silent)
+        calls = []
+        result = run_online(template, environment, canned_opener(answers, calls), "2026-01-01")
+        return result, calls, render_text(result, "selftest"), render_summary(result, "selftest")
+
+    def openrouter_listing(**expirations):
+        """The OpenRouter answer of selftest_answers with an expiration date on the ids given."""
+        listing = selftest_answers()["openrouter"]
+        return {"data": [openrouter_model(model["id"], expiration=expirations.get(model["id"]))
+                         if model["id"] in expirations else model for model in listing["data"]]}
+
+    def notices_of(result):
+        return {finding["id"]: finding["notice"] for report in result["providers"]
+                for finding in report["findings"] if finding["kind"] == "notice"}
+
+    def kinds_of(result):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      for finding in report["findings"])
+
+    ONE = "openrouter/vendor/one:free"
+    FLASH = "gemini/gemini-9-flash"
+    FAST = "groq/vendor/fast"
+
+    # Both silent: nothing, whether the map carries the models or not, and it is read once, with no key.
+    for purpose, silent in (("the map carries the models and gives no date", (ONE, FLASH, FAST)),
+                            ("the map does not carry the models", ())):
+        result, calls, report, body = play(silent=silent)
+        asked = [(url, headers) for url, headers in calls if url == drift.LITELLM_MAP_URL]
+        judged("both sources silent is nothing: %s, and the map is read once, without a key" % purpose,
+               first_wrong((kinds_of(result) == [], "findings %r" % kinds_of(result)),
+                           (exit_status(result) == 0, "exit status %d" % exit_status(result)),
+                           (len(asked) == 1, "the map was asked %d times" % len(asked)),
+                           (not any("SECRET" in value or "uthorization" in key for key, value in asked[0][1].items()),
+                            "a credential was sent to the map"),
+                           ("Aucune dérive." in body, "the summary does not say so")))
+
+    # One source announces and the other is silent: a retirement, and the source is named.
+    result, calls, report, body = play(openrouter=openrouter_listing(**{"vendor/one:free": "2026-12-01"}), silent=(ONE,))
+    notice = notices_of(result).get("vendor/one:free", {})
+    judged("the provider alone announcing a retirement is a NOTICE that says the map is silent",
+           first_wrong((kinds_of(result) == [("notice", "vendor/one:free")], "findings %r" % kinds_of(result)),
+                       ("expires on 2026-12-01 (OpenRouter; LiteLLM's map says nothing of it)" in report, report),
+                       ("expiration annoncée (`2026-12-01`) (OpenRouter ; la carte de LiteLLM n'en dit rien)" in body, body),
+                       (notice.get("sources") == ["provider"] and not notice.get("conflict"), "the notice is %r" % notice)))
+    result, calls, report, body = play({FLASH: "2026-12-01"})
+    judged("the map alone announcing a retirement is a NOTICE that says Gemini, which publishes none, is silent",
+           first_wrong((kinds_of(result) == [("notice", "gemini-9-flash")], "findings %r" % kinds_of(result)),
+                       ("gemini/gemini-9-flash (flash): deprecated on 2026-12-01 (LiteLLM's map; Gemini says nothing of it)"
+                        in report, report),
+                       ("`gemini/gemini-9-flash` (`flash`) : déprécié (`2026-12-01`) (la carte de LiteLLM ; Gemini n'en dit rien)"
+                        in section(body, "## Retraits annoncés"), body),
+                       ("WARNING" not in report and warning_heading not in body, "a disagreement was reported"),
+                       (exit_status(result) == 1, "exit status %d" % exit_status(result))))
+
+    # Both announce the same day: one notice that cites both.
+    result, calls, report, body = play({ONE: "2026-12-05"},
+                                       openrouter=openrouter_listing(**{"vendor/one:free": "2026-12-05"}))
+    judged("both sources announcing the same day is one NOTICE citing both, and no WARNING",
+           first_wrong((kinds_of(result) == [("notice", "vendor/one:free")], "findings %r" % kinds_of(result)),
+                       ("expires on 2026-12-05 (OpenRouter and LiteLLM's map)" in report, report),
+                       ("(OpenRouter et la carte de LiteLLM)" in body, body),
+                       ("WARNING" not in report and warning_heading not in body, "a disagreement was reported")))
+    result, calls, report, body = play({ONE: "2026-12-05"},
+                                       openrouter=openrouter_listing(**{"vendor/one:free": "2026-12-05T00:00:00Z"}))
+    judged("a provider's timestamp is compared by its day",
+           first_wrong(("WARNING" not in report, "a timestamp of the same day was a disagreement"),
+                       ("(OpenRouter and LiteLLM's map)" in report, report)))
+
+    # The sources contradict: the earliest date, a WARNING naming both, in the summary and in the pull request.
+    for purpose, provider_day, map_day in (("the map is the earlier", "2026-12-05", "2026-12-01"),
+                                           ("the provider is the earlier", "2026-12-01", "2026-12-05")):
+        result, calls, report, body = play({ONE: map_day},
+                                           openrouter=openrouter_listing(**{"vendor/one:free": provider_day}),
+                                           groq=GROQ_WITHOUT_FAST)
+        notice = notices_of(result).get("vendor/one:free", {})
+        new_text = apply_to_result(SELFTEST_TEMPLATE, result)
+        pr = render_pr_body(result) if result["removals"]["changed"] else ""
+        warned = section(body, warning_heading)
+        judged("two different days (%s) keep the earliest and warn, naming both sources and what each says"
+               % purpose,
+               first_wrong((kinds_of(result) == [("notice", "vendor/one:free"), ("retired", "vendor/fast")],
+                            "findings %r" % kinds_of(result)),
+                           (notice.get("date") == "2026-12-01" and notice.get("conflict") == "dates",
+                            "the notice is %r" % notice),
+                           ("expires on 2026-12-01 (OpenRouter and LiteLLM's map disagree, see the warning)"
+                            in report, report),
+                           ("expiration annoncée (`2026-12-01`) (OpenRouter et la carte de LiteLLM divergent, "
+                            "voir l'avertissement)" in section(body, "## Retraits annoncés"), body),
+                           ("WARNING  the sources of an announced retirement disagree" in report
+                            and "the sources disagree: OpenRouter says expires on %s, LiteLLM's map says "
+                                "deprecated on %s; the earliest date, 2026-12-01, is kept" % (provider_day, map_day)
+                            in report, "the report has no WARNING naming both: %s" % report),
+                           ("`openrouter/vendor/one:free` (`free-one`)" in warned
+                            and "OpenRouter dit expiration annoncée (`%s`)" % provider_day in warned
+                            and "la carte de LiteLLM dit déprécié (`%s`)" % map_day in warned,
+                            "the summary has no warning naming both: %r" % warned[:400]),
+                           (warning_heading in pr and "OpenRouter dit expiration annoncée (`%s`)" % provider_day in pr
+                            and "la carte de LiteLLM dit déprécié (`%s`)" % map_day in pr,
+                            "the pull request of the deletions has no warning"),
+                           (REVIEW_HEADING not in pr and "model: openrouter/vendor/one:free" in new_text,
+                            "the warning holds the merge or deleted the model"),
+                           (exit_status(result) == 1, "exit status %d" % exit_status(result))))
+
+    # The provider says in so many words that the model is active while the map gives a date.
+    result, calls, report, body = play({FAST: "2026-12-10"})
+    notice = notices_of(result).get("vendor/fast", {})
+    judged("a provider that states the model is active against a date of the map is a WARNING, the retirement kept",
+           first_wrong((kinds_of(result) == [("notice", "vendor/fast")], "findings %r" % kinds_of(result)),
+                       (notice.get("conflict") == "provider_active" and notice.get("date") == "2026-12-10",
+                        "the notice is %r" % notice),
+                       ("deprecated on 2026-12-10 (LiteLLM's map; Groq lists it as active, see the warning)" in report, report),
+                       ("the sources disagree: Groq lists the model as active, not deprecated, LiteLLM's map says "
+                        "it is deprecated on 2026-12-10; the deprecation is kept" in report, report),
+                       ("Groq indique le modèle actif, non déprécié, la carte de LiteLLM le dit déprécié (`2026-12-10`)"
+                        in section(body, warning_heading), body)))
+    result, calls, report, body = play({FAST: "2026-12-10"},
+                                       groq={"data": [{"id": "vendor/fast", "active": False},
+                                                      {"id": "whisper-large-v9", "active": True}]})
+    judged("a provider that flags the model with no date and a date of the map are no disagreement: both announce",
+           first_wrong((kinds_of(result) == [("notice", "vendor/fast")], "findings %r" % kinds_of(result)),
+                       ("vendor/fast (fast): listed as inactive on 2026-12-10 (Groq and LiteLLM's map)" in report, report),
+                       ("WARNING" not in report, "a flag with no day was taken for a disagreement")))
+    judged("only a flag that states the model is active or not deprecated counts as the provider saying so",
+           first_wrong((drift.read_groq([{"data": [{"id": "a", "active": True}, {"id": "b"}]}])["not_deprecated"] == {"a"},
+                        "Groq's"),
+                       (drift.read_flagged([{"data": [{"id": "a", "deprecated": False}, {"id": "b"}]}])["not_deprecated"] == {"a"},
+                        "the flag of Cerebras and SambaNova"),
+                       (drift.read_openrouter([{"data": [{"id": "a", "expiration_date": None}]}])["not_deprecated"] == set(),
+                        "a null date is no statement")))
+
+    # A day already passed is still a notice, and deletes nothing.
+    result, calls, report, body = play({FLASH: "2025-12-31"})
+    judged("a date that has passed while the provider still lists the model is a NOTICE that says so, deleting nothing",
+           first_wrong((kinds_of(result) == [("notice", "gemini-9-flash")], "findings %r" % kinds_of(result)),
+                       ("deprecated on 2025-12-31 (LiteLLM's map; Gemini says nothing of it) -- this date has passed"
+                        in report, report),
+                       ("cette date est dépassée" in section(body, "## Retraits annoncés"), body),
+                       (undeleted_count(result) == 0 and apply_to_result(SELFTEST_TEMPLATE, result) == SELFTEST_TEMPLATE,
+                        "the passed date deleted something or is left undeleted")))
+    result, calls, report, body = play({FLASH: "2026-01-01"})
+    judged("a date that is today has not passed",
+           first_wrong(("this date has passed" not in report, report),
+                       (kinds_of(result) == [("notice", "gemini-9-flash")], "findings %r" % kinds_of(result))))
+
+    # Commented-out entries are covered too, and say so.
+    result, calls, report, body = play({"openrouter/vendor/paid-one": "2026-12-01"})
+    judged("an entry commented out is covered, and the notice says it is one",
+           first_wrong((kinds_of(result) == [("notice", "vendor/paid-one")], "findings %r" % kinds_of(result)),
+                       ("openrouter/vendor/paid-one (paid-one): deprecated on 2026-12-01 (LiteLLM's map; OpenRouter says "
+                        "nothing of it) -- commented-out entry" in report, report),
+                       ("-- entrée commentée" in section(body, "## Retraits annoncés"), body)))
+    result, calls, report, body = play(openrouter=openrouter_listing(**{"vendor/paid-one": "2026-12-01"}))
+    judged("an entry commented out that its provider marks for removal is reported too",
+           first_wrong((kinds_of(result) == [("notice", "vendor/paid-one")], "findings %r" % kinds_of(result)),
+                       ("-- commented-out entry" in report, report)))
+
+    # Which entries the map can speak of.
+    result, calls, report, body = play({"openai/vendor/kilo-one:free": "2026-12-01", "openai/aion-labs/aion-one": "2026-12-01",
+                                        "vendor/kilo-one:free": "2026-12-01", "openai/SN-One": "2026-12-01"})
+    judged("an entry reached as openai/<id> on a host the map has no provider for is never looked up under that name",
+           first_wrong((kinds_of(result) == [], "findings %r" % kinds_of(result)),
+                       ("%d of the entries here matched" % 0 in report, report)))
+    result, calls, report, body = play({"sambanova/SN-One": "2026-12-01"})
+    judged("an entry reached as openai/<id> on SambaNova is looked up under the name the map gives it",
+           first_wrong((kinds_of(result) == [("notice", "SN-One")], "findings %r" % kinds_of(result)),
+                       ("openai/SN-One on SambaNova (sn-one): deprecated on 2026-12-01 (LiteLLM's map; SambaNova says "
+                        "nothing of it) -- commented-out entry" in report, report)))
+
+    # A model the provider no longer lists is the deletion's, whatever the map says.
+    result, calls, report, body = play({ONE: "2026-12-01"},
+                                       openrouter={"data": [model for model in selftest_answers()["openrouter"]["data"]
+                                                            if model["id"] != "vendor/one:free"]})
+    judged("a model its provider no longer lists is RETIRED and nothing else, whatever the map says of it",
+           first_wrong((kinds_of(result) == [("retired", "vendor/one:free")], "findings %r" % kinds_of(result)),
+                       ("%s: deprecated" % "vendor/one:free" not in report, report)))
+    result, calls, report, body = play({ONE: "2025-01-01"})
+    judged("a model the provider lists is never retired by a date of the map, passed or not",
+           first_wrong((kinds_of(result) == [("notice", "vendor/one:free")], "findings %r" % kinds_of(result)),
+                       (undeleted_count(result) == 0, "something is left to delete"),
+                       (apply_to_result(SELFTEST_TEMPLATE, result) == SELFTEST_TEMPLATE, "the file was edited")))
+
+    # A provider that could not be read leaves the map alone to speak, and says so.
+    result, calls, report, body = play({FLASH: "2026-12-01"}, environment=dict(SELFTEST_KEYS, MODEL_DRIFT_GEMINI_API_KEY=" "))
+    judged("a provider that was not read is judged on the map alone, which the notice says",
+           first_wrong((kinds_of(result) == [("notice", "gemini-9-flash")], "findings %r" % kinds_of(result)),
+                       ("deprecated on 2026-12-01 (LiteLLM's map; the Gemini catalogue was not read)" in report, report),
+                       ("not covered (no key): MODEL_DRIFT_GEMINI_API_KEY" in report, "the provider is no longer said not covered")))
+
+    # An unreadable map: an error of that source, nothing deleted by it, and the providers' signals stay.
+    leaky = urllib.error.HTTPError(drift.LITELLM_MAP_URL, 403, "SECRET reason", None, io.BytesIO(b"SECRET body"))
+    for purpose, served, why in (("down", urllib.error.URLError("selftest: no route"), "network error"),
+                                 ("refused, with a body that echoes a key", leaky, "HTTP 403"),
+                                 ("not JSON", b"<html>not a map</html>", "the map is not JSON"),
+                                 ("an array", b"[]", "the map is not an object"),
+                                 ("an object of no model", b'{"message": "rate limited"}',
+                                  "no entry of the map names a litellm_provider"),
+                                 ("too big", b" " * (drift.LITELLM_MAP_MAX + 1), "the map is larger than"),
+                                 ("an answer the reader cannot parse", AssertionError("selftest"), "failed: AssertionError")):
+        result, calls, report, body = play(served=served, openrouter=openrouter_listing(**{"vendor/one:free": "2026-12-01"}),
+                                           groq=GROQ_WITHOUT_FAST)
+        new_text = apply_to_result(SELFTEST_TEMPLATE, result)
+        pr = render_pr_body(result) if result["removals"]["changed"] else ""
+        judged("an unreadable map (%s) is an error of that source: the providers' notice stands, the deletion is made, "
+               "and the exit status is the providers'" % purpose,
+               first_wrong((result["litellm"]["status"] == "error" and why in result["litellm"]["error"],
+                            "the state is %r" % {key: value for key, value in result["litellm"].items() if key != "members"}),
+                           (kinds_of(result) == [("notice", "vendor/one:free"), ("retired", "vendor/fast")],
+                            "findings %r" % kinds_of(result)),
+                           ("expires on 2026-12-01 (OpenRouter)" in report, "the notice of the provider is hidden: %s" % report),
+                           ("litellm     ERROR, not read: " in report, "the report does not say it: %s" % report),
+                           ("## Carte de LiteLLM non lue" in body and "| Carte de LiteLLM (dates de dépréciation) | erreur |" in body,
+                            "the summary does not say it"),
+                           ("## Carte de LiteLLM non lue" in pr and "(OpenRouter)" in section(pr, "## Retraits annoncés"),
+                            "the pull request does not say it"),
+                           ("model: groq/vendor/fast" not in new_text, "the deletion was not made"),
+                           (exit_status(result) == 1, "exit status %d" % exit_status(result)),
+                           (not any("SECRET" in text for text in (report, body, pr)), "an echoed key reached the output")))
+    result, calls, report, body = play(served=urllib.error.URLError("selftest: no route"))
+    judged("an unreadable map over a run with nothing else to say changes neither the exit status nor the coverage",
+           first_wrong((exit_status(result) == 0 and is_complete(result), "the status or the coverage moved"),
+                       (unreadable_providers(result) == [], "the map is named as an unreadable catalogue"),
+                       (undeleted_count(result) == 0, "something is left to delete")))
+
+    # What the map is read as.
+    state = drift.read_litellm_map(
+        canned_opener({"litellm_map": litellm_map({"a/ok": "2026-12-01", "a/bad": "2026-13-45", "a/text": "soon",
+                                                   "a/stamp": "2026-12-02T00:00:00Z", "a/number": 20261201,
+                                                   "a/empty": ""}, silent=("a/none",))}, []), "2026-01-01")
+    judged("the map is read as the days it states: a real day, alone or starting a timestamp, and nothing else",
+           first_wrong((state["status"] == "read", "the state is %r" % state["status"]),
+                       (state["dates"] == {"a/ok": "2026-12-01", "a/stamp": "2026-12-02"}, "dates %r" % state["dates"]),
+                       ("sample_spec" not in state["members"] and "a/none" in state["members"] and "a/bad" in state["members"],
+                        "members %r" % sorted(state["members"]))))
+    judged("a model is looked up under the key LiteLLM's map holds it by",
+           first_wrong((drift.litellm_map_key("gemini", "gemini-9-flash") == "gemini/gemini-9-flash", "gemini"),
+                       (drift.litellm_map_key("nvidia", "meta/x") == "nvidia_nim/meta/x", "NVIDIA's prefix"),
+                       (drift.litellm_map_key("cloudflare", "@cf/meta/x") == "cloudflare/@cf/meta/x", "Cloudflare"),
+                       (drift.litellm_map_key("ovhcloud", "x") == "ovhcloud/x", "OVHcloud"),
+                       (all(drift.litellm_map_key(name, "x") is None
+                            for name in ("kilo", "requesty", "centai", "aionlabs")),
+                        "a host the map has no provider for")))
+    return failures
+
+
 def run_template_cases():
     failures = 0
 
@@ -8189,6 +8517,7 @@ GROUPS_OF_THE_FIRST_HALF = (
     run_template_cases,
     run_canned_catalogue_cases,
     run_incomplete_catalogue_cases,
+    run_deprecation_cases,
     run_cloudflare_cases,
     run_coverage_cases,
     run_apply_cases,

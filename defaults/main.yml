@@ -496,7 +496,8 @@ Artificial_Intelligence_Claude_code_model: "Auto-Claude-Code"
 # ones, which the alias does not serve. A router none of whose members has a key or needs none is absent from the gateway and a
 # name that nothing serves is refused there, not here; "check_compose_template.py" keeps this list level
 # with the template's routers. The role creates the key and does not reconcile an
-# existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui".
+# existing one, so a change here reaches a deployed agent only once its key is deleted from "/ui". "Auto" is not
+# one of them: its tiers can pick "Auto-Flash-Lite", whose members are not held to the strict tool calls the agent needs.
 Artificial_Intelligence_Claude_code_additional_models:
   - "Auto-Pro"
   - "Auto-Flash"
@@ -595,9 +596,10 @@ Artificial_Intelligence_LibreChat_users: []
 # "/v1/models" with the key's own list, an access group expanded into its members. "LLM" is the access group of
 # the text models, which leaves out transcription, speech and vectors a chat has no use for, and a router is in
 # no group (it is an alias of the head of its cascade), so the ones a chat should offer are named. "Auto-Claude-Code"
-# is left out: its cascade is held to strict tool calls and belongs to the agent. "Fiction" and "Auto-Fiction",
-# the access group and the router of the role-play models, are left out too, so that no account inherits them:
-# add either to the key of an account that is to try them. The role applies the list at every
+# is left out: its cascade is held to strict tool calls and belongs to the agent. "Auto", which picks one of the
+# routers above for each request, is an entry of the "LLM" group and so is listed with it, without being named.
+# "Fiction" and "Auto-Fiction", the access group and the router of the role-play models, are left out, so that no
+# account inherits them: add either to the key of an account that is to try them. The role applies the list at every
 # run, to the key an account already has as to a new one, so a change here reaches a deployed key by itself.
 # "check_compose_template.py" holds the names to the template's groups and routers.
 Artificial_Intelligence_LibreChat_gateway_key_models:
