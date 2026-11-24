@@ -607,16 +607,24 @@ def models_section(document, entries, contracts, scores):
     return text + "\n\n### %s\n\n%s" % (SCORES_TITLE, scores_section(entries, contracts, scores))
 
 
+def rendered_document(template_text):
+    """The template rendered with every key given, each entry carrying the key its credential holds instead of the
+    credential's name, which is what tells the provider an entry calls. The shape of the credentials is judged by
+    "check_compose_template.py", so what that finds is not repeated here."""
+    document = yaml.safe_load(drift.render_with_keys(template_text, None))
+    return compose.litellm_resolved_document(document, "the catalogue", (), [])
+
+
 def entry_names(template_text):
     """The names of the entries of the template as rendered, in the order of the model list."""
-    document = yaml.safe_load(drift.render_with_keys(template_text, None))
+    document = rendered_document(template_text)
     return [entry.get("model_name") for entry in (document.get("model_list") or []) if isinstance(entry, dict)]
 
 
 def build(template_text, contracts, scores):
     """The text of the catalogue for this template, these contracts (a mapping, or None for none) and these figures
     (the document of "catalog_scores.json", which holds nothing but numbers for entries of the template)."""
-    document = yaml.safe_load(drift.render_with_keys(template_text, None))
+    document = rendered_document(template_text)
     entries = [entry for entry in (document.get("model_list") or []) if isinstance(entry, dict)]
     contracts = contracts if isinstance(contracts, dict) else {}
     purpose_of = purposes(template_text)
@@ -687,22 +695,26 @@ def check(template_text, contracts, scores, committed):
 # ------------------------------------------------------------------------------------------------
 
 SELFTEST_TEMPLATE = """\
+credential_list:
+  - {credential_name: gemini, credential_info: {}, credential_values: {api_key: os.environ/GEMINI_API_KEY}}
+  - {credential_name: groq, credential_info: {}, credential_values: {api_key: os.environ/GROQ_API_KEY}}
+  - {credential_name: aion-labs, credential_info: {}, credential_values: {api_key: os.environ/AION_LABS_API_KEY}}
 model_list:
   - model_name: alpha
     model_info: {access_groups: ["LLM"], max_input_tokens: 1048576, max_output_tokens: 65536}
-    litellm_params: {model: gemini/alpha, api_key: os.environ/GEMINI_API_KEY, reasoning_effort: high, rpm: 5, tpm: 250000, rpd: 20}
+    litellm_params: {model: gemini/alpha, litellm_credential_name: gemini, reasoning_effort: high, rpm: 5, tpm: 250000, rpd: 20}
   - model_name: bravo
     model_info: {access_groups: ["LLM", "Claude-Code"], max_input_tokens: 131072}
     litellm_params: {model: openai/bravo, api_base: "https://ai-gateway.kilo.ai/api/v1", api_key: kilo-no-key-needed}
   - model_name: whisper
     model_info: {mode: audio_transcription, access_groups: ["STT"]}
-    litellm_params: {model: groq/whisper, api_key: os.environ/GROQ_API_KEY}
+    litellm_params: {model: groq/whisper, litellm_credential_name: groq}
   - model_name: tale
     model_info: {access_groups: ["Fiction"], max_input_tokens: 32768}
-    litellm_params: {model: openai/tale, api_key: os.environ/AION_LABS_API_KEY}
+    litellm_params: {model: openai/tale, litellm_credential_name: aion-labs}
   - model_name: strange
     model_info: {mode: mystery, access_groups: ["Mystery"]}
-    litellm_params: {model: openai/strange, api_key: os.environ/GROQ_API_KEY}
+    litellm_params: {model: openai/strange, litellm_credential_name: groq}
   - model_name: Auto
     model_info: {access_groups: ["LLM"]}
     litellm_params:
