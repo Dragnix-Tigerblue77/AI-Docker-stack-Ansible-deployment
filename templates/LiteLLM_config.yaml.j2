@@ -1350,6 +1350,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/daily-co/phonellm-mini-alpha-2
       litellm_credential_name: "cloudflare"
+      max_tokens: 32768
 
   # SEA-LION v4, a Gemma 3 27B tuned for the languages of Southeast Asia, with 128,000 tokens of context
   # (its model page, read 2026-11-22). Not among the models the pricing page
@@ -1490,6 +1491,7 @@ model_list:
     litellm_params:
       model: cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora
       litellm_credential_name: "cloudflare"
+      max_tokens: 8192
 
   # Mistral Small 3.1 24B, with vision, 128,000 tokens of context and function calling (its model page,
   # read 2026-11-22). Not among the models the pricing page
