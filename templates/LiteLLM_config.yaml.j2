@@ -903,6 +903,41 @@ model_list:
   # Tried by hand on 2026-11-21 and set aside. Remove the line to have its id reported again.
   # drift-ignore: openrouter/inclusionai/ling-3.2-flash:free -- unreliable in practice and unmeasured: of 31 requests made on 2026-11-21, 4 were answered and 27 were refused with a 429 by the shared upstream pool, so it would cost a refusal before most replies; the 4 answers took 22 s on a five-instruction prompt and 14 s on a long-context search; Artificial Analysis does not list it, inclusionAI published three vision benchmarks and no text one (OrcaRouter's "Ling 3.2 Flash: 560B Multimodal, a 30-Second Video Cap"), and Ling 3.1 Flash, 30 on the index ("artificialanalysis.ai/models/ling-3-1-flash"), is a different model; look again when its free pool is less loaded
 
+  # Three embedding models, added 2026-11-24, in no cascade and behind no alias, for the reason given at
+  # "gemini-embedding-2" above. The catalogue "openrouter.ai/api/v1/embeddings/models", read that day, lists
+  # all three with a price of 0 in and out and "/api/v1/embeddings" as their endpoint. LiteLLM's "openrouter/" provider has
+  # an embedding route of its own (its source, read that day, strips the "openrouter/" prefix and posts to
+  # that path), which takes "dimensions" and "encoding_format". Context, from the catalogue and the pages:
+  # 4,096 tokens per input for the 3 Embed 1B, 32,768 for each 3.5 (text and page images, which this entry
+  # does not exercise). No page read states a vector size: create a collection from the length of a first
+  # answer, not from a number written here. They count in the limit of the section above, which every ":free"
+  # model shares. Each page warns that the free endpoint logs requests and that NVIDIA collects and uses
+  # what is sent under its API trial terms, with "do not upload any confidential information or personal
+  # data": not for private documents, as for every free tier of this file. Nothing was tried with a call.
+  - model_name: nemotron-3-embed-1b-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-embed-1b:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings"]
+
+  - model_name: nemotron-3-5-embed-1b-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-embed-1b:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings"]
+
+  - model_name: nemotron-3-5-embed-8b-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3.5-embed-8b:free
+      api_key: "os.environ/OPENROUTER_API_KEY"
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings"]
+
 {% endif %}
 {% if has.Cloudflare %}
   # ============================================================================
