@@ -9,25 +9,34 @@ The script's "--selftest" runs this module, and it can be run directly, from any
 
     python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
 
+The cases run across the cores of the machine; "--workers 1" runs them in this process, which is what
+to debug with. "--half 1" or "--half 2" runs one half of them, which is what each of the two jobs of the
+CI does: the two halves together are every case, and each case is in one of them.
+
 It exits 0 when every case judged as expected and 1 otherwise. The cases are Python literals rather
 than fixture files, for the reason the script gives: a fixture on disk is reachable by
 "ansible-lint --fix". The scripts directory is flat and not a package, so the script is imported by
 its file name, which is what puts this directory on the path whichever way this module was started.
 """
 
+import argparse
 import collections
+import concurrent.futures
+import concurrent.futures.process
 import contextlib
 import difflib
 import http.client
 import http.server
 import io
 import json
+import multiprocessing
 import os
 import re
 import runpy
 import sys
 import tempfile
 import threading
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -515,6 +524,49 @@ def http_error(status):
                                   io.BytesIO(b"{}"))
 
 
+# Z AI's pricing page as its documentation serves it: a table with a model free of charge in the first of two
+# blocks, the second the way the page nests its older models in a block quote. SELFTEST_PRICING has none free.
+ZAI_PRICING = """\
+# Pricing
+
+## Models
+
+| Model | Input | Cached Input | Cached Input Storage | Output |
+| :- | :- | :- | :- | :- |
+| GLM-9 | \\$1.4 | \\$0.26 | Limited-time Free | \\$4.4 |
+| GLM-9-Flash | Free | Free | Free | Free |
+
+> [accordion] Other Pricing
+>
+> ### Text Models
+>
+> | Model | Input | Cached Input | Cached Input Storage | Output |
+> | :- | :- | :- | :- | :- |
+> | GLM-8-FlashX | \\$0.07 | \\$0.01 | Limited-time Free | \\$0.4 |
+> | GLM-8-Flash | Free | Free | Free | Free |
+"""
+ZAI_PRICING_NONE_FREE = ZAI_PRICING.replace("| Free | Free | Free | Free |", "| \\$1 | \\$1 | \\$1 | \\$1 |")
+
+
+def probe_answer(answer):
+    """What a canned probe serves: an integer is an HTTP error of that status with an empty object, a
+    (status, body) pair is one with that body (a 200 is the body served), an exception is raised."""
+    if isinstance(answer, Exception):
+        raise answer
+    if isinstance(answer, int):
+        answer = (answer, {})
+    status, body = answer
+    raw = body if isinstance(body, bytes) else json.dumps(body).encode()
+    if status == 200:
+        return raw
+    raise urllib.error.HTTPError("https://selftest.invalid/", status, "selftest", None, io.BytesIO(raw))
+
+
+def zai_error(code, status):
+    """Z AI's error as its documentation shows it, the code a string."""
+    return (status, {"error": {"code": str(code), "message": "selftest"}})
+
+
 def canned_opener(answers, calls):
     """An opener serving "answers" by provider. An answer that is an exception is raised. The ranking
     source's answer is a list of pages, or a single page served for every page asked for.
@@ -540,8 +592,20 @@ def canned_opener(answers, calls):
             return json.dumps({"id": identifier}).encode()
         raise http_error(404)
 
-    def opener(url, headers, limit=None):
+    def opener(url, headers, limit=None, data=None):
         calls.append((url, dict(headers)))
+        if data is not None:
+            # A probe: the model it asks about is in its body, and a probe nobody wrote is a call too far.
+            answers.setdefault("probe_requests", []).append((url, dict(headers), data))
+            model = json.loads(data)["model"]
+            if model not in answers.get("probes", {}):
+                raise AssertionError("an unexpected probe of %s at %s" % (model, url))
+            return probe_answer(answers["probes"][model])
+        if url == drift.INCOMPLETE_CATALOGUES["zai"]["free_listing"]:
+            answer = answers.get("zai_pricing", ZAI_PRICING_NONE_FREE)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else answer.encode()
         if url == EPOCH_URL:
             # The archive of Epoch AI, which a case serves in "answers" as bytes, and which nobody
             # served is a 404.
@@ -4093,6 +4157,13 @@ def run_proposal_cases():
                ("free tier, and only" in (build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", aion_items)[1] or ""),
                 "a ready addition of a provider whose catalogue flags no model free was let through")))
     entries = addition_entries(ADDITIONS_TEMPLATE.split("\n"))
+    # An OpenRouter embedding entry written last is not the one a new chat model is written after.
+    with_embedding = addition_entries(ADDITIONS_TEMPLATE.replace(
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n{% endif %}',
+        '      api_key: "os.environ/OPENROUTER_API_KEY"\n\n  - model_name: free-embed\n    litellm_params:\n'
+        '      model: openrouter/vendor/embed:free\n      api_key: "os.environ/OPENROUTER_API_KEY"\n'
+        '    model_info:\n      mode: embedding\n      access_groups: ["Embeddings"]\n{% endif %}', 1).split("\n"))
+    embedding_anchor = (addition_anchor(with_embedding, "openrouter") or {}).get("name") if with_embedding else None
     basis = provider_basis(read_template(ADDITIONS_TEMPLATE)[0]["active"], "kilo")
     taken = set(WORD.findall(ADDITIONS_TEMPLATE)) | {"gw-one-kilo"}
     snippet_lines = snippet("kilo", "vendor/gw-four:free", basis, "gw-four-kilo")
@@ -4107,7 +4178,9 @@ def run_proposal_cases():
                 "a name that is taken did not get another"),
                (snippet_lines[-3:] == ['      api_key: "gw-no-key"', "      extra_headers:", '        Authorization: ""'],
                 "the snippet of a keyless gateway is not the entry's shape: %r" % snippet_lines),
-               (entries and addition_anchor(entries, "kilo")["name"] == "gw-one", "the entry of Kilo is not found")))
+               (entries and addition_anchor(entries, "kilo")["name"] == "gw-one", "the entry of Kilo is not found"),
+               (embedding_anchor == "free-one",
+                "a new OpenRouter model would be written after an embedding entry: %r" % embedding_anchor)))
 
     # The tables the bodies read, against the providers they serve.
     commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
@@ -4610,13 +4683,16 @@ def quick_rendering():
     most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
     first rendering of a text is the plain one, which the quick one is held to. What every scenario reads,
     cached while the real file is set up, is kept; what one scenario caches is forgotten once it is
-    checked, since the next never reads it, and kept it outgrew a runner shared with other jobs."""
+    checked, since the next never reads it, and kept it outgrew a runner shared with other jobs. Within a
+    scenario, what it caches is bounded to the last few texts: a provider deleted whole tries each of its
+    entries alone, each a text of its own that nothing reads again, and kept for the whole scenario they
+    made it the largest of the run, several times over once the scenarios run side by side."""
     import jinja2
     from jinja2.sandbox import SandboxedEnvironment
     environment = SandboxedEnvironment(undefined=jinja2.StrictUndefined, trim_blocks=True,
                                        keep_trailing_newline=True)
     plain, loaded = render_with_keys, yaml.safe_load
-    rendered, compiled, parsed = {}, {}, {}
+    rendered, compiled, parsed, compared = {}, {}, {}, set()
 
     def quick(text, given):
         return compiled[text].render({**{name: "" if given is not None and name not in given
@@ -4626,21 +4702,33 @@ def quick_rendering():
     def render(text, given):
         key = (text, None if given is None else frozenset(given))
         if key not in rendered:
-            if text in compiled:
-                rendered[key] = quick(text, key[1])
-            else:
-                rendered[key] = plain(text, given)
+            if text not in compiled:
                 compiled[text] = environment.from_string(text)
-                if quick(text, key[1]) != rendered[key]:
+            rendered[key] = quick(text, key[1])
+            # The first rendering of a text is the plain one, which the quick one is held to.
+            if hash(text) not in compared:
+                compared.add(hash(text))
+                if plain(text, given) != rendered[key]:
                     raise RuntimeError("the quick rendering is not the plain one")
+            trim()
         return rendered[key]
 
     def load(text):
         if text not in parsed:
             parsed[text] = yaml.load(text, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))
+            trim()
         return parsed[text]
 
     lasting = set()
+    # Texts held at once: far more than a check reads together, far fewer than a provider's entries.
+    sets_of_keys = 2 * len(PROVIDER_KEY_VARIABLES) + 1
+    limits = ((rendered, 8 * sets_of_keys), (compiled, 8), (parsed, 8 * sets_of_keys))
+
+    def trim():
+        for cache, limit in limits:
+            kept = [key for key in cache if (id(cache), key) not in lasting]
+            for key in kept[:max(0, len(kept) - limit)]:
+                del cache[key]
 
     def keep_what_is_cached():
         lasting.update((id(cache), key) for cache in (rendered, compiled, parsed) for key in cache)
@@ -4795,40 +4883,104 @@ def run_bounded_key_set_cases():
     return failures
 
 
-def run_real_list_cases():
-    """Each scenario of real_scenarios deleted from the real file (each key asked for twice, which is
-    one deletion) and read back by real_failure; then the first of them with CRLF line endings. Each is
-    rendered for the bounded sets of keys of bounded_keyset_documents."""
-    failures = 0
-    with quick_rendering() as (keep_what_is_cached, forget_the_rest), bounded_key_sets():
-        for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
-            text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
-            template, problems = read_template(text)
+def real_halves(items):
+    """The items of real_scenarios, or their places in it, dealt to the two halves of the cases: even
+    places to the first, odd to the second. Neighbours cost alike and a whole provider costs more, so
+    dealing out by place spreads both evenly where a cut in the middle would put the providers in one
+    half."""
+    return [[chosen for number, chosen in enumerate(items) if number % HALVES == half]
+            for half in range(HALVES)]
+
+
+real_layouts = {}
+
+
+def real_text_and_layout(ending):
+    """The real model list with the line endings given, its layout, and what is wrong with it if it has
+    none. Read once per process, and so once for all of a pool's, which are forked after it is."""
+    if ending not in real_layouts:
+        text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
+        template, problems = read_template(text)
+        # Reading the layout renders the file for every set of keys, which only the patches make quick.
+        with contextlib.ExitStack() as stack:
+            if real_list_session is None:
+                stack.enter_context(quick_rendering())
+                stack.enter_context(bounded_key_sets())
             layout = read_layout(text, template)[0] if template else None
-            if layout is None:
-                print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
-                return 1
-            known = dangling(text)
-            scenarios = real_scenarios(layout)
-            keep_what_is_cached()
-            for keys in scenarios[:bound]:
-                wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
-                new_text, outcomes = apply_removals(text, wanted)
-                why = real_failure(text, keys, new_text, outcomes, layout, known)
-                forget_the_rest()
-                if why:
-                    failures += 1
-                    print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
-                        ", ".join(sorted("%s/%s" % key for key in keys)),
-                        " with CRLF line endings" if ending != "\n" else "", why))
-    if not failures:
-        print("selftest: ok -- %d deletions from the real model list leave what they should"
-              % len(scenarios))
-    return failures
+        real_layouts[ending] = (text, layout, problems)
+    return real_layouts[ending]
 
 
-def run_selftest():
-    """Prove that every rule refuses what it claims to refuse, and lets the baseline through."""
+def run_real_list_partition_case():
+    """The halves of the real scenarios are disjoint and together are real_scenarios, in every mode: a
+    scenario dropped from both would pass for ever without being tried."""
+    text, layout, problems = real_text_and_layout("\n")
+    if layout is None:
+        print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
+        return 1
+    scenarios = real_scenarios(layout)
+    halves = real_halves(range(len(scenarios)))
+    dealt = sorted(number for each in halves for number in each)
+    if dealt != list(range(len(scenarios))):
+        print("selftest: FAILED (the halves of the real model list) -- they are not a partition of its %d "
+              "scenarios" % len(scenarios))
+        return 1
+    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the halves, %s"
+          % (len(scenarios), " and ".join(str(len(each)) for each in halves)))
+    return 0
+
+
+# What a process holds while it deletes from the real model list: the patches of quick_rendering and
+# bounded_key_sets, and what was read of each file. A process that goes on to run another group of
+# cases leaves it first, since those cases run with the plain functions.
+real_list_session = None
+
+
+def enter_real_list_session():
+    global real_list_session
+    if real_list_session is None:
+        stack = contextlib.ExitStack()
+        keep, forget = stack.enter_context(quick_rendering())
+        stack.enter_context(bounded_key_sets())
+        real_list_session = {"stack": stack, "keep": keep, "forget": forget, "files": {}}
+    return real_list_session
+
+
+def leave_real_list_session():
+    global real_list_session
+    if real_list_session is not None:
+        real_list_session["stack"].close()
+        real_list_session = None
+
+
+def run_real_list_deletion(ending, number):
+    """Scenario "number" of real_scenarios deleted from the real file (each key asked for twice, which is
+    one deletion) and read back by real_failure, rendered for the bounded sets of keys of
+    bounded_keyset_documents. Returns the number of failures."""
+    session = enter_real_list_session()
+    if ending not in session["files"]:
+        text, layout, problems = real_text_and_layout(ending)
+        if layout is None:
+            print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
+            return 1
+        session["files"][ending] = (text, layout, real_scenarios(layout), dangling(text))
+        session["keep"]()
+    text, layout, scenarios, known = session["files"][ending]
+    keys = scenarios[number]
+    wanted = [(provider, name, "gone") for provider, name in sorted(keys)] * 2
+    new_text, outcomes = apply_removals(text, wanted)
+    why = real_failure(text, keys, new_text, outcomes, layout, known)
+    session["forget"]()
+    if why:
+        print("selftest: FAILED (deleting %s from the real model list%s) -- %s" % (
+            ", ".join(sorted("%s/%s" % key for key in keys)),
+            " with CRLF line endings" if ending != "\n" else "", why))
+    return 1 if why else 0
+
+
+def run_selftest(half=None, workers=None):
+    """Prove that every rule refuses what it claims to refuse, and lets the baseline through: all of
+    them, or the half of them that run_selftest_cases says "half" is, across "workers" processes."""
     # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
@@ -4836,7 +4988,7 @@ def run_selftest():
         "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
         if name in os.environ}
     try:
-        return run_selftest_cases()
+        return run_selftest_cases(half, workers)
     finally:
         os.environ.update(kept)
 
@@ -7224,6 +7376,8 @@ def run_coverage_cases():
                (attribute("openai/a/b", "https://router.eu.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, European"),
                (attribute("openai/a/b", "https://router.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, the other base"),
                (attribute("openai/hy9:free", "https://api.cent-ai.dev/v1") == ("centai", "hy9:free"), "Cent AI"),
+               (attribute("openai/@cf/baai/x-1", "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE")
+                == ("cloudflare", "@cf/baai/x-1"), "Cloudflare's embeddings, whose api_base is read from the environment"),
                (attribute("openai/auto/best-free", "http://omniroute:20128/v1") is None, "OmniRoute was attributed"),
                (attribute("openai/x", None) is None and attribute("openai/x", "https://api.acme.invalid/v1") is None,
                 "an openai/ entry of a host nobody reads was attributed")))
@@ -7267,7 +7421,8 @@ def run_coverage_cases():
                 % result["unattributed"]),
                (is_complete(result), "the coverage is partial")))
 
-    # A model a catalogue no longer lists is retired, whichever of the five serves it.
+    # A model a catalogue no longer lists is retired, whichever of the five serves it -- bar Z AI, whose
+    # catalogue omits models it serves, so that the same absence is a NOTICE and nothing is deleted.
     for name, identifier, fresh, entry in (
             ("nvidia", "vendor/nv-one", {"object": "list", "data": [{"id": "vendor/nv-embed-9"}]}, "nvidia_nim/vendor/nv-one"),
             ("ovhcloud", "OvhOne", {"object": "list", "data": [{"id": "OvhSet"}]}, "openai/OvhOne"),
@@ -7276,9 +7431,13 @@ def run_coverage_cases():
              "openai/vendor/req-one"),
             ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
             ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
-        result, calls, report, body = run(coverage_answers(**{name: fresh}))
+        incomplete = name in drift.INCOMPLETE_CATALOGUES
+        # Z AI's list is not believed alone: its probe says the model does not exist, the code its documentation
+        # gives, and the entry is retired like the others.
+        probes = {"probes": {"glm-9-flash": zai_error(1211, 400)}} if incomplete else {}
+        result, calls, report, body = run(dict(coverage_answers(**{name: fresh}), **probes))
         expected = [("retired", identifier)]
-        outputs = apply_run(COVERAGE_TEMPLATE, coverage_answers(**{name: fresh}), COVERAGE_KEYS)
+        outputs = apply_run(COVERAGE_TEMPLATE, dict(coverage_answers(**{name: fresh}), **probes), COVERAGE_KEYS)
         judged("%s: an active id the catalogue no longer lists is RETIRED, and the pull request deletes its entry%s" % (
             name, " and its cascade slot" if name == "nvidia" else ""),
                first_wrong(
@@ -7292,7 +7451,8 @@ def run_coverage_cases():
         outputs = apply_run(COVERAGE_TEMPLATE, empty, COVERAGE_KEYS)
         judged("%s: a catalogue that lists nothing deletes nothing, an empty answer being a failed read" % name,
                first_wrong((outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
-                           (undeleted_count(outputs[0]) >= 1, "the finding is not left to a person")))
+                           (undeleted_count(outputs[0]) >= (0 if incomplete else 1),
+                            "the finding is not left to a person")))
 
     # NEW models: where each provider's API says nothing of the free tier, they are to examine, with the page.
     answers = coverage_answers()
@@ -7487,7 +7647,365 @@ def run_coverage_cases():
     return failures
 
 
-def run_selftest_cases():
+# ------------------------------------------------------------------------------------------------
+# A provider whose catalogue omits models it serves: its absences are a NOTICE, never a deletion
+# ------------------------------------------------------------------------------------------------
+
+# SELFTEST_TEMPLATE with an active Z AI entry and a commented-out one, neither routed through a cascade.
+INCOMPLETE_BLOCK = """\
+  - model_name: zai-flash
+    litellm_params:
+      model: zai/glm-9-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+  # Served, but not routed to: selftest, set aside.
+  # - model_name: zai-flash-old
+  #   litellm_params:
+  #     model: zai/glm-8-flash
+  #     api_key: "os.environ/ZAI_API_KEY"
+
+  # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down
+
+"""
+INCOMPLETE_TEMPLATE = SELFTEST_TEMPLATE.replace(
+    "  - model_name: local\n", INCOMPLETE_BLOCK + "  - model_name: local\n", 1)
+
+
+# The same without the commented-out entry, for the runs where nothing but an active one is absent.
+INCOMPLETE_ACTIVE_TEMPLATE = INCOMPLETE_TEMPLATE.replace(
+    INCOMPLETE_BLOCK, INCOMPLETE_BLOCK.split("  # Served, but not routed to")[0]
+    + "  # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down\n\n", 1)
+assert "glm-8-flash" not in INCOMPLETE_ACTIVE_TEMPLATE and "zai/glm-9-flash" in INCOMPLETE_ACTIVE_TEMPLATE
+
+
+def incomplete_catalogue_cases():
+    """(what the case proves, template, answers, a check on (result, new_text, report, summary, pr,
+    commit) returning None when it holds and why not otherwise, the exit status expected)."""
+    def changed(**replaced):
+        answers = selftest_answers()
+        answers.update(replaced)
+        return answers
+
+    # Z AI's catalogue lists a model of its own and none of the two the file holds for it, or one of them.
+    zai_omitting = {"object": "list", "data": [{"id": "glm-9-pro"}]}
+    zai_listing = {"object": "list", "data": [{"id": "glm-9-pro"}, {"id": "glm-9-flash"}]}
+    completion = (200, {"id": "selftest", "choices": [{"index": 0, "finish_reason": "length"}]})
+
+    def kinds(result, provider):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      if report["name"] == provider for finding in report["findings"])
+
+    def probes(answers):
+        return answers.get("probe_requests", [])
+
+    def one_probe_of(model):
+        """A check that exactly one probe went out, for "model", in the shape the provider documents."""
+        def check(answers):
+            made = probes(answers)
+            if len(made) != 1:
+                return "%d probes, expected one" % len(made)
+            url, headers, data = made[0]
+            body = json.loads(data)
+            if url != "https://api.z.ai/api/paas/v4/chat/completions":
+                return "the probe went to %s" % url
+            if body != {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}:
+                return "the probe's body is %r" % body
+            if headers.get("Authorization") != "Bearer selftest-zai-key-SECRET":
+                return "the probe does not carry the key the run holds"
+            if headers.get("Content-Type") != "application/json":
+                return "the probe is not sent as JSON"
+            return None
+        return check
+
+    def served_quietly(answers, model="glm-9-flash"):
+        def check(result, new_text, report, summary, pr, commit):
+            if kinds(result, "zai") != []:
+                return "Z AI findings are %r" % kinds(result, "zai")
+            if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+                return "the file was changed"
+            if one_probe_of(model)(answers) is not None:
+                return one_probe_of(model)(answers)
+            if "SERVED   " not in report or "zai/%s" % model not in report.split("SERVED   ")[1]:
+                return "the report does not carry the served line: %s" % report
+            if "## Absents de la liste, mais toujours servis" not in summary:
+                return "the summary does not carry the served section"
+            if "NOTICE" in report or "RETIRED  " in report:
+                return "the report carries a finding"
+            return None
+        return check
+
+    def served(answer):
+        answers = changed(zai=zai_omitting, probes={"glm-9-flash": answer})
+        return (answers, served_quietly(answers))
+
+    # 1 and 2: the probe says served.
+    cases = []
+    for label, answer in (("HTTP 200", completion), ("429 with the overload code 1305", zai_error(1305, 429)),
+                          ("429 with the balance code 1113", zai_error(1113, 429)),
+                          ("429 with no body to read", 429)):
+        answers, check = served(answer)
+        cases.append(("an active Z AI entry its list omits, to which the probe answers %s, is served: no finding, "
+                      "no deletion, one quiet line in the report and the summary, and the run exits 0" % label,
+                      INCOMPLETE_ACTIVE_TEMPLATE, answers, check, 0))
+
+    # The page that lists the model free settles it first, and no request is made.
+    listed_free = changed(zai=zai_omitting, zai_pricing=ZAI_PRICING.replace(
+        "| GLM-8-Flash | Free | Free | Free | Free |", "| GLM-8-Flash | \\$1 | \\$1 | \\$1 | \\$1 |"))
+
+    def settled_by_the_page(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != []:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if probes(listed_free):
+            return "a probe was made for a model its pricing page lists free"
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+            return "the file was changed"
+        if "SERVED   " not in report or "zai/glm-9-flash" not in report.split("SERVED   ")[1]:
+            return "the report does not carry the served line: %s" % report
+        if "## Absents de la liste, mais toujours servis" not in summary or "`zai/glm-9-flash`" not in summary:
+            return "the summary does not carry the served section"
+        return None
+    cases.append(("an active Z AI entry its list omits but its pricing page lists free is served with no request "
+                  "made at all, and the run exits 0", INCOMPLETE_ACTIVE_TEMPLATE, listed_free, settled_by_the_page, 0))
+
+    # The page unreadable that run: the probe is the fallback, whatever the page would have said.
+    no_page = changed(zai=zai_omitting, zai_pricing=http_error(500), probes={"glm-9-flash": completion})
+
+    def fallback_to_the_probe(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != []:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if "its pricing page: HTTP 500" not in report:
+            return "the unreadable page is not reported: %s" % report
+        return one_probe_of("glm-9-flash")(no_page)
+    cases.append(("a pricing page that could not be read that run leaves the probe to settle an omitted entry; "
+                  "the page's failure is still that provider's error", INCOMPLETE_ACTIVE_TEMPLATE, no_page,
+                  fallback_to_the_probe, 2))
+
+    # 3: the documented unknown model is a retirement, deleted like the others.
+    unknown = changed(zai=zai_omitting, probes={"glm-9-flash": zai_error(1211, 400)})
+
+    def retired_by_the_probe(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("retired", "glm-9-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if "zai/glm-9-flash" in new_text or "model_name: zai-flash\n" in new_text:
+            return "the entry is still in the file"
+        if pr is None or "`zai/glm-9-flash`" not in pr:
+            return "the deletion pull request does not name it"
+        if undeleted_count(result) != 0:
+            return "the deletion was left to a person"
+        return one_probe_of("glm-9-flash")(unknown)
+    cases.append(("an active Z AI entry its list omits, to which the probe answers 400 with the documented "
+                  "unknown-model code 1211, is RETIRED and deleted under --apply",
+                  INCOMPLETE_ACTIVE_TEMPLATE, unknown, retired_by_the_probe, 1))
+
+    # 4: every other answer settles nothing.
+    for label, answer, said in (
+            ("401 with an authentication code", zai_error(1000, 401), "HTTP 401, code 1000"),
+            ("a 500 with no body", 500, "HTTP 500"),
+            ("a 502 with a body that is no JSON", (502, b"<html>bad gateway</html>"), "HTTP 502"),
+            ("400 with a parameter code, which speaks of the call and not the model", zai_error(1210, 400),
+             "HTTP 400, code 1210"),
+            ("400 with a code its documentation does not list", zai_error(9999, 400), "HTTP 400, code 9999"),
+            ("400 with the right code and the wrong status", zai_error(1211, 403), "HTTP 403, code 1211"),
+            ("a 200 that is no completion", (200, b"not json"), "HTTP 200 with an answer that is not a completion"),
+            ("a 200 whose body is an error", (200, {"error": {"code": "1211"}}),
+             "HTTP 200 with an answer that is not a completion"),
+            ("a timeout", urllib.error.URLError(TimeoutError("timed out")), "network error: timed out"),
+            ("a connection that is reset", ConnectionResetError("reset"), "network error: ConnectionResetError"),
+            ("a code that is no number, which is not shown", (400, {"error": {"code": "SECRET-IN-A-CODE"}}),
+             "HTTP 400")):
+        answers = changed(zai=zai_omitting, probes={"glm-9-flash": answer})
+
+        def settles_nothing(result, new_text, report, summary, pr, commit, answers=answers, said=said):
+            if kinds(result, "zai") != [("notice", "glm-9-flash")]:
+                return "Z AI findings are %r" % kinds(result, "zai")
+            if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+                return "the file was changed"
+            if undeleted_count(result) != 0:
+                return "something is counted as a deletion left to a person"
+            for text, needle in ((report, "could not settle it (%s)" % said),
+                                 (summary, "n'a pas tranché (%s)" % said)):
+                if needle not in text:
+                    return "%r is not said: %s" % (needle, text)
+            for text in (report, summary):
+                if "SECRET" in text.replace("selftest-zai-key-SECRET", ""):
+                    return "a word of the answer reached the output"
+                if "selftest-zai-key-SECRET" in text:
+                    return "the key reached the output"
+            if "SERVED   " in report:
+                return "it is reported as served"
+            return one_probe_of("glm-9-flash")(answers)
+        cases.append(("an active Z AI entry its list omits, to which the probe answers %s, stays a NOTICE saying "
+                      "what the probe answered, and the file is unchanged" % label,
+                      INCOMPLETE_ACTIVE_TEMPLATE, answers, settles_nothing, 1))
+
+    # 5: a commented-out entry is never asked about.
+    commented_only = changed(zai=zai_listing)
+
+    def commented_not_asked(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if probes(commented_only):
+            return "a probe was made for a commented-out entry"
+        if new_text != INCOMPLETE_TEMPLATE:
+            return "the file was changed"
+        if "a commented-out entry is never asked about" not in report:
+            return "the report does not say so: %s" % report
+        if "une entrée commentée n'est jamais interrogée" not in summary:
+            return "the summary does not say so"
+        return None
+    cases.append(("a commented-out Z AI entry its list omits is a NOTICE, and no probe is made for it",
+                  INCOMPLETE_TEMPLATE, commented_only, commented_not_asked, 1))
+
+    # The active and the commented-out entry together: only the active one is asked about.
+    both = changed(zai=zai_omitting, probes={"glm-9-flash": completion})
+
+    def only_the_active_asked(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        return one_probe_of("glm-9-flash")(both)
+    cases.append(("with an active and a commented-out entry both omitted, only the active one is asked about",
+                  INCOMPLETE_TEMPLATE, both, only_the_active_asked, 1))
+
+    # An empty list is a failed read: nothing is asked.
+    emptied = changed(zai={"object": "list", "data": []})
+
+    def empty_asks_nothing(result, new_text, report, summary, pr, commit):
+        if probes(emptied):
+            return "a probe was made on a list that holds nothing"
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE:
+            return "the file was changed"
+        return None
+    cases.append(("a Z AI list that holds nothing is a failed read, and asks nothing",
+                  INCOMPLETE_ACTIVE_TEMPLATE, emptied, empty_asks_nothing, 1))
+
+    # A provider outside the set: no probe, RETIRED as before, and deleted beside Z AI's served entry.
+    outside = changed(zai=zai_omitting, groq=GROQ_WITHOUT_FAST, probes={"glm-9-flash": completion})
+
+    def others_still_retired(result, new_text, report, summary, pr, commit):
+        if kinds(result, "groq") != [("retired", "vendor/fast")]:
+            return "Groq findings are %r" % kinds(result, "groq")
+        if "groq/vendor/fast" in new_text:
+            return "Groq's retired entry was not deleted"
+        if "zai/glm-9-flash" not in new_text:
+            return "the Z AI entry was deleted"
+        if "NOT DELETED" in report:
+            return "a finding was left to a person"
+        return one_probe_of("glm-9-flash")(outside)
+    cases.append(("the same absence for a provider outside the set is still RETIRED and deleted, with no probe "
+                  "of it, beside Z AI's served entry",
+                  INCOMPLETE_ACTIVE_TEMPLATE, outside, others_still_retired, 1))
+
+    # The pricing page: a second source of NEW free models.
+    priced = changed(zai={"object": "list", "data": [{"id": "glm-9-pro"}, {"id": "glm-9-flash"},
+                                                      {"id": "glm-9-paid"}]},
+                     zai_pricing=ZAI_PRICING.replace(
+                         "| GLM-9-Flash | Free | Free | Free | Free |",
+                         "| GLM-9-Flash | Free | Free | Free | Free |\n| GLM-7-Flash | Free | Free | Free | Free |"))
+
+    def pricing_gives_new(result, new_text, report, summary, pr, commit):
+        found = kinds(result, "zai")
+        if found != [("new", "glm-7-flash"), ("new", "glm-8-flash"), ("new", "glm-9-paid")]:
+            return "Z AI findings are %r" % found
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE:
+            return "the file was changed"
+        if "zai/glm-7-flash: to examine" not in report:
+            return "the model only the pricing page names is not offered: %s" % report
+        if summary.count("listed free on its pricing page") != 2 or "`glm-9-paid`" in summary.split(
+                "listed free on its pricing page")[0].rsplit("\n", 1)[-1]:
+            return "the pricing page's label is not carried by exactly the models it names"
+        if "## Nouveaux modèles gratuits" in summary:
+            return "a model read on the pricing page was claimed free by the API"
+        return None
+    cases.append(("the free models Z AI's pricing page tables are offered as NEW, the list's own and the ones "
+                  "it omits, to examine, never claimed free by the API",
+                  INCOMPLETE_ACTIVE_TEMPLATE, priced, pricing_gives_new, 1))
+
+    # The page unreadable: that provider's error, never a deletion.
+    for label, page, said in (
+            ("an HTTP error", http_error(500), "its pricing page: HTTP 500"),
+            ("a page with no table of prices", "# Pricing\n\nNothing tabled here.\n",
+             "its pricing page: the pricing page holds no table of prices this check reads")):
+        broken = changed(zai=zai_omitting, zai_pricing=page, probes={"glm-9-flash": zai_error(1211, 400)})
+
+        def pricing_error(result, new_text, report, summary, pr, commit, said=said):
+            zai = next(entry for entry in result["providers"] if entry["name"] == "zai")
+            if zai["status"] != "error" or said not in report:
+                return "the page's failure is not the provider's error: %s" % report
+            if not zai.get("error_class"):
+                return "no class of error"
+            return None
+
+        cases.append(("Z AI's pricing page unreadable (%s) is that provider's error, and the list's own findings "
+                      "stand" % label, INCOMPLETE_ACTIVE_TEMPLATE, broken, pricing_error, 2))
+    return tuple(cases)
+
+
+def run_incomplete_catalogue_cases():
+    failures = 0
+    for purpose, template, answers, check, status in incomplete_catalogue_cases():
+        outputs = apply_run(template, answers)
+        result = outputs[0]
+        if exit_status(result) != status:
+            why = "exit status %d, expected %d" % (exit_status(result), status)
+        else:
+            why = check(*outputs)
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    # The key goes to the provider's own API and never to the documentation page, and the page is asked for
+    # once, as Markdown.
+    calls = []
+    run_online(INCOMPLETE_ACTIVE_TEMPLATE, SELFTEST_KEYS, canned_opener(
+        dict(selftest_answers(), zai={"object": "list", "data": [{"id": "glm-9-flash"}]}), calls), "2026-01-01")
+    docs = [(url, headers) for url, headers in calls if url.startswith("https://docs.z.ai/")]
+    sent = [name for _, headers in docs for name in headers if name.lower() == "authorization"]
+    if len(docs) != 1 or sent or docs[0][1].get("Accept") != "text/markdown":
+        failures += 1
+        print("selftest: FAILED (the pricing page is asked for once, as Markdown, and without the key) -- %r" % docs)
+    else:
+        print("selftest: ok -- the pricing page is asked for once, as Markdown, and without the key")
+
+    # The set itself: only providers the script reads, each with its reason in both languages, none that can
+    # be asked for a model by its id (a provider that can needs no exemption), and Z AI in it. A probe says
+    # what it sends and which answers it reads, and no status of it is both served and unknown.
+    declared = drift.INCOMPLETE_CATALOGUES
+    problems = []
+    if "zai" not in declared:
+        problems.append("Z AI is not declared")
+    for provider, entry in declared.items():
+        if provider not in PROVIDER_NAMES:
+            problems.append("%r is no provider this check reads" % provider)
+        if provider in LOOKUPS:
+            problems.append("%s can be asked for a model, so its list needs no exemption" % provider)
+        reason = entry.get("reason")
+        if not (isinstance(reason, tuple) and len(reason) == 2
+                and all(isinstance(text, str) and text.strip() for text in reason)):
+            problems.append("%s has no reason in English and in French" % provider)
+        probe = entry.get("probe")
+        if probe is not None:
+            if not (isinstance(probe.get("url"), str) and probe["url"].startswith("https://")
+                    and callable(probe.get("body")) and probe.get("served") and probe.get("unknown")):
+                problems.append("%s declares a probe that lacks its address, its body or its answers" % provider)
+            elif {status for status, _ in probe["unknown"]} & set(probe["served"]):
+                problems.append("%s reads a status as both a model served and a model unknown" % provider)
+            elif 200 not in probe["served"] or any(status in (401, 403, 404, 500) for status in probe["served"]):
+                problems.append("%s reads an authentication, a missing route or a server error as served" % provider)
+    # A provider outside the set keeps its deletions: no other one is declared by mistake.
+    undeclared = sorted(set(PROVIDER_NAMES) - set(declared))
+    if "groq" not in undeclared or "openrouter" not in undeclared:
+        problems.append("a provider known to list everything it serves is declared")
+    if problems:
+        failures += 1
+        print("selftest: FAILED (INCOMPLETE_CATALOGUES) -- %s" % "; ".join(problems))
+    else:
+        print("selftest: ok -- INCOMPLETE_CATALOGUES names only providers read here, each with its reason and its probe")
+    return failures
+
+
+def run_template_cases():
     failures = 0
 
     for base, cases in ((SELFTEST_TEMPLATE, OFFLINE_CASES), (SELFTEST_JINJA_TEMPLATE, JINJA_CASES)):
@@ -7513,6 +8031,11 @@ def run_selftest_cases():
                 failures += 1
                 print("selftest: FAILED (%s) -- expected %s, got %r"
                       % (purpose, "no problem" if needle is None else repr(needle), problems))
+    return failures
+
+
+def run_canned_catalogue_cases():
+    failures = 0
 
     for purpose, text, environment, answers, expected, status, check in online_cases():
         calls = []
@@ -7533,34 +8056,213 @@ def run_selftest_cases():
         else:
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
+    return failures
 
-    failures += run_cloudflare_cases()
-    failures += run_coverage_cases()
-    failures += run_apply_cases()
-    failures += run_head_cases()
-    failures += run_pricing_page_cases()
-    failures += run_ranking_cases()
-    failures += run_contract_cases()
-    failures += run_epoch_cases()
-    failures += run_eci_cases()
-    failures += run_verify_cases()
-    failures += run_safety_net_case()
-    failures += run_online_apply_cases()
-    failures += run_confirmation_cases()
-    failures += run_lookup_cases()
-    failures += run_review_cases()
-    failures += run_keyset_cases()
-    failures += run_jinja_net_cases()
-    failures += run_hardening_cases()
-    failures += run_command_line_cases()
-    failures += run_proposal_cases()
-    failures += run_usage_cases()
-    failures += run_carried_cases()
-    failures += run_proposal_command_line_cases()
-    failures += run_bounded_key_set_cases()
-    failures += run_real_list_cases()
-    return 1 if failures else 0
+
+HALVES = 2
+
+# What a half runs is a list of units, each a group of the table above or a deletion from the real
+# model list, in the order their results are printed. The list is a function of the half alone; how its
+# units are shared between the processes of a pool is not, and does not need to be: each is run once, and
+# the results are read back in the order of the list.
+# "weight" is what a unit costs next to the others, which only decides which start first.
+Unit = collections.namedtuple("Unit", "name run weight", defaults=(0,))
+units_of_the_run = []
+
+
+def units_of_a_half(half):
+    """The units of one half, or of all of them where "half" is None: the groups of the table, then the
+    deletions real_halves deals to it, the CRLF ones being the first scenarios of the file read with
+    them. A unit runs in a process of its own pool, so it holds no state another needs."""
+    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
+    units = []
+    for group in (groups[half - 1] if half else [group for each in groups for group in each]):
+        units.append(Unit(group.__name__, lambda group=group: (leave_real_list_session(), group())[1], 10**6))
+    for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
+        text, layout, problems = real_text_and_layout(ending)
+        if layout is None:
+            units.append(Unit("the real model list", lambda problems=problems: print(
+                "selftest: FAILED (the real model list) -- it cannot be read: %s" % problems) or 1))
+            continue
+        scenarios = real_scenarios(layout)
+        numbers = real_halves(range(len(scenarios)))[half - 1] if half else range(len(scenarios))
+        for number in numbers if bound is None else [each for each in numbers if each < bound]:
+            units.append(Unit("deletion %d%s" % (number, " with CRLF line endings" if bound else ""),
+                              lambda ending=ending, number=number: run_real_list_deletion(ending, number),
+                              len(scenarios[number])))
+    return units
+
+
+def run_unit(number):
+    """Unit "number" of units_of_the_run, with what it printed kept to be printed in order."""
+    unit = units_of_the_run[number]
+    printed = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(printed), contextlib.redirect_stderr(printed):
+            failures = unit.run()
+    except Exception:  # a crash is a failure of the unit, named, and not of the whole pool
+        failures = 1
+        printed.write("selftest: FAILED (%s) -- it crashed:\n%s" % (unit.name, traceback.format_exc()))
+    return number, failures, printed.getvalue()
+
+
+def run_units(units, workers):
+    """Run the units across "workers" processes, and print what each printed in the order of the list.
+    The heaviest start first, so that the last to finish is not one of them, and each is run once.
+    Returns the failures of each unit, by its place in the list; a unit whose result never came back
+    has one."""
+    global units_of_the_run
+    earlier, units_of_the_run = units_of_the_run, units
+    failures = {}
+    workers = max(1, min(workers, len(units)))
+    died = False
+    if workers == 1:
+        pool = None
+        results = (run_unit(number) for number in range(len(units)))
+    else:
+        # The processes are forked from this one, which holds the module and the list of units and
+        # nothing else: every file the cases read, they read for themselves.
+        pool = concurrent.futures.ProcessPoolExecutor(
+            max_workers=workers, mp_context=multiprocessing.get_context("fork"))
+        futures = {}
+        for number in sorted(range(len(units)), key=lambda number: -units[number].weight):
+            futures[number] = pool.submit(run_unit, number)
+        results = (futures[number] for number in range(len(units)))
+    try:
+        for each in results:
+            try:
+                number, failed, printed = each if pool is None else each.result()
+            except concurrent.futures.process.BrokenProcessPool:
+                if not died:
+                    died = True
+                    print("selftest: FAILED (the pool) -- a process died, as one does that ran out of "
+                          "memory")
+                continue
+            failures[number] = failed
+            sys.stdout.write(printed)
+    finally:
+        if pool is not None:
+            pool.shutdown(wait=True, cancel_futures=True)
+        units_of_the_run = earlier
+    for number in sorted(set(range(len(units))) - set(failures)):
+        failures[number] = 1
+        print("selftest: FAILED (%s) -- it did not run" % units[number].name)
+    return failures
+
+
+def run_pool_cases():
+    """The units run across a pool as they do in one process: each result in the order of the list, a
+    unit that fails or raises named and counted, and a process that dies reported rather than waited for."""
+    failures = 0
+    out = io.StringIO()
+    for workers in (1, 3):
+        units = [Unit("quiet", lambda: 0), Unit("loud", lambda: print("said") or 0),
+                 Unit("wrong", lambda: print("refused") or 1), Unit("raising", lambda: 1 / 0),
+                 Unit("last", lambda: print("the last") or 0)]
+        with contextlib.redirect_stdout(out):
+            failed = run_units(units, workers)
+        seen = out.getvalue()
+        out.seek(0)
+        out.truncate()
+        if (failed != {0: 0, 1: 0, 2: 1, 3: 1, 4: 0} or seen.index("said") > seen.index("refused")
+                or seen.index("refused") > seen.index("raising") or "ZeroDivisionError" not in seen
+                or seen.index("raising") > seen.index("the last")):
+            failures += 1
+            print("selftest: FAILED (the pool, %d process(es)) -- %r, %r" % (workers, failed, seen))
+        else:
+            print("selftest: ok -- %d process(es) give each unit's result in the order of the list" % workers)
+    with contextlib.redirect_stdout(out):
+        failed = run_units([Unit("quiet", lambda: 0), Unit("dying", lambda: os._exit(1))], 2)
+    if not failed.get(1) or "the pool" not in out.getvalue() and "did not run" not in out.getvalue():
+        failures += 1
+        print("selftest: FAILED (the pool) -- a process that dies is not reported: %r" % failed)
+    else:
+        print("selftest: ok -- a process that dies is reported, and not waited for")
+    return failures
+
+
+# The groups of cases, each in the half that runs it, so that the two take about as long: the real
+# model list is dealt out between them by real_halves, and what is listed here is the rest. A group
+# listed in no half is a group nobody runs, which run_selftest_cases refuses.
+GROUPS_OF_THE_FIRST_HALF = (
+    run_pool_cases,
+    run_template_cases,
+    run_canned_catalogue_cases,
+    run_incomplete_catalogue_cases,
+    run_cloudflare_cases,
+    run_coverage_cases,
+    run_apply_cases,
+    run_pricing_page_cases,
+    run_ranking_cases,
+    run_contract_cases,
+    run_epoch_cases,
+    run_eci_cases,
+    run_verify_cases,
+    run_safety_net_case,
+    run_online_apply_cases,
+    run_confirmation_cases,
+    run_lookup_cases,
+    run_review_cases,
+    run_keyset_cases,
+    run_jinja_net_cases,
+    run_hardening_cases,
+    run_command_line_cases,
+    run_proposal_cases,
+    run_usage_cases,
+    run_carried_cases,
+    run_proposal_command_line_cases,
+    run_bounded_key_set_cases,
+)
+GROUPS_OF_THE_SECOND_HALF = (
+    run_head_cases,
+)
+
+
+def run_selftest_cases(half=None, workers=None):
+    """Every case, or the cases of one half, the first or the second, run side by side in two jobs of
+    the CI, each across "workers" processes. Whichever is run, the halves are first held to being a
+    partition of the cases."""
+    workers = workers or os.cpu_count() or 1
+    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
+    everything = [group for each in groups for group in each]
+    failures = run_real_list_partition_case()
+    if len(everything) != len(set(everything)):
+        failures += 1
+        print("selftest: FAILED (the halves of the cases) -- a group is in both of them or twice in one")
+    forgotten = sorted(name for name, value in globals().items()
+                       if re.fullmatch(r"run_\w+_cases?", name) and callable(value)
+                       and value not in everything and name not in ("run_selftest_cases",
+                                                                    "run_real_list_partition_case"))
+    if forgotten:
+        failures += 1
+        print("selftest: FAILED (the halves of the cases) -- %s in neither half, so never run"
+              % ", ".join(forgotten))
+    units = units_of_a_half(half)
+    deletions = [unit for unit in units if unit.name.startswith("deletion") and "CRLF" not in unit.name]
+    print("selftest: %s -- %d groups of cases and %d deletions from the real model list, on %d process(es)"
+          % ("half %d of %d" % (half, HALVES) if half else "every case",
+             len(units) - len([unit for unit in units if unit.name.startswith("deletion")]),
+             len(deletions), max(1, min(workers, len(units)))))
+    failed = run_units(units, workers)
+    if not any(failed[number] for number, unit in enumerate(units) if unit.name.startswith("deletion")):
+        print("selftest: ok -- %d deletions from the real model list leave what they should" % len(deletions))
+    return 1 if failures or any(failed.values()) else 0
+
+
+def parse_arguments(arguments):
+    """The half and the number of processes asked for: "--half 1" or "--half 2" for one half, none for
+    every case; "--workers N" for N processes, the number of cores by default and 1 for no pool at all."""
+    parser = argparse.ArgumentParser(description="The verification cases of check_LiteLLM_model_drift.py.")
+    parser.add_argument("--half", type=int, choices=range(1, HALVES + 1),
+                        help="run one half of the cases only, as one job of the CI does")
+    parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
+                        help="processes to run the cases across (default: the cores of the machine; "
+                             "1 runs them in this process, which is what to debug with)")
+    given = parser.parse_args(arguments)
+    if given.workers < 1:
+        parser.error("--workers must be at least 1")
+    return given.half, given.workers
 
 
 if __name__ == "__main__":
-    sys.exit(run_selftest())
+    sys.exit(run_selftest(*parse_arguments(sys.argv[1:])))
