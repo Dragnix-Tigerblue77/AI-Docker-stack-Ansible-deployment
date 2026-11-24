@@ -27,11 +27,11 @@ WHAT IT RUNS
   with a comment after it, or an address deleted, an entry cut short, a slot of an entry that stays,
   a line added, six entries, a body that asks for a reading, a head behind the default branch, caps
   that are not numbers, and so on);
-* the catalogue generated from the template, which a deletion carries beside it: lines taken out of it
-  merge, in either order of the two files, however many; a line added, a count of additions that says
-  one or a patch that holds one, a file renamed, one with no patch or whose count of deleted lines is
-  not the patch's, a modification that deletes nothing, a catalogue with no template, two entries of
-  it, a third file, and a catalogue on a branch of additions do not;
+* the two files generated beside the template, the catalogue and the figures file it shows, which a deletion
+  rewrites: each merges rewritten whatever lines it gains or loses, together or alone beside the template, in
+  any order of the three; a file that is added, removed or renamed, one with no changed line (a binary or a
+  mode alone), one past the cap, two entries of one, a catalogue or a figures file with no template, a fourth file,
+  a line added to the template beside them, and the three files on a branch of additions do not;
 * the same deletions opened by the workflow's GitHub App, whose bot the step accepts as author beside
   the Actions bot only while the repository variable holding its slug is a slug: with the variable
   unset, empty, another App's or no slug, and with an author that is not exactly that App's bot, they
@@ -218,12 +218,14 @@ def miniature(count=8):
     return names, lines
 
 
-# The catalogue in miniature: a heading, a table of groups and a row per entry. The real generator writes no
-# count and no rank, so that a deletion only removes lines from it; what is played here is the gate's reading of
-# the shapes a file can take, whatever the generator writes.
+# The two generated files in miniature: a catalogue (a heading, a table and a row per entry) and a figures file.
+# What is played here is the gate's reading of the shapes a file can take, whatever the generator writes.
 CATALOG_LINES = ["# Catalogue", "", "| Groupe | Entrées |", "| --- | --- |", "| `LLM` | 8 |", "| `STT` | 1 |", "",
                  "| 1 | `m1` | Gemini |", "| 2 | `m2` | Gemini |", "| 3 | `m3` | Gemini |", ""]
 CATALOG = "docs/CATALOG.md"
+SCORES_LINES = ["{", ' "artificial_analysis_read": "2026-11-17",', ' "epoch_read": "2026-11-17",', ' "entries": {',
+                '  "m1": {', '   "aa_index": 10.5', "  },", '  "m2": {', '   "aa_index": 20.5', "  }", " }", "}", ""]
+SCORES = "docs/catalog_scores.json"
 
 
 def patch_between(old, new):
@@ -243,15 +245,24 @@ def deletion(old, remove):
     return patch_between(old, new), new
 
 
-def catalog_file(remove=(), add=(), **changes):
-    """The catalogue as GitHub lists it in a pull request that takes the lines at the indexes of "remove" out of
-    CATALOG_LINES and puts "add" in their place at the end."""
-    new = [line for index, line in enumerate(CATALOG_LINES) if index not in remove] + list(add)
-    patch = patch_between(CATALOG_LINES, new)
+def generated_file(name, lines, remove=(), add=(), **changes):
+    """A generated file as GitHub lists it in a pull request that takes the lines of "lines" at the indexes of "remove"
+    out and puts "add" in their place at the end."""
+    new = [line for index, line in enumerate(lines) if index not in remove] + list(add)
+    patch = patch_between(lines, new)
     added, deleted = counts(patch)
-    file = {"filename": CATALOG, "status": "modified", "additions": added, "deletions": deleted, "patch": patch}
+    file = {"filename": name, "status": "modified", "additions": added, "deletions": deleted,
+            "changes": added + deleted, "patch": patch}
     file.update(changes)
     return file
+
+
+def catalog_file(remove=(), add=(), **changes):
+    return generated_file(CATALOG, CATALOG_LINES, remove, add, **changes)
+
+
+def scores_file(remove=(), add=(), **changes):
+    return generated_file(SCORES, SCORES_LINES, remove, add, **changes)
 
 
 def block_of(lines, name):
@@ -694,49 +705,83 @@ def scenarios():
     add("App: a Dependabot major is refused as ever with the slug set", "not merged",
         dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
 
-    # --- the catalogue that goes with the deletions -------------------------------------------
-    # GitHub lists the files of a pull request by path, so the catalogue comes before the template.
+    # --- the two files generated beside the deletions ----------------------------------------
+    # GitHub lists the files of a pull request by path, so the catalogue and the figures file come before the template.
     lost = catalog_file(remove={7, 8})
     gains = catalog_file(remove={7}, add=["| 1 | `m1` | Gemini |"])
-    needle = "is not a deletion of lines from"
+    figures = scores_file(remove={5, 8}, add=['   "aa_index": 11.5'])
     with_template = file_of()
-    add("catalogue: lines taken out of it beside the template", "merged", removals(patch, files=[lost, with_template]))
-    add("catalogue: the template listed first, as no listing does", "merged", removals(patch, files=[with_template, lost]))
-    add("catalogue: opened by the App", "merged", by_app(files=[lost, with_template]))
-    add("catalogue: no catalogue, as for a deletion that changes nothing it states", "merged", removals(patch))
+    needle = "is not a deletion of lines from"
+    rewrite = "does not rewrite"
+    add("generated: the catalogue loses lines beside the template", "merged", removals(patch, files=[lost, with_template]))
+    add("generated: the template listed first, as no listing does", "merged", removals(patch, files=[with_template, lost]))
+    add("generated: the catalogue gains lines, as a figure that changed would make it", "merged",
+        removals(patch, files=[gains, with_template]))
+    add("generated: only lines added to the catalogue", "merged",
+        removals(patch, files=[catalog_file(add=["| 4 | `m4` | Gemini |"]), with_template]))
+    add("generated: the figures file is rewritten beside the template", "merged",
+        removals(patch, files=[figures, with_template]))
+    add("generated: the catalogue, the figures file and the template, as the workflow opens them", "merged",
+        removals(patch, files=[lost, figures, with_template]))
+    add("generated: the three, the other way round", "merged", removals(patch, files=[with_template, figures, lost]))
+    add("generated: the three, opened by the App", "merged", by_app(files=[lost, figures, with_template]))
+    add("generated: neither, as for a deletion that changes nothing they state", "merged", removals(patch))
     many = catalog_file(remove=set(range(1, len(CATALOG_LINES))))
-    add("catalogue: lines taken out of it past the cap on the template's lines, which does not count them", "merged",
-        removals(patch, files=[many, with_template], env={"REMOVALS_MAX_LINES": str(counts(patch)[1])}))
-    add("catalogue: a line added to it", "not merged", removals(patch, files=[gains, with_template]), needle=needle)
-    add("catalogue: a line added to it, opened by the App", "not merged", by_app(files=[gains, with_template]),
+    add("generated: lines taken out of the catalogue past the cap on the template's lines, which does not count them",
+        "merged", removals(patch, files=[many, with_template], env={"REMOVALS_MAX_LINES": str(counts(patch)[1])}))
+    add("generated: a file that changes exactly as many lines as the cap", "merged",
+        removals(patch, files=[lost, figures, with_template],
+                 env={"REMOVALS_GENERATED_MAX_CHANGES": str(max(lost["changes"], figures["changes"]))}))
+    add("generated: the catalogue changes one line more than the cap", "not merged",
+        removals(patch, files=[lost, with_template], env={"REMOVALS_GENERATED_MAX_CHANGES": str(lost["changes"] - 1)}),
+        needle=rewrite)
+    add("generated: the figures file changes one line more than the cap", "not merged",
+        removals(patch, files=[lost, figures, with_template],
+                 env={"REMOVALS_GENERATED_MAX_CHANGES": str(figures["changes"] - 1)}), needle=rewrite)
+    huge = dict(lost, additions=3000, deletions=1001, changes=4001, patch=None)
+    add("generated: the catalogue changes 4001 lines, one more than the cap the step carries", "not merged",
+        removals(patch, files=[huge, with_template]), needle=rewrite)
+    add("generated: the catalogue changes 4000 lines, the cap the step carries", "merged",
+        removals(patch, files=[dict(huge, additions=2999, changes=4000), with_template]))
+    for status in ("added", "removed", "renamed"):
+        add("generated: the catalogue is %s" % status, "not merged",
+            removals(patch, files=[dict(lost, status=status), with_template]), needle=rewrite)
+        add("generated: the figures file is %s" % status, "not merged",
+            removals(patch, files=[lost, dict(figures, status=status), with_template]), needle=rewrite)
+    add("generated: the catalogue is a binary or a mode change, no line of it changed", "not merged",
+        removals(patch, files=[dict(lost, additions=0, deletions=0, changes=0, patch=None), with_template]),
+        needle=rewrite)
+    add("generated: the figures file is a mode change, no line of it changed", "not merged",
+        removals(patch, files=[lost, dict(figures, additions=0, deletions=0, changes=0, patch=None), with_template]),
+        needle=rewrite)
+    add("generated: two entries for the catalogue", "not merged", removals(patch, files=[lost, lost, with_template]),
+        needle=rewrite)
+    add("generated: two entries for the figures file", "not merged",
+        removals(patch, files=[figures, figures, with_template]), needle=rewrite)
+    add("generated: the catalogue alone, with no template", "not merged", removals(patch, files=[lost]),
         needle=needle)
-    add("catalogue: only lines added to it", "not merged",
-        removals(patch, files=[catalog_file(add=["| 4 | `m4` | Gemini |"]), with_template]), needle=needle)
-    add("catalogue: GitHub counts no addition, the patch holds one", "not merged",
-        removals(patch, files=[dict(gains, additions=0), with_template]), needle=needle)
-    add("catalogue: GitHub counts an addition, the patch holds none", "not merged",
-        removals(patch, files=[dict(lost, additions=1), with_template]), needle=needle)
-    add("catalogue: the file is renamed", "not merged",
-        removals(patch, files=[dict(lost, status="renamed"), with_template]), needle=needle)
-    add("catalogue: a modification that deletes nothing", "not merged",
-        removals(patch, files=[dict(lost, deletions=0, patch=""), with_template]), needle=needle)
-    add("catalogue: GitHub gave no patch", "not merged",
-        removals(patch, files=[dict(lost, patch=None), with_template]), needle=needle)
-    add("catalogue: GitHub's count of deleted lines is not the patch's", "not merged",
-        removals(patch, files=[dict(lost, deletions=lost["deletions"] + 1), with_template]), needle=needle)
-    add("catalogue: alone, with no template", "not merged", removals(patch, files=[lost]), needle=needle)
-    add("catalogue: two entries for it", "not merged", removals(patch, files=[lost, lost, with_template]),
+    add("generated: the figures file alone, with no template", "not merged", removals(patch, files=[figures]),
         needle=needle)
-    add("catalogue: a third file beside the two", "not merged",
+    add("generated: both, with no template", "not merged", removals(patch, files=[lost, figures]), needle=needle)
+    add("generated: a third file beside the two", "not merged",
+        removals(patch, files=[lost, figures, file_of(filename="docs/ROUTAGE.md"), with_template]), needle=needle)
+    add("generated: a third file beside the catalogue", "not merged",
         removals(patch, files=[lost, file_of(filename="docs/ROUTAGE.md"), with_template]), needle=needle)
-    add("catalogue: a line added to the template beside it", "not merged",
-        removals(with_added, files=[lost, file_of(additions=1, patch=with_added)]), needle=needle)
-    add("catalogue: lines taken out of it, and the entry of the template cut short", "not merged",
-        removals(deletion(base, set(block_of(base, "m1")[:3]))[0], files=[lost, file_of(
+    add("generated: a line added to the template beside them", "not merged",
+        removals(with_added, files=[lost, figures, file_of(additions=1, patch=with_added)]), needle=needle)
+    add("generated: lines taken out of the three, and the entry of the template cut short", "not merged",
+        removals(deletion(base, set(block_of(base, "m1")[:3]))[0], files=[lost, figures, file_of(
             patch=deletion(base, set(block_of(base, "m1")[:3]))[0], deletions=3)]), needle="is cut short")
-    add("catalogue: lines taken out of it, and a check red", "not merged",
-        removals(patch, files=[lost, with_template], checks=checks_of(contexts(), failing="yamllint")),
+    add("generated: the three, and a check red", "not merged",
+        removals(patch, files=[lost, figures, with_template], checks=checks_of(contexts(), failing="yamllint")),
         needle="concluded failure")
+    add("generated: the three, and the check of the repository's rules red", "not merged",
+        removals(patch, files=[lost, figures, with_template],
+                 checks=checks_of(contexts(), failing="Repository rules")), needle="concluded failure")
+    for text in ("abc", "", "0", "-3", "5.5"):
+        add("generated: the cap on the lines they change is %r" % text, "not merged",
+            removals(patch, files=[lost, figures, with_template], env={"REMOVALS_GENERATED_MAX_CHANGES": text}),
+            failed=True, needle="must be positive whole numbers")
 
     # --- the additions, which nothing but a person merges ---------------------------------------
     # Each is tried as the workflow opens it, lines added, and as the worst it could be: a deletion that
@@ -759,12 +804,12 @@ def scenarios():
         as_draft = removals(patch, branch=branch)
         as_draft["pr"]["draft"] = True
         add(tag + "a draft", "not merged", as_draft, needle=gone)
-        add(tag + "the template and its catalogue, as the workflow opens them", "not merged",
+        add(tag + "the template, its catalogue and its figures, as the workflow opens them", "not merged",
             removals(adding, branch=branch, files=[
-                catalog_file(add=["| 4 | `m4` | Gemini |"]),
+                catalog_file(add=["| 4 | `m4` | Gemini |"]), scores_file(add=['  "m4": {', '   "aa_index": 1', "  }"]),
                 file_of(additions=counts(adding)[0], deletions=0, patch=adding)]), needle=gone)
-        add(tag + "a deletion with a catalogue that would merge on the deletions' branch", "not merged",
-            removals(patch, branch=branch, files=[lost, with_template]), needle=gone)
+        add(tag + "a deletion with the three files that would merge on the deletions' branch", "not merged",
+            removals(patch, branch=branch, files=[lost, figures, with_template]), needle=gone)
 
     add("deletion: the cap on entries is 1 and one entry goes", "merged",
         removals(patch, env={"REMOVALS_MAX_ENTRIES": "1"}))
@@ -880,15 +925,16 @@ MUTATIONS = [
         ("!Number.isInteger(maxEntries) ||", ""), ("!Number.isInteger(maxLines) ||", "")]),
     ("a second file passes", [("others.length !== 1 ||", "")]),
     ("another file passes", [("file.filename !== process.env.REMOVALS_FILE ||", "")]),
-    ("a second entry for the catalogue passes", [("catalogs.length > 1 ||", "")]),
-    ("a catalogue that gains a line passes", [("catalogs.some((each) => !onlyLosesLines(each))", "false")]),
-    ("a catalogue that is renamed passes", [("each.status === 'modified' &&", "")]),
-    ("a catalogue whose count of additions is not 0 passes", [("each.additions === 0 &&", "")]),
-    ("a catalogue modified with no line deleted passes", [("each.deletions >= 1 &&", "")]),
-    ("a catalogue whose patch holds an added line passes", [
-        ("!patchLines(each).some((line) => line.startsWith('+')) &&", "")]),
-    ("a catalogue whose count of deleted lines is not its patch's passes", [
-        ("patchLines(each).filter((line) => line.startsWith('-')).length === each.deletions", "true")]),
+    ("a second entry for a generated file passes", [("same.length > 1 ||", "")]),
+    ("a generated file that is added, removed or renamed passes", [("each.status !== 'modified' ||", "")]),
+    ("a generated file with no changed line passes", [("!(each.changes >= 1) ||", "")]),
+    ("a generated file past the cap passes", [("|| !(each.changes <= maxGenerated)", "")]),
+    ("a cap on the generated files that is not a number never trips", [
+        ("!(each.changes <= maxGenerated)", "each.changes > maxGenerated"),
+        ("!Number.isInteger(maxGenerated) ||", ""), ("|| maxGenerated < 1", "")]),
+    ("the figures file is not told from another file", [
+        ("const generatedNames = [process.env.REMOVALS_CATALOG_FILE, process.env.REMOVALS_SCORES_FILE];",
+         "const generatedNames = [process.env.REMOVALS_CATALOG_FILE];")]),
     ("a renamed file passes", [("file.status !== 'modified' ||", "")]),
     ("a second commit passes", [("commits.length !== 1 ||", "")]),
     ("a person's commit passes", [("commits[0].author?.login !== 'github-actions[bot]'", "false")]),
@@ -946,6 +992,8 @@ MUTATIONS = [
     # the environment of the step, which is as much a part of the guard as the script
     ("the cap on entries is raised", [], {"REMOVALS_MAX_ENTRIES": "50"}),
     ("the catalogue is another file", [], {"REMOVALS_CATALOG_FILE": "docs/elsewhere.md"}),
+    ("the figures file is another file", [], {"REMOVALS_SCORES_FILE": "docs/elsewhere.json"}),
+    ("the cap on the generated files is raised", [], {"REMOVALS_GENERATED_MAX_CHANGES": "1000000"}),
     ("the heading that asks for a reading is another", [], {"REMOVALS_REVIEW_HEADING": "## Elsewhere"}),
     ("the branch of the deletions is another", [], {"REMOVALS_BRANCH": "claude/other"}),
     # inside removalsPatchProblem
