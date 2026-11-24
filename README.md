@@ -1008,6 +1008,24 @@ redevenu gratuit rouvre une raison que quelqu'un a écrite -- et la règle veut 
 de la liste cite la page du fournisseur et la date de la vérification. Un modèle examiné et écarté
 cesse d'être signalé par une ligne `# drift-ignore: <fournisseur>/<id> -- <raison>` dans le fichier.
 
+**Un retrait annoncé a deux sources, et l'une vérifie l'autre.** Beaucoup de fournisseurs n'annoncent
+rien dans leur API (celle de Google ne publie aucune dépréciation), alors que la carte des prix publique
+de LiteLLM (`model_prices_and_context_window.json`, dans son dépôt GitHub) porte une `deprecation_date`
+pour les modèles qu'elle sait condamnés. Le contrôle lit cette carte une fois par run, sans clé et sans
+jamais appeler un modèle, et rapproche pour chaque entrée, active ou commentée, le signal du fournisseur
+et la date de la carte. Les deux se taisent : rien. Une seule des deux sources annonce (l'autre se tait
+ou ne connaît pas le modèle) : le retrait est annoncé, et la ligne dit laquelle l'a dit. Les deux
+annoncent le même jour : une alerte qui cite les deux. Elles se contredisent (deux jours différents, ou
+le fournisseur qui indique le modèle actif, `active: true` chez Groq ou `deprecated: false` chez
+Cerebras, SambaNova et Cloudflare, contre une date de la carte) : la plus proche est retenue, et un
+**avertissement** nomme les deux sources et ce que chacune dit, dans le résumé et dans le corps de la
+pull request des suppressions. Une date dépassée alors que le fournisseur liste toujours le modèle reste
+une alerte, qui le dit. La carte ne supprime jamais rien : la suppression ne dépend que du catalogue du
+fournisseur, et une carte illisible est l'erreur de cette source seule, dite dans le résumé, sans effet
+sur les suppressions, les reprises ni l'issue, et sans cacher ce que les fournisseurs annoncent
+eux-mêmes. Les entrées que LiteLLM atteint par `openai/<id>` chez Kilo Gateway, Requesty, Cent AI et
+Aion Labs n'ont pas de clé dans la carte et ne sont pas rapprochées.
+
 **Les nouveaux modèles de tous les usages sont signalés, chacun avec son usage.** Aucun filtre n'écarte un
 modèle parce qu'il sert à autre chose que le chat : un nouveau modèle de transcription, de synthèse
 vocale, d'embeddings, d'image ou de modération est listé comme les autres, dans les mêmes sections

@@ -311,13 +311,18 @@ GONE       a commented-out entry whose id the catalogue no longer lists: delete 
            (INCOMPLETE_CATALOGUES, Z AI's, which leaves out its free "Flash" models): there an active entry
            is asked about (see above) and is RETIRED only when the provider says the model does not exist,
            and a commented-out one is a NOTICE that says so.
-NOTICE     an active entry the provider marks for removal: OpenRouter's and Kilo's
-           "expiration_date", Requesty's "retires", Aion Labs' "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the
-           "deprecated" flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's
-           "planned_deprecation_date"; an active Kilo entry that is no longer flagged free, since
+NOTICE     an entry, active or commented out, that a source announces for retirement: the provider's own
+           signal, which is OpenRouter's and Kilo's "expiration_date", Requesty's "retires", Aion Labs'
+           "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated"
+           flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date",
+           or the "deprecation_date" LiteLLM's public price map gives the model (see THE SECOND SOURCE OF
+           ANNOUNCED RETIREMENTS), each notice saying which source said it; an active Kilo entry that is no longer flagged free, since
            its keyless call would be refused; an active Requesty entry that is no longer priced 0;
            and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list
            and that asking it could not settle (a commented-out one is not asked).
+WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
+           RETIREMENTS): the earliest day is kept, and both sources and what each says are named. Not a
+           finding of its own: it qualifies a NOTICE, and holds nothing back.
 BACK       OpenRouter only: a commented-out id without ":free" whose ":free" twin is now free. A
            commented-out ":free" id is never BACK: it is free whenever it exists, so it cannot have
            been commented out for its price, and its being free again is no news -- that is the
@@ -350,6 +355,45 @@ the file's other commented-out entries have it (a "# " in front of the indentati
 this check does not read as an entry), and the reason goes above, with the provider's page and the
 date, which only a person can write. The snippets are left out when they would take the text past
 the size GitHub accepts.
+
+THE SECOND SOURCE OF ANNOUNCED RETIREMENTS
+------------------------------------------
+Several providers announce nothing in their API (Google's lists no deprecation), so the providers' own
+signals alone leave a model that is about to go unreported. LiteLLM's public price map, the
+"model_prices_and_context_window.json" of its repository, gives some models a "deprecation_date", and it is
+read as a double check of those signals: once per run, with no key, over a public address, and no model is
+ever called. Each entry of the file, active or commented out, is looked up in it under the key LiteLLM holds
+the model by, "<prefix>/<id>" (the prefix of its "model:" for the native providers, nvidia_nim for NVIDIA,
+and the provider's own name for SambaNova and OVHcloud, which the file reaches as "openai/<id>"). Kilo Gateway,
+Requesty, Cent AI and Aion Labs have no key in the map, and are skipped rather than looked up as "openai/<id>",
+which would read the deprecation of OpenAI's own model of that name. Only a real day of the calendar is read
+from it, and only that day is ever shown.
+
+What the two sources say of an entry the provider still lists is combined:
+
+  both silent                                   nothing
+  one announces, the other is silent            a NOTICE saying which source said it; the map "silent" is a
+  (or does not carry the model)                 model it carries with no date, or one it does not carry
+  both announce the same day                    a NOTICE citing both
+  the sources contradict: two different days,   the retirement is kept, on the earliest day, and a WARNING
+  or the provider states in so many words       names both sources and what each says, in the summary and in
+  that the model is active against a day of     the body of the pull request of the deletions
+  the map
+
+A provider "states the model is active" only where it says so with a flag: Groq's "active": true, and the
+"deprecated": false of Cerebras, SambaNova and Cloudflare. A provider that merely lists a model with no
+deprecation field says nothing, and so does a null date. A provider that flags a model with no day
+("deprecated": true, "active": false) and a day of the map do not contradict: there is no day to differ. The
+map has no way to state that a model is not deprecated, so the opposite contradiction cannot occur. A provider
+whose catalogue could not be read leaves the map alone to speak, and the notice says the catalogue was not
+read. A day that has passed while the provider still lists the model is a NOTICE like any other, which says
+the date has passed: it deletes nothing, since a deletion rests on the provider's catalogue alone, and a model
+its catalogue no longer lists is RETIRED whatever the map says of it.
+
+A map that cannot be read (a failed request, an answer that is no JSON object, one in which no entry names a
+"litellm_provider") is the error of that source: the summary and the pull request of the deletions say so, and
+it changes neither the exit status, nor what is deleted, nor the coverage, nor the retries and the issue, which
+are the providers' catalogues' alone. What the providers announce is reported all the same.
 
 DELETING WHAT A PROVIDER HAS RETIRED
 ------------------------------------
@@ -1493,7 +1537,8 @@ def safe_text(value, limit=80):
 
 
 def new_catalogue():
-    return {"members": set(), "candidates": {}, "usages": {}, "notices": {}, "aliases": {}, "unsafe": 0}
+    return {"members": set(), "candidates": {}, "usages": {}, "notices": {}, "aliases": {}, "unsafe": 0,
+            "not_deprecated": set()}
 
 
 def offer(catalogue, identifier, label="", usage=CHAT):
@@ -1632,6 +1677,8 @@ def read_flagged(pages):
         if model.get("deprecated") is True:
             catalogue["notices"][identifier] = {"what": "deprecation"}
         else:
+            if model.get("deprecated") is False:
+                catalogue["not_deprecated"].add(identifier)
             offer(catalogue, identifier, model.get("name") or "", usage_of_id(identifier))
     return catalogue
 
@@ -1668,6 +1715,8 @@ def read_groq(pages):
         if model.get("active") is False:
             catalogue["notices"][identifier] = {"what": "inactive"}
         else:
+            if model.get("active") is True:
+                catalogue["not_deprecated"].add(identifier)
             offer(catalogue, identifier, model.get("owned_by") or "", usage_of_id(identifier))
     return catalogue
 
@@ -1750,6 +1799,8 @@ def read_cloudflare(pages):
                 if isinstance(planned, str) and planned:
                     catalogue["notices"][name]["date"] = safe_text(planned)
                 continue
+            if model.get("deprecated") is False:
+                catalogue["not_deprecated"].add(name)
             task = model.get("task")
             task = task.get("name") if isinstance(task, dict) else None
             if task == CLOUDFLARE_TEXT_TASK or not isinstance(task, str) or not task:
@@ -2397,6 +2448,171 @@ def rank_new_models(result, template):
     return rows
 
 
+# ------------------------------------------------------------------------------------------------
+# LiteLLM's model map: a second source of announced retirements
+# ------------------------------------------------------------------------------------------------
+# A provider's own API is the first source of a retirement it announces, and several publish nothing of the
+# kind (Google's lists no deprecation at all), so the drift run could not tell a person that a model was
+# about to go. LiteLLM's public price map carries an optional "deprecation_date" per model, read here as a
+# double check of the providers' own signals: it is a public file of a public repository, read once per run
+# without a key, and no model is ever called. It decides nothing about deletion, which stays driven by the
+# provider's catalogue alone; an announced retirement is a NOTICE for a person, whichever source says it.
+
+LITELLM_MAP_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+LITELLM_MAP_SITE = "https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json"
+LITELLM_MAP_MAX = 16 * 1024 * 1024
+# The providers the map keys as "<prefix>/<id>", the prefix being the one the template's "model:" carries for
+# the native ones (LITELLM_PREFIXES where it is not the provider's name) and the provider's own name for the two
+# that the template reaches as "openai/<id>" on their host. The others reached that way (Kilo Gateway,
+# Requesty, Cent AI, Aion Labs) have no key in the map, and looking one up as "openai/<id>" would read the
+# deprecation of OpenAI's own model of that name: their entries are skipped, which says nothing of them.
+LITELLM_MAP_PROVIDERS = frozenset(NATIVE_PROVIDERS) | {"sambanova", "ovhcloud"}
+# What a provider's notice says that is a retirement, as opposed to a model that is no longer free.
+DEPRECATION_KINDS = ("expiration", "deprecation", "inactive")
+DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def day_of(text):
+    """The day a text names, "YYYY-MM-DD", or None: a date, or a timestamp that starts with one, and a real
+    day of the calendar. What is shown of the map is only ever such a day, never a piece of its text."""
+    match = DAY.match(text.strip()) if isinstance(text, str) else None
+    if not match:
+        return None
+    try:
+        datetime.date.fromisoformat(match.group(0))
+    except ValueError:
+        return None
+    return match.group(0)
+
+
+def litellm_map_key(provider, identifier):
+    """The key LiteLLM's map holds the model under, or None when the map has none for this provider."""
+    if provider not in LITELLM_MAP_PROVIDERS:
+        return None
+    return "%s/%s" % (LITELLM_PREFIXES.get(provider, provider), identifier)
+
+
+def read_litellm_map(opener, today):
+    """The state of LiteLLM's map: {"status": "read" | "error", "date", ...}. "read" holds "dates", the day
+    of each key that has a valid "deprecation_date", and "members", every model key it carries. "error"
+    says why nothing was read, and is never more than the kind of failure. It raises nothing and changes
+    nothing else of the run: the providers' own signals stand, and a deletion rests on a catalogue alone."""
+    state = {"status": "read", "date": today, "url": LITELLM_MAP_URL, "dates": {}, "members": set(),
+             "matched": 0}
+    try:
+        raw = fetch_raw(opener, LITELLM_MAP_URL, {"User-Agent": USER_AGENT, "Accept": "application/json"},
+                        LITELLM_MAP_MAX)
+        if len(raw) > LITELLM_MAP_MAX:
+            raise FetchError("the map is larger than %d bytes" % LITELLM_MAP_MAX)
+        try:
+            payload = json.loads(raw)
+        except ValueError:
+            raise FetchError("the map is not JSON") from None
+        except RecursionError:
+            raise FetchError("the map is nested too deeply to read") from None
+        if not isinstance(payload, dict):
+            raise FetchError("the map is not an object")
+        models = {key: value for key, value in payload.items()
+                  if isinstance(key, str) and key != "sample_spec" and isinstance(value, dict)}
+        if not any("litellm_provider" in value for value in models.values()):
+            # Without it any object would read as a map in which no model is deprecated.
+            raise FetchError("no entry of the map names a litellm_provider")
+        state["members"] = set(models)
+        state["dates"] = {key: day for key, value in models.items()
+                          if (day := day_of(value.get("deprecation_date")))}
+    except FetchError as error:
+        return {"status": "error", "date": today, "url": LITELLM_MAP_URL, "error": safe_text(error, 120)}
+    except Exception as error:
+        return {"status": "error", "date": today, "url": LITELLM_MAP_URL,
+                "error": "failed: %s" % error.__class__.__name__}
+    return state
+
+
+def deprecation_notice(provider, denies, litellm_date, label, provider_read, map_read, today, commented):
+    """The NOTICE of one entry, from what the provider's catalogue says of it ("provider": its notice when it
+    announces a retirement, "denies" when it states in so many words that the model is active, not
+    deprecated) and what the map says ("litellm_date": its day, or None when it is silent or carries no such
+    model), or None when neither announces anything.
+
+    One source announcing and the other silent is a retirement announced, and the notice says which source
+    said it. Both announcing the same day is one notice citing both. The sources contradict when they give
+    two days, or when the provider says in so many words that the model is active while the map gives a day:
+    the retirement is kept, on the earliest day, and the notice carries the disagreement for a WARNING. A
+    provider that announces with no day (a flag) cannot differ from a day the map gives. A day already
+    passed is a notice all the same, since the model is still listed: it says so, and deletes nothing."""
+    if provider is None and litellm_date is None:
+        return None
+    provider_date = provider.get("date") if provider else None
+    provider_day = day_of(provider_date)
+    notice = {"what": provider["what"] if provider else "deprecation",
+              "date": provider_date if provider else litellm_date,
+              "replacement": provider.get("replacement") if provider else None,
+              "provider": label, "provider_read": provider_read, "map_read": map_read,
+              "provider_date": provider_date, "litellm_date": litellm_date,
+              "sources": (["provider"] if provider else []) + (["litellm"] if litellm_date else []),
+              "conflict": None, "commented": commented}
+    if provider and litellm_date:
+        if provider_day and provider_day != litellm_date:
+            notice["conflict"] = "dates"
+            notice["date"] = min(provider_day, litellm_date)
+        elif provider_day:
+            notice["date"] = provider_day
+        else:
+            notice["date"] = litellm_date
+    elif litellm_date and denies:
+        notice["conflict"] = "provider_active"
+    day = day_of(notice["date"])
+    notice["passed"] = bool(day and day < today)
+    return notice
+
+
+def add_litellm_dates(result, template, catalogues, today):
+    """Combine, for every entry of the file (active or commented out), the provider's own deprecation signal
+    with the map's, and put the result in the provider's findings as a NOTICE: the one the provider's reader
+    already made is replaced by it, and an entry only the map or a commented-out one has gets its own. An
+    entry its provider's catalogue no longer lists is left to the deletion, and an entry of a provider that
+    was not read is judged on the map alone, which the notice says."""
+    litellm = result["litellm"]
+    read = litellm["status"] == "read"
+    for report in result["providers"]:
+        name = report["name"]
+        catalogue = catalogues.get(name)
+        active = known_ids(template["active"], name)
+        entries = [(identifier, names, False) for identifier, names in active.items()]
+        entries += [(identifier, names, True) for identifier, names
+                    in known_ids(template["commented"], name).items() if identifier not in active]
+        existing = {finding["id"]: finding for finding in report["findings"]
+                    if finding["kind"] == "notice" and finding["notice"].get("what") in DEPRECATION_KINDS}
+        for identifier, names, commented in sorted(entries, key=lambda entry: entry[0]):
+            listed = catalogue is not None and identifier in catalogue["members"]
+            if catalogue is not None and not listed and name not in INCOMPLETE_CATALOGUES:
+                continue
+            key = litellm_map_key(name, identifier)
+            if read and key in litellm["members"]:
+                litellm["matched"] += 1
+            notice = (catalogue or {}).get("notices", {}).get(identifier) if listed else None
+            if notice and notice.get("what") not in DEPRECATION_KINDS:
+                notice = None
+            notice = deprecation_notice(
+                notice, listed and identifier in catalogue.get("not_deprecated", ()),
+                litellm["dates"].get(key) if read else None, PROVIDER_LABELS[name], catalogue is not None,
+                read, today, commented)
+            if notice is None:
+                continue
+            finding = None if commented else existing.get(identifier)
+            if finding is not None:
+                finding["notice"] = notice
+            else:
+                report["findings"].append({"kind": "notice", "id": identifier, "names": names, "notice": notice})
+
+
+def deprecation_conflicts(result):
+    """[(report, finding)] of the notices whose two sources disagree, which the summary and the pull
+    request of the deletions both print as a WARNING."""
+    return [(report, finding) for report in result["providers"] for finding in report["findings"]
+            if finding["kind"] == "notice" and finding["notice"].get("conflict")]
+
+
 def run_online(text, environment, opener, today):
     """Read every catalogue and diff it against the file. Returns the result the renderers read."""
     template, problems = read_template(text)
@@ -2410,6 +2626,7 @@ def run_online(text, environment, opener, today):
         entry["model"] for entry in template["active"]
         if attribute(entry["model"], entry["api_base"]) is None and isinstance(entry["model"], str)
     })
+    catalogues = {}
     for name, url, key_variable, send_key, reader, next_page in PROVIDERS:
         active = known_ids(template["active"], name)
         commented = known_ids(template["commented"], name)
@@ -2461,6 +2678,9 @@ def run_online(text, environment, opener, today):
         report["findings"] = diff(name, catalogue, active, commented, ignored)
         confirm_absences(name, report, catalogue, opener, headers)
         probe_absences(name, report, catalogue, opener, headers)
+        catalogues[name] = catalogue
+    result["litellm"] = read_litellm_map(opener, today)
+    add_litellm_dates(result, template, catalogues, today)
     result["rankings"] = read_rankings(opener, environment, today)
     result["ranked"] = rank_new_models(result, template)
     return result
@@ -5015,23 +5235,76 @@ def notice_text(notice, french=False):
                  else ", and asking the provider about the model could not settle it (%s)" % notice["probe"]
                  if notice.get("probe") else "")
         return "not listed; %s%s, so the absence is not a retirement" % (notice["reason"][0], extra)
+    text = notice_head(what, date, french)
+    if replacement:
+        text += (", remplaçant désigné : `%s`" if french else ", replacement: %s") % replacement
+    return text + sources_text(notice, french)
+
+
+def notice_head(what, date, french=False):
+    """What a notice says of a model, and the day where it has one: "expires on 2026-12-01"."""
     if french:
         text = {"expiration": "expiration annoncée", "deprecation": "déprécié",
                 "inactive": "marqué inactif", "paid": "n'est plus gratuit",
                 "priced": "n'est plus à 0 $"}.get(what, what)
-        if date:
-            text += " (`%s`)" % date
-        if replacement:
-            text += ", remplaçant désigné : `%s`" % replacement
-        return text
+        return text + (" (`%s`)" % date if date else "")
     text = {"expiration": "expires", "deprecation": "deprecated",
             "inactive": "listed as inactive", "paid": "no longer flagged free",
             "priced": "no longer priced at 0"}.get(what, what)
-    if date:
-        text += " on %s" % date
-    if replacement:
-        text += ", replacement: %s" % replacement
+    return text + (" on %s" % date if date else "")
+
+
+def sources_text(notice, french=False):
+    """Which source said a retirement, and what the other one says of it, appended to the notice. A notice
+    no map was ever asked about carries no "sources", and says nothing here."""
+    sources = notice.get("sources")
+    if not sources:
+        return ""
+    provider = notice["provider"]
+    litellm = "la carte de LiteLLM" if french else "LiteLLM's map"
+    silent = " n'en dit rien" if french else " says nothing of it"
+    conflict = notice.get("conflict")
+    if len(sources) == 2:
+        if conflict:
+            says = ("%s et %s divergent, voir l'avertissement" if french
+                    else "%s and %s disagree, see the warning") % (provider, litellm)
+        else:
+            says = "%s %s %s" % (provider, "et" if french else "and", litellm)
+    elif sources == ["provider"]:
+        says = provider + (("%s %s" % (" ;" if french else ";", litellm + silent)) if notice["map_read"] else "")
+    elif conflict:
+        says = ("%s ; %s l'indique actif, voir l'avertissement" if french
+                else "%s; %s lists it as active, see the warning") % (litellm, provider)
+    elif notice["provider_read"]:
+        says = "%s%s %s%s" % (litellm, " ;" if french else ";", provider, silent)
+    else:
+        says = "%s%s %s" % (litellm, " ;" if french else ";",
+                            "le catalogue de %s n'a pas été lu" % provider if french
+                            else "the %s catalogue was not read" % provider)
+    text = " (%s)" % says
+    if notice.get("commented"):
+        text += " -- entrée commentée" if french else " -- commented-out entry"
+    if notice.get("passed"):
+        text += " -- cette date est dépassée" if french else " -- this date has passed"
     return text
+
+
+def conflict_text(notice, french=False):
+    """What a WARNING says of a notice whose sources disagree: both of them, and what each says."""
+    provider = notice["provider"]
+    litellm = notice_head("deprecation", notice["litellm_date"], french)
+    if notice["conflict"] == "provider_active":
+        if french:
+            return ("les sources divergent : %s indique le modèle actif, non déprécié, la carte de LiteLLM le "
+                    "dit %s ; la dépréciation est retenue" % (provider, litellm))
+        return ("the sources disagree: %s lists the model as active, not deprecated, LiteLLM's map says it is %s; "
+                "the deprecation is kept" % (provider, litellm))
+    said = notice_head(notice["what"], notice["provider_date"], french)
+    if french:
+        return ("les sources divergent : %s dit %s, la carte de LiteLLM dit %s ; la date la plus proche, %s, "
+                "est retenue" % (provider, said, litellm, "`%s`" % notice["date"]))
+    return ("the sources disagree: %s says %s, LiteLLM's map says %s; the earliest date, %s, is kept"
+            % (provider, said, litellm, notice["date"]))
 
 
 # The providers whose entries are "openai/<id>" with the provider's "api_base", by the name the report gives them.
@@ -5101,6 +5374,15 @@ def render_text(result, config_name):
                      "Analysis, %s" % (len(ranking["models"]), sum(1 for row in rows if row["model"]),
                                        len(rows), RANKING_SITE))
         out.append("%-11s %s" % ("rankings", state))
+    litellm = result.get("litellm")
+    if litellm:
+        if litellm["status"] == "error":
+            state = "ERROR, not read: %s" % litellm["error"]
+        else:
+            state = ("read, %d model(s), %d with a deprecation date, %d of the entries here matched; source: "
+                     "LiteLLM, %s" % (len(litellm["members"]), len(litellm["dates"]), litellm["matched"],
+                                      LITELLM_MAP_SITE))
+        out.append("%-11s %s" % ("litellm", state))
     epoch = result.get("epoch")
     if epoch:
         if epoch["status"] == "error":
@@ -5116,7 +5398,7 @@ def render_text(result, config_name):
     labels = {
         "retired": "RETIRED  active here, no longer listed -- delete it and its cascade slots",
         "gone": "GONE     commented out here, no longer listed -- delete the commented-out entry",
-        "notice": "NOTICE   marked for removal upstream, or not listed by a catalogue that omits served models",
+        "notice": "NOTICE   marked for removal by the provider or by LiteLLM's map, or not listed by a catalogue that omits served models",
         "back": "BACK     commented out here, free again on OpenRouter -- reconsider its reason",
         "new": "NEW      listed upstream, unknown here",
     }
@@ -5150,6 +5432,15 @@ def render_text(result, config_name):
         if lines:
             out += [labels[kind]] + lines + [""]
             count += len(lines)
+    conflicts = deprecation_conflicts(result)
+    if conflicts:
+        out += ["WARNING  the sources of an announced retirement disagree -- the retirement is kept, on the earliest date"]
+        for report, finding in conflicts:
+            line = "  %s%s" % litellm_id(report["name"], finding["id"])
+            if finding.get("names"):
+                line += " (%s)" % ", ".join(str(name) for name in finding["names"])
+            out.append(line + ": " + conflict_text(finding["notice"]))
+        out.append("")
     served = [(report, finding) for report in result["providers"]
               for finding in report.get("served", ())]
     if served:
@@ -5490,8 +5781,11 @@ def summary_body(result, config_name, link, snippets):
                  + (" Le workflow ne l'a pas fait, pour la raison donnée à chaque ligne."
                     if applying else "")),
         "notice": ("Retraits annoncés",
-                   "Entrées actives que le fournisseur marque pour retrait : prévoir leur "
-                   "remplacement dans les cascades. La pull request des suppressions les liste "
+                   "Entrées, actives ou commentées, dont le fournisseur, la carte des prix de LiteLLM "
+                   "(`deprecation_date`) ou les deux annoncent le retrait, la source étant citée à chaque "
+                   "ligne : prévoir leur remplacement dans les cascades. Un seul des deux suffit à "
+                   "l'annoncer ; une date dépassée alors que le modèle est toujours listé reste une "
+                   "alerte, rien n'est supprimé pour autant. La pull request des suppressions les liste "
                    "aussi quand cette exécution l'ouvre ou la réécrit."),
         "unlisted": ("Absents d'un catalogue incomplet",
                      "Entrées, actives ou commentées, que le catalogue de leur fournisseur ne liste pas, "
@@ -5548,6 +5842,8 @@ def summary_body(result, config_name, link, snippets):
                             ""]
             out += capped(lines) + [""]
 
+    out += conflicts_section(result)
+
     served = [(report, finding) for report in result["providers"]
               for finding in report.get("served", ())]
     if served:
@@ -5592,6 +5888,14 @@ def summary_body(result, config_name, link, snippets):
                 "l'issue du workflow.", "", "- Artificial Analysis : %s"
                 % code_span(ranking["error"]), ""]
 
+    litellm = result.get("litellm")
+    if litellm and litellm["status"] == "error":
+        out += ["## Carte de LiteLLM non lue", "",
+                "La carte des prix de LiteLLM, seconde source des retraits annoncés, n'a pas pu être lue : "
+                "cette exécution ne rapporte que les retraits que les fournisseurs annoncent eux-mêmes. "
+                "Rien d'autre n'en dépend, ni les suppressions ni l'issue du workflow.", "",
+                "- LiteLLM : %s" % code_span(litellm["error"]), ""]
+
     out += ["## Couverture", "",
             "| Fournisseur | État | Modèles au catalogue | Identifiants actifs ici "
             "| Commentés ici |",
@@ -5618,6 +5922,12 @@ def summary_body(result, config_name, link, snippets):
         else:
             state, members = "lu", str(len(ranking["models"]))
         out.append("| Artificial Analysis (classements) | %s | %s | — | — |" % (state, members))
+    if litellm:
+        if litellm["status"] == "error":
+            state, members = "erreur", "—"
+        else:
+            state, members = "lu", str(len(litellm["members"]))
+        out.append("| Carte de LiteLLM (dates de dépréciation) | %s | %s | — | — |" % (state, members))
     out.append("")
     if result["unattributed"]:
         out.append("Entrées actives d'aucun catalogue lu ici : %s."
@@ -5626,6 +5936,22 @@ def summary_body(result, config_name, link, snippets):
     if not left_outside_pull_requests(result):
         out += ["Aucune dérive.", ""]
     return "\n".join(out) + "\n"
+
+
+def conflicts_section(result):
+    """The WARNING of a retirement the two sources disagree about, in French, for the summary and for the
+    pull request of the deletions: each entry, both sources and what each says of it. It is no section that
+    asks for a reading, and holds back nothing."""
+    conflicts = deprecation_conflicts(result)
+    if not conflicts:
+        return []
+    out = ["## Avertissement : sources en désaccord sur un retrait", "",
+           "Le fournisseur et la carte des prix de LiteLLM ne disent pas la même chose de ces entrées. Le "
+           "retrait est retenu à la date la plus proche, et rien n'est supprimé pour autant : une personne "
+           "vérifie sur la page du fournisseur laquelle des deux sources a raison.", ""]
+    return out + capped(["%s -- **avertissement** : %s" % (finding_line(report, finding),
+                                                       conflict_text(finding["notice"], True))
+                         for report, finding in conflicts]) + [""]
 
 
 def finding_line(report, finding):
@@ -5819,11 +6145,20 @@ def render_pr_body(result, link=None):
         # Not the section that asks for a reading: an announced retirement does not hold back the
         # deletions this pull request makes.
         out += ["## Retraits annoncés", "",
-                "Le fournisseur marque ces entrées actives pour retrait sans les avoir encore "
+                "Le fournisseur, la carte des prix de LiteLLM ou les deux annoncent le retrait de ces "
+                "entrées (la source est citée à chaque ligne) sans que leur catalogue les ait encore "
                 "retirées : cette pull request ne les supprime pas, et ne s'en fusionne pas moins "
                 "seule. Prévoir leur remplacement dans les cascades ; elles viendront ici, supprimées, "
                 "l'exécution où leur catalogue ne les listera plus.", ""]
         out += capped([finding_line(report, finding) for report, finding in notices]) + [""]
+        out += conflicts_section(result)
+
+    litellm = result.get("litellm")
+    if litellm and litellm["status"] == "error":
+        out += ["## Carte de LiteLLM non lue", "",
+                "La carte des prix de LiteLLM, seconde source des retraits annoncés, n'a pas pu être lue à "
+                "cette exécution : la section des retraits annoncés ne porte que ce que les fournisseurs "
+                "annoncent eux-mêmes. Les suppressions ne dépendent que des catalogues.", ""]
 
     unread = [report["name"] for report in result["providers"] if report["status"] != "read"]
     if unread:
