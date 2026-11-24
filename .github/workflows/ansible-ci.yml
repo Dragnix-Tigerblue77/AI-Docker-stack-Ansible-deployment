@@ -436,6 +436,18 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_routing_document.py
 
+      # "docs/CATALOG.md" is generated from the template and the router contracts, and a copy that is not what
+      # they produce is refused, so a change to either regenerates it in the same commit. It renders the template
+      # as the checks above do, and reads the tables of the compose check, which it imports. It needs PyYAML and
+      # Jinja2 and no ansible-core, because the job of the drift workflow that regenerates it has no more.
+      - name: "Catalogue: check the check itself"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/generate_catalog.py --selftest
+
+      - name: "Catalogue: hold docs/CATALOG.md to its sources"
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/generate_catalog.py --check
+
       - name: "Hard-coded inventory data: check the check itself"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_no_inventory_data.py --selftest

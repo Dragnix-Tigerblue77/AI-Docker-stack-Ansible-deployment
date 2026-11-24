@@ -1231,7 +1231,7 @@ suivent la forme que documente l'API (aucune clé n'était disponible pour en en
 règles en mots simples (le niveau de réflexion de chaque entrée, le classement de `Auto-Flash-Lite` par indice moins délai pondéré, la
 règle du quota partagé, les limites gratuites de Google), puis, par routeur, l'ordre de la cascade avec le niveau fixé de
 chaque entrée, et les points ouverts. Seuls l'ordre des membres et les niveaux fixés y sont tenus au gabarit, par
-`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici.
+`check_routing_document.py`, qui échoue sinon ; les tableaux ne sont pas recopiés ici. Pour une vue d'ensemble de tout ce que sert la passerelle (groupes d'accès, routeurs et leurs membres, fournisseurs, modèles), voir `docs/CATALOG.md`, généré à partir du gabarit et des contrats.
 
 **Les contrats par routeur.** `.github/LiteLLM_router_contracts.yaml` dit ce que chaque routeur exige : un plancher,
 écrit comme une ancre (« au moins aussi bon que tel modèle », dont le chiffre est lu à chaque exécution et jamais copié
