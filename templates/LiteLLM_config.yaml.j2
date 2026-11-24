@@ -215,6 +215,14 @@ model_list:
       rpd: 20
       reasoning_effort: low
 
+  # A twin of "gemini-3-8-flash", placed right behind it in every cascade that holds that model.
+  # "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-24, says "gemini-3.7-flash" is no longer available in
+  # Google AI Studio and that its endpoint "is not shutting down and automatically routes API requests to
+  # gemini-3.8-flash". Whether a call to this id draws on a counter of its own or on the one of Gemini 3.8 Flash is
+  # not established: the rate-limits page of the gateway's project in Google AI Studio has no row for it (read
+  # 2026-11-22). The slot costs one refusal when the counter is shared and is 20 more requests a day when it is
+  # not. To settle it, send one request to this id and see which counter moves on the usage page of AI Studio; if it
+  # is the one of Gemini 3.8 Flash, delete the entry.
   - model_name: gemini-3-7-flash
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -329,10 +337,13 @@ model_list:
   #     model: gemini/gemini-2.5-pro
   #     api_key: "os.environ/GEMINI_API_KEY"
 
-  # In no cascade at all, reachable only when asked for by name. The same page, read 2026-11-22, says
+  # Served until 2026-12-01: "ai.google.dev/gemini-api/docs/deprecations", read 2026-11-24, says
   # "gemini-2.5-flash" is deprecated and no longer available to select in Google AI Studio, and that
-  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It goes when Google
-  # shuts it down.
+  # from 2026-12-01 its requests "automatically route to gemini-3.5-flash-lite". It has a free quota of its own
+  # until then (the same 5 requests a minute and 20 a day as the Gemini 3 Flash entries, on the rate-limits page
+  # of the gateway's project in Google AI Studio, read 2026-11-22), so it is routed in "Auto-Flash", "Auto-Code" and
+  # "Auto-Claude-Code" to spend it, and goes on 2026-12-01: its name would then serve another model, and a second slot for it would only spend
+  # that model's quota twice.
   - model_name: gemini-2-5-flash
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -518,6 +529,10 @@ model_list:
       model: mistral/codestral-2508
       api_key: "os.environ/MISTRAL_API_KEY"
 
+  # In "Auto-Flash", ahead of "mistral-small" as the larger model. Epoch AI's capabilities index puts it at 141.6 against
+  # 140.8 for Gemini 2.5 Flash (Jun 2025), the floor of that router, and under the floor of "Auto-Pro"; Artificial
+  # Analysis gives it an index of 4.6 in 26.8 s (read 2026-11-24 and 2026-11-21). Paid like the rest of this section,
+  # so after every free member.
   - model_name: mistral-medium
     model_info:
       access_groups: ["LLM", "Private-Data"]
@@ -1148,7 +1163,8 @@ model_list:
       model: cloudflare/@cf/cloudflare/clef-omni
       api_key: "os.environ/CLOUDFLARE_API_KEY"
 
-  # Clef Flash: 9B, 24,576 tokens, text and images; in no router, its context being under its siblings'.
+  # Clef Flash: 9B, 24,576 tokens, text and images; the last member of "Auto-Decision", its context being under its
+  # siblings'.
   - model_name: clef-flash-cloudflare
     model_info:
       mode: evaluation
@@ -2203,7 +2219,7 @@ model_list:
 
   - model_name: omniroute-free-fast
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openai/auto/best-fast
       api_base: "http://omniroute:20128/v1"
@@ -2341,6 +2357,7 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
@@ -2418,6 +2435,7 @@ router_settings:
 {% endif %}
 {% if has.Gemini %}
         - gemini-3-8-flash-low
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
@@ -2434,6 +2452,9 @@ router_settings:
 {% endif %}
 {% if has.Cloudflare %}
         - gpt-oss-120b-cloudflare
+{% endif %}
+{% if has.Gemini %}
+        - gemini-2-5-flash
 {% endif %}
 {% if has.Groq %}
         - qwen3-8-27b-groq
@@ -2490,6 +2511,7 @@ router_settings:
         - nemotron3-omni-30b-ovh
         - mistral-small-3-2-ovh
 {% if has.Mistral %}
+        - mistral-medium
         - mistral-small
         - ministral-14b
         - ministral-8b
@@ -2583,6 +2605,7 @@ router_settings:
         - olala-mini-ovh
 {% if has.Gemini %}
         - gemini-3-8-flash-low
+        - gemini-3-7-flash
         - gemini-4-hydrogen-low
 {% endif %}
 {% if has.Groq %}
@@ -2615,6 +2638,7 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - glm-5-3-flash-nvidia
@@ -2631,6 +2655,11 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - muse-glimmer-nvidia
+{% endif %}
+{% if has.Gemini %}
+        - gemini-2-5-flash
+{% endif %}
+{% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
 {% endif %}
 {% if has.Cloudflare %}
@@ -2675,6 +2704,7 @@ router_settings:
 {% if has.Gemini %}
         - gemini-4-hydrogen
         - gemini-3-8-flash
+        - gemini-3-7-flash
 {% endif %}
 {% if has.NVIDIA %}
         - glm-5-3-flash-nvidia
@@ -2691,6 +2721,11 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - muse-glimmer-nvidia
+{% endif %}
+{% if has.Gemini %}
+        - gemini-2-5-flash
+{% endif %}
+{% if has.NVIDIA %}
         - laguna-xs-2-1-nvidia
 {% endif %}
 {% if has.Cloudflare %}
@@ -2749,12 +2784,15 @@ router_settings:
     # 8. DECISION -- Clef's typed decisions, for "/v1/systemone" and "/v1/decisions". Not ranked by a leaderboard
     # and with no contract, so the order is set by hand, and a fallback has to take every request its head takes,
     # so that switching to it is invisible to the caller. Clef Omni does: text and images like Clef, with
-    # 64,000 tokens of context against Clef's 65,536. Clef Flash does not, with 24,576, and is called by name; so
-    # is Clef Omni for a request that carries audio or video, which Clef does not read.
+    # 64,000 tokens of context against Clef's 65,536. Clef Flash takes the same text and images but only 24,576
+    # tokens, so it comes last: a request it cannot hold would have failed with nothing behind it anyway, and one it
+    # can hold is answered instead of refused. Clef Omni is also called by name for a request that carries audio or
+    # video, which Clef does not read.
 {% if head['decision'] %}
     - Auto-Decision:
         - clef-cloudflare
         - clef-omni-cloudflare
+        - clef-flash-cloudflare
 {% endif %}
 
     # 9. EXTRACTION -- Clairic's typed extraction, for "/v1/extraction". Ordered by hand like the router above,
