@@ -843,24 +843,26 @@ jobs:
             // and only its models can be ready, those of one with a "freeSuffix" only when their id ends
             // in it. A "keyless" provider's key is a literal marker, copied, and its entry always blanks
             // the Authorization header, which the gateway refuses a bearer marker for. A provider with a "group" is
-            // one whose models are kept out of "LLM" on purpose, and its entry is written in that group. Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
+            // one whose models are kept out of "LLM" on purpose, and its entry is written in that group. Every
+            // provider has a "data" group, written after the first: what its terms do with the data sent to it
+            // ("Private-Data", or "Public-Data-Only" where it is not read or not good enough). Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
             // them to the script's own build_additions; keep the markers.
             const ADDITION_PROVIDERS = {
-              openrouter: { prefix: 'openrouter/', label: 'OpenRouter', free: 'openrouter.ai/api/v1/models', freeSuffix: ':free' },
-              cerebras: { prefix: 'cerebras/', label: 'Cerebras' },
-              sambanova: { prefix: 'openai/', label: 'SambaNova' },
-              gemini: { prefix: 'gemini/', label: 'Gemini' },
-              groq: { prefix: 'groq/', label: 'Groq' },
-              mistral: { prefix: 'mistral/', label: 'Mistral' },
-              deepseek: { prefix: 'deepseek/', label: 'DeepSeek' },
-              cloudflare: { prefix: 'cloudflare/', label: 'Cloudflare' },
-              kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },
-              nvidia: { prefix: 'nvidia_nim/', label: 'NVIDIA' },
-              ovhcloud: { prefix: 'openai/', label: 'OVHcloud', keyless: true },
-              requesty: { prefix: 'openai/', label: 'Requesty', free: 'router.eu.requesty.ai/v1/models' },
-              zai: { prefix: 'zai/', label: 'Z AI' },
-              centai: { prefix: 'openai/', label: 'Cent AI' },
-              aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction' },
+              openrouter: { prefix: 'openrouter/', label: 'OpenRouter', free: 'openrouter.ai/api/v1/models', freeSuffix: ':free', data: 'Public-Data-Only' },
+              cerebras: { prefix: 'cerebras/', label: 'Cerebras', data: 'Public-Data-Only' },
+              sambanova: { prefix: 'openai/', label: 'SambaNova', data: 'Public-Data-Only' },
+              gemini: { prefix: 'gemini/', label: 'Gemini', data: 'Private-Data' },
+              groq: { prefix: 'groq/', label: 'Groq', data: 'Public-Data-Only' },
+              mistral: { prefix: 'mistral/', label: 'Mistral', data: 'Private-Data' },
+              deepseek: { prefix: 'deepseek/', label: 'DeepSeek', data: 'Public-Data-Only' },
+              cloudflare: { prefix: 'cloudflare/', label: 'Cloudflare', data: 'Private-Data' },
+              kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, data: 'Public-Data-Only' },
+              nvidia: { prefix: 'nvidia_nim/', label: 'NVIDIA', data: 'Public-Data-Only' },
+              ovhcloud: { prefix: 'openai/', label: 'OVHcloud', keyless: true, data: 'Private-Data' },
+              requesty: { prefix: 'openai/', label: 'Requesty', free: 'router.eu.requesty.ai/v1/models', data: 'Public-Data-Only' },
+              zai: { prefix: 'zai/', label: 'Z AI', data: 'Public-Data-Only' },
+              centai: { prefix: 'openai/', label: 'Cent AI', data: 'Public-Data-Only' },
+              aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction', data: 'Private-Data' },
             };
             const ADDITION_KINDS = ['ready', 'to_verify'];
             const ADDITION_LIMIT = 25;
@@ -953,7 +955,7 @@ jobs:
                 if (anchor.commented) note = `Not routed to: proposed by the drift run on ${date}, its free tier on ${spec.label} not verified yet.`;
                 else if (spec.free !== undefined) note = `Proposed by the drift run on ${date}: listed free by "${spec.free}" that day.`;
                 else note = `Proposed by the drift run on ${date}: its free tier on ${spec.label} is not verified yet.`;
-                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["${spec.group ?? 'LLM'}"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
+                const block = ['', `  # ${note}`, `${lead}- model_name: ${name}`, `${lead}  model_info:`, `${lead}    access_groups: ["${spec.group ?? 'LLM'}", "${spec.data}"]`, `${lead}  litellm_params:`, `${lead}    model: ${spec.prefix}${id}`];
                 if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
                 if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);

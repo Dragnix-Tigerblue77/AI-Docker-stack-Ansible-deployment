@@ -86,6 +86,14 @@
 # NVIDIA "build.nvidia.com/<publisher>/<model>/modelcard"; Mistral "docs.mistral.ai/models/<model>.md"; DeepSeek
 # "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7"; Cent AI "cent-ai.dev/models".
 # "check_compose_template.py" requires the window of every member of a cascade.
+# Every entry is also in exactly one of two groups that say what its provider does with the data sent to it,
+# written after its type group: "Private-Data" for a provider whose own terms leave prompts and outputs untrained,
+# unreviewed and unkept beyond a short abuse-monitoring period, run by a known company under the GDPR or terms
+# as good, and "Public-Data-Only" for every other, fit only for what one would accept to see published. A key
+# for sensitive work is given "Private-Data" by name and nothing else: a LiteLLM group is an allow-list, so the
+# other group is a label and no key is ever given it. The routers are in no group and their cascades mix
+# both, so such a key must not be given a router. The provider decides it, in "check_compose_template.py", with the
+# reason and the page read.
 model_list:
 {% if has.Gemini %}
   # ============================================================================
@@ -124,7 +132,7 @@ model_list:
   # the quota "Auto-Pro" and "Auto-Flash" need, holds its own last. No other entry sets a level: "ROUTAGE.md" says why.
   - model_name: gemini-4-hydrogen
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -137,7 +145,7 @@ model_list:
   # lowest level Hydrogen has (it cannot be turned off).
   - model_name: gemini-4-hydrogen-low
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -153,7 +161,7 @@ model_list:
   # It draws on the 20 requests a day of the entries above.
   - model_name: gemini-4-hydrogen-xhigh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -170,7 +178,7 @@ model_list:
   # pricing" -- verified directly against both pages, not assumed from the naming pattern alone.
   - model_name: gemini-3-8-flash
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -183,7 +191,7 @@ model_list:
   # the 1 and the 3 they ask (Artificial Analysis, read 2026-11-21). Same quota as the entry above.
   - model_name: gemini-3-8-flash-low
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -194,7 +202,7 @@ model_list:
 
   - model_name: gemini-3-7-flash
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -204,7 +212,7 @@ model_list:
 
   - model_name: gemini-3-6-flash
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -223,7 +231,7 @@ model_list:
 
   - model_name: gemini-3-5-flash-lite
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -256,7 +264,7 @@ model_list:
 
   - model_name: gemini-3-1-flash-lite
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -266,7 +274,7 @@ model_list:
 
   - model_name: gemini-3-flash-preview
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -300,7 +308,7 @@ model_list:
   # shuts it down.
   - model_name: gemini-2-5-flash
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -312,7 +320,7 @@ model_list:
   # available through the API until further notice".
   - model_name: gemini-2-5-flash-lite
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: true
@@ -341,7 +349,7 @@ model_list:
   # spends the one daily counter every ":free" model of that account shares (see its header).
   - model_name: gemma-4-31b-gemini
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -350,7 +358,7 @@ model_list:
 
   - model_name: gemma-4-26b-gemini
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -376,7 +384,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Private-Data"]
 
   # Text to speech, for the "Auto-TTS" router and for it alone (its cascade says why these two and in this
   # order). Added 2026-11-22. The speech page of the Gemini API documentation, read that day, lists
@@ -393,7 +401,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_speech
-      access_groups: ["TTS"]
+      access_groups: ["TTS", "Private-Data"]
 
   - model_name: gemini-3-8-flash-lite-tts
     litellm_params:
@@ -401,7 +409,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_speech
-      access_groups: ["TTS"]
+      access_groups: ["TTS", "Private-Data"]
 
   # Looked at on 2026-11-02 and turned down: the drift report stops listing these ids,
   # and each line says why.
@@ -430,7 +438,7 @@ model_list:
       api_key: "os.environ/GEMINI_API_KEY"
     model_info:
       mode: audio_transcription
-      access_groups: ["STT"]
+      access_groups: ["STT", "Private-Data"]
 
 {% endif %}
 {% if has.Mistral %}
@@ -449,7 +457,7 @@ model_list:
   # ============================================================================
   - model_name: codestral
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -458,7 +466,7 @@ model_list:
 
   - model_name: codestral-2508
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -467,7 +475,7 @@ model_list:
 
   - model_name: mistral-medium
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -476,7 +484,7 @@ model_list:
 
   - model_name: mistral-small
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -490,7 +498,7 @@ model_list:
   # than trusting the "ministral-3-<size>-25-12" URL slug pattern, which does not match the id.
   - model_name: ministral-14b
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -499,7 +507,7 @@ model_list:
 
   - model_name: ministral-8b
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -508,7 +516,7 @@ model_list:
 
   - model_name: ministral-3b
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -527,7 +535,7 @@ model_list:
       api_key: "os.environ/MISTRAL_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Private-Data"]
 
   # Speech to text, the last slot of the "Auto-STT" cascade: the one paid member of it, as everything of this
   # section is. "docs.mistral.ai" lists French among the languages its Voxtral transcription supports
@@ -539,7 +547,7 @@ model_list:
       api_key: "os.environ/MISTRAL_API_KEY"
     model_info:
       mode: audio_transcription
-      access_groups: ["STT"]
+      access_groups: ["STT", "Private-Data"]
 
   # Served, but not routed to: Voxtral text to speech, whose id "docs.mistral.ai/models/voxtral-mini-tts-3-0"
   # gives (read 2026-11-22). LiteLLM's own source, read the same day, maps six OpenAI voice names
@@ -585,7 +593,7 @@ model_list:
   # "llama-3.3-70b-versatile" (deprecated 2026-06-17, shut down 2026-08-16).
   - model_name: gpt-oss-120b-groq
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 131072
       max_output_tokens: 65536
       supports_vision: false
@@ -595,7 +603,7 @@ model_list:
 
   - model_name: gpt-oss-20b-groq
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 131072
       max_output_tokens: 65536
       supports_vision: false
@@ -613,7 +621,7 @@ model_list:
   # audit.
   - model_name: qwen3-8-27b-groq
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 131072
       max_output_tokens: 16384
       supports_vision: true
@@ -638,7 +646,7 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
     model_info:
       mode: audio_transcription
-      access_groups: ["STT"]
+      access_groups: ["STT", "Public-Data-Only"]
 
   - model_name: whisper-large-v3-turbo-groq
     litellm_params:
@@ -646,7 +654,7 @@ model_list:
       api_key: "os.environ/GROQ_API_KEY"
     model_info:
       mode: audio_transcription
-      access_groups: ["STT"]
+      access_groups: ["STT", "Public-Data-Only"]
 
   # Looked at on 2026-11-02 and turned down (#305).
   # drift-ignore: groq/allam-2-7b -- a 7B Arabic and English model with a 4,096-token context window and its pricing still "Pending" on "console.groq.com/docs/model/allam-2-7b" (read 2026-11-02): no free tier is stated, and no cascade is for Arabic
@@ -709,7 +717,7 @@ model_list:
   # DeepSeek has committed to keep serving "deepseek-v4-pro" past 2026-09-14.
   - model_name: deepseek-v4-pro-direct
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 393216
       supports_vision: false
@@ -719,7 +727,7 @@ model_list:
 
   - model_name: deepseek-flash-direct
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 393216
       supports_vision: true
@@ -741,7 +749,7 @@ model_list:
   # ============================================================================
   - model_name: nemotron-ultra-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 65536
       supports_vision: false
@@ -751,7 +759,7 @@ model_list:
 
   - model_name: nemotron-reasoning-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 256000
       max_output_tokens: 65536
       supports_vision: true
@@ -761,7 +769,7 @@ model_list:
 
   - model_name: nemotron-lightning-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 65536
       supports_vision: false
@@ -778,7 +786,7 @@ model_list:
   # nothing shows it meets the sub-300 ms profile of "Auto-Flash-Lite".
   - model_name: nemotron-super-vl-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 131072
       supports_vision: true
@@ -788,7 +796,7 @@ model_list:
 
   - model_name: gemma-4-31b-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 32768
       supports_vision: true
@@ -798,7 +806,7 @@ model_list:
 
   - model_name: gemma-4-26b-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 32768
       supports_vision: true
@@ -808,7 +816,7 @@ model_list:
 
   - model_name: openrouter-auto-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openrouter/openrouter/free
       api_key: "os.environ/OPENROUTER_API_KEY"
@@ -834,7 +842,7 @@ model_list:
   # the tool call was well formed. The probes were easy and rank nothing.
   - model_name: particle-1-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       max_output_tokens: 131072
       supports_vision: true
@@ -852,7 +860,7 @@ model_list:
   # token came in about 1.5 s, and the tool call was well formed. The probes were easy and rank nothing.
   - model_name: ernie-5-5-flash-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1024000
       max_output_tokens: 921600
       supports_vision: false
@@ -870,7 +878,7 @@ model_list:
   # cascade (6.2), and the slowest to answer in it.
   - model_name: lfm-3-1-7b-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 8192
       supports_vision: false
@@ -889,7 +897,7 @@ model_list:
   # being untried. Not tried by hand.
   - model_name: dots-3-note-preview-free
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 512000
       max_output_tokens: 460800
       supports_vision: true
@@ -978,7 +986,7 @@ model_list:
   # (read 2026-11-22), with reasoning at "medium" by default as on Groq. Free status unconfirmed.
   - model_name: gpt-oss-120b-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -989,7 +997,7 @@ model_list:
   # and function calling in LiteLLM's model map and on its page (read 2026-11-22). Free status unconfirmed.
   - model_name: gpt-oss-20b-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -1001,7 +1009,7 @@ model_list:
   # 2026-11-22). Free status unconfirmed.
   - model_name: gemma-4-26b-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 256000
       supports_vision: true
     litellm_params:
@@ -1015,7 +1023,7 @@ model_list:
   # "Auto-Claude-Code" asks, so "Auto-Code" has no place for it either. Free status unconfirmed.
   - model_name: llama-3-3-70b-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 24000
       supports_vision: false
     litellm_params:
@@ -1030,7 +1038,7 @@ model_list:
   # goes. Free status unconfirmed, and tool calls through this endpoint not tried.
   - model_name: glm-4-7-flash-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       supports_vision: false
     litellm_params:
@@ -1044,7 +1052,7 @@ model_list:
   # No figure measures it, so it sits among the last free members of "Auto-Flash-Lite".
   - model_name: gemma-sea-lion-v4-27b-it-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: false
     litellm_params:
@@ -1064,7 +1072,7 @@ model_list:
   - model_name: clef-cloudflare
     model_info:
       mode: evaluation
-      access_groups: ["Decisions"]
+      access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1074,7 +1082,7 @@ model_list:
   - model_name: clef-omni-cloudflare
     model_info:
       mode: evaluation
-      access_groups: ["Decisions"]
+      access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef-omni
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1083,7 +1091,7 @@ model_list:
   - model_name: clef-flash-cloudflare
     model_info:
       mode: evaluation
-      access_groups: ["Decisions"]
+      access_groups: ["Decisions", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clef-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1093,7 +1101,7 @@ model_list:
   - model_name: clairic-cloudflare
     model_info:
       mode: extraction
-      access_groups: ["Extraction"]
+      access_groups: ["Extraction", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clairic
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1102,7 +1110,7 @@ model_list:
   - model_name: clairic-flash-cloudflare
     model_info:
       mode: extraction
-      access_groups: ["Extraction"]
+      access_groups: ["Extraction", "Private-Data"]
     litellm_params:
       model: cloudflare/@cf/cloudflare/clairic-flash
       api_key: "os.environ/CLOUDFLARE_API_KEY"
@@ -1119,7 +1127,7 @@ model_list:
   # the last free members of "Auto-Flash-Lite".
   - model_name: granite-4-0-h-micro-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131000
       supports_vision: false
     litellm_params:
@@ -1136,7 +1144,7 @@ model_list:
   # there should not accept it. No figure measures it, so it sits among the last free members of "Auto-Flash-Lite".
   - model_name: llama-3-2-11b-vision-instruct-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
       supports_vision: true
     litellm_params:
@@ -1151,7 +1159,7 @@ model_list:
   # places it in "Auto-Flash-Lite" among the members with a time and no index.
   - model_name: llama-4-scout-17b-16e-instruct-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131000
       supports_vision: true
     litellm_params:
@@ -1167,7 +1175,7 @@ model_list:
   # No figure measures this version, so it sits among the last free members of "Auto-Flash-Lite".
   - model_name: mistral-small-3-1-24b-instruct-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 128000
     litellm_params:
       model: cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct
@@ -1182,7 +1190,7 @@ model_list:
   # "Auto-Claude-Code" ask.
   - model_name: qwen2-5-coder-32b-instruct-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 32768
       supports_vision: false
     litellm_params:
@@ -1200,7 +1208,7 @@ model_list:
   # without a thinking phase.
   - model_name: qwen3-8-27b-cloudflare
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -1235,7 +1243,7 @@ model_list:
       api_key: "os.environ/CLOUDFLARE_API_KEY"
     model_info:
       mode: embedding
-      access_groups: ["Embeddings"]
+      access_groups: ["Embeddings", "Private-Data"]
 {% endif %}
 {% if has.Zai %}
   # ============================================================================
@@ -1269,7 +1277,7 @@ model_list:
   # reasoning record (read 2026-11-21). Tool calls through this endpoint were not tried.
   - model_name: glm-4-7-flash-zai
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 200000
       max_output_tokens: 128000
       supports_vision: false
@@ -1311,7 +1319,7 @@ model_list:
   # ============================================================================
   - model_name: nemotron-ultra-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 65536
       supports_vision: false
@@ -1324,7 +1332,7 @@ model_list:
 
   - model_name: nemotron-reasoning-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 256000
       max_output_tokens: 65536
       supports_vision: true
@@ -1337,7 +1345,7 @@ model_list:
 
   - model_name: nemotron-lightning-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 65536
       supports_vision: false
@@ -1350,7 +1358,7 @@ model_list:
 
   - model_name: nemotron-super-vl-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 131072
       supports_vision: true
@@ -1363,7 +1371,7 @@ model_list:
 
   - model_name: particle-1-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       max_output_tokens: 131072
       supports_vision: true
@@ -1376,7 +1384,7 @@ model_list:
 
   - model_name: ernie-5-5-flash-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1024000
       max_output_tokens: 921600
       supports_vision: false
@@ -1389,7 +1397,7 @@ model_list:
 
   - model_name: lfm-3-1-7b-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 8192
       supports_vision: false
@@ -1412,7 +1420,7 @@ model_list:
   # benchmarks "Auto-Code" is ranked on, too few to place it, and "Auto-Claude-Code" holds keyed providers only.
   - model_name: beam-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       max_output_tokens: 131072
       supports_vision: false
@@ -1431,7 +1439,7 @@ model_list:
   # without the suffix is priced at zero but not flagged free.
   - model_name: flint-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 235929
       supports_vision: false
@@ -1448,7 +1456,7 @@ model_list:
   # makes it or for how long it stays, so it can leave the free list without notice.
   - model_name: glyph-cluster-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 256000
       max_output_tokens: 256000
       supports_vision: false
@@ -1464,7 +1472,7 @@ model_list:
   # parameters and the same "expiration_date" of 2026-12-31. Placed as its twin is, in "Auto-Flash" only.
   - model_name: dots-3-note-preview-kilo
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 512000
       max_output_tokens: 460800
       supports_vision: true
@@ -1520,7 +1528,7 @@ model_list:
   # ============================================================================
   - model_name: deepseek-v4-1-flash-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 1048576
       max_output_tokens: 262144
       supports_vision: true
@@ -1533,7 +1541,7 @@ model_list:
 
   - model_name: qwen3-5-397b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 262144
       supports_vision: true
@@ -1546,7 +1554,7 @@ model_list:
 
   - model_name: gpt-oss-120b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 131072
       supports_vision: false
@@ -1559,7 +1567,7 @@ model_list:
 
   - model_name: qwen3-8-27b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 262144
       supports_vision: true
@@ -1572,7 +1580,7 @@ model_list:
 
   - model_name: qwen3-6-35b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 65536
       supports_vision: false
@@ -1585,7 +1593,7 @@ model_list:
 
   - model_name: nemotron3-omni-30b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 65536
       supports_vision: true
@@ -1598,7 +1606,7 @@ model_list:
 
   - model_name: mistral-small-3-2-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 131072
       supports_vision: true
@@ -1611,7 +1619,7 @@ model_list:
 
   - model_name: gpt-oss-20b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 65536
       supports_vision: false
@@ -1624,7 +1632,7 @@ model_list:
 
   - model_name: gemma-4-26b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 65536
       supports_vision: false
@@ -1637,7 +1645,7 @@ model_list:
 
   - model_name: nemotron3-nano-30b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 65536
       supports_vision: false
@@ -1650,7 +1658,7 @@ model_list:
 
   - model_name: qwen3-5-9b-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 65536
       supports_vision: true
@@ -1663,7 +1671,7 @@ model_list:
 
   - model_name: olala-mini-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 32768
       max_output_tokens: 16384
       supports_vision: false
@@ -1676,7 +1684,7 @@ model_list:
 
   - model_name: laguna-xs-2-1-ovh
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 65536
       supports_vision: false
@@ -1722,7 +1730,7 @@ model_list:
   # ============================================================================
   - model_name: nemotron-ultra-requesty
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: false
@@ -1733,7 +1741,7 @@ model_list:
 
   - model_name: nemotron-reasoning-requesty
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 131072
       max_output_tokens: 20480
       supports_vision: false
@@ -1744,7 +1752,7 @@ model_list:
 
   - model_name: nemotron-lightning-requesty
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       max_output_tokens: 65536
       supports_vision: false
@@ -1755,7 +1763,7 @@ model_list:
 
   - model_name: gemma-4-31b-requesty
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       max_output_tokens: 8192
       supports_vision: true
@@ -1804,7 +1812,7 @@ model_list:
   # before it answers.
   - model_name: kimi-k3-1-pro-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       supports_vision: true
     litellm_params:
@@ -1816,7 +1824,7 @@ model_list:
   # confirmed to use; 71 s to the first answer token.
   - model_name: mistral-large-4-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       supports_vision: true
     litellm_params:
@@ -1826,7 +1834,7 @@ model_list:
   # The same model as "nemotron-ultra-free", through NVIDIA's own pool. 1,048,576-token context.
   - model_name: nemotron-ultra-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       supports_vision: false
     litellm_params:
@@ -1836,7 +1844,7 @@ model_list:
   # The same model as "nemotron-reasoning-free". 262,144-token context.
   - model_name: nemotron-reasoning-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -1846,7 +1854,7 @@ model_list:
   # The same model as "nemotron-lightning-free". 1,048,576-token context.
   - model_name: nemotron-lightning-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       supports_vision: false
     litellm_params:
@@ -1856,7 +1864,7 @@ model_list:
   # The same model as "nemotron-super-vl-free". 262,144-token context.
   - model_name: nemotron-super-vl-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
       supports_vision: true
     litellm_params:
@@ -1868,7 +1876,7 @@ model_list:
   # "Auto-Flash-Lite" and is in no other router.
   - model_name: nemotron-bolt-e4b-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 65536
       supports_vision: false
     litellm_params:
@@ -1880,7 +1888,7 @@ model_list:
   # "stream_timeout" below.
   - model_name: glm-5-3-flash-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: nvidia_nim/z-ai/glm-5.3-flash
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1890,7 +1898,7 @@ model_list:
   # which is another model, so nothing places it by coding.
   - model_name: minimax-m3-1-flash-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       supports_vision: true
     litellm_params:
@@ -1901,7 +1909,7 @@ model_list:
   # name.
   - model_name: step-5-preview-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1000000
       max_output_tokens: 1000000
       supports_vision: true
@@ -1914,7 +1922,7 @@ model_list:
   # the two routers its purpose fits, and is in no other.
   - model_name: laguna-xs-2-1-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       supports_vision: false
     litellm_params:
@@ -1926,7 +1934,7 @@ model_list:
   # figure.
   - model_name: muse-glimmer-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 131072
       supports_vision: true
     litellm_params:
@@ -1936,7 +1944,7 @@ model_list:
   # The same model as "gemma-4-31b-gemini" and "gemma-4-31b-free", through a pool of its own. 262,144-token context.
   - model_name: gemma-4-31b-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 262144
       supports_vision: true
     litellm_params:
@@ -1948,7 +1956,7 @@ model_list:
   # first answer token) places it; that router has no floor.
   - model_name: gemma-3-12b-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-12b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1957,7 +1965,7 @@ model_list:
   # token on Artificial Analysis's probes.
   - model_name: gemma-3-4b-nvidia
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: nvidia_nim/google/gemma-3-4b-it
       api_key: "os.environ/NVIDIA_NIM_API_KEY"
@@ -1994,7 +2002,7 @@ model_list:
   # and a caller must not cap it low: with 20 the answer was cut, with a finish reason of "length".
   - model_name: hy4-flash-cent-ai
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
       max_input_tokens: 1048576
     litellm_params:
       model: openai/hy4-flash:free
@@ -2033,7 +2041,7 @@ model_list:
   # routers say why.
   - model_name: aion-3-5-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 32768
       supports_vision: false
@@ -2045,7 +2053,7 @@ model_list:
   # Its smaller sibling, also of the GLM family, with the same 262,144 tokens of context.
   - model_name: aion-3-5-mini-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 262144
       max_output_tokens: 32768
       supports_vision: false
@@ -2057,7 +2065,7 @@ model_list:
   # The generation before, of the GLM family, with 131,072 tokens of context.
   - model_name: aion-3-0-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 32768
       supports_vision: false
@@ -2069,7 +2077,7 @@ model_list:
   # Of the DeepSeek family, with 131,072 tokens of context.
   - model_name: aion-3-0-mini-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 32768
       supports_vision: false
@@ -2081,7 +2089,7 @@ model_list:
   # A variant of DeepSeek V3.2, with 131,072 tokens of context.
   - model_name: aion-2-0-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 131072
       max_output_tokens: 32768
       supports_vision: false
@@ -2094,7 +2102,7 @@ model_list:
   # of context.
   - model_name: aion-rp-llama-3-1-8b-aion-labs
     model_info:
-      access_groups: ["Fiction"]
+      access_groups: ["Fiction", "Private-Data"]
       max_input_tokens: 32768
       max_output_tokens: 32768
       supports_vision: false
@@ -2110,7 +2118,7 @@ model_list:
   # ============================================================================
   - model_name: omniroute-free-auto
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openai/auto/best-free
       api_base: "http://omniroute:20128/v1"
@@ -2118,7 +2126,7 @@ model_list:
 
   - model_name: omniroute-free-code
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openai/auto/best-coding
       api_base: "http://omniroute:20128/v1"
@@ -2126,7 +2134,7 @@ model_list:
 
   - model_name: omniroute-free-reasoning
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: openai/auto/best-reasoning
       api_base: "http://omniroute:20128/v1"
@@ -2153,7 +2161,8 @@ model_list:
   # a head: a key limited to that group reaches it, and so reaches the members of the cascades it falls back on. That
   # second part is not optional: LiteLLM skips a fallback the caller is not authorised to call (measured 2026-11-23, a
   # key naming only "Auto" got the head's 429 back), which holds for a router named directly just the same.
-  # It has no "api_key": it spends no quota of its own.
+  # It has no "api_key": it spends no quota of its own. Its data group is "Public-Data-Only": the cascades it falls
+  # back on mix both groups, so a key for private data, which holds "Private-Data" alone, is not given it.
   #
   # REASONING goes to "Auto-Pro" with COMPLEX: one cascade serves both, and a copy of it for the last tier would be
   # a second list to keep level. No scoring key is set (weights, boundaries, keywords): the defaults are what LiteLLM
@@ -2166,7 +2175,7 @@ model_list:
   #   which is a call nobody asked for and a rewrite of what the client sent.
   - model_name: Auto
     model_info:
-      access_groups: ["LLM"]
+      access_groups: ["LLM", "Public-Data-Only"]
     litellm_params:
       model: auto_router/complexity_router
       complexity_router_config:

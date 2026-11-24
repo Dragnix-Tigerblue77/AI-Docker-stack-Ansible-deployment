@@ -132,6 +132,11 @@ COMPLEXITY_ROUTER_MODEL = "auto_router/complexity_router"
 # comparison against a "model_name" suffix or an access group never matches it by accident.
 DEFAULT_ACCOUNT = "(default)"
 
+# The access groups that say what a provider does with the data sent to it. Every entry of every account carries
+# one, so they are shared by accounts on purpose and are no account's allow list: an account a caller labels
+# "private-data" must not turn them into a claim on its key.
+DATA_GROUPS = frozenset({"PRIVATE_DATA", "PUBLIC_DATA_ONLY"})
+
 # A sentinel, not a string: it must never compare equal to an account name, be sortable next to one,
 # or land in an f-string as if it were one. Every call site that can receive it is written to
 # exclude it explicitly rather than rely on it behaving like a normal account.
@@ -350,6 +355,8 @@ def check_document(path, document):
             )
         for group in entry["access_groups"]:
             group_label = group.upper().replace("-", "_")
+            if group_label in DATA_GROUPS:
+                continue
             if group_label != account and group_label in accounts_seen:
                 problems.append(
                     "%s: \"%s\" is in the access_group \"%s\" but its key belongs to \"%s\".\n"

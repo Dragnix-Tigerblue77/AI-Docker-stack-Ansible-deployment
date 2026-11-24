@@ -180,7 +180,7 @@ async function play(scenario) {
 # ---------------------------------------------------------------------------------------------------
 
 def entry(name, address=False, key="GEMINI", header=None):
-    lines = ["  - model_name: %s" % name, "    model_info:", '      access_groups: ["LLM"]', "    litellm_params:",
+    lines = ["  - model_name: %s" % name, "    model_info:", '      access_groups: ["LLM", "Public-Data-Only"]', "    litellm_params:",
              "      model: provider/%s" % name, '      api_key: "os.environ/%s_API_KEY"' % key]
     if address:
         lines.append("      api_base: http://gateway.invalid:1234/v1")
@@ -461,9 +461,19 @@ def scenarios():
     valued = [line.replace('Authorization: ""', 'Authorization: "Bearer x"') for line in base]
     add("deletion: an entry of a keyless gateway whose header carries a value", "not merged",
         removals(deletion(valued, set(block_of(valued, "m7")))[0]), needle="is not a model entry")
-    other_group = [line.replace('access_groups: ["LLM"]', 'access_groups: ["STT"]') for line in base]
+    other_group = [line.replace('access_groups: ["LLM", "Public-Data-Only"]', 'access_groups: ["STT", "Public-Data-Only"]')
+                   for line in base]
     add("deletion: an entry in an access group other than LLM", "not merged",
         removals(deletion(other_group, set(block_of(other_group, "m1")))[0]), needle="is not a model entry")
+    private = [line.replace('"Public-Data-Only"', '"Private-Data"') for line in base]
+    add("deletion: an entry of a provider that is Private-Data", "merged",
+        removals(deletion(private, set(block_of(private, "m1")))[0]))
+    for what, groups in (("with no data group", '["LLM"]'), ("with a data group of its own making", '["LLM", "Public"]'),
+                         ("with its data group first", '["Public-Data-Only", "LLM"]'),
+                         ("with both data groups", '["LLM", "Private-Data", "Public-Data-Only"]')):
+        odd = [line.replace('["LLM", "Public-Data-Only"]', groups) for line in base]
+        add("deletion: an entry %s" % what, "not merged",
+            removals(deletion(odd, set(block_of(odd, "m1")))[0]), needle="is not a model entry")
     add("deletion: an entry, and a setting that carries a comment", "not merged",
         removals(deletion(base, whole | {base.index(SETTING)})[0]), needle="is not a model entry")
     add("deletion: an entry, and the heading of a section", "not merged",
