@@ -2439,14 +2439,17 @@ def _keyless_document(gateway="Kilo", **overrides):
 def _window_document(name="a-member", info=None, parameters=None, in_cascade=True, pre_call=True):
     """One text entry with a window, in a cascade or not, with `info` and `parameters` merged into its model_info and
     litellm_params; a value of None drops the key."""
-    model_info = {"access_groups": ["LLM"], "max_input_tokens": 131072}
-    litellm_params = {"model": "x/model", "api_key": "os.environ/ANY_API_KEY"}
+    # On a keyless gateway, so that no key has to be given and the entry has a data group.
+    model_info = {"max_input_tokens": 131072}
+    litellm_params = {"model": "openai/vendor/model", "api_base": LITELLM_KEYLESS_BASES["Kilo"],
+                      "api_key": "no-key-needed", "extra_headers": {"Authorization": ""}}
     for target, changes in ((model_info, info or {}), (litellm_params, parameters or {})):
         for key, value in changes.items():
             if value is None:
                 target.pop(key, None)
             else:
                 target[key] = value
+    model_info["access_groups"] = litellm_access_groups(None, litellm_params.get("api_key"), litellm_params.get("api_base"))
     router_settings = {"fallbacks": [{"flash": [name]}], "model_group_alias": {"flash": name}} if in_cascade else {}
     if pre_call:
         router_settings["enable_pre_call_checks"] = True
@@ -2852,7 +2855,9 @@ LITELLM_CONFIG_CASES = [
     ("OpenRouter's free router needs no window",
      _window_document(info={"max_input_tokens": None}, parameters={"model": "openrouter/openrouter/free"}), set(), None),
     ("an OmniRoute route needs no window",
-     _window_document(info={"max_input_tokens": None}, parameters={"api_base": "http://omniroute:20128/v1"}), set(),
+     _window_document(info={"max_input_tokens": None},
+                      parameters={"api_base": "http://omniroute:20128/v1", "api_key": "omniroute-no-key-needed",
+                                  "extra_headers": None}), set(),
      None),
     ("a length under the maximum output", _window_document(info={"max_output_tokens": 65536},
                                                            parameters={"max_tokens": 32768}), set(), None),
