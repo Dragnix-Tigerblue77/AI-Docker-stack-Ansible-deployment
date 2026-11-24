@@ -515,6 +515,49 @@ def http_error(status):
                                   io.BytesIO(b"{}"))
 
 
+# Z AI's pricing page as its documentation serves it: a table with a model free of charge in the first of two
+# blocks, the second the way the page nests its older models in a block quote. SELFTEST_PRICING has none free.
+ZAI_PRICING = """\
+# Pricing
+
+## Models
+
+| Model | Input | Cached Input | Cached Input Storage | Output |
+| :- | :- | :- | :- | :- |
+| GLM-9 | \\$1.4 | \\$0.26 | Limited-time Free | \\$4.4 |
+| GLM-9-Flash | Free | Free | Free | Free |
+
+> [accordion] Other Pricing
+>
+> ### Text Models
+>
+> | Model | Input | Cached Input | Cached Input Storage | Output |
+> | :- | :- | :- | :- | :- |
+> | GLM-8-FlashX | \\$0.07 | \\$0.01 | Limited-time Free | \\$0.4 |
+> | GLM-8-Flash | Free | Free | Free | Free |
+"""
+ZAI_PRICING_NONE_FREE = ZAI_PRICING.replace("| Free | Free | Free | Free |", "| \\$1 | \\$1 | \\$1 | \\$1 |")
+
+
+def probe_answer(answer):
+    """What a canned probe serves: an integer is an HTTP error of that status with an empty object, a
+    (status, body) pair is one with that body (a 200 is the body served), an exception is raised."""
+    if isinstance(answer, Exception):
+        raise answer
+    if isinstance(answer, int):
+        answer = (answer, {})
+    status, body = answer
+    raw = body if isinstance(body, bytes) else json.dumps(body).encode()
+    if status == 200:
+        return raw
+    raise urllib.error.HTTPError("https://selftest.invalid/", status, "selftest", None, io.BytesIO(raw))
+
+
+def zai_error(code, status):
+    """Z AI's error as its documentation shows it, the code a string."""
+    return (status, {"error": {"code": str(code), "message": "selftest"}})
+
+
 def canned_opener(answers, calls):
     """An opener serving "answers" by provider. An answer that is an exception is raised. The ranking
     source's answer is a list of pages, or a single page served for every page asked for.
@@ -540,8 +583,20 @@ def canned_opener(answers, calls):
             return json.dumps({"id": identifier}).encode()
         raise http_error(404)
 
-    def opener(url, headers, limit=None):
+    def opener(url, headers, limit=None, data=None):
         calls.append((url, dict(headers)))
+        if data is not None:
+            # A probe: the model it asks about is in its body, and a probe nobody wrote is a call too far.
+            answers.setdefault("probe_requests", []).append((url, dict(headers), data))
+            model = json.loads(data)["model"]
+            if model not in answers.get("probes", {}):
+                raise AssertionError("an unexpected probe of %s at %s" % (model, url))
+            return probe_answer(answers["probes"][model])
+        if url == drift.INCOMPLETE_CATALOGUES["zai"]["free_listing"]:
+            answer = answers.get("zai_pricing", ZAI_PRICING_NONE_FREE)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else answer.encode()
         if url == EPOCH_URL:
             # The archive of Epoch AI, which a case serves in "answers" as bytes, and which nobody
             # served is a 404.
@@ -7269,7 +7324,8 @@ def run_coverage_cases():
                 % result["unattributed"]),
                (is_complete(result), "the coverage is partial")))
 
-    # A model a catalogue no longer lists is retired, whichever of the five serves it.
+    # A model a catalogue no longer lists is retired, whichever of the five serves it -- bar Z AI, whose
+    # catalogue omits models it serves, so that the same absence is a NOTICE and nothing is deleted.
     for name, identifier, fresh, entry in (
             ("nvidia", "vendor/nv-one", {"object": "list", "data": [{"id": "vendor/nv-embed-9"}]}, "nvidia_nim/vendor/nv-one"),
             ("ovhcloud", "OvhOne", {"object": "list", "data": [{"id": "OvhSet"}]}, "openai/OvhOne"),
@@ -7278,9 +7334,13 @@ def run_coverage_cases():
              "openai/vendor/req-one"),
             ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
             ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
-        result, calls, report, body = run(coverage_answers(**{name: fresh}))
+        incomplete = name in drift.INCOMPLETE_CATALOGUES
+        # Z AI's list is not believed alone: its probe says the model does not exist, the code its documentation
+        # gives, and the entry is retired like the others.
+        probes = {"probes": {"glm-9-flash": zai_error(1211, 400)}} if incomplete else {}
+        result, calls, report, body = run(dict(coverage_answers(**{name: fresh}), **probes))
         expected = [("retired", identifier)]
-        outputs = apply_run(COVERAGE_TEMPLATE, coverage_answers(**{name: fresh}), COVERAGE_KEYS)
+        outputs = apply_run(COVERAGE_TEMPLATE, dict(coverage_answers(**{name: fresh}), **probes), COVERAGE_KEYS)
         judged("%s: an active id the catalogue no longer lists is RETIRED, and the pull request deletes its entry%s" % (
             name, " and its cascade slot" if name == "nvidia" else ""),
                first_wrong(
@@ -7294,7 +7354,8 @@ def run_coverage_cases():
         outputs = apply_run(COVERAGE_TEMPLATE, empty, COVERAGE_KEYS)
         judged("%s: a catalogue that lists nothing deletes nothing, an empty answer being a failed read" % name,
                first_wrong((outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
-                           (undeleted_count(outputs[0]) >= 1, "the finding is not left to a person")))
+                           (undeleted_count(outputs[0]) >= (0 if incomplete else 1),
+                            "the finding is not left to a person")))
 
     # NEW models: where each provider's API says nothing of the free tier, they are to examine, with the page.
     answers = coverage_answers()
@@ -7489,6 +7550,364 @@ def run_coverage_cases():
     return failures
 
 
+# ------------------------------------------------------------------------------------------------
+# A provider whose catalogue omits models it serves: its absences are a NOTICE, never a deletion
+# ------------------------------------------------------------------------------------------------
+
+# SELFTEST_TEMPLATE with an active Z AI entry and a commented-out one, neither routed through a cascade.
+INCOMPLETE_BLOCK = """\
+  - model_name: zai-flash
+    litellm_params:
+      model: zai/glm-9-flash
+      api_key: "os.environ/ZAI_API_KEY"
+
+  # Served, but not routed to: selftest, set aside.
+  # - model_name: zai-flash-old
+  #   litellm_params:
+  #     model: zai/glm-8-flash
+  #     api_key: "os.environ/ZAI_API_KEY"
+
+  # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down
+
+"""
+INCOMPLETE_TEMPLATE = SELFTEST_TEMPLATE.replace(
+    "  - model_name: local\n", INCOMPLETE_BLOCK + "  - model_name: local\n", 1)
+
+
+# The same without the commented-out entry, for the runs where nothing but an active one is absent.
+INCOMPLETE_ACTIVE_TEMPLATE = INCOMPLETE_TEMPLATE.replace(
+    INCOMPLETE_BLOCK, INCOMPLETE_BLOCK.split("  # Served, but not routed to")[0]
+    + "  # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down\n\n", 1)
+assert "glm-8-flash" not in INCOMPLETE_ACTIVE_TEMPLATE and "zai/glm-9-flash" in INCOMPLETE_ACTIVE_TEMPLATE
+
+
+def incomplete_catalogue_cases():
+    """(what the case proves, template, answers, a check on (result, new_text, report, summary, pr,
+    commit) returning None when it holds and why not otherwise, the exit status expected)."""
+    def changed(**replaced):
+        answers = selftest_answers()
+        answers.update(replaced)
+        return answers
+
+    # Z AI's catalogue lists a model of its own and none of the two the file holds for it, or one of them.
+    zai_omitting = {"object": "list", "data": [{"id": "glm-9-pro"}]}
+    zai_listing = {"object": "list", "data": [{"id": "glm-9-pro"}, {"id": "glm-9-flash"}]}
+    completion = (200, {"id": "selftest", "choices": [{"index": 0, "finish_reason": "length"}]})
+
+    def kinds(result, provider):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      if report["name"] == provider for finding in report["findings"])
+
+    def probes(answers):
+        return answers.get("probe_requests", [])
+
+    def one_probe_of(model):
+        """A check that exactly one probe went out, for "model", in the shape the provider documents."""
+        def check(answers):
+            made = probes(answers)
+            if len(made) != 1:
+                return "%d probes, expected one" % len(made)
+            url, headers, data = made[0]
+            body = json.loads(data)
+            if url != "https://api.z.ai/api/paas/v4/chat/completions":
+                return "the probe went to %s" % url
+            if body != {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}:
+                return "the probe's body is %r" % body
+            if headers.get("Authorization") != "Bearer selftest-zai-key-SECRET":
+                return "the probe does not carry the key the run holds"
+            if headers.get("Content-Type") != "application/json":
+                return "the probe is not sent as JSON"
+            return None
+        return check
+
+    def served_quietly(answers, model="glm-9-flash"):
+        def check(result, new_text, report, summary, pr, commit):
+            if kinds(result, "zai") != []:
+                return "Z AI findings are %r" % kinds(result, "zai")
+            if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+                return "the file was changed"
+            if one_probe_of(model)(answers) is not None:
+                return one_probe_of(model)(answers)
+            if "SERVED   " not in report or "zai/%s" % model not in report.split("SERVED   ")[1]:
+                return "the report does not carry the served line: %s" % report
+            if "## Absents de la liste, mais toujours servis" not in summary:
+                return "the summary does not carry the served section"
+            if "NOTICE" in report or "RETIRED  " in report:
+                return "the report carries a finding"
+            return None
+        return check
+
+    def served(answer):
+        answers = changed(zai=zai_omitting, probes={"glm-9-flash": answer})
+        return (answers, served_quietly(answers))
+
+    # 1 and 2: the probe says served.
+    cases = []
+    for label, answer in (("HTTP 200", completion), ("429 with the overload code 1305", zai_error(1305, 429)),
+                          ("429 with the balance code 1113", zai_error(1113, 429)),
+                          ("429 with no body to read", 429)):
+        answers, check = served(answer)
+        cases.append(("an active Z AI entry its list omits, to which the probe answers %s, is served: no finding, "
+                      "no deletion, one quiet line in the report and the summary, and the run exits 0" % label,
+                      INCOMPLETE_ACTIVE_TEMPLATE, answers, check, 0))
+
+    # The page that lists the model free settles it first, and no request is made.
+    listed_free = changed(zai=zai_omitting, zai_pricing=ZAI_PRICING.replace(
+        "| GLM-8-Flash | Free | Free | Free | Free |", "| GLM-8-Flash | \\$1 | \\$1 | \\$1 | \\$1 |"))
+
+    def settled_by_the_page(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != []:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if probes(listed_free):
+            return "a probe was made for a model its pricing page lists free"
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+            return "the file was changed"
+        if "SERVED   " not in report or "zai/glm-9-flash" not in report.split("SERVED   ")[1]:
+            return "the report does not carry the served line: %s" % report
+        if "## Absents de la liste, mais toujours servis" not in summary or "`zai/glm-9-flash`" not in summary:
+            return "the summary does not carry the served section"
+        return None
+    cases.append(("an active Z AI entry its list omits but its pricing page lists free is served with no request "
+                  "made at all, and the run exits 0", INCOMPLETE_ACTIVE_TEMPLATE, listed_free, settled_by_the_page, 0))
+
+    # The page unreadable that run: the probe is the fallback, whatever the page would have said.
+    no_page = changed(zai=zai_omitting, zai_pricing=http_error(500), probes={"glm-9-flash": completion})
+
+    def fallback_to_the_probe(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != []:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if "its pricing page: HTTP 500" not in report:
+            return "the unreadable page is not reported: %s" % report
+        return one_probe_of("glm-9-flash")(no_page)
+    cases.append(("a pricing page that could not be read that run leaves the probe to settle an omitted entry; "
+                  "the page's failure is still that provider's error", INCOMPLETE_ACTIVE_TEMPLATE, no_page,
+                  fallback_to_the_probe, 2))
+
+    # 3: the documented unknown model is a retirement, deleted like the others.
+    unknown = changed(zai=zai_omitting, probes={"glm-9-flash": zai_error(1211, 400)})
+
+    def retired_by_the_probe(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("retired", "glm-9-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if "zai/glm-9-flash" in new_text or "model_name: zai-flash\n" in new_text:
+            return "the entry is still in the file"
+        if pr is None or "`zai/glm-9-flash`" not in pr:
+            return "the deletion pull request does not name it"
+        if undeleted_count(result) != 0:
+            return "the deletion was left to a person"
+        return one_probe_of("glm-9-flash")(unknown)
+    cases.append(("an active Z AI entry its list omits, to which the probe answers 400 with the documented "
+                  "unknown-model code 1211, is RETIRED and deleted under --apply",
+                  INCOMPLETE_ACTIVE_TEMPLATE, unknown, retired_by_the_probe, 1))
+
+    # 4: every other answer settles nothing.
+    for label, answer, said in (
+            ("401 with an authentication code", zai_error(1000, 401), "HTTP 401, code 1000"),
+            ("a 500 with no body", 500, "HTTP 500"),
+            ("a 502 with a body that is no JSON", (502, b"<html>bad gateway</html>"), "HTTP 502"),
+            ("400 with a parameter code, which speaks of the call and not the model", zai_error(1210, 400),
+             "HTTP 400, code 1210"),
+            ("400 with a code its documentation does not list", zai_error(9999, 400), "HTTP 400, code 9999"),
+            ("400 with the right code and the wrong status", zai_error(1211, 403), "HTTP 403, code 1211"),
+            ("a 200 that is no completion", (200, b"not json"), "HTTP 200 with an answer that is not a completion"),
+            ("a 200 whose body is an error", (200, {"error": {"code": "1211"}}),
+             "HTTP 200 with an answer that is not a completion"),
+            ("a timeout", urllib.error.URLError(TimeoutError("timed out")), "network error: timed out"),
+            ("a connection that is reset", ConnectionResetError("reset"), "network error: ConnectionResetError"),
+            ("a code that is no number, which is not shown", (400, {"error": {"code": "SECRET-IN-A-CODE"}}),
+             "HTTP 400")):
+        answers = changed(zai=zai_omitting, probes={"glm-9-flash": answer})
+
+        def settles_nothing(result, new_text, report, summary, pr, commit, answers=answers, said=said):
+            if kinds(result, "zai") != [("notice", "glm-9-flash")]:
+                return "Z AI findings are %r" % kinds(result, "zai")
+            if new_text != INCOMPLETE_ACTIVE_TEMPLATE or pr is not None:
+                return "the file was changed"
+            if undeleted_count(result) != 0:
+                return "something is counted as a deletion left to a person"
+            for text, needle in ((report, "could not settle it (%s)" % said),
+                                 (summary, "n'a pas tranché (%s)" % said)):
+                if needle not in text:
+                    return "%r is not said: %s" % (needle, text)
+            for text in (report, summary):
+                if "SECRET" in text.replace("selftest-zai-key-SECRET", ""):
+                    return "a word of the answer reached the output"
+                if "selftest-zai-key-SECRET" in text:
+                    return "the key reached the output"
+            if "SERVED   " in report:
+                return "it is reported as served"
+            return one_probe_of("glm-9-flash")(answers)
+        cases.append(("an active Z AI entry its list omits, to which the probe answers %s, stays a NOTICE saying "
+                      "what the probe answered, and the file is unchanged" % label,
+                      INCOMPLETE_ACTIVE_TEMPLATE, answers, settles_nothing, 1))
+
+    # 5: a commented-out entry is never asked about.
+    commented_only = changed(zai=zai_listing)
+
+    def commented_not_asked(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        if probes(commented_only):
+            return "a probe was made for a commented-out entry"
+        if new_text != INCOMPLETE_TEMPLATE:
+            return "the file was changed"
+        if "a commented-out entry is never asked about" not in report:
+            return "the report does not say so: %s" % report
+        if "une entrée commentée n'est jamais interrogée" not in summary:
+            return "the summary does not say so"
+        return None
+    cases.append(("a commented-out Z AI entry its list omits is a NOTICE, and no probe is made for it",
+                  INCOMPLETE_TEMPLATE, commented_only, commented_not_asked, 1))
+
+    # The active and the commented-out entry together: only the active one is asked about.
+    both = changed(zai=zai_omitting, probes={"glm-9-flash": completion})
+
+    def only_the_active_asked(result, new_text, report, summary, pr, commit):
+        if kinds(result, "zai") != [("notice", "glm-8-flash")]:
+            return "Z AI findings are %r" % kinds(result, "zai")
+        return one_probe_of("glm-9-flash")(both)
+    cases.append(("with an active and a commented-out entry both omitted, only the active one is asked about",
+                  INCOMPLETE_TEMPLATE, both, only_the_active_asked, 1))
+
+    # An empty list is a failed read: nothing is asked.
+    emptied = changed(zai={"object": "list", "data": []})
+
+    def empty_asks_nothing(result, new_text, report, summary, pr, commit):
+        if probes(emptied):
+            return "a probe was made on a list that holds nothing"
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE:
+            return "the file was changed"
+        return None
+    cases.append(("a Z AI list that holds nothing is a failed read, and asks nothing",
+                  INCOMPLETE_ACTIVE_TEMPLATE, emptied, empty_asks_nothing, 1))
+
+    # A provider outside the set: no probe, RETIRED as before, and deleted beside Z AI's served entry.
+    outside = changed(zai=zai_omitting, groq=GROQ_WITHOUT_FAST, probes={"glm-9-flash": completion})
+
+    def others_still_retired(result, new_text, report, summary, pr, commit):
+        if kinds(result, "groq") != [("retired", "vendor/fast")]:
+            return "Groq findings are %r" % kinds(result, "groq")
+        if "groq/vendor/fast" in new_text:
+            return "Groq's retired entry was not deleted"
+        if "zai/glm-9-flash" not in new_text:
+            return "the Z AI entry was deleted"
+        if "NOT DELETED" in report:
+            return "a finding was left to a person"
+        return one_probe_of("glm-9-flash")(outside)
+    cases.append(("the same absence for a provider outside the set is still RETIRED and deleted, with no probe "
+                  "of it, beside Z AI's served entry",
+                  INCOMPLETE_ACTIVE_TEMPLATE, outside, others_still_retired, 1))
+
+    # The pricing page: a second source of NEW free models.
+    priced = changed(zai={"object": "list", "data": [{"id": "glm-9-pro"}, {"id": "glm-9-flash"},
+                                                      {"id": "glm-9-paid"}]},
+                     zai_pricing=ZAI_PRICING.replace(
+                         "| GLM-9-Flash | Free | Free | Free | Free |",
+                         "| GLM-9-Flash | Free | Free | Free | Free |\n| GLM-7-Flash | Free | Free | Free | Free |"))
+
+    def pricing_gives_new(result, new_text, report, summary, pr, commit):
+        found = kinds(result, "zai")
+        if found != [("new", "glm-7-flash"), ("new", "glm-8-flash"), ("new", "glm-9-paid")]:
+            return "Z AI findings are %r" % found
+        if new_text != INCOMPLETE_ACTIVE_TEMPLATE:
+            return "the file was changed"
+        if "zai/glm-7-flash: to examine" not in report:
+            return "the model only the pricing page names is not offered: %s" % report
+        if summary.count("listed free on its pricing page") != 2 or "`glm-9-paid`" in summary.split(
+                "listed free on its pricing page")[0].rsplit("\n", 1)[-1]:
+            return "the pricing page's label is not carried by exactly the models it names"
+        if "## Nouveaux modèles gratuits" in summary:
+            return "a model read on the pricing page was claimed free by the API"
+        return None
+    cases.append(("the free models Z AI's pricing page tables are offered as NEW, the list's own and the ones "
+                  "it omits, to examine, never claimed free by the API",
+                  INCOMPLETE_ACTIVE_TEMPLATE, priced, pricing_gives_new, 1))
+
+    # The page unreadable: that provider's error, never a deletion.
+    for label, page, said in (
+            ("an HTTP error", http_error(500), "its pricing page: HTTP 500"),
+            ("a page with no table of prices", "# Pricing\n\nNothing tabled here.\n",
+             "its pricing page: the pricing page holds no table of prices this check reads")):
+        broken = changed(zai=zai_omitting, zai_pricing=page, probes={"glm-9-flash": zai_error(1211, 400)})
+
+        def pricing_error(result, new_text, report, summary, pr, commit, said=said):
+            zai = next(entry for entry in result["providers"] if entry["name"] == "zai")
+            if zai["status"] != "error" or said not in report:
+                return "the page's failure is not the provider's error: %s" % report
+            if not zai.get("error_class"):
+                return "no class of error"
+            return None
+
+        cases.append(("Z AI's pricing page unreadable (%s) is that provider's error, and the list's own findings "
+                      "stand" % label, INCOMPLETE_ACTIVE_TEMPLATE, broken, pricing_error, 2))
+    return tuple(cases)
+
+
+def run_incomplete_catalogue_cases():
+    failures = 0
+    for purpose, template, answers, check, status in incomplete_catalogue_cases():
+        outputs = apply_run(template, answers)
+        result = outputs[0]
+        if exit_status(result) != status:
+            why = "exit status %d, expected %d" % (exit_status(result), status)
+        else:
+            why = check(*outputs)
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    # The key goes to the provider's own API and never to the documentation page, and the page is asked for
+    # once, as Markdown.
+    calls = []
+    run_online(INCOMPLETE_ACTIVE_TEMPLATE, SELFTEST_KEYS, canned_opener(
+        dict(selftest_answers(), zai={"object": "list", "data": [{"id": "glm-9-flash"}]}), calls), "2026-01-01")
+    docs = [(url, headers) for url, headers in calls if url.startswith("https://docs.z.ai/")]
+    sent = [name for _, headers in docs for name in headers if name.lower() == "authorization"]
+    if len(docs) != 1 or sent or docs[0][1].get("Accept") != "text/markdown":
+        failures += 1
+        print("selftest: FAILED (the pricing page is asked for once, as Markdown, and without the key) -- %r" % docs)
+    else:
+        print("selftest: ok -- the pricing page is asked for once, as Markdown, and without the key")
+
+    # The set itself: only providers the script reads, each with its reason in both languages, none that can
+    # be asked for a model by its id (a provider that can needs no exemption), and Z AI in it. A probe says
+    # what it sends and which answers it reads, and no status of it is both served and unknown.
+    declared = drift.INCOMPLETE_CATALOGUES
+    problems = []
+    if "zai" not in declared:
+        problems.append("Z AI is not declared")
+    for provider, entry in declared.items():
+        if provider not in PROVIDER_NAMES:
+            problems.append("%r is no provider this check reads" % provider)
+        if provider in LOOKUPS:
+            problems.append("%s can be asked for a model, so its list needs no exemption" % provider)
+        reason = entry.get("reason")
+        if not (isinstance(reason, tuple) and len(reason) == 2
+                and all(isinstance(text, str) and text.strip() for text in reason)):
+            problems.append("%s has no reason in English and in French" % provider)
+        probe = entry.get("probe")
+        if probe is not None:
+            if not (isinstance(probe.get("url"), str) and probe["url"].startswith("https://")
+                    and callable(probe.get("body")) and probe.get("served") and probe.get("unknown")):
+                problems.append("%s declares a probe that lacks its address, its body or its answers" % provider)
+            elif {status for status, _ in probe["unknown"]} & set(probe["served"]):
+                problems.append("%s reads a status as both a model served and a model unknown" % provider)
+            elif 200 not in probe["served"] or any(status in (401, 403, 404, 500) for status in probe["served"]):
+                problems.append("%s reads an authentication, a missing route or a server error as served" % provider)
+    # A provider outside the set keeps its deletions: no other one is declared by mistake.
+    undeclared = sorted(set(PROVIDER_NAMES) - set(declared))
+    if "groq" not in undeclared or "openrouter" not in undeclared:
+        problems.append("a provider known to list everything it serves is declared")
+    if problems:
+        failures += 1
+        print("selftest: FAILED (INCOMPLETE_CATALOGUES) -- %s" % "; ".join(problems))
+    else:
+        print("selftest: ok -- INCOMPLETE_CATALOGUES names only providers read here, each with its reason and its probe")
+    return failures
+
+
 def run_selftest_cases():
     failures = 0
 
@@ -7536,6 +7955,7 @@ def run_selftest_cases():
             failures += 1
             print("selftest: FAILED (%s) -- %s" % (purpose, why))
 
+    failures += run_incomplete_catalogue_cases()
     failures += run_cloudflare_cases()
     failures += run_coverage_cases()
     failures += run_apply_cases()
