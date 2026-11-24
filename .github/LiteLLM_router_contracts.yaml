@@ -267,8 +267,8 @@ routers:
       shared_quota_with: [pro, flash]
       reason: "The router serves simple, short asks, so the time to the first answer token stays its measure; but when two models answer about as fast the smarter one goes first, so a member is worth its intelligence index less 3 points for each second of its mean time to the first answer token (3 being the rate validated above for the levels of one model, used here between models). The members with a time and no index come after those with both, shortest time first, and the members with no time stay where they are, flagged. A member that is the same model of the same provider as a member of pro or flash comes last, after every member with a quota of its own: Gemini's free quota is counted per model, 20 requests a day for Gemini 4 Hydrogen and Gemini 3.8 Flash against 500 for Gemini 3.5 Flash-Lite and Gemini 3.1 Flash-Lite (see inputs, read 2026-11-22), so a Gemini 3.8 Flash at Low at the head of this router, worth more than any of its own members, would spend in a few requests the quota the heads of pro and flash need. Changed by the maintainer on 2026-11-22: it ranked by the shortest time alone, and put each Gemini model's own entry ahead of the Flash-Lite models whatever its level."
     last_resort:
-      members: [ministral-3b]
-      reason: "The template places the paid Mistral after every free entry on purpose, as it does the paid DeepSeek in pro and flash: it ends the cascade, after the members that share a quota too. No keyless local entry is in this cascade."
+      members: [ministral-3b, omniroute-free-fast]
+      reason: "The template places the paid Mistral after every free entry on purpose, as it does the paid DeepSeek in pro and flash: it ends the cascade, after the members that share a quota too. The keyless local entry, OmniRoute's latency-first route, comes after it, as the local entry closes pro and flash after their paid members."
   code:
     intelligence_floor:
       anchor:
@@ -1027,6 +1027,10 @@ models:
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown
   omniroute-free-reasoning:
+    no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
+    tools: {support: "unknown", source: "no capability declared: a local router"}
+    epoch: unknown
+  omniroute-free-fast:
     no_record: "A local keyless router that picks a model per request: no Artificial Analysis record describes it"
     tools: {support: "unknown", source: "no capability declared: a local router"}
     epoch: unknown
