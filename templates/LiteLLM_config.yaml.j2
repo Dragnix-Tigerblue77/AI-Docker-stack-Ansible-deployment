@@ -3002,8 +3002,8 @@ model_list:
   # calls). A model another provider serves, a "-fast" tier, a snapshot or a specialised model is no reason to leave one
   # out: more free quota and more choice is the point, and a person decides from the whole list. The catalogue
   # ("ai-gateway.vercel.sh/v1/models", public) does not say which models are in the free tier, and a price of 0 is no
-  # proof of it, so the drift run reads it for retirements only and offers no new model: a person reads the free tier on
-  # the models page.
+  # proof of it, so the drift run reads the free tier from the models page, "availableToFreeTier" (read 2026-11-24): a
+  # model it no longer flags free is a notice, and a new free one is reported.
   # ============================================================================
   # Meta's open-weight reasoning model: Artificial Analysis index 24.9 at its Xhigh level, 11.0 s (read 2026-11-21).
   - model_name: muse-spark-open-vercel
@@ -4726,9 +4726,11 @@ router_settings:
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
         - minimax-m3-1-flash-nvidia
+{% endif %}
 {% if has.Vercel_AI_Gateway %}
         - minimax-m3-1-flash-vercel
 {% endif %}
+{% if has.NVIDIA %}
         - mistral-large-4-nvidia
         - glm-5-3-flash-nvidia
 {% endif %}
@@ -4829,9 +4831,11 @@ router_settings:
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
         - minimax-m3-1-flash-nvidia
+{% endif %}
 {% if has.Vercel_AI_Gateway %}
         - minimax-m3-1-flash-vercel
 {% endif %}
+{% if has.NVIDIA %}
         - mistral-large-4-nvidia
         - glm-5-3-flash-nvidia
 {% endif %}
