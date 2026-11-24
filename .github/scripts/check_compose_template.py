@@ -817,13 +817,25 @@ def check_librechat_gateway_key_models_default(defaults, failures):
     agent is left out of what the default must hold, and may be named."""
     routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
     groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"}
+    # The models kept apart are a group and a router of the template, so that a key may be given them by name, and
+    # are never in the default: an account that inherited them would reach what they were kept apart for.
+    kept_apart = set(LITELLM_KEPT_APART_GROUPS.values()) | {
+        LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_KEPT_APART_ROUTERS}
     check_key_allow_list_default(
-        defaults, LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE, routers | groups,
+        defaults, LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE, routers | groups | kept_apart,
         {"LLM"} | (routers - {LITELLM_ROUTER_PUBLIC_NAMES["claude-code"]}), failures, "",
         unknown_effect="is neither an access group nor a router of LiteLLM_config.yaml.j2: the key would list a name "
                        "that nothing serves",
         missing_effect="a LibreChat account could not pick it, and LiteLLM would only say that its key does not allow it",
     )
+    value = defaults.get(LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE)
+    if isinstance(value, list) and any(name in kept_apart for name in value):
+        failures.append(
+            f"{LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE} lists "
+            f"{', '.join(repr(name) for name in value if name in kept_apart)}, which the models kept apart are "
+            "reached through: every account would inherit them, which is what keeping them apart prevents; a key is "
+            "given them by naming them in its own list"
+        )
 
 
 def dollar_sample(name, quotes=True):
@@ -1590,6 +1602,11 @@ LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["llm"]},
      "lists 'llm', which is neither an access group nor a router"),
     ("a name twice", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["LLM"]}, "lists a name twice"),
+    ("the group of the models kept apart in the default",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Fiction"]}, "every account would inherit them"),
+    ("the router of the models kept apart in the default",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Auto-Fiction"]},
+     "every account would inherit them"),
     ("a bare string, which Ansible would read as characters", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: "LLM"},
      "must default to a list of strings, the key's allow-list, not str"),
     ("no default at all", {}, "it has no default"),
@@ -1668,6 +1685,7 @@ LITELLM_PROVIDERS = {
     "Requesty": "REQUESTY_API_KEY",
     "NVIDIA": "NVIDIA_NIM_API_KEY",
     "Cent_AI": "CENT_AI_API_KEY",
+    "Aion_Labs": "AION_LABS_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
@@ -1681,10 +1699,15 @@ LITELLM_CLAUDE_CODE_PROVIDERS = frozenset({"Gemini", "Groq", "Mistral", "DeepSee
 # heads without a group of their own.
 LITELLM_ACCESS_GROUPS = {"audio_transcription": "STT", "audio_speech": "TTS", "embedding": "Embeddings",
                          "evaluation": "Decisions", "extraction": "Extraction"}
+# The one exception: text models kept out of "LLM" on purpose, each group named for the key an entry reads. Such an
+# entry is in that group whatever its mode, and no other entry is, so that no key holding "LLM" reaches it.
+LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
 
 
-def litellm_access_group(mode):
-    return LITELLM_ACCESS_GROUPS.get(mode, "LLM")
+def litellm_access_group(mode, reference=None):
+    """The group of an entry of this mode that reads this "api_key", written "os.environ/<VARIABLE>"."""
+    variable = reference[len("os.environ/"):] if isinstance(reference, str) else None
+    return LITELLM_KEPT_APART_GROUPS.get(variable) or LITELLM_ACCESS_GROUPS.get(mode, "LLM")
 
 
 # The routers of an endpoint that is not chat, each with the providers whose models it routes to and the
@@ -1701,6 +1724,13 @@ LITELLM_MEDIA_ROUTERS = {
 # The name each router is published under, which is the one a client types and the key the rendered file
 # carries. The rules below reason on the short ids above, and "litellm_logical_document" translates a rendering
 # into them before any rule reads it: a failure that says 'claude-code' means "Auto-Claude-Code".
+# The routers of the models kept apart: each with the provider whose models it holds, and the group those are in,
+# which is the only group its cascade may hold and the only cascade that may hold that group. Aliases of their
+# cascade's head like the others, and kept apart from LITELLM_ROUTERS for the reason the media routers are: that
+# tuple is also the set of names the Claude Code agent may be given.
+LITELLM_KEPT_APART_ROUTERS = {
+    "fiction": (frozenset({"Aion_Labs"}), "Fiction"),
+}
 LITELLM_ROUTER_PUBLIC_NAMES = {
     "pro": "Auto-Pro",
     "flash": "Auto-Flash",
@@ -1711,6 +1741,7 @@ LITELLM_ROUTER_PUBLIC_NAMES = {
     "tts": "Auto-TTS",
     "decision": "Auto-Decision",
     "extraction": "Auto-Extraction",
+    "fiction": "Auto-Fiction",
 }
 # The names a router no longer goes by, each with the name that replaced it: the short ids and the "auto-*"
 # aliases that stood beside them. A router keeps one name, since two names for one router are two cascades to
@@ -1814,12 +1845,13 @@ def check_litellm_config(document, keys, failures):
 
     for entry in entries:
         info = mapping(entry, "model_info")
-        wanted = litellm_access_group(info.get("mode"))
+        wanted = litellm_access_group(info.get("mode"), mapping(entry, "litellm_params").get("api_key"))
         if info.get("access_groups") != [wanted]:
             failures.append(
                 f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
                 f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry: a key limited to a "
-                "type of models reaches the entries of that type and no other, so each entry is in exactly one group"
+                "type of models reaches the entries of that type and no other, so each entry is in exactly one group, "
+                "and the models kept apart are in the group of their own, which no other entry is in"
             )
 
     read = set()
@@ -1890,7 +1922,7 @@ def check_litellm_config(document, keys, failures):
                 f"[{state}] the alias {alias!r} has no cascade under its own name: LiteLLM looks for fallbacks "
                 "under the name that was asked for, so a request made under it would not fall back at all (#300)"
             )
-        if alias not in LITELLM_ROUTERS and alias not in LITELLM_MEDIA_ROUTERS:
+        if alias not in LITELLM_ROUTERS and alias not in LITELLM_MEDIA_ROUTERS and alias not in LITELLM_KEPT_APART_ROUTERS:
             failures.append(
                 f"[{state}] the alias {alias!r} is no router: the only aliases of the file are its routers, each "
                 "under its public name, so that a second name for one is not a second cascade to keep level"
@@ -1922,7 +1954,7 @@ def check_litellm_config(document, keys, failures):
                 "the vector space of a collection, so an embedding model is addressed by its own name only"
             )
 
-    for router in LITELLM_ROUTERS + tuple(LITELLM_MEDIA_ROUTERS):
+    for router in LITELLM_ROUTERS + tuple(LITELLM_MEDIA_ROUTERS) + tuple(LITELLM_KEPT_APART_ROUTERS):
         is_entry, is_alias, has_cascade = router in declared, router in aliases, router in cascades
         if is_entry:
             failures.append(
@@ -1963,6 +1995,36 @@ def check_litellm_config(document, keys, failures):
                 failures.append(
                     f"[{state}] the cascade of {name!r} names {member!r}, a member of a non-chat router: a chat "
                     "request would be sent to an audio model"
+                )
+    for router, (providers, group) in LITELLM_KEPT_APART_ROUTERS.items():
+        expected = bool(keys & providers)
+        if (router in declared or router in aliases) != expected:
+            failures.append(
+                f"[{state}] {router!r} is {'absent' if expected else 'served'}, although the keys "
+                f"{'allow' if expected else 'do not allow'} it: it is served exactly when a provider it routes to "
+                "has a key"
+            )
+    groups = {
+        entry.get("model_name"): litellm_access_group(
+            mapping(entry, "model_info").get("mode"), mapping(entry, "litellm_params").get("api_key"))
+        for entry in entries
+    }
+    kept_apart = set(LITELLM_KEPT_APART_GROUPS.values())
+    for name, members in cascades.items():
+        wanted = LITELLM_KEPT_APART_ROUTERS[name][1] if name in LITELLM_KEPT_APART_ROUTERS else None
+        for member in members:
+            group = groups.get(member)
+            if wanted and group != wanted:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, which is in the group {group!r} and not "
+                    f"{wanted!r}: the router holds the models kept apart and nothing else, so that a key reaches it "
+                    "through the group of its own alone"
+                )
+            elif not wanted and group in kept_apart:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, which is in the group {group!r}: a model "
+                    "kept apart is in the router of its own and in no other cascade, or a key without that group "
+                    "would reach it through the router it asked for"
                 )
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
     if ("claude-code" in declared or "claude-code" in aliases) != claude_code_expected:
@@ -2071,7 +2133,7 @@ def _litellm_document(entries, cascades, aliases):
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
              "model_info": {**({"mode": mode[0]} if mode else {}),
-                            "access_groups": [litellm_access_group(mode[0] if mode else None)]}}
+                            "access_groups": [litellm_access_group(mode[0] if mode else None, key)]}}
             for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases},
@@ -2231,8 +2293,51 @@ def _tts_fault(fault):
     return document
 
 
+def _fiction_document(entries=("aion-a", "aion-b"), cascade=True, head=True):
+    """An Aion-Labs-only rendering: the router of the models kept apart, over entries in the group of their own."""
+    document = _litellm_document([(name, "os.environ/AION_LABS_API_KEY") for name in entries], [], {})
+    if cascade:
+        document["router_settings"]["fallbacks"].append({"fiction": list(entries)})
+    if head:
+        document["router_settings"]["model_group_alias"]["fiction"] = entries[0]
+    return document
+
+
+def _fiction_fault(fault):
+    """An Aion-Labs-only rendering with one fault in the way its models are kept apart."""
+    document = _fiction_document()
+    if fault == "llm-group":
+        document["model_list"][0]["model_info"]["access_groups"] = ["LLM"]
+    elif fault == "in-text-cascade":
+        document["router_settings"]["fallbacks"].append({"flash": ["aion-a"]})
+        document["router_settings"]["model_group_alias"]["flash"] = "aion-a"
+    elif fault == "other-member":
+        document["model_list"].append({"model_name": "chat", "model_info": {"access_groups": ["LLM"]},
+                                       "litellm_params": {"api_key": "os.environ/GEMINI_API_KEY"}})
+        document["router_settings"]["fallbacks"][0]["fiction"].append("chat")
+    elif fault == "fiction-group-elsewhere":
+        document["model_list"].append({"model_name": "chat", "litellm_params": {"api_key": "os.environ/GEMINI_API_KEY"},
+                                       "model_info": {"access_groups": ["Fiction"]}})
+    return document
+
+
 LITELLM_CONFIG_CASES = [
     ("a router served by its cascade's head", _MISTRAL_ONLY, {"Mistral"}, None),
+    ("the router of the models kept apart, served by its cascade's head", _fiction_document(), {"Aion_Labs"}, None),
+    ("the router of the models kept apart, absent although Aion Labs has a key", _fiction_document(head=False),
+     {"Aion_Labs"}, "'fiction' is absent"),
+    ("the router of the models kept apart, with no cascade", _fiction_document(cascade=False), {"Aion_Labs"},
+     "a router and its cascade stand or fall together"),
+    ("the router of the models kept apart, served by a Mistral key alone", _fiction_document(), {"Mistral"},
+     "'fiction' is served"),
+    ("an entry of the models kept apart in the group of the text models", _fiction_fault("llm-group"),
+     {"Aion_Labs"}, "makes it a 'Fiction' entry"),
+    ("an entry of another provider in the group of the models kept apart", _fiction_fault("fiction-group-elsewhere"),
+     {"Aion_Labs", "Gemini"}, "makes it a 'LLM' entry"),
+    ("a model kept apart in a text cascade", _fiction_fault("in-text-cascade"), {"Aion_Labs"},
+     "the cascade of 'flash' names 'aion-a'"),
+    ("a model that is not kept apart in the router that holds them", _fiction_fault("other-member"),
+     {"Aion_Labs", "Gemini"}, "the cascade of 'fiction' names 'chat'"),
     ("an alias with no cascade of its own",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
                        {"claude-code": "mistral-large", "code": "mistral-large"}),

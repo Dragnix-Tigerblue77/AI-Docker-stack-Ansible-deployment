@@ -312,6 +312,7 @@ services:
       REQUESTY_API_KEY: {{ Artificial_Intelligence_LiteLLM_Requesty_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       NVIDIA_NIM_API_KEY: {{ Artificial_Intelligence_LiteLLM_NVIDIA_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       CENT_AI_API_KEY: {{ Artificial_Intelligence_LiteLLM_Cent_AI_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      AION_LABS_API_KEY: {{ Artificial_Intelligence_LiteLLM_Aion_Labs_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # The workers' shared cooldown state (#71) reaches Redis through "router_settings" in
       # "LiteLLM_config.yaml.j2" -- "redis_host", "redis_port", and this as "redis_password".
       # No REDIS_URL any more: the response cache it was also meant for stays off (#79), its key

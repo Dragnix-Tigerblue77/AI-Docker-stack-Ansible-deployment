@@ -371,6 +371,16 @@ Artificial_Intelligence_LiteLLM_NVIDIA_API_key: ""
 # whoever gives this key lets a third party read the prompts. ONE account: the session that wrote this read
 # nothing about several. The container reads the key as "CENT_AI_API_KEY".
 Artificial_Intelligence_LiteLLM_Cent_AI_API_key: ""
+# Aion Labs serves models tuned for role-play and fiction, "mature and darker themes" and unmoderated included,
+# through an OpenAI-compatible endpoint. They are kept apart on purpose: the entries are in an access group of
+# their own, "Fiction", and in one router of their own, "Auto-Fiction", so that no key holding "LLM" and no
+# other router reaches them. The free tier is the account's own allowance (15 requests and 20,000 tokens a
+# minute, 20,000 tokens a day, all models together), activated by verifying a payment card that is never
+# charged, and the terms (of 2026-10-17, read 2026-11-23) call it "a courtesy that we may change or
+# withdraw at any time". ONE account, and the terms forbid sharing the key itself, which a gateway of one's own
+# does not do. Aion Labs says it stores no content and trains on none. The container reads the key as
+# "AION_LABS_API_KEY".
+Artificial_Intelligence_LiteLLM_Aion_Labs_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret
@@ -585,7 +595,9 @@ Artificial_Intelligence_LibreChat_users: []
 # "/v1/models" with the key's own list, an access group expanded into its members. "LLM" is the access group of
 # the text models, which leaves out transcription, speech and vectors a chat has no use for, and a router is in
 # no group (it is an alias of the head of its cascade), so the ones a chat should offer are named. "Auto-Claude-Code"
-# is left out: its cascade is held to strict tool calls and belongs to the agent. The role applies the list at every
+# is left out: its cascade is held to strict tool calls and belongs to the agent. "Fiction" and "Auto-Fiction",
+# the access group and the router of the role-play models, are left out too, so that no account inherits them:
+# add either to the key of an account that is to try them. The role applies the list at every
 # run, to the key an account already has as to a new one, so a change here reaches a deployed key by itself.
 # "check_compose_template.py" holds the names to the template's groups and routers.
 Artificial_Intelligence_LibreChat_gateway_key_models:
