@@ -1068,7 +1068,7 @@ ADDITION_MUTATIONS = [
     ("write the data group after the type group",
      "[\"${spec.group ?? 'LLM'}\", \"${spec.data}\"]", "[\"${spec.data}\", \"${spec.group ?? 'LLM'}\"]"),
     ("name every provider the script reads in the table of additions",
-     "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true },\n", ""),
+     "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, data: 'Public-Data-Only' },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
     ("follow the last active entry first", "find((entry) => !entry.commented)", "find(() => false)"),
     ("follow a commented-out entry after its run", "while (commented && at < end", "while (false && at < end"),
