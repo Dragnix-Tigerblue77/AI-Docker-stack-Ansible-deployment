@@ -1587,17 +1587,20 @@ model_list:
   # model below as a chat model with "Function Calling" on its card; the card also says what is left out, see
   # the README. The limit is 2 requests per minute per IP address and per model, observed from the
   # maintainer's network (a second call within the minute answered 429) and written on no page read: each
-  # entry has a pool of its own, and each pool is one for the whole house, being counted per IP address. That makes the section a last resort, behind every free entry of the cascades that hold it
+  # entry has a pool of its own, and each pool is one for the whole house, being counted per IP address. From a shared
+  # cloud address on 2026-11-24, Qwen3.5-397B answered 8 calls out of 8 and gpt-oss-20b answered 429 to every call
+  # for minutes; the rate-limit headers of every answer, 200 included, say a limit of 1, so none is read from them.
+  # That makes the section a last resort, behind every free entry of the cascades that hold it
   # and ahead of the paid ones. The "Confidentiality" lines of the AI Endpoints page say the service is
   # "hosted and run in the European Union", that "your data is never used to train our models" and that
   # OVHcloud keeps "only the data required for billing"; that page describes the paid service, and that the
   # anonymous one is held to the same is UNVERIFIED. No entry reads a key, so none belongs to an account.
   #
-  # The "api_key" is a literal marker and the entries blank the Authorization header, the shape Kilo's
-  # gateway needed against its 401 to a placeholder bearer token. Whether OVHcloud refuses a placeholder
-  # token is UNTRIED against its real endpoint: the empty header is the form known to work elsewhere, and
-  # "check_compose_template.py" holds every entry on a keyless base to it. "openai/" is cut once by LiteLLM,
-  # so the id after it reaches the endpoint whole.
+  # The entries reach OVHcloud through the "ovhcloud_relay" service of the compose file: the endpoint answers
+  # a request with no Authorization header at all and refuses an empty one (400) or any bearer token (403),
+  # and LiteLLM always sends one, so the relay drops it (RELAIS_OVHCLOUD.md). The "api_key" is a literal marker,
+  # which LiteLLM requires and the relay discards; "check_compose_template.py" holds every entry to the relay's
+  # base. "openai/" is cut once by LiteLLM, so the id after it reaches the endpoint whole.
   #
   # Not routed: the models the catalogue marks "Being retired" (Qwen3.6-27B, Llama 3.3 70B, end of life
   # 2027-02-10), the task-specific Olala summarise and translate models, the Qwen3-VL vision model, the guard
@@ -1612,10 +1615,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/DeepSeek-V4.1-Flash-1017
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: qwen3-5-397b-ovh
     model_info:
@@ -1625,10 +1626,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/Qwen3.5-397B-A17B
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: gpt-oss-120b-ovh
     model_info:
@@ -1638,10 +1637,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/gpt-oss-120b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: qwen3-8-27b-ovh
     model_info:
@@ -1651,10 +1648,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/Qwen3.8-27B
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: qwen3-6-35b-ovh
     model_info:
@@ -1664,10 +1659,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/qwen3.6-35b-a3b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: nemotron3-omni-30b-ovh
     model_info:
@@ -1677,10 +1670,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/nemotron3-omni-30b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: mistral-small-3-2-ovh
     model_info:
@@ -1690,10 +1681,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/Mistral-Small-3.2-24B-Instruct-2506
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: gpt-oss-20b-ovh
     model_info:
@@ -1703,10 +1692,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/gpt-oss-20b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: gemma-4-26b-ovh
     model_info:
@@ -1716,10 +1703,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/gemma-4-26b-a4b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: nemotron3-nano-30b-ovh
     model_info:
@@ -1729,10 +1714,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/nemotron3-nano-30b
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: qwen3-5-9b-ovh
     model_info:
@@ -1742,10 +1725,8 @@ model_list:
       supports_vision: true
     litellm_params:
       model: openai/Qwen3.5-9B
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: olala-mini-ovh
     model_info:
@@ -1755,10 +1736,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/Olala-v1.0-mini-7A1B
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: laguna-xs-2-1-ovh
     model_info:
@@ -1768,10 +1747,8 @@ model_list:
       supports_vision: false
     litellm_params:
       model: openai/laguna-xs-2.1
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
   # drift-ignore: ovhcloud/Meta-Llama-3_3-70B-Instruct -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
   # drift-ignore: ovhcloud/Qwen3.6-27B -- marked "Being retired" on the catalogue page, with an end of life of 2027-02-10, as the header of this section says (read 2026-11-22)
   # drift-ignore: ovhcloud/Olala-v1.0-summarise -- a task-specific model, which the header of this section sets aside (read 2026-11-22)

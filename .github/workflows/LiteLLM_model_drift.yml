@@ -848,8 +848,9 @@ jobs:
             // the provider's last entry of that usage's mode instead, falling back on its last entry of no mode,
             // and is written with that mode and its access group. A provider with "free" states its free tier in that catalogue,
             // and only its models can be ready, those of one with a "freeSuffix" only when their id ends
-            // in it. A "keyless" provider's key is a literal marker, copied, and its entry always blanks
-            // the Authorization header, which the gateway refuses a bearer marker for. A provider with a "group" is
+            // in it. A "keyless" provider's key is a literal marker, copied, and the entry of one that
+            // "blanksAuthorization" blanks that header, which its gateway refuses a bearer marker for (OVHcloud's
+            // entries reach a relay that drops it, and carry none). A provider with a "group" is
             // one whose models are kept out of "LLM" on purpose, and its entry is written in that group, whatever its mode. Every
             // provider has a "data" group, written after the first: what its terms do with the data sent to it
             // ("Private-Data", or "Public-Data-Only" where it is not read or not good enough). Returns { text } or { problem }. "check_drift_publish_guard.py" plays these functions, and holds
@@ -863,7 +864,7 @@ jobs:
               mistral: { prefix: 'mistral/', label: 'Mistral', data: 'Private-Data' },
               deepseek: { prefix: 'deepseek/', label: 'DeepSeek', data: 'Public-Data-Only' },
               cloudflare: { prefix: 'cloudflare/', label: 'Cloudflare', data: 'Private-Data' },
-              kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, data: 'Public-Data-Only' },
+              kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, blanksAuthorization: true, data: 'Public-Data-Only' },
               nvidia: { prefix: 'nvidia_nim/', label: 'NVIDIA', data: 'Public-Data-Only' },
               ovhcloud: { prefix: 'openai/', label: 'OVHcloud', keyless: true, data: 'Private-Data' },
               requesty: { prefix: 'openai/', label: 'Requesty', free: 'router.eu.requesty.ai/v1/models', data: 'Public-Data-Only' },
@@ -954,7 +955,7 @@ jobs:
             const ADDITION_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
             const ADDITION_KEY = /^os\.environ\/[A-Z][A-Z0-9_]*$/;
             const ADDITION_MARKER = /^[a-z][a-z0-9-]{0,63}$/;
-            const ADDITION_BASE = /^https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[A-Za-z0-9._-]+)*\/?$/;
+            const ADDITION_BASE = /^(?:https:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?|http:\/\/ovhcloud_relay:8080)(?:\/[A-Za-z0-9._-]+)*\/?$/;
             const ADDITION_DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
             const ADDITION_ENTRY = /^  (# )?- model_name: ([^\s#]+)\s*$/;
             const ADDITION_FIELD = /^\s+(model|api_key|api_base|mode):\s*(?:"([^"]*)"|(\S+))\s*$/;
@@ -966,7 +967,7 @@ jobs:
               if (prefix === 'openai' && typeof apiBase === 'string' && Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';
-              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';
+              if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ovhcloud_relay')) return 'ovhcloud';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('requesty.ai')) return 'requesty';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.cent-ai.dev')) return 'centai';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.aionlabs.ai')) return 'aionlabs';
@@ -1048,7 +1049,7 @@ jobs:
                 if (spec.keyless) {
                   if (typeof key !== 'string' || !ADDITION_MARKER.test(key)) return { problem: `the key of the entry ${anchor.name} is not a plain marker, as a keyless gateway's is` };
                 } else if (typeof key !== 'string' || !ADDITION_KEY.test(key)) return { problem: `the key of the entry ${anchor.name} is not read from the environment` };
-                if (apiBase !== undefined && !ADDITION_BASE.test(apiBase)) return { problem: `the api_base of the entry ${anchor.name} is not a plain https address` };
+                if (apiBase !== undefined && !ADDITION_BASE.test(apiBase)) return { problem: `the api_base of the entry ${anchor.name} is not a plain https address, nor the relay's` };
                 if (kind === 'ready' && anchor.commented) return { problem: 'a ready addition follows an active entry' };
                 const lead = anchor.commented ? '  # ' : '  ';
                 let note;
@@ -1061,7 +1062,7 @@ jobs:
                 if (envBase !== undefined) block.push(`${lead}    api_base: "${envBase}"`);
                 else if (apiBase !== undefined) block.push(`${lead}    api_base: "${apiBase}"`);
                 block.push(`${lead}    api_key: "${key}"`);
-                if (spec.keyless) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);
+                if (spec.blanksAuthorization) block.push(`${lead}    extra_headers:`, `${lead}      Authorization: ""`);
                 after.set(anchor.last, (after.get(anchor.last) ?? []).concat([block]));
                 if (!anchor.commented) {
                   const refusal = slotRefusal(provider, hasUsage ? item.usage : 'chat');

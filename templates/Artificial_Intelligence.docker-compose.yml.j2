@@ -487,6 +487,66 @@ services:
       - {{ Artificial_Intelligence_internal_Docker_network_name }}
 
   # ------------------------------------------------------------------------------------------------
+  # OVHcloud relay -- the one hop between the gateway and OVHcloud AI Endpoints, whose free models
+  # answer only a request with NO Authorization header. LiteLLM sends one whatever it is given: an
+  # empty value is refused by OVHcloud (400) and any bearer token answers 403. nginx drops the header,
+  # so every OVHcloud entry of "LiteLLM_config.yaml.j2" reaches its api_base here instead. It holds no
+  # secret and keeps no state. Why each setting of its configuration is what it is, what it keeps, drops
+  # and refuses, and how to test it: "RELAIS_OVHCLOUD.md".
+  # ------------------------------------------------------------------------------------------------
+  ovhcloud_relay:
+    # The image NGINX itself publishes to run as a non-root user (UID 101, port 8080, its PID file and
+    # temporary paths under "/tmp"), with the CA bundle the upstream's certificate is verified against.
+    # Not "nginxinc/nginx-unprivileged", the same image's former home, archived and no longer built.
+    # Floats, written with no tag: it keeps no state.
+    image: nginx/nginx-unprivileged
+
+    configs:
+      # A Docker config named after the file's content, as the gateway's and LibreChat's (see
+      # "config_Docker_name" in "defaults/main.yml"): nginx reads it once, at start. It replaces the
+      # image's own "default.conf", the one file the main configuration includes a server from.
+      - source: "{{ Artificial_Intelligence_OVHcloud_relay_config_Docker_name }}"
+        target: /etc/nginx/conf.d/default.conf
+
+    # The root filesystem is never written: nginx's PID file and temporary paths are under "/tmp".
+    # A tmpfs is the long "volumes" form, which Swarm honours; the "tmpfs:" key it ignores. Small, since
+    # request bodies are not buffered to disk (see the configuration).
+    read_only: true
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 16777216
+
+    # No "ports:": only the gateway reaches it, over the internal network, under its service name.
+    # No reverse-proxy labels, and it joins no other network.
+
+    healthcheck:
+      # "curl" ships with the image. The route answers from nginx itself and never calls OVHcloud, so
+      # a provider that is down or rate limiting does not make the relay unhealthy, and a probe every
+      # thirty seconds costs the free quota nothing. "127.0.0.1", since the server listens on IPv4 only.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+    deploy:
+      restart_policy:
+        condition: any
+      update_config:
+        # Swarm only: see the note on "postgres".
+        failure_action: rollback
+{% if Artificial_Intelligence_OVHcloud_relay_memory_limit is string %}
+      resources:
+        limits:
+          memory: "{{ Artificial_Intelligence_OVHcloud_relay_memory_limit }}"
+{% endif %}
+
+    networks:
+      - {{ Artificial_Intelligence_internal_Docker_network_name }}
+
+  # ------------------------------------------------------------------------------------------------
   # Qdrant -- the Artificial Intelligence stack's vector engine (#3). Deploy-only scope: the collections themselves need a
   # vector dimension, and that dimension comes from the embedding model #21 has not chosen yet --
   # creating one now would mean guessing it, which is exactly the silent RAG-pipeline breakage #3
@@ -882,6 +942,8 @@ configs:
     file: {{ Artificial_Intelligence_LiteLLM_config_file_destination_path | replace('$', '$$') | to_json(ensure_ascii=False) }}
   {{ Artificial_Intelligence_LibreChat_config_Docker_name }}:
     file: {{ Artificial_Intelligence_LibreChat_config_file_destination_path | replace('$', '$$') | to_json(ensure_ascii=False) }}
+  {{ Artificial_Intelligence_OVHcloud_relay_config_Docker_name }}:
+    file: {{ Artificial_Intelligence_OVHcloud_relay_config_file_destination_path | replace('$', '$$') | to_json(ensure_ascii=False) }}
 
 volumes:
   # The gateway's store. Named, so it survives a container recreation -- which #1 makes an acceptance

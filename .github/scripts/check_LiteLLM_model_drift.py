@@ -155,7 +155,7 @@ An entry belongs to a provider by the prefix of its "model:", which is how LiteL
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
 "cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
-OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai"), Cent AI
+OVHcloud AI Endpoints (through the relay of the compose file, "ovhcloud_relay"), Requesty ("requesty.ai"), Cent AI
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
 a key included, and the offline run refuses an active entry of any other: OmniRoute's virtual routes
 ("openai/auto/..." on a local "api_base"), which no catalogue lists because the machine itself picks the
@@ -625,8 +625,8 @@ verify, whose body says which of the two is missing.
 
 Each entry is modelled on its provider's last entry in "model_list" -- its last active one, else its
 last commented-out one -- whose key and base it copies (a keyless gateway's, KEYLESS_GATEWAYS, copies
-its literal marker and writes the "extra_headers" that blank the Authorization header, which the
-gateway answers 401 to otherwise), and written right after it (after the comment
+its literal marker and, for Kilo's, writes the "extra_headers" that blank the Authorization header, which
+that gateway answers 401 to otherwise; OVHcloud's go through the relay, which drops it, and write none), and written right after it (after the comment
 block, for a commented-out one, so that a run and its reason stay together), under a comment of a
 fixed text that says where it comes from and when; it is commented out, with a "not routed" reason
 to replace, when the provider has no active entry. Neither pull request puts a model anywhere but at the
@@ -1155,8 +1155,10 @@ def comment_content(line):
 LITELLM_PREFIXES = {"nvidia": "nvidia_nim"}
 NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai")
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
+# OVHcloud's entries name the relay in front of its endpoint, which drops the Authorization header the endpoint refuses;
+# its catalogue is read at the endpoint's own address, below.
 OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
-                "ovhcloud": "oai.endpoints.kepler.ai.cloud.ovh.net", "requesty": "requesty.ai",
+                "ovhcloud": "ovhcloud_relay", "requesty": "requesty.ai",
                 "centai": "api.cent-ai.dev", "aionlabs": "api.aionlabs.ai"}
 # The one provider whose entries no catalogue backs: OmniRoute is a local gateway that picks among the models the
 # machine itself holds, so its virtual "auto/..." routes are listed nowhere upstream and no reader could cover them.
@@ -5601,7 +5603,7 @@ NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
                  "aionlabs": "-aion-labs"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
-                 "ovhcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+                 "ovhcloud": "http://ovhcloud_relay:8080/v1",
                  "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",
                  "aionlabs": "https://api.aionlabs.ai/v1"}
 # The access group of an entry written for a provider whose models are kept out of "LLM" on purpose, and the one
@@ -5640,10 +5642,13 @@ def access_groups_text(provider, usage=CHAT):
 SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
-# a bearer token and the gateway refuses with a 401, so each blanks the Authorization header with
+# a bearer token. Kilo's gateway refuses it with a 401, so its entries blank the Authorization header with
 # "extra_headers": an entry written without it fails at run time, behind a cascade that hides the failure.
-# Their names are the model's and the gateway's ("beam-kilo"), where ":free" is no word of the name.
+# OVHcloud's endpoint refuses an empty header as well, and its entries go through the relay of the compose file,
+# which drops the header, so they carry none of their own. Their names are the model's and the gateway's
+# ("beam-kilo"), where ":free" is no word of the name.
 KEYLESS_GATEWAYS = {"kilo", "ovhcloud"}
+BLANKED_AUTHORIZATION_GATEWAYS = {"kilo"}
 # The providers whose entries are named after the model and the provider ("hy4-flash-cent-ai"), the ":free" of an id
 # being no word of the name: the keyless gateways', and the one reseller whose only free model is spelt so.
 FREE_NOT_IN_NAME = KEYLESS_GATEWAYS | {"centai"}
@@ -5710,7 +5715,7 @@ def snippet(provider, identifier, basis, name):
         lines.append('      api_base: "%s"' % basis["api_base"])
     if provider in KEYLESS_GATEWAYS:
         lines.append('      api_key: "%s"' % (basis["api_key"] or "%s-no-key-needed" % provider))
-        return lines + keyless_header_lines("      ")
+        return lines + (keyless_header_lines("      ") if provider in BLANKED_AUTHORIZATION_GATEWAYS else [])
     lines.append('      api_key: "%s"' % (basis["api_key"]
                                          or "os.environ/%s_API_KEY_<ACCOUNT>" % provider.upper()))
     return lines
@@ -6365,7 +6370,10 @@ ADDITION_ID = re.compile(r"(?!.*(?:::|//))(?:@cf/)?[A-Za-z0-9][A-Za-z0-9._:/+~-]
 ADDITION_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ADDITION_NAME_LIMIT = 80
 ADDITION_KEY = re.compile(r"os\.environ/[A-Z][A-Z0-9_]*")
-ADDITION_BASE = re.compile(r"https://[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._-]+)*/?")
+# An address a new entry may copy: a plain https one, or the relay of the compose file in front of OVHcloud, which is
+# reached over the stack's own network and so over plain http.
+ADDITION_BASE = re.compile(r"https://[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._-]+)*/?"
+                           r"|http://ovhcloud_relay:8080(?:/[A-Za-z0-9._-]+)*/?")
 ADDITION_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 # The file as written, read line by line the way the builder of the workflow reads it.
 ADDITION_ENTRY = re.compile(r"  (# )?- model_name: ([^\s#]+)\s*")
@@ -6529,7 +6537,7 @@ def addition_block(kind, date, item, anchor):
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
     block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
-    if item["provider"] in KEYLESS_GATEWAYS:
+    if item["provider"] in BLANKED_AUTHORIZATION_GATEWAYS:
         block += keyless_header_lines(lead + "    ")
     return block
 
@@ -6675,7 +6683,7 @@ def build_additions(text, date, kind, items):
         elif not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
             return None, "the key of the entry %s is not read from the environment" % anchor["name"]
         if base is not None and not ADDITION_BASE.fullmatch(base):
-            return None, "the api_base of the entry %s is not a plain https address" % anchor["name"]
+            return None, "the api_base of the entry %s is not a plain https address, nor the relay's" % anchor["name"]
         if kind == "ready" and anchor["commented"]:
             return None, "a ready addition follows an active entry"
         after.setdefault(anchor["last"], []).extend(addition_block(kind, date, item, anchor))
@@ -6801,7 +6809,7 @@ def addition_problem(text, new_text, items):
             return "the entry %s is not in the mode and the access group of its usage" % item["name"]
     # A keyless gateway's entry that does not blank the Authorization header is refused with a 401 at run time.
     for item in items:
-        if item.get("provider") in KEYLESS_GATEWAYS:
+        if item.get("provider") in BLANKED_AUTHORIZATION_GATEWAYS:
             entry = next(entry for entry in after["active"] + after["commented"] if entry["name"] == item["name"])
             parameters = entry["item"].get("litellm_params") if isinstance(entry["item"], dict) else None
             if not isinstance(parameters, dict) or parameters.get("extra_headers") != {"Authorization": ""}:
