@@ -7,9 +7,10 @@ name: LiteLLM model drift
 # lists, writes the whole report to the run's summary, opens ONE pull request that deletes the models
 # a provider no longer lists, TWO that propose the models it does not know yet, and ONE that corrects
 # the sheets of the entries (context window, longest answer, image input) that their provider's catalogue
-# states otherwise. Deletions are the only thing that may merge without a person, because they need no
-# judgment: CLAUDE.md ("The model list keeps only what can be called") says a retired model is deleted,
-# entry and cascade slots alike. No model reads a catalogue or writes a line here: "check_LiteLLM_model_drift.py --apply"
+# states otherwise. Deletions and sheet corrections are the only things that may merge without a person,
+# because they need no judgment: CLAUDE.md ("The model list keeps only what can be called") says a retired
+# model is deleted, entry and cascade slots alike, and a value a provider publishes for its own model is
+# not a choice. No model reads a catalogue or writes a line here: "check_LiteLLM_model_drift.py --apply"
 # does it, and deletes only what it can read back as the original minus the deletion. An addition is
 # a choice, so its pull requests only make it cheap: the entry is written, its place in each router
 # suggested, and, where the run lacks a fact a person needs to decide, which one and how to get it is
@@ -90,7 +91,7 @@ name: LiteLLM model drift
 # providers the template already has, open two that add entries of a fixed shape, modelled on the
 # template's own (a key name and an address it already has, an id and a name of a narrow spelling),
 # and one that replaces the value of sheet lines of entries it has (a count or a flag, which no template
-# could run), which nothing but a person merges, and open an issue that names providers of its table --
+# could run), which the gate merges only for at most the values its cap allows, and open an issue that names providers of its table --
 # not push to main, which "contents: write" next to such code would otherwise allow. The ruleset that
 # requires the checks already refuses a push of a commit no check has seen, which is one more
 # reason, not the only one, for that split. Whether that pull request then merges by itself is
@@ -211,7 +212,7 @@ name: LiteLLM model drift
 # "WORKFLOW_FILES", which "check_required_checks.py" holds equal. The pull request then waits for a
 # person's approval of its runs, and for a person's merge, which the ruleset allows only once
 # "sign-off", which nothing starts for it, has succeeded: the App is what lets the model-deletion
-# pull request merge at all. With the App those dispatches are not made, since they would only
+# and the sheet-correction pull requests merge at all. With the App those dispatches are not made, since they would only
 # double the native runs. A token that could not be minted leaves that
 # step red and the run in the fallback.
 #
@@ -237,8 +238,8 @@ name: LiteLLM model drift
 # images, videos, rerank, moderation, OCR -- which only the "to verify" one carries, with a line saying so).
 # A model that is no chat one has no ranking: it is ready when its API states its free tier and the file
 # already serves the usage through that provider. An active entry whose mode has a router is written with a slot at
-# the tail of that router's cascade, under its provider's key condition (an entry that has a router is in a cascade); the places the body gives are suggestions, computed on a ranking that is under revision. The gate merges neither: it knows the branch of
-# the deletions alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
+# the tail of that router's cascade, under its provider's key condition (an entry that has a router is in a cascade); the places the body gives are suggestions, computed on a ranking that is under revision. The gate merges neither: it knows the branches of
+# the deletions and of the sheet corrections alone, and "check_auto_merge_gate.py" plays both branches against it. A person's
 # commit on either means somebody is deciding, so the open pull request is left as it is, with no
 # failure; a person's commit on a branch whose pull request is no longer open fails the run until the
 # branch is deleted. A box ticked in a body stays ticked while its line does not change, and a
@@ -255,8 +256,9 @@ name: LiteLLM model drift
 # states, and changes nothing else. "publish" does not build that file as it builds the additions: it takes
 # the one the script wrote, with the body and the commit message, and pushes it only if its "sheet guard"
 # finds it equal to main's but for the value of such lines, each in the "model_info" of an entry. The gate
-# merges nothing of it, and a person reads each value on the provider's page first, which the body says: a
-# catalogue is not that page. A person's commit freezes it as it freezes the additions. It is closed, with
+# merges it when that is all it changes, at most SHEETS_MAX_VALUES values and with no "À relire" section in
+# its body (the header of "dependabot-auto-merge.yml" lists the conditions), and a person reads each value on
+# the provider's page afterwards, or before when the body lists something: a catalogue is not that page. A person's commit freezes it as it freezes the additions. It is closed, with
 # a comment, when no difference is left -- unless the catalogue of a provider whose entries declare a sheet
 # could not be read, the script left a difference to a person (it could not rewrite it), or the report was
 # not trusted. CI can refuse it, when an entry sets a length the new sheet no longer allows, and its body
@@ -731,7 +733,7 @@ jobs:
       # ends. The pull requests' assignee is an issue's and is set by the step after, with
       # GITHUB_TOKEN, so the App is not asked for the Issues permission. The pull requests of
       # additions and the sheet corrections are written with it too, so that their checks start by
-      # themselves; the gate, which knows the branch of the deletions alone, merges none of them.
+      # themselves; the gate, which knows the branches of the deletions and of the sheet corrections alone, merges none of the additions.
       - name: Mint an installation token, if a GitHub App is configured
         id: app-token
         if: ${{ vars.MODEL_DRIFT_APP_CLIENT_ID != '' }}
@@ -799,7 +801,7 @@ jobs:
           WORKFLOW_FILES: ansible-ci.yml gitleaks.yml
         with:
           # The App's token when there is one, GITHUB_TOKEN otherwise: a pull request is then the
-          # App bot's or the Actions bot's, and the gate accepts both for the deletions alone.
+          # App bot's or the Actions bot's, and the gate accepts both for the deletions and the sheet corrections alone.
           github-token: ${{ steps.app-token.outputs.token || github.token }}
           script: |
             const fs = require('fs');
@@ -872,7 +874,11 @@ jobs:
             // "model_info" of an entry, kept as it is but for that value (a positive whole number, or
             // true or false for the image flag). A line added, removed or changed otherwise, a changed
             // key, indentation or comment, a line outside the "model_info" of an entry, is refused.
-            // Returns why, or null. "check_drift_publish_guard.py" plays this function; keep the markers.
+            // Returns why, or null. The same block stands in LiteLLM_model_drift.yml, where the job that
+            // writes asks it of the template it was handed, and in dependabot-auto-merge.yml, where the gate
+            // asks it of a pull request: neither can load a file of the repository, so each holds its copy.
+            // "check_drift_publish_guard.py" plays both on the same cases and refuses a pair that differs.
+            // Keep the markers.
             const SHEET_LINE = /^([ \t]+)(max_input_tokens|max_output_tokens|supports_vision):([ \t]+)([0-9]+|true|false)((?:[ \t]+#.*)?[ \t]*)$/;
             const sheetValueFits = (key, value) =>
               (key === 'supports_vision' ? /^(true|false)$/ : /^[1-9][0-9]{0,11}$/).test(value);
@@ -1542,9 +1548,9 @@ jobs:
               });
             };
 
-            // The pull request that corrects the sheets, which nothing but a person merges: the gate
-            // knows the branch of the deletions alone. The template it carries is the one the other job
-            // wrote, pushed only when it is main's with the value of sheet lines written again.
+            // The pull request that corrects the sheets, which the gate merges when nothing but the value
+            // of sheet lines changed. The template it carries is the one the other job wrote, pushed
+            // only when it is main's with the value of sheet lines written again.
             const SHEETS_TITLE = 'Corriger dans la liste LiteLLM les fiches des modèles qui diffèrent du catalogue de leur fournisseur';
             const sheetCorrections = async () => {
               const sheetBranch = process.env.SHEETS_BRANCH;

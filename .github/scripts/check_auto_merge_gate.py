@@ -33,10 +33,21 @@ WHAT IT RUNS
   wait for a human, and every other condition holds for the App's pull request as for the Actions
   bot's (a wrong branch, a second commit, a commit that is not the Actions bot's, a draft, a line
   added, a check red or missing, a sign-off that never started or started and is not green);
-* the two pull requests of additions and the one of sheet corrections the same workflow opens, on the
-  branches it names for them: as it opens them, lines added, or one line of a sheet rewritten, and as the
-  worst they could be, a deletion that would merge on the deletions' branch, by either bot, every check
-  green, which only their branch keeps from merging;
+* the sheet corrections, which merge themselves: one value rewritten, an image flag turned over, a value
+  before its comment, as many values as the cap allows, and, opened by the workflow's GitHub App as by the
+  Actions bot, every shape that must not: a pull request opened by a person or on another branch, in a fork
+  or as a draft, a second commit or one that is not the Actions bot's, another file or a second one, a line
+  added, a line removed, a changed line that is no sheet line, a changed key, indentation, spacing or
+  comment, a value that is no positive whole number or flag (or no such number for that key), a sheet line
+  outside the "model_info" of an entry, one value over the cap or a cap that is no number, a head holding a
+  change the patch does not show, a body with a section left to a person, a head behind the default branch,
+  and every check missing or red. They are read in the two whole files, the merge base and the head, which
+  the made-up GitHub serves, since a patch shows too few lines to tell which entry a line is in;
+* the two pull requests of additions, on the branches the workflow names for them: as it opens them, lines
+  added, or one line of a sheet rewritten as the sheet corrections are, and as the worst they could be, a
+  deletion that would merge on the deletions' branch, by either bot, every check green, which only their
+  branch keeps from merging; and, the other way, a deletion on the sheets' branch and a rewritten sheet on
+  the deletions' one;
 * every check the ruleset names, "sign-off" included, each tried missing and red, so that excusing
   one is noticed; a check posted by another app; and the latest of several runs of one check,
   whichever order the API lists them in.
@@ -51,6 +62,10 @@ A refusal scenario also names the text its notice must contain, so that it canno
 because a second guard refuses what the one it is about stopped refusing. The wiring the scenarios
 cannot play -- the step's HEAD_SHA, the job output that starts the job checking main after a merge,
 that job's condition -- is checked in the workflow itself.
+
+The block of the step that tells a sheet line from another is a copy of the one the job that writes the sheet
+corrections holds, which "check_drift_publish_guard.py" plays on its own cases and refuses to see differ;
+the scenarios here play the gate's use of it, and break its pieces in the selftest.
 
 "--selftest" proves the scenarios can fail: it breaks the step's script, and its environment, one
 guard at a time and requires some scenario to notice each. A guard no scenario notices is a guard
@@ -84,6 +99,8 @@ RULESET = ROOT / ".github" / "rulesets" / "main.json"
 DRIFT_SCRIPT = ROOT / ".github" / "scripts" / "check_LiteLLM_model_drift.py"
 DRIFT_WORKFLOW = ROOT / ".github" / "workflows" / "LiteLLM_model_drift.yml"
 HEAD_SHA = "0123456789abcdef0123456789abcdef01234567"
+MERGE_BASE = "89abcdef0123456789abcdef0123456789abcdef"
+DRIFT_FILE = "templates/LiteLLM_config.yaml.j2"
 
 # Plays the step's script against one scenario at a time. "github", "context" and "core" are the three
 # objects github-script hands a script; only what the step calls is made up. Every call is checked
@@ -112,9 +129,17 @@ async function play(scenario) {
       repos: {
         getContent: async (args) => {
           about(args);
-          expect('ruleset path', args.path, input.ruleset_path);
-          expect('ruleset ref', args.ref, 'main');
-          return { data: { content: Buffer.from(JSON.stringify(scenario.ruleset ?? input.ruleset)).toString('base64') } };
+          if (args.path === input.ruleset_path) {
+            expect('ruleset ref', args.ref, 'main');
+            return { data: { content: Buffer.from(JSON.stringify(scenario.ruleset ?? input.ruleset)).toString('base64') } };
+          }
+          // The template, whole and raw, at the merge base and at the head: the texts of the sheet corrections.
+          if (!scenario.texts) throw new Error('unexpected read of ' + args.path + ': this scenario has no whole files');
+          expect('file path', args.path, input.drift_file);
+          expect('media type', args.mediaType && args.mediaType.format, 'raw');
+          if (args.ref === input.merge_base) return { data: scenario.texts.base };
+          expect('file ref', args.ref, input.head_sha);
+          return { data: scenario.texts.head };
         },
         listPullRequestsAssociatedWithCommit: async (args) => {
           about(args);
@@ -124,7 +149,7 @@ async function play(scenario) {
         compareCommitsWithBasehead: async (args) => {
           about(args);
           expect('basehead', args.basehead, `main...${input.head_sha}`);
-          return { data: { behind_by: scenario.behind_by } };
+          return { data: { behind_by: scenario.behind_by, merge_base_commit: { sha: input.merge_base } } };
         },
       },
       pulls: {
@@ -277,24 +302,35 @@ def review_heading():
     return found.group(1)
 
 
-def person_branches():
-    """The branches of the pull requests only a person merges, the two of additions and the one of sheet
-    corrections, as the drift workflow names them: they must be neither the branch of the deletions nor one the
-    gate takes for Dependabot's."""
+def drift_env():
     workflow = yaml.safe_load(DRIFT_WORKFLOW.read_text(encoding="utf-8"))
-    env = workflow["jobs"]["publish"].get("env") or {}
-    branches = [env.get("ADDITIONS_BRANCH"), env.get("ADDITIONS_TO_VERIFY_BRANCH"), env.get("SHEETS_BRANCH")]
+    return workflow["jobs"]["publish"].get("env") or {}
+
+
+def sheet_branch():
+    """The branch the workflow makes the sheet corrections on, which the gate merges."""
+    branch = drift_env().get("SHEETS_BRANCH")
+    if not isinstance(branch, str) or not branch:
+        raise SystemExit("%s names no branch of sheet corrections in its publish job." % DRIFT_WORKFLOW.relative_to(ROOT))
+    return branch
+
+
+def person_branches():
+    """The branches of the pull requests only a person merges, the two of additions, as the drift workflow names
+    them: they must be neither the branch of the deletions nor that of the sheet corrections, nor one the gate
+    takes for Dependabot's or lets through its job filter."""
+    env = drift_env()
+    branches = [env.get("ADDITIONS_BRANCH"), env.get("ADDITIONS_TO_VERIFY_BRANCH")]
     gate = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))["jobs"]["merge"]
     for branch in branches:
         if not isinstance(branch, str) or not branch:
-            raise SystemExit("%s names no branch of additions or of sheet corrections in its publish job."
-                             % DRIFT_WORKFLOW.relative_to(ROOT))
-        if branch == env.get("REMOVALS_BRANCH") or branch.startswith("dependabot/") or branch in str(gate.get("if")):
+            raise SystemExit("%s names no branch of additions in its publish job." % DRIFT_WORKFLOW.relative_to(ROOT))
+        if (branch in (env.get("REMOVALS_BRANCH"), sheet_branch()) or branch.startswith("dependabot/")
+                or branch in str(gate.get("if"))):
             raise SystemExit("%s: the branch %r of a pull request only a person merges is one the gate may take for "
                              "a pull request it merges." % (DRIFT_WORKFLOW.relative_to(ROOT), branch))
     if len(set(branches)) != len(branches):
-        raise SystemExit("%s gives two pull requests of additions or of sheet corrections one branch."
-                         % DRIFT_WORKFLOW.relative_to(ROOT))
+        raise SystemExit("%s gives the two pull requests of additions one branch." % DRIFT_WORKFLOW.relative_to(ROOT))
     return branches
 
 
@@ -346,6 +382,46 @@ def dependabot(update_type="semver-minor", signed=True, names=None, **overrides)
     }
     scenario.update(overrides)
     return scenario
+
+
+# The sheet of an entry as the real file writes it, with a comment after one value, which a rule that read the
+# value as the rest of the line would take along.
+SHEET_LINES = ["      max_input_tokens: 131072", "      max_output_tokens: 8192  # read on the page",
+               "      supports_vision: false"]
+
+
+def sheeted(lines):
+    """The miniature file with the sheet of an entry in each "model_info", and a sheet line of the same shape
+    in the "litellm_params" of the first entry, which is no sheet."""
+    out = []
+    for line in lines:
+        out.append(line)
+        if line == "    model_info:":
+            out += SHEET_LINES
+    at = out.index("      model: provider/m0")
+    out.insert(at + 1, "      max_input_tokens: 5")
+    return out
+
+
+def sheets(base, new, branch=None, author="github-actions[bot]", **overrides):
+    """A scenario for the sheet-correction pull request that turns the text "base" into "new": the patch GitHub
+    gives for it, and the two whole files the step reads."""
+    patch = patch_between(base, new)
+    added, deleted = counts(patch) if patch else (0, 0)
+    file = {"filename": DRIFT_FILE, "status": "modified", "additions": added, "deletions": deleted, "patch": patch}
+    scenario = removals(patch, branch=branch or sheet_branch(), author=author, files=[file],
+                        texts={"base": "\n".join(base), "head": "\n".join(new)})
+    scenario["pr"]["title"] = "sheets"
+    scenario["pr"]["body"] = "Corrections de fiches.\n\n## Corrections\n\n| Entrée | Champ |"
+    scenario.update(overrides)
+    return scenario
+
+
+def rewrite(lines, old, new):
+    """"lines" with the one line "old" replaced by "new" (a line or several)."""
+    assert lines.count(old) >= 1, old
+    at = lines.index(old)
+    return lines[:at] + ([new] if isinstance(new, str) else list(new)) + lines[at + 1:]
 
 
 def scenarios():
@@ -669,10 +745,210 @@ def scenarios():
     add("App: a Dependabot major is refused as ever with the slug set", "not merged",
         dependabot("semver-major", env={"MODEL_DRIFT_APP_SLUG": app}), needle="Only minor and patch updates")
 
-    # --- the additions and the sheet corrections, which nothing but a person merges ----------------
+    # --- the sheet corrections, which merge themselves ----------------------------------------------
+    sheet_base = sheeted(base)
+    first = "      max_input_tokens: 131072"
+    value_lines = [at for at, line in enumerate(sheet_base) if line in SHEET_LINES]
+    windows = [at for at, line in enumerate(sheet_base) if line == first]
+
+    def rewritten_values(count):
+        """The text with the window of the first "count" entries rewritten."""
+        new = list(sheet_base)
+        for at in windows[:count]:
+            new[at] = "      max_input_tokens: %d" % (200000 + at)
+        return new
+
+    def changed(old, new_line):
+        return rewrite(sheet_base, old, new_line)
+
+    add("sheets: a window rewritten, every check green, sign-off included", "merged",
+        sheets(sheet_base, rewritten_values(1)))
+    add("sheets: an image flag turned over", "merged",
+        sheets(sheet_base, changed("      supports_vision: false", "      supports_vision: true")))
+    add("sheets: a longest answer rewritten before its comment", "merged",
+        sheets(sheet_base, changed(SHEET_LINES[1], "      max_output_tokens: 16384  # read on the page")))
+    add("sheets: as many values as the cap allows", "merged", sheets(sheet_base, rewritten_values(8)))
+    add("sheets: the cap is 1 and one value goes", "merged",
+        sheets(sheet_base, rewritten_values(1), env={"SHEETS_MAX_VALUES": "1"}))
+    add("sheets: two values under a cap of 1", "not merged",
+        sheets(sheet_base, rewritten_values(2), env={"SHEETS_MAX_VALUES": "1"}), needle="sheet values merge themselves")
+    # Nine entries with a window, one more than the cap of the step as it is written.
+    cap = int(re.search(r"^\s*SHEETS_MAX_VALUES: '(\d+)'", WORKFLOW.read_text(encoding="utf-8"), re.M).group(1))
+    many_names, many_base = miniature(cap + 1)
+    many_base = sheeted(many_base)
+    many_new = list(many_base)
+    many_windows = [at for at, line in enumerate(many_base) if line == first]
+    for at in many_windows[:cap]:
+        many_new[at] = "      max_input_tokens: 1"
+    add("sheets: as many values as the step's own cap allows", "merged", sheets(many_base, many_new))
+    many_new[many_windows[cap]] = "      max_input_tokens: 1"
+    add("sheets: one value more than the step's own cap", "not merged", sheets(many_base, many_new),
+        needle="sheet values merge themselves")
+    # The patch GitHub gives holds three lines around a change: the entry a line belongs to is further up.
+    deep = rewrite(sheet_base, "    model_info:", ["    model_info:"] + ["      mode_%d: chat" % n for n in range(8)])
+    far = deep.index("      supports_vision: false")
+    add("sheets: a value many lines below its model_info, out of the patch's reach", "merged",
+        sheets(deep, deep[:far] + ["      supports_vision: true"] + deep[far + 1:]))
+    out_of_reach = deep[:far] + ["      supports_vision: true"] + deep[far + 1:]
+    assert "model_info:" not in patch_between(deep, out_of_reach), "the patch must not show the model_info"
+    add("sheets: a value out of the patch's reach, in a file whose model_info is no entry's", "not merged",
+        sheets([line if line != "  - model_name: m0" else "  - model_key: m0" for line in deep],
+               [line if line != "  - model_name: m0" else "  - model_key: m0" for line in out_of_reach]),
+        needle="is in a model_info that is no entry's")
+    # --- the same, opened by the workflow's GitHub App
+    sheet_app = "drift-app-2"
+
+    def sheets_by_app(base_text, new_text, slug=sheet_app, author=None, **overrides):
+        env = dict(overrides.pop("env", {}))
+        if slug is not None:
+            env["MODEL_DRIFT_APP_SLUG"] = slug
+        return sheets(base_text, new_text, author=sheet_app + "[bot]" if author is None else author, env=env, **overrides)
+
+    add("sheets, App: its bot opens the correction, its slug is set", "merged",
+        sheets_by_app(sheet_base, rewritten_values(1)))
+    add("sheets, App: its bot opens it and the slug variable is empty", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), slug=""), needle=gone)
+    add("sheets, App: a person whose name only starts with the slug opens it", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), author=sheet_app + "x[bot]"), needle=gone)
+    add("sheets, App: its bot opens it and the slug is no slug", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), slug="my app", author="my app[bot]"), needle=gone)
+    add("sheets, App: another App's bot opens it", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), author="other-app[bot]"), needle=gone)
+    add("sheets, App: a sheet line is changed otherwise", "not merged",
+        sheets_by_app(sheet_base, changed(first, "      max_output_tokens: 131072")), needle="changes more than the value")
+    add("sheets, App: sign-off started and is red", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), checks=checks_of(contexts(), failing="sign-off")),
+        needle="concluded failure")
+
+    # --- what must not merge
+    add("sheets: opened by a person", "not merged", sheets(sheet_base, rewritten_values(1), author="someone"), needle=gone)
+    add("sheets: a bot's pull request on another branch", "not merged",
+        sheets(sheet_base, rewritten_values(1), branch="claude/other"), needle=gone)
+    as_draft = sheets(sheet_base, rewritten_values(1))
+    as_draft["pr"]["draft"] = True
+    add("sheets: a draft", "not merged", as_draft, needle=gone)
+    in_fork = sheets(sheet_base, rewritten_values(1))
+    in_fork["pr"]["head"]["repo"] = {"full_name": "x/r"}
+    add("sheets: the head is in a fork", "not merged", in_fork, needle="not exactly one")
+    two_commits = [{"sha": "c1", "author": {"login": "github-actions[bot]"}, "commit": {"message": "x"}},
+                   {"sha": "c2", "author": {"login": "github-actions[bot]"}, "commit": {"message": "merge"}}]
+    add("sheets: two commits", "not merged", sheets(sheet_base, rewritten_values(1), commits=two_commits),
+        needle="the one commit the workflow made")
+    add("sheets: the commit's author is a person", "not merged", sheets(sheet_base, rewritten_values(1), commits=[
+        {"sha": "c1", "author": {"login": "someone"}, "commit": {"message": "x"}}]),
+        needle="the one commit the workflow made")
+    add("sheets: the commit's author is the App, not the Actions bot", "not merged",
+        sheets_by_app(sheet_base, rewritten_values(1), commits=[
+            {"sha": "c1", "author": {"login": sheet_app + "[bot]"}, "commit": {"message": "x"}}]),
+        needle="the one commit the workflow made")
+    good = sheets(sheet_base, rewritten_values(1))
+
+    def good_file(**changes):
+        return dict(good["files"][0], **changes)
+
+    shape = "is not a rewrite of sheet values in"
+    add("sheets: another file", "not merged", sheets(sheet_base, rewritten_values(1), files=[good_file(filename="tasks/main.yml")]),
+        needle=shape)
+    add("sheets: two files", "not merged", sheets(sheet_base, rewritten_values(1), files=[good_file(), good_file(filename="x")]),
+        needle=shape)
+    add("sheets: the file is renamed", "not merged", sheets(sheet_base, rewritten_values(1), files=[good_file(status="renamed")]),
+        needle=shape)
+    add("sheets: GitHub gave no patch (too large)", "not merged", sheets(sheet_base, rewritten_values(1), files=[good_file(patch=None)]),
+        needle=shape)
+    add("sheets: GitHub's count of added lines disagrees with the patch", "not merged",
+        sheets(sheet_base, rewritten_values(1), files=[good_file(additions=good["files"][0]["additions"] + 3)]),
+        needle="sheet values merge themselves")
+    add("sheets: GitHub's count of deleted lines disagrees with the patch", "not merged",
+        sheets(sheet_base, rewritten_values(1), files=[good_file(deletions=good["files"][0]["deletions"] + 3)]),
+        needle="sheet values merge themselves")
+    add("sheets: a line added", "not merged",
+        sheets(sheet_base, rewrite(sheet_base, first, [first, "      max_input_tokens: 7"])),
+        needle="sheet values merge themselves")
+    add("sheets: a line removed", "not merged", sheets(sheet_base, rewrite(sheet_base, first, [])),
+        needle="sheet values merge themselves")
+    add("sheets: a value rewritten and a line added", "not merged",
+        sheets(sheet_base, rewrite(rewritten_values(1), "      max_input_tokens: %d" % (200000 + windows[0]),
+                                   ["      max_input_tokens: %d" % (200000 + windows[0]), "      max_input_tokens: 7"])),
+        needle="sheet values merge themselves")
+    add("sheets: a line taken out and another put in elsewhere", "not merged",
+        sheets(sheet_base, rewrite(sheet_base, first, []) + ["# elsewhere"]), needle="changes more than the value")
+    add("sheets: a changed line that is no sheet line", "not merged",
+        sheets(sheet_base, changed("      model: provider/m1", "      model: provider/m1-rewritten")),
+        needle="is changed and is not a sheet line")
+    add("sheets: a sheet line and the address of an entry", "not merged",
+        sheets(sheet_base, changed("      api_base: http://gateway.invalid:1234/v1", "      api_base: http://elsewhere.invalid/v1")),
+        needle="is changed and is not a sheet line")
+    add("sheets: a key changed to another sheet key", "not merged",
+        sheets(sheet_base, changed(first, "      max_output_tokens: 131072")), needle="changes more than the value")
+    add("sheets: an indentation changed", "not merged",
+        sheets(sheet_base, changed(first, "    max_input_tokens: 131072")), needle="changes more than the value")
+    add("sheets: a spacing changed", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens:  7")), needle="changes more than the value")
+    add("sheets: a comment after the value changed", "not merged",
+        sheets(sheet_base, changed(SHEET_LINES[1], "      max_output_tokens: 8192  # elsewhere")),
+        needle="changes more than the value")
+    add("sheets: a comment after the value dropped", "not merged",
+        sheets(sheet_base, changed(SHEET_LINES[1], "      max_output_tokens: 8192")), needle="changes more than the value")
+    add("sheets: a value that is no number", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens: lots")), needle="is changed and is not a sheet line")
+    add("sheets: a value written through Jinja", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens: {{ window }}")), needle="is changed and is not a sheet line")
+    add("sheets: a value of zero", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens: 0")), needle="no positive whole number")
+    add("sheets: a flag in a count", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens: true")), needle="no positive whole number")
+    add("sheets: a number in the image flag", "not merged",
+        sheets(sheet_base, changed("      supports_vision: false", "      supports_vision: 1")),
+        needle="no positive whole number")
+    add("sheets: a value too long to be a count", "not merged",
+        sheets(sheet_base, changed(first, "      max_input_tokens: 1%s" % ("0" * 12))), needle="no positive whole number")
+    add("sheets: a window rewritten in litellm_params", "not merged",
+        sheets(sheet_base, changed("      max_input_tokens: 5", "      max_input_tokens: 6")), needle="is not in a model_info")
+    add("sheets: a window under a model_info that is no entry's", "not merged",
+        sheets(sheet_base[:1] + ["router_settings:", "  model_info:", "    max_input_tokens: 5"] + sheet_base[1:],
+               sheet_base[:1] + ["router_settings:", "  model_info:", "    max_input_tokens: 6"] + sheet_base[1:]),
+        needle="is in a model_info that is no entry's")
+    # The patch says one sheet value and the file holds more: only the texts show it.
+    hidden = sheets(sheet_base, rewritten_values(1))
+    hidden["texts"]["head"] = hidden["texts"]["head"].replace("      model: provider/m4", "      model: provider/evil")
+    add("sheets: the head holds a change the patch does not show", "not merged", hidden,
+        needle="is changed and is not a sheet line")
+    for text in ("abc", "", "0", "-3", "5.5"):
+        add("sheets: the cap on values is %r" % text, "not merged",
+            sheets(sheet_base, rewritten_values(1), env={"SHEETS_MAX_VALUES": text}), failed=True,
+            needle="must be a positive whole number")
+    asking = sheets(sheet_base, rewritten_values(1))
+    asking["pr"]["body"] = "Corrections.\n\n%s\n\nCette pull request ne se fusionne pas seule.\n\n### Écarts" % heading
+    add("sheets: the body holds a section left to a person", "not merged", asking, needle="lists what a person has to read")
+    quiet = sheets(sheet_base, rewritten_values(1))
+    quiet["pr"]["body"] = "Corrections.\n\nThe section is called %s in the script." % heading.replace("## ", "")
+    add("sheets: the heading appears only inside a sentence", "merged", quiet)
+    add("sheets: a head behind the default branch", "not merged", sheets(sheet_base, rewritten_values(1), behind_by=1),
+        needle="behind")
+    for context in contexts():
+        add("sheets: %s has not reported" % context, "not merged",
+            sheets(sheet_base, rewritten_values(1), checks=checks_of([name for name in contexts() if name != context])),
+            needle="has not reported")
+        add("sheets: %s is red" % context, "not merged",
+            sheets(sheet_base, rewritten_values(1), checks=checks_of(contexts(), failing=context)), needle="concluded failure")
+    add("sheets: every check green but sign-off, which never starts", "not merged",
+        sheets(sheet_base, rewritten_values(1), checks=checks_of(others)), needle='"sign-off" has not reported')
+    add("sheets: a check is still running", "not merged",
+        sheets(sheet_base, rewritten_values(1), checks=checks_of(contexts(), status="in_progress")),
+        needle="is still in_progress")
+    add("sheets: the right check names, posted by another app", "not merged",
+        sheets(sheet_base, rewritten_values(1), checks=checks_of(contexts(), app="some-other-app")), needle="has not reported")
+    add("sheets: a deletion of whole entries on the sheets' branch", "not merged",
+        removals(patch, branch=sheet_branch(), texts={"base": "\n".join(base), "head": "\n".join(deletion(base, whole)[1])}),
+        needle="sheet values merge themselves")
+    add("sheets: a sheet rewritten on the deletions' branch", "not merged",
+        sheets(sheet_base, rewritten_values(1), branch=removals(patch)["pr"]["head"]["ref"]), needle="is not a deletion of lines from")
+
+    # --- the additions, which nothing but a person merges ------------------------------------------
     # Each is tried as the workflow opens it, lines added, or a line of a sheet rewritten, and as the worst it
     # could be: a deletion that would merge on the deletions' branch, by the Actions bot or the App, every check
-    # green. Only the branch tells them apart, and it must.
+    # green, and a clean correction of sheets that would merge on the sheets' branch. Only the branch tells them
+    # apart, and it must.
     rewritten = list(base)
     at = rewritten.index("      model: provider/m1")
     rewritten[at] = "      model: provider/m1-rewritten"
@@ -682,11 +958,15 @@ def scenarios():
     adding = patch_between(base, added)
     for branch in person_branches():
         tag = "additions on %s: " % branch
-        add(tag + "a line rewritten, as the sheet corrections are", "not merged",
+        add(tag + "a line rewritten", "not merged",
             removals(rewriting, branch=branch, files=[file_of(additions=1, deletions=1, patch=rewriting)]),
             needle=gone)
         add(tag + "a line rewritten, opened by the App", "not merged",
             by_app(branch=branch, files=[file_of(additions=1, deletions=1, patch=rewriting)]), needle=gone)
+        add(tag + "a sheet value rewritten, which would merge on the sheets' branch", "not merged",
+            sheets(sheet_base, rewritten_values(1), branch=branch), needle=gone)
+        add(tag + "a sheet value rewritten, opened by the App", "not merged",
+            sheets_by_app(sheet_base, rewritten_values(1), branch=branch), needle=gone)
         add(tag + "entries added, as the workflow opens it", "not merged",
             removals(adding, branch=branch, files=[file_of(additions=counts(adding)[0], deletions=0, patch=adding)]),
             needle=gone)
@@ -744,7 +1024,8 @@ def play(script, env, cases):
     if shutil.which("node") is None:
         raise SystemExit("node is not on the PATH: this check runs the step's script with it.")
     ruleset = json.loads(RULESET.read_text(encoding="utf-8"))
-    payload = {"script": script, "env": env, "ruleset": ruleset, "head_sha": HEAD_SHA,
+    payload = {"script": script, "env": env, "ruleset": ruleset, "head_sha": HEAD_SHA, "merge_base": MERGE_BASE,
+               "drift_file": DRIFT_FILE,
                "ruleset_path": RULESET.relative_to(ROOT).as_posix(),
                "scenarios": [case[2] for case in cases]}
     done = subprocess.run(["node", "-e", HARNESS], input=json.dumps(payload), capture_output=True,
@@ -793,7 +1074,7 @@ MUTATIONS = [
     ("the head is compared the wrong way round with the default branch", [
         ("basehead: `${defaultBranch}...${headSha}`", "basehead: `${headSha}...${defaultBranch}`")]),
     ("a line added to the file passes", [
-        ("file.additions !== 0 ||", ""),
+        ("(removals && file.additions !== 0) ||", ""),
         ("if (hunks.some((each) => each.added)) return 'a line is added';", "")]),
     ("GitHub's count of deleted lines is not compared", [("deleted.length !== file.deletions ||", "")]),
     ("a patch with no model entry passes", [("entries === 0 ||", "")]),
@@ -813,7 +1094,7 @@ MUTATIONS = [
         ("!(deleted.length <= maxLines)", "deleted.length > maxLines"),
         ("!Number.isInteger(maxEntries) ||", ""), ("!Number.isInteger(maxLines) ||", "")]),
     ("a second file passes", [("files.length !== 1 ||", "")]),
-    ("another file passes", [("file.filename !== process.env.REMOVALS_FILE ||", "")]),
+    ("another file passes", [("file.filename !== process.env.DRIFT_FILE ||", "")]),
     ("a renamed file passes", [("file.status !== 'modified' ||", "")]),
     ("a second commit passes", [("commits.length !== 1 ||", "")]),
     ("a person's commit passes", [("commits[0].author?.login !== 'github-actions[bot]'", "false")]),
@@ -834,21 +1115,32 @@ MUTATIONS = [
         ("pr.head.ref === process.env.REMOVALS_BRANCH", "true")]),
     ("a branch that only starts like the deletions' is taken for them", [
         ("pr.head.ref === process.env.REMOVALS_BRANCH", "pr.head.ref.startsWith('claude/LiteLLM-model-')")]),
+    ("any bot's branch is taken for the sheet corrections", [
+        ("pr.head.ref === process.env.SHEETS_BRANCH", "true")]),
+    ("a branch that only starts like the sheet corrections' is taken for them", [
+        ("pr.head.ref === process.env.SHEETS_BRANCH", "pr.head.ref.startsWith('claude/LiteLLM-model-')")]),
     ("a draft passes", [("|| pr.draft", "")]),
     ("a person's pull request is taken for the deletions", [
-        ("removalsAuthors.includes(pr.user.login) &&", "")]),
+        ("const removals = driftAuthors.includes(pr.user.login) &&", "const removals =")]),
+    ("a person's pull request is taken for the sheet corrections", [
+        ("const sheets = driftAuthors.includes(pr.user.login) &&", "const sheets =")]),
     ("any bot's pull request is taken for the deletions", [
-        ("removalsAuthors.includes(pr.user.login)", "pr.user.login.endsWith('[bot]')")]),
-    ("the Actions bot's pull request is taken for the deletions only with the App's slug set", [
-        ("const removalsAuthors = ['github-actions[bot]'];", "const removalsAuthors = [];")]),
-    ("a person whose name starts with the App's slug is taken for its bot", [
-        ("removalsAuthors.includes(pr.user.login)",
-         "removalsAuthors.some((name) => pr.user.login.startsWith(name.replace('[bot]', '')))")]),
-    ("the App's bot is taken for the deletions whatever the slug variable says", [
-        ("if (/^[a-z0-9-]+$/.test(appSlug)) removalsAuthors.push(`${appSlug}[bot]`);",
-         "removalsAuthors.push(`${appSlug}[bot]`);")]),
+        ("const removals = driftAuthors.includes(pr.user.login)", "const removals = pr.user.login.endsWith('[bot]')")]),
+    ("any bot's pull request is taken for the sheet corrections", [
+        ("const sheets = driftAuthors.includes(pr.user.login)", "const sheets = pr.user.login.endsWith('[bot]')")]),
+    ("the Actions bot's pull request is taken for the deletions and the sheets only with the App's slug set", [
+        ("const driftAuthors = ['github-actions[bot]'];", "const driftAuthors = [];")]),
+    ("a person whose name starts with the App's slug is taken for its bot, for the deletions", [
+        ("const removals = driftAuthors.includes(pr.user.login)",
+         "const removals = driftAuthors.some((name) => pr.user.login.startsWith(name.replace('[bot]', '')))")]),
+    ("a person whose name starts with the App's slug is taken for its bot, for the sheet corrections", [
+        ("const sheets = driftAuthors.includes(pr.user.login)",
+         "const sheets = driftAuthors.some((name) => pr.user.login.startsWith(name.replace('[bot]', '')))")]),
+    ("the App's bot is taken for the drift pull requests whatever the slug variable says", [
+        ("if (/^[a-z0-9-]+$/.test(appSlug)) driftAuthors.push(`${appSlug}[bot]`);",
+         "driftAuthors.push(`${appSlug}[bot]`);")]),
     ("a person of the slug's name is taken for the App's bot", [
-        ("removalsAuthors.push(`${appSlug}[bot]`)", "removalsAuthors.push(appSlug)")]),
+        ("driftAuthors.push(`${appSlug}[bot]`)", "driftAuthors.push(appSlug)")]),
     ("a slug variable that is not set names a bot of the name 'undefined'", [
         ("process.env.MODEL_DRIFT_APP_SLUG ?? ''", "process.env.MODEL_DRIFT_APP_SLUG")]),
     ("the slug pattern is not anchored at its start", [("/^[a-z0-9-]+$/", "/[a-z0-9-]+$/")]),
@@ -868,10 +1160,37 @@ MUTATIONS = [
     ("a commit by a person on a Dependabot branch passes", [("author !== 'dependabot[bot]' ||", "")]),
     ("a ruleset with no check passes", [("required.length === 0", "false")]),
     ("a ruleset with two rules of required checks passes", [("rules.length !== 1", "rules.length === 0")]),
+    # the sheet corrections
+    ("the sheet corrections are not read in the two whole files", [
+        ("const problem = sheetProblem(await read(comparison.merge_base_commit.sha), await read(headSha));",
+         "const problem = null;")]),
+    ("the head of the sheet corrections is read as main is", [
+        ("await read(headSha))", "await read(comparison.merge_base_commit.sha))")]),
+    ("GitHub's count of lines put in is not compared with the patch", [("put !== file.additions ||", "")]),
+    ("GitHub's count of lines taken out is not compared with the patch", [("taken !== file.deletions ||", "")]),
+    ("the cap on values is not applied", [
+        ("!(taken <= maxValues)", "false"), ("!Number.isInteger(maxValues) ||", "")]),
+    ("a cap on values that is not a number is a cap that never trips", [
+        ("!(taken <= maxValues)", "taken > maxValues"), ("!Number.isInteger(maxValues) ||", "")]),
+    ("the sheet guard lets a changed key pass", [("|| was[2] !== now[2] ||", "||")]),
+    ("the sheet guard lets a changed indentation pass", [("was[1] !== now[1] ||", "")]),
+    ("the sheet guard lets a changed spacing pass", [("|| was[3] !== now[3] ||", "||")]),
+    ("the sheet guard lets a changed comment pass", [("|| was[5] !== now[5]) return", ") return")]),
+    ("the sheet guard lets a changed line that is no sheet line pass", [
+        ("if (!was || !now) return", "if (!was || !now) continue; if (false) return")]),
+    ("the sheet guard lets a value that is no positive whole number pass", [
+        ("if (!sheetValueFits(was[2], was[4]) || !sheetValueFits(now[2], now[4])) return", "if (false) return")]),
+    ("the sheet guard lets a line outside a model_info pass", [
+        ("if (!info || !/^\\s*model_info:\\s*(?:#.*)?$/.test(info.line)) return", "if (!info) return")]),
+    ("the sheet guard lets a model_info that is no entry's pass", [
+        ("if (!entry || !/^\\s*-\\s+model_name:\\s*\\S+\\s*$/.test(entry.line)) return", "if (!entry) return")]),
     # the environment of the step, which is as much a part of the guard as the script
     ("the cap on entries is raised", [], {"REMOVALS_MAX_ENTRIES": "50"}),
+    ("the cap on sheet values is raised", [], {"SHEETS_MAX_VALUES": "50"}),
     ("the heading that asks for a reading is another", [], {"REMOVALS_REVIEW_HEADING": "## Elsewhere"}),
+    ("the heading that asks for a reading of the sheet corrections is another", [], {"SHEETS_REVIEW_HEADING": "## Elsewhere"}),
     ("the branch of the deletions is another", [], {"REMOVALS_BRANCH": "claude/other"}),
+    ("the branch of the sheet corrections is another", [], {"SHEETS_BRANCH": "claude/other"}),
     # inside removalsPatchProblem
     ("a line added in the patch is not seen by the shape check", [
         ("if (hunks.some((each) => each.added)) return 'a line is added';", "")]),

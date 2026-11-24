@@ -25,7 +25,10 @@ exchanged, a row moved, a row repeated, a table the base did not have.
 
 The same step keeps the pull request of the sheet corrections, whose template the other job writes and the step
 pushes only if the function between the "BEGIN/END sheet guard" markers finds it equal to main's but for the value
-of lines of a sheet. That function is played on a miniature template and on the real one: one value, several and
+of lines of a sheet. The gate, "dependabot-auto-merge.yml", asks the same question of that pull request before it
+merges it, and holds the same block between the same markers: neither workflow can load a file of the repository,
+so each carries a copy, and this check refuses a pair that differs by a character and plays both on the same
+cases. That function is played on a miniature template and on the real one: one value, several and
 one before a comment rewritten, accepted; a line added or removed, another key, an entry's name or a comment
 changed, a value that is no number or flag, is zero or has too many digits, a key, a spacing, an indentation or a
 comment after the value changed, a carriage return, and a sheet line outside the "model_info" of an entry refused.
@@ -106,6 +109,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "LiteLLM_model_drift.yml"
+GATE_WORKFLOW = ROOT / ".github" / "workflows" / "dependabot-auto-merge.yml"
 TEMPLATE = ROOT / "templates" / "LiteLLM_config.yaml.j2"
 STEP = "Open, update or close the drift pull requests"
 BEGIN, END = "// BEGIN template guard", "// END template guard"
@@ -347,6 +351,33 @@ def load_sheet_guard():
     return script.split(SHEET_BEGIN, 1)[1].split(SHEET_END, 1)[0]
 
 
+def load_gate_sheet_guard():
+    """The same block as the step's, as the gate holds it, after checking that the gate calls it on the two
+    files it read: the merge base and the head."""
+    document = yaml.safe_load(GATE_WORKFLOW.read_text(encoding="utf-8"))
+    steps = [step for step in document["jobs"]["merge"]["steps"] if step.get("id") == "merge"]
+    if len(steps) != 1:
+        raise SystemExit("%s holds %d step(s) with the id 'merge', expected one." % (GATE_WORKFLOW.name, len(steps)))
+    script = steps[0]["with"]["script"]
+    if script.count(SHEET_BEGIN) != 1 or script.count(SHEET_END) != 1:
+        raise SystemExit("the gate's script must hold the markers %r and %r once each" % (SHEET_BEGIN, SHEET_END))
+    if not re.search(r"sheetProblem\(await read\(comparison\.merge_base_commit\.sha\), await read\(headSha\)\)", script):
+        raise SystemExit("the gate does not call sheetProblem on the merge base and the head it read")
+    return script.split(SHEET_BEGIN, 1)[1].split(SHEET_END, 1)[0]
+
+
+def sheet_guards(publish=None, gate=None):
+    """[(where it stands, its text)] for the two copies, after refusing a pair that is not the same text."""
+    publish = load_sheet_guard() if publish is None else publish
+    gate = load_gate_sheet_guard() if gate is None else gate
+    if publish != gate:
+        mine, theirs = publish.split("\n"), gate.split("\n")
+        at = next((n for n, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
+        raise SystemExit("the sheet guard of %s is not the one of %s, character for character (the first difference is "
+                         "on its line %d): change both together." % (GATE_WORKFLOW.name, WORKFLOW.name, at + 1))
+    return [("the job that writes", publish), ("the gate", gate)]
+
+
 def sheet_scenarios():
     """[(name, base, new, expected)], expected being None (accepted) or a text the reason contains."""
     miniature = drift_selftest_module().SHEET_TEMPLATE
@@ -460,35 +491,48 @@ def sheet_guard_wrong(guard=None):
 
 
 def run_sheet_guard_selftest():
-    wrong, _ = sheet_guard_wrong()
-    if wrong:
-        print("the sheet guard fails its own scenarios before anything is broken:")
-        for name, why in wrong:
-            print("  %s: %s" % (name, why))
-        return 1
-    guard = load_sheet_guard()
+    guards = sheet_guards()
+    for where, guard in guards:
+        wrong, _ = sheet_guard_wrong(guard)
+        if wrong:
+            print("the sheet guard of %s fails its own scenarios before anything is broken:" % where)
+            for name, why in wrong:
+                print("  %s: %s" % (name, why))
+            return 1
     failures = 0
-    for label, old, new in SHEET_GUARD_MUTATIONS:
-        if guard.count(old) != 1:
-            failures += 1
-            print("selftest: the text of the sheet guard that should %s has moved: %r" % (label, old))
-            continue
+    # A pair that differs is refused whatever the difference, so a break made to one copy alone is noticed
+    # by that alone: each copy is broken in turn, and the scenarios play it.
+    for where, guard in guards:
+        for label, old, new in SHEET_GUARD_MUTATIONS:
+            if guard.count(old) != 1:
+                failures += 1
+                print("selftest: the text of the sheet guard of %s that should %s has moved: %r" % (where, label, old))
+                continue
+            try:
+                noticed = bool(sheet_guard_wrong(guard.replace(old, new, 1))[0])
+            except SystemExit as error:
+                failures += 1
+                print("selftest: breaking the sheet guard of %s that should %s left a script that does not run: %s"
+                      % (where, label, str(error)[:200]))
+                continue
+            if noticed:
+                print("selftest: ok -- some scenario notices a sheet guard that stops, in %s: %s" % (where, label))
+            else:
+                failures += 1
+                print("selftest: FAILED -- no scenario notices a sheet guard that stops, in %s: %s" % (where, label))
+    # A pair of copies that differs, by one character, is refused.
+    for where, guard in guards:
         try:
-            noticed = bool(sheet_guard_wrong(guard.replace(old, new, 1))[0])
-        except SystemExit as error:
-            failures += 1
-            print("selftest: breaking the sheet guard that should %s left a script that does not run: %s"
-                  % (label, str(error)[:200]))
-            continue
-        if noticed:
-            print("selftest: ok -- some scenario notices a sheet guard that stops: %s" % label)
+            sheet_guards(guard + " ", guard)
+        except SystemExit:
+            print("selftest: ok -- a pair of copies that differs is refused (%s changed)" % where)
         else:
             failures += 1
-            print("selftest: FAILED -- no scenario notices a sheet guard that stops: %s" % label)
+            print("selftest: FAILED -- a pair of copies that differs is accepted")
     if failures:
         return 1
-    print("check_drift_publish_guard selftest: the sheet guard as expected, %d broken guard(s) noticed."
-          % len(SHEET_GUARD_MUTATIONS))
+    print("check_drift_publish_guard selftest: the sheet guard, in both workflows, as expected, %d broken guard(s) "
+          "noticed in each." % len(SHEET_GUARD_MUTATIONS))
     return 0
 
 
@@ -2025,13 +2069,14 @@ def main(argv):
             print("  %s: %s" % (name, why))
         return 1
     print("Drift pull request guard: %d scenario(s) judged as expected." % len(cases))
-    wrong, played = sheet_guard_wrong()
-    if wrong:
-        print("%d of %d scenario(s) of the sheet guard went the wrong way:\n" % (len(wrong), played))
-        for name, why in wrong:
-            print("  %s: %s" % (name, why))
-        return 1
-    print("Sheet guard: %d scenario(s) judged as expected." % played)
+    for where, guard in sheet_guards():
+        wrong, played = sheet_guard_wrong(guard)
+        if wrong:
+            print("%d of %d scenario(s) of the sheet guard of %s went the wrong way:\n" % (len(wrong), played, where))
+            for name, why in wrong:
+                print("  %s: %s" % (name, why))
+            return 1
+        print("Sheet guard of %s: %d scenario(s) judged as expected." % (where, played))
     wrong, built = additions_wrong()
     if wrong:
         print("%d scenario(s) of the additions went the wrong way:\n" % len(wrong))

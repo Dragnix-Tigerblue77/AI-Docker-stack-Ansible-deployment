@@ -64,10 +64,11 @@ WHAT IT CHECKS
    gate's, and a copy kept true by a comment is the kind that drifts: a third workflow added to the
    gate would leave the deletion pull request without it, which only shows as a check that is not
    there.
-8. The branch the model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH)
-   is the one the gate merges, and the `if:` of the gate's job lets a run on it through. The gate
-   merges that pull request by itself, and a branch named differently on either side would leave
-   it open for ever with every check green, which shows as nothing at all.
+8. The branch the model-drift workflow makes its deletion pull request on (REMOVALS_BRANCH) and the
+   one of its sheet corrections (SHEETS_BRANCH) are the ones the gate merges, and the `if:` of the
+   gate's job lets a run on each through. The gate merges those pull requests by itself, and a
+   branch named differently on either side would leave one open for ever with every check green,
+   which shows as nothing at all.
 
 WHAT IT DELIBERATELY DOES NOT CHECK
 -----------------------------------
@@ -124,8 +125,9 @@ NOT_DISPATCHED = {
 # The environment variable, on a step of the gate, whose value is the space-separated FILE names of
 # the workflows that step dispatches on the default branch once the gate has merged (#180).
 DISPATCH_ENV = "WORKFLOW_FILES"
-# The branch of the deletions, written where it is made and where it is merged.
-BRANCH_ENV = "REMOVALS_BRANCH"
+# The branches of the pull requests the gate merges (the deletions, the sheet corrections), each written
+# where it is made and where it is merged.
+BRANCH_ENVS = ("REMOVALS_BRANCH", "SHEETS_BRANCH")
 
 
 def triggers(workflow):
@@ -298,24 +300,25 @@ def problems(ruleset, workflows, not_required=NOT_REQUIRED, not_dispatched=NOT_D
                          "the same." % (DRIFT, " ".join(sorted(set(drift_files))), GATE,
                                         " ".join(sorted(set(gate_files)))))
 
-    # The branch the deletions are made on, which the gate merges: written in three places.
-    if GATE in workflows and DRIFT in workflows:
-        made = sorted(set(env_values(workflows[DRIFT], BRANCH_ENV)))
-        merged = sorted(set(env_values(workflows[GATE], BRANCH_ENV)))
-        if len(made) != 1:
-            found.append("%s must give %s one value, the branch of the pull request it opens; it "
-                         "gives %s." % (DRIFT, BRANCH_ENV, ", ".join(made) or "none"))
-        elif merged != made:
-            found.append("%s merges the pull request of the branch %s, and %s makes it on %s: "
-                         "they must be the same branch, or the deletions never merge."
-                         % (GATE, ", ".join(merged) or "(none)", DRIFT, made[0]))
-        elif not filtered_on(workflows[GATE], made[0]):
-            found.append("%s never lets a run of %s through its job filter: the `if:` of its job "
-                         "does not name the branch." % (GATE, made[0]))
-    elif GATE in workflows and env_values(workflows[GATE], BRANCH_ENV):
-        found.append("%s merges the pull request of a branch (%s) that no workflow named %s makes: "
-                     "a rename of that workflow would leave the gate waiting for ever."
-                     % (GATE, ", ".join(sorted(set(env_values(workflows[GATE], BRANCH_ENV)))), DRIFT))
+    # The branches the drift workflow makes pull requests on that the gate merges: written in three places.
+    for branch_env in BRANCH_ENVS:
+        if GATE in workflows and DRIFT in workflows:
+            made = sorted(set(env_values(workflows[DRIFT], branch_env)))
+            merged = sorted(set(env_values(workflows[GATE], branch_env)))
+            if len(made) != 1:
+                found.append("%s must give %s one value, the branch of the pull request it opens; it "
+                             "gives %s." % (DRIFT, branch_env, ", ".join(made) or "none"))
+            elif merged != made:
+                found.append("%s merges the pull request of the branch %s, and %s makes it on %s: "
+                             "they must be the same branch, or it never merges."
+                             % (GATE, ", ".join(merged) or "(none)", DRIFT, made[0]))
+            elif not filtered_on(workflows[GATE], made[0]):
+                found.append("%s never lets a run of %s through its job filter: the `if:` of its job "
+                             "does not name the branch." % (GATE, made[0]))
+        elif GATE in workflows and env_values(workflows[GATE], branch_env):
+            found.append("%s merges the pull request of a branch (%s) that no workflow named %s makes: "
+                         "a rename of that workflow would leave the gate waiting for ever."
+                         % (GATE, ", ".join(sorted(set(env_values(workflows[GATE], branch_env)))), DRIFT))
 
     return found
 
@@ -344,11 +347,12 @@ jobs:
   merge:
     name: Merge
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.head_branch == 'removals'
+    if: github.event.workflow_run.head_branch == 'removals' || github.event.workflow_run.head_branch == 'sheets'
     steps:
       - name: Merge
         env:
           REMOVALS_BRANCH: removals
+          SHEETS_BRANCH: sheets
   recheck:
     name: Recheck
     needs: merge
@@ -359,10 +363,11 @@ jobs:
           WORKFLOW_FILES: ci.yml
 """
 
-# The gate as the cases that say nothing of the deletion pull request want it: no branch, no filter.
+# The gate as the cases that say nothing of the pull requests it merges want it: no branch, no filter.
 SELFTEST_GATE_PLAIN = SELFTEST_GATE.replace(
-    "    if: github.event.workflow_run.head_branch == 'removals'\n    steps:\n      - name: Merge\n"
-    "        env:\n          REMOVALS_BRANCH: removals\n", "")
+    "    if: github.event.workflow_run.head_branch == 'removals' || github.event.workflow_run.head_branch == 'sheets'\n"
+    "    steps:\n      - name: Merge\n        env:\n          REMOVALS_BRANCH: removals\n"
+    "          SHEETS_BRANCH: sheets\n", "")
 
 SELFTEST_NIGHTLY = """
 name: Nightly
@@ -408,6 +413,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REMOVALS_BRANCH: removals
+      SHEETS_BRANCH: sheets
     steps:
       - name: Dispatch
         env:
@@ -594,6 +600,20 @@ def selftest_cases():
              "          REMOVALS_BRANCH: removals\n      - name: Other\n        env:\n"
              "          REMOVALS_BRANCH: other\n", 1), drift=SELFTEST_DRIFT),
          "they must be the same branch"),
+        ("a gate that merges another branch of sheet corrections than the one the drift workflow makes is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace("SHEETS_BRANCH: sheets", "SHEETS_BRANCH: other"),
+                            drift=SELFTEST_DRIFT),
+         "they must be the same branch"),
+        ("a gate whose job filter does not name the branch of the sheet corrections is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(gate=SELFTEST_GATE.replace(" || github.event.workflow_run.head_branch == 'sheets'", ""),
+                            drift=SELFTEST_DRIFT),
+         "does not name the branch"),
+        ("a drift workflow that names no branch for the sheet corrections is refused",
+         selftest_ruleset(*good),
+         selftest_workflows(drift=SELFTEST_DRIFT.replace("SHEETS_BRANCH: sheets", "OTHER: sheets")),
+         "must give SHEETS_BRANCH one value"),
         ("a drift workflow that names no branch is refused",
          selftest_ruleset(*good),
          selftest_workflows(drift=SELFTEST_DRIFT.replace("REMOVALS_BRANCH: removals",

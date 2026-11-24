@@ -8413,8 +8413,10 @@ def run_sheet_rewrite_cases():
                            (made["left"] >= 1 and made["changes"] >= 3, "changes %d, left %d" % (made["changes"], made["left"])),
                            (changed_lines(text, made["text"]) and "262144" not in made["text"],
                             "the value that cannot be rewritten was written"),
-                           ("## Écarts que le workflow n'a pas réécrits" in made["body"]
+                           ("### Écarts que le workflow n'a pas réécrits" in made["body"]
                             and drift.SHEET_REFUSALS[code] in made["body"], "the body does not say why"),
+                           (drift.REVIEW_HEADING in made["body"].splitlines(),
+                            "the body has no section that holds the automatic merge back"),
                            ("à corriger à la main : %s" % drift.SHEET_REFUSALS[code]
                             in render_summary(got, "selftest"), "the summary does not say why")))
 
@@ -8495,20 +8497,25 @@ def run_sheet_rewrite_cases():
         gemini={"inputTokenLimit": 1048576, "outputTokenLimit": 4096}))
     made = drift.propose_sheets(with_length, got, None)
     flagged = {(difference["name"], difference["field"]): difference["rewrite"]["ci"] for difference in got["sheets"]}
-    section = made["body"].split("## À ajuster à la main", 1)[1].split("\n## ", 1)[0] if "## À ajuster à la main" in made["body"] else ""
+    section = made["body"].split("### À ajuster à la main", 1)[1].split("\n## ", 1)[0] if "### À ajuster à la main" in made["body"] else ""
     judged("an entry whose length the new sheet no longer allows is flagged in the body, and the others are not",
            first_wrong((flagged == {("sheet-openrouter", "max_input_tokens"): ("window", 40000),
                                     ("sheet-gemini", "max_output_tokens"): ("output", 6000)},
                         "flags %r" % flagged),
                        ("`check_compose_template.py` refusera cette pull request" in made["body"], "no section says so"),
+                       (drift.REVIEW_HEADING in made["body"].splitlines(),
+                        "the body has no section that holds the automatic merge back"),
                        ("`sheet-openrouter` : la longueur de 40000" in section
                         and "`sheet-gemini` : la longueur de 6000" in section, "the section is %r" % section),
                        ("sheet-mistral" not in section, "an entry that fits is flagged"),
                        ("`check_compose_template.py` la refusera" in render_summary(got, "selftest"),
                         "the summary does not say it")))
     without = drift.propose_sheets(SHEET_TEMPLATE, sheet_listing(**SHEET_OTHER)[0], None)
-    judged("a body with nothing for CI to refuse has no such section",
-           None if "À ajuster à la main" not in without["body"] else "the section is there")
+    judged("a body with nothing for CI to refuse, and nothing left to a person, has no such section and no heading "
+           "that holds the automatic merge back",
+           first_wrong(("À ajuster à la main" not in without["body"], "the section is there"),
+                       (drift.REVIEW_HEADING not in without["body"].splitlines(),
+                        "the heading that holds the merge back is there")))
 
     # What the body and the commit say.
     result, _, _ = sheet_listing(**SHEET_OTHER)
@@ -8520,9 +8527,9 @@ def run_sheet_rewrite_cases():
                         "`262144` | <%s>, lu le 2026-01-01 |" % catalogue_url("openrouter") in body, body),
                        ("| `sheet-mistral` | Mistral | `mistral-large-latest` | `supports_vision` | `false` | `true` |"
                         in body, "the Mistral row"),
-                       ("Une personne vérifie, avant de fusionner, chaque valeur sur la page du fournisseur" in body,
-                        "no reading of the page asked"),
-                       ("Rien ne la fusionne seule" in body and "dependabot-auto-merge.yml" in body, "the gate is not named"),
+                       ("tigerblue77, qui lit la valeur sur la page du fournisseur" in body, "no reading of the page asked"),
+                       ("Elle se fusionne seule" in body and "dependabot-auto-merge.yml" in body
+                        and "section « À relire »" in body, "the gate and its conditions are not named"),
                        ("- [ ]" not in body, "a box to tick"),
                        (body.endswith(drift.SHEETS_SIGNATURE), "the body is not signed"),
                        (hostile_lines(body.replace(drift.SHEETS_SIGNATURE, "")) is None,
@@ -8540,7 +8547,7 @@ def run_sheet_rewrite_cases():
                         "catalogue states", commit.splitlines()[0]),
                        (all(len(line) <= 100 for line in commit.splitlines()), "a line is wider than 100 columns"),
                        ("5 values" in commit and "2026-01-01" in commit, commit),
-                       ("nothing merges it but a person" in commit, "no word on who merges")))
+                       ("a person reads each value there" in " ".join(commit.split()), "no word on who reads the page")))
 
     # The file and the summary.
     kept_env = {name: os.environ.get(name) for name in ("SHEETS_BRANCH", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY")}
@@ -8567,7 +8574,7 @@ def run_sheet_rewrite_cases():
                        ("Le workflow propose 5 corrections dans une pull request à part" in summary, summary),
                        (link in summary, "no link"),
                        (summary.count(" -- dans la pull request") == 5, "the lines are not marked"),
-                       ("celle-ci (`claude/selftest-sheets`) attend tigerblue77" in body, "the body does not name its branch")))
+                       ("sa branche (`claude/selftest-sheets`) contient tout `main`" in body, "the body does not name its branch")))
 
     with tempfile.TemporaryDirectory() as directory:
         config = os.path.join(directory, "config.yaml.j2")

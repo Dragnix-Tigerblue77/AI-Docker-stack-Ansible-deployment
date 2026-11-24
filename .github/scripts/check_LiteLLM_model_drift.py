@@ -332,8 +332,8 @@ SHEET      not a finding: an active entry whose "model_info" declares a context 
            catalogue states otherwise for the same model. The line names the entry, the field, the value the
            file declares and the one the catalogue gives, and sits in its own section of the summary, which
            says it changes nothing: the run's exit status, the deletions and the retries are what they would
-           be without it. "--sheets" proposes the correction in a pull request of its own, which only a person
-           merges. Only a field both sides state is compared, so an entry with no sheet and a catalogue silent
+           be without it. "--sheets" proposes the correction in a pull request of its own, which merges itself when
+           nothing but sheet values changed (see THE SHEET CORRECTIONS). Only a field both sides state is compared, so an entry with no sheet and a catalogue silent
            on a field give nothing (see THE SHEETS and THE SHEET CORRECTIONS).
 WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
            RETIREMENTS): the earliest day is kept, and both sources and what each says are named. Not a
@@ -415,8 +415,13 @@ of SHEET_PROVIDERS with an entry that declares a sheet had its catalogue read, a
 meaning that nothing was seen -- and no difference is left, rewritten or not. Where an entry sets a length
 ("max_tokens" or "max_completion_tokens"), a new longest answer under it or a new window not above it makes
 "check_compose_template.py" refuse the pull request: the body says which entries, and the length is a choice
-that stays a person's. Nothing here is a judgment on whether the catalogue is right, which is why nothing merges
-the pull request but a person who reads the provider's page.
+that stays a person's. Nothing here is a judgment on whether the catalogue is right, but a value its provider
+publishes for its own model needs none, so the pull request merges itself under the conditions of
+"dependabot-auto-merge.yml" (one commit of the Actions bot, nothing changed in the file but the value of up to
+SHEETS_MAX_VALUES sheet lines, no "À relire" section in the body, every check green, the head level with main), and
+the body says what a person still reads when it cannot: a value a person disagrees with after the merge is
+corrected by a commit on main. The two sections that hold it back, the entries CI will refuse and the differences
+left to a person, sit under the one heading "À relire" that the deletions use.
 
 THE SECOND SOURCE OF ANNOUNCED RETIREMENTS
 ------------------------------------------
@@ -7849,14 +7854,14 @@ def render_additions_commit(result, kind, chosen):
 
 
 # ------------------------------------------------------------------------------------------------
-# Proposing the sheet corrections: one pull request, which only a person merges
+# Proposing the sheet corrections: one pull request, which merges itself when nothing but sheet values changed
 # ------------------------------------------------------------------------------------------------
 # "--sheets DIR" writes what the drift workflow keeps a pull request of its own with: "sheets.json", and, when
 # the run can correct something, the body, the commit message and the file with the values rewritten. The job
 # that writes does not build that file: it takes it as data, and pushes it only if it is the template on main
 # with the value of sheet lines written again and nothing else (its "sheet guard", which
-# "check_drift_publish_guard.py" plays). Nothing merges it but a person, who reads each value on the provider's
-# page first: a catalogue is not the page the file cites.
+# "check_drift_publish_guard.py" plays). "dependabot-auto-merge.yml" merges it under conditions of its own, and
+# a person reads each value on the provider's page afterwards: a catalogue is not the page the file cites.
 
 SHEETS_BRANCH = "SHEETS_BRANCH"
 # Signed like everything posted from a session here, and ended with an open HTML comment that hides any footer
@@ -7892,18 +7897,22 @@ def render_sheets_body(result, applied, left, link=None, urls=True):
            "catalogue, et ne change rien d'autre : ni ajout d'un champ que l'entrée ne déclare pas, ni entrée, "
            "ni commentaire, ni date de lecture." % (date, " (%s)" % link if link else ""),
            "",
-           "**Une personne vérifie, avant de fusionner, chaque valeur sur la page du fournisseur** que le fichier "
-           "cite pour sa fiche : un catalogue n'est pas cette page, et la fiche dit ce que le fournisseur sert "
-           "au modèle. Une valeur que la page ne confirme pas se retire par un commit sur la branche.",
-           "",
-           "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît que la "
-           "branche des suppressions, et celle-ci%s attend tigerblue77. Elle est réécrite à chaque exécution "
-           "qui trouve encore un écart, titre et corps compris, à partir de `main`. Un commit d'une personne "
-           "sur la branche la fige : tant que la pull request est ouverte, le workflow n'y touche plus ; une "
-           "fois fermée sans être fusionnée, son exécution échoue chaque jour jusqu'à ce que la branche soit "
-           "supprimée. Elle se ferme quand plus aucun écart ne reste, à condition que l'exécution ait lu le "
-           "catalogue de chaque fournisseur qui publie une fiche et dont le fichier en déclare une."
+           "**Elle se fusionne seule** quand `.github/workflows/dependabot-auto-merge.yml` ne trouve dans le fichier "
+           "que la valeur de lignes de fiche réécrites sur place, en nombre sous le plafond qu'il fixe, qu'aucune "
+           "section « À relire » n'y figure, que sa branche%s contient tout `main` et que les contrôles qu'il "
+           "attend sont verts, `check_compose_template.py` refusant une fiche qui contredit la longueur qu'une "
+           "entrée fixe. Sinon elle attend tigerblue77, qui lit la valeur sur la page du fournisseur que le "
+           "fichier cite pour sa fiche : un catalogue n'est pas cette page, et la fiche dit ce que le "
+           "fournisseur sert au modèle. Une valeur que la page ne confirme pas se corrige par un commit, sur la "
+           "branche tant que la pull request est ouverte, sur `main` une fois fusionnée."
            % (" (%s)" % code_span(branch) if branch else ""),
+           "",
+           "Elle est réécrite à chaque exécution qui trouve encore un écart, titre et corps compris, à partir de "
+           "`main`. Un commit d'une personne sur la branche la fige, et la fait attendre une personne : tant que "
+           "la pull request est ouverte, le workflow n'y touche plus ; une fois fermée sans être fusionnée, son "
+           "exécution échoue chaque jour jusqu'à ce que la branche soit supprimée. Elle se ferme quand plus aucun "
+           "écart ne reste, à condition que l'exécution ait lu le catalogue de chaque fournisseur qui publie une "
+           "fiche et dont le fichier en déclare une.",
            "",
            "## %s" % ("Correction" if len(applied) == 1 else "Corrections"), ""]
     if urls:
@@ -7925,8 +7934,14 @@ def render_sheets_body(result, applied, left, link=None, urls=True):
     out.append("")
 
     refused_by_ci = [outcome for outcome in applied if outcome["ci"]]
+    if refused_by_ci or left:
+        # "dependabot-auto-merge.yml" lets the pull request merge itself only when its body has no section of
+        # this exact title: a person has to read what this lists.
+        out += [REVIEW_HEADING, "",
+                "Cette pull request ne se fusionne pas seule tant que cette section y figure : une personne la lit "
+                "et agit, ou ferme la pull request.", ""]
     if refused_by_ci:
-        out += ["## À ajuster à la main : `check_compose_template.py` refusera cette pull request", "",
+        out += ["### À ajuster à la main : `check_compose_template.py` refusera cette pull request", "",
                 "Ces entrées fixent une longueur de réponse (`max_tokens` ou `max_completion_tokens`) que leur nouvelle "
                 "fiche ne permet plus : le contrôle refuse une longueur au-dessus du `max_output_tokens`, ou qui ne "
                 "laisse aucune place dans la fenêtre. Le workflow ne touche pas cette longueur, qui est un choix : une "
@@ -7934,7 +7949,7 @@ def render_sheets_body(result, applied, left, link=None, urls=True):
         out += capped(["- " + sheets_ci_text(outcome) + "." for outcome in refused_by_ci]) + [""]
 
     if left:
-        out += ["## Écarts que le workflow n'a pas réécrits", "",
+        out += ["### Écarts que le workflow n'a pas réécrits", "",
                 "Ces écarts sont dans le résumé de l'exécution ; une personne les corrige à la main, avec la "
                 "page du fournisseur et la date de lecture.", ""]
         out += capped(["- `%s` (`%s`) : `%s` vaut `%s` ici et `%s` au catalogue : %s." % (
@@ -7965,8 +7980,8 @@ def render_sheets_commit(result, applied):
         + "\n\n"
         + wrapped("The result was read back against the original, alone for each value and all together. "
                   "Nothing here says the value is right: a catalogue is not the page the file cites for the "
-                  "sheet, so the pull request asks a person to read each value there before merging, and "
-                  "nothing merges it but a person.")
+                  "sheet, so a person reads each value there, before the merge when the pull request waits for "
+                  "one and after it when it merged itself, and corrects one the page does not confirm.")
         + "\n")
 
 
