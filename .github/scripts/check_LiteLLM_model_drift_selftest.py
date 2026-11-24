@@ -10,8 +10,8 @@ The script's "--selftest" runs this module, and it can be run directly, from any
     python3 .github/scripts/check_LiteLLM_model_drift_selftest.py
 
 The cases run across the cores of the machine; "--workers 1" runs them in this process, which is what
-to debug with. "--half 1" or "--half 2" runs one half of them, which is what each of the two jobs of the
-CI does: the two halves together are every case, and each case is in one of them.
+to debug with. "--part 1" to "--part 4" runs one part of them, which is what each of the four jobs of the
+CI does: the four parts together are every case, and each case is in one of them.
 
 It exits 0 when every case judged as expected and 1 otherwise. The cases are Python literals rather
 than fixture files, for the reason the script gives: a fixture on disk is reachable by
@@ -81,31 +81,81 @@ from check_LiteLLM_model_drift import (
 # ------------------------------------------------------------------------------------------------
 
 SELFTEST_TEMPLATE = """\
+credential_list:
+  - credential_name: gemini-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+  - credential_name: openrouter-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  - credential_name: mistral-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+  - credential_name: groq-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+  - credential_name: deepseek-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+  - credential_name: aion-labs-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/AION_LABS_API_KEY_SELFTEST"
+  - credential_name: sambanova-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+
+  - credential_name: cloudflare
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  - credential_name: nvidia-nim
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+  - credential_name: requesty
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/REQUESTY_API_KEY"
+  - credential_name: zai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/ZAI_API_KEY"
+  - credential_name: cent-ai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CENT_AI_API_KEY"
 model_list:
   - model_name: flash
     litellm_params:
       model: gemini/gemini-9-flash
-      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+      litellm_credential_name: "gemini-selftest"
 
   - model_name: free-one
     litellm_params:
       model: openrouter/vendor/one:free
-      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+      litellm_credential_name: "openrouter-selftest"
 
   - model_name: large
     litellm_params:
       model: mistral/mistral-large-latest
-      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+      litellm_credential_name: "mistral-selftest"
 
   - model_name: fast
     litellm_params:
       model: groq/vendor/fast
-      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+      litellm_credential_name: "groq-selftest"
 
   - model_name: paid-direct
     litellm_params:
       model: deepseek/deepseek-v9
-      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+      litellm_credential_name: "deepseek-selftest"
 
   - model_name: kilo-one
     litellm_params:
@@ -119,24 +169,24 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-one
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY_SELFTEST"
+      litellm_credential_name: "aion-labs-selftest"
 
   # Served, but not routed to: paid only.
   # - model_name: paid-one
   #   litellm_params:
   #     model: openrouter/vendor/paid-one
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
   #
   # - model_name: paid-two
   #   litellm_params:
   #     model: openrouter/vendor/paid-two
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
 
   # Served at $0, but not routed to: a guardrail, not a generator.
   # - model_name: guardrail-free
   #   litellm_params:
   #     model: openrouter/vendor/guardrail:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
 
   # ============================================================================
   # SambaNova -- not routed to: a payment method comes first.
@@ -145,7 +195,7 @@ model_list:
   #   litellm_params:
   #     model: openai/SN-One
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #     litellm_credential_name: "sambanova-selftest"
 
   # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and turned down
   # drift-ignore: openrouter/vendor/painter:free -- selftest: not a chat model, not routed to
@@ -1962,21 +2012,34 @@ def run_head_cases():
 # The ranking source, played on canned answers in the shape its API reference documents (no key of
 # Artificial Analysis was available: the shape is the documented one, not a recorded answer).
 RANKING_TEMPLATE = """\
+credential_list:
+  - credential_name: gemini-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+  - credential_name: groq-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+  - credential_name: openrouter-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
 model_list:
   - model_name: gem-top
     litellm_params:
       model: gemini/gem-top-model
-      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+      litellm_credential_name: "gemini-selftest"
 
   - model_name: groq-mid
     litellm_params:
       model: groq/vendor/groq-mid-model
-      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+      litellm_credential_name: "groq-selftest"
 
   - model_name: free-low
     litellm_params:
       model: openrouter/vendor/free-low-model:free
-      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+      litellm_credential_name: "openrouter-selftest"
 
 router_settings:
   fallbacks:
@@ -3064,19 +3127,18 @@ def online_apply_cases():
             return "a proposed model_name is not new: %r" % names
         by_model = {entry["litellm_params"]["model"]: entry["litellm_params"] for entry in parsed}
         want = {
-            "openrouter/vendor/fresh:free": ("os.environ/OPENROUTER_API_KEY_SELFTEST", None),
-            "groq/vendor/new-fast": ("os.environ/GROQ_API_KEY_SELFTEST", None),
-            "mistral/magistral-9": ("os.environ/MISTRAL_API_KEY_SELFTEST", None),
-            "gemini/gemini-10-pro": ("os.environ/GEMINI_API_KEY_SELFTEST", None),
-            "openai/SN-New": ("os.environ/SAMBANOVA_API_KEY_SELFTEST",
-                              "https://api.sambanova.ai/v1"),
-            "cerebras/cb-new": ("os.environ/CEREBRAS_API_KEY_<ACCOUNT>", None),
+            "openrouter/vendor/fresh:free": ("openrouter-selftest", None),
+            "groq/vendor/new-fast": ("groq-selftest", None),
+            "mistral/magistral-9": ("mistral-selftest", None),
+            "gemini/gemini-10-pro": ("gemini-selftest", None),
+            "openai/SN-New": ("sambanova-selftest", "https://api.sambanova.ai/v1"),
+            "cerebras/cb-new": ("cerebras-<ACCOUNT>", None),
         }
         for model, (key, base_url) in want.items():
             got = by_model.get(model)
             if got is None:
                 return "no snippet for %s" % model
-            if got.get("api_key") != key or got.get("api_base") != base_url:
+            if got.get("litellm_credential_name") != key or got.get("api_base") != base_url:
                 return "%s is modelled on %r, expected %r" % (model, got, (key, base_url))
         expected_names = {"fresh-free", "new-fast-groq", "magistral-9", "gemini-10-pro",
                           "sn-new-sambanova", "cb-new-cerebras"}
@@ -3162,9 +3224,9 @@ def online_apply_cases():
         "\nrouter_settings:\n",
         "\n  # Usable on Groq but not routed to: enterprise only.\n"
         "  # - model_name: c1-groq\n  #   litellm_params:\n  #     model: groq/vendor/c1\n"
-        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n  #\n'
+        '  #     litellm_credential_name: "groq-selftest"\n  #\n'
         "  # - model_name: c2-groq\n  #   litellm_params:\n  #     model: groq/vendor/c2\n"
-        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+        '  #     litellm_credential_name: "groq-selftest"\n\nrouter_settings:\n')
 
     def commented_ids_count_as_held(result, new_text, report, summary, pr, commit):
         outcomes = {o["id"]: o for o in groq_outcomes(result)}
@@ -3179,7 +3241,7 @@ def online_apply_cases():
     eight_groq = APPLY_TEMPLATE.replace(
         "\nrouter_settings:\n",
         "\n  - model_name: extra-groq\n    litellm_params:\n      model: groq/vendor/extra\n"
-        '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+        '      litellm_credential_name: "groq-selftest"\n\nrouter_settings:\n')
 
     def half_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
@@ -3192,9 +3254,9 @@ def online_apply_cases():
     quartet = (
         "model_list:\n"
         '  - model_name: router\n    litellm_params:\n      model: gemini/gemini-9-pro\n'
-        '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n\n'
+        '      litellm_credential_name: "gemini-selftest"\n\n'
         + "".join('  - model_name: q%d-groq\n    litellm_params:\n      model: groq/vendor/q%d\n'
-                  '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\n' % (number, number)
+                  '      litellm_credential_name: "groq-selftest"\n\n' % (number, number)
                   for number in range(1, 5))
         + "router_settings:\n  fallbacks:\n    - router:\n"
         + "".join("        - q%d-groq\n" % number for number in range(1, 5)))
@@ -3314,7 +3376,7 @@ def online_apply_cases():
          SELFTEST_TEMPLATE.replace("\nrouter_settings:\n", "\n  - model_name: flash-two\n"
                                    "    litellm_params:\n      model: gemini/gemini-9-flash-two\n"
                                    '      api_base: "https://selftest.invalid/openai/"\n'
-                                   '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n'
+                                   '      litellm_credential_name: "gemini-selftest"\n'
                                    "\nrouter_settings:\n"),
          changed(gemini=[{"models": base["gemini"][0]["models"] + [
              {"name": "models/gemini-9-flash-two", "supportedGenerationMethods": ["generateContent"]},
@@ -3596,41 +3658,66 @@ ADDITIONS_TEMPLATE = """\
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string
 } %}
 # drift-ignore: openrouter/vendor/set-aside:free -- turned down
+credential_list:
+  - credential_name: gemini
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY"
+  - credential_name: cerebras
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CEREBRAS_API_KEY"
+  - credential_name: sambanova
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/SAMBANOVA_API_KEY"
+  - credential_name: openrouter
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY"
+  - credential_name: aion-labs
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/AION_LABS_API_KEY"
+  - credential_name: deepseek
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/DEEPSEEK_API_KEY"
 model_list:
 {% if has.Gemini %}
   - model_name: gem-one
     litellm_params:
       model: gemini/gem-one
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
 
   # Served, but not routed to: paid only.
   # - model_name: gem-paid
   #   litellm_params:
   #     model: gemini/gem-paid
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 {% endif %}
   # Cerebras: not routed to, a bank card is required.
   # - model_name: cb-one
   #   litellm_params:
   #     model: cerebras/cb-one
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
   #
   # - model_name: cb-two
   #   litellm_params:
   #     model: cerebras/cb-two
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
   #
   # - model_name: sn-one
   #   litellm_params:
   #     model: openai/sn-one
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #     litellm_credential_name: "sambanova"
 
 {% if has.OpenRouter %}
   - model_name: free-one
     litellm_params:
       model: openrouter/vendor/one:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 {% endif %}
   - model_name: gw-one
     litellm_params:
@@ -3644,7 +3731,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-one
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   - model_name: literal-key
     litellm_params:
@@ -3655,7 +3742,7 @@ model_list:
     litellm_params:
       model: deepseek/plain
       api_base: "http://deepseek.invalid/v1"
-      api_key: "os.environ/DEEPSEEK_API_KEY"
+      litellm_credential_name: "deepseek"
 
 router_settings:
   fallbacks:
@@ -3768,11 +3855,11 @@ def run_proposal_cases():
     judged("each entry follows its provider's last entry, modelled on it, active or commented out like it",
            first_wrong(
                (not any(line.startswith("- ") for line in added), "a line of the file was changed: %r" % added[:3]),
-               ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the drift run '
+               ('      litellm_credential_name: "openrouter-selftest"\n\n  # Proposed by the drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
                 '    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
-                '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
+                '      litellm_credential_name: "openrouter-selftest"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
                ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the drift run on 2026-01-01: '
@@ -3785,7 +3872,7 @@ def run_proposal_cases():
                ("  - model_name: gateway-plain-kilo\n" in to_verify["text"]
                 and to_verify["text"].count('Authorization: ""') == 2,
                 "the Kilo entry to verify is wrong, or another entry lost its header"),
-               ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
+               ('  #     litellm_credential_name: "sambanova-selftest"\n\n  # Not routed to: proposed by the '
                 'drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
                 '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM", "Public-Data-Only"]\n'
                 '  #   litellm_params:\n  #     model: openai/SN-Two\n'
@@ -3793,7 +3880,7 @@ def run_proposal_cases():
                 "the SambaNova entry is not a commented-out one after sn-one, with its base"),
                ("  - model_name: quick-groq\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
                 "    litellm_params:\n      model: groq/vendor/quick\n"
-                '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"' in to_verify["text"], "the Groq entry is wrong"),
+                '      litellm_credential_name: "groq-selftest"' in to_verify["text"], "the Groq entry is wrong"),
                (addition_problem(SELFTEST_TEMPLATE, to_verify["text"], to_verify["items"]) is None
                 and addition_problem(SELFTEST_TEMPLATE, ready["text"], ready["items"]) is None,
                 "a file built does not read back")))
@@ -3999,7 +4086,7 @@ def run_proposal_cases():
     cerebras, _ = build_additions(mini, "2026-01-01", "to_verify", [
         {"provider": "cerebras", "id": "cb-three", "name": "cb-three-cerebras"}])
     judged("an entry of a provider with commented-out entries only follows the whole run, commented out",
-           None if cerebras and ('  #     api_key: "os.environ/SAMBANOVA_API_KEY"\n\n  # Not routed to: proposed '
+           None if cerebras and ('  #     litellm_credential_name: "sambanova"\n\n  # Not routed to: proposed '
                                  "by the drift run on 2026-01-01, its free tier on Cerebras not verified "
                                  "yet.\n  # - model_name: cb-three-cerebras\n" in cerebras)
            and addition_problem(mini, cerebras, [{"provider": "cerebras", "id": "cb-three",
@@ -4010,8 +4097,8 @@ def run_proposal_cases():
              [{"provider": "cerebras", "id": "cb-two", "name": "fresh-cerebras"}], "is already an entry"),
             ("an id set aside by drift-ignore", mini, "ready",
              [{"provider": "openrouter", "id": "vendor/set-aside:free", "name": "fresh-free"}], "drift-ignore"),
-            ("an entry whose key is not read from the environment", mini, "to_verify",
-             [{"provider": "groq", "id": "vendor/fresh", "name": "fresh-groq"}], "not read from the environment"),
+            ("an entry whose key is not read through a credential", mini, "to_verify",
+             [{"provider": "groq", "id": "vendor/fresh", "name": "fresh-groq"}], "does not read its key through a credential"),
             ("an entry whose base is not https", mini, "to_verify",
              [{"provider": "deepseek", "id": "fresh", "name": "fresh-direct"}], "not a plain https address"),
             ("carriage returns", mini.replace("\n", "\r\n"), "ready",
@@ -4025,7 +4112,7 @@ def run_proposal_cases():
         judged("the entries are refused: %s" % purpose,
                None if problem and needle in problem else "refused for %r" % problem)
     entry_text = ("\n  - model_name: stray\n    litellm_params:\n      model: groq/vendor/stray\n"
-                  '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n')
+                  '      litellm_credential_name: "groq-selftest"\n')
     reasonless = SELFTEST_TEMPLATE.replace("\nrouter_settings:", "\n  # - model_name: stray\n  #   litellm_params:\n"
                                            "  #     model: groq/vendor/stray\n\nrouter_settings:")
     judged("a file that does not read back as the file plus the proposed entries is refused",
@@ -4057,7 +4144,7 @@ def run_proposal_cases():
                ('"Authorization": "Bearer " + os.environ["GROQ_API_KEY_SELFTEST"]' in groq
                 and "x-goog-api-key" not in groq and "https://api.groq.com/openai/v1/models/vendor/quick" in groq,
                 "the Groq command is wrong"),
-               ("models/a%3Ab" in catalogue_command("gemini", "a:b", "os.environ/GEMINI_API_KEY"),
+               ("models/a%3Ab" in catalogue_command("gemini", "a:b", "GEMINI_API_KEY"),
                 "an id is not quoted in its route")))
 
     # A model the ranking knows without a figure is not placed either.
@@ -4130,9 +4217,9 @@ def run_proposal_cases():
                 "a variant's figures are said to come from a certain match")))
     commented_only = ADDITIONS_TEMPLATE.replace(
         "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
-        '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
+        '      litellm_credential_name: "openrouter"\n',
         "  # Not routed to: a guardrail.\n  # - model_name: free-one\n  #   litellm_params:\n"
-        '  #     model: openrouter/vendor/one:free\n  #     api_key: "os.environ/OPENROUTER_API_KEY"\n')
+        '  #     model: openrouter/vendor/one:free\n  #     litellm_credential_name: "openrouter"\n')
     problem = build_additions(commented_only, "2026-01-01", "ready",
                               [{"provider": "openrouter", "id": "vendor/b:free", "name": "b-free"}])[1]
     judged("a ready model of a provider with commented-out entries only is refused",
@@ -4176,7 +4263,7 @@ def run_proposal_cases():
                (aion_problem is None and aion_text, "refused for %r" % aion_problem),
                (("  - model_name: aion-two-aion-labs\n    model_info:\n      access_groups: [\"Fiction\", \"Private-Data\"]\n"
                  "    litellm_params:\n      model: openai/aion-labs/aion-two\n"
-                 '      api_base: "https://api.aionlabs.ai/v1"\n      api_key: "os.environ/AION_LABS_API_KEY"\n')
+                 '      api_base: "https://api.aionlabs.ai/v1"\n      litellm_credential_name: "aion-labs"\n')
                 in aion_text, "the entry is not in the group Fiction, or lost the key or the base of its provider's"),
                (addition_problem(ADDITIONS_TEMPLATE, aion_text, aion_items) is None, "the file does not read back"),
                ("free tier, and only" in (build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", aion_items)[1] or ""),
@@ -4208,7 +4295,7 @@ def run_proposal_cases():
                 "a new OpenRouter model would be written after an embedding entry: %r" % embedding_anchor)))
 
     # The tables the bodies read, against the providers they serve.
-    commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
+    commands = [catalogue_command(name, "vendor/model-1", "%s_API_KEY" % name.upper())
                 for name in PROVIDER_NAMES]
     judged("each provider listed to verify has what to look for, and each command quotes nothing it should not",
            first_wrong(
@@ -4529,7 +4616,7 @@ def run_carried_cases():
                ("`openrouter/~vendor/odd:free`" in left and "`gemini/gemini-odd-`" in left and "forme" in left,
                 "an id of another spelling is not carried"),
                (left.count("```yaml") == 3 and "model: cerebras/cb-new" in left
-                and 'api_key: "os.environ/CEREBRAS_API_KEY_<ACCOUNT>"' in left, "the entries to complete are missing"),
+                and 'litellm_credential_name: "cerebras-<ACCOUNT>"' in left, "the entries to complete are missing"),
                ("vendor/fresh:free" not in left and "gemini-10-pro" not in left, "a proposed model is listed as not proposed"),
                (UNCARRIED_HEADING not in ready, "the ready pull request carries them")))
     judged("the run's summary has all of it, the router contracts' place and the coverage included",
@@ -5024,13 +5111,12 @@ def run_bounded_key_set_cases():
     return failures
 
 
-def real_halves(items):
-    """The items of real_scenarios, or their places in it, dealt to the two halves of the cases: even
-    places to the first, odd to the second. Neighbours cost alike and a whole provider costs more, so
-    dealing out by place spreads both evenly where a cut in the middle would put the providers in one
-    half."""
-    return [[chosen for number, chosen in enumerate(items) if number % HALVES == half]
-            for half in range(HALVES)]
+def real_parts(items):
+    """The items of real_scenarios, or their places in it, dealt to the parts of the cases, one in turn
+    to each. Neighbours cost alike and a whole provider costs more, so dealing out by place spreads both
+    evenly where a cut in the middle would put the providers in one part."""
+    return [[chosen for number, chosen in enumerate(items) if number % PARTS == part]
+            for part in range(PARTS)]
 
 
 real_layouts = {}
@@ -5053,21 +5139,21 @@ def real_text_and_layout(ending):
 
 
 def run_real_list_partition_case():
-    """The halves of the real scenarios are disjoint and together are real_scenarios, in every mode: a
-    scenario dropped from both would pass for ever without being tried."""
+    """The parts of the real scenarios are disjoint and together are real_scenarios, in every mode: a
+    scenario dropped from all of them would pass for ever without being tried."""
     text, layout, problems = real_text_and_layout("\n")
     if layout is None:
         print("selftest: FAILED (the real model list) -- it cannot be read: %s" % problems)
         return 1
     scenarios = real_scenarios(layout)
-    halves = real_halves(range(len(scenarios)))
-    dealt = sorted(number for each in halves for number in each)
+    parts = real_parts(range(len(scenarios)))
+    dealt = sorted(number for each in parts for number in each)
     if dealt != list(range(len(scenarios))):
-        print("selftest: FAILED (the halves of the real model list) -- they are not a partition of its %d "
+        print("selftest: FAILED (the parts of the real model list) -- they are not a partition of its %d "
               "scenarios" % len(scenarios))
         return 1
-    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the halves, %s"
-          % (len(scenarios), " and ".join(str(len(each)) for each in halves)))
+    print("selftest: ok -- the %d scenarios of the real model list are dealt out to the parts, %s"
+          % (len(scenarios), " and ".join(str(len(each)) for each in parts)))
     return 0
 
 
@@ -5119,9 +5205,9 @@ def run_real_list_deletion(ending, number):
     return 1 if why else 0
 
 
-def run_selftest(half=None, workers=None):
+def run_selftest(part=None, workers=None):
     """Prove that every rule refuses what it claims to refuse, and lets the baseline through: all of
-    them, or the half of them that run_selftest_cases says "half" is, across "workers" processes."""
+    them, or the part of them that run_selftest_cases says "part" is, across "workers" processes."""
     # What the drift workflow sets in the job that runs this check makes the summary carry a link to
     # the pull request, which the cases below do not expect: the selftest runs without them.
     kept = {name: os.environ.pop(name) for name in (
@@ -5129,7 +5215,7 @@ def run_selftest(half=None, workers=None):
         "GITHUB_REPOSITORY", "GITHUB_RUN_ID")
         if name in os.environ}
     try:
-        return run_selftest_cases(half, workers)
+        return run_selftest_cases(part, workers)
     finally:
         os.environ.update(kept)
 
@@ -7117,13 +7203,13 @@ CLOUDFLARE_BLOCK = """\
   - model_name: cf-large
     litellm_params:
       model: cloudflare/@cf/vendor/large
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Served, but not routed to: needs a paid plan.
   # - model_name: cf-paid
   #   litellm_params:
   #     model: cloudflare/@cf/vendor/paid
-  #     api_key: "os.environ/CLOUDFLARE_API_KEY"
+  #     litellm_credential_name: "cloudflare"
 
 """
 assert SELFTEST_TEMPLATE.count("  - model_name: local\n") == 1 and SELFTEST_TEMPLATE.count("        - large\n") == 1
@@ -7396,7 +7482,7 @@ def run_cloudflare_cases():
                 "items %r" % part["items"]),
                ('  - model_name: new-text-cloudflare\n    model_info:\n      access_groups: ["LLM", "Private-Data"]\n'
                 '    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
-                '      api_key: "os.environ/CLOUDFLARE_API_KEY"\n' in part["text"], "the entry"),
+                '      litellm_credential_name: "cloudflare"\n' in part["text"], "the entry"),
                ("api_base" not in part["text"].split("new-text-cloudflare")[1].split("\n\n")[0], "an api_base was invented"),
                (addition_problem(CLOUDFLARE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
                ("[ ] **Gratuité.** Ouvrir <https://developers.cloudflare.com/workers-ai/platform/pricing/>" in part["body"],
@@ -7429,7 +7515,7 @@ COVERAGE_BLOCK = """\
   - model_name: nv-one
     litellm_params:
       model: nvidia_nim/vendor/nv-one
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   - model_name: ovh-one
     litellm_params:
@@ -7443,25 +7529,25 @@ COVERAGE_BLOCK = """\
     litellm_params:
       model: openai/vendor/req-one
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
 
   # Served, but not routed to: paid only.
   # - model_name: req-paid
   #   litellm_params:
   #     model: openai/vendor/req-paid
   #     api_base: "https://router.eu.requesty.ai/v1"
-  #     api_key: "os.environ/REQUESTY_API_KEY"
+  #     litellm_credential_name: "requesty"
 
   - model_name: zai-one
     litellm_params:
       model: zai/glm-9-flash
-      api_key: "os.environ/ZAI_API_KEY"
+      litellm_credential_name: "zai"
 
   - model_name: cent-one
     litellm_params:
       model: openai/hy9-flash:free
       api_base: "https://api.cent-ai.dev/v1"
-      api_key: "os.environ/CENT_AI_API_KEY"
+      litellm_credential_name: "cent-ai"
 
   # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
   # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down
@@ -7708,7 +7794,7 @@ def run_coverage_cases():
                ('  # Proposed by the drift run on 2026-01-01: listed free by "router.eu.requesty.ai/v1/models" that day.\n'
                 '  - model_name: req-fresh-requesty\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
                 '      model: openai/vendor/req-fresh\n      api_base: "https://router.eu.requesty.ai/v1"\n'
-                '      api_key: "os.environ/REQUESTY_API_KEY"\n' in ready["text"], "the entry"),
+                '      litellm_credential_name: "requesty"\n' in ready["text"], "the entry"),
                (addition_problem(COVERAGE_TEMPLATE, ready["text"], ready["items"]) is None, "it does not read back"),
                ("free" not in [what for report in result["providers"] if report["name"] == "requesty"
                                for finding in report["findings"] for what, _ in finding.get("missing", [])],
@@ -7733,11 +7819,11 @@ def run_coverage_cases():
                 '      api_key: "ovh-no-key-needed"\n      extra_headers:\n        Authorization: ""\n' in part["text"],
                 "the OVHcloud entry"),
                ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
-                '      model: nvidia_nim/vendor/nv-new.1\n      api_key: "os.environ/NVIDIA_NIM_API_KEY"\n' in part["text"],
+                '      model: nvidia_nim/vendor/nv-new.1\n      litellm_credential_name: "nvidia-nim"\n' in part["text"],
                 "the NVIDIA entry"),
-               ('      model: zai/glm-9-new\n      api_key: "os.environ/ZAI_API_KEY"\n' in part["text"], "the Z AI entry"),
+               ('      model: zai/glm-9-new\n      litellm_credential_name: "zai"\n' in part["text"], "the Z AI entry"),
                ('      model: openai/hy9-new:free\n      api_base: "https://api.cent-ai.dev/v1"\n'
-                '      api_key: "os.environ/CENT_AI_API_KEY"\n' in part["text"], "the Cent AI entry"),
+                '      litellm_credential_name: "cent-ai"\n' in part["text"], "the Cent AI entry"),
                ("  - model_name: hy9-new-cent-ai\n" in part["text"], "the Cent AI name"),
                (addition_problem(COVERAGE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
                ("docker exec" in part["body"] and "ZAI_API_KEY" in part["body"] and "CENT_AI_API_KEY" in part["body"],
@@ -7826,13 +7912,13 @@ INCOMPLETE_BLOCK = """\
   - model_name: zai-flash
     litellm_params:
       model: zai/glm-9-flash
-      api_key: "os.environ/ZAI_API_KEY"
+      litellm_credential_name: "zai"
 
   # Served, but not routed to: selftest, set aside.
   # - model_name: zai-flash-old
   #   litellm_params:
   #     model: zai/glm-8-flash
-  #     api_key: "os.environ/ZAI_API_KEY"
+  #     litellm_credential_name: "zai"
 
   # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down
 
@@ -9046,10 +9132,10 @@ def run_canned_catalogue_cases():
     return failures
 
 
-HALVES = 2
+PARTS = 4
 
-# What a half runs is a list of units, each a group of the table above or a deletion from the real
-# model list, in the order their results are printed. The list is a function of the half alone; how its
+# What a part runs is a list of units, each a group of the table above or a deletion from the real
+# model list, in the order their results are printed. The list is a function of the part alone; how its
 # units are shared between the processes of a pool is not, and does not need to be: each is run once, and
 # the results are read back in the order of the list.
 # "weight" is what a unit costs next to the others, which only decides which start first.
@@ -9057,13 +9143,13 @@ Unit = collections.namedtuple("Unit", "name run weight", defaults=(0,))
 units_of_the_run = []
 
 
-def units_of_a_half(half):
-    """The units of one half, or of all of them where "half" is None: the groups of the table, then the
-    deletions real_halves deals to it, the CRLF ones being the first scenarios of the file read with
+def units_of_a_part(part):
+    """The units of one part, or of all of them where "part" is None: the groups of the table, then the
+    deletions real_parts deals to it, the CRLF ones being the first scenarios of the file read with
     them. A unit runs in a process of its own pool, so it holds no state another needs."""
-    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
     units = []
-    for group in (groups[half - 1] if half else [group for each in groups for group in each]):
+    for group in (GROUPS_OF_THE_PARTS[part - 1] if part else [group for each in GROUPS_OF_THE_PARTS
+                                                               for group in each]):
         units.append(Unit(group.__name__, lambda group=group: (leave_real_list_session(), group())[1], 10**6))
     for ending, bound in (("\n", None), ("\r\n", REAL_CRLF_CASES)):
         text, layout, problems = real_text_and_layout(ending)
@@ -9072,7 +9158,7 @@ def units_of_a_half(half):
                 "selftest: FAILED (the real model list) -- it cannot be read: %s" % problems) or 1))
             continue
         scenarios = real_scenarios(layout)
-        numbers = real_halves(range(len(scenarios)))[half - 1] if half else range(len(scenarios))
+        numbers = real_parts(range(len(scenarios)))[part - 1] if part else range(len(scenarios))
         for number in numbers if bound is None else [each for each in numbers if each < bound]:
             units.append(Unit("deletion %d%s" % (number, " with CRLF line endings" if bound else ""),
                               lambda ending=ending, number=number: run_real_list_deletion(ending, number),
@@ -9168,69 +9254,92 @@ def run_pool_cases():
     return failures
 
 
-# The groups of cases, each in the half that runs it, so that the two take about as long: the real
-# model list is dealt out between them by real_halves, and what is listed here is the rest. A group
-# listed in no half is a group nobody runs, which run_selftest_cases refuses.
-GROUPS_OF_THE_FIRST_HALF = (
-    run_pool_cases,
-    run_template_cases,
-    run_canned_catalogue_cases,
-    run_incomplete_catalogue_cases,
-    run_deprecation_cases,
-    run_cloudflare_cases,
-    run_coverage_cases,
-    run_apply_cases,
-    run_pricing_page_cases,
-    run_ranking_cases,
-    run_contract_cases,
-    run_epoch_cases,
-    run_eci_cases,
-    run_verify_cases,
-    run_safety_net_case,
-    run_online_apply_cases,
-    run_confirmation_cases,
-    run_lookup_cases,
-    run_review_cases,
-    run_keyset_cases,
-    run_jinja_net_cases,
-    run_hardening_cases,
-    run_command_line_cases,
-    run_proposal_cases,
-    run_usage_cases,
-    run_carried_cases,
-    run_proposal_command_line_cases,
-    run_bounded_key_set_cases,
-)
-GROUPS_OF_THE_SECOND_HALF = (
-    run_head_cases,
-    run_sheet_cases,
-    run_sheet_rewrite_cases,
+# The groups of cases, each in the part that runs it, so that the four take about as long: the real
+# model list is dealt out between them by real_parts, and what is listed here is the rest. A group
+# listed in no part is a group nobody runs, which run_selftest_cases refuses.
+#
+# What each costs, measured as the CPU seconds one process spends on it, on a machine far slower than a
+# runner and shared, so that only the ratios mean anything:
+#
+#   a deletion from the real model list    about 46 for one or two entries, 105 for four, 210 to 250 for twelve
+#                                          to twenty; the scenarios are dealt out by real_parts, which puts
+#                                          about the same in each part
+#   run_head_cases                         369
+#   run_apply_cases                        13
+#   run_coverage_cases                     1.1
+#   run_contract_cases, run_review_cases   0.9, 0.8
+#   run_online_apply_cases                 0.7
+#   each of the other twenty-five          0.5 or less, about 4 in all
+#
+# The deletions come to about 2,400 per part, so the groups are what evens the parts out: the one group
+# that costs as much as eight deletions goes alone to the part whose deletions cost least, and the rest
+# are spread over the other three, the heaviest first. A part's tuple lists its groups heaviest first, since
+# that is the order they start in. A new group goes to the part that is lightest once its own cost is
+# counted, with its weight added here.
+GROUPS_OF_THE_PARTS = (
+    (
+        run_coverage_cases,
+        run_online_apply_cases,
+        run_incomplete_catalogue_cases,
+        run_proposal_cases,
+        run_usage_cases,
+        run_cloudflare_cases,
+        run_template_cases,
+        run_hardening_cases,
+        run_eci_cases,
+        run_proposal_command_line_cases,
+        run_bounded_key_set_cases,
+        run_command_line_cases,
+        run_sheet_rewrite_cases,
+        run_sheet_cases,
+    ),
+    (
+        run_apply_cases,
+    ),
+    (
+        run_contract_cases,
+        run_review_cases,
+        run_canned_catalogue_cases,
+        run_epoch_cases,
+        run_deprecation_cases,
+        run_confirmation_cases,
+        run_keyset_cases,
+        run_verify_cases,
+        run_carried_cases,
+        run_safety_net_case,
+        run_ranking_cases,
+        run_pool_cases,
+        run_jinja_net_cases,
+        run_pricing_page_cases,
+        run_lookup_cases,
+    ),
+    (
+        run_head_cases,
+    ),
 )
 
 
-def run_selftest_cases(half=None, workers=None):
-    """Every case, or the cases of one half, the first or the second, run side by side in two jobs of
-    the CI, each across "workers" processes. Whichever is run, the halves are first held to being a
-    partition of the cases."""
+def run_selftest_cases(part=None, workers=None):
+    """Every case, or the cases of one part, run side by side in the four jobs of the CI, each across
+    "workers" processes. Whichever is run, the parts are first held to being a partition of the cases."""
     workers = workers or os.cpu_count() or 1
-    groups = (GROUPS_OF_THE_FIRST_HALF, GROUPS_OF_THE_SECOND_HALF)
-    everything = [group for each in groups for group in each]
+    everything = [group for each in GROUPS_OF_THE_PARTS for group in each]
     failures = run_real_list_partition_case()
     if len(everything) != len(set(everything)):
         failures += 1
-        print("selftest: FAILED (the halves of the cases) -- a group is in both of them or twice in one")
+        print("selftest: FAILED (the parts of the cases) -- a group is in two of them or twice in one")
     forgotten = sorted(name for name, value in globals().items()
                        if re.fullmatch(r"run_\w+_cases?", name) and callable(value)
                        and value not in everything and name not in ("run_selftest_cases",
                                                                     "run_real_list_partition_case"))
     if forgotten:
         failures += 1
-        print("selftest: FAILED (the halves of the cases) -- %s in neither half, so never run"
+        print("selftest: FAILED (the parts of the cases) -- %s in no part, so never run"
               % ", ".join(forgotten))
-    units = units_of_a_half(half)
+    units = units_of_a_part(part)
     deletions = [unit for unit in units if unit.name.startswith("deletion") and "CRLF" not in unit.name]
     print("selftest: %s -- %d groups of cases and %d deletions from the real model list, on %d process(es)"
-          % ("half %d of %d" % (half, HALVES) if half else "every case",
+          % ("part %d of %d" % (part, PARTS) if part else "every case",
              len(units) - len([unit for unit in units if unit.name.startswith("deletion")]),
              len(deletions), max(1, min(workers, len(units)))))
     failed = run_units(units, workers)
@@ -9240,18 +9349,18 @@ def run_selftest_cases(half=None, workers=None):
 
 
 def parse_arguments(arguments):
-    """The half and the number of processes asked for: "--half 1" or "--half 2" for one half, none for
+    """The part and the number of processes asked for: "--part 1" to "--part 4" for one part, none for
     every case; "--workers N" for N processes, the number of cores by default and 1 for no pool at all."""
     parser = argparse.ArgumentParser(description="The verification cases of check_LiteLLM_model_drift.py.")
-    parser.add_argument("--half", type=int, choices=range(1, HALVES + 1),
-                        help="run one half of the cases only, as one job of the CI does")
+    parser.add_argument("--part", type=int, choices=range(1, PARTS + 1),
+                        help="run one part of the cases only, as one job of the CI does")
     parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
                         help="processes to run the cases across (default: the cores of the machine; "
                              "1 runs them in this process, which is what to debug with)")
     given = parser.parse_args(arguments)
     if given.workers < 1:
         parser.error("--workers must be at least 1")
-    return given.half, given.workers
+    return given.part, given.workers
 
 
 if __name__ == "__main__":

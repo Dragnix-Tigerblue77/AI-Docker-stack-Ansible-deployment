@@ -214,8 +214,9 @@ jobs:
             // the "model:" of an entry that stays, an "api_base" -- is not a model, whatever else the patch
             // is, and a person reads it. The entries of a keyless gateway hold two lines more, the header that
             // blanks Authorization, which are part of the entry only written as the template writes them. Every entry also holds the two lines of its
-            // groups, "LLM" for a text model and the one that says what its provider does with the data: one in another
-            // type group has other lines and is a person's. A
+            // groups, "LLM" for a text model and the one that says what its provider does with the data, and "Claude-Code" after
+            // them for a member of the agent's cascade: one in another type group, or in an order the template does not write,
+            // has other lines and is a person's. A
             // diff may put one deletion a few identical lines higher or lower
             // than another would: the question is asked of the file that results, so any placement that is
             // a whole deletion counts.
@@ -223,7 +224,7 @@ jobs:
               const BLANK = /^\s*$/;
               const COMMENT = /^\s*#/;
               const HEADER = /^ {2}- model_name:\s*(\S.*?)\s*$/;
-              const BODY = /^( {4}model_info:| {6}access_groups:\s*\["LLM", "(?:Private-Data|Public-Data-Only)"\]| {4}litellm_params:| {6}(model|api_key|api_base):\s*\S.*?| {6}extra_headers:| {8}Authorization:\s*"")\s*$/;
+              const BODY = /^( {4}model_info:| {6}access_groups:\s*\["LLM", "(?:Private-Data|Public-Data-Only)"(?:, "Claude-Code")?\]| {4}litellm_params:| {6}(model|api_key|litellm_credential_name|api_base):\s*\S.*?| {6}extra_headers:| {8}Authorization:\s*"")\s*$/;
               const SLOT = /^ {8}- ([A-Za-z0-9_.:/-]+)\s*$/;
               const REACH = 3;
               const cut = (text) => (text.length > 60 ? text.slice(0, 57) + '...' : text);

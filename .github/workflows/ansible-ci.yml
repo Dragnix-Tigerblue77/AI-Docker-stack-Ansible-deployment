@@ -22,6 +22,10 @@ name: Quality checks
 #   "dependabot-auto-merge.yml" listens for, so it is load-bearing too. So is every job's "name:"
 #   being a plain string, never rendered from a matrix: the two "role run" jobs below say why.
 #
+#   For the same reason no job is ever skipped by "if:" and no trigger filtered by "paths:", though
+#   a check may have nothing to do on a pull request: the four jobs of the drift check's verification
+#   cases decide in a step of their own and end in success at once, which is a verdict the gate reads.
+#
 # Every job below runs on GitHub's hosted runners. The repository is public, so their minutes cost
 # nothing, and GitHub advises against self-hosted runners on a public repository, where a pull
 # request from a fork could run its code on them.
@@ -197,7 +201,7 @@ jobs:
         run: nohup python3 .github/role_run/stand_in_gateway.py > "$RUNNER_TEMP/stand_in_gateway.log" 2>&1 &
 
       - name: Run the example playbook
-        env:
+        env: &role_run_playbook_environment
           ANSIBLE_ROLES_PATH: ${{ github.workspace }}/.github/role_run/roles:~/.ansible/roles
           ANSIBLE_FORCE_COLOR: "1"
         run: |
@@ -212,6 +216,17 @@ jobs:
           esac
           ansible-playbook -i .github/role_run/inventory.ini "${extra_vars[@]}" playbook.Artificial_Intelligence.example.yaml
 
+      # What a deployed gateway sees when the agent's list changes: the key exists with the first run's list,
+      # and the role must bring it to the new one rather than leave it. Agent off, there is no key to change.
+      - name: Run the example playbook again, with the agent key's list changed
+        if: env.ROLE_RUN_CLAUDE_CODE_AGENT == 'on'
+        env: *role_run_playbook_environment
+        run: |
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash Auto-Flash-Lite Auto-Code Claude-Code
+          ansible-playbook -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml \
+            -e @.github/role_run/vars.claude_code_key_changed.yml playbook.Artificial_Intelligence.example.yaml
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Claude-Code
+
   role-run-agent-on:
     name: role run (Claude Code agent on)
     runs-on: ubuntu-latest
@@ -221,25 +236,80 @@ jobs:
     steps: *role_run_steps
 
   # The verification cases of the drift check take far longer than every other check together, so they
-  # run beside them, in two halves side by side, each across the cores of its runner. Each half is a job
-  # of its own and not a matrix leg, for the reason given above the role runs, and the module checks
-  # that every case runs in exactly one half.
+  # run beside them, in four parts side by side, each across the cores of its runner. Each part is a
+  # job of its own and not a matrix leg, for the reason given above the role runs, and the module checks
+  # that every case runs in exactly one part.
   #
-  # The first half keeps the name this job always had: the live ruleset requires a check by name, and a
-  # new one there would leave every pull request waiting for the old one until it is imported again.
+  # On a pull request they run only when the change touches what they test. The job still starts and
+  # still succeeds when it does not: it is a required check, and one that never reports, as a job skipped
+  # by "if:" or a workflow filtered by "paths:" does not, leaves the pull request waiting for ever. On
+  # a push to main and on a dispatch they always run, so that main is checked in full whatever got in.
   LiteLLM-drift-selftest:
-    name: "LiteLLM drift check: verification cases"
+    name: "LiteLLM drift check: verification cases, part 1 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow, and
-    # a half normally takes under twenty minutes.
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
     timeout-minutes: 60
     env:
-      DRIFT_SELFTEST_HALF: "1"
+      DRIFT_SELFTEST_PART: "1"
     steps: &drift_selftest_steps
+      # Two commits deep: on a pull request the checkout is the merge of the branch into the base, and
+      # its first parent, which the next step compares it with, comes with it.
       - name: Check the repository out
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Decide whether the cases have anything to test
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # What the cases read or load, and the files that hold the contract the cases write down.
+          relevant=(
+            # The script they test, and the module that holds them.
+            '^\.github/scripts/check_LiteLLM_model_drift\.py$'
+            '^\.github/scripts/check_LiteLLM_model_drift_selftest\.py$'
+            # Loaded by a case, to hold the script's tables to the ones the template is checked against.
+            '^\.github/scripts/check_compose_template\.py$'
+            # The model list: the cases delete every scenario of the real one, and read it rendered.
+            '^templates/LiteLLM_config\.yaml\.j2$'
+            # The contracts the real model list is read against.
+            '^\.github/LiteLLM_router_contracts\.yaml$'
+            # The workflows and the checks the cases describe the texts and thresholds of. They are not
+            # read by the cases, but a change to either side of that contract is the one they are for.
+            '^\.github/workflows/LiteLLM_model_drift\.yml$'
+            '^\.github/scripts/check_drift_publish_guard\.py$'
+            '^\.github/workflows/dependabot-auto-merge\.yml$'
+            '^\.github/scripts/check_auto_merge_gate\.py$'
+            # This job's own definition: a change to how the cases are split or started is tried by them.
+            '^\.github/workflows/ansible-ci\.yml$'
+            # The interpreter and the pinned PyYAML, Jinja2 and ansible-core they run on.
+            '^requirements\.txt$'
+            '^\.python-version$'
+          )
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Verification cases::Run in full: this is a $EVENT_NAME, not a pull request."
+            exit 0
+          fi
+          # No rename detection, so that a file moved away from a path above counts as touched. A change
+          # that cannot be read, or a checkout that is not a merge commit, runs the cases: skipping is
+          # only ever the answer to a list read in full.
+          if ! changed=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Verification cases::Run in full: the files of the change could not be listed."
+            exit 0
+          fi
+          if grep -Eq -f <(printf '%s\n' "${relevant[@]}") <<< "$changed"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Verification cases::Run: the change touches a file they test."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Verification cases::Skipped: the change touches none of the files they test (the script, its cases, the model list, the router contracts, the workflows and checks around it, requirements.txt, .python-version)."
+          fi
 
       - name: Set up Python
+        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-python@v7
         with:
           python-version-file: ".python-version"
@@ -247,20 +317,39 @@ jobs:
 
       # PyYAML and Jinja2, which the cases render the model list with, come from requirements.txt.
       - name: Install the tooling
+        if: steps.scope.outputs.run == 'true'
         run: pip install -r requirements.txt
 
-      # The script's "--selftest" runs every case; the module is named here to run a half.
+      # The script's "--selftest" runs every case; the module is named here to run a part.
       - name: Run the verification cases
-        run: python3 .github/scripts/check_LiteLLM_model_drift_selftest.py --half "$DRIFT_SELFTEST_HALF"
+        if: steps.scope.outputs.run == 'true'
+        run: python3 .github/scripts/check_LiteLLM_model_drift_selftest.py --part "$DRIFT_SELFTEST_PART"
 
-  LiteLLM-drift-selftest-second-half:
-    name: "LiteLLM drift check: verification cases, second half"
+  LiteLLM-drift-selftest-part-2:
+    name: "LiteLLM drift check: verification cases, part 2 of 4"
     runs-on: ubuntu-latest
-    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow, and
-    # a half normally takes under twenty minutes.
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
     timeout-minutes: 60
     env:
-      DRIFT_SELFTEST_HALF: "2"
+      DRIFT_SELFTEST_PART: "2"
+    steps: *drift_selftest_steps
+
+  LiteLLM-drift-selftest-part-3:
+    name: "LiteLLM drift check: verification cases, part 3 of 4"
+    runs-on: ubuntu-latest
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
+    timeout-minutes: 60
+    env:
+      DRIFT_SELFTEST_PART: "3"
+    steps: *drift_selftest_steps
+
+  LiteLLM-drift-selftest-part-4:
+    name: "LiteLLM drift check: verification cases, part 4 of 4"
+    runs-on: ubuntu-latest
+    # A guard against a run that hangs, not a budget: it must never cancel work that is merely slow.
+    timeout-minutes: 60
+    env:
+      DRIFT_SELFTEST_PART: "4"
     steps: *drift_selftest_steps
 
   repository-rules:
@@ -331,7 +420,7 @@ jobs:
       # The offline half of the drift check: cascades and aliases name active entries, no name twice, every
       # commented-out entry gives its reason. The online half reads the providers' catalogues with
       # their keys, and so never runs on a pull request -- "LiteLLM_model_drift.yml" runs it.
-      # The check's own verification cases are the job "LiteLLM drift check: verification cases".
+      # The check's own verification cases are the four jobs "LiteLLM drift check: verification cases, part N of 4".
       - name: "LiteLLM model list: hold it to its rule"
         if: ${{ !cancelled() }}
         run: python3 .github/scripts/check_LiteLLM_model_drift.py

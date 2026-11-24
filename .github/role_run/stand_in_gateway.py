@@ -10,9 +10,11 @@ once the stack is up, and the stand-in deployer starts no stack: without somethi
 task, and holds the role to the calls it is written to make:
 
   GET  /health/readiness       200
-  GET  /key/info?key=<sha256>  404 until that key was generated, 200 after (the role looks first)
+  GET  /key/info?key=<sha256>  404 until that key was generated, 200 after, with its models (the role looks first)
   POST /key/generate           200, with the key, its alias and its model allow-list in the body: a list
                                of distinct non-empty strings, as LiteLLM's own "models" is (#307)
+  POST /key/update             200 for the SHA-256 of a key it generated and a list of the same shape, which
+                               replaces that key's models
   POST /user/new               200 for a user it has not seen, 409 for one it has (by username or email); the
                                body must hold a user_id, a user_email, a user_role that is "internal_user" or
                                "proxy_admin" and "auto_create_key" false. The gateway's own administrator
@@ -25,6 +27,10 @@ task, and holds the role to the calls it is written to make:
 Every call but the first must carry the master key as a bearer token. Anything else is answered 500 and
 printed, so the role's task fails with the reason on the runner's log rather than a quiet success.
 
+Run with "--expect-agent-models NAME..." instead, it asks the stand-in already listening for the models of the
+agent's key, the one "vars.yml" vaults, and exits 1 unless they are exactly those names: that is how the job
+sees that a run brought an existing key to a changed list, which no task of the role reports by itself.
+
 What this does NOT check is that real LiteLLM answers like this: the shapes are the role's reading of
 its API, measured elsewhere. It checks the role makes the calls it says it makes.
 """
@@ -35,13 +41,17 @@ import json
 import pathlib
 import sys
 import urllib.parse
+import urllib.request
 
 import yaml
 
 VARS = pathlib.Path(__file__).with_name("vars.yml")
-MASTER_KEY = yaml.safe_load(VARS.read_text())["vault_Artificial_Intelligence_LiteLLM_master_key"]
+ROLE_RUN_VARS = yaml.safe_load(VARS.read_text())
+MASTER_KEY = ROLE_RUN_VARS["vault_Artificial_Intelligence_LiteLLM_master_key"]
+AGENT_KEY = ROLE_RUN_VARS["vault_Artificial_Intelligence_Claude_code_virtual_key"]
 PORT = 4000
-GENERATED = set()
+# The models of each key generated, by the SHA-256 LiteLLM stores it under.
+GENERATED = {}
 USERS = {}
 ROLES = ("internal_user", "proxy_admin")
 ADMIN_IDENTITY = "default_user_id"
@@ -75,14 +85,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             key = urllib.parse.parse_qs(url.query).get("key", [""])[0]
             if key in GENERATED:
-                self.reply(200, {"key": key, "info": {"status": "active"}})
+                self.reply(200, {"key": key, "info": {"status": "active", "models": GENERATED[key]}})
             else:
                 self.reply(404, {"error": "key not found"})
         else:
             self.refuse("no such endpoint in this stand-in")
 
     def do_POST(self):  # noqa: N802
-        handlers = {"/key/generate": self.generate_key, "/user/new": self.new_user, "/invitation/new": self.new_invitation}
+        handlers = {"/key/generate": self.generate_key, "/key/update": self.update_key, "/user/new": self.new_user,
+                    "/invitation/new": self.new_invitation}
         if self.path not in handlers:
             self.refuse("no such endpoint in this stand-in")
             return
@@ -118,23 +129,53 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.reply(200, {"id": f"invitation-{body['user_id']}", "user_id": body["user_id"], "is_accepted": False,
                              "expires_at": "2099-01-01T00:00:00Z"})
 
+    def well_formed_models(self, body):
+        models = body["models"]
+        if isinstance(models, list) and all(isinstance(name, str) and name for name in models) and len(set(models)) == len(models):
+            return True
+        self.refuse(f"models is not a list of distinct non-empty strings: {models!r}")
+        return False
+
     def generate_key(self, body):
         missing = [name for name in ("key", "key_alias", "models") if not body.get(name)]
         if missing:
             self.refuse(f"the body lacks {', '.join(missing)}")
             return
-        models = body["models"]
-        well_formed = isinstance(models, list) and all(isinstance(name, str) and name for name in models)
-        if not well_formed or len(set(models)) != len(models):
-            self.refuse(f"models is not a list of distinct non-empty strings: {models!r}")
+        if not self.well_formed_models(body):
             return
-        print(f"stand-in gateway: key {body['key_alias']!r} allows {models}", flush=True)
-        GENERATED.add(hashlib.sha256(body["key"].encode()).hexdigest())
+        print(f"stand-in gateway: key {body['key_alias']!r} allows {body['models']}", flush=True)
+        GENERATED[hashlib.sha256(body["key"].encode()).hexdigest()] = body["models"]
         self.reply(200, {"key": body["key"]})
+
+    def update_key(self, body):
+        missing = [name for name in ("key", "models") if not body.get(name)]
+        if missing:
+            self.refuse(f"the body lacks {', '.join(missing)}")
+        elif body["key"] not in GENERATED:
+            self.refuse("an update for a key this stand-in never generated, or not by its SHA-256")
+        elif self.well_formed_models(body):
+            GENERATED[body["key"]] = body["models"]
+            print(f"stand-in gateway: key {body['key'][:8]}... now allows {body['models']}", flush=True)
+            self.reply(200, {"key": body["key"], "models": body["models"]})
 
     def log_message(self, format, *args):  # noqa: A002 - the signature http.server defines
         print("stand-in gateway:", format % args, flush=True)
 
 
+def expect_agent_models(expected):
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{PORT}/key/info?key={hashlib.sha256(AGENT_KEY.encode()).hexdigest()}",
+        headers={"Authorization": f"Bearer {MASTER_KEY}"})
+    with urllib.request.urlopen(request, timeout=10) as answer:
+        models = json.load(answer)["info"]["models"]
+    if sorted(models) != sorted(expected):
+        print(f"the agent's key allows {models}, not {expected}", file=sys.stderr)
+        return 1
+    print(f"the agent's key allows {models}")
+    return 0
+
+
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--expect-agent-models"]:
+        sys.exit(expect_agent_models(sys.argv[2:]))
     http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

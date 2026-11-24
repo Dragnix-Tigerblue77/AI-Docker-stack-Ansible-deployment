@@ -78,6 +78,10 @@ Every member of a text cascade declares its context window, "model_info.max_inpu
 checks hold a request to, and those checks are on; OmniRoute's routes and OpenRouter's free router, which pick a model at
 run time, are exempt, and so is a member whose provider publishes no window, listed with where it was looked for. A
 length an entry sets stays under its declared maximum output and its window.
+An entry that sets a "reasoning_effort" is held to the values its model takes, model by model and not provider
+by provider ("LITELLM_REASONING_EFFORTS"): a value the model does not take is refused at once, by the provider or
+by LiteLLM, and the entry is then never used, which no render shows. A model the table does not know may set no
+level, and neither may an entry of a provider LiteLLM drops the field for.
 
 Every entry of a mode that has a router (text, speech to text, speech, decisions, extraction, and the models kept
 apart) has to be a member of a cascade or the target of an alias: a model that can be called is routed, and one
@@ -86,6 +90,14 @@ that cannot is deleted or commented out with its reason. The entries called by n
 well; "check_routing_document.py" holds the set to the section of "ROUTAGE.md" that lists them. An embedding model,
 which no router serves and which is addressed by its own name alone, and any other mode the gateway has no router
 for, are exempt.
+
+The provider keys reach the entries as named credentials ("credential_list", which "/ui" lists under "LLM
+Credentials"), and each rendering is held to that shape: one credential per key given and none for a key not
+given, each named after the variable it reads and holding that variable and nothing else, every entry
+reaching its key through a credential that exists (LiteLLM does not refuse a name nobody declares: the request
+goes out without a key, and for a provider whose key is also in the environment, with the default account's),
+and none carrying both a credential and a key of its own, which would win over it. Every rule below then reads
+the rendering as if each entry carried the key its credential holds, which is what LiteLLM sends.
 
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
@@ -830,7 +842,7 @@ def check_librechat_gateway_key_models_default(defaults, failures):
     the text models, and the routers that group does not hold, since a router is in no group. The router of the
     agent is left out of what the default must hold, and may be named."""
     routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
-    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM"} | set(LITELLM_DATA_GROUP_NAMES)
+    groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM", LITELLM_AGENT_GROUP} | set(LITELLM_DATA_GROUP_NAMES)
     # The models kept apart are a group and a router of the template, so that a key may be given them by name, and
     # are never in the default: an account that inherited them would reach what they were kept apart for.
     kept_apart = set(LITELLM_KEPT_APART_GROUPS.values()) | {
@@ -1723,6 +1735,10 @@ LITELLM_UNROUTED_MODES = frozenset({"image_generation", "video_generation", "rer
 # The one exception: text models kept out of "LLM" on purpose, each group named for the key an entry reads. Such an
 # entry is in that group whatever its mode, and no other entry is, so that no key holding "LLM" reaches it.
 LITELLM_KEPT_APART_GROUPS = {"AION_LABS_API_KEY": "Fiction"}
+# The group the agent's key holds besides its routers: the members of the agent's own cascade carry it, written last,
+# after their type group and their data group, and no other entry does, so that the key reaches the models that take strict tool calls and nothing
+# else, fallbacks included, which LiteLLM skips when the key does not allow the member.
+LITELLM_AGENT_GROUP = "Claude-Code"
 
 
 def litellm_access_group(mode, reference=None):
@@ -1795,8 +1811,6 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 # reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
 # unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
 LITELLM_CALLED_BY_NAME = {
-    "gemini-4-hydrogen-xhigh": "the highest reasoning level of its model, too slow for any router, kept for whoever "
-                               "asks for it by name",
     "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
                              "vision-capable models: no router takes images, so it is kept for whoever asks for it "
                              "by name, and untried",
@@ -1834,6 +1848,137 @@ LITELLM_WINDOW_UNPUBLISHED = {
 
 def positive_int(value):
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+# The "reasoning_effort" values each model takes, by what LiteLLM is given for it: the "model" of an entry and
+# its "api_base", since one id behind two gateways is two translations, and so two sets of values. A value
+# outside its model's set is refused by the provider, or by LiteLLM before the request leaves, as an
+# immediate 400: the entry is then never used, and the cascade moves on without a word. So an entry that sets
+# a level must find its model here and the level among its values. A model with no values says why: an entry
+# of it sets none. The paid providers' models are left out on purpose, since a level is never forced on them.
+# The models of the providers that count tokens (Groq, Aion Labs, Cloudflare) stay: no entry sets a level there,
+# but the rows say what the models take, for whoever sets one by hand.
+# Each set is what the provider's own page gives, cut to what LiteLLM forwards unchanged (its source, read
+# 2026-11-24): for Gemini 3 and later it sends the level as Google's thinking level, "xhigh" only for a model
+# its map flags for it, and "minimal" as "low" for a model its map refuses it for; for an older Gemini or a
+# Gemma it sends a thinking budget instead; for OpenRouter it sends "max" as "xhigh"; for an "openai/" entry of
+# a model it does not know it sends the value as it is.
+_GEMINI_LEVELS = ("ai.google.dev/gemini-api/docs/thinking, read "
+                  "2026-11-24, as LiteLLM sends them as thinking levels")
+_GEMINI_BUDGET = ("LiteLLM sends a thinking budget for this model, where Google's thinking page (read 2026-11-24) "
+                  "gives levels only, and nothing read says the budget is taken")
+_GROQ = "console.groq.com/docs/reasoning, read 2026-11-24"
+_OPENROUTER = ('"reasoning.supported_efforts" of openrouter.ai/api/v1/models, read 2026-11-24, without "max", '
+               'which LiteLLM sends to OpenRouter as "xhigh"')
+_OPENROUTER_NONE = ('openrouter.ai/api/v1/models, read 2026-11-24, gives no "supported_efforts" for this model, and '
+                    'no "reasoning_effort" among its "supported_parameters"')
+_KILO = ('"opencode.reasoning_options" of ai-gateway.kilo.ai/api/v1/models, read 2026-11-24, with '
+         '"reasoning_effort" among the model\'s "supported_parameters"')
+_KILO_NO_FIELD = ('ai-gateway.kilo.ai/api/v1/models, read 2026-11-24, gives effort values but no "reasoning_effort" '
+                  'among the model\'s "supported_parameters", and that field is the one LiteLLM sends')
+_KILO_NONE = "ai-gateway.kilo.ai/api/v1/models, read 2026-11-24, gives no effort values for this model, a toggle at most"
+_REQUESTY = ('"reasoning.supported_efforts" of router.eu.requesty.ai/v1/models, read 2026-11-24, and the Reasoning '
+             'page of the Requesty docs, which says a level the model lacks is replaced by the nearest one')
+_OVHCLOUD = ("neither the models list of the endpoint nor the OVHcloud AI Endpoints catalogue page, read 2026-11-24, "
+             "says which values the model takes")
+_AION = '"reasoning_effort.levels" of api.aionlabs.ai/v1/models, read 2026-11-24'
+_CLOUDFLARE_FORCED = ('a call through the gateway with "allowed_openai_params" on 2026-11-24, where "low" and "high" '
+                      'changed the length of the reasoning, and the model page, which gives "medium" as its default')
+_KILO_BASE = LITELLM_KEYLESS_BASES["Kilo"]
+_OVHCLOUD_BASE = LITELLM_KEYLESS_BASES["OVHcloud"]
+_REQUESTY_BASE = "https://router.eu.requesty.ai/v1"
+_AION_BASE = "https://api.aionlabs.ai/v1"
+_ALL_SIX = ("none", "low", "medium", "high", "xhigh", "max")
+LITELLM_REASONING_EFFORTS = {
+    ("gemini/gemini-4-hydrogen", None): (("low", "medium", "high", "xhigh"), _GEMINI_LEVELS),
+    ("gemini/gemini-3.8-flash", None): (("low", "medium", "high"), _GEMINI_LEVELS),
+    ("gemini/gemini-3.6-flash", None): (("minimal", "low", "medium", "high"), _GEMINI_LEVELS),
+    ("gemini/gemini-3.5-flash-lite", None): (("minimal", "low", "medium", "high"), _GEMINI_LEVELS),
+    ("gemini/gemini-3.1-flash-lite", None): (("minimal", "low", "medium", "high"), _GEMINI_LEVELS),
+    ("gemini/gemini-3-flash-preview", None): (("minimal", "low", "medium", "high"), _GEMINI_LEVELS),
+    ("gemini/gemini-3.7-flash", None): ((), "Google's thinking page, read 2026-11-24, has no row for this model"),
+    ("gemini/gemini-2.5-flash", None): ((), _GEMINI_BUDGET),
+    ("gemini/gemini-2.5-flash-lite", None): ((), _GEMINI_BUDGET),
+    ("gemini/gemma-4-31b-it", None): ((), _GEMINI_BUDGET),
+    ("gemini/gemma-4-26b-a4b-it", None): ((), _GEMINI_BUDGET),
+    ("groq/openai/gpt-oss-120b", None): (("low", "medium", "high"), _GROQ),
+    ("groq/openai/gpt-oss-20b", None): (("low", "medium", "high"), _GROQ),
+    ("groq/qwen/qwen3.8-27b", None): (("none", "default", "low", "medium", "high"), _GROQ),
+    ("openrouter/nvidia/nemotron-3-ultra-550b-a55b:free", None): (("none", "medium", "high"), _OPENROUTER),
+    ("openrouter/particle-ai/particle-1:free", None): (("none", "minimal", "low", "medium", "high", "xhigh"), _OPENROUTER),
+    ("openrouter/baidu/ernie-5.5-flash-preview:free", None): (("high",), _OPENROUTER),
+    **{(f"openrouter/{model}", None): ((), _OPENROUTER_NONE) for model in (
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3.5-super-vl:free", "google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free",
+        "liquid/lfm-3-1.7b:free", "dots-studio/dots-3-note-preview:free")},
+    ("openrouter/openrouter/free", None): ((), "OpenRouter's free router picks a model per request, so no set of values is its"),
+    ("openai/nvidia/nemotron-3-ultra-550b-a55b:free", _KILO_BASE): (("none", "medium", "high"), _KILO),
+    ("openai/particle-ai/particle-1:free", _KILO_BASE): (("none", "minimal", "low", "medium", "high", "xhigh", "max"), _KILO),
+    ("openai/baidu/ernie-5.5-flash-preview:free", _KILO_BASE): (("high",), _KILO),
+    ("openai/reflection/beam-free", _KILO_BASE): ((), _KILO_NO_FIELD),
+    ("openai/stealth/glyph-cluster", _KILO_BASE): ((), _KILO_NO_FIELD),
+    **{(f"openai/{model}", _KILO_BASE): ((), _KILO_NONE) for model in (
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3.5-super-vl:free", "liquid/lfm-3-1.7b:free", "recursive/flint-v1.0:free",
+        "dots-studio/dots-3-note-preview:free")},
+    ("openai/nvidia/nemotron-3-ultra-550b-a55b", _REQUESTY_BASE): (_ALL_SIX, _REQUESTY),
+    ("openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", _REQUESTY_BASE): (_ALL_SIX, _REQUESTY),
+    ("openai/nvidia/nemotron-3.5-lightning-30b-a3b", _REQUESTY_BASE): (_ALL_SIX, _REQUESTY),
+    ("openai/google/gemma-4-31b-it", _REQUESTY_BASE): (("high",), _REQUESTY),
+    **{(f"openai/{model}", _OVHCLOUD_BASE): ((), _OVHCLOUD) for model in (
+        "DeepSeek-V4.1-Flash-1017", "Qwen3.5-397B-A17B", "gpt-oss-120b", "Qwen3.8-27B", "qwen3.6-35b-a3b",
+        "nemotron3-omni-30b", "Mistral-Small-3.2-24B-Instruct-2506", "gpt-oss-20b", "gemma-4-26b-a4b",
+        "nemotron3-nano-30b", "Qwen3.5-9B", "Olala-v1.0-mini-7A1B", "laguna-xs-2.1")},
+    ("openai/hy4-flash:free", "https://api.cent-ai.dev/v1"): (
+        (), "no page of Cent AI read on 2026-11-24 says which values the model takes"),
+    **{(f"openai/aion-labs/{model}", _AION_BASE): (("low", "high", "max"), _AION) for model in (
+        "aion-3.5", "aion-3.5-mini")},
+    **{(f"openai/aion-labs/{model}", _AION_BASE): (("none", "low", "medium", "high", "max"), _AION) for model in (
+        "aion-3.0", "aion-3.0-mini", "aion-2.0")},
+    ("openai/aion-labs/aion-rp-llama-3.1-8b", _AION_BASE): ((), _AION + ": it does not reason"),
+    **{(f"cloudflare/@cf/openai/{model}", None): (("low", "medium", "high"), _CLOUDFLARE_FORCED) for model in (
+        "gpt-oss-120b", "gpt-oss-20b")},
+}
+# The LiteLLM providers that do not forward a "reasoning_effort" of their own: with "drop_params" on, it is dropped
+# without a word, so a level set on one of their entries never reaches the model, unless the entry names it in
+# "allowed_openai_params", which makes LiteLLM send it as it is.
+LITELLM_EFFORT_NOT_FORWARDED = {
+    "nvidia_nim": "LiteLLM's nvidia_nim provider lists no reasoning_effort among the parameters it forwards",
+    "cloudflare": "LiteLLM's cloudflare provider lists no reasoning_effort among the parameters it forwards",
+    "zai": "LiteLLM's zai provider forwards \"thinking\", on or off, and no reasoning_effort",
+}
+
+
+def check_litellm_reasoning_efforts(entries, state, failures):
+    """Hold the static "reasoning_effort" of each entry to the values its model takes, per
+    LITELLM_REASONING_EFFORTS and LITELLM_EFFORT_NOT_FORWARDED. An entry that sets none is not judged."""
+    for entry in entries:
+        parameters = mapping(entry, "litellm_params")
+        effort = parameters.get("reasoning_effort")
+        if effort is None:
+            continue
+        name, model = entry.get("model_name"), parameters.get("model")
+        provider = model.split("/", 1)[0] if isinstance(model, str) else None
+        forced = "reasoning_effort" in (parameters.get("allowed_openai_params") or [])
+        if provider in LITELLM_EFFORT_NOT_FORWARDED and not forced:
+            failures.append(
+                f"[{state}] the entry {name!r} sets reasoning_effort {effort!r}, which never reaches its model: "
+                f"{LITELLM_EFFORT_NOT_FORWARDED[provider]}, so it is dropped without a word unless allowed_openai_params "
+                "names it"
+            )
+            continue
+        known = LITELLM_REASONING_EFFORTS.get((model, parameters.get("api_base")))
+        if known is None:
+            failures.append(
+                f"[{state}] the entry {name!r} sets reasoning_effort {effort!r}, and its model {model!r} has no row in "
+                "LITELLM_REASONING_EFFORTS: a value its model does not take is an immediate 400 and the entry is never "
+                "used, so a level is set only where the values the model takes are known"
+            )
+        elif effort not in known[0]:
+            failures.append(
+                f"[{state}] the entry {name!r} sets reasoning_effort {effort!r}, which its model {model!r} does not "
+                f"take ({', '.join(known[0]) or 'no value'}, per {known[1]}): the request is refused at once and the "
+                "entry is never used"
+            )
 
 
 # What each provider does with the data sent to it, as two groups an entry carries after its type group. A key for
@@ -2034,6 +2179,97 @@ def litellm_logical_document(document, state, failures):
     return logical
 
 
+def litellm_credential_for(variable):
+    """The name of the credential that reads this variable: "GEMINI_API_KEY" is "gemini", "NVIDIA_NIM_API_KEY"
+    is "nvidia-nim", and another account's "GROQ_API_KEY_TEAM_A" is "groq-team-a"."""
+    match = re.fullmatch(r"([A-Z0-9_]+?)_API_KEY(?:_([A-Z0-9_]+))?", variable)
+    parts = [part for part in (match.groups() if match else ()) if part]
+    return "-".join(part.lower().replace("_", "-") for part in parts)
+
+
+def litellm_resolved_document(document, state, keys, failures):
+    """The rendering with every entry that names a credential carrying the key that credential holds instead,
+    so that the rules below, written for the key an entry sends, judge what LiteLLM sends.
+
+    The shape of the credentials is judged here, once: one per key given and none else, named after its
+    variable, holding that variable and nothing more, with the "credential_info" LiteLLM refuses to start
+    without. An entry reaches its key through a declared credential and carries no key of its own; the keyless
+    gateways' literal marker is no key, and stays."""
+    resolved = copy.deepcopy(document) if isinstance(document, dict) else {}
+    declared = {}
+    expected = {litellm_credential_for(LITELLM_PROVIDERS[provider]): LITELLM_PROVIDERS[provider] for provider in keys}
+    for credential in resolved.get("credential_list") or []:
+        if not isinstance(credential, dict) or not isinstance(credential.get("credential_name"), str):
+            failures.append(f"[{state}] the credential_list holds an item with no credential_name")
+            continue
+        name = credential["credential_name"]
+        if name in declared:
+            failures.append(f"[{state}] the credential {name!r} is declared twice: LiteLLM keeps the last, silently")
+        if sorted(credential) != ["credential_info", "credential_name", "credential_values"]:
+            failures.append(
+                f"[{state}] the credential {name!r} has the keys {sorted(credential)!r}: it has "
+                "credential_name, credential_info (which LiteLLM refuses to start without, and which holds "
+                "nothing here) and credential_values, and no other"
+            )
+        values = credential.get("credential_values")
+        reference = values.get("api_key") if isinstance(values, dict) else None
+        variable = reference[len("os.environ/"):] if isinstance(reference, str) and reference.startswith("os.environ/") else None
+        if variable not in LITELLM_PROVIDERS.values() or sorted(values) != ["api_key"]:
+            failures.append(
+                f"[{state}] the credential {name!r} holds {values!r}: it holds one api_key, read from the "
+                "environment variable of a provider key, and nothing else"
+            )
+        elif name != litellm_credential_for(variable):
+            failures.append(
+                f"[{state}] the credential {name!r} reads {variable}, which is {litellm_credential_for(variable)!r}: "
+                "a credential is named after the key it holds, or a reader of '/ui' takes one provider's key for "
+                "another's"
+            )
+        declared[name] = reference if variable in LITELLM_PROVIDERS.values() else None
+    for name in sorted(set(expected) - set(declared)):
+        failures.append(
+            f"[{state}] the key of {expected[name]} was given and no credential {name!r} declares it: its entries "
+            "would reach the provider without a key"
+        )
+    for name in sorted(set(declared) - set(expected)):
+        failures.append(
+            f"[{state}] the credential {name!r} is declared and its key was not given: it would read a variable "
+            "the container does not set"
+        )
+    for entry in resolved.get("model_list") or []:
+        if not isinstance(entry, dict):
+            continue
+        parameters = entry.get("litellm_params")
+        if not isinstance(parameters, dict):
+            continue
+        label = entry.get("model_name")
+        named = parameters.get("litellm_credential_name")
+        key = parameters.get("api_key")
+        if isinstance(key, str) and key.startswith("os.environ/"):
+            failures.append(
+                f"[{state}] the entry {label!r} reads {key[len('os.environ/'):]} on itself: a provider key reaches "
+                "an entry through its credential, the only place '/ui' lists it"
+            )
+        if "litellm_credential_name" not in parameters:
+            continue
+        if named not in declared:
+            failures.append(
+                f"[{state}] the entry {label!r} names the credential {named!r}, which nothing declares: LiteLLM "
+                "starts and sends the request without a key"
+            )
+            continue
+        if "api_key" in parameters:
+            failures.append(
+                f"[{state}] the entry {label!r} carries both the credential {named!r} and an api_key of its own, "
+                "which wins: the credential is dead weight and the key it names is not the one sent"
+            )
+            continue
+        del parameters["litellm_credential_name"]
+        if declared[named] is not None:
+            parameters["api_key"] = declared[named]
+    return resolved
+
+
 def check_litellm_config(document, keys, failures):
     """Hold one rendering of the routing configuration to what the keys it was rendered for allow. The
     rendering is read with its routers under their short ids, "litellm_logical_document" having translated it."""
@@ -2044,6 +2280,8 @@ def check_litellm_config(document, keys, failures):
     aliases = mapping(router_settings, "model_group_alias")
     given = {LITELLM_PROVIDERS[provider] for provider in keys}
 
+    agent_cascade = next((members for item in router_settings.get("fallbacks") or [] if isinstance(item, dict)
+                          for name, members in item.items() if name == "claude-code" and isinstance(members, list)), [])
     for entry in entries:
         info = mapping(entry, "model_info")
         parameters = mapping(entry, "litellm_params")
@@ -2059,13 +2297,16 @@ def check_litellm_config(document, keys, failures):
                 "terms do with the data sent to it, so no group could be written, and the provider is Public-Data-Only "
                 "until a row says why it is not"
             )
-        elif info.get("access_groups") != [wanted, data]:
+        elif info.get("access_groups") != [wanted, data] + (
+                [LITELLM_AGENT_GROUP] if entry.get("model_name") in agent_cascade else []):
             failures.append(
                 f"[{state}] the entry {entry.get('model_name')!r} is in the access groups {info.get('access_groups')!r} "
                 f"and its model_info.mode is {info.get('mode')!r}, which makes it a {wanted!r} entry of the data group "
-                f"{data!r}: a key limited to a type of models reaches the entries of that type and no other, so each "
-                "entry is in its type group and in exactly one data group (the one its provider's row gives), and the "
-                "models kept apart are in the group of their own, which no other entry is in"
+                f"{data!r}{' and a member of the agent' + chr(39) + 's cascade' if entry.get('model_name') in agent_cascade else ''}: "
+                "a key limited to a type of models reaches the entries of that type and no other, so each entry is in "
+                "its type group and in exactly one data group (the one its provider's row gives), the models kept "
+                "apart are in the group of their own, which no other entry is in, and the members of the agent's "
+                f"cascade, and they alone, are also in {LITELLM_AGENT_GROUP!r}, written last, the group the agent's key holds"
             )
 
     for entry in entries:
@@ -2332,6 +2573,7 @@ def check_litellm_config(document, keys, failures):
                 f"without {sorted(left_out)} is {wanted!r}: the two lists are written by hand "
                 "side by side and have drifted apart"
             )
+    check_litellm_reasoning_efforts(entries, state, failures)
 
 
 def check_litellm_tier_router(entries, declared, aliases, cascades, state, failures):
@@ -2440,7 +2682,9 @@ def check_litellm_configs(failures):
             failures.append(f"[LiteLLM config, keys: {'+'.join(sorted(keys))}] does not render: {error}")
             continue
         named.update(entry.get("model_name") for entry in document.get("model_list") or [] if isinstance(entry, dict))
-        check_litellm_config(litellm_logical_document(document, litellm_state(keys), failures), keys, failures)
+        state = litellm_state(keys)
+        resolved = litellm_resolved_document(document, state, keys, failures)
+        check_litellm_config(litellm_logical_document(resolved, state, failures), keys, failures)
         rendered += 1
     for name in LITELLM_CALLED_BY_NAME:
         if name not in named:
@@ -2489,7 +2733,8 @@ def _litellm_document(entries, cascades, aliases):
         "model_list": [
             {"model_name": name, "litellm_params": {"model": "x/" + name, "api_key": key},
              "model_info": {**({"mode": mode[0]} if mode else {"max_input_tokens": 131072}),
-                            "access_groups": litellm_access_groups(mode[0] if mode else None, key)}}
+                            "access_groups": litellm_access_groups(mode[0] if mode else None, key)
+                            + ([LITELLM_AGENT_GROUP] if name in dict(cascades).get("claude-code", []) else [])}}
             for name, key, *mode in entries
         ],
         "router_settings": {"fallbacks": [{name: members} for name, members in cascades], "model_group_alias": aliases,
@@ -2650,6 +2895,25 @@ def _entry_without_group():
     return document
 
 
+def _agent_member_without_its_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
+    document["model_list"][0]["model_info"]["access_groups"] = ["LLM", LITELLM_DATA_PRIVATE]
+    return _with_stt(document, "GEMINI_API_KEY")
+
+
+def _agent_group_before_the_data_group():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY")], [("claude-code", ["a"])], {"claude-code": "a"})
+    document["model_list"][0]["model_info"]["access_groups"] = ["LLM", LITELLM_AGENT_GROUP, LITELLM_DATA_PRIVATE]
+    return _with_stt(document, "GEMINI_API_KEY")
+
+
+def _agent_group_outside_the_cascade():
+    document = _litellm_document([("a", "os.environ/GEMINI_API_KEY"), ("b", "os.environ/GEMINI_API_KEY")],
+                                 [("claude-code", ["a"]), ("flash", ["b", "a"])], {"claude-code": "a", "flash": "b"})
+    document["model_list"][1]["model_info"]["access_groups"] = ["LLM", LITELLM_DATA_PRIVATE, LITELLM_AGENT_GROUP]
+    return _with_stt(document, "GEMINI_API_KEY")
+
+
 def _entry_in_the_wrong_group():
     document = _litellm_document([("a", "os.environ/GEMINI_API_KEY"), ("vectors", "os.environ/GEMINI_API_KEY", "embedding")],
                                  [("claude-code", ["a"])], {"claude-code": "a"})
@@ -2792,6 +3056,69 @@ def _with_extra_entry(name, mode=None, cascaded=False):
     return document
 
 
+def _credential_document(**faults):
+    """What the template renders for a Mistral and a Groq key given, in credentials, with `faults` spoiling one
+    part of it: "credentials" replaces the credential_list, "entry" the one entry's litellm_params."""
+    def credential(name, variable):
+        return {"credential_name": name, "credential_info": {}, "credential_values": {"api_key": "os.environ/" + variable}}
+
+    return {
+        "credential_list": faults.get("credentials", [credential("mistral", "MISTRAL_API_KEY"),
+                                                      credential("groq", "GROQ_API_KEY")]),
+        "model_list": [{"model_name": "a", "litellm_params": faults.get("entry", {
+            "model": "x/a", "litellm_credential_name": "mistral"})}],
+    }
+
+
+# (name, the document, the keys it was rendered for, a fragment every run must report -- None when it must pass)
+LITELLM_CREDENTIAL_CASES = [
+    ("every key a credential, every entry its credential", _credential_document(), {"Mistral", "Groq"}, None),
+    ("a key given and no credential for it", _credential_document(), {"Mistral", "Groq", "Gemini"},
+     "the key of GEMINI_API_KEY was given and no credential 'gemini' declares it"),
+    ("a credential for a key not given", _credential_document(), {"Mistral"},
+     "the credential 'groq' is declared and its key was not given"),
+    ("an entry naming a credential nobody declares",
+     _credential_document(entry={"model": "x/a", "litellm_credential_name": "mistrall"}), {"Mistral", "Groq"},
+     "names the credential 'mistrall', which nothing declares"),
+    ("an entry with its own key beside its credential",
+     _credential_document(entry={"model": "x/a", "litellm_credential_name": "mistral",
+                                 "api_key": "os.environ/GROQ_API_KEY"}), {"Mistral", "Groq"},
+     "carries both the credential 'mistral' and an api_key of its own"),
+    ("an entry reading a key from the environment on itself",
+     _credential_document(entry={"model": "x/a", "api_key": "os.environ/MISTRAL_API_KEY"}), {"Mistral", "Groq"},
+     "reads MISTRAL_API_KEY on itself"),
+    ("an entry on a keyless gateway keeps its literal marker",
+     _credential_document(entry={"model": "x/a", "api_key": "kilo-no-key-needed"}), {"Mistral", "Groq"}, None),
+    ("a credential named for another provider's key",
+     _credential_document(credentials=[
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}}]),
+     {"Mistral", "Groq"}, "the credential 'groq' reads MISTRAL_API_KEY, which is 'mistral'"),
+    ("a credential without its credential_info",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "LiteLLM refuses to start without"),
+    ("a credential holding a literal key",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "sk-clear"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "it holds one api_key, read from the environment variable of a provider key"),
+    ("a credential holding more than the key",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {},
+          "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY", "api_base": "https://x"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "it holds one api_key, read from the environment variable of a provider key"),
+    ("a credential declared twice",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "the credential 'mistral' is declared twice"),
+]
+
+
 LITELLM_CONFIG_CASES = [
     ("an entry of a Private-Data provider in its type group and that data group", _TTS_ONLY, {"Gemini"}, None),
     ("an entry in its type group alone, with no data group", _data_group_fault(_TTS_ONLY, ["LLM"]), {"Gemini"},
@@ -2822,9 +3149,9 @@ LITELLM_CONFIG_CASES = [
      _data_group_fault(_omniroute_document(), ["LLM", "Private-Data"]), set(), "of the data group 'Public-Data-Only'"),
     ("an entry in no cascade and behind no alias", _with_extra_entry("orphan"), {"Mistral"},
      "'orphan' is in no cascade and behind no alias"),
-    ("an entry declared called by name, in no cascade", _with_extra_entry("gemini-4-hydrogen-xhigh"), {"Mistral"}, None),
+    ("an entry declared called by name, in no cascade", _with_extra_entry("omniroute-free-vision"), {"Mistral"}, None),
     ("an embedding entry in no cascade", _with_extra_entry("an-embedding", "embedding"), {"Mistral"}, None),
-    ("an entry declared called by name that a cascade reaches", _with_extra_entry("gemini-4-hydrogen-xhigh", cascaded=True),
+    ("an entry declared called by name that a cascade reaches", _with_extra_entry("omniroute-free-vision", cascaded=True),
      {"Mistral"}, "declared as called by name and a cascade or an alias reaches it"),
     ("an entry of a mode with a router in no cascade", _with_extra_entry("a-decision", "evaluation"), {"Mistral"},
      "'a-decision' is in no cascade and behind no alias"),
@@ -3045,6 +3372,12 @@ LITELLM_CONFIG_CASES = [
     ("a transcription cascade holding a chat model", _stt_chat_member(), {"Groq"}, "model_info.mode is None"),
     ("a model entry in no access group", _entry_without_group(), {"Gemini"}, "is in the access groups None"),
     ("an embedding entry in the text group", _entry_in_the_wrong_group(), {"Gemini"}, "makes it a 'Embeddings' entry"),
+    ("a member of the agent's cascade outside the agent's group", _agent_member_without_its_group(), {"Gemini"},
+     "'Private-Data' and a member of the agent's cascade"),
+    ("a member of the agent's cascade with the agent's group before its data group",
+     _agent_group_before_the_data_group(), {"Gemini"}, "are also in 'Claude-Code', written last"),
+    ("the agent's group on an entry outside the agent's cascade", _agent_group_outside_the_cascade(), {"Gemini"},
+     "is in the access groups ['LLM', 'Private-Data', 'Claude-Code']"),
     ("a chat cascade holding an audio model", _stt_in_chat_cascade(), {"Groq"}, "a member of a non-chat router"),
     ("a router written as an entry of the model list",
      _litellm_document([("pro", "os.environ/GEMINI_API_KEY"), ("gemini-3-8-flash", "os.environ/GEMINI_API_KEY")],
@@ -3174,6 +3507,57 @@ LITELLM_DATA_TABLE_CASES = [
 ]
 
 
+def _mistral_with_effort(effort):
+    """The Mistral-only rendering with a level set on its one text entry: a paid model, with no row in the table."""
+    document = copy.deepcopy(_MISTRAL_ONLY)
+    document["model_list"][0]["litellm_params"]["reasoning_effort"] = effort
+    return document
+
+
+# Run through "check_litellm_config", so that a level is judged on every rendering and not only by the function.
+LITELLM_CONFIG_CASES += [
+    ("a level on a paid model, which the table leaves out", _mistral_with_effort("high"), {"Mistral"},
+     "has no row in LITELLM_REASONING_EFFORTS"),
+]
+
+
+def _effort_entry(model, effort, api_base=None):
+    parameters = {"model": model, "api_key": "k", **({"api_base": api_base} if api_base else {}),
+                  **({"reasoning_effort": effort} if effort is not None else {})}
+    return {"model_name": "an-entry", "litellm_params": parameters}
+
+
+# (what it is, the entry, a fragment the failure must carry -- None when it must pass)
+LITELLM_EFFORT_CASES = [
+    ("a level the model takes", _effort_entry("gemini/gemini-4-hydrogen", "xhigh"), None),
+    ("a level another model of the same provider takes, and this one does not",
+     _effort_entry("gemini/gemini-3.8-flash", "xhigh"), "does not take"),
+    ("a level on a model with no values at all", _effort_entry("gemini/gemma-4-31b-it", "high"), "does not take"),
+    ("a level on a model absent from the table", _effort_entry("acme/unknown-model", "high"),
+     "has no row in LITELLM_REASONING_EFFORTS"),
+    ("no level on a model absent from the table", _effort_entry("acme/unknown-model", None), None),
+    ("the same id behind a gateway that takes the level",
+     _effort_entry("openai/particle-ai/particle-1:free", "max", LITELLM_KEYLESS_BASES["Kilo"]), None),
+    ("the same id behind a gateway LiteLLM rewrites the level for",
+     _effort_entry("openrouter/particle-ai/particle-1:free", "max"), "does not take"),
+    ("an id the table knows behind a base it does not",
+     _effort_entry("openai/particle-ai/particle-1:free", "high", "https://elsewhere.example/v1"),
+     "has no row in LITELLM_REASONING_EFFORTS"),
+    ("a level on a provider LiteLLM does not forward it to", _effort_entry("nvidia_nim/z-ai/glm-5.3-flash", "max"),
+     "never reaches its model"),
+    ("a level on Cloudflare without allowed_openai_params", _effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low"),
+     "never reaches its model"),
+    ("a level on Cloudflare that allowed_openai_params sends",
+     {**_effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low"),
+      "litellm_params": {**_effort_entry("cloudflare/@cf/openai/gpt-oss-120b", "low")["litellm_params"],
+                         "allowed_openai_params": ["reasoning_effort"]}}, None),
+    ("a level sent to Cloudflare that its model does not take",
+     {**_effort_entry("cloudflare/@cf/openai/gpt-oss-20b", "max"),
+      "litellm_params": {**_effort_entry("cloudflare/@cf/openai/gpt-oss-20b", "max")["litellm_params"],
+                         "allowed_openai_params": ["reasoning_effort"]}}, "does not take"),
+]
+
+
 def _named_document(entries=("m",), cascades=("Auto-Pro",), aliases=("Auto-Pro",)):
     """A rendering reduced to the names this translation reads: entries, cascade keys and alias keys."""
     return {
@@ -3273,6 +3657,11 @@ def selftest():
         if found != expected:
             problems.append(f"{name!r}: found {found!r}, expected {expected!r}")
 
+    for name, entry, expected in LITELLM_EFFORT_CASES:
+        failures = []
+        check_litellm_reasoning_efforts([entry], "selftest", failures)
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, keys, expected in LITELLM_CONFIG_CASES:
         failures = []
         try:
@@ -3296,6 +3685,11 @@ def selftest():
                  list(logical["router_settings"]["model_group_alias"]))
         if found != names:
             problems.append(f"{name!r}: the translation leaves {found!r}, expected {names!r}")
+
+    for name, document, keys, expected in LITELLM_CREDENTIAL_CASES:
+        failures = []
+        litellm_resolved_document(document, "selftest", frozenset(keys), failures)
+        problems.extend(_verdict(name, failures, expected))
 
     for name, document, switch, expected in LITELLM_LOGIN_SWITCH_CASES:
         failures = []
@@ -3478,6 +3872,8 @@ def selftest():
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
         f"LiteLLM routing case(s), {len(LITELLM_DATA_TABLE_CASES)} data group table case(s), "
+        f"{len(LITELLM_EFFORT_CASES)} reasoning-effort case(s), "
+        f"{len(LITELLM_CREDENTIAL_CASES)} LiteLLM credential case(s), "
         f"{len(LITELLM_PUBLIC_NAME_CASES)} LiteLLM public-name case(s) and "
         f"{len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
     )

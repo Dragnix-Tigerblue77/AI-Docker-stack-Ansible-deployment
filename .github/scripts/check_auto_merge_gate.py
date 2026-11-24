@@ -207,7 +207,7 @@ async function play(scenario) {
 
 def entry(name, address=False, key="GEMINI", header=None):
     lines = ["  - model_name: %s" % name, "    model_info:", '      access_groups: ["LLM", "Public-Data-Only"]', "    litellm_params:",
-             "      model: provider/%s" % name, '      api_key: "os.environ/%s_API_KEY"' % key]
+             "      model: provider/%s" % name, '      litellm_credential_name: "%s"' % key.lower()]
     if address:
         lines.append("      api_base: http://gateway.invalid:1234/v1")
     if header is not None:
@@ -221,7 +221,7 @@ def entry(name, address=False, key="GEMINI", header=None):
 SETTING = "  turn_off_message_logging: true   # kept out of the logs"
 # An entry that is commented out, which the tool deletes like any other and which counts as an entry.
 COMMENTED = ["  # - model_name: gone", "  #   litellm_params:", "  #     model: provider/gone",
-             '  #     api_key: "os.environ/GEMINI_API_KEY"', "  #"]
+             '  #     litellm_credential_name: "gemini"', "  #"]
 
 
 def miniature(count=8):
@@ -508,7 +508,7 @@ def scenarios():
     at = base.index("  - model_name: m1")
     cloudflare = list(base)
     cloudflare[at + 4] = "      model: cloudflare/@cf/vendor/m1"
-    cloudflare[at + 5] = '      api_key: "os.environ/CLOUDFLARE_API_KEY"'
+    cloudflare[at + 5] = '      litellm_credential_name: "cloudflare"'
     add("deletion: a whole Cloudflare entry, whose model starts with \"@cf/\"", "merged",
         removals(deletion(cloudflare, set(block_of(cloudflare, "m1")))[0]))
     add("deletion: a Cloudflare entry and the model line of one that stays", "not merged",
@@ -548,7 +548,12 @@ def scenarios():
     private = [line.replace('"Public-Data-Only"', '"Private-Data"') for line in base]
     add("deletion: an entry of a provider that is Private-Data", "merged",
         removals(deletion(private, set(block_of(private, "m1")))[0]))
-    for what, groups in (("with no data group", '["LLM"]'), ("with a data group of its own making", '["LLM", "Public"]'),
+    agent = [line.replace('["LLM", "Public-Data-Only"]', '["LLM", "Public-Data-Only", "Claude-Code"]') for line in base]
+    add("deletion: an entry of the agent's cascade, in its three groups", "merged",
+        removals(deletion(agent, set(block_of(agent, "m1")))[0]))
+    for what, groups in (("with no data group", '["LLM"]'),
+                         ("with its agent group before its data group", '["LLM", "Claude-Code", "Public-Data-Only"]'),
+                         ("with its agent group and no data group", '["LLM", "Claude-Code"]'), ("with a data group of its own making", '["LLM", "Public"]'),
                          ("with its data group first", '["Public-Data-Only", "LLM"]'),
                          ("with both data groups", '["LLM", "Private-Data", "Public-Data-Only"]')):
         odd = [line.replace('["LLM", "Public-Data-Only"]', groups) for line in base]
