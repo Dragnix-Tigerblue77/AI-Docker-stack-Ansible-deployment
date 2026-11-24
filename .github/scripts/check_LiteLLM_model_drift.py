@@ -245,8 +245,7 @@ the free ids are offered as NEW. Every id is a member, though: a model that stop
 listed, and is reported as a NOTICE and never as RETIRED, which is what a deletion would otherwise take
 it for. The list is the only route: Kilo documents no way to ask for one model, so a deletion rests on
 it alone, as OpenRouter's does. It also lists virtual models that pick another at each request
-("kilo-auto/free", "openrouter/free"), which are free and no model to route to, and which the template
-sets aside with a "drift-ignore:" line.
+("kilo-auto/free", "openrouter/free"), which are free and which the template routes like any other entry.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY, MODEL_DRIFT_ZAI_API_KEY,
@@ -632,8 +631,9 @@ fixed text that says where it comes from and when; it is commented out, with a "
 to replace, when the provider has no active entry. Neither pull request puts a model anywhere but at the
 tail of a cascade (above): the body gives its figures and its suggested place in each router (THE RANKINGS), which are
 suggestions computed on a ranking under revision, or, for a model the ranking does not measure, says
-it is not placed and gives the "drift-ignore" line that sets it aside. A model merged, or set aside by
-"drift-ignore", is known and never proposed again.
+it is not placed by a figure and goes at the end of the free members of the routers that can hold it: a
+model with no measure is never set aside for that, only a model that is not free, retired or not
+callable is. A model merged, or set aside by "drift-ignore", is known and never proposed again.
 
 What is proposed is a provider, an id and a name, written to "proposals.json" with whether every
 source the kind draws on was read; the job of the workflow that writes builds the file from those
@@ -7179,8 +7179,8 @@ def slot_sentence(provider, usage, name, commented):
 
 def placing_lines(result, provider, identifier, usage=CHAT):
     """What the ranking says of a proposed model, as list items: its figures and the place it would
-    take in each router, or that it is not placed, and why. The second value is the reason, in
-    English, of the drift-ignore line that sets an unmeasured model aside, or None for a measured one.
+    take in each router, or that it is not placed by a figure, and why, which sends it to the end of the
+    free members. The second value is always None: an unmeasured model is no reason to set it aside.
     A model of another usage has no ranking: see usage_lines()."""
     if usage != CHAT:
         return usage_lines(usage), None
@@ -7189,17 +7189,17 @@ def placing_lines(result, provider, identifier, usage=CHAT):
     model = row["model"] if row else None
     if ranking["status"] != "read":
         return (["**Non placé** : le classement d'Artificial Analysis n'a pas été lu à cette exécution, "
-                 "il n'y a aucun chiffre pour le placer."],
-                "the Artificial Analysis ranking was not read on %s, so there are no figures to place it "
-                "by in any cascade" % result["date"])
+                 "il n'y a aucun chiffre pour le placer. Sans chiffre, il va en queue des membres gratuits des "
+                 "routeurs qui le tiennent."],
+                None)
     if model is None or all(model.get(key) is None for key in ("intelligence", "coding", "speed")):
         why = ("plusieurs entrées du classement portent ce nom, aucune n'est retenue"
                if row and row["how"] == "ambigu" else
                "le classement le connaît, sans aucun chiffre" if model else
                "aucune entrée du classement ne s'écrit comme lui")
-        return (["**Non placé**, faute de mesure : %s." % why],
-                "no entry of the Artificial Analysis ranking measured it on %s, so there are no figures "
-                "to place it by in any cascade" % result["date"])
+        return (["**Non placé**, faute de mesure : %s. Sans chiffre, il va en queue des membres gratuits des "
+                 "routeurs qui le tiennent, jamais hors de la liste." % why],
+                None)
     lines = ["Classement : %s." % figures_text(model, row["how"], certain_match(row))]
     if row["places"]:
         lines += ["Places suggérées :"] + ["  - " + place_text(router, row["places"][router])
@@ -7218,7 +7218,7 @@ def yaml_fence(lines, indent=""):
 MISSING_HOWTO = {
     "ranking": "le chercher sur <%s> ; s'il y est, relever son indice d'intelligence, son indice de "
                "code et sa vitesse, et le placer à la main en les comparant à ceux des membres de "
-               "chaque cascade ; s'il n'y est pas, le placer sans chiffre ou l'écarter" % RANKING_SITE,
+               "chaque cascade ; s'il n'y est pas, le placer sans chiffre, en queue des membres gratuits" % RANKING_SITE,
     "match": "ouvrir sa fiche sur <%s> et vérifier que c'est bien ce modèle (même éditeur, même taille, "
              "même variante d'effort de raisonnement) ; si oui, les places suggérées plus bas tiennent" % RANKING_SITE,
     "figures": "attendre que le classement le mesure, ou le placer à la main",
@@ -7326,7 +7326,7 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         out += ["Entrée %s par le commit :" % ("commentée ajoutée" if anchor["commented"] else "ajoutée"), ""]
         out += yaml_fence(block) + [""]
         out += [slot_sentence(provider, usage, name, anchor["commented"]), ""]
-        placing, unmeasured = placing_lines(result, provider, identifier, usage)
+        placing, _ = placing_lines(result, provider, identifier, usage)
         if usage in USAGE_MODES:
             out.append("Usage : `%s`, `model_info.mode: %s`, groupe d'accès `%s`." % (
                 usage, USAGE_MODES[usage], addition_group(provider, usage)))
@@ -7371,11 +7371,8 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         if usage == "embeddings":
             out += ["- " + line for line in placing]
         else:
-            out.append("- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :")
+            out.append("- [ ] **Place.** Choisir sa place dans les routeurs :")
             out += ["  - " + line if not line.startswith("  - ") else "  " + line for line in placing]
-        if unmeasured:
-            out += ["", "  Pour l'écarter faute de mesure, la ligne est :", ""]
-            out += yaml_fence(["  # drift-ignore: %s -- %s" % (full, unmeasured)], "  ")
         if any(what == "free" for what, _ in missing):
             page_name = PRICING_PAGES.get(provider, "").split("://", 1)[-1]
             out += ["",

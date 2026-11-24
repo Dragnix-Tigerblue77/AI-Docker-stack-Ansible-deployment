@@ -348,8 +348,8 @@ Artificial_Intelligence_LiteLLM_Zai_API_key: ""
 # Requesty is a gateway that relays each request to the model's own provider, and serves a few models free
 # of charge for now: "Free models" page of its docs, read 2026-11-22, which limits them to 200 requests a day
 # and 20 a minute per organization, all free models together, and says a change of that will be announced
-# ahead of time. The role uses it only as a second source of models already routed through OpenRouter, and
-# through its European endpoint. ONE account: the session that wrote this did not read its terms, so nothing
+# ahead of time. The role routes every model its catalogue prices at 0, as a second source of the models already
+# routed through OpenRouter or NVIDIA and in their own right for the others, through its European endpoint. ONE account: the session that wrote this did not read its terms, so nothing
 # is established about several accounts, circumventing a limit, or reselling.
 Artificial_Intelligence_LiteLLM_Requesty_API_key: ""
 # NVIDIA's hosted API, the "NVIDIA API Catalog", which its home page (read 2026-11-22) offers as "Free

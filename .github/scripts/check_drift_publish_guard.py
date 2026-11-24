@@ -698,8 +698,13 @@ def builder_scenarios(real, drift):
         [item("ovhcloud", "Fresh-Eight.1", "fresh-eight-1-ovh")], "free tier, and only")
     add("a ready model of a provider that states nothing is refused",
         [item("nvidia", "vendor/fresh-seven", "fresh-seven-nvidia")], "free tier, and only")
-    add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "kilo-auto/free", "auto-kilo")],
-        "set aside by a drift-ignore line")
+    kilo_set_aside = miniature.replace(
+        "# drift-ignore: openrouter/vendor/set-aside:free -- turned down\n",
+        "# drift-ignore: openrouter/vendor/set-aside:free -- turned down\n"
+        "# drift-ignore: kilo/vendor/set-aside:free -- a test\n")
+    assert kilo_set_aside != miniature
+    add("a Kilo id set aside by drift-ignore is refused", [item("kilo", "vendor/set-aside:free", "set-aside-kilo")],
+        "set aside by a drift-ignore line", base=kilo_set_aside)
     add("an id already a commented-out entry is refused", [item("cerebras", "cb-two", "fresh-cerebras")],
         "is already an entry", base=miniature, kind="to_verify")
     add("an id set aside by drift-ignore is refused", [item("openrouter", "vendor/set-aside:free", "fresh-free")],
