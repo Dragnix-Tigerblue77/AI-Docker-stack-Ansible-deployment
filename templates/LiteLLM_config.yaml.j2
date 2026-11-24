@@ -1044,6 +1044,27 @@ model_list:
 
   # drift-ignore: cloudflare/@cf/zai-org/glm-5.3 -- paid per "developers.cloudflare.com/workers-ai/platform/pricing/" (read 2026-11-23), which names it among the models that need a paid billing method, and its model page says "Paid access required"
 
+  # An embedding model, added 2026-11-24, in no cascade and behind no alias, for the reason given at
+  # "gemini-embedding-2" above. LiteLLM's "cloudflare/" provider has no embedding route (it reaches the
+  # chat and the models of Cloudflare's own routes only), so this entry goes through the OpenAI-compatible
+  # endpoint, which "developers.cloudflare.com/workers-ai/models/bge-m3/" says serves "/v1/embeddings".
+  # Its "api_base" holds the account's identifier, so it is read whole from the environment variable the
+  # container is given for it, built from the same identifier as "CLOUDFLARE_ACCOUNT_ID": ONE account, as
+  # above. The same page (read 2026-11-24) gives 60,000 tokens of context, zero data retention and
+  # $0.0118 per million input tokens; "developers.cloudflare.com/workers-ai/platform/pricing/" (read
+  # 2026-11-24) gives $0.012 and 1,075 neurons per million input tokens, so the daily allowance of 10,000
+  # neurons buys about 9.3 million tokens, and does not name the model among those that need a paid billing
+  # method: free within the allowance, DEDUCED from that note. Multilingual, French included as far as the
+  # model's description goes. Its vector size is not stated on either page: create a collection from the
+  # length of a first answer, not from a number written here. Neither page was tried with a call.
+  - model_name: bge-m3-cloudflare
+    litellm_params:
+      model: openai/@cf/baai/bge-m3
+      api_base: "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE"
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings"]
 {% endif %}
 {% if has.Zai %}
   # ============================================================================

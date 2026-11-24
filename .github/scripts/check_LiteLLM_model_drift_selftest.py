@@ -7224,6 +7224,8 @@ def run_coverage_cases():
                (attribute("openai/a/b", "https://router.eu.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, European"),
                (attribute("openai/a/b", "https://router.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, the other base"),
                (attribute("openai/hy9:free", "https://api.cent-ai.dev/v1") == ("centai", "hy9:free"), "Cent AI"),
+               (attribute("openai/@cf/baai/x-1", "os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE")
+                == ("cloudflare", "@cf/baai/x-1"), "Cloudflare's embeddings, whose api_base is read from the environment"),
                (attribute("openai/auto/best-free", "http://omniroute:20128/v1") is None, "OmniRoute was attributed"),
                (attribute("openai/x", None) is None and attribute("openai/x", "https://api.acme.invalid/v1") is None,
                 "an openai/ entry of a host nobody reads was attributed")))

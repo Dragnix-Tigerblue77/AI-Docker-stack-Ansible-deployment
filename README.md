@@ -819,7 +819,7 @@ Cloudflare est le seul fournisseur qui demande **deux valeurs** : le jeton d'API
 (`Artificial_Intelligence_LiteLLM_Cloudflare_API_key`, lu par les entrées comme `os.environ/CLOUDFLARE_API_KEY`) et
 l'identifiant du compte (`Artificial_Intelligence_LiteLLM_Cloudflare_account_ID`, exposé au conteneur comme
 `CLOUDFLARE_ACCOUNT_ID`). L'adresse du point d'accès contient l'identifiant, et LiteLLM la construit lui-même depuis
-cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. Le
+cette variable d'environnement : aucune entrée n'écrit d'`api_base`, donc aucun identifiant ne figure dans ce dépôt. La seule exception est `bge-m3-cloudflare`, dont le fournisseur `cloudflare/` n'a pas de route d'embeddings : le rôle construit l'adresse depuis le même identifiant dans `CLOUDFLARE_EMBEDDINGS_API_BASE`, et l'entrée la lit en entier. Le
 rôle refuse l'une des deux valeurs sans l'autre, et ne rend aucune entrée Cloudflare quand les deux sont vides. Le jeton
 compte pour « au moins une des onze clés » et pour l'agent Claude Code, dont la cascade `Auto-Claude-Code` a un membre
 Cloudflare.
@@ -1684,7 +1684,7 @@ Cette section dit, pour cinq capacités qui n'ont pas de routeur, ce qui a été
 
 ### Les modèles d'embeddings, et pourquoi il n'y a ni routeur ni repli pour eux
 
-Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini) et `mistral-embed` (rendue avec la clé Mistral). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `Auto-Flash` ou `Auto-Code`.
+Trois entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: embedding`), appelées par leur propre nom sur `/v1/embeddings` : `gemini-embedding-2` (rendue avec la clé Gemini), `mistral-embed` (rendue avec la clé Mistral) et `bge-m3-cloudflare` (rendue avec la clé et l'identifiant de compte Cloudflare). Aucune n'est dans une cascade, aucune n'a d'alias : un embedding n'a pas de « routeur » comme `Auto-Flash` ou `Auto-Code`.
 
 **Pourquoi.** Les vecteurs de deux modèles ne sont pas comparables entre eux, même à dimensions égales. Un repli d'un modèle vers un autre, ou un alias qui désignerait un modèle différent selon les clés données, ferait changer silencieusement d'espace vectoriel : les nouvelles requêtes seraient comparées à une collection remplie par l'ancien modèle, et rien n'échouerait pour le dire. LiteLLM applique bien les replis à un appel d'embeddings (lu dans son code le 2026-11-22), donc le seul moyen sûr est de n'en déclarer aucun. `check_compose_template.py` le tient : dans chaque rendu, une entrée `mode: embedding` n'est ni membre d'une cascade, ni clé d'une cascade, ni cible ou nom d'un alias.
 
@@ -1693,9 +1693,10 @@ Deux entrées du `model_list` sont des modèles d'embeddings (`model_info.mode: 
 | Modèle | Taille du vecteur | À savoir |
 | --- | --- | --- |
 | `gemini-embedding-2` | 3072 par défaut ; le paramètre `dimensions` de la requête (LiteLLM l'envoie à Google comme `outputDimensionality`) accepte de 128 à 3072, Google recommande 768, 1536 ou 3072 ; les vecteurs tronqués sont renormalisés par Google | Entrée de 8 192 jetons au plus ; pas de `task_type` pour ce modèle, la consigne se met dans le texte. Le rôle n'impose aucune valeur par défaut : l'appelant choisit, une fois, et la collection est créée à cette taille |
+| `bge-m3-cloudflare` | Non lue sur les deux pages de Cloudflare : créer la collection d'après la longueur du premier vecteur reçu | Contexte de 60 000 jetons, multilingue, rétention zéro. Gratuit dans l'allocation quotidienne de 10 000 neurons (environ 9,3 millions de jetons, **déduit** de la note de la page des tarifs), mais **appelé par le point d'accès compatible OpenAI**, car le fournisseur `cloudflare/` de LiteLLM n'a pas de route d'embeddings : l'entrée est `openai/@cf/baai/bge-m3`, et son `api_base` est lu en entier dans `CLOUDFLARE_EMBEDDINGS_API_BASE`, que le rôle construit depuis l'identifiant du compte. Aucun appel réel n'a été essayé |
 | `mistral-embed` | Fixe, **non lue sur une page** : créer la collection d'après la longueur du premier vecteur reçu | La passerelle règle `drop_params: true` : un `dimensions` envoyé à ce modèle est ignoré sans erreur et le vecteur complet revient, alors que LiteLLM seul refuse l'appel |
 
-**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google hors de l'EEE, de la Suisse et du Royaume-Uni (voir « Gemini : conditions et quotas du palier gratuit »), et il n'y a pas lieu d'y envoyer des informations personnelles, sensibles ou confidentielles. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Le meilleur candidat pour des documents privés est Cloudflare Workers AI (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et `@cf/baai/bge-m3` multilingue. C'est la suite naturelle le jour où ce fournisseur est ajouté à la passerelle ; elle n'est pas codée ici.
+**À ne pas faire : plonger des documents privés par le palier gratuit de Gemini.** D'après un résumé de la page des tarifs (non relue mot pour mot), le palier gratuit emploie le contenu pour améliorer les produits de Google hors de l'EEE, de la Suisse et du Royaume-Uni (voir « Gemini : conditions et quotas du palier gratuit »), et il n'y a pas lieu d'y envoyer des informations personnelles, sensibles ou confidentielles. Le corpus que ce stack route comprend des documents juridiques de tiers : pour eux, ni cette entrée avec une clé du palier gratuit, ni aucun autre palier gratuit qui s'entraîne sur les entrées. `mistral-embed` est payant, donc hors de ce risque, au prix de 0,10 $ le million de jetons d'après la table de prix de LiteLLM. Pour des documents privés, la voie est `bge-m3-cloudflare` (voir le registre ci-dessous) : rétention zéro des données, pas d'entraînement, et un modèle multilingue.
 
 #### Le registre des embeddings et du rerank
 
@@ -1707,19 +1708,21 @@ Même registre, même lecture que ci-dessus, pages lues le 2026-11-22. Le rerank
 | --- | --- | --- | --- |
 | Google Gemini API | `gemini-embedding-2` : palier gratuit d'après un résumé de la page des tarifs (non relu mot pour mot), payant 0,20 $ le million de jetons d'après la table de LiteLLM ; arrêt annoncé de `gemini-embedding-001` au 2028-05-14, remplaçant `gemini-embedding-2` | Entrée de 8 192 jetons ; plus de 100 langues, sans affirmation propre au français | Routé par son nom. Contenu utilisé pour améliorer les produits au palier gratuit hors de l'EEE, de la Suisse et du Royaume-Uni : pas pour des documents privés |
 | Mistral La Plateforme | Aucune : `mistral-embed` à 0,10 $ le million de jetons, `codestral-embed` à 0,15 $ | Taille du vecteur et limite d'entrée non lues sur une page | `mistral-embed` routé par son nom ; `codestral-embed` non ajouté (code seulement) |
+| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, soit environ 9,3 millions de jetons `@cf/baai/bge-m3` par jour (**dérivé** de 1 075 neurons le million de jetons, page des tarifs lue le 2026-11-24) ; `@cf/baai/bge-m3` : contexte de 60 000 jetons, « Zero data retention », 0,012 $ le million de jetons | 3 000 requêtes par minute pour les embeddings ; taille du vecteur non lue sur une page | `bge-m3-cloudflare` routé par son nom, par le point d'accès compatible OpenAI (le fournisseur `cloudflare/` de LiteLLM n'a pas de route d'embeddings). « Zero data retention » et « No training » : le meilleur candidat pour des documents privés |
 
 Pages officielles lues :
 
 - Google Gemini API : [Embeddings](https://ai.google.dev/gemini-api/docs/embeddings), [Deprecations](https://ai.google.dev/gemini-api/docs/deprecations)
 - Mistral : page « Pricing » et page « Embeddings » de sa documentation, dont le corps ne s'affiche pas sans script
+- Cloudflare Workers AI : [bge-m3](https://developers.cloudflare.com/workers-ai/models/bge-m3/) et [Pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/), lues le 2026-11-24
 
 **Groupe 2 -- à ajouter.**
 
 | Fournisseur | Offre gratuite | Limites | Verdict |
 | --- | --- | --- | --- |
-| Cloudflare Workers AI | 10 000 « neurons » par jour sans frais, soit environ 9,3 millions de jetons `@cf/baai/bge-m3` par jour (**dérivé** du prix de 0,012 $ le million) ; modèles `@cf/baai/bge-m3` (contexte de 60 000 jetons), `@cf/baai/bge-large-en-v1.5` (1024 dimensions, anglais), `@cf/google/embeddinggemma-2` (768 dimensions, options 128, 256, 512) | 3 000 requêtes par minute pour les embeddings ; le rerank (`bge-reranker-base`, 0,003 $ le million) n'a pas de route LiteLLM listée | À ajouter dès que le fournisseur l'est : « Zero data retention » et « No training », donc le meilleur candidat pour des documents privés. Le point d'accès compatible OpenAI sert `/v1/embeddings` |
+| Cloudflare Workers AI (les autres modèles) | Même allocation de 10 000 « neurons » par jour, comptée avec celle de `bge-m3` ; `@cf/baai/bge-large-en-v1.5` (1024 dimensions, anglais), `@cf/google/embeddinggemma-2` (768 dimensions, options 128, 256, 512) ; le rerank (`bge-reranker-base`, 0,003 $ le million) n'a pas de route LiteLLM listée | 3 000 requêtes par minute pour les embeddings | Non ajoutés : `bge-m3` couvre le multilingue, et un second modèle d'un même fournisseur ne donne pas de second quota. Un modèle moins cher en neurons que `bge-m3` (`@cf/google/embeddinggemma-2`, 154 neurons le million de jetons, page des tarifs lue le 2026-11-24) mérite un examen avant qu'une collection ne soit remplie |
 
-Pages officielles lues : les mêmes que dans le groupe 2 du registre ci-dessus.
+Pages officielles lues : celles de Cloudflare dans le groupe 1.
 
 **Groupe 3 -- écartés, avec la raison.**
 

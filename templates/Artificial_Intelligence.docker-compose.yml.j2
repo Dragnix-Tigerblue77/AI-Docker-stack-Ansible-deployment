@@ -308,6 +308,9 @@ services:
       # No entry names this one: LiteLLM's "cloudflare/" provider reads it from its environment to build the
       # address of the endpoint, which carries the account's identifier.
       CLOUDFLARE_ACCOUNT_ID: {{ Artificial_Intelligence_LiteLLM_Cloudflare_account_ID | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      # The one entry that cannot let LiteLLM build the address (its "cloudflare/" provider has no embedding
+      # route), so the address is built here and read whole as that entry's "api_base".
+      CLOUDFLARE_EMBEDDINGS_API_BASE: {{ ('https://api.cloudflare.com/client/v4/accounts/' ~ Artificial_Intelligence_LiteLLM_Cloudflare_account_ID ~ '/ai/v1' if Artificial_Intelligence_LiteLLM_Cloudflare_account_ID | length > 0 else '') | replace('$', '$$') | to_json(ensure_ascii=False) }}
       ZAI_API_KEY: {{ Artificial_Intelligence_LiteLLM_Zai_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       REQUESTY_API_KEY: {{ Artificial_Intelligence_LiteLLM_Requesty_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       NVIDIA_NIM_API_KEY: {{ Artificial_Intelligence_LiteLLM_NVIDIA_API_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
