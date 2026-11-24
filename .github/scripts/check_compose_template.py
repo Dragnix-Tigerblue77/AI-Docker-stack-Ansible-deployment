@@ -2459,16 +2459,21 @@ def _keyless_document(gateway="Kilo", **overrides):
 def _short_answer_document(mode=None, **overrides):
     """One text entry of Cloudflare as the template writes it, with `overrides` replacing parts of its
     litellm_params; a value of None drops the key."""
-    parameters = {"model": "cloudflare/@cf/vendor/model", "api_key": "os.environ/ANY_API_KEY", "max_tokens": 32768}
+    parameters = {"model": "cloudflare/@cf/vendor/model", "max_tokens": 32768}
     for key, value in overrides.items():
         if value is None:
             parameters.pop(key, None)
         else:
             parameters[key] = value
+    # Through a keyless gateway, as the window cases are, so that no key has to be given and the entry has a data
+    # group: the rule reads the model's prefix alone.
+    parameters.update({"api_base": LITELLM_KEYLESS_BASES["Kilo"], "api_key": "no-key-needed",
+                       "extra_headers": {"Authorization": ""}})
     return {
         "model_list": [{"model_name": "a-cloudflare", "litellm_params": parameters,
                         "model_info": {**({"mode": mode} if mode else {"max_input_tokens": 131072}),
-                                       "access_groups": [litellm_access_group(mode)]}}],
+                                       "access_groups": litellm_access_groups(mode, parameters["api_key"],
+                                                                              parameters["api_base"])}}],
         # An entry that is no text model belongs in no text cascade, which another rule holds.
         "router_settings": {} if mode else {"fallbacks": [{"flash": ["a-cloudflare"]}],
                                             "model_group_alias": {"flash": "a-cloudflare"},
