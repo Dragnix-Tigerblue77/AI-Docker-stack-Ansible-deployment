@@ -4353,10 +4353,10 @@ def run_usage_cases():
            first_wrong(
                *[((entries.get(items[key]["name"]) or {}).get("item", {}).get("model_info", {}).get("mode") == modes[other[key]]
                   and (entries.get(items[key]["name"]) or {}).get("item", {}).get("model_info", {}).get(
-                      "access_groups") == [drift.USAGE_GROUPS[other[key]]],
+                      "access_groups") == drift.access_groups(key[0], other[key]),
                   "%s/%s: %r" % (key + ((entries.get(items[key]["name"]) or {}).get("item"),)))
                  for key in sorted(written - chat_like)],
-               (entries[items[("mistral", "voxtral-mini-10")]["name"]]["item"]["model_info"] == {"access_groups": ["LLM"]},
+               (entries[items[("mistral", "voxtral-mini-10")]["name"]]["item"]["model_info"] == {"access_groups": ["LLM", "Private-Data"]},
                 "a chat-like model is not written as a chat one"),
                (not any(items[key]["name"] in members for key in written - {("openrouter", "vendor/fresh:free")}
                         for members in fallback_lists(read_template(to_verify["text"])[0]["document"]).values()),

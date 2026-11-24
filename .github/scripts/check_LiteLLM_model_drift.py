@@ -210,7 +210,9 @@ model of another usage is listed in the same sections as the rest, with its usag
 "model_info.mode" its entry needs (USAGE_MODES), and the pull requests of additions write its entry like
 any other (PROPOSING WHAT IS NEW): in the access group of its mode (USAGE_GROUPS, which
 check_compose_template.py holds the template to), with a slot at the tail of the cascade of its router
-where it has one. Cloudflare's Clef and Clairic families are
+where it has one. A text entry is written with no "model_info.max_input_tokens": the window is the model's
+own, no catalogue read here gives it, and check_compose_template.py refuses a cascade member without one until
+a person writes it, which the pull request says. Cloudflare's Clef and Clairic families are
 read as "decision" and "extraction" by their id (CLOUDFLARE_FAMILY_USAGES), since their task is not
 documented. Only a model of which the run cannot tell the kind (a usage it did not classify, a Cloudflare
 task it does not know) has no mode to write, and is a report line with that reason. The filters narrow
@@ -7226,7 +7228,9 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
                "places données plus bas sont des **suggestions, calculées sur le classement actuel, qui est "
                "en cours de révision** : son chiffre est celui d'une seule variante d'effort de "
                "raisonnement, et sa vitesse en jetons par seconde ne dit rien du temps jusqu'à la réponse "
-               "d'un modèle qui raisonne. Rien ne les applique."]
+               "d'un modèle qui raisonne. Rien ne les applique. Le commit n'écrit aucune fenêtre de contexte, aucun "
+               "catalogue lu ici n'en donnant : une entrée de texte en cascade n'a donc pas de `model_info.max_input_tokens`, "
+               "et `check_compose_template.py` la refuse tant qu'une personne ne l'a pas écrit."]
     else:
         out = ["**Brouillon : à ne pas fusionner avant d'avoir fait, pour chaque modèle, les vérifications "
                "listées sous lui.** Ajouts **à vérifier**, proposés **sans IA** par "
@@ -7245,7 +7249,10 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
                "commentée, avec une raison provisoire. Elle est mise en **queue** de la cascade de son routeur (celle de "
                "`Auto-Flash-Lite` pour le texte, de son mode pour la voix, la transcription, les décisions et "
                "l'extraction), la place sûre ; les types sans routeur et les embeddings n'ont aucune cascade. Les "
-               "places données plus bas, quand elles se calculent, sont des suggestions."]
+               "places données plus bas, quand elles se calculent, sont des suggestions. Le commit n'écrit aucune "
+               "fenêtre de contexte, aucun catalogue lu ici n'en donnant : une entrée de texte en cascade n'a donc pas "
+               "de `model_info.max_input_tokens`, et `check_compose_template.py` la refuse tant qu'une personne ne "
+               "l'a pas écrit."]
     out += ["",
             "**Rien ne la fusionne seule** : `.github/workflows/dependabot-auto-merge.yml` ne reconnaît que la "
             "branche des suppressions, et celle-ci%s attend tigerblue77." % (

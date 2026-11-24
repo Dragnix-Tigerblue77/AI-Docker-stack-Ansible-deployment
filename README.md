@@ -1132,7 +1132,10 @@ commentée, avec une raison provisoire, chez un fournisseur qui n'a aucune entr�
 active d'un usage qui a un routeur est mise en **queue** de la cascade de ce routeur, sous la condition
 de la clé de son fournisseur, puisqu'une telle entrée est toujours dans une cascade : `Auto-Flash-Lite`,
 le routeur sans plancher, pour le texte (`Auto-Fiction` pour Aion Labs), `Auto-TTS`, `Auto-STT`,
-`Auto-Decision` ou `Auto-Extraction` pour la voix, la transcription, les décisions et l'extraction. Les
+`Auto-Decision` ou `Auto-Extraction` pour la voix, la transcription, les décisions et l'extraction. Une entrée
+de texte est écrite sans fenêtre de contexte (`model_info.max_input_tokens`), que la veille ne lit dans aucun
+catalogue et que `check_compose_template.py` exige d'un membre de cascade : le corps le dit, et la vérification
+refuse l'entrée tant qu'une personne n'a pas écrit la fenêtre, depuis la page du fournisseur. Les
 embeddings et les types sans routeur n'ont aucune cascade. Un modèle dont le routeur ne route pas vers
 son fournisseur (la voix chez Groq, par exemple, `Auto-TTS` n'étant servi que par une clé Gemini) reste
 une ligne du rapport, son entrée s'écrivant à la main avec la table `head`. Le corps donne ses chiffres
