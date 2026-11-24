@@ -57,9 +57,9 @@ name: Dependabot auto-merge
 #     the gateway serves, which is generated from that template and which the check of every pull
 #     request holds to what the template produces, may change with it, and then as a file that loses
 #     lines and gains none: it is the one other file, and a line it would gain, a file that is renamed
-#     or has no patch, or any third file, leaves the pull request to a person. A deletion changes the
-#     counts and the ranks the catalogue states, which rewrites a line and so adds one: such a pull
-#     request waits for a person;
+#     or has no patch, or any third file, leaves the pull request to a person. The generator writes
+#     no count and no rank, so that a deletion only removes lines from the catalogue, which its own
+#     selftest holds to on the real template;
 #   * what it takes away is read line by line in the diff, not counted: whole model entries, the
 #     cascade slots that name an entry going in the same diff, comments and blank lines, and
 #     nothing else. A setting, an address, or the model of an entry that stays is not a model, and

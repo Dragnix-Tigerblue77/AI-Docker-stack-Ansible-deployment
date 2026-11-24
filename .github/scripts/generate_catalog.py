@@ -20,20 +20,29 @@ The template, rendered the way "check_LiteLLM_model_drift.py" renders it (every 
 and the contracts file, read with the same loader, in four sections:
 
 1. The access groups and the LiteLLM types: the table "check_compose_template.py" reads ("LITELLM_ACCESS_GROUPS" and
-   "LITELLM_KEPT_APART_GROUPS"), with how many entries each group holds, and any other group found on an entry,
-   which is a group in addition to the one of its type.
-2. The routers: each one's cascade, "router_settings.fallbacks", in order with its rank; its head, "model_group_alias";
+   "LITELLM_KEPT_APART_GROUPS"), and any other group found on an entry, which is a group in addition to the one of
+   its type, one row for each type group it sits on.
+2. The routers: each one's cascade, "router_settings.fallbacks", in order; its head, "model_group_alias";
    its purpose, the first sentence of the comment that opens its cascade in the template, cut at its first colon; the ranking, the last
    resort members, the quota it shares and what it requires, from the contracts; the entry that picks a router by
    the complexity of the request, and the fallbacks of entries called by name.
-3. The providers: the key variable (or none), the number of entries, the routers it appears in, and the quota the
-   contracts declare for it.
-4. The models: one row per entry of the model list with its provider, type, groups, routers and ranks, the level of
+3. The providers: the key variable (or none), a row for each router it appears in, and the quota the contracts
+   declare for it.
+4. The models: one row per entry of the model list with its provider, type, groups, routers, the level of
    reasoning (the static "reasoning_effort" of the template, else the level the contracts say the provider calls it
    at), the context window and the longest answer.
 
 WHAT IT DELIBERATELY DOES NOT WRITE
 -----------------------------------
+No count, no total and no number of rank, and no list of names joined on one line, wherever a deletion would
+rewrite it. The drift workflow's deletion pull request carries this file beside the template, and the gate that
+merges it without a person lets the file lose lines and never gain one: a "99 entries" that becomes "98", or a
+rank that moves up when the entry above it goes, is a line removed and a line added, and would send every deletion
+to a person. So a row is one fact about one thing, in the order of its source, and an entry that goes takes its rows
+and nothing else changes. A selftest case deletes entries from the real template and holds the result to it, so a
+later change of format that rewrites a line fails CI instead of quietly ending the merges. The order of a cascade is
+the order of its rows, and "ROUTAGE.md" keeps the ranks.
+
 No figure a source does not hold. The contracts file holds no intelligence index and no time to the first token: the
 weekly drift run reads those online from Artificial Analysis and puts them in its summary, so the catalogue has no
 column for them, and no offer or quota prose of its own. Nothing here is dated, so that the same sources give the same
@@ -264,7 +273,6 @@ def section(title, body, top):
 
 
 def groups_section(entries):
-    by_group = collections.Counter(group for entry in entries for group in groups_of(entry))
     type_groups = collections.OrderedDict()
     type_groups[compose.litellm_access_group(None)] = (None, "")
     for mode, group in compose.LITELLM_ACCESS_GROUPS.items():
@@ -281,7 +289,6 @@ def groups_section(entries):
             "`%s`" % group,
             "chat (aucun `mode`)" if mode is None else "`%s`" % mode,
             MODE_USAGES.get(mode, NO_VALUE),
-            by_group.get(group, 0),
             note or NO_VALUE,
         ))
     text = (
@@ -290,22 +297,20 @@ def groups_section(entries):
         "(`model_info.access_groups`), alors que le type est le `model_info.mode` de LiteLLM, un ensemble borné : "
         "une entrée sans `mode` est un modèle de conversation. Un routeur suit sa tête : une clé qui atteint "
         "l'entrée atteint les routeurs dont elle est la tête.\n\n"
-        + table(("Groupe", "Type LiteLLM", "Usage", "Entrées", "Remarque"), rows)
+        + table(("Groupe", "Type LiteLLM", "Usage", "Remarque"), rows)
     )
     extra = collections.OrderedDict()
     for entry in entries:
         for group in groups_of(entry):
             if group not in type_groups:
                 extra.setdefault(group, []).append(entry)
-    if extra:
-        extra_rows = [("`%s`" % group, len(members), code_list(sorted({type_group_of(member) for member in members})))
-                      for group, members in extra.items()]
-        text += (
-            "\n\nCes groupes s'ajoutent au groupe du type : une entrée qui en porte un est aussi dans celui de son "
-            "type.\n\n" + table(("Groupe supplémentaire", "Entrées", "Groupes de type des entrées"), extra_rows)
-        )
-    else:
-        text += "\n\nAucun groupe ne s'ajoute pour l'instant à ceux des types."
+    extra_rows = [("`%s`" % group, "`%s`" % type_group)
+                  for group, members in extra.items() for type_group in sorted({type_group_of(member) for member in members})]
+    text += (
+        "\n\nCes groupes s'ajoutent au groupe du type : une entrée qui en porte un est aussi dans celui de son "
+        "type, et la ligne dit sur quel groupe de type il se trouve.\n\n"
+        + table(("Groupe supplémentaire", "Groupe de type"), extra_rows)
+    )
     return text
 
 
@@ -351,17 +356,18 @@ def routers_section(document, entries, contracts, purpose_of):
         picked = list(collections.OrderedDict.fromkeys(tiers.values()))
         summary.append(("`%s`" % entry["model_name"],
                         "Aiguille chaque requête vers %s selon sa complexité" % code_list(picked),
-                        NO_VALUE, NO_VALUE))
+                        NO_VALUE))
     for short, public in routers:
         summary.append(("`%s`" % public, purpose_of.get(short, NO_VALUE),
-                        "`%s`" % heads[public] if public in heads else NO_VALUE, len(lists[public])))
+                        "`%s`" % heads[public] if public in heads else NO_VALUE))
     text = (
         "Un routeur est un nom que le client écrit et derrière lequel LiteLLM essaie les membres de sa cascade dans "
         "l'ordre, en passant au suivant quand un membre échoue. Les cascades ci-dessous sont celles du modèle rendu "
         "avec la clé de tous les fournisseurs : sans la clé d'un fournisseur, ses entrées disparaissent et l'ordre "
         "des autres ne change pas. Le rôle d'un routeur est la première phrase du commentaire qui ouvre sa cascade "
-        "dans le modèle, en anglais comme lui ; le reste vient des contrats des routeurs.\n\n"
-        + table(("Routeur", "Rôle", "Tête", "Membres"), summary)
+        "dans le modèle, en anglais comme lui ; le reste vient des contrats des routeurs. Les membres d'une cascade sont "
+        "dans l'ordre de ses lignes, le premier d'abord.\n\n"
+        + table(("Routeur", "Rôle", "Tête"), summary)
     )
     subsections = []
     for entry in tier_entries:
@@ -372,22 +378,23 @@ def routers_section(document, entries, contracts, purpose_of):
     for short, public in routers:
         facts, last = router_facts(short, contract_routers, public_names)
         rows = []
-        for rank, member in enumerate(lists[public], 1):
+        for member in lists[public]:
             found = by_name.get(member) or {}
-            rows.append((rank, "`%s`" % member, provider_label(provider_of(found)) if found else NO_VALUE,
+            rows.append(("`%s`" % member, provider_label(provider_of(found)) if found else NO_VALUE,
                          level_of(found, contract_models.get(member)) if found else NO_VALUE,
                          "dernier recours" if member in last else NO_VALUE))
         bullets = "".join("- %s : %s\n" % fact for fact in facts)
         subsections.append("### `%s`\n\n%s\n%s" % (
-            public, bullets, table(("Rang", "Entrée", "Fournisseur", "Niveau", "Remarque"), rows)))
+            public, bullets, table(("Entrée", "Fournisseur", "Niveau", "Remarque"), rows)))
     named = [(name, members) for name, members in lists.items() if name not in drift.ROUTER_OF_PUBLIC_NAME]
-    if named:
-        rows = [("`%s`" % name, code_list(members)) for name, members in named]
+    pairs = [("`%s`" % name, "`%s`" % member) for name, members in named for member in members]
+    if pairs:
+        rows = pairs
         subsections.append("### %s\n\nUne entrée appelée par son nom, qui n'est la tête d'aucun routeur, et ce que "
-                           "LiteLLM essaie quand elle échoue.\n\n%s" % (NAMED_FALLBACKS, table(("Entrée", "Replis"), rows)))
+                           "LiteLLM essaie quand elle échoue.\n\n%s" % (NAMED_FALLBACKS, table(("Entrée", "Repli"), rows)))
     return text + "\n\n" + "\n\n".join(subsections), [
         entry["model_name"] for entry in tier_entries] + [public for _, public in routers] + (
-            [NAMED_FALLBACKS] if named else [])
+            [NAMED_FALLBACKS] if pairs else [])
 
 
 def providers_section(document, entries, contracts):
@@ -406,12 +413,14 @@ def providers_section(document, entries, contracts):
                 name = provider_of(by_name[member])
                 if public not in appears[name]:
                     appears[name].append(public)
-    rows = [(provider_label(name), "`%s`" % key_variable(name) if key_variable(name) else "sans clé", counts[name],
-             code_list(appears[name]) if appears[name] else NO_VALUE) for name in names]
+    rows = [(provider_label(name), "`%s`" % key_variable(name) if key_variable(name) else "sans clé") for name in names]
+    appearances = [(provider_label(name), "`%s`" % public) for name in names for public in appears[name]]
     text = (
         "Un fournisseur est celui que lit l'entrée : la clé dont la variable est donnée, ou une passerelle qui n'en "
         "demande aucune. Un fournisseur dont la clé n'est pas donnée n'a aucune entrée dans la configuration "
-        "rendue.\n\n" + table(("Fournisseur", "Variable de la clé", "Entrées", "Routeurs où il figure"), rows)
+        "rendue.\n\n" + table(("Fournisseur", "Variable de la clé"), rows)
+        + "\n\nLes routeurs où figure chaque fournisseur, une ligne par routeur :\n\n"
+        + table(("Fournisseur", "Routeur"), appearances)
     )
     declared = [(name, quotas[name.lower()]) for name in names if isinstance(quotas.get(name.lower()), str)]
     if declared:
@@ -427,8 +436,9 @@ def models_section(document, entries, contracts):
     contract_models = contracts.get("models") if isinstance(contracts.get("models"), dict) else {}
     placed = collections.defaultdict(list)
     for public in public_names.values():
-        for rank, member in enumerate(lists.get(public, []), 1):
-            placed[member].append("%s n°%d" % (public, rank))
+        for member in lists.get(public, []):
+            if public not in placed[member]:
+                placed[member].append(public)
     rows = []
     for entry in entries:
         name = entry.get("model_name")
@@ -439,7 +449,7 @@ def models_section(document, entries, contracts):
             provider_label(provider_of(entry)),
             "chat" if mode is None else "`%s`" % mode,
             code_list(groups_of(entry)) or NO_VALUE,
-            ", ".join(placed[name]) or NO_VALUE,
+            code_list(placed[name]) or NO_VALUE,
             level_of(entry, contract_models.get(name)),
             number(info.get("max_input_tokens")),
             number(info.get("max_output_tokens")),
@@ -452,7 +462,7 @@ def models_section(document, entries, contracts):
         "donne la valeur. L'indice d'intelligence et le temps jusqu'au premier jeton n'ont pas de colonne : ils "
         "viennent d'Artificial Analysis, que la vérification hebdomadaire des modèles lit en ligne, et aucun fichier "
         "du dépôt ne les garde.\n\n"
-        + table(("Entrée", "Fournisseur", "Type", "Groupes", "Routeurs (rang)", "Niveau", "Contexte", "Sortie max"), rows)
+        + table(("Entrée", "Fournisseur", "Type", "Groupes", "Routeurs", "Niveau", "Contexte", "Sortie max"), rows)
     )
 
 
@@ -564,6 +574,74 @@ SELFTEST_CONTRACTS = {
 }
 
 
+def without_entry(template_text, name):
+    """The template with the entry "name" taken out the way the drift script takes one out: its block and the blank
+    line after it, each cascade slot that names it, and, for an entry called by name, its own list of fallbacks."""
+    lines = template_text.split("\n")
+    out = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line == "  - model_name: %s" % name:
+            index += 1
+            while index < len(lines) and lines[index].startswith("    "):
+                index += 1
+            if index < len(lines) and lines[index] == "":
+                index += 1
+            continue
+        if line == "    - %s:" % name:
+            index += 1
+            while index < len(lines) and lines[index].startswith("        "):
+                index += 1
+            continue
+        if re.fullmatch(r"\s{8,}- %s" % re.escape(name), line):
+            index += 1
+            continue
+        out.append(line)
+        index += 1
+    return "\n".join(out)
+
+
+def deletion_targets(template_text):
+    """{what it is: the name of an entry of the real template that shows it}: one in the middle of a cascade, the last
+    of a cascade, one called by name. An entry that is the head of a router or a last resort is left out, since
+    deleting it rewrites the head of that router in the template itself, which no format of this file can avoid."""
+    document = yaml.safe_load(drift.render_with_keys(template_text, None))
+    lists = cascades(document)
+    heads = set(aliases(document).values())
+    contracts, _ = drift.load_contracts(CONTRACTS)
+    last = {member for router in ((contracts or {}).get("routers") or {}).values() if isinstance(router, dict)
+            for member in ((router.get("last_resort") or {}).get("members") or [])}
+    in_routers = collections.Counter(member for public, members in lists.items()
+                                     if public in drift.ROUTER_OF_PUBLIC_NAME for member in members)
+
+    def free(members):
+        return [member for member in members if member not in heads and member not in last]
+
+    cascade = free([member for public, members in lists.items() if public in drift.ROUTER_OF_PUBLIC_NAME
+                    for member in members])
+    middle = next((member for member in cascade if in_routers[member] > 1), cascade[len(cascade) // 2])
+    tail = free(next(members for public, members in lists.items() if public == "Auto-Flash-Lite"))[-1]
+    named = [name for name in lists if name not in drift.ROUTER_OF_PUBLIC_NAME]
+    targets = {"an entry in the middle of cascades": middle, "the last member of a cascade": tail}
+    if named:
+        targets["an entry called by name"] = named[0]
+    return targets
+
+
+def deletion_wrong(template_text, contracts, name):
+    """Why deleting the entry "name" from this template does not leave a catalogue that only lost lines, or None."""
+    before = build(template_text, contracts)
+    after = build(without_entry(template_text, name), contracts)
+    if before == after:
+        return "the catalogue is the same without %s, so nothing was deleted" % name
+    difference = list(difflib.unified_diff(before.splitlines(), after.splitlines(), lineterm="", n=0))
+    added = [line for line in difference if line.startswith("+") and not line.startswith("+++")]
+    if added:
+        return "deleting %s adds %d line(s) to the catalogue, the first being %r" % (name, len(added), added[0][:120])
+    return None
+
+
 def selftest_cases():
     """(purpose, a function of the catalogue that returns what is wrong with it, or None)."""
     good = build(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS)
@@ -592,29 +670,28 @@ def selftest_cases():
          lambda: expect(good, "| `LLM` | chat (aucun `mode`) |", "| `STT` | `audio_transcription` |",
                         "| `Decisions` | `evaluation` |", "| `Fiction` | chat (aucun `mode`) |", "clé de Aion Labs")),
         ("a group in addition to the type group is listed as such, with the types it sits on",
-         lambda: expect(good, "| Groupe supplémentaire | Entrées | Groupes de type des entrées |",
-                        "| `Claude-Code` | 1 | `LLM` |")),
+         lambda: expect(good, "| Groupe supplémentaire | Groupe de type |", "| `Claude-Code` | `LLM` |")),
         ("a router has its head, its purpose (the first sentence of its comment), its ranking and its last resort",
-         lambda: expect(good, "| `Auto-Pro` | Pure reasoning, multi-step logic | `alpha` | 2 |",
+         lambda: expect(good, "| `Auto-Pro` | Pure reasoning, multi-step logic | `alpha` |",
                         "- Classement : indice d'intelligence", "- Derniers recours : `bravo`",
                         "- Exige des membres : les appels d'outils", "- Quota partagé avec : `Auto-Flash`")),
         ("a comment over two lines gives its first sentence whole",
          lambda: None if purposes(SELFTEST_TEMPLATE).get("tts") == "A purpose that runs over two lines"
          else "got %r" % purposes(SELFTEST_TEMPLATE).get("tts")),
-        ("the members of a cascade come in order with their rank, level and last resort",
-         lambda: expect(good, "| 1 | `alpha` | Gemini | `high` | — |", "| 2 | `bravo` | Kilo | défaut : medium | dernier recours |")),
+        ("the members of a cascade come in order with their level and last resort, and no rank",
+         lambda: expect(good, "| `alpha` | Gemini | `high` | — |\n| `bravo` | Kilo | défaut : medium | dernier recours |")),
         ("the entry that picks a router lists what each complexity goes to",
          lambda: expect(good, "| `SIMPLE` | `Auto-Pro` |", "Aiguille chaque requête vers `Auto-Pro`")),
         ("an entry called by name with a fallback is listed",
          lambda: expect(good, "| `alpha` | `bravo` |")),
         ("a provider has its key variable, or none, its entries, its routers and its declared quota",
-         lambda: expect(good, "| Gemini | `Artificial_Intelligence_LiteLLM_Gemini_API_key` | 1 | `Auto-Pro` |",
-                        "| Kilo | sans clé | 1 | `Auto-Pro` |", "- **Gemini** : a declared quota")),
+         lambda: expect(good, "| Gemini | `Artificial_Intelligence_LiteLLM_Gemini_API_key` |", "| Kilo | sans clé |",
+                        "| Gemini | `Auto-Pro` |", "| Kilo | `Auto-Pro` |", "- **Gemini** : a declared quota")),
         ("a model has its type, groups, ranks, level and sizes, a dash where no source says",
-         lambda: expect(good, "| `alpha` | Gemini | chat | `LLM` | Auto-Pro n°1 | `high` | 1\u202f048\u202f576 | 65\u202f536 |",
-                        "| `whisper` | Groq | `audio_transcription` | `STT` | Auto-TTS n°1 | — | — | — |")),
+         lambda: expect(good, "| `alpha` | Gemini | chat | `LLM` | `Auto-Pro` | `high` | 1\u202f048\u202f576 | 65\u202f536 |",
+                        "| `whisper` | Groq | `audio_transcription` | `STT` | `Auto-TTS` | — | — | — |")),
         ("a mode the usage table does not know is shown with no usage and is no failure",
-         lambda: expect(good, "| `Mystery` | 1 | `LLM` |") if "`mystery`" in good else "the entry vanished"),
+         lambda: expect(good, "| `Mystery` | `LLM` |") if "`mystery`" in good else "the entry vanished"),
         ("the committed file that is what the sources give is accepted",
          lambda: verdict(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS, good, 0)),
         ("a hand edit is refused, and the message says what to run",
@@ -633,6 +710,11 @@ def selftest_cases():
                           and all(parse_arguments(each) is None for each in (
                               ["--template"], ["--template", "a", "--template", "b"], ["--check", "x"], ["a"])))
          else "the arguments are not read as they should be"),
+        ("deleting an entry of the real template, wherever it stands, only removes lines from the catalogue",
+         lambda: next((wrong for wrong in (deletion_wrong(*real_sources(), name) for name in
+                                           deletion_targets(real_sources()[0]).values()) if wrong), None)),
+        ("the entries it deletes show a cascade of several routers, the end of one, and one called by name",
+         lambda: None if len(deletion_targets(real_sources()[0])) == 3 else "got %r" % deletion_targets(real_sources()[0])),
         ("a catalogue that is not there is refused", lambda: verdict(SELFTEST_TEMPLATE, SELFTEST_CONTRACTS, None, 1, "does not exist")),
         ("a template that does not render cannot be read", lambda: verdict("model_list: [", SELFTEST_CONTRACTS, good, 2)),
     ]
@@ -655,6 +737,11 @@ def run_selftest():
         return 1
     print("selftest: every case passed.")
     return 0
+
+
+def real_sources():
+    """(template text, contracts) of this repository, which the deletion cases are played on."""
+    return read_sources()
 
 
 def read_sources(template=TEMPLATE):

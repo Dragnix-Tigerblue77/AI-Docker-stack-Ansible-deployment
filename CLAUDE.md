@@ -445,7 +445,11 @@ per request (the Gemini entries Artificial Analysis measures), and an entry per 
 `generate_catalog.py --check` refuses any difference with what the sources produce, a hand edit included, so the
 file is never edited and never reviewed line by line: the diff of the sources is what a reviewer reads. Nothing that
 changes the template leaves the catalogue behind, the weekly drift run's pull requests included: its `read` job
-generates the catalogue from each template it makes, and its `publish` job commits the two together.
+generates the catalogue from each template it makes, and its `publish` job commits the two together. The gate that
+merges the deletions lets the catalogue lose lines and never gain one, so the generator writes no count, no total and
+no numbered rank, and no list of names joined on one line: a row is one fact, in the order of its source, and a
+format that rewrites a line when an entry goes fails the generator's selftest instead of silently sending every
+deletion to a person.
 
 **A router is published under one name, the one a client types: `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`,
 `Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`, `Auto-Fiction`.** It is the key of

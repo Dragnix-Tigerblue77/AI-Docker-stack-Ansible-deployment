@@ -218,8 +218,9 @@ def miniature(count=8):
     return names, lines
 
 
-# The catalogue in miniature: counts and a row per entry, which is why a real deletion rewrites a line and
-# adds one, and why only the shapes below are played.
+# The catalogue in miniature: a heading, a table of groups and a row per entry. The real generator writes no
+# count and no rank, so that a deletion only removes lines from it; what is played here is the gate's reading of
+# the shapes a file can take, whatever the generator writes.
 CATALOG_LINES = ["# Catalogue", "", "| Groupe | Entrées |", "| --- | --- |", "| `LLM` | 8 |", "| `STT` | 1 |", "",
                  "| 1 | `m1` | Gemini |", "| 2 | `m2` | Gemini |", "| 3 | `m3` | Gemini |", ""]
 CATALOG = "docs/CATALOG.md"
