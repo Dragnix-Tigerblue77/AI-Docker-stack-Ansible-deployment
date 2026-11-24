@@ -376,10 +376,14 @@ of each, never by provider -- one for the models of which it knows every fact an
 one, opened as a draft where the plan allows, for those one fact of which is missing, saying which
 and how to get it --
 and nothing merges either. An announced retirement stays a person's, from the body of the deletion
-pull request, and a model free again or a new model no addition can carry from the body of an
-addition pull request. An issue is opened for one thing only, a provider's catalogue still unreadable
-after the day's three retries. What the workflow needs and what it refuses to delete are in its
-header and in the docstring of the script.
+pull request, and has two sources: the provider's own signal and the `deprecation_date` of LiteLLM's
+public price map, which speaks for the providers that publish nothing. One source announcing is
+enough and is cited; two that disagree, on the day or because the provider says the model is active,
+keep the earliest day and print a warning naming both. The map never deletes anything, and an
+unreadable map costs the report only its own signal. A model free again or a new model no addition
+can carry stays a person's from the body of an addition pull request. An issue is opened for one
+thing only, a provider's catalogue still unreadable after the day's three retries. What the workflow
+needs and what it refuses to delete are in its header and in the docstring of the script.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
