@@ -156,7 +156,7 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
+"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", "vercel_ai_gateway/<id>", and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
 OVHcloud AI Endpoints ("oai.endpoints.kepler.ai.cloud.ovh.net"), Requesty ("requesty.ai"), Cent AI
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
@@ -191,6 +191,8 @@ Labs' "aionlabs": the workflow's tables read a name as plain letters.
   zai         api.z.ai/api/paas/v4/models -- Bearer    every model listed, which omits the free ones
   centai      api.cent-ai.dev/v1/models -- Bearer      every model
   aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
+  vercel      ai-gateway.vercel.sh/v1/models -- no key  "availableToFreeTier" true, read from the models
+              page vercel.com/ai-gateway/models?freeTier=true -- no key
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -241,6 +243,21 @@ Aion Labs' catalogue is public and lists its models with a price each: its free 
 the account and no model's own, so no model of it is ever read as free, and a NEW one is listed to examine and
 proposed only in the pull request of models to verify. Its models are in an access group of their own
 ("Fiction", which ACCESS_GROUPS gives an entry written for it) and in one router of their own.
+
+Vercel AI Gateway lists every model it relays, free tier or not, and its public catalogue (its API) says nothing of
+which models the free tier covers: a price of 0 is no proof, since some models priced 0 are outside it. That is
+stated on its models page, "vercel.com/ai-gateway/models?freeTier=true", the most structured source there is:
+its HTML carries the catalogue in the chunks Next.js streams to the browser, as a "models" array of one object per
+model, each with the id Vercel calls it by ("copyString"), a "type" and a boolean "availableToFreeTier". Both are
+read, the API first (retirements: "deprecated_at" is a NOTICE, a model it no longer lists is RETIRED) and the page
+second (read_vercel_page): only the objects of that array that carry the two fields count, so the flag found
+in prose or in another object of the page is never one; the page's models are members too, so that a model
+is retired only when neither lists it; a free one the file does not know is NEW, with the usage its "type" gives; a
+member the page does not flag free, flagged false or not listed (the batch variants are not on it), is a NOTICE
+that it is no longer free, and never RETIRED, as Kilo's is: it stays in the catalogue and answers 403, which is a
+person's call. The page needs no key. It is not documented, so a page that holds no such array, no such object or a
+model twice is that provider's error, which goes through the retries and the issue like an unreadable catalogue,
+and what the API alone says stands meanwhile. Its names are "vercel".
 
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
@@ -325,8 +342,8 @@ NOTICE     an entry, active or commented out, that a source announces for retire
            "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated"
            flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date",
            or the "deprecation_date" LiteLLM's public price map gives the model (see THE SECOND SOURCE OF
-           ANNOUNCED RETIREMENTS), each notice saying which source said it; an active Kilo entry that is no longer flagged free, since
-           its keyless call would be refused; an active Requesty entry that is no longer priced 0;
+           ANNOUNCED RETIREMENTS), each notice saying which source said it; an active Kilo or Vercel AI Gateway entry that is no longer flagged free,
+           since its call would be refused; an active Requesty entry that is no longer priced 0;
            and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list
            and that asking it could not settle (a commented-out one is not asked).
 WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
@@ -345,7 +362,8 @@ NEW        an id the file does not know. Known ids are those of the active and t
            of its "aliases" is. Each carries its usage (see above), shown on its line.
 
 Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", on Kilo
-Gateway, as "isFree", and on Requesty, as the two prices at 0. Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
+Gateway, as "isFree", on Requesty, as the two prices at 0, and on Vercel AI Gateway, as "availableToFreeTier" on
+its models page. Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
@@ -622,8 +640,8 @@ the mode, active or commented out), which shows LiteLLM has the route under that
 verify, whose body says which of the two is missing.
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
-  tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
-  "0", Kilo's "isFree", and Requesty's two prices at 0), and a figure of the
+  tier, stated by its provider's own API or models page (FREE_CATALOGUES: OpenRouter's ":free", both prices
+  "0", Kilo's "isFree", Requesty's two prices at 0, and "availableToFreeTier" on Vercel's page), and a figure of the
   ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
   slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
   with everything but letters and digits removed, and that entry's name carries no variant marker
@@ -906,7 +924,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
-                     "Cent_AI", "Aion_Labs")
+                     "Cent_AI", "Aion_Labs", "Vercel_AI_Gateway")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1171,8 +1189,9 @@ def comment_content(line):
 
 # The "model:" prefix LiteLLM routes each provider it has a provider for by, where it is not the name this check
 # gives the provider.
-LITELLM_PREFIXES = {"nvidia": "nvidia_nim"}
-NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai")
+LITELLM_PREFIXES = {"nvidia": "nvidia_nim", "vercel": "vercel_ai_gateway"}
+NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai",
+                    "vercel")
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
 OPENAI_HOSTS = {"sambanova": "api.sambanova.ai", "kilo": "ai-gateway.kilo.ai",
                 "ovhcloud": "oai.endpoints.kepler.ai.cloud.ovh.net", "requesty": "requesty.ai",
@@ -1919,6 +1938,105 @@ def read_aionlabs(pages):
     return catalogue
 
 
+def read_vercel(pages):
+    """Vercel AI Gateway: every model it relays, free tier or not, each with a "type" and a price and, where it is
+    retired, a "deprecated_at" in milliseconds since the epoch. The API says nothing of the free tier, which is a
+    monthly credit that covers a subset of the models, and a price of 0 is no proof, since some models priced 0 are
+    outside it: the free tier is read from the models page (add_vercel_free_page), after this list. This list
+    says what it can, that an entry's model has left the catalogue or is announced to."""
+    catalogue = new_catalogue()
+    for model in listed(pages[0]):
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        retired = model.get("deprecated_at")
+        date = retirement_date(retired / 1000) if isinstance(retired, (int, float)) \
+            and not isinstance(retired, bool) else None
+        if date:
+            catalogue["notices"][identifier] = {"what": "expiration", "date": date}
+    return catalogue
+
+
+# The page of Vercel AI Gateway's models, filtered to the free tier. Its HTML carries the whole catalogue in the
+# chunks Next.js streams to the browser, self.__next_f.push([1, "<text>"]), and that text holds a "models" array
+# of one object per model: the id Vercel calls it by ("copyString"), its "type" and a boolean
+# "availableToFreeTier". The filter of the address is applied in the browser, so the false ones are in the page
+# too. No JSON of Vercel's states the flag (the catalogue's API has none), and the page's format is not documented.
+VERCEL_FREE_PAGE = "https://vercel.com/ai-gateway/models?freeTier=true"
+VERCEL_PAGE_LIMIT = 16_000_000
+VERCEL_CHUNK = re.compile(r'self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)')
+# What a model of the page is for, by its "type", where that is not a chat model; the id decides for a chat model.
+VERCEL_TYPE_USAGES = {"embedding": "embeddings", "image": "image", "video": "video", "speech": "speech",
+                      "transcription": "transcription", "reranking": "rerank"}
+
+
+def read_vercel_page(html):
+    """{id: (free, type, name)} of the models Vercel's models page lists: the objects of its "models" array that
+    have a "copyString" and a boolean "availableToFreeTier", and nothing else. The flag is read from those
+    objects alone and never by searching the text for it, which also holds it in prose and in whatever else
+    the page says. A page with no such array or object, or that repeats a model, is not one this check can read,
+    which is that provider's error and never a model gone."""
+    text = ""
+    try:
+        for chunk in VERCEL_CHUNK.findall(html):
+            text += json.loads(chunk)
+    except (ValueError, RecursionError):
+        raise FetchError("the models page holds a chunk this check does not read") from None
+    decoder = json.JSONDecoder()
+    start = text.find('"models":[')
+    while start >= 0:
+        try:
+            array, _ = decoder.raw_decode(text, start + len('"models":'))
+        except (ValueError, RecursionError):
+            array = None
+        records = {}
+        for model in array if isinstance(array, list) else []:
+            if not (isinstance(model, dict) and isinstance(model.get("copyString"), str)
+                    and isinstance(model.get("availableToFreeTier"), bool)):
+                continue
+            if model["copyString"] in records:
+                raise FetchError("the models page repeats a model")
+            records[model["copyString"]] = (model["availableToFreeTier"], model.get("type"),
+                                            model.get("displayName") or "")
+        if records:
+            return records
+        start = text.find('"models":[', start + 1)
+    raise FetchError('the models page lists no model with an "availableToFreeTier" flag')
+
+
+def vercel_usage(identifier, kind):
+    """What a free model of the page is for: its type where that says, the id for a chat model."""
+    if kind in VERCEL_TYPE_USAGES:
+        return VERCEL_TYPE_USAGES[kind]
+    return usage_of_id(identifier) if kind in ("chat", None) else safe_text(kind, 40).lower()
+
+
+def add_vercel_free_page(opener, url, catalogue):
+    """Read Vercel's models page for the free tier and add it to the catalogue read from the API. The models of
+    the page are members too; one it flags free is offered as NEW, with the usage its type gives; a member it does
+    not flag free, whether it flags it false or does not list it (the batch variants are not on it), is a NOTICE
+    that it is no longer free, unless the API announced its retirement already. A model is retired only when
+    neither the API nor the page lists it. The page is public and no key is sent to it."""
+    if not catalogue["members"]:
+        # A list that holds nothing is a failed read, as it is for every provider (apply_to_result), and the page
+        # is not read in its place: its models would make the list look read.
+        return
+    raw = fetch_raw(opener, url, {"User-Agent": USER_AGENT, "Accept": "text/html"}, VERCEL_PAGE_LIMIT)
+    if len(raw) > VERCEL_PAGE_LIMIT:
+        raise FetchError("the models page is too big to read")
+    try:
+        records = read_vercel_page(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise FetchError("the models page is not text") from None
+    free = set()
+    for identifier, (is_free, kind, name) in sorted(records.items()):
+        catalogue["members"].add(identifier)
+        if is_free:
+            free.add(identifier)
+            offer(catalogue, identifier, name, vercel_usage(identifier, kind))
+    for identifier in sorted(catalogue["members"] - free):
+        catalogue["notices"].setdefault(identifier, {"what": "paid"})
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -2122,6 +2240,9 @@ PROVIDERS = (
     ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
     ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
     ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
+    # Vercel AI Gateway's catalogue is public too, and lists every model it relays, free tier or not. Its models page
+    # says which ones are free (FREE_PAGES), the API does not.
+    ("vercel", "https://ai-gateway.vercel.sh/v1/models", None, None, read_vercel, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # The providers whose catalogue omits models they serve. An entry of theirs that the catalogue does not
@@ -2171,7 +2292,11 @@ INCOMPLETE_CATALOGUES = {
 # could carry it.
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
-FREE_READABLE = {"openrouter", "kilo", "requesty"}
+FREE_READABLE = {"openrouter", "kilo", "requesty", "vercel"}
+# A second source read for a provider, after its catalogue: the page that states which of its models are free, and
+# how it is read into the catalogue. A page that cannot be read is that provider's error, and what the catalogue
+# alone says stands (see run_online).
+FREE_PAGES = {"vercel": (VERCEL_FREE_PAGE, add_vercel_free_page)}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -2456,7 +2581,9 @@ def diff(provider, catalogue, active, commented, ignored):
     """The findings for one provider: dicts with a "kind", an "id" and what explains it."""
     members = catalogue["members"]
     findings = []
-    incomplete = INCOMPLETE_CATALOGUES.get(provider)
+    # A catalogue whose second source could not be read is incomplete for the run: Vercel's page lists models its API
+    # omits, so what the API alone does not list may be listed by the page.
+    incomplete = INCOMPLETE_CATALOGUES.get(provider) or catalogue.get("partial")
 
     def absent(kind, identifier, names):
         if incomplete:
@@ -2927,6 +3054,20 @@ def run_online(text, environment, opener, today):
                 report["status"] = "error"
                 report["error"] = "its pricing page: " + shown_error(error, environment)
                 report["error_class"] = error_class(error)
+        free_page = FREE_PAGES.get(name)
+        if free_page:
+            try:
+                free_page[1](opener, free_page[0], catalogue)
+            except FetchError as error:
+                # The page lists models the API omits, so without it an entry the API does not list may be listed
+                # all the same: its absence is a NOTICE and deletes nothing. What the API announced stands, and
+                # the unread page is the provider's error.
+                report["status"] = "error"
+                report["error"] = "its models page: " + shown_error(error, environment)
+                report["error_class"] = error_class(error)
+                catalogue["partial"] = {"reason": (
+                    "its models page, which lists models its API omits, could not be read",
+                    "sa page des modèles, qui liste des modèles que son API omet, n'a pas pu être lue")}
         report["members"] = len(catalogue["members"])
         report["candidates"] = len(catalogue["candidates"])
         report["unsafe"] = catalogue["unsafe"]
@@ -5674,7 +5815,7 @@ PROVIDER_LABELS = {
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
     "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
-    "aionlabs": "Aion Labs",
+    "aionlabs": "Aion Labs", "vercel": "Vercel AI Gateway",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -5977,7 +6118,7 @@ NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
                  "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
                  "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
-                 "aionlabs": "-aion-labs"}
+                 "aionlabs": "-aion-labs", "vercel": "-vercel"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
                  "ovhcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
                  "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",
@@ -5995,7 +6136,7 @@ DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare"
                "openrouter": "Public-Data-Only", "groq": "Public-Data-Only", "deepseek": "Public-Data-Only",
                "zai": "Public-Data-Only", "requesty": "Public-Data-Only", "nvidia": "Public-Data-Only",
                "centai": "Public-Data-Only", "kilo": "Public-Data-Only", "cerebras": "Public-Data-Only",
-               "sambanova": "Public-Data-Only"}
+               "sambanova": "Public-Data-Only", "vercel": "Public-Data-Only"}
 DEFAULT_DATA_GROUP = "Public-Data-Only"
 
 
@@ -6299,7 +6440,8 @@ def summary_body(result, config_name, link, snippets):
                  "à vérifier."),
         "new_free": ("Nouveaux modèles gratuits",
                      "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
-                     "`isFree` ; Requesty : prix d'entrée et de sortie à 0), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
+                     "`isFree` ; Requesty : prix d'entrée et de sortie à 0) ou sur sa page des modèles (Vercel AI "
+                     "Gateway : `availableToFreeTier`), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -6892,7 +7034,8 @@ def addition_anchor(entries, provider, usage=CHAT):
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
 # which the selftest holds it to): the comment above the entry of such a model cites it.
 FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models",
-                   "requesty": "router.eu.requesty.ai/v1/models"}
+                   "requesty": "router.eu.requesty.ai/v1/models",
+                   "vercel": "vercel.com/ai-gateway/models?freeTier=true"}
 # Of those, the ones whose free ids all end in a suffix: OpenRouter's ":free". Kilo flags a model free and
 # spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), and Requesty prices them at 0
 # under ids that say nothing of it, so no suffix is asked.
@@ -6958,7 +7101,7 @@ ROUTER_PROVIDERS = {"stt": {"groq", "gemini", "mistral"}, "tts": {"gemini"}, "de
 SLOT_CONDITIONS = {"gemini": "has.Gemini", "mistral": "has.Mistral", "groq": "has.Groq",
                    "openrouter": "has.OpenRouter", "deepseek": "has.DeepSeek", "cloudflare": "has.Cloudflare",
                    "zai": "has.Zai", "requesty": "has.Requesty", "nvidia": "has.NVIDIA", "centai": "has.Cent_AI",
-                   "aionlabs": "has.Aion_Labs", "kilo": None, "ovhcloud": None}
+                   "aionlabs": "has.Aion_Labs", "vercel": "has.Vercel_AI_Gateway", "kilo": None, "ovhcloud": None}
 ROUTER_NAMES = ROUTER_PUBLIC_NAMES
 SLOT_INDENT = "        - "
 JINJA_IF_LINE = re.compile(r"\{%-?\s*if\b.*%\}")
@@ -7615,8 +7758,10 @@ MISSING_HOWTO = {
 # How each catalogue that states a free tier says it, for the body of the pull request of the ready models.
 FREE_READINGS = {"openrouter": "un identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie",
                  "kilo": "le drapeau `isFree`, le texte pour seule sortie",
-                 "requesty": "`input_price` et `output_price` à 0"}
-FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], catalogue_url(name), reading)
+                 "requesty": "`input_price` et `output_price` à 0",
+                 "vercel": "`availableToFreeTier` à `true` sur sa page des modèles (son API ne le dit pas)"}
+FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], FREE_PAGES[name][0] if name in FREE_PAGES
+                                                  else catalogue_url(name), reading)
                           for name, reading in FREE_READINGS.items())
 
 

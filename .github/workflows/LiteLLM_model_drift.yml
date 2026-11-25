@@ -139,9 +139,11 @@ name: LiteLLM model drift
 # Auto router, which no catalogue lists, apart).
 #
 # Secrets, each optional. A provider without one is listed as "not covered (no key)" in the summary
-# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud
-# and Requesty publish their catalogue without one and need none. A missing key is no failed read: it opens no
-# issue and starts no retry.
+# at every run, rather than skipped in silence; OpenRouter, Cerebras, SambaNova, Kilo Gateway, NVIDIA, OVHcloud,
+# Requesty and Vercel AI Gateway publish their catalogue without one and need none. A missing key is no failed read: it opens no
+# issue and starts no retry. Vercel's free tier is read from its public models page (vercel.com/ai-gateway/models?freeTier=true),
+# which needs none either: the script reads the "availableToFreeTier" flag of the objects of the "models" array its HTML carries,
+# and a page that no longer has that shape is an unreadable catalogue like any other.
 #
 #   MODEL_DRIFT_GEMINI_API_KEY    Google AI Studio -- "gemini/" entries, Gemma on Gemini included
 #   MODEL_DRIFT_GROQ_API_KEY      Groq -- "groq/" entries
@@ -246,8 +248,8 @@ name: LiteLLM model drift
 # rebuilt at every run, written with the App's token when there is one, assigned to tigerblue77,
 # their checks dispatched where no App writes them. They are split by how much the run knows of a
 # model, never by its provider. The first, ready for review, holds the models of which it knows every
-# fact an addition needs: a free tier its provider's API states (OpenRouter's ":free" at a price
-# of 0, Kilo Gateway's "isFree", Requesty's prices of 0 in and out) and a figure of the ranking matched for certain: the end of the id, less ":free", spelt like
+# fact an addition needs: a free tier its provider's API or models page states (OpenRouter's ":free" at a price
+# of 0, Kilo Gateway's "isFree", Requesty's prices of 0 in and out, Vercel AI Gateway's "availableToFreeTier") and a figure of the ranking matched for certain: the end of the id, less ":free", spelt like
 # the slug or name of one entry of the ranking and no other once case and punctuation are dropped,
 # with no variant marker such as "(Reasoning)" on that entry. The second, opened as a draft, holds any
 # model one of those facts is missing for, whatever its provider, with which one and how to get it --
@@ -679,13 +681,14 @@ jobs:
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
               groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',
               nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI', aionlabs: 'Aion Labs',
+              vercel: 'Vercel AI Gateway',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
               '4xx': 'HTTP 4xx : la requête est refusée, en général pour une clé invalide, expirée ou révoquée (Gemini répond 400 à une clé invalide)',
               '5xx': 'HTTP 5xx : une erreur du fournisseur',
               network: 'aucune réponse : une erreur de réseau ou un délai dépassé',
-              answer: 'une réponse illisible : pas du JSON, vide de liste, ou d\'une forme que le contrôle ne lit pas',
+              answer: 'une réponse illisible : pas du JSON, vide de liste, ou d\'une forme que le contrôle ne lit pas (la page des modèles de Vercel comprise)',
             };
             const status = process.env.DRIFT_STATUS;
             const words = (text) => (text ?? '').trim().split(/\s+/).filter(Boolean);
@@ -983,6 +986,7 @@ jobs:
               zai: { prefix: 'zai/', label: 'Z AI', data: 'Public-Data-Only' },
               centai: { prefix: 'openai/', label: 'Cent AI', data: 'Public-Data-Only' },
               aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction', data: 'Private-Data' },
+              vercel: { prefix: 'vercel_ai_gateway/', label: 'Vercel AI Gateway', free: 'vercel.com/ai-gateway/models?freeTier=true', data: 'Public-Data-Only' },
             };
             // The usages other than chat an item may carry, each with the "model_info.mode" and the access
             // group the template holds its entries to (check_compose_template.py). The first five are served
@@ -1022,7 +1026,7 @@ jobs:
             const ADDITION_SLOT_CONDITIONS = {
               gemini: 'has.Gemini', mistral: 'has.Mistral', groq: 'has.Groq', openrouter: 'has.OpenRouter', deepseek: 'has.DeepSeek',
               cloudflare: 'has.Cloudflare', zai: 'has.Zai', requesty: 'has.Requesty', nvidia: 'has.NVIDIA', centai: 'has.Cent_AI',
-              aionlabs: 'has.Aion_Labs', kilo: null, ovhcloud: null,
+              aionlabs: 'has.Aion_Labs', vercel: 'has.Vercel_AI_Gateway', kilo: null, ovhcloud: null,
             };
             const slotRouter = (provider, usage) => {
               if (provider === 'aionlabs') return usage === 'chat' ? 'fiction' : null;
@@ -1076,6 +1080,7 @@ jobs:
               const prefix = model.slice(0, model.indexOf('/'));
               if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai'].includes(prefix)) return prefix;
               if (prefix === 'nvidia_nim') return 'nvidia';
+              if (prefix === 'vercel_ai_gateway') return 'vercel';
               if (prefix === 'openai' && typeof apiBase === 'string' && Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('api.sambanova.ai')) return 'sambanova';
               if (prefix === 'openai' && typeof apiBase === 'string' && apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';

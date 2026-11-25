@@ -106,15 +106,23 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
 | `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
+| `inkling-2-small-vercel` | Vercel AI Gateway | — | — |
 | `ling-3-1-flash-requesty` | Requesty | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
+| `minimax-m3-1-flash-vercel` | Vercel AI Gateway | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
+| `ling-3-1-flash-1019-vercel` | Vercel AI Gateway | — | — |
+| `muse-spark-open-vercel` | Vercel AI Gateway | — | — |
+| `mimo-v2-6-flash-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-2-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-2-fast-vercel` | Vercel AI Gateway | — | — |
 | `beam-kilo` | Kilo | — | — |
 | `nemotron-ultra-free` | OpenRouter | `high` | — |
 | `nemotron-ultra-requesty` | Requesty | `max` | — |
 | `nemotron-ultra-nvidia` | NVIDIA | — | — |
+| `nemotron-ultra-vercel` | Vercel AI Gateway | — | — |
 | `nemotron-ultra-kilo` | Kilo | `high` | — |
 | `nemotron-reasoning-free` | OpenRouter | — | — |
 | `nemotron-reasoning-requesty` | Requesty | `max` | — |
@@ -122,6 +130,7 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `nemotron-reasoning-kilo` | Kilo | — | — |
 | `nemotron-super-vl-free` | OpenRouter | — | — |
 | `nemotron-super-vl-nvidia` | NVIDIA | — | — |
+| `nemotron-super-vl-vercel` | Vercel AI Gateway | — | — |
 | `nemotron-super-vl-kilo` | Kilo | — | — |
 | `hy4-flash-cent-ai` | Cent AI | — | — |
 | `deepseek-v4-1-flash-ovh` | OVHcloud | — | — |
@@ -141,20 +150,55 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `kimi-k3-1-pro-nvidia` | NVIDIA | — | — |
 | `gemini-3-8-flash` | Gemini | `high` | — |
 | `gemini-3-7-flash` | Gemini | — | — |
+| `inkling-2-small-vercel` | Vercel AI Gateway | — | — |
 | `ling-3-1-flash-requesty` | Requesty | — | — |
 | `step-5-preview-nvidia` | NVIDIA | — | — |
 | `minimax-m3-1-flash-nvidia` | NVIDIA | — | — |
+| `minimax-m3-1-flash-vercel` | Vercel AI Gateway | — | — |
 | `mistral-large-4-nvidia` | NVIDIA | défaut : high | — |
 | `glm-5-3-flash-nvidia` | NVIDIA | défaut : max | — |
+| `ling-3-1-flash-1019-vercel` | Vercel AI Gateway | — | — |
+| `muse-spark-open-vercel` | Vercel AI Gateway | — | — |
+| `mimo-v2-6-flash-vercel` | Vercel AI Gateway | — | — |
 | `gemini-3-6-flash` | Gemini | `high` | — |
+| `gpt-5-2-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-2-fast-vercel` | Vercel AI Gateway | — | — |
 | `gemini-3-flash-preview` | Gemini | `high` | — |
+| `kimi-k2-7-code-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-1-thinking-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-1-thinking-fast-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-fast-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-6-plus-vercel` | Vercel AI Gateway | — | — |
+| `inkling-vercel` | Vercel AI Gateway | — | — |
+| `o3-pro-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-5-plus-vercel` | Vercel AI Gateway | — | — |
+| `o3-vercel` | Vercel AI Gateway | — | — |
+| `o3-fast-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-6-27b-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-4-nano-vercel` | Vercel AI Gateway | — | — |
+| `deepseek-v3-2-thinking-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-mini-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-mini-fast-vercel` | Vercel AI Gateway | — | — |
+| `o4-mini-vercel` | Vercel AI Gateway | — | — |
 | `gpt-oss-120b-groq` | Groq | défaut : medium | — |
 | `gpt-oss-120b-cloudflare` | Cloudflare | défaut : medium | — |
+| `gpt-oss-120b-vercel` | Vercel AI Gateway | — | — |
 | `qwen3-8-27b-groq` | Groq | défaut : non-reasoning | — |
 | `gemma-4-31b-gemini` | Gemini | — | — |
 | `gemma-4-31b-free` | OpenRouter | — | — |
 | `gemma-4-31b-requesty` | Requesty | `high` | — |
 | `gemma-4-31b-nvidia` | NVIDIA | — | — |
+| `qwen3-6-35b-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-5-flash-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-7-vercel` | Vercel AI Gateway | — | — |
+| `kimi-k2-vercel` | Vercel AI Gateway | — | — |
+| `o1-vercel` | Vercel AI Gateway | — | — |
+| `deepseek-v3-1-vercel` | Vercel AI Gateway | — | — |
+| `gemini-2-5-flash-vercel` | Vercel AI Gateway | — | — |
+| `o3-mini-vercel` | Vercel AI Gateway | — | — |
+| `mistral-medium-3-5-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-nano-vercel` | Vercel AI Gateway | — | — |
 | `particle-1-free` | OpenRouter | `xhigh` | — |
 | `particle-1-kilo` | Kilo | `max` | — |
 | `ernie-5-5-flash-free` | OpenRouter | `high` | — |
@@ -162,6 +206,7 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `beam-kilo` | Kilo | — | — |
 | `nemotron-super-vl-free` | OpenRouter | — | — |
 | `nemotron-super-vl-nvidia` | NVIDIA | — | — |
+| `nemotron-super-vl-vercel` | Vercel AI Gateway | — | — |
 | `muse-glimmer-nvidia` | NVIDIA | — | — |
 | `muse-glimmer-requesty` | Requesty | — | — |
 | `nemotron-super-vl-kilo` | Kilo | — | — |
@@ -176,6 +221,61 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `ling-3-2-flash-free` | OpenRouter | — | — |
 | `ling-3-2-flash-kilo` | Kilo | — | — |
 | `hy4-flash-cent-ai` | Cent AI | — | — |
+| `qwen-3-14b-vercel` | Vercel AI Gateway | — | — |
+| `qwen-3-30b-vercel` | Vercel AI Gateway | — | — |
+| `qwen-3-32b-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-coder-30b-a3b-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-vl-instruct-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-7-flash-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-8-omni-flash-vercel` | Vercel AI Gateway | — | — |
+| `nova-2-lite-vercel` | Vercel AI Gateway | — | — |
+| `seed-2-1-turbo-vercel` | Vercel AI Gateway | — | — |
+| `apex-vercel` | Vercel AI Gateway | — | — |
+| `glimpse-vercel` | Vercel AI Gateway | — | — |
+| `mercury-3-vercel` | Vercel AI Gateway | — | — |
+| `ling-3-0-flash-fin-vercel` | Vercel AI Gateway | — | — |
+| `ling-3-0-flash-sante-vercel` | Vercel AI Gateway | — | — |
+| `ling-3-0-flash-vl-vercel` | Vercel AI Gateway | — | — |
+| `schematron-v2-small-vercel` | Vercel AI Gateway | — | — |
+| `schematron-v2-turbo-vercel` | Vercel AI Gateway | — | — |
+| `interfaze-beta-vercel` | Vercel AI Gateway | — | — |
+| `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | — | — |
+| `longcat-2-5-vercel` | Vercel AI Gateway | — | — |
+| `llama-3-1-70b-vercel` | Vercel AI Gateway | — | — |
+| `llama-3-1-8b-vercel` | Vercel AI Gateway | — | — |
+| `muse-ember-vercel` | Vercel AI Gateway | — | — |
+| `minimax-m2-1-vercel` | Vercel AI Gateway | — | — |
+| `codestral-vercel` | Vercel AI Gateway | — | — |
+| `ministral-14b-vercel` | Vercel AI Gateway | — | — |
+| `ministral-3b-vercel` | Vercel AI Gateway | — | — |
+| `ministral-8b-vercel` | Vercel AI Gateway | — | — |
+| `mistral-nemo-vercel` | Vercel AI Gateway | — | — |
+| `toast-1-vercel` | Vercel AI Gateway | — | — |
+| `morph-v3-fast-vercel` | Vercel AI Gateway | — | — |
+| `morph-v3-large-vercel` | Vercel AI Gateway | — | — |
+| `nemotron-3-super-120b-a12b-vercel` | Vercel AI Gateway | — | — |
+| `nemotron-nano-12b-v2-vl-vercel` | Vercel AI Gateway | — | — |
+| `nemotron-nano-9b-v2-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-1-codex-max-vercel` | Vercel AI Gateway | — | — |
+| `gpt-oss-safeguard-120b-vercel` | Vercel AI Gateway | — | — |
+| `gpt-oss-safeguard-20b-vercel` | Vercel AI Gateway | — | — |
+| `ultramarine-1-flash-vercel` | Vercel AI Gateway | — | — |
+| `sonar-vercel` | Vercel AI Gateway | — | — |
+| `arrow-2-vercel` | Vercel AI Gateway | — | — |
+| `arrow-2-telos-vercel` | Vercel AI Gateway | — | — |
+| `flint-v1-0-vercel` | Vercel AI Gateway | — | — |
+| `scaledown-summarize-1-vercel` | Vercel AI Gateway | — | — |
+| `hy-mt2-lite-vercel` | Vercel AI Gateway | — | — |
+| `hy-mt2-plus-vercel` | Vercel AI Gateway | — | — |
+| `hy-mt2-pro-vercel` | Vercel AI Gateway | — | — |
+| `hy4-flash-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-5-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-5v-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-6-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-7-flash-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-7-flashx-vercel` | Vercel AI Gateway | — | — |
+| `glm-5v-turbo-vercel` | Vercel AI Gateway | — | — |
+| `mistral-small-vercel` | Vercel AI Gateway | — | — |
 | `deepseek-v4-1-flash-ovh` | OVHcloud | — | — |
 | `qwen3-5-397b-ovh` | OVHcloud | — | — |
 | `gpt-oss-120b-ovh` | OVHcloud | — | — |
@@ -208,15 +308,49 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `nemotron-lightning-free` | OpenRouter | — | — |
 | `nemotron-lightning-requesty` | Requesty | — | — |
 | `nemotron-lightning-nvidia` | NVIDIA | — | — |
+| `nemotron-lightning-vercel` | Vercel AI Gateway | — | — |
 | `nemotron-lightning-kilo` | Kilo | — | — |
+| `gemini-2-5-flash-lite-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4-1-nano-vercel` | Vercel AI Gateway | — | — |
 | `llama-4-scout-17b-16e-instruct-cloudflare` | Cloudflare | — | — |
+| `llama-4-scout-vercel` | Vercel AI Gateway | — | — |
+| `llama-4-maverick-vercel` | Vercel AI Gateway | — | — |
+| `nova-micro-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-next-80b-a3b-instruct-vercel` | Vercel AI Gateway | — | — |
+| `qwen3-coder-next-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4-1-fast-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4-1-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4-1-mini-fast-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4-1-mini-vercel` | Vercel AI Gateway | — | — |
 | `gemma-3-4b-nvidia` | NVIDIA | — | — |
+| `gpt-4o-mini-fast-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4o-mini-vercel` | Vercel AI Gateway | — | — |
+| `nova-lite-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4o-fast-vercel` | Vercel AI Gateway | — | — |
+| `gpt-4o-vercel` | Vercel AI Gateway | — | — |
 | `llama-3-3-70b-cloudflare` | Cloudflare | — | — |
+| `llama-3-3-70b-vercel` | Vercel AI Gateway | — | — |
 | `gemma-3-12b-nvidia` | NVIDIA | — | — |
+| `nova-pro-vercel` | Vercel AI Gateway | — | — |
+| `mistral-large-3-vercel` | Vercel AI Gateway | — | — |
+| `command-a-vercel` | Vercel AI Gateway | — | — |
+| `ling-3-0-flash-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-codex-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-1-codex-vercel` | Vercel AI Gateway | — | — |
+| `gpt-5-1-codex-mini-vercel` | Vercel AI Gateway | — | — |
+| `glm-4-5-air-vercel` | Vercel AI Gateway | — | — |
+| `deepseek-r1-vercel` | Vercel AI Gateway | — | — |
+| `step-3-7-flash-vercel` | Vercel AI Gateway | — | — |
+| `minimax-m2-7-vercel` | Vercel AI Gateway | — | — |
+| `minimax-m2-5-vercel` | Vercel AI Gateway | — | — |
+| `hy3-vercel` | Vercel AI Gateway | — | — |
+| `ling-3-1-flash-vercel` | Vercel AI Gateway | — | — |
 | `gpt-oss-20b-groq` | Groq | défaut : medium | — |
 | `gpt-oss-20b-cloudflare` | Cloudflare | défaut : medium | — |
+| `gpt-oss-20b-vercel` | Vercel AI Gateway | — | — |
 | `gemma-4-26b-gemini` | Gemini | — | — |
 | `gemma-4-26b-free` | OpenRouter | — | — |
+| `gemma-4-26b-vercel` | Vercel AI Gateway | — | — |
 | `gemma-4-26b-cloudflare` | Cloudflare | — | — |
 | `qwen2-5-coder-32b-instruct-cloudflare` | Cloudflare | — | — |
 | `phonellm-mini-alpha-2-cloudflare` | Cloudflare | — | — |
@@ -372,6 +506,7 @@ Les limites gratuites de chaque fournisseur, avec la page lue et le jour, sont d
 | ![NVIDIA](https://img.shields.io/badge/NVIDIA-76B900) NVIDIA | `Artificial_Intelligence_LiteLLM_NVIDIA_API_key` |
 | ![Cent AI](https://img.shields.io/badge/Cent%20AI-FBBF24) Cent AI | `Artificial_Intelligence_LiteLLM_Cent_AI_API_key` |
 | ![Aion Labs](https://img.shields.io/badge/Aion%20Labs-061929) Aion Labs | `Artificial_Intelligence_LiteLLM_Aion_Labs_API_key` |
+| ![Vercel AI Gateway](https://img.shields.io/badge/Vercel%20AI%20Gateway-000000) Vercel AI Gateway | `Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key` |
 | ![Kilo](https://img.shields.io/badge/Kilo-FFDD00) Kilo | sans clé |
 | ![OVHcloud](https://img.shields.io/badge/OVHcloud-000E9C) OVHcloud | sans clé |
 | ![OmniRoute](https://img.shields.io/badge/OmniRoute-E54D5E) OmniRoute | sans clé |
@@ -430,6 +565,11 @@ Les limites gratuites de chaque fournisseur, avec la page lue et le jour, sont d
 
 - Variable de la clé : `Artificial_Intelligence_LiteLLM_Aion_Labs_API_key`
 - Routeurs où il figure : `Auto-Fiction`
+
+### ![Vercel AI Gateway](https://img.shields.io/badge/Vercel%20AI%20Gateway-000000) Vercel AI Gateway
+
+- Variable de la clé : `Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key`
+- Routeurs où il figure : `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`
 
 ### ![Kilo](https://img.shields.io/badge/Kilo-FFDD00) Kilo
 
@@ -627,6 +767,154 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `aion-3-0-mini-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 131 072 | 32 768 | — | — | — |
 | `aion-2-0-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 131 072 | 32 768 | — | — | — |
 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 32 768 | 32 768 | — | — | — |
+| `muse-spark-open-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 1 048 576 | — | — | — |
+| `inkling-2-small-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 262 144 | — | — | — |
+| `mimo-v2-6-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 131 072 | — | — | — |
+| `ling-3-1-flash-1019-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 000 000 | 262 144 | — | — | — |
+| `inkling-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 256 000 | — | — | — |
+| `gpt-5-2-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-4-nano-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `o3-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `o4-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `qwen3-6-plus-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 64 000 | — | — | — |
+| `qwen3-5-plus-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 64 000 | — | — | — |
+| `qwen3-5-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 64 000 | — | — | — |
+| `qwen3-6-35b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 65 536 | — | — | — |
+| `deepseek-v3-2-thinking-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 000 | — | — | — |
+| `deepseek-v3-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 163 840 | 128 000 | — | — | — |
+| `kimi-k2-7-code-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 768 | — | — | — |
+| `kimi-k2-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `glm-4-7-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 120 000 | — | — | — |
+| `mistral-medium-3-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 256 000 | — | — | — |
+| `gemini-2-5-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 65 535 | — | — | — |
+| `gpt-oss-120b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `gpt-oss-20b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 131 072 | 8 192 | — | — | — |
+| `gemini-2-5-flash-lite-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 048 576 | 65 535 | — | — | — |
+| `gemma-4-26b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 131 072 | — | — | — |
+| `nemotron-ultra-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | 1 000 000 | 65 000 | — | — | — |
+| `nemotron-super-vl-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 1 048 576 | — | — | — |
+| `nemotron-lightning-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 65 000 | — | — | — |
+| `minimax-m3-1-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 000 000 | 524 288 | — | — | — |
+| `llama-4-scout-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
+| `llama-3-3-70b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
+| `qwen-3-14b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 40 960 | 16 384 | — | — | — |
+| `qwen-3-30b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 40 960 | 16 384 | — | — | — |
+| `qwen-3-32b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
+| `qwen3-coder-30b-a3b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 8 192 | — | — | — |
+| `qwen3-coder-next-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 256 000 | 256 000 | — | — | — |
+| `qwen3-next-80b-a3b-instruct-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 32 768 | — | — | — |
+| `qwen3-vl-instruct-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 262 144 | — | — | — |
+| `qwen3-6-27b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 256 000 | — | — | — |
+| `qwen3-7-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 991 000 | 64 000 | — | — | — |
+| `qwen3-8-omni-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 131 072 | — | — | — |
+| `nova-2-lite-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 1 000 000 | — | — | — |
+| `nova-lite-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 300 000 | 8 192 | — | — | — |
+| `nova-micro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
+| `nova-pro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 300 000 | 8 192 | — | — | — |
+| `seed-2-1-turbo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 262 144 | — | — | — |
+| `apex-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 131 072 | — | — | — |
+| `command-a-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 256 000 | 8 000 | — | — | — |
+| `deepseek-r1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
+| `glimpse-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 220 000 | 4 096 | — | — | — |
+| `mercury-3-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 131 072 | — | — | — |
+| `ling-3-0-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 256 000 | 32 000 | — | — | — |
+| `ling-3-0-flash-fin-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
+| `ling-3-0-flash-sante-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
+| `ling-3-0-flash-vl-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
+| `ling-3-1-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 32 768 | — | — | — |
+| `schematron-v2-small-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 4 096 | — | — | — |
+| `schematron-v2-turbo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
+| `interfaze-beta-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 32 000 | — | — | — |
+| `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 200 | — | — | — |
+| `longcat-2-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 072 | — | — | — |
+| `llama-3-1-70b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
+| `llama-3-1-8b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
+| `llama-4-maverick-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
+| `muse-ember-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 1 048 576 | — | — | — |
+| `minimax-m2-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 204 800 | 131 072 | — | — | — |
+| `minimax-m2-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 8 192 | — | — | — |
+| `minimax-m2-7-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 204 800 | 131 072 | — | — | — |
+| `codestral-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 4 000 | — | — | — |
+| `ministral-14b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 256 000 | — | — | — |
+| `ministral-3b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 4 000 | — | — | — |
+| `ministral-8b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 4 000 | — | — | — |
+| `mistral-large-3-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 256 000 | — | — | — |
+| `mistral-nemo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `toast-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 000 | 4 000 | — | — | — |
+| `morph-v3-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 81 920 | 16 384 | — | — | — |
+| `morph-v3-large-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 81 920 | 16 384 | — | — | — |
+| `nemotron-3-super-120b-a12b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
+| `nemotron-nano-12b-v2-vl-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `nemotron-nano-9b-v2-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `gpt-4-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 047 576 | 32 768 | — | — | — |
+| `gpt-4-1-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 047 576 | 32 768 | — | — | — |
+| `gpt-4-1-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 047 576 | 32 768 | — | — | — |
+| `gpt-4-1-mini-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 047 576 | 32 768 | — | — | — |
+| `gpt-4-1-nano-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 047 576 | 32 768 | — | — | — |
+| `gpt-4o-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
+| `gpt-4o-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
+| `gpt-4o-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
+| `gpt-4o-mini-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
+| `gpt-5-codex-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-mini-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-nano-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-1-codex-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-1-codex-max-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-1-codex-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-1-thinking-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-1-thinking-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-5-2-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
+| `gpt-oss-safeguard-120b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 16 000 | — | — | — |
+| `gpt-oss-safeguard-20b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 16 000 | — | — | — |
+| `o1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `o3-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `o3-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `o3-pro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
+| `ultramarine-1-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 000 | — | — | — |
+| `sonar-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 127 000 | 8 000 | — | — | — |
+| `arrow-2-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `arrow-2-telos-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 131 072 | 131 072 | — | — | — |
+| `flint-v1-0-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 262 144 | — | — | — |
+| `scaledown-summarize-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 1 000 | — | — | — |
+| `step-3-7-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 256 000 | 256 000 | — | — | — |
+| `hy-mt2-lite-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 8 000 | 4 000 | — | — | — |
+| `hy-mt2-plus-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 8 000 | 4 000 | — | — | — |
+| `hy-mt2-pro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 8 000 | 4 000 | — | — | — |
+| `hy3-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 262 144 | — | — | — |
+| `hy4-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 024 000 | 64 000 | — | — | — |
+| `glm-4-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 96 000 | — | — | — |
+| `glm-4-5-air-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 96 000 | — | — | — |
+| `glm-4-5v-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 66 000 | 16 000 | — | — | — |
+| `glm-4-6-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 96 000 | — | — | — |
+| `glm-4-7-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 131 000 | — | — | — |
+| `glm-4-7-flashx-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 128 000 | — | — | — |
+| `glm-5v-turbo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 128 000 | — | — | — |
+| `mistral-small-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 262 144 | 4 000 | — | — | — |
+| `qwen3-embedding-0-6b-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `qwen3-embedding-4b-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `qwen3-embedding-8b-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `titan-embed-text-v2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `embed-v4-0-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `embed-v5-0-fast-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `embed-v5-0-pro-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `gemini-embedding-001-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `text-embedding-005-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `text-multilingual-embedding-002-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `codestral-embed-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `mistral-embed-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-3-large-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-3-5-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-3-5-lite-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-4-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-4-large-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-4-lite-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-code-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-code-3-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-finance-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `voyage-law-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `omniroute-free-auto` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | — | — | — | — | — |
 | `omniroute-free-code` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Code` | — | — | — | — | — | — |
 | `omniroute-free-reasoning` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | — | — | — | — | — |
@@ -716,5 +1004,92 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `gemma-4-31b-nvidia` | `gemma-4-31b` | — | — | `Gemma 4 31B IT` | 144,12 | — |
 | `gemma-3-12b-nvidia` | `gemma-3-12b` | — | — | — | — | — |
 | `gemma-3-4b-nvidia` | `gemma-3-4b` | — | — | — | — | — |
+| `muse-spark-open-vercel` | `muse-spark-open` | — | — | `Muse Spark Open` | 155,47 | — |
+| `inkling-2-small-vercel` | `inkling-2-small` | — | — | — | — | — |
+| `mimo-v2-6-flash-vercel` | `mimo-v2-6-flash` | — | — | — | — | — |
+| `ling-3-1-flash-1019-vercel` | `ling-3-1-flash` | — | — | — | — | — |
+| `inkling-vercel` | `inkling` | — | — | `Inkling` | 148,39 | — |
+| `gpt-5-2-vercel` | `gpt-5-2` | — | — | `GPT-5.2` | 154,53 | 30,77 |
+| `gpt-5-vercel` | `gpt-5` | — | — | `GPT-5` | 150 | 39,16 |
+| `gpt-5-mini-vercel` | `gpt-5-mini` | — | — | `GPT-5 mini` | 146,04 | 66,1 |
+| `gpt-5-4-nano-vercel` | `gpt-5-4-nano` | — | — | `GPT-5.4 Nano` | 146,36 | — |
+| `o3-vercel` | `o3` | — | — | `o3` | 147,02 | 68,65 |
+| `o4-mini-vercel` | `o4-mini` | — | — | `o4-mini` | 145,21 | — |
+| `qwen3-6-plus-vercel` | `qwen3-6-plus` | — | — | `Qwen 3.6 Plus` | 148,87 | 81,47 |
+| `qwen3-5-plus-vercel` | — | — | — | `Qwen 3.5 Plus (hosted 397B-A17B)` | 147,29 | — |
+| `qwen3-5-flash-vercel` | — | — | — | `Qwen 3.5 Flash (hosted 35B-A3B)` | 143,83 | — |
+| `qwen3-6-35b-vercel` | — | — | — | `Qwen 3.6 35B-A3B` | 144,07 | — |
+| `deepseek-v3-2-thinking-vercel` | `deepseek-v3-2-reasoning` | — | — | `DeepSeek-V3.2` | 146,26 | — |
+| `deepseek-v3-1-vercel` | `deepseek-v3-1-reasoning` | — | — | `DeepSeek-V3.1` | 140,88 | — |
+| `kimi-k2-7-code-vercel` | `kimi-k2-7-code` | — | — | `Kimi K2.7 Code` | 151,17 | 73,6 |
+| `kimi-k2-vercel` | `kimi-k2` | — | — | `Kimi K2 (Jul 2025)` | 141,27 | — |
+| `glm-4-7-vercel` | `glm-4-7` | — | — | `GLM-4.7` | 143,34 | 77,25 |
+| `mistral-medium-3-5-vercel` | `mistral-medium-3-5` | — | — | `Mistral Medium 3.5` | 141,58 | — |
+| `gemini-2-5-flash-vercel` | `gemini-2-5-flash-reasoning` | — | — | `Gemini 2.5 Flash (Jun 2025)` | 140,79 | 82,97 |
+| `gpt-oss-120b-vercel` | `gpt-oss-120b` | — | — | `gpt-oss-120b` | 140,21 | 84,28 |
+| `gpt-oss-20b-vercel` | `gpt-oss-20b` | — | — | `gpt-oss-20b` | 134,89 | 89,71 |
+| `gemini-2-5-flash-lite-vercel` | `gemini-2-5-flash-lite` | — | — | `Gemini 2.5 Flash-Lite (Jun 2025)` | 133,04 | — |
+| `gemma-4-26b-vercel` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
+| `nemotron-ultra-vercel` | `nvidia-nemotron-3-ultra-550b-a55b` | — | — | `Nemotron 3 Ultra` | 147,02 | — |
+| `nemotron-super-vl-vercel` | `nemotron-3-5-super-vl` | — | — | — | — | — |
+| `nemotron-lightning-vercel` | `nemotron-3-5-lightning` | — | — | — | — | — |
+| `minimax-m3-1-flash-vercel` | `minimax-m3-1-flash` | — | — | — | — | — |
+| `llama-4-scout-vercel` | `llama-4-scout` | — | — | `Llama 4 Scout` | 127,75 | — |
+| `llama-3-3-70b-vercel` | `llama-3-3-instruct-70b` | — | — | `Llama 3.3 70B` | 126,18 | — |
+| `qwen-3-14b-vercel` | — | — | — | `Qwen3-14B` | 136,06 | — |
+| `qwen-3-30b-vercel` | — | — | — | `Qwen3-30B-A3B` | 134,16 | — |
+| `qwen-3-32b-vercel` | — | — | — | `Qwen3-32B` | 136,85 | — |
+| `qwen3-coder-next-vercel` | `qwen3-coder-next` | — | — | — | — | — |
+| `qwen3-next-80b-a3b-instruct-vercel` | `qwen3-next-80b-a3b-instruct` | — | — | — | — | — |
+| `qwen3-6-27b-vercel` | `qwen3-6-27b` | — | — | `Qwen3.6 27B` | 146,72 | — |
+| `nova-lite-vercel` | `nova-lite` | — | — | — | — | — |
+| `nova-micro-vercel` | `nova-micro` | — | — | — | — | — |
+| `nova-pro-vercel` | `nova-pro` | — | — | — | — | — |
+| `command-a-vercel` | `command-a` | — | — | — | — | — |
+| `deepseek-r1-vercel` | `deepseek-r1-0120` | — | — | `DeepSeek-R1` | 138,62 | — |
+| `ling-3-0-flash-vercel` | `ling-3-0-flash` | — | — | — | — | — |
+| `ling-3-0-flash-fin-vercel` | `ling-3-0-flash-fin` | — | — | — | — | — |
+| `ling-3-0-flash-vl-vercel` | `ling-3-0-flash-vl` | — | — | — | — | — |
+| `ling-3-1-flash-vercel` | `ling-3-1-flash-1001` | — | — | — | — | — |
+| `llama-3-1-70b-vercel` | — | — | — | `Llama 3.1-70B` | 124,7 | — |
+| `llama-3-1-8b-vercel` | — | — | — | `Llama 3.1-8B` | 110,9 | — |
+| `llama-4-maverick-vercel` | `llama-4-maverick` | — | — | `Llama 4 Maverick` | 132,19 | — |
+| `muse-ember-vercel` | `muse-ember` | — | — | — | — | — |
+| `minimax-m2-1-vercel` | `minimax-m2-1` | — | — | — | — | — |
+| `minimax-m2-5-vercel` | `minimax-m2-5` | — | — | — | — | — |
+| `minimax-m2-7-vercel` | `minimax-m2-7` | — | — | — | — | — |
+| `mistral-large-3-vercel` | `mistral-large-3` | — | — | — | — | — |
+| `mistral-nemo-vercel` | — | — | — | `Mistral NeMo` | 113,87 | — |
+| `gpt-4-1-vercel` | `gpt-4-1` | — | — | `GPT-4.1` | 136,14 | — |
+| `gpt-4-1-fast-vercel` | `gpt-4-1` | — | — | `GPT-4.1` | 136,14 | — |
+| `gpt-4-1-mini-vercel` | `gpt-4-1-mini` | — | — | `GPT-4.1 mini` | 134,24 | — |
+| `gpt-4-1-mini-fast-vercel` | `gpt-4-1-mini` | — | — | `GPT-4.1 mini` | 134,24 | — |
+| `gpt-4-1-nano-vercel` | `gpt-4-1-nano` | — | — | `GPT-4.1 nano` | 126,79 | — |
+| `gpt-4o-vercel` | `gpt-4o` | — | — | — | — | — |
+| `gpt-4o-fast-vercel` | `gpt-4o` | — | — | — | — | — |
+| `gpt-4o-mini-vercel` | `gpt-4o-mini` | — | — | `GPT-4o mini` | 123,81 | — |
+| `gpt-4o-mini-fast-vercel` | `gpt-4o-mini` | — | — | `GPT-4o mini` | 123,81 | — |
+| `gpt-5-codex-vercel` | `gpt-5-codex` | — | — | — | — | — |
+| `gpt-5-fast-vercel` | `gpt-5` | — | — | `GPT-5` | 150 | — |
+| `gpt-5-mini-fast-vercel` | `gpt-5-mini` | — | — | `GPT-5 mini` | 146,04 | — |
+| `gpt-5-nano-vercel` | `gpt-5-nano` | — | — | `GPT-5 nano` | 139,07 | — |
+| `gpt-5-1-codex-vercel` | `gpt-5-1-codex` | — | — | — | — | — |
+| `gpt-5-1-codex-mini-vercel` | `gpt-5-1-codex-mini` | — | — | — | — | — |
+| `gpt-5-1-thinking-vercel` | — | — | — | `GPT-5.1` | 150,93 | — |
+| `gpt-5-1-thinking-fast-vercel` | — | — | — | `GPT-5.1` | 150,93 | — |
+| `gpt-5-2-fast-vercel` | `gpt-5-2` | — | — | `GPT-5.2` | 154,53 | — |
+| `o1-vercel` | `o1` | — | — | `o1` | 141,16 | — |
+| `o3-fast-vercel` | `o3` | — | — | `o3` | 147,02 | — |
+| `o3-mini-vercel` | `o3-mini` | — | — | `o3-mini` | 140,63 | — |
+| `o3-pro-vercel` | `o3-pro` | — | — | `o3-pro` | 147,47 | — |
+| `sonar-vercel` | `sonar` | — | — | — | — | — |
+| `step-3-7-flash-vercel` | `step-3-7-flash` | — | — | — | — | — |
+| `hy3-vercel` | `hy3` | — | — | — | — | — |
+| `glm-4-5-air-vercel` | `glm-4-5-air` | — | — | — | — | — |
+| `glm-4-5v-vercel` | `glm-4-5v` | — | — | — | — | — |
+| `glm-4-6-vercel` | `glm-4-6` | — | — | — | — | — |
+| `glm-4-7-flash-vercel` | `glm-4-7-flash` | — | — | — | — | — |
+| `glm-5v-turbo-vercel` | `glm-5v-turbo` | — | — | — | — | — |
+| `mistral-small-vercel` | `mistral-small-4` | — | — | — | — | — |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)

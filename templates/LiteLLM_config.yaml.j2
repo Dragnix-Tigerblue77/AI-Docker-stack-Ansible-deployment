@@ -28,7 +28,8 @@
   'Requesty': Artificial_Intelligence_LiteLLM_Requesty_API_key is string and Artificial_Intelligence_LiteLLM_Requesty_API_key | length > 0,
   'NVIDIA': Artificial_Intelligence_LiteLLM_NVIDIA_API_key is string and Artificial_Intelligence_LiteLLM_NVIDIA_API_key | length > 0,
   'Cent_AI': Artificial_Intelligence_LiteLLM_Cent_AI_API_key is string and Artificial_Intelligence_LiteLLM_Cent_AI_API_key | length > 0,
-  'Aion_Labs': Artificial_Intelligence_LiteLLM_Aion_Labs_API_key is string and Artificial_Intelligence_LiteLLM_Aion_Labs_API_key | length > 0
+  'Aion_Labs': Artificial_Intelligence_LiteLLM_Aion_Labs_API_key is string and Artificial_Intelligence_LiteLLM_Aion_Labs_API_key | length > 0,
+  'Vercel_AI_Gateway': Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key is string and Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key | length > 0
 } %}
 # The routers below, the transcription and text-to-speech routers included, are aliases, whatever the keys: each stands for the first model of its own cascade
 # that has a key or needs none, so that the order of a cascade alone decides and no provider is placed first
@@ -45,10 +46,12 @@
 # key, and the rest of Requesty's members sit right ahead of Kilo's in "Auto-Flash".
 # Cent AI's sit behind Kilo's in "Auto-Pro" and "Auto-Flash", and among the last of "Auto-Flash-Lite", and in no other
 # router, so it heads none. Aion Labs' sit in "Auto-Fiction" and in no other router, which they alone make up, so
-# it heads that one and no other.
+# it heads that one and no other. Vercel AI Gateway's sit by their figures, in "Auto-Pro" and "Auto-Flash" right behind
+# Gemini 3.8 Flash and ahead of the first of Groq's, so it heads both when neither Gemini nor NVIDIA has a key; in
+# "Auto-Flash-Lite" they sit behind their twins, and in no other router.
 {% set head = {
-  'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'ling-3-1-flash-requesty' if has.Requesty else 'beam-kilo',
-  'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'ling-3-1-flash-requesty' if has.Requesty else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'gemma-4-31b-requesty' if has.Requesty else 'particle-1-kilo',
+  'pro': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'inkling-2-small-vercel' if has.Vercel_AI_Gateway else 'ling-3-1-flash-requesty' if has.Requesty else 'beam-kilo',
+  'flash': 'gemini-4-hydrogen' if has.Gemini else 'kimi-k3-1-pro-nvidia' if has.NVIDIA else 'inkling-2-small-vercel' if has.Vercel_AI_Gateway else 'ling-3-1-flash-requesty' if has.Requesty else 'gpt-oss-120b-groq' if has.Groq else 'gpt-oss-120b-cloudflare' if has.Cloudflare else 'gemma-4-31b-free' if has.OpenRouter else 'particle-1-kilo',
   'flash-lite': 'gemini-3-5-flash-lite' if has.Gemini else 'lfm-3-1-7b-free' if has.OpenRouter else 'lfm-3-1-7b-kilo',
   'code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'deepseek-v4-1-flash-ovh',
   'claude-code': 'gemini-4-hydrogen' if has.Gemini else 'glm-5-3-flash-nvidia' if has.NVIDIA else 'qwen3-8-27b-groq' if has.Groq else 'glm-4-7-flash-cloudflare' if has.Cloudflare else 'glm-4-7-flash-zai' if has.Zai else 'codestral' if has.Mistral else 'deepseek-v4-pro-direct' if has.DeepSeek else false,
@@ -139,6 +142,12 @@ credential_list:
     credential_values:
       api_key: "os.environ/AION_LABS_API_KEY"
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+  - credential_name: vercel-ai-gateway
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
+{% endif %}
   # Declared when their providers are given a key and their entries are put back:
   # - credential_name: cerebras
   #   credential_info: {}
@@ -175,7 +184,8 @@ credential_list:
 # "developers.cloudflare.com/workers-ai/models/<slug>/"; OpenRouter, Kilo, Requesty, OVHcloud and Aion Labs, the
 # "/models" list of their API ("openrouter.ai/api/v1/models" and the same path on the others' "api_base");
 # NVIDIA "build.nvidia.com/<publisher>/<model>/modelcard"; Mistral "docs.mistral.ai/models/<model>.md"; DeepSeek
-# "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7" and, for GLM-4.5-Flash, "docs.z.ai/guides/llm/glm-4.5"; Cent AI "cent-ai.dev/models".
+# "api-docs.deepseek.com/quick_start/pricing"; Z AI "docs.z.ai/guides/llm/glm-4.7" and, for GLM-4.5-Flash, "docs.z.ai/guides/llm/glm-4.5"; Cent AI "cent-ai.dev/models"; Vercel AI Gateway
+# "ai-gateway.vercel.sh/v1/models", the "context_window" and "max_tokens" of each model.
 # "check_compose_template.py" requires the window of every member of a cascade.
 # Every entry is also in exactly one of two groups that say what its provider does with the data sent to it,
 # written after its type group: "Private-Data" for a provider whose own terms leave prompts and outputs untrained,
@@ -2962,6 +2972,1545 @@ model_list:
       litellm_credential_name: "aion-labs"
 
 {% endif %}
+
+{% if has.Vercel_AI_Gateway %}
+  # ============================================================================
+  # Vercel AI Gateway ("vercel_ai_gateway/", LiteLLM's own provider of that name, a free monthly credit)
+  #
+  # Checked 2026-11-24. LiteLLM's provider calls Vercel's OpenAI-compatible base, "https://ai-gateway.vercel.sh/v1",
+  # on its own (read in its source), so no entry writes an "api_base", and it reads "VERCEL_AI_GATEWAY_API_KEY" when
+  # an entry names no key; each entry names the "vercel-ai-gateway" credential all the same, which reads it. The model is the id the gateway lists, "<creator>/<model>". Measured with the account's key that
+  # day: "openai/gpt-5-mini", "openai/gpt-5", "google/gemini-2.5-flash" and "mistral/mistral-large-3" answered, and
+  # "anthropic/claude-sonnet-4.5", which is outside the free tier, answered 403. Tool calls through these entries
+  # are untried, and no call was made from the session that wrote this, which holds no key.
+  #
+  # The free tier ("vercel.com/docs/ai-gateway/pricing" and its FAQ, read that day) is "a monthly included credit, not
+  # an expiring trial", on a subset of the models: any other answers 403 "Free tier users do not have access to this
+  # model". The amount is on no page read (the account showed a balance of 5 USD before its first request), and the
+  # free tier's rate limits per model, "lower" than the paid tier's, are given no figure. The credit needs a payment
+  # method on the team (403 "customer_verification_required" without one). The account is prepaid: the card is charged
+  # only for a purchase of credit or by Auto-reload, which is off by default, and a request with no credit answers 402.
+  # The first purchase of credit moves the team to the paid tier and ends the free monthly credit for good, so none is
+  # to be made and Auto-reload is to stay off.
+  #
+  # The credit is ONE pool for every entry below, and small: once it is spent each of them answers 402, and the
+  # cascade moves on to the next member, a refusal that costs a fraction of a second apiece. The entries are therefore
+  # placed by their figures among the other free members, and none is put ahead of them for being a second pool.
+  # Each is a chat model on the models page filtered to the free tier ("vercel.com/ai-gateway/models?freeTier=true",
+  # read that day) that a figure places: an Artificial Analysis index, or Epoch AI's capabilities index where that has
+  # none, which the contracts of the routers give with their day. They are in "Auto-Pro", "Auto-Flash" and
+  # "Auto-Flash-Lite", and in neither "Auto-Code" nor "Auto-Claude-Code": tool calls through the gateway are untried,
+  # and an agent would spend the credit in no time. Every chat model of the free tier that the catalogue lists is
+  # here: placed by its figure where one applies, and at the tail of the free members of "Auto-Flash" and of
+  # "Auto-Flash-Lite", behind the members that have one, where none does or the level of the one there is was never
+  # verified (the records of Muse Ember and Mistral Small, say, which are at levels the catalogue does not say it
+  # calls). A model another provider serves, a "-fast" tier, a snapshot or a specialised model is no reason to leave one
+  # out: more free quota and more choice is the point, and a person decides from the whole list. The catalogue
+  # ("ai-gateway.vercel.sh/v1/models", public) does not say which models are in the free tier, and a price of 0 is no
+  # proof of it, so the drift run reads the free tier from the models page, "availableToFreeTier" (read 2026-11-24): a
+  # model it no longer flags free is a notice, and a new free one is reported.
+  # ============================================================================
+  # Meta's open-weight reasoning model: Artificial Analysis index 24.9 at its Xhigh level, 11.0 s (read 2026-11-21).
+  - model_name: muse-spark-open-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/meta/muse-spark-open
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The best figure of the models here: Artificial Analysis index 30.6, 43.2 s to the first answer token (read
+  # 2026-11-21), so right behind Gemini 3.8 Flash in "Auto-Pro" and behind its low level in "Auto-Flash".
+  - model_name: inkling-2-small-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 262144
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/thinkingmachines/inkling-2-small
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Artificial Analysis index 26.7, 48.6 s (read 2026-11-21).
+  - model_name: mimo-v2-6-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/xiaomi/mimo-v2.6-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Artificial Analysis index 29.6 and no timing (read 2026-11-21), so no time decides between it and its neighbours.
+  # The 1019 snapshot is the one the figure describes; the other "Ling 3.1 Flash" of the catalogue is another record
+  # without an index and is not routed.
+  - model_name: ling-3-1-flash-1019-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 262144
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.1-flash-1019
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 14.5, estimated (Artificial Analysis has an index of 12.5 for it at Xhigh, and the level called
+  # is unknown).
+  - model_name: inkling-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/thinkingmachines/inkling
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # No Artificial Analysis index at any level of it: Epoch AI's capabilities index, converted, gives 24.6, flagged
+  # estimated, past the floor of "Auto-Pro". Its record is at Xhigh, 54.5 s, and the level called is unknown.
+  - model_name: gpt-5-2-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index, converted: 17.4, estimated. The same for the OpenAI models below, none of which has an
+  # Artificial Analysis index.
+  - model_name: gpt-5-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 10.9, estimated.
+  - model_name: gpt-5-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 11.3, estimated.
+  - model_name: gpt-5-4-nano-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.4-nano
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 12.0, estimated.
+  - model_name: o3-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/o3
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 10.0, estimated.
+  - model_name: o4-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/o4-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 15.4, estimated.
+  - model_name: qwen3-6-plus-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.6-plus
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 12.5, estimated, the hosted model of the name: no Artificial Analysis record is matched to it,
+  # its open-weights sibling being a model the hosted one need not be.
+  - model_name: qwen3-5-plus-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.5-plus
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 8.4, estimated, the hosted model of the name (see "qwen3-5-plus-vercel").
+  - model_name: qwen3-5-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 64000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.5-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 8.7, estimated, which its twin "qwen3-6-35b-ovh" has no figure for: it is placed by that figure
+  # and not behind the twin, among the members of the same range.
+  - model_name: qwen3-6-35b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 65536
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.6-35b-a3b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 11.2, estimated, of DeepSeek V3.2; the entry is its thinking variant.
+  - model_name: deepseek-v3-2-thinking-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/deepseek/deepseek-v3.2-thinking
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 5.0, estimated.
+  - model_name: deepseek-v3-1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 163840
+      max_output_tokens: 128000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/deepseek/deepseek-v3.1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Epoch AI's capabilities index, converted: 19.5, estimated, just under the floor of "Auto-Pro", so "Auto-Flash"
+  # only.
+  - model_name: kimi-k2-7-code-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/moonshotai/kimi-k2.7-code
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The instruct model that does not reason: capabilities index 5.5, estimated, and 3.5 s to the first answer token
+  # (read 2026-11-21).
+  - model_name: kimi-k2-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/moonshotai/kimi-k2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Capabilities index 7.8, estimated.
+  - model_name: glm-4-7-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 120000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.7
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # Artificial Analysis index 4.6, 26.8 s (read 2026-11-21). The paid entry of the same model, "mistral-medium", is in
+  # no cascade.
+  - model_name: mistral-medium-3-5-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/mistral-medium-3.5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "gemini-2-5-flash", which no cascade holds: capabilities index 4.9, estimated, the figure the floor
+  # of "Auto-Flash" is drawn from.
+  - model_name: gemini-2-5-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65535
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/google/gemini-2.5-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "gpt-oss-120b-groq" and its twins, through a pool of its own, right behind the last of the keyed
+  # ones. Index 3.8 (read 2026-11-21).
+  - model_name: gpt-oss-120b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-oss-120b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "gpt-oss-20b-groq" and its twins, right behind the Cloudflare one in "Auto-Flash-Lite".
+  - model_name: gpt-oss-20b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-oss-20b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "gemini-2-5-flash-lite", through the free credit and not the 20 requests a day of Google's own, right
+  # behind it in "Auto-Flash-Lite".
+  - model_name: gemini-2-5-flash-lite-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 65535
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/google/gemini-2.5-flash-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "gemma-4-26b-gemini" and its twins, right behind the OpenRouter one in "Auto-Flash-Lite".
+  - model_name: gemma-4-26b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/google/gemma-4-26b-a4b-it
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "nemotron-ultra-free" and its twins, behind the last keyed one and ahead of Kilo's, in "Auto-Pro".
+  - model_name: nemotron-ultra-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-3-ultra-550b-a55b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "nemotron-super-vl-free" and its twins, behind the last keyed one and ahead of Kilo's, in "Auto-Pro"
+  # and "Auto-Flash".
+  - model_name: nemotron-super-vl-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-3.5-super-vl
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "nemotron-lightning-free" and its twins, in "Auto-Flash-Lite" only. The catalogue prices this id at
+  # 0, "Lightning Free".
+  - model_name: nemotron-lightning-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 65000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-3.5-lightning-free
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "minimax-m3-1-flash-nvidia", through the free credit of a second provider, right behind it. Same
+  # figure, index 29.1.
+  - model_name: minimax-m3-1-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 524288
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/minimax/minimax-m3.1-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "llama-4-scout-17b-16e-instruct-cloudflare", right behind it in "Auto-Flash-Lite": no index, and a
+  # time of 1.1 s.
+  - model_name: llama-4-scout-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/meta/llama-4-scout
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The model of "llama-3-3-70b-cloudflare", right behind it in "Auto-Flash-Lite": no index, and a time of 2.3 s.
+  - model_name: llama-3-3-70b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/meta/llama-3.3-70b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen-3-14b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 40960
+      max_output_tokens: 16384
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen-3-14b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen-3-30b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 40960
+      max_output_tokens: 16384
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen-3-30b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen-3-32b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen-3-32b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-coder-30b-a3b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-coder-30b-a3b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-coder-next-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-coder-next
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-next-80b-a3b-instruct-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-next-80b-a3b-instruct
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-vl-instruct-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-vl-instruct
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-6-27b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.6-27b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-7-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 991000
+      max_output_tokens: 64000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.7-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-8-omni-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3.8-omni-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nova-2-lite-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 1000000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/amazon/nova-2-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nova-lite-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 300000
+      max_output_tokens: 8192
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/amazon/nova-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nova-micro-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/amazon/nova-micro
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nova-pro-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 300000
+      max_output_tokens: 8192
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/amazon/nova-pro
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: seed-2-1-turbo-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/bytedance/seed-2.1-turbo
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: apex-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/callstack/apex
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: command-a-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 8000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/cohere/command-a
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: deepseek-r1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/deepseek/deepseek-r1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glimpse-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 220000
+      max_output_tokens: 4096
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/elorian/glimpse
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: mercury-3-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inception/mercury-3
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ling-3-0-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.0-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ling-3-0-flash-fin-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.0-flash-fin
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ling-3-0-flash-sante-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.0-flash-sante
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ling-3-0-flash-vl-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.0-flash-vl
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ling-3-1-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 32768
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inclusionai/ling-3.1-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: schematron-v2-small-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 4096
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inference-net/schematron-v2-small
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: schematron-v2-turbo-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/inference-net/schematron-v2-turbo
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: interfaze-beta-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 32000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/interfaze/interfaze-beta
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: lfm2-5-24b-a2b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8200
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/liquid/lfm2.5-24b-a2b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: longcat-2-5-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/meituan/longcat-2.5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: llama-3-1-70b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/meta/llama-3.1-70b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: llama-3-1-8b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/meta/llama-3.1-8b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: llama-4-maverick-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 8192
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/meta/llama-4-maverick
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: muse-ember-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 1048576
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/meta/muse-ember
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: minimax-m2-1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 204800
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/minimax/minimax-m2.1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: minimax-m2-5-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 8192
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/minimax/minimax-m2.5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: minimax-m2-7-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 204800
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/minimax/minimax-m2.7
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: codestral-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 4000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/mistral/codestral
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ministral-14b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/ministral-14b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ministral-3b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 4000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/ministral-3b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ministral-8b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 4000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/ministral-8b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: mistral-large-3-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/mistral-large-3
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: mistral-nemo-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/mistral/mistral-nemo
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: toast-1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131000
+      max_output_tokens: 4000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/mixedbread/toast-1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: morph-v3-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 81920
+      max_output_tokens: 16384
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/morph/morph-v3-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: morph-v3-large-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 81920
+      max_output_tokens: 16384
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/morph/morph-v3-large
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nemotron-3-super-120b-a12b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 32000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-3-super-120b-a12b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nemotron-nano-12b-v2-vl-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-nano-12b-v2-vl
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: nemotron-nano-9b-v2-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/nvidia/nemotron-nano-9b-v2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-4-1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4.1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-4.1: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-4-1-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4.1-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-4-1-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4.1-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-4.1-mini: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-4-1-mini-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4.1-mini-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-4-1-nano-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1047576
+      max_output_tokens: 32768
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4.1-nano
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-4o-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4o
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-4o: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-4o-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4o-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-4o-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4o-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-4o-mini: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-4o-mini-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-4o-mini-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-codex-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5-codex
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-5: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-5-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-5-mini: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-5-mini-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5-mini-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-nano-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5-nano
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-1-codex-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.1-codex
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-1-codex-max-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.1-codex-max
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-1-codex-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.1-codex-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-5-1-thinking-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.1-thinking
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-5.1-thinking: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-5-1-thinking-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.1-thinking-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/gpt-5.2: the same model at a higher price, so the figures of the model describe it.
+  - model_name: gpt-5-2-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 400000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-5.2-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-oss-safeguard-120b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-oss-safeguard-120b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gpt-oss-safeguard-20b-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 16000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/openai/gpt-oss-safeguard-20b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: o1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/o1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The priority tier of openai/o3: the same model at a higher price, so the figures of the model describe it.
+  - model_name: o3-fast-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/o3-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: o3-mini-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/openai/o3-mini
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: o3-pro-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 100000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/openai/o3-pro
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: ultramarine-1-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1048576
+      max_output_tokens: 131000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/paperinstruments/ultramarine-1-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: sonar-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 127000
+      max_output_tokens: 8000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/perplexity/sonar
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: arrow-2-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/quiverai/arrow-2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: arrow-2-telos-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 131072
+      max_output_tokens: 131072
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/quiverai/arrow-2-telos
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: flint-v1-0-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/recursive/flint-v1.0
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: scaledown-summarize-1-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1000000
+      max_output_tokens: 1000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/scaledown/scaledown-summarize-1
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: step-3-7-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 256000
+      max_output_tokens: 256000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/stepfun/step-3.7-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: hy-mt2-lite-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/tencent/hy-mt2-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: hy-mt2-plus-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/tencent/hy-mt2-plus
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: hy-mt2-pro-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 8000
+      max_output_tokens: 4000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/tencent/hy-mt2-pro
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: hy3-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 262144
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/tencent/hy3
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: hy4-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 1024000
+      max_output_tokens: 64000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/tencent/hy4-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-5-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 96000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-5-air-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 128000
+      max_output_tokens: 96000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.5-air
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-5v-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 66000
+      max_output_tokens: 16000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.5v
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-6-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 96000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.6
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-7-flash-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 131000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.7-flash
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-4-7-flashx-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 128000
+      supports_vision: false
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-4.7-flashx
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: glm-5v-turbo-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 200000
+      max_output_tokens: 128000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/zai/glm-5v-turbo
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: mistral-small-vercel
+    model_info:
+      access_groups: ["LLM", "Public-Data-Only"]
+      max_input_tokens: 262144
+      max_output_tokens: 4000
+      supports_vision: true
+    litellm_params:
+      model: vercel_ai_gateway/mistral/mistral-small
+      litellm_credential_name: "vercel-ai-gateway"
+
+  # The embedding models of the free tier, reached by name alone and in no cascade, since the vectors of two models
+  # are not comparable (LiteLLM's provider calls Vercel's embeddings endpoint, read in its source). The vectors of a
+  # model are paid for out of the same credit as the chat entries above, and the data policy of each is its
+  # provider's: embed nothing with them that the entries above should not see. Not one of them has a contract row, as
+  # no embedding entry has.
+  - model_name: qwen3-embedding-0-6b-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-embedding-0.6b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-embedding-4b-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-embedding-4b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: qwen3-embedding-8b-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/alibaba/qwen3-embedding-8b
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: titan-embed-text-v2-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/amazon/titan-embed-text-v2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: embed-v4-0-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/cohere/embed-v4.0
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: embed-v5-0-fast-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/cohere/embed-v5.0-fast
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: embed-v5-0-pro-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/cohere/embed-v5.0-pro
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: gemini-embedding-001-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/google/gemini-embedding-001
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: text-embedding-005-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/google/text-embedding-005
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: text-multilingual-embedding-002-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/google/text-multilingual-embedding-002
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: codestral-embed-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/mistral/codestral-embed
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: mistral-embed-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/mistral/mistral-embed
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-3-large-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-3-large
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-3-5-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-3.5
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-3-5-lite-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-3.5-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-4-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-4
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-4-large-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-4-large
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-4-lite-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-4-lite
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-code-2-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-code-2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-code-3-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-code-3
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-finance-2-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-finance-2
+      litellm_credential_name: "vercel-ai-gateway"
+
+  - model_name: voyage-law-2-vercel
+    model_info:
+      mode: embedding
+      access_groups: ["Embeddings", "Public-Data-Only"]
+    litellm_params:
+      model: vercel_ai_gateway/voyage/voyage-law-2
+      litellm_credential_name: "vercel-ai-gateway"
+
+{% endif %}
   # ============================================================================
   # OmniRoute -- local, last-resort, deliberately keyless (see the note at the top of this file).
   # Reachable by every account: there is no quota behind it to isolate.
@@ -3159,6 +4708,8 @@ router_settings:
     # twins, ahead of the paid ones; "beam-kilo" has no twin and is ahead of the Nemotron entries, for the
     # reason given with it. "hy4-flash-cent-ai", which no figure places, closes the free members, behind Kilo's
     # and ahead of OVHcloud's three heaviest entries, which close the free ones, ahead of the paid ones.
+    # Vercel AI Gateway's entries that reach the floor sit by their figures behind "gemini-3-8-flash" and the first
+    # NVIDIA ones, ahead of Kilo's; its two Nemotron entries sit right behind their NVIDIA twins, ahead of Kilo's.
 {% if head['pro'] %}
     - Auto-Pro:
 {% if has.Gemini %}
@@ -3171,14 +4722,29 @@ router_settings:
         - gemini-3-8-flash
         - gemini-3-7-flash
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - inkling-2-small-vercel
+{% endif %}
 {% if has.Requesty %}
         - ling-3-1-flash-requesty
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
         - minimax-m3-1-flash-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - minimax-m3-1-flash-vercel
+{% endif %}
+{% if has.NVIDIA %}
         - mistral-large-4-nvidia
         - glm-5-3-flash-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - ling-3-1-flash-1019-vercel
+        - muse-spark-open-vercel
+        - mimo-v2-6-flash-vercel
+        - gpt-5-2-vercel
+        - gpt-5-2-fast-vercel
 {% endif %}
         - beam-kilo
 {% if has.OpenRouter %}
@@ -3189,6 +4755,9 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - nemotron-ultra-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - nemotron-ultra-vercel
 {% endif %}
         - nemotron-ultra-kilo
 {% if has.Mistral %}
@@ -3208,6 +4777,9 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - nemotron-super-vl-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - nemotron-super-vl-vercel
 {% endif %}
         - nemotron-super-vl-kilo
 {% if has.Cent_AI %}
@@ -3240,6 +4812,9 @@ router_settings:
     # first.
     # Cloudflare's "gpt-oss-120b-cloudflare" sits right behind its Groq twin, the same model through an
     # allowance of its own.
+    # Vercel AI Gateway's entries sit by their figures among the keyed free members, and "gpt-oss-120b-vercel" and
+    # "nemotron-super-vl-vercel" behind their twins; the ones below "gemma-4-31b-nvidia" are in the range of its figures
+    # and ahead of the entries that no figure places.
 {% if head['flash'] %}
     - Auto-Flash:
 {% if has.Gemini %}
@@ -3252,24 +4827,63 @@ router_settings:
         - gemini-3-8-flash
         - gemini-3-7-flash
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - inkling-2-small-vercel
+{% endif %}
 {% if has.Requesty %}
         - ling-3-1-flash-requesty
 {% endif %}
 {% if has.NVIDIA %}
         - step-5-preview-nvidia
         - minimax-m3-1-flash-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - minimax-m3-1-flash-vercel
+{% endif %}
+{% if has.NVIDIA %}
         - mistral-large-4-nvidia
         - glm-5-3-flash-nvidia
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - ling-3-1-flash-1019-vercel
+        - muse-spark-open-vercel
+        - mimo-v2-6-flash-vercel
+{% endif %}
 {% if has.Gemini %}
         - gemini-3-6-flash
+{% if has.Vercel_AI_Gateway %}
+        - gpt-5-2-vercel
+        - gpt-5-2-fast-vercel
+{% endif %}
         - gemini-3-flash-preview
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - kimi-k2-7-code-vercel
+        - gpt-5-1-thinking-vercel
+        - gpt-5-1-thinking-fast-vercel
+        - gpt-5-vercel
+        - gpt-5-fast-vercel
+        - qwen3-6-plus-vercel
+        - inkling-vercel
+        - o3-pro-vercel
+        - qwen3-5-plus-vercel
+        - o3-vercel
+        - o3-fast-vercel
+        - qwen3-6-27b-vercel
+        - gpt-5-4-nano-vercel
+        - deepseek-v3-2-thinking-vercel
+        - gpt-5-mini-vercel
+        - gpt-5-mini-fast-vercel
+        - o4-mini-vercel
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-120b-groq
 {% endif %}
 {% if has.Cloudflare %}
         - gpt-oss-120b-cloudflare
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - gpt-oss-120b-vercel
 {% endif %}
 {% if has.Gemini %}
 {% endif %}
@@ -3288,6 +4902,18 @@ router_settings:
 {% if has.NVIDIA %}
         - gemma-4-31b-nvidia
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - qwen3-6-35b-vercel
+        - qwen3-5-flash-vercel
+        - glm-4-7-vercel
+        - kimi-k2-vercel
+        - o1-vercel
+        - deepseek-v3-1-vercel
+        - gemini-2-5-flash-vercel
+        - o3-mini-vercel
+        - mistral-medium-3-5-vercel
+        - gpt-5-nano-vercel
+{% endif %}
 {% if has.OpenRouter %}
         - particle-1-free
 {% endif %}
@@ -3302,6 +4928,9 @@ router_settings:
 {% endif %}
 {% if has.NVIDIA %}
         - nemotron-super-vl-nvidia
+{% if has.Vercel_AI_Gateway %}
+        - nemotron-super-vl-vercel
+{% endif %}
         - muse-glimmer-nvidia
 {% endif %}
 {% if has.Requesty %}
@@ -3328,6 +4957,63 @@ router_settings:
         - ling-3-2-flash-kilo
 {% if has.Cent_AI %}
         - hy4-flash-cent-ai
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - qwen-3-14b-vercel
+        - qwen-3-30b-vercel
+        - qwen-3-32b-vercel
+        - qwen3-coder-30b-a3b-vercel
+        - qwen3-vl-instruct-vercel
+        - qwen3-7-flash-vercel
+        - qwen3-8-omni-flash-vercel
+        - nova-2-lite-vercel
+        - seed-2-1-turbo-vercel
+        - apex-vercel
+        - glimpse-vercel
+        - mercury-3-vercel
+        - ling-3-0-flash-fin-vercel
+        - ling-3-0-flash-sante-vercel
+        - ling-3-0-flash-vl-vercel
+        - schematron-v2-small-vercel
+        - schematron-v2-turbo-vercel
+        - interfaze-beta-vercel
+        - lfm2-5-24b-a2b-vercel
+        - longcat-2-5-vercel
+        - llama-3-1-70b-vercel
+        - llama-3-1-8b-vercel
+        - muse-ember-vercel
+        - minimax-m2-1-vercel
+        - codestral-vercel
+        - ministral-14b-vercel
+        - ministral-3b-vercel
+        - ministral-8b-vercel
+        - mistral-nemo-vercel
+        - toast-1-vercel
+        - morph-v3-fast-vercel
+        - morph-v3-large-vercel
+        - nemotron-3-super-120b-a12b-vercel
+        - nemotron-nano-12b-v2-vl-vercel
+        - nemotron-nano-9b-v2-vercel
+        - gpt-5-1-codex-max-vercel
+        - gpt-oss-safeguard-120b-vercel
+        - gpt-oss-safeguard-20b-vercel
+        - ultramarine-1-flash-vercel
+        - sonar-vercel
+        - arrow-2-vercel
+        - arrow-2-telos-vercel
+        - flint-v1-0-vercel
+        - scaledown-summarize-1-vercel
+        - hy-mt2-lite-vercel
+        - hy-mt2-plus-vercel
+        - hy-mt2-pro-vercel
+        - hy4-flash-vercel
+        - glm-4-5-vercel
+        - glm-4-5v-vercel
+        - glm-4-6-vercel
+        - glm-4-7-flash-vercel
+        - glm-4-7-flashx-vercel
+        - glm-5v-turbo-vercel
+        - mistral-small-vercel
 {% endif %}
         - deepseek-v4-1-flash-ovh
         - qwen3-5-397b-ovh
@@ -3370,6 +5056,8 @@ router_settings:
     # "llama-4-scout-17b-16e-instruct-cloudflare". The Cloudflare entries no figure measures follow
     # "gemma-4-26b-cloudflare", "qwen2-5-coder-32b-instruct-cloudflare" first since Epoch AI alone scores it,
     # the others by size. OVHcloud's entries close them.
+    # Vercel AI Gateway's entries here are the twins of members of this router, each right behind its own, and no model
+    # that "Auto-Pro" or "Auto-Flash" holds, whose quota it would eat.
     # "ROUTAGE.md" gives each member's figures and the reason of its place.
 {% if head['flash-lite'] %}
     - Auto-Flash-Lite:
@@ -3390,18 +5078,66 @@ router_settings:
 {% if has.NVIDIA %}
         - nemotron-lightning-nvidia
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - nemotron-lightning-vercel
+{% endif %}
         - nemotron-lightning-kilo
+{% if has.Vercel_AI_Gateway %}
+        - gemini-2-5-flash-lite-vercel
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - gpt-4-1-nano-vercel
+{% endif %}
 {% if has.Cloudflare %}
         - llama-4-scout-17b-16e-instruct-cloudflare
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - llama-4-scout-vercel
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - llama-4-maverick-vercel
+        - nova-micro-vercel
+        - qwen3-next-80b-a3b-instruct-vercel
+        - qwen3-coder-next-vercel
+        - gpt-4-1-fast-vercel
+        - gpt-4-1-vercel
+        - gpt-4-1-mini-fast-vercel
+        - gpt-4-1-mini-vercel
 {% endif %}
 {% if has.NVIDIA %}
         - gemma-3-4b-nvidia
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - gpt-4o-mini-fast-vercel
+        - gpt-4o-mini-vercel
+        - nova-lite-vercel
+        - gpt-4o-fast-vercel
+        - gpt-4o-vercel
+{% endif %}
 {% if has.Cloudflare %}
         - llama-3-3-70b-cloudflare
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - llama-3-3-70b-vercel
+{% endif %}
 {% if has.NVIDIA %}
         - gemma-3-12b-nvidia
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - nova-pro-vercel
+        - mistral-large-3-vercel
+        - command-a-vercel
+        - ling-3-0-flash-vercel
+        - gpt-5-codex-vercel
+        - gpt-5-1-codex-vercel
+        - gpt-5-1-codex-mini-vercel
+        - glm-4-5-air-vercel
+        - deepseek-r1-vercel
+        - step-3-7-flash-vercel
+        - minimax-m2-7-vercel
+        - minimax-m2-5-vercel
+        - hy3-vercel
+        - ling-3-1-flash-vercel
 {% endif %}
 {% if has.Groq %}
         - gpt-oss-20b-groq
@@ -3409,11 +5145,17 @@ router_settings:
 {% if has.Cloudflare %}
         - gpt-oss-20b-cloudflare
 {% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - gpt-oss-20b-vercel
+{% endif %}
 {% if has.Gemini %}
         - gemma-4-26b-gemini
 {% endif %}
 {% if has.OpenRouter %}
         - gemma-4-26b-free
+{% endif %}
+{% if has.Vercel_AI_Gateway %}
+        - gemma-4-26b-vercel
 {% endif %}
 {% if has.Cloudflare %}
         - gemma-4-26b-cloudflare

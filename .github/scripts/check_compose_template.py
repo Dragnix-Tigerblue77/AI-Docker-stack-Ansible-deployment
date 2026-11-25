@@ -1728,6 +1728,7 @@ LITELLM_PROVIDERS = {
     "NVIDIA": "NVIDIA_NIM_API_KEY",
     "Cent_AI": "CENT_AI_API_KEY",
     "Aion_Labs": "AION_LABS_API_KEY",
+    "Vercel_AI_Gateway": "VERCEL_AI_GATEWAY_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
@@ -2118,6 +2119,12 @@ LITELLM_DATA_GROUPS = {
         LITELLM_DATA_PUBLIC,
         "a local router that sends each request to whichever keyless free provider answers, none of them chosen or read",
         "github.com/diegosouzapw/OmniRoute, 2026-11-24"),
+    "VERCEL_AI_GATEWAY_API_KEY": (
+        LITELLM_DATA_PUBLIC,
+        "Vercel's own terms were not read, and the catalogue says per model whether the model's provider commits to "
+        "no training ('no_training') and to no retention ('zdr'), which varies from model to model and was not "
+        "collected entry by entry: a provider whose terms could not be read is Public-Data-Only",
+        "ai-gateway.vercel.sh/v1/models, 2026-11-24"),
     # Providers of the drift script's additions with no active entry: nothing was read, hence nothing allowed.
     "CEREBRAS_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
     "SAMBANOVA_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
