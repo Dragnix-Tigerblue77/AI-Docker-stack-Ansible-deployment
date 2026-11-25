@@ -96,6 +96,14 @@ well; "check_routing_document.py" holds the set to the section of "ROUTAGE.md" t
 which no router serves and which is addressed by its own name alone, and any other mode the gateway has no router
 for, are exempt.
 
+The provider keys reach the entries as named credentials ("credential_list", which "/ui" lists under "LLM
+Credentials"), and each rendering is held to that shape: one credential per key given and none for a key not
+given, each named after the variable it reads and holding that variable and nothing else, every entry
+reaching its key through a credential that exists (LiteLLM does not refuse a name nobody declares: the request
+goes out without a key, and for a provider whose key is also in the environment, with the default account's),
+and none carrying both a credential and a key of its own, which would win over it. Every rule below then reads
+the rendering as if each entry carried the key its credential holds, which is what LiteLLM sends.
+
 It holds the compose file to the same table of providers: the container of the gateway must receive each
 provider key under the name the routing configuration reads it as, the one LiteLLM looks it up by, which is
 not always the provider's own name.
@@ -1835,6 +1843,43 @@ LITELLM_TIER_ROUTER_SETTINGS = {"max_tokens_from_tier_model": False, "context_co
 # reason: the models of a router are the ones it serves, and an entry no router reaches is a model nobody is given
 # unless they name it. "check_routing_document.py" holds this set to the section of "ROUTAGE.md" that lists them.
 LITELLM_CALLED_BY_NAME = {
+    "gemini-flash-latest": "an alias Google moves to the latest Flash release, with no quota stated for it, kept for "
+                           "whoever wants to follow releases without editing the file",
+    "gemini-flash-lite-latest": "an alias Google moves to the latest Flash-Lite release, with no quota stated for it, "
+                                "kept for whoever wants to follow releases without editing the file",
+    "glm-4-6v-flash-zai": "a vision model whose context and tool support no page gives, so no cascade that asks for "
+                          "either holds it",
+    "olala-summarise-ovh": "a task-specific summary model, which no cascade holds",
+    "olala-translate-ovh": "a task-specific translation model that asks for a 'source_language' field of its own, "
+                           "which no cascade holds",
+    "qwen3-vl-30b-ovh": "a vision model, which no cascade holds",
+    "qwen2-5-vl-72b-ovh": "a vision model, which no cascade holds",
+    "qwen3guard-gen-0-6b-ovh": "a guard model that answers with a verdict on a text rather than a reply",
+    "qwen3guard-gen-8b-ovh": "a guard model that answers with a verdict on a text rather than a reply",
+    "cosmos-reason2-8b-nvidia": "a vision model whose card declares no tool support, so no cascade that asks for "
+                                "tools holds it",
+    "ising-calibration-1-5-31b-nvidia": "a quantum calibration model, not a conversation model, which no cascade "
+                                        "holds",
+    "riva-translate-4b-instruct-v2-nvidia": "a translation model, which no cascade holds",
+    "nemoguard-topic-control-8b-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                         "reply",
+    "nemotron-safety-guard-8b-v3-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                          "reply",
+    "nemotron-3-5-content-safety-nvidia": "a safety filter whose card describes a verdict on a text rather than a "
+                                          "reply",
+    "whisper-large-v3-ovh": "a speech-to-text model on a keyless provider, untried: the speech router exists only when "
+                            "a keyed provider can answer, which a keyless member would change",
+    "whisper-large-v3-turbo-ovh": "the turbo version of the one above, for the same reason",
+    "nvr-tts-en-us-ovh": "a Riva voice with no French on a keyless provider, untried: the speech router exists only "
+                         "when a keyed provider can answer, which a keyless member would change",
+    "nvr-tts-es-es-ovh": "a Riva voice, for the same reason as the English one",
+    "nvr-tts-it-it-ovh": "a Riva voice, for the same reason as the English one",
+    "nvr-tts-de-de-ovh": "a Riva voice, for the same reason as the English one",
+    "voxtral-mini-tts-mistral": "its French voices have to be asked for by their own id, which a cascade shared with "
+                                "Gemini's members, who take the OpenAI voice names, cannot do",
+    "orpheus-v1-english-groq": "text to speech with no French, which the speech router asks for, and untried: no page "
+                               "read confirms LiteLLM's route for this id",
+    "orpheus-arabic-saudi-groq": "text to speech with no French, for the same reason as the English one",
     "omniroute-free-vision": "OmniRoute's vision category, a filter over its connected providers that keeps only "
                              "vision-capable models: no router takes images, so it is kept for whoever asks for it "
                              "by name, and untried",
@@ -2211,6 +2256,97 @@ def litellm_logical_document(document, state, failures):
                 translated(name, "an alias is named"): target for name, target in aliases.items()
             }
     return logical
+
+
+def litellm_credential_for(variable):
+    """The name of the credential that reads this variable: "GEMINI_API_KEY" is "gemini", "NVIDIA_NIM_API_KEY"
+    is "nvidia-nim", and another account's "GROQ_API_KEY_TEAM_A" is "groq-team-a"."""
+    match = re.fullmatch(r"([A-Z0-9_]+?)_API_KEY(?:_([A-Z0-9_]+))?", variable)
+    parts = [part for part in (match.groups() if match else ()) if part]
+    return "-".join(part.lower().replace("_", "-") for part in parts)
+
+
+def litellm_resolved_document(document, state, keys, failures):
+    """The rendering with every entry that names a credential carrying the key that credential holds instead,
+    so that the rules below, written for the key an entry sends, judge what LiteLLM sends.
+
+    The shape of the credentials is judged here, once: one per key given and none else, named after its
+    variable, holding that variable and nothing more, with the "credential_info" LiteLLM refuses to start
+    without. An entry reaches its key through a declared credential and carries no key of its own; the keyless
+    gateways' literal marker is no key, and stays."""
+    resolved = copy.deepcopy(document) if isinstance(document, dict) else {}
+    declared = {}
+    expected = {litellm_credential_for(LITELLM_PROVIDERS[provider]): LITELLM_PROVIDERS[provider] for provider in keys}
+    for credential in resolved.get("credential_list") or []:
+        if not isinstance(credential, dict) or not isinstance(credential.get("credential_name"), str):
+            failures.append(f"[{state}] the credential_list holds an item with no credential_name")
+            continue
+        name = credential["credential_name"]
+        if name in declared:
+            failures.append(f"[{state}] the credential {name!r} is declared twice: LiteLLM keeps the last, silently")
+        if sorted(credential) != ["credential_info", "credential_name", "credential_values"]:
+            failures.append(
+                f"[{state}] the credential {name!r} has the keys {sorted(credential)!r}: it has "
+                "credential_name, credential_info (which LiteLLM refuses to start without, and which holds "
+                "nothing here) and credential_values, and no other"
+            )
+        values = credential.get("credential_values")
+        reference = values.get("api_key") if isinstance(values, dict) else None
+        variable = reference[len("os.environ/"):] if isinstance(reference, str) and reference.startswith("os.environ/") else None
+        if variable not in LITELLM_PROVIDERS.values() or sorted(values) != ["api_key"]:
+            failures.append(
+                f"[{state}] the credential {name!r} holds {values!r}: it holds one api_key, read from the "
+                "environment variable of a provider key, and nothing else"
+            )
+        elif name != litellm_credential_for(variable):
+            failures.append(
+                f"[{state}] the credential {name!r} reads {variable}, which is {litellm_credential_for(variable)!r}: "
+                "a credential is named after the key it holds, or a reader of '/ui' takes one provider's key for "
+                "another's"
+            )
+        declared[name] = reference if variable in LITELLM_PROVIDERS.values() else None
+    for name in sorted(set(expected) - set(declared)):
+        failures.append(
+            f"[{state}] the key of {expected[name]} was given and no credential {name!r} declares it: its entries "
+            "would reach the provider without a key"
+        )
+    for name in sorted(set(declared) - set(expected)):
+        failures.append(
+            f"[{state}] the credential {name!r} is declared and its key was not given: it would read a variable "
+            "the container does not set"
+        )
+    for entry in resolved.get("model_list") or []:
+        if not isinstance(entry, dict):
+            continue
+        parameters = entry.get("litellm_params")
+        if not isinstance(parameters, dict):
+            continue
+        label = entry.get("model_name")
+        named = parameters.get("litellm_credential_name")
+        key = parameters.get("api_key")
+        if isinstance(key, str) and key.startswith("os.environ/"):
+            failures.append(
+                f"[{state}] the entry {label!r} reads {key[len('os.environ/'):]} on itself: a provider key reaches "
+                "an entry through its credential, the only place '/ui' lists it"
+            )
+        if "litellm_credential_name" not in parameters:
+            continue
+        if named not in declared:
+            failures.append(
+                f"[{state}] the entry {label!r} names the credential {named!r}, which nothing declares: LiteLLM "
+                "starts and sends the request without a key"
+            )
+            continue
+        if "api_key" in parameters:
+            failures.append(
+                f"[{state}] the entry {label!r} carries both the credential {named!r} and an api_key of its own, "
+                "which wins: the credential is dead weight and the key it names is not the one sent"
+            )
+            continue
+        del parameters["litellm_credential_name"]
+        if declared[named] is not None:
+            parameters["api_key"] = declared[named]
+    return resolved
 
 
 def check_litellm_config(document, keys, failures):
@@ -2724,7 +2860,9 @@ def check_litellm_configs(failures):
             continue
         named.update(entry.get("model_name") for entry in document.get("model_list") or [] if isinstance(entry, dict))
         router_settings = mapping(document, "router_settings")
-        check_litellm_config(litellm_logical_document(document, litellm_state(keys), failures), keys, failures)
+        state = litellm_state(keys)
+        resolved = litellm_resolved_document(document, state, keys, failures)
+        check_litellm_config(litellm_logical_document(resolved, state, failures), keys, failures)
         rendered += 1
     try:
         relay_text = RELAY_CONFIG_PATH.read_text(encoding="utf-8")
@@ -3103,6 +3241,69 @@ def _with_extra_entry(name, mode=None, cascaded=False):
                 if "mistral-large" in members:
                     members.append(name)
     return document
+
+
+def _credential_document(**faults):
+    """What the template renders for a Mistral and a Groq key given, in credentials, with `faults` spoiling one
+    part of it: "credentials" replaces the credential_list, "entry" the one entry's litellm_params."""
+    def credential(name, variable):
+        return {"credential_name": name, "credential_info": {}, "credential_values": {"api_key": "os.environ/" + variable}}
+
+    return {
+        "credential_list": faults.get("credentials", [credential("mistral", "MISTRAL_API_KEY"),
+                                                      credential("groq", "GROQ_API_KEY")]),
+        "model_list": [{"model_name": "a", "litellm_params": faults.get("entry", {
+            "model": "x/a", "litellm_credential_name": "mistral"})}],
+    }
+
+
+# (name, the document, the keys it was rendered for, a fragment every run must report -- None when it must pass)
+LITELLM_CREDENTIAL_CASES = [
+    ("every key a credential, every entry its credential", _credential_document(), {"Mistral", "Groq"}, None),
+    ("a key given and no credential for it", _credential_document(), {"Mistral", "Groq", "Gemini"},
+     "the key of GEMINI_API_KEY was given and no credential 'gemini' declares it"),
+    ("a credential for a key not given", _credential_document(), {"Mistral"},
+     "the credential 'groq' is declared and its key was not given"),
+    ("an entry naming a credential nobody declares",
+     _credential_document(entry={"model": "x/a", "litellm_credential_name": "mistrall"}), {"Mistral", "Groq"},
+     "names the credential 'mistrall', which nothing declares"),
+    ("an entry with its own key beside its credential",
+     _credential_document(entry={"model": "x/a", "litellm_credential_name": "mistral",
+                                 "api_key": "os.environ/GROQ_API_KEY"}), {"Mistral", "Groq"},
+     "carries both the credential 'mistral' and an api_key of its own"),
+    ("an entry reading a key from the environment on itself",
+     _credential_document(entry={"model": "x/a", "api_key": "os.environ/MISTRAL_API_KEY"}), {"Mistral", "Groq"},
+     "reads MISTRAL_API_KEY on itself"),
+    ("an entry on a keyless gateway keeps its literal marker",
+     _credential_document(entry={"model": "x/a", "api_key": "kilo-no-key-needed"}), {"Mistral", "Groq"}, None),
+    ("a credential named for another provider's key",
+     _credential_document(credentials=[
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}}]),
+     {"Mistral", "Groq"}, "the credential 'groq' reads MISTRAL_API_KEY, which is 'mistral'"),
+    ("a credential without its credential_info",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "LiteLLM refuses to start without"),
+    ("a credential holding a literal key",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "sk-clear"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "it holds one api_key, read from the environment variable of a provider key"),
+    ("a credential holding more than the key",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {},
+          "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY", "api_base": "https://x"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "it holds one api_key, read from the environment variable of a provider key"),
+    ("a credential declared twice",
+     _credential_document(credentials=[
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "mistral", "credential_info": {}, "credential_values": {"api_key": "os.environ/MISTRAL_API_KEY"}},
+         {"credential_name": "groq", "credential_info": {}, "credential_values": {"api_key": "os.environ/GROQ_API_KEY"}}]),
+     {"Mistral", "Groq"}, "the credential 'mistral' is declared twice"),
+]
 
 
 LITELLM_CONFIG_CASES = [
@@ -3764,6 +3965,11 @@ def selftest():
         if found != names:
             problems.append(f"{name!r}: the translation leaves {found!r}, expected {names!r}")
 
+    for name, document, keys, expected in LITELLM_CREDENTIAL_CASES:
+        failures = []
+        litellm_resolved_document(document, "selftest", frozenset(keys), failures)
+        problems.extend(_verdict(name, failures, expected))
+
     for name, document, switch, expected in LITELLM_LOGIN_SWITCH_CASES:
         failures = []
         check_litellm_login_switch(document, switch, failures)
@@ -3958,6 +4164,7 @@ def selftest():
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_CONFIG_CASES)} "
         f"LiteLLM routing case(s), {len(LITELLM_DATA_TABLE_CASES)} data group table case(s), "
         f"{len(LITELLM_EFFORT_CASES)} reasoning-effort case(s), "
+        f"{len(LITELLM_CREDENTIAL_CASES)} LiteLLM credential case(s), "
         f"{len(LITELLM_PUBLIC_NAME_CASES)} LiteLLM public-name case(s) and "
         f"{len(LITELLM_LOGIN_SWITCH_CASES)} login switch case(s) all judged as expected."
     )

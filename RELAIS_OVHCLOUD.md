@@ -55,14 +55,14 @@ flowchart LR
     R -->|"https, certificat vérifié<br/>sans en-tête Authorization"| O
 ```
 
-Une entrée `-ovh` du `model_list` a pour `api_base` `http://ovhcloud_relay:8080/v1` et pour `api_key` un marqueur littéral : LiteLLM exige une clé, et le relais la jette. Le relais n'est atteint que par LiteLLM, sous le nom de son service, sur le réseau interne du stack : aucun port n'est publié, aucune étiquette de reverse proxy n'est posée.
+Une entrée `-ovh` du `model_list` a pour `api_base` `http://ovhcloud_relay:8080/v1` et pour `api_key` un marqueur littéral : LiteLLM exige une clé, et le relais la jette. Toutes les entrées d'OVHcloud sont ainsi faites, quel que soit leur mode : conversation, embeddings (`/embeddings`), transcription (`/audio/transcriptions`) et synthèse vocale (`/audio/speech`). Le relais ne regarde pas ce qu'il transmet : tout ce qui est sous `/v1/` passe, corps multipart des fichiers audio compris, et une réponse binaire (l'audio d'une voix de synthèse) est transmise comme un flux. Le relais n'est atteint que par LiteLLM, sous le nom de son service, sur le réseau interne du stack : aucun port n'est publié, aucune étiquette de reverse proxy n'est posée.
 
 ### Ce que le relais garde, retire et refuse
 
 | | Ce qu'il en fait |
 |---|---|
 | Le chemin sous `/v1/` et la chaîne de requête | **gardés**, tels quels |
-| Le corps de la requête | **gardé**, jusqu'à 64 Mo, sans passer par un fichier |
+| Le corps de la requête, JSON ou multipart | **gardé**, jusqu'à 64 Mo, sans passer par un fichier : un fichier audio envoyé à une entrée de transcription tient dans cette limite, qui dépasse les 25 Mo de l'autre route de transcription du stack (celle de Groq) ; la limite d'OVHcloud elle-même n'a pas été lue |
 | La réponse, flux compris | **gardée**, morceau par morceau, sans attendre qu'elle soit complète |
 | `Authorization` | **retiré** |
 | `Host` | **remplacé** par celui d'OVHcloud, que son certificat et son routage attendent |
@@ -128,7 +128,7 @@ La clé payante d'OVHcloud. Avec une clé le plafond passe à 400 requêtes par 
 
 **Vérifié, le 2026-11-24 :** la configuration livrée dans `files/ovhcloud_relay/nginx.conf` a passé `nginx -t`, puis a été lancée avec un nginx de la distribution (et le résolveur de la machine à la place de `127.0.0.11`, le port d'essai à la place de 8080). Contre un serveur local qui répond ce qu'il a reçu : l'en-tête `Authorization` n'arrive pas, l'en-tête `Host` est celui d'OVHcloud, aucun `X-Forwarded-For` n'est ajouté, un corps de 40 Mo passe et un de 70 Mo répond `413`, un flux dont les morceaux sont espacés de 1,5 s arrive espacé de 1,5 s (rien n'est retenu), `/v1/` passe, `/v1` et un autre chemin répondent `404`, et `/healthz` répond `200`. Contre OVHcloud, un appel direct avec un jeton factice a répondu `200` (Mistral Small 3.2 : `OK`), et un appel en flux depuis LiteLLM a répondu `200`.
 
-**Non vérifié :** le conteneur lui-même. Aucune machine d'essai n'avait Docker : ni le démarrage de l'image, ni son point d'entrée avec un système de fichiers en lecture seule, ni le tmpfs, ni le DNS intégré à `127.0.0.11`, ni le comportement sous Swarm n'ont été exécutés. Les tâches « role run » de la CI déploient le stack et sont ce qui le dira ; la commande ci-dessous le dit sur la machine réelle.
+**Non vérifié :** les entrées d'embeddings, de transcription et de synthèse vocale **à travers le relais** : elles ont été essayées, quand elles l'ont été, directement et sans clé (voir le `README.md`), et aucun appel multipart ni aucune réponse audio n'a traversé le relais ; ce que le fichier fait de ces corps est lu dans sa configuration, pas mesuré. Le conteneur lui-même non plus. Aucune machine d'essai n'avait Docker : ni le démarrage de l'image, ni son point d'entrée avec un système de fichiers en lecture seule, ni le tmpfs, ni le DNS intégré à `127.0.0.11`, ni le comportement sous Swarm n'ont été exécutés. Les tâches « role run » de la CI déploient le stack et sont ce qui le dira ; la commande ci-dessous le dit sur la machine réelle.
 
 ## Tester après un déploiement
 

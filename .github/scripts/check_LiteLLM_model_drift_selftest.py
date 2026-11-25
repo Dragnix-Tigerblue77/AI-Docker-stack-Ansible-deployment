@@ -81,31 +81,81 @@ from check_LiteLLM_model_drift import (
 # ------------------------------------------------------------------------------------------------
 
 SELFTEST_TEMPLATE = """\
+credential_list:
+  - credential_name: gemini-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+  - credential_name: openrouter-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  - credential_name: mistral-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+  - credential_name: groq-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+  - credential_name: deepseek-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+  - credential_name: aion-labs-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/AION_LABS_API_KEY_SELFTEST"
+  - credential_name: sambanova-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+
+  - credential_name: cloudflare
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CLOUDFLARE_API_KEY"
+  - credential_name: nvidia-nim
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+  - credential_name: requesty
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/REQUESTY_API_KEY"
+  - credential_name: zai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/ZAI_API_KEY"
+  - credential_name: cent-ai
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CENT_AI_API_KEY"
 model_list:
   - model_name: flash
     litellm_params:
       model: gemini/gemini-9-flash
-      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+      litellm_credential_name: "gemini-selftest"
 
   - model_name: free-one
     litellm_params:
       model: openrouter/vendor/one:free
-      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+      litellm_credential_name: "openrouter-selftest"
 
   - model_name: large
     litellm_params:
       model: mistral/mistral-large-latest
-      api_key: "os.environ/MISTRAL_API_KEY_SELFTEST"
+      litellm_credential_name: "mistral-selftest"
 
   - model_name: fast
     litellm_params:
       model: groq/vendor/fast
-      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+      litellm_credential_name: "groq-selftest"
 
   - model_name: paid-direct
     litellm_params:
       model: deepseek/deepseek-v9
-      api_key: "os.environ/DEEPSEEK_API_KEY_SELFTEST"
+      litellm_credential_name: "deepseek-selftest"
 
   - model_name: kilo-one
     litellm_params:
@@ -119,24 +169,24 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-one
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY_SELFTEST"
+      litellm_credential_name: "aion-labs-selftest"
 
   # Served, but not routed to: paid only.
   # - model_name: paid-one
   #   litellm_params:
   #     model: openrouter/vendor/paid-one
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
   #
   # - model_name: paid-two
   #   litellm_params:
   #     model: openrouter/vendor/paid-two
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
 
   # Served at $0, but not routed to: a guardrail, not a generator.
   # - model_name: guardrail-free
   #   litellm_params:
   #     model: openrouter/vendor/guardrail:free
-  #     api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+  #     litellm_credential_name: "openrouter-selftest"
 
   # ============================================================================
   # SambaNova -- not routed to: a payment method comes first.
@@ -145,7 +195,7 @@ model_list:
   #   litellm_params:
   #     model: openai/SN-One
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"
+  #     litellm_credential_name: "sambanova-selftest"
 
   # drift-ignore: openrouter/vendor/noise:free -- selftest: looked at and turned down
   # drift-ignore: openrouter/vendor/painter:free -- selftest: not a chat model, not routed to
@@ -919,7 +969,7 @@ def online_cases():
                          "-- usage: speech, its entry is proposed, with model_info.mode audio_speech"
                          in report else "the speech model is not said to be one: %s" % report))),
         ("every Kilo entry of the real model list is attributed to Kilo, and a catalogue that lists them reports "
-         "nothing, the virtual models the file sets aside included",
+         "nothing, the virtual models included",
          real, SELFTEST_KEYS, dict(listing, kilo={"data": listing["kilo"]["data"] + [
              kilo_model("kilo-auto/free"), kilo_model("openrouter/free")]}), no_drift, 0, kilo_of_the_real_list),
         ("an active Kilo id the catalogue no longer lists is RETIRED, read without a key",
@@ -1962,21 +2012,34 @@ def run_head_cases():
 # The ranking source, played on canned answers in the shape its API reference documents (no key of
 # Artificial Analysis was available: the shape is the documented one, not a recorded answer).
 RANKING_TEMPLATE = """\
+credential_list:
+  - credential_name: gemini-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+  - credential_name: groq-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+  - credential_name: openrouter-selftest
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
 model_list:
   - model_name: gem-top
     litellm_params:
       model: gemini/gem-top-model
-      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"
+      litellm_credential_name: "gemini-selftest"
 
   - model_name: groq-mid
     litellm_params:
       model: groq/vendor/groq-mid-model
-      api_key: "os.environ/GROQ_API_KEY_SELFTEST"
+      litellm_credential_name: "groq-selftest"
 
   - model_name: free-low
     litellm_params:
       model: openrouter/vendor/free-low-model:free
-      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"
+      litellm_credential_name: "openrouter-selftest"
 
 router_settings:
   fallbacks:
@@ -3064,19 +3127,18 @@ def online_apply_cases():
             return "a proposed model_name is not new: %r" % names
         by_model = {entry["litellm_params"]["model"]: entry["litellm_params"] for entry in parsed}
         want = {
-            "openrouter/vendor/fresh:free": ("os.environ/OPENROUTER_API_KEY_SELFTEST", None),
-            "groq/vendor/new-fast": ("os.environ/GROQ_API_KEY_SELFTEST", None),
-            "mistral/magistral-9": ("os.environ/MISTRAL_API_KEY_SELFTEST", None),
-            "gemini/gemini-10-pro": ("os.environ/GEMINI_API_KEY_SELFTEST", None),
-            "openai/SN-New": ("os.environ/SAMBANOVA_API_KEY_SELFTEST",
-                              "https://api.sambanova.ai/v1"),
-            "cerebras/cb-new": ("os.environ/CEREBRAS_API_KEY_<ACCOUNT>", None),
+            "openrouter/vendor/fresh:free": ("openrouter-selftest", None),
+            "groq/vendor/new-fast": ("groq-selftest", None),
+            "mistral/magistral-9": ("mistral-selftest", None),
+            "gemini/gemini-10-pro": ("gemini-selftest", None),
+            "openai/SN-New": ("sambanova-selftest", "https://api.sambanova.ai/v1"),
+            "cerebras/cb-new": ("cerebras-<ACCOUNT>", None),
         }
         for model, (key, base_url) in want.items():
             got = by_model.get(model)
             if got is None:
                 return "no snippet for %s" % model
-            if got.get("api_key") != key or got.get("api_base") != base_url:
+            if got.get("litellm_credential_name") != key or got.get("api_base") != base_url:
                 return "%s is modelled on %r, expected %r" % (model, got, (key, base_url))
         expected_names = {"fresh-free", "new-fast-groq", "magistral-9", "gemini-10-pro",
                           "sn-new-sambanova", "cb-new-cerebras"}
@@ -3162,9 +3224,9 @@ def online_apply_cases():
         "\nrouter_settings:\n",
         "\n  # Usable on Groq but not routed to: enterprise only.\n"
         "  # - model_name: c1-groq\n  #   litellm_params:\n  #     model: groq/vendor/c1\n"
-        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n  #\n'
+        '  #     litellm_credential_name: "groq-selftest"\n  #\n'
         "  # - model_name: c2-groq\n  #   litellm_params:\n  #     model: groq/vendor/c2\n"
-        '  #     api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+        '  #     litellm_credential_name: "groq-selftest"\n\nrouter_settings:\n')
 
     def commented_ids_count_as_held(result, new_text, report, summary, pr, commit):
         outcomes = {o["id"]: o for o in groq_outcomes(result)}
@@ -3179,7 +3241,7 @@ def online_apply_cases():
     eight_groq = APPLY_TEMPLATE.replace(
         "\nrouter_settings:\n",
         "\n  - model_name: extra-groq\n    litellm_params:\n      model: groq/vendor/extra\n"
-        '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\nrouter_settings:\n')
+        '      litellm_credential_name: "groq-selftest"\n\nrouter_settings:\n')
 
     def half_believed(result, new_text, report, summary, pr, commit):
         outcomes = groq_outcomes(result)
@@ -3192,9 +3254,9 @@ def online_apply_cases():
     quartet = (
         "model_list:\n"
         '  - model_name: router\n    litellm_params:\n      model: gemini/gemini-9-pro\n'
-        '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n\n'
+        '      litellm_credential_name: "gemini-selftest"\n\n'
         + "".join('  - model_name: q%d-groq\n    litellm_params:\n      model: groq/vendor/q%d\n'
-                  '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n\n' % (number, number)
+                  '      litellm_credential_name: "groq-selftest"\n\n' % (number, number)
                   for number in range(1, 5))
         + "router_settings:\n  fallbacks:\n    - router:\n"
         + "".join("        - q%d-groq\n" % number for number in range(1, 5)))
@@ -3314,7 +3376,7 @@ def online_apply_cases():
          SELFTEST_TEMPLATE.replace("\nrouter_settings:\n", "\n  - model_name: flash-two\n"
                                    "    litellm_params:\n      model: gemini/gemini-9-flash-two\n"
                                    '      api_base: "https://selftest.invalid/openai/"\n'
-                                   '      api_key: "os.environ/GEMINI_API_KEY_SELFTEST"\n'
+                                   '      litellm_credential_name: "gemini-selftest"\n'
                                    "\nrouter_settings:\n"),
          changed(gemini=[{"models": base["gemini"][0]["models"] + [
              {"name": "models/gemini-9-flash-two", "supportedGenerationMethods": ["generateContent"]},
@@ -3596,41 +3658,66 @@ ADDITIONS_TEMPLATE = """\
   'OpenRouter': Artificial_Intelligence_LiteLLM_OpenRouter_API_key is string
 } %}
 # drift-ignore: openrouter/vendor/set-aside:free -- turned down
+credential_list:
+  - credential_name: gemini
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/GEMINI_API_KEY"
+  - credential_name: cerebras
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/CEREBRAS_API_KEY"
+  - credential_name: sambanova
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/SAMBANOVA_API_KEY"
+  - credential_name: openrouter
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/OPENROUTER_API_KEY"
+  - credential_name: aion-labs
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/AION_LABS_API_KEY"
+  - credential_name: deepseek
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/DEEPSEEK_API_KEY"
 model_list:
 {% if has.Gemini %}
   - model_name: gem-one
     litellm_params:
       model: gemini/gem-one
-      api_key: "os.environ/GEMINI_API_KEY"
+      litellm_credential_name: "gemini"
 
   # Served, but not routed to: paid only.
   # - model_name: gem-paid
   #   litellm_params:
   #     model: gemini/gem-paid
-  #     api_key: "os.environ/GEMINI_API_KEY"
+  #     litellm_credential_name: "gemini"
 {% endif %}
   # Cerebras: not routed to, a bank card is required.
   # - model_name: cb-one
   #   litellm_params:
   #     model: cerebras/cb-one
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
   #
   # - model_name: cb-two
   #   litellm_params:
   #     model: cerebras/cb-two
-  #     api_key: "os.environ/CEREBRAS_API_KEY"
+  #     litellm_credential_name: "cerebras"
   #
   # - model_name: sn-one
   #   litellm_params:
   #     model: openai/sn-one
   #     api_base: "https://api.sambanova.ai/v1"
-  #     api_key: "os.environ/SAMBANOVA_API_KEY"
+  #     litellm_credential_name: "sambanova"
 
 {% if has.OpenRouter %}
   - model_name: free-one
     litellm_params:
       model: openrouter/vendor/one:free
-      api_key: "os.environ/OPENROUTER_API_KEY"
+      litellm_credential_name: "openrouter"
 {% endif %}
   - model_name: gw-one
     litellm_params:
@@ -3644,7 +3731,7 @@ model_list:
     litellm_params:
       model: openai/aion-labs/aion-one
       api_base: "https://api.aionlabs.ai/v1"
-      api_key: "os.environ/AION_LABS_API_KEY"
+      litellm_credential_name: "aion-labs"
 
   - model_name: literal-key
     litellm_params:
@@ -3655,7 +3742,7 @@ model_list:
     litellm_params:
       model: deepseek/plain
       api_base: "http://deepseek.invalid/v1"
-      api_key: "os.environ/DEEPSEEK_API_KEY"
+      litellm_credential_name: "deepseek"
 
 router_settings:
   fallbacks:
@@ -3768,11 +3855,11 @@ def run_proposal_cases():
     judged("each entry follows its provider's last entry, modelled on it, active or commented out like it",
            first_wrong(
                (not any(line.startswith("- ") for line in added), "a line of the file was changed: %r" % added[:3]),
-               ('      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n\n  # Proposed by the drift run '
+               ('      litellm_credential_name: "openrouter-selftest"\n\n  # Proposed by the drift run '
                 'on 2026-01-01: listed free by "openrouter.ai/api/v1/models" that day.\n  - model_name: fresh-free\n'
                 '    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n'
                 '    litellm_params:\n      model: openrouter/vendor/fresh:free\n'
-                '      api_key: "os.environ/OPENROUTER_API_KEY_SELFTEST"\n' in ready["text"],
+                '      litellm_credential_name: "openrouter-selftest"\n' in ready["text"],
                 "the OpenRouter entry is not after free-one"),
                ("fresh-free" not in ready["text"].split("\nrouter_settings:")[1], "a ready model was placed"),
                ('      extra_headers:\n        Authorization: ""\n\n  # Proposed by the drift run on 2026-01-01: '
@@ -3785,7 +3872,7 @@ def run_proposal_cases():
                ("  - model_name: gateway-plain-kilo\n" in to_verify["text"]
                 and to_verify["text"].count('Authorization: ""') == 2,
                 "the Kilo entry to verify is wrong, or another entry lost its header"),
-               ('  #     api_key: "os.environ/SAMBANOVA_API_KEY_SELFTEST"\n\n  # Not routed to: proposed by the '
+               ('  #     litellm_credential_name: "sambanova-selftest"\n\n  # Not routed to: proposed by the '
                 'drift run on 2026-01-01, its free tier on SambaNova not verified yet.\n'
                 '  # - model_name: sn-two-sambanova\n  #   model_info:\n  #     access_groups: ["LLM", "Public-Data-Only"]\n'
                 '  #   litellm_params:\n  #     model: openai/SN-Two\n'
@@ -3793,7 +3880,7 @@ def run_proposal_cases():
                 "the SambaNova entry is not a commented-out one after sn-one, with its base"),
                ("  - model_name: quick-groq\n    model_info:\n      access_groups: [\"LLM\", \"Public-Data-Only\"]\n"
                 "    litellm_params:\n      model: groq/vendor/quick\n"
-                '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"' in to_verify["text"], "the Groq entry is wrong"),
+                '      litellm_credential_name: "groq-selftest"' in to_verify["text"], "the Groq entry is wrong"),
                (addition_problem(SELFTEST_TEMPLATE, to_verify["text"], to_verify["items"]) is None
                 and addition_problem(SELFTEST_TEMPLATE, ready["text"], ready["items"]) is None,
                 "a file built does not read back")))
@@ -3835,8 +3922,8 @@ def run_proposal_cases():
                 and "**Gratuité.**" not in rough and "not free per" not in rough, "its free tier is to check"),
                ("  - Places suggérées :" in rough, "the places that can be computed are missing"),
                ("- [ ] **Classement.** Le chercher sur <https://artificialanalysis.ai/>" in unmeasured
-                and "  # drift-ignore: openrouter/vendor/unmeasured:free -- no entry of the Artificial Analysis "
-                "ranking measured it on 2026-01-01" in unmeasured, "the unmeasured model is not said so")))
+                and "en queue des membres gratuits" in unmeasured
+                and "drift-ignore" not in unmeasured, "the unmeasured model is not said so, or is offered a line to set it aside")))
     vbody = ready["body"]
     judged("the ready pull request names what it read, places nothing, and says the places are under revision",
            first_wrong(
@@ -3919,8 +4006,9 @@ def run_proposal_cases():
                 "the places are missing"),
                ("drift-ignore" not in fresh, "a measured model is offered a line to set it aside"),
                ("**Non placé**, faute de mesure : aucune entrée du classement ne s'écrit comme lui" in mystery
-                and "  # drift-ignore: openrouter/vendor/mystery-thing:free -- no entry of the Artificial Analysis "
-                "ranking measured it on 2026-01-01" in mystery, "the unmeasured model is placed: %s" % mystery[:600]),
+                and "en queue des membres gratuits" in mystery
+                and "drift-ignore: openrouter/vendor/mystery-thing:free" not in mystery,
+                "the unmeasured model is placed, or offered a line to set it aside: %s" % mystery[:600]),
                ("**approximatif**" in vbody, "the caveat of the matching is missing"),
                ("## Classement des nouveaux modèles" not in render_summary(ranked, "selftest"),
                 "the summary still ranks the proposed models"),
@@ -3999,7 +4087,7 @@ def run_proposal_cases():
     cerebras, _ = build_additions(mini, "2026-01-01", "to_verify", [
         {"provider": "cerebras", "id": "cb-three", "name": "cb-three-cerebras"}])
     judged("an entry of a provider with commented-out entries only follows the whole run, commented out",
-           None if cerebras and ('  #     api_key: "os.environ/SAMBANOVA_API_KEY"\n\n  # Not routed to: proposed '
+           None if cerebras and ('  #     litellm_credential_name: "sambanova"\n\n  # Not routed to: proposed '
                                  "by the drift run on 2026-01-01, its free tier on Cerebras not verified "
                                  "yet.\n  # - model_name: cb-three-cerebras\n" in cerebras)
            and addition_problem(mini, cerebras, [{"provider": "cerebras", "id": "cb-three",
@@ -4010,8 +4098,8 @@ def run_proposal_cases():
              [{"provider": "cerebras", "id": "cb-two", "name": "fresh-cerebras"}], "is already an entry"),
             ("an id set aside by drift-ignore", mini, "ready",
              [{"provider": "openrouter", "id": "vendor/set-aside:free", "name": "fresh-free"}], "drift-ignore"),
-            ("an entry whose key is not read from the environment", mini, "to_verify",
-             [{"provider": "groq", "id": "vendor/fresh", "name": "fresh-groq"}], "not read from the environment"),
+            ("an entry whose key is not read through a credential", mini, "to_verify",
+             [{"provider": "groq", "id": "vendor/fresh", "name": "fresh-groq"}], "does not read its key through a credential"),
             ("an entry whose base is not https", mini, "to_verify",
              [{"provider": "deepseek", "id": "fresh", "name": "fresh-direct"}], "not a plain https address"),
             ("carriage returns", mini.replace("\n", "\r\n"), "ready",
@@ -4025,7 +4113,7 @@ def run_proposal_cases():
         judged("the entries are refused: %s" % purpose,
                None if problem and needle in problem else "refused for %r" % problem)
     entry_text = ("\n  - model_name: stray\n    litellm_params:\n      model: groq/vendor/stray\n"
-                  '      api_key: "os.environ/GROQ_API_KEY_SELFTEST"\n')
+                  '      litellm_credential_name: "groq-selftest"\n')
     reasonless = SELFTEST_TEMPLATE.replace("\nrouter_settings:", "\n  # - model_name: stray\n  #   litellm_params:\n"
                                            "  #     model: groq/vendor/stray\n\nrouter_settings:")
     judged("a file that does not read back as the file plus the proposed entries is refused",
@@ -4057,7 +4145,7 @@ def run_proposal_cases():
                ('"Authorization": "Bearer " + os.environ["GROQ_API_KEY_SELFTEST"]' in groq
                 and "x-goog-api-key" not in groq and "https://api.groq.com/openai/v1/models/vendor/quick" in groq,
                 "the Groq command is wrong"),
-               ("models/a%3Ab" in catalogue_command("gemini", "a:b", "os.environ/GEMINI_API_KEY"),
+               ("models/a%3Ab" in catalogue_command("gemini", "a:b", "GEMINI_API_KEY"),
                 "an id is not quoted in its route")))
 
     # A model the ranking knows without a figure is not placed either.
@@ -4067,11 +4155,11 @@ def run_proposal_cases():
     blanked = run_online(RANKING_TEMPLATE, RANKING_KEYS, canned_opener(blank, []), "2026-01-01")
     blank_proposals = propose_additions(RANKING_TEMPLATE, blanked)
     blank_body = blank_proposals["to_verify"]["body"]
-    judged("a model the ranking knows with no figure is to verify, not placed, and gets its line",
+    judged("a model the ranking knows with no figure is to verify, not placed by a figure, and is never offered a line to set it aside",
            first_wrong(
                (blank_proposals["ready"]["items"] == [], "a model with no figure is ready"),
                ("**Non placé**, faute de mesure : le classement le connaît, sans aucun chiffre" in blank_body
-                and "drift-ignore: openrouter/vendor/blank-model:free" in blank_body, "it was placed"),
+                and "drift-ignore: openrouter/vendor/blank-model:free" not in blank_body, "it was placed, or offered a line to set it aside"),
                ("Aucune dérive." in render_summary(blanked, "selftest"),
                 "a summary whose only news is proposed does not say there is no drift")))
 
@@ -4090,8 +4178,9 @@ def run_proposal_cases():
                 and "rapproché par le nom : à vérifier" in twin_proposals["to_verify"]["body"],
                 "a match by name made a model ready"),
                ("**Non placé** : le classement d'Artificial Analysis n'a pas été lu" in unread
-                and "the Artificial Analysis ranking was not read on 2026-01-01" in unread,
-                "an unread ranking is not said: %s" % unread[:600])))
+                and "en queue des membres gratuits" in unread
+                and "drift-ignore: openrouter/vendor/fresh:free" not in unread,
+                "an unread ranking is not said, or the model is offered a line to set it aside: %s" % unread[:600])))
     # What "certain" means, case by case: the same model spelt with other punctuation, by its slug or by
     # its name, is certain; two entries that spell alike, a digit apart, or a variant are not.
     certainty = ranking_answers(
@@ -4130,9 +4219,9 @@ def run_proposal_cases():
                 "a variant's figures are said to come from a certain match")))
     commented_only = ADDITIONS_TEMPLATE.replace(
         "  - model_name: free-one\n    litellm_params:\n      model: openrouter/vendor/one:free\n"
-        '      api_key: "os.environ/OPENROUTER_API_KEY"\n',
+        '      litellm_credential_name: "openrouter"\n',
         "  # Not routed to: a guardrail.\n  # - model_name: free-one\n  #   litellm_params:\n"
-        '  #     model: openrouter/vendor/one:free\n  #     api_key: "os.environ/OPENROUTER_API_KEY"\n')
+        '  #     model: openrouter/vendor/one:free\n  #     litellm_credential_name: "openrouter"\n')
     problem = build_additions(commented_only, "2026-01-01", "ready",
                               [{"provider": "openrouter", "id": "vendor/b:free", "name": "b-free"}])[1]
     judged("a ready model of a provider with commented-out entries only is refused",
@@ -4176,7 +4265,7 @@ def run_proposal_cases():
                (aion_problem is None and aion_text, "refused for %r" % aion_problem),
                (("  - model_name: aion-two-aion-labs\n    model_info:\n      access_groups: [\"Fiction\", \"Private-Data\"]\n"
                  "    litellm_params:\n      model: openai/aion-labs/aion-two\n"
-                 '      api_base: "https://api.aionlabs.ai/v1"\n      api_key: "os.environ/AION_LABS_API_KEY"\n')
+                 '      api_base: "https://api.aionlabs.ai/v1"\n      litellm_credential_name: "aion-labs"\n')
                 in aion_text, "the entry is not in the group Fiction, or lost the key or the base of its provider's"),
                (addition_problem(ADDITIONS_TEMPLATE, aion_text, aion_items) is None, "the file does not read back"),
                ("free tier, and only" in (build_additions(ADDITIONS_TEMPLATE, "2026-01-01", "ready", aion_items)[1] or ""),
@@ -4208,7 +4297,7 @@ def run_proposal_cases():
                 "a new OpenRouter model would be written after an embedding entry: %r" % embedding_anchor)))
 
     # The tables the bodies read, against the providers they serve.
-    commands = [catalogue_command(name, "vendor/model-1", "os.environ/%s_API_KEY" % name.upper())
+    commands = [catalogue_command(name, "vendor/model-1", "%s_API_KEY" % name.upper())
                 for name in PROVIDER_NAMES]
     judged("each provider listed to verify has what to look for, and each command quotes nothing it should not",
            first_wrong(
@@ -4529,7 +4618,7 @@ def run_carried_cases():
                ("`openrouter/~vendor/odd:free`" in left and "`gemini/gemini-odd-`" in left and "forme" in left,
                 "an id of another spelling is not carried"),
                (left.count("```yaml") == 3 and "model: cerebras/cb-new" in left
-                and 'api_key: "os.environ/CEREBRAS_API_KEY_<ACCOUNT>"' in left, "the entries to complete are missing"),
+                and 'litellm_credential_name: "cerebras-<ACCOUNT>"' in left, "the entries to complete are missing"),
                ("vendor/fresh:free" not in left and "gemini-10-pro" not in left, "a proposed model is listed as not proposed"),
                (UNCARRIED_HEADING not in ready, "the ready pull request carries them")))
     judged("the run's summary has all of it, the router contracts' place and the coverage included",
@@ -7116,13 +7205,13 @@ CLOUDFLARE_BLOCK = """\
   - model_name: cf-large
     litellm_params:
       model: cloudflare/@cf/vendor/large
-      api_key: "os.environ/CLOUDFLARE_API_KEY"
+      litellm_credential_name: "cloudflare"
 
   # Served, but not routed to: needs a paid plan.
   # - model_name: cf-paid
   #   litellm_params:
   #     model: cloudflare/@cf/vendor/paid
-  #     api_key: "os.environ/CLOUDFLARE_API_KEY"
+  #     litellm_credential_name: "cloudflare"
 
 """
 assert SELFTEST_TEMPLATE.count("  - model_name: local\n") == 1 and SELFTEST_TEMPLATE.count("        - large\n") == 1
@@ -7395,7 +7484,7 @@ def run_cloudflare_cases():
                 "items %r" % part["items"]),
                ('  - model_name: new-text-cloudflare\n    model_info:\n      access_groups: ["LLM", "Private-Data"]\n'
                 '    litellm_params:\n      model: cloudflare/@cf/vendor/new-text\n'
-                '      api_key: "os.environ/CLOUDFLARE_API_KEY"\n' in part["text"], "the entry"),
+                '      litellm_credential_name: "cloudflare"\n' in part["text"], "the entry"),
                ("api_base" not in part["text"].split("new-text-cloudflare")[1].split("\n\n")[0], "an api_base was invented"),
                (addition_problem(CLOUDFLARE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
                ("[ ] **Gratuité.** Ouvrir <https://developers.cloudflare.com/workers-ai/platform/pricing/>" in part["body"],
@@ -7428,7 +7517,7 @@ COVERAGE_BLOCK = """\
   - model_name: nv-one
     litellm_params:
       model: nvidia_nim/vendor/nv-one
-      api_key: "os.environ/NVIDIA_NIM_API_KEY"
+      litellm_credential_name: "nvidia-nim"
 
   - model_name: ovh-one
     litellm_params:
@@ -7440,25 +7529,25 @@ COVERAGE_BLOCK = """\
     litellm_params:
       model: openai/vendor/req-one
       api_base: "https://router.eu.requesty.ai/v1"
-      api_key: "os.environ/REQUESTY_API_KEY"
+      litellm_credential_name: "requesty"
 
   # Served, but not routed to: paid only.
   # - model_name: req-paid
   #   litellm_params:
   #     model: openai/vendor/req-paid
   #     api_base: "https://router.eu.requesty.ai/v1"
-  #     api_key: "os.environ/REQUESTY_API_KEY"
+  #     litellm_credential_name: "requesty"
 
   - model_name: zai-one
     litellm_params:
       model: zai/glm-9-flash
-      api_key: "os.environ/ZAI_API_KEY"
+      litellm_credential_name: "zai"
 
   - model_name: cent-one
     litellm_params:
       model: openai/hy9-flash:free
       api_base: "https://api.cent-ai.dev/v1"
-      api_key: "os.environ/CENT_AI_API_KEY"
+      litellm_credential_name: "cent-ai"
 
   # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
   # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down
@@ -7706,7 +7795,7 @@ def run_coverage_cases():
                ('  # Proposed by the drift run on 2026-01-01: listed free by "router.eu.requesty.ai/v1/models" that day.\n'
                 '  - model_name: req-fresh-requesty\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
                 '      model: openai/vendor/req-fresh\n      api_base: "https://router.eu.requesty.ai/v1"\n'
-                '      api_key: "os.environ/REQUESTY_API_KEY"\n' in ready["text"], "the entry"),
+                '      litellm_credential_name: "requesty"\n' in ready["text"], "the entry"),
                (addition_problem(COVERAGE_TEMPLATE, ready["text"], ready["items"]) is None, "it does not read back"),
                ("free" not in [what for report in result["providers"] if report["name"] == "requesty"
                                for finding in report["findings"] for what, _ in finding.get("missing", [])],
@@ -7733,11 +7822,11 @@ def run_coverage_cases():
                 and 'api_key: "ovh-no-key-needed"\n      extra_headers' not in part["text"],
                 "the OVHcloud entry"),
                ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
-                '      model: nvidia_nim/vendor/nv-new.1\n      api_key: "os.environ/NVIDIA_NIM_API_KEY"\n' in part["text"],
+                '      model: nvidia_nim/vendor/nv-new.1\n      litellm_credential_name: "nvidia-nim"\n' in part["text"],
                 "the NVIDIA entry"),
-               ('      model: zai/glm-9-new\n      api_key: "os.environ/ZAI_API_KEY"\n' in part["text"], "the Z AI entry"),
+               ('      model: zai/glm-9-new\n      litellm_credential_name: "zai"\n' in part["text"], "the Z AI entry"),
                ('      model: openai/hy9-new:free\n      api_base: "https://api.cent-ai.dev/v1"\n'
-                '      api_key: "os.environ/CENT_AI_API_KEY"\n' in part["text"], "the Cent AI entry"),
+                '      litellm_credential_name: "cent-ai"\n' in part["text"], "the Cent AI entry"),
                ("  - model_name: hy9-new-cent-ai\n" in part["text"], "the Cent AI name"),
                (addition_problem(COVERAGE_TEMPLATE, part["text"], part["items"]) is None, "it does not read back"),
                ("docker exec" in part["body"] and "ZAI_API_KEY" in part["body"] and "CENT_AI_API_KEY" in part["body"],
@@ -7826,13 +7915,13 @@ INCOMPLETE_BLOCK = """\
   - model_name: zai-flash
     litellm_params:
       model: zai/glm-9-flash
-      api_key: "os.environ/ZAI_API_KEY"
+      litellm_credential_name: "zai"
 
   # Served, but not routed to: selftest, set aside.
   # - model_name: zai-flash-old
   #   litellm_params:
   #     model: zai/glm-8-flash
-  #     api_key: "os.environ/ZAI_API_KEY"
+  #     litellm_credential_name: "zai"
 
   # drift-ignore: zai/glm-9-pro -- selftest: looked at and turned down
 

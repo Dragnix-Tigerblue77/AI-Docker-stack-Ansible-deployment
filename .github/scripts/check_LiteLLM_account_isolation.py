@@ -37,6 +37,16 @@ deploys today -- and one reading "os.environ/GROQ_API_KEY_<ACCOUNT>" belongs to 
 caller labelled <ACCOUNT>. It is the key that spends the quota; the "model_name" suffix and
 "model_info.access_groups" are only labels, and a label can lie.
 
+The key is usually not written on the entry: an entry says "litellm_credential_name: <name>" and the
+"credential_list" of the same file declares that name, with an "api_key" reading the variable. The check
+follows the name to the variable, so a credential is attributed exactly as the key it holds would be, and
+the account stays the key's. A name no credential declares is reported, for a reason of its own: LiteLLM
+starts on it and sends the request with no key but what its provider reads from the environment by default,
+which for a provider whose key is set there is the DEFAULT account's -- an entry meant for another account
+would then spend the default one's quota with nothing failing. An entry that carries both a credential and
+an "api_key" of its own is reported too: LiteLLM gives the entry's own key priority, so the key the reader
+sees through the credential is not the one sent, and the attribution follows the one sent.
+
 This script knows no list of accounts, and the role's interface names no person: the account is the
 segment that follows "_API_KEY_" in the variable's name, whatever the caller chose to call it, and
 the absence of a segment is the default account. A second account, or a billed project kept apart,
@@ -247,14 +257,6 @@ def tier_names(configuration):
     return names
 
 
-def account_of_entry(entry):
-    """The account of an entry, or why it has none: a complexity router has no key and no account, like a backend
-    that needs no credential."""
-    if entry["is_router"]:
-        return SHARED, None
-    return account_of_reference(entry["api_key"])
-
-
 def read_entries(document):
     """The "model_list" entries, in a usable shape."""
     entries = []
@@ -271,11 +273,52 @@ def read_entries(document):
         entries.append({
             "model_name": entry.get("model_name"),
             "api_key": parameters.get("api_key") if isinstance(parameters, dict) else None,
+            "credential_name": parameters.get("litellm_credential_name") if isinstance(parameters, dict) else None,
             "access_groups": [g for g in (groups or []) if isinstance(g, str)],
             "is_router": is_router,
             "tiers": tier_names(parameters.get("complexity_router_config")) if is_router else [],
         })
     return entries
+
+
+def read_credentials(document):
+    """({credential_name: its "api_key" as written}, the names declared more than once).
+
+    LiteLLM looks a name up in the list in order and keeps the first match, so a second declaration is dead
+    weight at best and, at worst, the one a reader takes for the one in use."""
+    credentials = {}
+    repeated = []
+    declared = document.get("credential_list") if isinstance(document, dict) else None
+    for credential in declared if isinstance(declared, list) else []:
+        if not isinstance(credential, dict) or not isinstance(credential.get("credential_name"), str):
+            continue
+        values = credential.get("credential_values")
+        name = credential["credential_name"]
+        if name in credentials:
+            repeated.append(name)
+            continue
+        credentials[name] = values.get("api_key") if isinstance(values, dict) else None
+    return credentials, repeated
+
+
+def account_of_entry(entry, credentials):
+    """The account an entry spends: the one of the key LiteLLM sends, with the reason when there is none.
+    A complexity router has no key and no account, like a backend that needs no credential.
+
+    An "api_key" on the entry is the key sent, since LiteLLM gives the entry's own parameters priority over
+    its credential's. Otherwise the credential's key is."""
+    if entry["is_router"]:
+        return SHARED, None
+    named = entry["credential_name"]
+    if named is None or entry["api_key"] is not None:
+        return account_of_reference(entry["api_key"])
+    if not isinstance(named, str) or named not in credentials:
+        return None, (
+            "the credential \"%s\" is not declared in the credential_list, so LiteLLM sends the request with no "
+            "key of its own and falls back on the one its provider reads from the environment, the default "
+            "account's" % named
+        )
+    return account_of_reference(credentials[named])
 
 
 def check_document(path, document):
@@ -285,9 +328,13 @@ def check_document(path, document):
     if not entries:
         return problems
 
+    credentials, repeated = read_credentials(document)
+    for entry in entries:
+        entry["account"], entry["reason"] = account_of_entry(entry, credentials)
+
     accounts_seen = set()
     for entry in entries:
-        account, _ = account_of_entry(entry)
+        account = entry["account"]
         if account and account is not SHARED:
             accounts_seen.add(account)
 
@@ -304,9 +351,8 @@ def check_document(path, document):
     account_of_model = {}
     for name, group in sorted(by_name.items()):
         accounts = sorted({
-            account for account, _ in
-            (account_of_entry(entry) for entry in group)
-            if account and account is not SHARED
+            entry["account"] for entry in group
+            if entry["account"] and entry["account"] is not SHARED
         })
         if len(accounts) == 1:
             account_of_model[name] = accounts[0]
@@ -323,21 +369,21 @@ def check_document(path, document):
 
     # Rule 2 -- an entry the check cannot attribute is reported, not ignored.
     for entry in entries:
-        account, reason = account_of_entry(entry)
-        if account:
+        if entry["account"]:
             continue
         problems.append(
             "%s: the entry \"%s\" has no identifiable account: %s.\n"
-            "    None of the isolation rules can apply to it. Write the key in the form\n"
-            "    \"api_key: os.environ/<PROVIDER>_API_KEY[_<ACCOUNT>]\", as #2 prescribes."
-            % (path, entry["model_name"], reason)
+            "    None of the isolation rules can apply to it. Give it a \"litellm_credential_name\" the\n"
+            "    credential_list declares, with an \"api_key: os.environ/<PROVIDER>_API_KEY[_<ACCOUNT>]\",\n"
+            "    or write that api_key on the entry, as #2 prescribes."
+            % (path, entry["model_name"], entry["reason"])
         )
 
     # Rule 3 -- the label has to say the same thing as the key.
     # A mislabelled entry is not a typo: it is what makes rule 4 unreadable, since a reviewer
     # judges a fallback on the name they see.
     for entry in entries:
-        account, _ = account_of_entry(entry)
+        account = entry["account"]
         if not account or account is SHARED or not isinstance(entry["model_name"], str):
             continue
         # A label is written the way an environment variable suffix is, in upper case with
@@ -466,6 +512,26 @@ def check_document(path, document):
                 "    One name would then send a person's request to another's quota: give each account\n"
                 "    a router of its own."
                 % (path, entry["model_name"], ", ".join(sorted(tier_accounts)))
+            )
+
+    # Rule 7 -- a credential is declared once, and an entry has one source for its key.
+    # The first of two declarations is the one LiteLLM uses, and the second is the one a reader may take
+    # for it. An entry that carries a credential AND a key of its own sends the entry's, so the credential
+    # it names is not the account that pays.
+    for name in sorted(set(repeated)):
+        problems.append(
+            "%s: the credential \"%s\" is declared more than once in credential_list.\n"
+            "    LiteLLM uses the first and ignores the others, so the key a reader sees under the second\n"
+            "    is not necessarily the one sent. Declare it once."
+            % (path, name)
+        )
+    for entry in entries:
+        if entry["credential_name"] is not None and entry["api_key"] is not None:
+            problems.append(
+                "%s: the entry \"%s\" carries both the credential \"%s\" and an api_key of its own.\n"
+                "    LiteLLM sends the entry's own key and ignores the credential's, so the account the\n"
+                "    credential suggests is not the one that pays. Keep one of the two."
+                % (path, entry["model_name"], entry["credential_name"])
             )
     return problems
 

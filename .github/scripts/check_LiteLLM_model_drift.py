@@ -245,8 +245,7 @@ the free ids are offered as NEW. Every id is a member, though: a model that stop
 listed, and is reported as a NOTICE and never as RETIRED, which is what a deletion would otherwise take
 it for. The list is the only route: Kilo documents no way to ask for one model, so a deletion rests on
 it alone, as OpenRouter's does. It also lists virtual models that pick another at each request
-("kilo-auto/free", "openrouter/free"), which are free and no model to route to, and which the template
-sets aside with a "drift-ignore:" line.
+("kilo-auto/free", "openrouter/free"), which are free and which the template routes like any other entry.
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY, MODEL_DRIFT_ZAI_API_KEY,
@@ -354,9 +353,9 @@ request of the models to verify when there is one, with an entry to complete, re
 "model:" with its
 provider prefix, a model_name proposed the way the file's own names are made (the id with its dots
 turned to dashes, and the provider's name as a suffix for the providers whose names carry one, a
-name already taken getting it anyway), and the "api_key" and "api_base" most of that provider's
-existing entries use, the first being the name of the environment variable the key is read from. A
-provider with no entry yet gets a placeholder for the key. Pasted as it is, it is an active entry;
+name already taken getting it anyway), and the "litellm_credential_name" (the "api_key" of a keyless
+gateway, which is a literal marker) and the "api_base" most of that provider's existing entries use.
+A provider with no entry yet gets a placeholder for the credential. Pasted as it is, it is an active entry;
 for one that is not routed to, a "# " goes in after the two spaces of indentation of each line, as
 the file's other commented-out entries have it (a "# " in front of the indentation is a comment
 this check does not read as an entry), and the reason goes above, with the provider's page and the
@@ -632,8 +631,9 @@ fixed text that says where it comes from and when; it is commented out, with a "
 to replace, when the provider has no active entry. Neither pull request puts a model anywhere but at the
 tail of a cascade (above): the body gives its figures and its suggested place in each router (THE RANKINGS), which are
 suggestions computed on a ranking under revision, or, for a model the ranking does not measure, says
-it is not placed and gives the "drift-ignore" line that sets it aside. A model merged, or set aside by
-"drift-ignore", is known and never proposed again.
+it is not placed by a figure and goes at the end of the free members of the routers that can hold it: a
+model with no measure is never set aside for that, only a model that is not free, retired or not
+callable is. A model merged, or set aside by "drift-ignore", is known and never proposed again.
 
 What is proposed is a provider, an id and a name, written to "proposals.json" with whether every
 source the kind draws on was read; the job of the workflow that writes builds the file from those
@@ -643,8 +643,10 @@ file's entries and the proposed ones and every cascade as it was). It refuses wh
 id or a name of another spelling than ADDITION_ID and ADDITION_NAME, a name that is a word of the
 file, a ready model of a provider whose API does not state its free tier, an id of such a provider
 whose ids all end in a suffix (FREE_SUFFIX: OpenRouter's ":free") that does not, an id already an
-entry or set aside, an entry to model one on whose key is not read from the environment (or, on a
-keyless gateway, is no plain marker) or whose base is not https, more than PROPOSAL_LIMIT entries. A NEW
+entry or set aside, an entry to model one on that does not read its key through a credential (or, on a
+keyless gateway, whose key is no plain marker) or whose base is not https, more than PROPOSAL_LIMIT entries. It
+also refuses, alone, an entry whose credential the file does not declare: the command of the body reads the
+variable behind it, which only this script needs. A NEW
 model this cannot propose -- of a spelling the file is not written with, of a provider with no entry,
 past the cap, or one whose body would be too long -- is listed, with the reason and its entry to
 complete, in the body of the pull request of the models to verify, and in the summary.
@@ -1198,6 +1200,7 @@ def entry_of(item):
         "model": parameters.get("model"),
         "api_base": parameters.get("api_base"),
         "api_key": parameters.get("api_key"),
+        "credential": parameters.get("litellm_credential_name"),
         "item": item,
     }
 
@@ -5639,7 +5642,7 @@ def access_groups_text(provider, usage=CHAT):
     return '["%s", "%s"]' % tuple(access_groups(provider, usage))
 
 
-SAFE_KEY = re.compile(r"os\.environ/[A-Z0-9_]+")
+SAFE_CREDENTIAL = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 SAFE_BASE = re.compile(r"https?://[A-Za-z0-9._:/-]+")
 # The gateways that need no key. Their entries carry a literal marker for "api_key", which LiteLLM sends as
 # a bearer token. Kilo's gateway refuses it with a 401, so its entries blank the Authorization header with
@@ -5665,19 +5668,22 @@ ADDITION_MARKER = re.compile(r"[a-z][a-z0-9-]{0,63}")
 def provider_basis(entries, provider):
     keys = collections.Counter()
     bases = collections.Counter()
+    # A keyless gateway's entry carries a literal marker as its "api_key", every other provider's entry
+    # names the credential that holds its key.
+    field = "api_key" if provider in KEYLESS_GATEWAYS else "credential"
     for entry in entries:
         attributed = attribute(entry["model"], entry["api_base"])
         if attributed and attributed[0] == provider:
-            keys[entry["api_key"]] += 1
+            keys[entry[field]] += 1
             bases[entry["api_base"]] += 1
-    safe = ADDITION_MARKER if provider in KEYLESS_GATEWAYS else SAFE_KEY
+    safe = ADDITION_MARKER if provider in KEYLESS_GATEWAYS else SAFE_CREDENTIAL
     key = next((k for k, _ in keys.most_common() if isinstance(k, str) and safe.fullmatch(k)), None)
     base = bases.most_common(1)[0][0] if bases else DEFAULT_BASES.get(provider)
     if not (isinstance(base, str) and SAFE_BASE.fullmatch(base)):
         base = None
     # The entries of a provider do not all agree on the "api_base" (Gemini's Gemma ones have none):
     # the snippet gets the majority's, and the summary says the choice is open.
-    return {"api_key": key, "api_base": base, "mixed": len(bases) > 1}
+    return {"api_key": key, "api_base": base, "mixed": len(bases) > 1}  # the marker, or the credential's name
 
 
 def name_stem(identifier):
@@ -5716,8 +5722,7 @@ def snippet(provider, identifier, basis, name):
     if provider in KEYLESS_GATEWAYS:
         lines.append('      api_key: "%s"' % (basis["api_key"] or "%s-no-key-needed" % provider))
         return lines + (keyless_header_lines("      ") if provider in BLANKED_AUTHORIZATION_GATEWAYS else [])
-    lines.append('      api_key: "%s"' % (basis["api_key"]
-                                         or "os.environ/%s_API_KEY_<ACCOUNT>" % provider.upper()))
+    lines.append('      litellm_credential_name: "%s"' % (basis["api_key"] or "%s-<ACCOUNT>" % provider))
     return lines
 
 
@@ -6369,7 +6374,7 @@ PROPOSAL_BRANCHES = {"ready": "ADDITIONS_BRANCH", "to_verify": "ADDITIONS_TO_VER
 ADDITION_ID = re.compile(r"(?!.*(?:::|//))(?:@cf/)?[A-Za-z0-9][A-Za-z0-9._:/+~-]{0,198}[A-Za-z0-9]")
 ADDITION_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ADDITION_NAME_LIMIT = 80
-ADDITION_KEY = re.compile(r"os\.environ/[A-Z][A-Z0-9_]*")
+ADDITION_CREDENTIAL = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 # An address a new entry may copy: a plain https one, or the relay of the compose file in front of OVHcloud, which is
 # reached over the stack's own network and so over plain http.
 ADDITION_BASE = re.compile(r"https://[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._-]+)*/?"
@@ -6377,7 +6382,7 @@ ADDITION_BASE = re.compile(r"https://[a-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._
 ADDITION_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 # The file as written, read line by line the way the builder of the workflow reads it.
 ADDITION_ENTRY = re.compile(r"  (# )?- model_name: ([^\s#]+)\s*")
-ADDITION_FIELD = re.compile(r"\s+(model|api_key|api_base|mode):\s*(?:\"([^\"]*)\"|(\S+))\s*")
+ADDITION_FIELD = re.compile(r"\s+(model|api_key|litellm_credential_name|api_base|mode):\s*(?:\"([^\"]*)\"|(\S+))\s*")
 ADDITION_ACTIVE_BODY = re.compile(r" {4,}\S")
 ADDITION_COMMENTED_BODY = re.compile(r"  # {2,}\S")
 ADDITION_COMMENT_RUN = re.compile(r"  #( |$)")
@@ -6440,9 +6445,32 @@ def proposed(result, provider, identifier):
                if finding["kind"] == "new" and finding["id"] == identifier)
 
 
+CREDENTIAL_NAME = re.compile(r"\s*(?:#\s*)?-\s+credential_name:\s*(\S+)\s*")
+CREDENTIAL_KEY = re.compile(r"\s*(?:#\s*)?api_key:\s*\"os\.environ/([A-Z][A-Z0-9_]*)\"\s*")
+
+
+def credential_variables(lines):
+    """{credential name: the environment variable it reads} of the credentials the file declares, those
+    commented out with their entries too, read line by line like the entries are."""
+    found = {}
+    name = None
+    for line in lines:
+        if "- model_name:" in line:
+            name = None
+        declared = CREDENTIAL_NAME.fullmatch(line)
+        if declared:
+            name = declared.group(1)
+            continue
+        key = CREDENTIAL_KEY.fullmatch(line)
+        if key and name is not None:
+            found.setdefault(name, key.group(1))
+    return found
+
+
 def addition_entries(lines):
     """The entries of the "model_list" section as written, active and commented out: {"name",
-    "commented", "fields" (model, api_key, api_base as written), "last" (the index of the line a new
+    "commented", "fields" (model, api_key, litellm_credential_name, api_base as written), "variable" (the
+    environment variable the credential its fields name reads, or None), "last" (the index of the line a new
     entry would follow)}. None when there is no "model_list:" line."""
     if "model_list:" not in lines:
         return None
@@ -6450,6 +6478,7 @@ def addition_entries(lines):
     end = next((index for index in range(start + 1, len(lines)) if TOP_LEVEL_KEY.match(lines[index])),
                len(lines))
     entries = []
+    variables = credential_variables(lines)
     for index in range(start + 1, end):
         head = ADDITION_ENTRY.fullmatch(lines[index])
         if not head:
@@ -6470,6 +6499,7 @@ def addition_entries(lines):
         while commented and at < end and ADDITION_COMMENT_RUN.match(lines[at]):
             entry["last"] = at
             at += 1
+        entry["variable"] = variables.get(entry["fields"].get("litellm_credential_name"))
         entries.append(entry)
     return entries
 
@@ -6536,9 +6566,12 @@ def addition_block(kind, date, item, anchor):
               "%s    model: %s" % (lead, addition_model(item["provider"], item["id"], usage))]
     if anchor["fields"].get("api_base") is not None:
         block.append('%s    api_base: "%s"' % (lead, anchor["fields"]["api_base"]))
-    block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
-    if item["provider"] in BLANKED_AUTHORIZATION_GATEWAYS:
-        block += keyless_header_lines(lead + "    ")
+    if item["provider"] in KEYLESS_GATEWAYS:
+        block.append('%s    api_key: "%s"' % (lead, anchor["fields"]["api_key"]))
+        if item["provider"] in BLANKED_AUTHORIZATION_GATEWAYS:
+            block += keyless_header_lines(lead + "    ")
+    else:
+        block.append('%s    litellm_credential_name: "%s"' % (lead, anchor["fields"]["litellm_credential_name"]))
     return block
 
 
@@ -6671,6 +6704,7 @@ def build_additions(text, date, kind, items):
         if anchor is None:
             return None, "the template has no entry of %s to model one on" % provider
         key, base = anchor["fields"].get("api_key"), anchor["fields"].get("api_base")
+        credential = anchor["fields"].get("litellm_credential_name")
         # Cloudflare's embeddings are the one entry with a base read from the environment, and only one
         # that already has it is modelled on, since the base holds the account's identifier.
         if provider == "cloudflare" and usage == "embeddings":
@@ -6680,8 +6714,12 @@ def build_additions(text, date, kind, items):
         if provider in KEYLESS_GATEWAYS:
             if not isinstance(key, str) or not ADDITION_MARKER.fullmatch(key):
                 return None, "the key of the entry %s is not a plain marker, as a keyless gateway's is" % anchor["name"]
-        elif not isinstance(key, str) or not ADDITION_KEY.fullmatch(key):
-            return None, "the key of the entry %s is not read from the environment" % anchor["name"]
+        elif not isinstance(credential, str) or not ADDITION_CREDENTIAL.fullmatch(credential):
+            return None, "the entry %s does not read its key through a credential" % anchor["name"]
+        elif keyed(provider) and anchor["variable"] is None:
+            # Only this script reads the variable (the command of the body below runs in the container that
+            # holds it), so the step that writes the file does not ask.
+            return None, "the credential of the entry %s is declared by no credential_list" % anchor["name"]
         if base is not None and not ADDITION_BASE.fullmatch(base):
             return None, "the api_base of the entry %s is not a plain https address, nor the relay's" % anchor["name"]
         if kind == "ready" and anchor["commented"]:
@@ -7046,12 +7084,13 @@ def keyed(provider):
     return next(variable for name, _, variable, _, _, _ in PROVIDERS if name == provider) is not None
 
 
-def catalogue_command(provider, identifier, key):
+def catalogue_command(provider, identifier, variable):
     """A command that prints what "provider" says of the model "identifier", and nothing secret: the
     provider's own route for one model where it has one, else its list filtered to that id. A keyed
     one runs in the LiteLLM container, whose environment holds the key under the name the entry reads
     it from, and prints the model's description, never the key. "identifier" is an ADDITION_ID and
-    "key" an ADDITION_KEY, so neither can end a quoted string of the shell or of Python."""
+    "variable" the name an environment variable is read under, so neither can end a quoted string of the
+    shell or of Python."""
     pick = "answer"
     if provider in LOOKUPS:
         url = '"%s"' % (LOOKUPS[provider] + urllib.parse.quote(identifier, safe="/"))
@@ -7067,7 +7106,6 @@ def catalogue_command(provider, identifier, key):
         pick = '[model for model in answer.get("data", []) if model.get("id") == "%s"]' % identifier
     headers = '"User-Agent": "%s"' % USER_AGENT
     if keyed(provider):
-        variable = key.split("/", 1)[1]
         headers += (', "x-goog-api-key": os.environ["%s"]' % variable if provider == "gemini"
                     else ', "Authorization": "Bearer " + os.environ["%s"]' % variable)
     program = ('import json, os, urllib.request; request = urllib.request.Request(%s, headers={%s}); '
@@ -7150,8 +7188,8 @@ def slot_sentence(provider, usage, name, commented):
 
 def placing_lines(result, provider, identifier, usage=CHAT):
     """What the ranking says of a proposed model, as list items: its figures and the place it would
-    take in each router, or that it is not placed, and why. The second value is the reason, in
-    English, of the drift-ignore line that sets an unmeasured model aside, or None for a measured one.
+    take in each router, or that it is not placed by a figure, and why, which sends it to the end of the
+    free members. The second value is always None: an unmeasured model is no reason to set it aside.
     A model of another usage has no ranking: see usage_lines()."""
     if usage != CHAT:
         return usage_lines(usage), None
@@ -7160,17 +7198,17 @@ def placing_lines(result, provider, identifier, usage=CHAT):
     model = row["model"] if row else None
     if ranking["status"] != "read":
         return (["**Non placé** : le classement d'Artificial Analysis n'a pas été lu à cette exécution, "
-                 "il n'y a aucun chiffre pour le placer."],
-                "the Artificial Analysis ranking was not read on %s, so there are no figures to place it "
-                "by in any cascade" % result["date"])
+                 "il n'y a aucun chiffre pour le placer. Sans chiffre, il va en queue des membres gratuits des "
+                 "routeurs qui le tiennent."],
+                None)
     if model is None or all(model.get(key) is None for key in ("intelligence", "coding", "speed")):
         why = ("plusieurs entrées du classement portent ce nom, aucune n'est retenue"
                if row and row["how"] == "ambigu" else
                "le classement le connaît, sans aucun chiffre" if model else
                "aucune entrée du classement ne s'écrit comme lui")
-        return (["**Non placé**, faute de mesure : %s." % why],
-                "no entry of the Artificial Analysis ranking measured it on %s, so there are no figures "
-                "to place it by in any cascade" % result["date"])
+        return (["**Non placé**, faute de mesure : %s. Sans chiffre, il va en queue des membres gratuits des "
+                 "routeurs qui le tiennent, jamais hors de la liste." % why],
+                None)
     lines = ["Classement : %s." % figures_text(model, row["how"], certain_match(row))]
     if row["places"]:
         lines += ["Places suggérées :"] + ["  - " + place_text(router, row["places"][router])
@@ -7189,7 +7227,7 @@ def yaml_fence(lines, indent=""):
 MISSING_HOWTO = {
     "ranking": "le chercher sur <%s> ; s'il y est, relever son indice d'intelligence, son indice de "
                "code et sa vitesse, et le placer à la main en les comparant à ceux des membres de "
-               "chaque cascade ; s'il n'y est pas, le placer sans chiffre ou l'écarter" % RANKING_SITE,
+               "chaque cascade ; s'il n'y est pas, le placer sans chiffre, en queue des membres gratuits" % RANKING_SITE,
     "match": "ouvrir sa fiche sur <%s> et vérifier que c'est bien ce modèle (même éditeur, même taille, "
              "même variante d'effort de raisonnement) ; si oui, les places suggérées plus bas tiennent" % RANKING_SITE,
     "figures": "attendre que le classement le mesure, ou le placer à la main",
@@ -7297,7 +7335,7 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         out += ["Entrée %s par le commit :" % ("commentée ajoutée" if anchor["commented"] else "ajoutée"), ""]
         out += yaml_fence(block) + [""]
         out += [slot_sentence(provider, usage, name, anchor["commented"]), ""]
-        placing, unmeasured = placing_lines(result, provider, identifier, usage)
+        placing, _ = placing_lines(result, provider, identifier, usage)
         if usage in USAGE_MODES:
             out.append("Usage : `%s`, `model_info.mode: %s`, groupe d'accès `%s`." % (
                 usage, USAGE_MODES[usage], addition_group(provider, usage)))
@@ -7325,7 +7363,7 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
                     "dans le conteneur LiteLLM" if keyed(provider) else ""),
                 "",
                 "  ```sh",
-                "  " + catalogue_command(provider, identifier, anchor["fields"]["api_key"]),
+                "  " + catalogue_command(provider, identifier, anchor["variable"]),
                 "  ```",
                 ""]
         for what, _ in missing:
@@ -7342,11 +7380,8 @@ def render_additions_body(result, kind, chosen, entries, link=None, carried=()):
         if usage == "embeddings":
             out += ["- " + line for line in placing]
         else:
-            out.append("- [ ] **Place.** Choisir sa place dans les routeurs, ou n'en donner aucune :")
+            out.append("- [ ] **Place.** Choisir sa place dans les routeurs :")
             out += ["  - " + line if not line.startswith("  - ") else "  " + line for line in placing]
-        if unmeasured:
-            out += ["", "  Pour l'écarter faute de mesure, la ligne est :", ""]
-            out += yaml_fence(["  # drift-ignore: %s -- %s" % (full, unmeasured)], "  ")
         if any(what == "free" for what, _ in missing):
             page_name = PRICING_PAGES.get(provider, "").split("://", 1)[-1]
             out += ["",
