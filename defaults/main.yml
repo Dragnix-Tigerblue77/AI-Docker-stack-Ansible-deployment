@@ -426,6 +426,30 @@ Artificial_Intelligence_OmniRoute_memory_limit: false
 # Artificial_Intelligence_OmniRoute_dashboard_password:
 
 # --------------------------------------------------------------------------------------------------
+# The OVHcloud relay -- what lets the gateway reach OVHcloud AI Endpoints without a key
+# --------------------------------------------------------------------------------------------------
+
+# The nginx configuration of the relay, copied from "files/ovhcloud_relay/nginx.conf" and mounted
+# read-only over the image's "default.conf". Nothing in it varies from one deployment to another, so
+# it is copied and not rendered, and neither the service's name nor its port is a variable: the
+# OVHcloud entries of the routing configuration name both.
+Artificial_Intelligence_OVHcloud_relay_config_file_name: "OVHcloud_relay.conf"
+Artificial_Intelligence_OVHcloud_relay_config_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}{{ Artificial_Intelligence_OVHcloud_relay_config_file_name }}"
+
+# NOT a setting either: the SHA-1 of the file above as this run copied it, which the name of its
+# Docker config is derived from -- nginx reads its configuration only at start. The reasoning is the
+# one on "Artificial_Intelligence_LiteLLM_config_Docker_name" above, not repeated here.
+Artificial_Intelligence_OVHcloud_relay_config_checksum: false
+
+# The Docker config that carries the file above into the "ovhcloud_relay" container, named after its
+# content as the gateway's is. Derived; not a setting.
+Artificial_Intelligence_OVHcloud_relay_config_Docker_name: "OVHcloud_relay_config{{ ('-' ~ Artificial_Intelligence_OVHcloud_relay_config_checksum[:8]) if Artificial_Intelligence_OVHcloud_relay_config_checksum is string else '' }}"
+
+# Unlimited by default. The relay passes bytes through and holds no state, so a limit, if set, can be
+# small (for example "128m").
+Artificial_Intelligence_OVHcloud_relay_memory_limit: false
+
+# --------------------------------------------------------------------------------------------------
 # Qdrant -- the Artificial Intelligence stack's vector engine (#3)
 # --------------------------------------------------------------------------------------------------
 

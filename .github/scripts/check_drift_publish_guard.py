@@ -38,13 +38,13 @@ provider, an id and a name per model, between the "BEGIN/END additions builder" 
 is played on the real template and on a miniature one: what it must build -- every provider, active
 and commented-out anchors, a run shared by two providers -- has to be, character for character, what
 the drift script's own build_additions() builds, and has to read back as the file plus those entries;
-a keyless gateway's entry, written with its literal marker and the header that blanks Authorization,
-active or commented out; the tables of the issue step and of the builder naming exactly the providers the
+a keyless gateway's entry, written with its literal marker and, for the one whose gateway refuses a
+placeholder token, the header that blanks Authorization, active or commented out; the tables of the issue step and of the builder naming exactly the providers the
 script reads, as text, since a table missing one fails only on the day it is needed;
 what it must refuse -- an id or a name of another spelling (a newline, a quote, Jinja, a trailing
 colon), a name that is a word of the file, a provider that is no key of its table ("__proto__"
 included), an item of another shape, an id already an entry or set aside, an entry with a literal key
-or an "http" base to model one on, a date, a kind or a number of items out of bounds -- the script
+or an "http" base other than the OVHcloud relay's to model one on, a date, a kind or a number of items out of bounds -- the script
 must refuse too. Then the whole step is played against a made-up GitHub: both opened, the one to
 verify as a draft and ready for review where drafts are refused; a run with the same proposals that
 writes nothing; a run with others that rewrites both, keeping a ticked box and the draft; closing
@@ -1709,15 +1709,17 @@ ADDITION_MUTATIONS = [
     ("refuse an id set aside by drift-ignore", "if (ignored.has(`${provider}/${id}`))", "if (false)"),
     ("model an entry on a credential", "!ADDITION_CREDENTIAL.test(credential)", "false"),
     ("model a keyless gateway's entry on a plain marker", "!ADDITION_MARKER.test(key)", "false"),
-    ("blank the Authorization header of a keyless gateway's entry", "if (spec.keyless) block.push(", "if (false) block.push("),
+    ("blank the Authorization header of a gateway that refuses a placeholder token", "if (spec.blanksAuthorization) block.push(",
+     "if (false) block.push("),
+    ("blank the Authorization header of Kilo's entries", "keyless: true, blanksAuthorization: true", "keyless: true"),
     ("attribute the entries served through Kilo's gateway to it", "apiBase.includes('ai-gateway.kilo.ai')) return 'kilo';",
      "apiBase.includes('ai-gateway.kilo.ai')) return null;"),
     ("attribute the entries served through OVHcloud to it",
-     "apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return 'ovhcloud';",
-     "apiBase.includes('oai.endpoints.kepler.ai.cloud.ovh.net')) return null;"),
+     "apiBase.includes('ovhcloud_relay')) return 'ovhcloud';",
+     "apiBase.includes('ovhcloud_relay')) return null;"),
     ("attribute the entries served through Requesty to it", "apiBase.includes('requesty.ai')) return 'requesty';",
      "apiBase.includes('requesty.ai')) return null;"),
-    ("blank the Authorization header of OVHcloud's entries", "label: 'OVHcloud', keyless: true", "label: 'OVHcloud'"),
+    ("model OVHcloud's entries on a plain marker", "label: 'OVHcloud', keyless: true", "label: 'OVHcloud'"),
     ("state Requesty's free tier from its catalogue", "label: 'Requesty', free: 'router.eu.requesty.ai/v1/models'",
      "label: 'Requesty'"),
     ("state Vercel AI Gateway's free tier from its models page",
@@ -1739,7 +1741,7 @@ ADDITION_MUTATIONS = [
      "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
      "[\"${spec.data}\", \"${spec.group ?? (usage ? usage.group : 'LLM')}\"]"),
     ("name every provider the script reads in the table of additions",
-     "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, data: 'Public-Data-Only' },\n", ""),
+     "  kilo: { prefix: 'openai/', label: 'Kilo Gateway', free: 'ai-gateway.kilo.ai/api/v1/models', keyless: true, blanksAuthorization: true, data: 'Public-Data-Only' },\n", ""),
     ("model an entry on an https base", "apiBase !== undefined && !ADDITION_BASE.test(apiBase)", "false"),
     ("follow the last active entry first", "find((entry) => !entry.commented)", "find(() => false)"),
     ("follow a commented-out entry after its run", "while (commented && at < end", "while (false && at < end"),

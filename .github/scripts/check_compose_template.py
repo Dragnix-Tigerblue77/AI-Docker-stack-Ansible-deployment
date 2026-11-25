@@ -74,10 +74,15 @@ router points at the first member of the router's own cascade, the one thing the
 heads and cascades could drift apart on without any single render looking wrong, and that every alias has a
 cascade under its own name (#300): LiteLLM looks for fallbacks under the name that was asked for. An entry
 on the base of a keyless gateway (Kilo Gateway, OVHcloud AI Endpoints) is held to the one shape such a
-provider answers to: Kilo's gateway answered a 401 to the placeholder sent as a bearer token and serves a
-call whose header is empty or absent, so each such entry must blank the "Authorization" header LiteLLM would
-otherwise fill from its placeholder "api_key" (OVHcloud's is held to the same shape, untried against its real
-endpoint), and none of them may be a member of "claude-code", which is reserved for keyed providers.
+provider answers to. Kilo's gateway answered a 401 to the placeholder sent as a bearer token and serves a
+call whose header is empty or absent, so each of its entries must blank the "Authorization" header LiteLLM
+would otherwise fill from its placeholder "api_key". OVHcloud's endpoint refuses an empty header (400) as it
+refuses a placeholder (403), and serves only a request with no such header: LiteLLM always sends one, so its
+entries go through the relay of the compose file, which drops it, and carry no header of their own. An entry
+on OVHcloud's own address, or one that still sets the header, is refused with that said; the relay's
+configuration is held to dropping the header, verifying the upstream's certificate and waiting for an answer
+at least as long as the router does. None of the keyless entries may be a member of "claude-code", which is
+reserved for keyed providers.
 A text entry of Cloudflare or Groq states the length of its answer, as "max_tokens" or "max_completion_tokens":
 both cut an answer that names no limit short, at 256 tokens on most Cloudflare models and at 2,048 or 3,072 on Groq.
 Every member of a text cascade declares its context window, "model_info.max_input_tokens", which the router's pre-call
@@ -158,12 +163,15 @@ PUBLISHED_NETWORK = {
 MOUNTED_CONFIG_CHECKSUMS = {
     "Artificial_Intelligence_LiteLLM_config_checksum": "0123456789abcdef0123456789abcdef01234567",
     "Artificial_Intelligence_LibreChat_config_checksum": "fedcba9876543210fedcba9876543210fedcba98",
+    "Artificial_Intelligence_OVHcloud_relay_config_checksum": "89abcdef0123456789abcdef0123456789abcdef",
 }
 # Per checksum: the service that reads the file, the name its Docker config has before any suffix, and
 # where the container sees it. The suffix is "-" and the first 8 characters of the checksum.
 MOUNTED_CONFIGS = {
     "Artificial_Intelligence_LiteLLM_config_checksum": ("litellm", "LiteLLM_config", "/app/config.yaml"),
     "Artificial_Intelligence_LibreChat_config_checksum": ("librechat", "LibreChat_config", "/app/librechat.yaml"),
+    "Artificial_Intelligence_OVHcloud_relay_config_checksum": (
+        "ovhcloud_relay", "OVHcloud_relay_config", "/etc/nginx/conf.d/default.conf"),
 }
 
 # The role limits no service's memory by default, and a caller who sets a "*_memory_limit" to a size
@@ -239,6 +247,7 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_PostgreSQL_database",
     "Artificial_Intelligence_LiteLLM_config_file_destination_path",
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
+    "Artificial_Intelligence_OVHcloud_relay_config_file_destination_path",
     CLAUDE_CODE_MODEL_VARIABLE,
     "Artificial_Intelligence_Claude_code_workspace_directory",
     CLAUDE_CODE_GITHUB_TOKEN_VARIABLE,
@@ -1320,25 +1329,29 @@ LIMITS_SET_CASES = [
 # declared at the top level with the path of the file on the host.
 _LITELLM = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LiteLLM_config_checksum"][:8]
 _LIBRECHAT = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_LibreChat_config_checksum"][:8]
+_RELAY = MOUNTED_CONFIG_CHECKSUMS["Artificial_Intelligence_OVHcloud_relay_config_checksum"][:8]
 
 
-def mounted(litellm_name, librechat_name, **changes):
-    """The two consuming services as rendered, with the Docker config named as given."""
+def mounted(litellm_name, librechat_name, relay_name="OVHcloud_relay_config", **changes):
+    """The consuming services as rendered, with the Docker config named as given."""
     document = {
         "services": {
             "litellm": service(configs=[{"source": litellm_name, "target": "/app/config.yaml"}]),
             "librechat": service(configs=[{"source": librechat_name, "target": "/app/librechat.yaml"}],
                                  volumes=["uploads:/app/uploads:rw"]),
+            "ovhcloud_relay": service(configs=[{"source": relay_name, "target": "/etc/nginx/conf.d/default.conf"}],
+                                      volumes=[{"type": "tmpfs", "target": "/tmp"}]),
         },
         "configs": {litellm_name: {"file": "/srv/LiteLLM_config.yaml"},
-                    librechat_name: {"file": "/srv/librechat.yaml"}},
+                    librechat_name: {"file": "/srv/librechat.yaml"},
+                    relay_name: {"file": "/srv/OVHcloud_relay.conf"}},
     }
     document.update(changes)
     return document
 
 
 _UNSET = mounted("LiteLLM_config", "LibreChat_config")
-_SET = mounted(f"LiteLLM_config-{_LITELLM}", f"LibreChat_config-{_LIBRECHAT}")
+_SET = mounted(f"LiteLLM_config-{_LITELLM}", f"LibreChat_config-{_LIBRECHAT}", f"OVHcloud_relay_config-{_RELAY}")
 CONFIG_CHECKSUM_CASES = [
     ("each file named after its content", _UNSET, _SET, None),
     # The move that undoes it: a bind mount sees the new file in the compose file as nothing at all.
@@ -1350,18 +1363,37 @@ CONFIG_CHECKSUM_CASES = [
      "mounts '/app/config.yaml' as a bind mount"),
     ("file bind mounted instead, long syntax",
      {"services": {"litellm": service(volumes=[{"type": "bind", "source": "/srv/c.yaml", "target": "/app/config.yaml"}]),
-                   "librechat": _UNSET["services"]["librechat"]},
+                   "librechat": _UNSET["services"]["librechat"],
+                   "ovhcloud_relay": _UNSET["services"]["ovhcloud_relay"]},
       "configs": _UNSET["configs"]},
      _SET,
      "mounts '/app/config.yaml' as a bind mount"),
     ("name that does not move with the content",
      _UNSET,
-     mounted("LiteLLM_config", f"LibreChat_config-{_LIBRECHAT}"),
+     mounted("LiteLLM_config", f"LibreChat_config-{_LIBRECHAT}", f"OVHcloud_relay_config-{_RELAY}"),
      "its config is named 'LiteLLM_config', expected"),
+    ("the relay's name that does not move with the content",
+     _UNSET,
+     mounted(f"LiteLLM_config-{_LITELLM}", f"LibreChat_config-{_LIBRECHAT}", "OVHcloud_relay_config"),
+     "[checksums set] service 'ovhcloud_relay': its config is named 'OVHcloud_relay_config', expected"),
     ("the two suffixes swapped",
      _UNSET,
-     mounted(f"LiteLLM_config-{_LIBRECHAT}", f"LibreChat_config-{_LITELLM}"),
+     mounted(f"LiteLLM_config-{_LIBRECHAT}", f"LibreChat_config-{_LITELLM}", f"OVHcloud_relay_config-{_RELAY}"),
      "the name must carry"),
+    ("the relay's suffix swapped with the gateway's",
+     _UNSET,
+     mounted(f"LiteLLM_config-{_RELAY}", f"LibreChat_config-{_LIBRECHAT}", f"OVHcloud_relay_config-{_LITELLM}"),
+     "the name must carry"),
+    ("a relay mounting nothing at the path of its configuration",
+     _UNSET,
+     dict(_SET, services=dict(_SET["services"], ovhcloud_relay=service())),
+     "mounts no Docker config at '/etc/nginx/conf.d/default.conf'"),
+    ("the relay's configuration bind mounted as well",
+     _UNSET,
+     dict(_SET, services=dict(_SET["services"], ovhcloud_relay=service(
+         configs=[{"source": f"OVHcloud_relay_config-{_RELAY}", "target": "/etc/nginx/conf.d/default.conf"}],
+         volumes=["/srv/OVHcloud_relay.conf:/etc/nginx/conf.d/default.conf:ro"]))),
+     "mounts '/etc/nginx/conf.d/default.conf' as a bind mount"),
     ("suffix written while unset",
      mounted(f"LiteLLM_config-{_LITELLM}", "LibreChat_config"),
      _SET,
@@ -1871,12 +1903,22 @@ LITELLM_CALLED_BY_NAME = {
     "omniroute-multimodal": "OmniRoute's curated multimodal route, vision-capable models with balanced weights: no "
                             "router takes images, so it is kept for whoever asks for it by name, and untried",
 }
-# The bases of the keyless gateways. Kilo's answered 401 to the placeholder sent as a bearer token and serves
-# a call whose header is empty or absent, so an entry on a base listed here sends the header empty.
+# The relay in front of OVHcloud AI Endpoints: the compose service that drops the Authorization header, the port
+# its configuration listens on, and the base the entries name. OVHcloud serves its free models only to a request
+# with no such header, which LiteLLM cannot omit and an empty value does not do.
+OVHCLOUD_RELAY_SERVICE = "ovhcloud_relay"
+OVHCLOUD_RELAY_PORT = 8080
+OVHCLOUD_RELAY_BASE = f"http://{OVHCLOUD_RELAY_SERVICE}:{OVHCLOUD_RELAY_PORT}/v1"
+OVHCLOUD_DIRECT_BASE = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+# The bases of the keyless gateways, which an entry reaches with a literal marker as its key. OVHcloud's is the
+# relay's, and the entry never names the endpoint itself.
 LITELLM_KEYLESS_BASES = {
     "Kilo": "https://ai-gateway.kilo.ai/api/v1",
-    "OVHcloud": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1",
+    "OVHcloud": OVHCLOUD_RELAY_BASE,
 }
+# The gateways among them whose entry blanks the Authorization header: Kilo's answered 401 to the placeholder sent as
+# a bearer token and serves a call whose header is empty or absent. The others carry no header of their own.
+LITELLM_BLANKED_AUTHORIZATION = frozenset({"Kilo"})
 # The model prefixes of the providers that cut an answer short when the request names no limit: Cloudflare's model
 # pages give 256 tokens as the default of most of its text models, which empties the answer of one that reasons
 # first, and Groq's models were measured stopping at 2,048 or 3,072. A text entry of theirs states its own limit,
@@ -2444,6 +2486,13 @@ def check_litellm_config(document, keys, failures):
     keyless = set()
     for entry in entries:
         parameters = mapping(entry, "litellm_params")
+        if parameters.get("api_base") == OVHCLOUD_DIRECT_BASE:
+            failures.append(
+                f"[{state}] the entry {entry.get('model_name')!r} is on OVHcloud's own address: LiteLLM always sends an "
+                "Authorization header there, which OVHcloud refuses (400 when empty, 403 for any token) where a request "
+                f"with none is served. Set its api_base to {OVHCLOUD_RELAY_BASE!r}, the {OVHCLOUD_RELAY_SERVICE} relay "
+                "of the compose file, which drops it"
+            )
         gateway = next((name for name, base in LITELLM_KEYLESS_BASES.items() if parameters.get("api_base") == base), None)
         if gateway is None:
             continue
@@ -2455,12 +2504,19 @@ def check_litellm_config(document, keys, failures):
                 "a literal marker as its api_key: it reads no key, so it belongs to no account"
             )
         headers = mapping(parameters, "extra_headers")
-        if headers.get("Authorization") != "":
+        if gateway in LITELLM_BLANKED_AUTHORIZATION:
+            if headers.get("Authorization") != "":
+                failures.append(
+                    f"[{state}] the entry {entry.get('model_name')!r} is on the keyless {gateway} gateway and does not blank "
+                    "its Authorization header (extra_headers: {Authorization: \"\"}): LiteLLM would send its placeholder "
+                    "api_key as a bearer token, which Kilo's gateway answered 401 INVALID_TOKEN, where a call whose "
+                    "header is empty or absent is served"
+                )
+        elif any(str(name).lower() == "authorization" for name in headers):
             failures.append(
-                f"[{state}] the entry {entry.get('model_name')!r} is on the keyless {gateway} gateway and does not blank "
-                "its Authorization header (extra_headers: {Authorization: \"\"}): LiteLLM would send its placeholder "
-                "api_key as a bearer token, which Kilo's gateway answered 401 INVALID_TOKEN, where a call whose "
-                "header is empty or absent is served"
+                f"[{state}] the entry {entry.get('model_name')!r} is on the {OVHCLOUD_RELAY_SERVICE} relay and sets an "
+                "Authorization header of its own (extra_headers): the relay drops that header whatever it holds, since "
+                "OVHcloud serves only a request with none, and an empty one sent direct is refused with a 400. Remove it"
             )
 
     cascades = {}
@@ -2731,6 +2787,89 @@ def check_litellm_login_switch(document, switch, failures):
         )
 
 
+RELAY_CONFIG_PATH = ROLE / "files" / "ovhcloud_relay" / "nginx.conf"
+# nginx's time units, in seconds.
+NGINX_TIME_UNITS = {"ms": 0.001, "s": 1, "m": 60, "h": 3600}
+
+
+def nginx_seconds(value):
+    """A nginx time ("300s", "5m", "90") in seconds, or None when it is none."""
+    match = re.fullmatch(r"(\d+)(ms|s|m|h)?", value or "")
+    return int(match.group(1)) * NGINX_TIME_UNITS[match.group(2) or "s"] if match else None
+
+
+def check_ovhcloud_relay_configuration(text, router_settings, failures):
+    """Hold the relay's nginx configuration to what makes it the relay the OVHcloud entries need.
+
+    The file is read as text, its comments removed, since a directive that only a comment mentions does
+    nothing. It must drop the Authorization header by setting it to the empty string, which nginx does not
+    pass on: that is the whole job, and the one thing that cannot be read off any rendering of the compose file.
+    It must verify the certificate of the upstream it calls over TLS, name the upstream through a variable
+    and a resolver so that it starts while OVHcloud is unreachable, listen on the port the entries' base names,
+    and wait for an answer at least as long as the router's own timeouts: a relay that gives up first turns
+    a slow model into an error the router would not have raised.
+    """
+    where = f"[{OVHCLOUD_RELAY_SERVICE} configuration]"
+    code = "\n".join(line.split("#", 1)[0] for line in (text or "").splitlines())
+
+    def directive(name):
+        return re.findall(rf"(?:^|[;{{}}\s])\s*{name}\s+([^;]*?)\s*;", code)
+
+    if not any(value == '""' for value in directive(r"proxy_set_header\s+Authorization")):
+        failures.append(
+            f"{where} does not set 'proxy_set_header Authorization \"\";': it is the directive that drops the header "
+            "OVHcloud refuses, and without it the relay passes LiteLLM's placeholder token on, answered 403"
+        )
+    if "on" not in directive("proxy_ssl_verify"):
+        failures.append(f"{where} does not set 'proxy_ssl_verify on;': the relay would call OVHcloud over TLS without "
+                        "checking whom it talks to")
+    if not directive("resolver"):
+        failures.append(f"{where} names no resolver: a proxy_pass through a variable needs one, and Docker's own "
+                        "DNS is the one the container has")
+    targets = directive("proxy_pass")
+    if not targets or not all(re.fullmatch(r"https://\$\w+", target) for target in targets):
+        failures.append(
+            f"{where} has a proxy_pass that is not 'https://$<variable>': nginx resolves a name written out once, at "
+            "start, and refuses to start when OVHcloud cannot be reached"
+        )
+    ports = [int(port) for port in directive("listen") if port.isdigit()]
+    if ports != [OVHCLOUD_RELAY_PORT]:
+        failures.append(f"{where} listens on {ports or 'no port'}, where the entries' base names {OVHCLOUD_RELAY_PORT}")
+    waits = [nginx_seconds(value) for value in directive("proxy_read_timeout")]
+    asked = [value for value in (router_settings.get("timeout"), router_settings.get("stream_timeout"))
+             if isinstance(value, (int, float)) and not isinstance(value, bool)]
+    if not waits or None in waits:
+        failures.append(f"{where} sets no proxy_read_timeout: nginx's default of 60 s is shorter than the router's")
+    elif asked and min(waits) < max(asked):
+        failures.append(
+            f"{where} waits {min(waits):g} s for an answer where the router waits {max(asked):g} s: the relay would give "
+            "up on a slow model before the router does"
+        )
+
+
+def check_ovhcloud_relay_service(document, state, internal_network, failures):
+    """Hold the relay's service to being what the model list reaches and nothing more: present, reached over the
+    internal network alone, publishing no port, not writing to its root filesystem, and probing only itself."""
+    where = f"[{state}] service {OVHCLOUD_RELAY_SERVICE!r}"
+    block = mapping(document, "services").get(OVHCLOUD_RELAY_SERVICE)
+    if not isinstance(block, dict):
+        failures.append(f"[{state}] the compose file has no service {OVHCLOUD_RELAY_SERVICE!r}, which the OVHcloud entries "
+                        f"of the routing configuration name as their api_base ({OVHCLOUD_RELAY_BASE})")
+        return
+    if "ports" in block:
+        failures.append(f"{where} publishes a port: only the gateway reaches it, over the internal network")
+    if list(block.get("networks") or []) != [internal_network]:
+        failures.append(f"{where} is on {block.get('networks')!r}, expected the internal network alone ({internal_network!r})")
+    if block.get("labels") or mapping(block, "deploy").get("labels"):
+        failures.append(f"{where} carries labels: nothing routes to it from outside")
+    if block.get("read_only") is not True:
+        failures.append(f"{where} does not set read_only: true, and nothing it runs needs to write to its root filesystem")
+    probe = " ".join(str(part) for part in mapping(block, "healthcheck").get("test") or [])
+    if f"127.0.0.1:{OVHCLOUD_RELAY_PORT}/healthz" not in probe:
+        failures.append(f"{where} has a healthcheck that is not a request to its own /healthz on port {OVHCLOUD_RELAY_PORT}: "
+                        "a probe that reaches OVHcloud spends its free quota and fails with it")
+
+
 def check_litellm_configs(failures):
     """Render the routing configuration for the sets of provider keys that litellm_key_sets gives and judge each
     one. Returns (the number of sets rendered, the strength they cover)."""
@@ -2743,6 +2882,7 @@ def check_litellm_configs(failures):
     check_litellm_data_group_table(LITELLM_DATA_GROUPS, failures)
     rendered = 0
     named = set()
+    router_settings = {}
     try:
         key_sets, strength = litellm_key_sets(source)
     except KeySetRefusal as refusal:
@@ -2755,10 +2895,17 @@ def check_litellm_configs(failures):
             failures.append(f"[LiteLLM config, keys: {'+'.join(sorted(keys))}] does not render: {error}")
             continue
         named.update(entry.get("model_name") for entry in document.get("model_list") or [] if isinstance(entry, dict))
+        router_settings = mapping(document, "router_settings")
         state = litellm_state(keys)
         resolved = litellm_resolved_document(document, state, keys, failures)
         check_litellm_config(litellm_logical_document(resolved, state, failures), keys, failures)
         rendered += 1
+    try:
+        relay_text = RELAY_CONFIG_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        failures.append(f"[LiteLLM config] the relay's configuration cannot be read: {error}")
+    else:
+        check_ovhcloud_relay_configuration(relay_text, router_settings, failures)
     for name in LITELLM_CALLED_BY_NAME:
         if name not in named:
             failures.append(
@@ -2845,7 +2992,9 @@ def _keyless_document(gateway="Kilo", **overrides):
     """One entry on a keyless gateway as the template writes it, with `overrides` replacing parts of its
     litellm_params; a value of None drops the key."""
     parameters = {"model": "openai/vendor/model", "api_base": LITELLM_KEYLESS_BASES[gateway],
-                  "api_key": "no-key-needed", "extra_headers": {"Authorization": ""}}
+                  "api_key": "no-key-needed"}
+    if gateway in LITELLM_BLANKED_AUTHORIZATION:
+        parameters["extra_headers"] = {"Authorization": ""}
     for key, value in overrides.items():
         if value is None:
             parameters.pop(key, None)
@@ -2913,8 +3062,9 @@ def _keyless_member_document(gateway, left_out):
         [("code", ["a", "b-keyless"]), ("claude-code", ["a"] if left_out else ["a", "b-keyless"])],
         {"code": "a", "claude-code": "a"},
     )
-    document["model_list"][1]["litellm_params"].update(
-        api_base=LITELLM_KEYLESS_BASES[gateway], extra_headers={"Authorization": ""})
+    document["model_list"][1]["litellm_params"].update(api_base=LITELLM_KEYLESS_BASES[gateway])
+    if gateway in LITELLM_BLANKED_AUTHORIZATION:
+        document["model_list"][1]["litellm_params"]["extra_headers"] = {"Authorization": ""}
     document["model_list"][1]["model_info"]["access_groups"] = litellm_access_groups(
         None, "no-key-needed", LITELLM_KEYLESS_BASES[gateway])
     return _with_stt(document, "MISTRAL_API_KEY")
@@ -3380,13 +3530,6 @@ LITELLM_CONFIG_CASES = [
      {"Gemini"}, None),
     *[case for gateway in LITELLM_KEYLESS_BASES for case in (
         (f"an entry of {gateway}, one as the template writes it", _keyless_document(gateway), set(), None),
-        (f"an entry of {gateway}, one that does not blank the header", _keyless_document(gateway, extra_headers=None), set(),
-         "does not blank its Authorization header"),
-        (f"an entry of {gateway}, one whose header is blanked to a token",
-         _keyless_document(gateway, extra_headers={"Authorization": "Bearer x"}), set(),
-         "does not blank its Authorization header"),
-        (f"an entry of {gateway}, one blanking another header", _keyless_document(gateway, extra_headers={"X-Other": ""}),
-         set(), "does not blank its Authorization header"),
         (f"an entry of {gateway}, one reading a key", _keyless_document(gateway, api_key="os.environ/ANY_API_KEY"), set(),
          "does not carry a literal marker"),
         (f"an entry of {gateway}, one with no api_key", _keyless_document(gateway, api_key=None), set(),
@@ -3396,6 +3539,29 @@ LITELLM_CONFIG_CASES = [
         (f"claude-code holding a member of {gateway} that code holds", _keyless_member_document(gateway, False),
          {"Mistral"}, "have drifted apart"),
     )],
+    *[case for gateway in LITELLM_BLANKED_AUTHORIZATION for case in (
+        (f"an entry of {gateway}, one that does not blank the header", _keyless_document(gateway, extra_headers=None), set(),
+         "does not blank its Authorization header"),
+        (f"an entry of {gateway}, one whose header is blanked to a token",
+         _keyless_document(gateway, extra_headers={"Authorization": "Bearer x"}), set(),
+         "does not blank its Authorization header"),
+        (f"an entry of {gateway}, one blanking another header", _keyless_document(gateway, extra_headers={"X-Other": ""}),
+         set(), "does not blank its Authorization header"),
+    )],
+    # OVHcloud's entries go through the relay and carry no header of their own, and one that names OVHcloud's own
+    # address is refused with the relay named: LiteLLM cannot send it a request the endpoint serves.
+    ("an entry of OVHcloud, one still blanking the header",
+     _keyless_document("OVHcloud", extra_headers={"Authorization": ""}), set(), "sets an Authorization header of its own"),
+    ("an entry of OVHcloud, one sending a token as the header",
+     _keyless_document("OVHcloud", extra_headers={"authorization": "Bearer x"}), set(),
+     "sets an Authorization header of its own"),
+    ("an entry of OVHcloud, one setting another header", _keyless_document("OVHcloud", extra_headers={"X-Other": "1"}),
+     set(), None),
+    ("an entry on OVHcloud's own address", _keyless_document("OVHcloud", api_base=OVHCLOUD_DIRECT_BASE), set(),
+     f"Set its api_base to {OVHCLOUD_RELAY_BASE!r}"),
+    ("an entry on OVHcloud's own address, still blanking the header",
+     _keyless_document("OVHcloud", api_base=OVHCLOUD_DIRECT_BASE, extra_headers={"Authorization": ""}), set(),
+     "is on OVHcloud's own address"),
     ("a text entry of Cloudflare as the template writes it", _short_answer_document(), set(), None),
     ("a text entry of Cloudflare limited by max_completion_tokens",
      _short_answer_document(max_tokens=None, max_completion_tokens=32768), set(), None),
@@ -3706,6 +3872,82 @@ def check_litellm_key_environment(document, state, failures):
             )
 
 
+_RELAY_CONFIGURATION = RELAY_CONFIG_PATH.read_text(encoding="utf-8") if RELAY_CONFIG_PATH.exists() else ""
+_ROUTER_SETTINGS = {"timeout": 120, "stream_timeout": 90}
+
+
+def _relay_without(pattern, replacement=""):
+    """The relay's configuration as it is, with the text matching `pattern` replaced; it must change something."""
+    changed = re.sub(pattern, replacement, _RELAY_CONFIGURATION, count=1)
+    assert changed != _RELAY_CONFIGURATION, f"the relay's configuration has nothing matching {pattern!r}"
+    return changed
+
+
+# (name, the configuration, the router's settings, expected substring or None)
+OVHCLOUD_RELAY_CONFIGURATION_CASES = [
+    ("the relay's configuration as it is", _RELAY_CONFIGURATION, _ROUTER_SETTINGS, None),
+    ("no configuration at all", "", _ROUTER_SETTINGS, "does not set 'proxy_set_header Authorization"),
+    ("the header no longer dropped",
+     _relay_without(r"proxy_set_header Authorization \"\";"), _ROUTER_SETTINGS,
+     "does not set 'proxy_set_header Authorization"),
+    ("the header set to a token", _relay_without(r"proxy_set_header Authorization \"\";",
+                                                 'proxy_set_header Authorization "Bearer x";'),
+     _ROUTER_SETTINGS, "does not set 'proxy_set_header Authorization"),
+    ("the header dropped in a comment alone",
+     _relay_without(r"proxy_set_header Authorization \"\";", '# proxy_set_header Authorization "";'),
+     _ROUTER_SETTINGS, "does not set 'proxy_set_header Authorization"),
+    ("the certificate no longer verified", _relay_without(r"proxy_ssl_verify on;", "proxy_ssl_verify off;"),
+     _ROUTER_SETTINGS, "does not set 'proxy_ssl_verify on;'"),
+    ("no resolver", _relay_without(r"resolver [^;]*;"), _ROUTER_SETTINGS, "names no resolver"),
+    ("the upstream written out", _relay_without(r"proxy_pass https://\$ovh;",
+                                                "proxy_pass https://oai.example.test;"),
+     _ROUTER_SETTINGS, "not 'https://$<variable>'"),
+    ("another port", _relay_without(r"listen 8080;", "listen 9090;"), _ROUTER_SETTINGS, "listens on [9090]"),
+    ("no port at all", _relay_without(r"listen 8080;"), _ROUTER_SETTINGS, "listens on no port"),
+    ("a read timeout shorter than the router's",
+     _relay_without(r"proxy_read_timeout 300s;", "proxy_read_timeout 60s;"), _ROUTER_SETTINGS,
+     "give up on a slow model before the router does"),
+    ("a read timeout in minutes, as long as the router's",
+     _relay_without(r"proxy_read_timeout 300s;", "proxy_read_timeout 2m;"), _ROUTER_SETTINGS, None),
+    ("no read timeout", _relay_without(r"proxy_read_timeout 300s;"), _ROUTER_SETTINGS, "sets no proxy_read_timeout"),
+    ("a router that waits longer than the relay",
+     _RELAY_CONFIGURATION, {"timeout": 600, "stream_timeout": 90}, "give up on a slow model before the router does"),
+    ("a router that states no timeout", _RELAY_CONFIGURATION, {}, None),
+]
+
+_RELAY_SERVICE = {
+    "image": "nginx/nginx-unprivileged", "read_only": True,
+    "healthcheck": {"test": ["CMD", "curl", "-fsS", "-o", "/dev/null", f"http://127.0.0.1:{OVHCLOUD_RELAY_PORT}/healthz"]},
+    "networks": ["internal"],
+}
+
+
+def _relay_document(**overrides):
+    block = dict(_RELAY_SERVICE)
+    for key, value in overrides.items():
+        if value is _ABSENT:
+            block.pop(key, None)
+        else:
+            block[key] = value
+    return {"services": {OVHCLOUD_RELAY_SERVICE: block}}
+
+
+# (name, the compose document, expected substring or None)
+OVHCLOUD_RELAY_SERVICE_CASES = [
+    ("the relay as the template writes it", _relay_document(), None),
+    ("no relay", {"services": {}}, "has no service 'ovhcloud_relay'"),
+    ("a published port", _relay_document(ports=["8080:8080"]), "publishes a port"),
+    ("another network as well", _relay_document(networks=["internal", "DMZ"]), "expected the internal network alone"),
+    ("another network instead", _relay_document(networks=["DMZ"]), "expected the internal network alone"),
+    ("no network", _relay_document(networks=_ABSENT), "expected the internal network alone"),
+    ("reverse-proxy labels", _relay_document(labels=["traefik.enable=true"]), "carries labels"),
+    ("a writable root filesystem", _relay_document(read_only=_ABSENT), "does not set read_only: true"),
+    ("a healthcheck that reaches OVHcloud",
+     _relay_document(healthcheck={"test": ["CMD", "curl", "-fsS", "https://oai.example.test/v1/models"]}),
+     "not a request to its own /healthz"),
+    ("no healthcheck", _relay_document(healthcheck=_ABSENT), "not a request to its own /healthz"),
+]
+
 _LITELLM_ENVIRONMENT = {variable: "key" for variable in LITELLM_PROVIDERS.values()}
 # (name, the compose document, expected substring or None)
 LITELLM_KEY_ENVIRONMENT_CASES = [
@@ -3810,6 +4052,16 @@ def selftest():
     for name, document, switch, expected in LITELLM_LOGIN_SWITCH_CASES:
         failures = []
         check_litellm_login_switch(document, switch, failures)
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, text, settings, expected in OVHCLOUD_RELAY_CONFIGURATION_CASES:
+        failures = []
+        check_ovhcloud_relay_configuration(text, settings, failures)
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, document, expected in OVHCLOUD_RELAY_SERVICE_CASES:
+        failures = []
+        check_ovhcloud_relay_service(document, "selftest", "internal", failures)
         problems.extend(_verdict(name, failures, expected))
 
     for name, document, expected in LITELLM_KEY_ENVIRONMENT_CASES:
@@ -3978,6 +4230,8 @@ def selftest():
         f"{len(CONVENTION_CASES)} convention case(s), {len(LIMITS_SET_CASES)} memory-limit case(s), "
         f"{len(STATE_CASES)} two-state case(s), "
         f"{len(LITELLM_KEY_ENVIRONMENT_CASES)} LiteLLM key environment case(s), "
+        f"{len(OVHCLOUD_RELAY_CONFIGURATION_CASES)} relay configuration case(s), "
+        f"{len(OVHCLOUD_RELAY_SERVICE_CASES)} relay service case(s), "
         f"{len(AGENT_WORKSPACE_CASES)} agent workspace case(s), {len(DOLLAR_CASES)} '$' case(s), "
         f"{len(DOLLAR_VARIABLE_CASES)} '$' selection case(s), "
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
@@ -4153,6 +4407,9 @@ def main():
     key_sets, key_strength = check_litellm_configs(failures)
     if "published network unset" in documents:
         check_litellm_key_environment(documents["published network unset"], "published network unset", failures)
+        check_ovhcloud_relay_service(
+            documents["published network unset"], "published network unset",
+            defaults["Artificial_Intelligence_internal_Docker_network_name"], failures)
 
     if failures:
         print(f"{len(failures)} problem(s) in the Artificial Intelligence compose template:\n")

@@ -130,7 +130,7 @@ ALLOWED_HOSTS = {
     "www.aionlabs.ai": "Aion Labs' own rate limits, pricing, terms and privacy pages, cited in the README ledger of free providers and by the drift check",
     "kilo.ai": "Kilo's own gateway models page and terms, cited in the README ledger of free providers",
     "ai-gateway.kilo.ai": "Kilo's own OpenAI-compatible gateway, the api_base of its entries in the model list: a public service address, not the caller's",
-    "oai.endpoints.kepler.ai.cloud.ovh.net": "OVHcloud AI Endpoints' own keyless OpenAI-compatible endpoint, the api_base of its entries in the model list: a public service address, not the caller's",
+    "oai.endpoints.kepler.ai.cloud.ovh.net": "OVHcloud AI Endpoints' own keyless OpenAI-compatible endpoint, the upstream of the relay's nginx configuration and the address of the catalogue check_LiteLLM_model_drift.py reads: a public service address, not the caller's",
     "www.ovhcloud.com": "OVHcloud's own AI Endpoints service and catalogue pages, cited in the README ledger of free providers",
     "assets.ngc.nvidia.com": "NVIDIA's own API trial terms of service, cited in the README ledger of free providers",
     "docs.cohere.com": "Cohere's own rate limits page, cited in the README ledger of free providers",
@@ -191,6 +191,7 @@ ALLOWED_ADDRESSES = {
     "127.0.0.1": "loopback",
     "255.255.255.255": "broadcast",
     "::1": "IPv6 loopback",
+    "127.0.0.11": "the embedded DNS server of Docker, at the same address in every container on a user-defined network, which the OVHcloud relay's nginx configuration names as its resolver",
 }
 
 # Deliberately short: see the docstring. Every file extension used in this repository is kept out of
@@ -404,6 +405,8 @@ SELFTEST_CASES = (
     ("  serveur: 192.168.1.42", 1, "a private address is refused"),
     ("  bind: 0.0.0.0", 0, "listening on every interface stays allowed"),
     ("  boucle: 127.0.0.1", 0, "the loopback stays allowed"),
+    ("  resolveur: 127.0.0.11", 0, "Docker's embedded DNS server stays allowed"),
+    ("  resolveur: 127.0.0.12", 1, "another address of the loopback block is not allowed with it"),
     ("  hote: 2001:0db8:85a3:0000:0000:8a2e:0370:7334", 1, "a full IPv6 is refused"),
     ("  abrege: fe80::1ff:fe23:4567", 1, "an abbreviated IPv6 is refused"),
     ("  heure: 20:25:30", 0, "a time of day is not an IPv6"),

@@ -544,6 +544,17 @@
   # Same reason as the LiteLLM configuration above (#161).
   register: Artificial_Intelligence_LibreChat_config_deployment
 
+# The relay's nginx configuration: copied as it is, since nothing in it varies. Its "checksum" is what
+# gets a changed file applied, as for the two configurations above.
+- name: "Deploy the OVHcloud relay configuration"
+  ansible.builtin.copy:
+    src: "ovhcloud_relay/nginx.conf"
+    dest: "{{ Artificial_Intelligence_OVHcloud_relay_config_file_destination_path }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  register: Artificial_Intelligence_OVHcloud_relay_config_deployment
+
 - name: "Deploy the {{ Artificial_Intelligence_Docker_stack_name }} Docker stack"
   ansible.builtin.include_role:
     name: "{{ Artificial_Intelligence_Docker_stack_deployment_role_name }}"
@@ -552,7 +563,7 @@
     Docker_compose_file_name: "{{ Artificial_Intelligence_Docker_compose_file_name }}"
     Docker_compose_file_destination_directory: "{{ Artificial_Intelligence_Docker_compose_file_destination_directory }}"
     Docker_compose_file_destination_path: "{{ Artificial_Intelligence_Docker_compose_file_destination_path }}"
-    # Not part of that contract (#161): the deployment role does nothing with these two but render
+    # Not part of that contract: the deployment role does nothing with these three but render
     # the compose template in their scope, which it does anyway. The template names the Docker
     # config that carries each file after its checksum, and a new name is the only thing that changes
     # the compose file when only the configuration changed -- without it neither Compose nor Swarm
@@ -565,6 +576,7 @@
     # undefined attribute.
     Artificial_Intelligence_LiteLLM_config_checksum: "{{ Artificial_Intelligence_LiteLLM_config_rendering.checksum | default(false) }}"
     Artificial_Intelligence_LibreChat_config_checksum: "{{ Artificial_Intelligence_LibreChat_config_deployment.checksum | default(false) }}"
+    Artificial_Intelligence_OVHcloud_relay_config_checksum: "{{ Artificial_Intelligence_OVHcloud_relay_config_deployment.checksum | default(false) }}"
 
     # Back only once the stack has CONVERGED, for a deployer that can wait: every service running, and
     # healthy where a healthcheck says so. Everything below talks to what this has just deployed --

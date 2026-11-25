@@ -7844,10 +7844,8 @@ COVERAGE_BLOCK = """\
   - model_name: ovh-one
     litellm_params:
       model: openai/OvhOne
-      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+      api_base: "http://ovhcloud_relay:8080/v1"
       api_key: "ovh-no-key-needed"
-      extra_headers:
-        Authorization: ""
 
   - model_name: req-one
     litellm_params:
@@ -7957,8 +7955,9 @@ def run_coverage_cases():
                (attribute("zai/glm-9", None) == ("zai", "glm-9"), "Z AI"),
                (attribute("vercel_ai_gateway/vendor/x-1", None) == ("vercel", "vendor/x-1"), "Vercel AI Gateway"),
                (attribute("vercel/vendor/x-1", None) is None, "a prefix that is nobody's was attributed (vercel)"),
-               (attribute("openai/X-1", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1") == ("ovhcloud", "X-1"),
-                "OVHcloud"),
+               (attribute("openai/X-1", "http://ovhcloud_relay:8080/v1") == ("ovhcloud", "X-1"), "OVHcloud, through its relay"),
+               (attribute("openai/X-1", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1") is None,
+                "OVHcloud's own address was attributed, which no entry may name"),
                (attribute("openai/a/b", "https://router.eu.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, European"),
                (attribute("openai/a/b", "https://router.requesty.ai/v1") == ("requesty", "a/b"), "Requesty, the other base"),
                (attribute("openai/hy9:free", "https://api.cent-ai.dev/v1") == ("centai", "hy9:free"), "Cent AI"),
@@ -8170,14 +8169,16 @@ def run_coverage_cases():
     result, proposals = proposal_run(COVERAGE_TEMPLATE, answers, COVERAGE_KEYS)
     part = proposals["to_verify"]
     judged("new models of OVHcloud, NVIDIA, Z AI and Cent AI are proposed to verify only, each modelled on its provider's "
-           "own entry and the OVHcloud one with the marker and the blanked Authorization header, and the file reads back",
+           "own entry and the OVHcloud one with the marker and no header of its own, as it goes through the relay, and the file "
+           "reads back",
            first_wrong(
                (proposals["ready"]["items"] == [], "one was ready"),
                (sorted(item["id"] for item in part["items"]) == ["Ovh-New.2", "glm-9-new", "hy9-new:free", "vendor/nv-new.1"],
                 "items %r" % part["items"]),
                ('  - model_name: ovh-new-2-ovh\n    model_info:\n      access_groups: ["LLM", "Private-Data"]\n    litellm_params:\n'
-                '      model: openai/Ovh-New.2\n      api_base: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"\n'
-                '      api_key: "ovh-no-key-needed"\n      extra_headers:\n        Authorization: ""\n' in part["text"],
+                '      model: openai/Ovh-New.2\n      api_base: "http://ovhcloud_relay:8080/v1"\n'
+                '      api_key: "ovh-no-key-needed"\n' in part["text"]
+                and 'api_key: "ovh-no-key-needed"\n      extra_headers' not in part["text"],
                 "the OVHcloud entry"),
                ('  - model_name: nv-new-1-nvidia\n    model_info:\n      access_groups: ["LLM", "Public-Data-Only"]\n    litellm_params:\n'
                 '      model: nvidia_nim/vendor/nv-new.1\n      litellm_credential_name: "nvidia-nim"\n' in part["text"],
