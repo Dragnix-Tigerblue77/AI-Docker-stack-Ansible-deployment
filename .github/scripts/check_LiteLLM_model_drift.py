@@ -52,8 +52,8 @@ in the same change.
 * The branch written only when a key is MISSING -- the aliases of the routers that have no entry of
   their own without Gemini -- is not rendered, so nothing that would only fail there is seen; the
   names it reads are still held to the provider keys, since that check reads the template without
-  rendering it. Rendering every other set of keys and holding each alias to the first member of its
-  cascade is "check_compose_template.py"'s job.
+  rendering it. Rendering the file for the other sets of keys and holding each alias to the first member
+  of its cascade is "check_compose_template.py"'s job.
 * A template that does not render -- a Jinja syntax error, a variable that is none of the provider
   keys or of the configuration's switches (TEMPLATE_SWITCHES, rendered at their default), however the
   template reads it -- is a finding that names the problem, and ends the run with
@@ -130,7 +130,10 @@ the file given by "--config" IN PLACE, so it is run on a checkout that can be th
 workflow does. The exit status is the one "--online" gives: a deletion made is still a drift until
 it is merged. "--pr-body PATH" and "--commit-message PATH" write the body of the pull request
 (French) and the message of the commit (English) that carry the deletions, and only when something
-was deleted; a file left at that path by an earlier run is removed first.
+was deleted; a file left at that path by an earlier run is removed first. It writes no catalogue: the
+overview of what the gateway serves, "docs/CATALOG.md", is generated from the template by
+"generate_catalog.py", which the workflow runs on the template this one edited and on each one it proposes,
+so that the pull requests carry the catalogue in the same commit as the template.
 
 WHAT COUNTS AS A REASON
 -----------------------
@@ -153,7 +156,7 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", and, as "openai/<id>" with
+"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", "vercel_ai_gateway/<id>", and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
 OVHcloud AI Endpoints (through the relay of the compose file, "ovhcloud_relay"), Requesty ("requesty.ai"), Cent AI
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
@@ -188,6 +191,8 @@ Labs' "aionlabs": the workflow's tables read a name as plain letters.
   zai         api.z.ai/api/paas/v4/models -- Bearer    every model listed, which omits the free ones
   centai      api.cent-ai.dev/v1/models -- Bearer      every model
   aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
+  vercel      ai-gateway.vercel.sh/v1/models -- no key  "availableToFreeTier" true, read from the models
+              page vercel.com/ai-gateway/models?freeTier=true -- no key
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -238,6 +243,21 @@ Aion Labs' catalogue is public and lists its models with a price each: its free 
 the account and no model's own, so no model of it is ever read as free, and a NEW one is listed to examine and
 proposed only in the pull request of models to verify. Its models are in an access group of their own
 ("Fiction", which ACCESS_GROUPS gives an entry written for it) and in one router of their own.
+
+Vercel AI Gateway lists every model it relays, free tier or not, and its public catalogue (its API) says nothing of
+which models the free tier covers: a price of 0 is no proof, since some models priced 0 are outside it. That is
+stated on its models page, "vercel.com/ai-gateway/models?freeTier=true", the most structured source there is:
+its HTML carries the catalogue in the chunks Next.js streams to the browser, as a "models" array of one object per
+model, each with the id Vercel calls it by ("copyString"), a "type" and a boolean "availableToFreeTier". Both are
+read, the API first (retirements: "deprecated_at" is a NOTICE, a model it no longer lists is RETIRED) and the page
+second (read_vercel_page): only the objects of that array that carry the two fields count, so the flag found
+in prose or in another object of the page is never one; the page's models are members too, so that a model
+is retired only when neither lists it; a free one the file does not know is NEW, with the usage its "type" gives; a
+member the page does not flag free, flagged false or not listed (the batch variants are not on it), is a NOTICE
+that it is no longer free, and never RETIRED, as Kilo's is: it stays in the catalogue and answers 403, which is a
+person's call. The page needs no key. It is not documented, so a page that holds no such array, no such object or a
+model twice is that provider's error, which goes through the retries and the issue like an unreadable catalogue,
+and what the API alone says stands meanwhile. Its names are "vercel".
 
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
@@ -322,8 +342,8 @@ NOTICE     an entry, active or commented out, that a source announces for retire
            "expires_at", Mistral's "deprecation" (with "deprecation_replacement_model"), the "deprecated"
            flag of Cerebras and SambaNova, Groq's "active": false, Cloudflare's "planned_deprecation_date",
            or the "deprecation_date" LiteLLM's public price map gives the model (see THE SECOND SOURCE OF
-           ANNOUNCED RETIREMENTS), each notice saying which source said it; an active Kilo entry that is no longer flagged free, since
-           its keyless call would be refused; an active Requesty entry that is no longer priced 0;
+           ANNOUNCED RETIREMENTS), each notice saying which source said it; an active Kilo or Vercel AI Gateway entry that is no longer flagged free,
+           since its call would be refused; an active Requesty entry that is no longer priced 0;
            and an entry, active or commented out, that a provider of INCOMPLETE_CATALOGUES does not list
            and that asking it could not settle (a commented-out one is not asked).
 WARNING    two sources of an announced retirement contradict each other (see THE SECOND SOURCE OF ANNOUNCED
@@ -342,7 +362,8 @@ NEW        an id the file does not know. Known ids are those of the active and t
            of its "aliases" is. Each carries its usage (see above), shown on its line.
 
 Free-tier eligibility is machine-readable on OpenRouter, as ":free" and a price of "0", on Kilo
-Gateway, as "isFree", and on Requesty, as the two prices at 0. Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
+Gateway, as "isFree", on Requesty, as the two prices at 0, and on Vercel AI Gateway, as "availableToFreeTier" on
+its models page. Every other provider publishes it only in prose, on a pricing page, so a NEW model there is listed as one
 to examine, never claimed free, and the summary links the page of each provider listed there
 (PRICING_PAGES, a table the selftest holds to the providers it can be needed for): the link is a
 convenience, the free tier is still checked by a person.
@@ -461,9 +482,9 @@ for that model (all of its entries or none):
 
 * a model_name that a cascade starts from (the virtual routers: "pro", "flash"...), or that a
   "model_group_alias" points at, since what should answer for that name is a choice;
-* the last target of a cascade, decided on the whole set at once and for each set of provider keys
-  separately, not on the union: the cascade that holds the members of a single provider is empty
-  for every set of keys that leaves that provider out. Two models that are each the other's only
+* the last target of a cascade, decided on the whole set at once and for each of the sets of provider keys
+  separately (key_set_plan says which), not on the union: the cascade that holds the members of a single
+  provider is empty for the sets of keys that leave that provider out. Two models that are each the other's only
   companion in a cascade are neither of them deleted;
 * a cascade slot that is not a line of its own (a flow list, "- flash: free-one"), which this does
   not edit, and a name that is used anywhere else in the file, which it knows nothing about: in a
@@ -502,16 +523,16 @@ A router is an alias of the first model of its cascade whose provider has a key,
 says which in a "set head" table, one row per router: "'flash': 'a' if has.Groq else 'b' if
 has.Mistral else 'c'". That is a copy of the order of the cascades, and a deletion that takes a
 model a row names has to write the row again. It is written FROM THE CASCADES and never patched: the
-file is rendered for every set of providers, the first member of each router's cascade is read, and
+file is rendered for the sets of providers that key_set_plan gives, the first member of each router's cascade is read, and
 the row is made of the providers in the order their first member comes in the cascade, with the
 model that is there whatever the keys as its last term (or "false" when there is none). The row is
-checked against every set of providers before it is kept. Taking a provider's first model out can
+checked against those sets before it is kept. Taking a provider's first model out can
 move the provider behind another, which is why a name is not simply replaced.
 
 A row is written again only when the same writing gives exactly the row as it stands in the
 untouched file: a row tuned by hand, or already out of step with its cascade, is not trusted, and
 its models are refused as before. The result must also leave every alias on the first member of the
-cascade kept under its name, for every set of providers. A pull request that rewrites a row ADDS
+cascade kept under its name, for those sets. A pull request that rewrites a row ADDS
 lines, so `dependabot-auto-merge.yml` does not merge it by itself: a person reads the rows, which
 the pull request lists. And the job of "LiteLLM_model_drift.yml" that pushes it, which holds the
 token that writes, accepts a changed line only if it is such a row, naming entries of the file and
@@ -567,6 +588,20 @@ use of that API ask, and the figures are shown as published.
   not a finite number is none, and the key is replaced by "***" wherever an error could carry it. The
   job that writes holds no such key, as with the others.
 
+THE FIGURES THE CATALOGUE SHOWS
+-------------------------------
+"--scores PATH" is the figures file "docs/catalog_scores.json": the intelligence index and the time to the first answer
+token of the Artificial Analysis record each entry is mapped to by the router contracts, at the level it is called at
+(never a record whose level is unverified), and the capabilities index and the code position of its model in Epoch AI's
+archive, which this run already reads. The file the path names is read first, as the figures of the run before; a source
+this run did not read (no key, an error, none asked) keeps what that file held of it, with its day, and one it read
+replaces it, a figure it no longer gives being dropped. The file is rewritten in place when "--apply" deleted something,
+so that the entries that went take their figures with them, and for each pull request of additions "<kind>_scores.json"
+is written beside its template, for the entries of that template. Nothing is written otherwise, so a run that changes
+nothing leaves the file alone. The file is held to its shape by "scores_problems" and written the one way
+"render_scores" writes it, which "generate_catalog.py --check" requires of every copy: it is data, numbers within
+bounds for entries of the template, and nothing a reader of those sites could write into it is more than a wrong figure.
+
 PROPOSING WHAT IS NEW
 --------------------
 "--proposals DIR" proposes the NEW models, whatever their kind, in two pull requests of their own, which the
@@ -605,8 +640,8 @@ the mode, active or commented out), which shows LiteLLM has the route under that
 verify, whose body says which of the two is missing.
 
 * "ready", ready for review: a model of which the run holds every fact an addition needs -- its free
-  tier, stated by its provider's own API (FREE_CATALOGUES: OpenRouter's ":free", both prices
-  "0", Kilo's "isFree", and Requesty's two prices at 0), and a figure of the
+  tier, stated by its provider's own API or models page (FREE_CATALOGUES: OpenRouter's ":free", both prices
+  "0", Kilo's "isFree", Requesty's two prices at 0, and "availableToFreeTier" on Vercel's page), and a figure of the
   ranking matched for certain (certain_match: the last segment of the id, less ":free", and the
   slug or the name of one entry of the whole ranking and of no other are equal once lower-cased
   with everything but letters and digits removed, and that entry's name carries no variant marker
@@ -889,7 +924,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
-                     "Cent_AI", "Aion_Labs")
+                     "Cent_AI", "Aion_Labs", "Vercel_AI_Gateway")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1154,8 +1189,9 @@ def comment_content(line):
 
 # The "model:" prefix LiteLLM routes each provider it has a provider for by, where it is not the name this check
 # gives the provider.
-LITELLM_PREFIXES = {"nvidia": "nvidia_nim"}
-NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai")
+LITELLM_PREFIXES = {"nvidia": "nvidia_nim", "vercel": "vercel_ai_gateway"}
+NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai",
+                    "vercel")
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
 # OVHcloud's entries name the relay in front of its endpoint, which drops the Authorization header the endpoint refuses;
 # its catalogue is read at the endpoint's own address, below.
@@ -1258,23 +1294,168 @@ def fallback_lists(document):
     return found
 
 
+# The key sets a template is rendered for are a covering array, not every set: a template that reads n keys has
+# 2^n - 1 of them, which doubled with each provider until the checks that render them outran their time. Each
+# condition of the file reads some of the keys, "strength" of them at most; a covering array of that strength gives
+# every assignment of any "strength" keys to some rendering, so every condition meets its whole truth table. The
+# strength is held to this limit: past it the array grows too fast to keep, and the condition has to be split so
+# that none reads more keys than that. A condition that is a decision list over its keys (a router's head, the
+# first provider given along a chain) reads all of them, which is why the limit sits above what one plain
+# condition reads.
+KEY_SET_STRENGTH_LIMIT = 8
+
+
+class KeySetRefusal(ValueError):
+    """The file has a condition that reads more keys than KEY_SET_STRENGTH_LIMIT: it cannot be rendered for sets
+    of keys that hold every case of that condition, so nothing is judged until it is split."""
+
+
+def key_conditions(text, variables=None):
+    """[(line, source, keys)] of every condition of a Jinja file that reads at least one of "variables" (the
+    provider keys by default): an "if" or an "elif", a conditional expression and the "if" of a loop. "keys" is
+    the frozenset of variables the condition reads, directly, through a name the file sets (read as what it holds)
+    and through one item of such a name when it is a mapping written out and the item is named with a constant:
+    "has.Gemini" reads the keys of the value of 'Gemini' in "has", and "head['pro']" those of the chain written
+    for 'pro', not every key "head" mentions. Raises jinja2.TemplateSyntaxError for text that is not Jinja."""
+    from jinja2 import nodes
+    from jinja2.sandbox import SandboxedEnvironment
+    variables = set(PROVIDER_KEY_VARIABLES if variables is None else variables)
+    tree = SandboxedEnvironment().parse(text)
+    assigned = {}
+    for statement in tree.find_all(nodes.Assign):
+        if isinstance(statement.target, nodes.Name):
+            assigned.setdefault(statement.target.name, []).append(statement.node)
+
+    def reads(node, seen=()):
+        if isinstance(node, nodes.Name):
+            if node.name in variables:
+                return {node.name}
+            if node.name in assigned and node.name not in seen:
+                return set().union(*(reads(value, seen + (node.name,)) for value in assigned[node.name]))
+            return set()
+        if isinstance(node, (nodes.Getitem, nodes.Getattr)) and isinstance(node.node, nodes.Name) \
+                and node.node.name in assigned and node.node.name not in seen:
+            item = node.attr if isinstance(node, nodes.Getattr) else (
+                node.arg.value if isinstance(node.arg, nodes.Const) else None)
+            found = [pair.value for value in assigned[node.node.name] if isinstance(value, nodes.Dict)
+                     for pair in value.items if isinstance(pair.key, nodes.Const) and pair.key.value == item]
+            if item is not None and found:
+                return set().union(*(reads(value, seen + (node.node.name,)) for value in found))
+        return set().union(*(reads(child, seen) for child in node.iter_child_nodes()))
+
+    lines = text.splitlines()
+    found = []
+    for node in tree.find_all((nodes.If, nodes.CondExpr, nodes.For)):
+        keys = frozenset(reads(node.test)) if node.test is not None else frozenset()
+        if keys:
+            source = lines[node.lineno - 1].strip() if 0 < node.lineno <= len(lines) else ""
+            found.append((node.lineno, source, keys))
+    return found
+
+
+@functools.lru_cache(maxsize=None)
+def covering_array(columns, strength):
+    """Rows of 0 and 1, "columns" wide, in which every assignment of every "strength" columns appears: IPOG, built
+    one column at a time, each row taking the value that covers most of what is still missing, and a few rows
+    added for what no row could. Nothing in it is chosen at random: the same size gives the same rows."""
+    if columns <= strength:
+        return tuple(itertools.product((0, 1), repeat=columns))
+    rows = [list(row) for row in itertools.product((0, 1), repeat=strength)]
+    for column in range(strength, columns):
+        groups = list(itertools.combinations(range(column), strength - 1))
+        missing = {(group, values, value) for group in groups
+                   for values in itertools.product((0, 1), repeat=strength - 1) for value in (0, 1)}
+        for row in rows:
+            seen = [(group, tuple(row[each] for each in group)) for group in groups]
+            gains = [sum((group, values, value) in missing for group, values in seen) for value in (0, 1)]
+            row.append(0 if gains[0] >= gains[1] else 1)
+            missing.difference_update((group, values, row[column]) for group, values in seen)
+        added = []
+        for group, values, value in sorted(missing):
+            for row in added:
+                if row[column] in (None, value) and all(row[each] in (None, wanted)
+                                                         for each, wanted in zip(group, values)):
+                    break
+            else:
+                row = [None] * (column + 1)
+                added.append(row)
+            row[column] = value
+            for each, wanted in zip(group, values):
+                row[each] = wanted
+        rows += [[0 if cell is None else cell for cell in row] for row in added]
+    return tuple(tuple(row) for row in rows)
+
+
+def covering_key_sets(count, strength, with_empty=False):
+    """The sets of "count" keys, as tuples of the indexes given, that a template whose conditions read at most
+    "strength" keys each is rendered for: the covering array of that strength and the boundary sets, which are
+    each key alone, every key and every key but one. Unless "with_empty" the empty set is none of them, and the one
+    assignment only it could cover, "strength" keys all missing, gets a set of its own wherever no other has it."""
+    if count == 0:
+        return [()]
+    array = covering_array(count, strength)
+    everything = tuple(range(count))
+    boundary = [(index,) for index in everything] + [everything] + [
+        tuple(other for other in everything if other != index) for index in everything]
+    found = list(dict.fromkeys(boundary + [tuple(index for index, value in enumerate(row) if value)
+                                           for row in array]))
+    if with_empty:
+        return list(dict.fromkeys(found + [()]))
+    found = [each for each in found if each]
+    if count > strength and any(not any(row) for row in array):
+        absent = [sum(1 << index for index in everything if index not in each) for each in found]
+        for columns in itertools.combinations(everything, strength):
+            mask = sum(1 << index for index in columns)
+            if not any(missing & mask == mask for missing in absent):
+                found.append(tuple(index for index in everything if index not in columns))
+                absent.append(mask)
+    return found
+
+
+KeySetPlan = collections.namedtuple("KeySetPlan", "sets strength conditions keys")
+
+
+@functools.lru_cache(maxsize=16)
+def key_set_plan(text, variables=None, with_empty=False):
+    """The sets of keys to render the Jinja file "text" for: KeySetPlan(sets, strength, conditions, keys). "keys"
+    are the variables, of "variables" (the provider keys by default), that the file reads, in their order; "sets"
+    are tuples of them, none empty unless "with_empty"; "strength" is the most keys a single condition reads, at
+    least one; "conditions" are those of key_conditions. A file that reads no key is rendered once, for no key.
+    Raises KeySetRefusal for a file whose strength is above KEY_SET_STRENGTH_LIMIT, and
+    jinja2.TemplateSyntaxError for text that is not Jinja."""
+    import jinja2.meta
+    from jinja2.sandbox import SandboxedEnvironment
+    variables = tuple(PROVIDER_KEY_VARIABLES if variables is None else variables)
+    read = jinja2.meta.find_undeclared_variables(SandboxedEnvironment().parse(text)) & set(variables)
+    keys = tuple(variable for variable in variables if variable in read)
+    conditions = key_conditions(text, variables)
+    strength = max([len(each[2]) for each in conditions] + [1])
+    if strength > KEY_SET_STRENGTH_LIMIT:
+        widest = max(conditions, key=lambda each: len(each[2]))
+        raise KeySetRefusal(
+            "line %d of the file has a condition that reads %d provider keys at once (%s): %s\n"
+            "    The file is rendered for a covering array of the keys, in which every case of the keys one condition\n"
+            "    reads is rendered, and that holds for up to %d keys per condition: past it the number of renderings\n"
+            "    grows too fast to keep. Split the condition so that none reads more keys, or raise\n"
+            "    KEY_SET_STRENGTH_LIMIT of check_LiteLLM_model_drift.py knowing what it costs."
+            % (widest[0], len(widest[2]), ", ".join(provider_name(each) for each in keys if each in widest[2]),
+               widest[1], KEY_SET_STRENGTH_LIMIT))
+    sets = [tuple(keys[index] for index in each) for each in covering_key_sets(len(keys), strength, with_empty)]
+    return KeySetPlan(tuple(sets), strength if keys else 0, tuple(conditions), keys)
+
+
 def keyset_documents(text):
-    """[(given, parsed document)] of the file rendered for each non-empty set of the provider keys
-    it reads, "given" being a tuple of the names of the keys given; the document is None for a set
-    that does not render. A file that reads no key renders once. The rest of this check reads the
-    file with every key given, and a cascade that holds only the members of one provider is empty
-    for the sets that leave that provider out: what is judged here is each of them."""
+    """[(given, parsed document)] of the file rendered for each of the sets of the provider keys it reads that
+    key_set_plan gives, "given" being a tuple of the names of the keys given; the document is None for a set that
+    does not render. A file that reads no key renders once. The rest of this check reads the file with every key
+    given, and a cascade that holds only the members of one provider is empty for the sets that leave that provider
+    out: what is judged here is each of them. Raises KeySetRefusal, which read_layout reports."""
     try:
-        import jinja2
-        import jinja2.meta
-        from jinja2.sandbox import SandboxedEnvironment
-        tree = SandboxedEnvironment().parse(text)
-        read = jinja2.meta.find_undeclared_variables(tree) & set(PROVIDER_KEY_VARIABLES)
+        sets = key_set_plan(text).sets
+    except KeySetRefusal:
+        raise
     except Exception:  # the file is not valid Jinja: read_template has said so
         return []
-    names = [variable for variable in PROVIDER_KEY_VARIABLES if variable in read]
-    sets = [tuple(chosen) for size in range(1, len(names) + 1)
-            for chosen in itertools.combinations(names, size)] or [tuple()]
     return [(given, render_keyset(text, given)) for given in sets]
 
 
@@ -1341,6 +1522,12 @@ def read_template(text):
                       "so there is nothing to check"]
 
     problems = []
+    try:
+        key_set_plan(text)
+    except KeySetRefusal as refusal:
+        problems.append(str(refusal))
+    except Exception:  # not Jinja: the rendering above has already said so
+        pass
     active = [entry_of(item) for item in document["model_list"] if isinstance(item, dict)]
 
     # (e) Every active entry belongs to a provider whose catalogue is read: an entry of any other is never
@@ -1753,6 +1940,105 @@ def read_aionlabs(pages):
     return catalogue
 
 
+def read_vercel(pages):
+    """Vercel AI Gateway: every model it relays, free tier or not, each with a "type" and a price and, where it is
+    retired, a "deprecated_at" in milliseconds since the epoch. The API says nothing of the free tier, which is a
+    monthly credit that covers a subset of the models, and a price of 0 is no proof, since some models priced 0 are
+    outside it: the free tier is read from the models page (add_vercel_free_page), after this list. This list
+    says what it can, that an entry's model has left the catalogue or is announced to."""
+    catalogue = new_catalogue()
+    for model in listed(pages[0]):
+        identifier = model["id"]
+        catalogue["members"].add(identifier)
+        retired = model.get("deprecated_at")
+        date = retirement_date(retired / 1000) if isinstance(retired, (int, float)) \
+            and not isinstance(retired, bool) else None
+        if date:
+            catalogue["notices"][identifier] = {"what": "expiration", "date": date}
+    return catalogue
+
+
+# The page of Vercel AI Gateway's models, filtered to the free tier. Its HTML carries the whole catalogue in the
+# chunks Next.js streams to the browser, self.__next_f.push([1, "<text>"]), and that text holds a "models" array
+# of one object per model: the id Vercel calls it by ("copyString"), its "type" and a boolean
+# "availableToFreeTier". The filter of the address is applied in the browser, so the false ones are in the page
+# too. No JSON of Vercel's states the flag (the catalogue's API has none), and the page's format is not documented.
+VERCEL_FREE_PAGE = "https://vercel.com/ai-gateway/models?freeTier=true"
+VERCEL_PAGE_LIMIT = 16_000_000
+VERCEL_CHUNK = re.compile(r'self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)')
+# What a model of the page is for, by its "type", where that is not a chat model; the id decides for a chat model.
+VERCEL_TYPE_USAGES = {"embedding": "embeddings", "image": "image", "video": "video", "speech": "speech",
+                      "transcription": "transcription", "reranking": "rerank"}
+
+
+def read_vercel_page(html):
+    """{id: (free, type, name)} of the models Vercel's models page lists: the objects of its "models" array that
+    have a "copyString" and a boolean "availableToFreeTier", and nothing else. The flag is read from those
+    objects alone and never by searching the text for it, which also holds it in prose and in whatever else
+    the page says. A page with no such array or object, or that repeats a model, is not one this check can read,
+    which is that provider's error and never a model gone."""
+    text = ""
+    try:
+        for chunk in VERCEL_CHUNK.findall(html):
+            text += json.loads(chunk)
+    except (ValueError, RecursionError):
+        raise FetchError("the models page holds a chunk this check does not read") from None
+    decoder = json.JSONDecoder()
+    start = text.find('"models":[')
+    while start >= 0:
+        try:
+            array, _ = decoder.raw_decode(text, start + len('"models":'))
+        except (ValueError, RecursionError):
+            array = None
+        records = {}
+        for model in array if isinstance(array, list) else []:
+            if not (isinstance(model, dict) and isinstance(model.get("copyString"), str)
+                    and isinstance(model.get("availableToFreeTier"), bool)):
+                continue
+            if model["copyString"] in records:
+                raise FetchError("the models page repeats a model")
+            records[model["copyString"]] = (model["availableToFreeTier"], model.get("type"),
+                                            model.get("displayName") or "")
+        if records:
+            return records
+        start = text.find('"models":[', start + 1)
+    raise FetchError('the models page lists no model with an "availableToFreeTier" flag')
+
+
+def vercel_usage(identifier, kind):
+    """What a free model of the page is for: its type where that says, the id for a chat model."""
+    if kind in VERCEL_TYPE_USAGES:
+        return VERCEL_TYPE_USAGES[kind]
+    return usage_of_id(identifier) if kind in ("chat", None) else safe_text(kind, 40).lower()
+
+
+def add_vercel_free_page(opener, url, catalogue):
+    """Read Vercel's models page for the free tier and add it to the catalogue read from the API. The models of
+    the page are members too; one it flags free is offered as NEW, with the usage its type gives; a member it does
+    not flag free, whether it flags it false or does not list it (the batch variants are not on it), is a NOTICE
+    that it is no longer free, unless the API announced its retirement already. A model is retired only when
+    neither the API nor the page lists it. The page is public and no key is sent to it."""
+    if not catalogue["members"]:
+        # A list that holds nothing is a failed read, as it is for every provider (apply_to_result), and the page
+        # is not read in its place: its models would make the list look read.
+        return
+    raw = fetch_raw(opener, url, {"User-Agent": USER_AGENT, "Accept": "text/html"}, VERCEL_PAGE_LIMIT)
+    if len(raw) > VERCEL_PAGE_LIMIT:
+        raise FetchError("the models page is too big to read")
+    try:
+        records = read_vercel_page(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise FetchError("the models page is not text") from None
+    free = set()
+    for identifier, (is_free, kind, name) in sorted(records.items()):
+        catalogue["members"].add(identifier)
+        if is_free:
+            free.add(identifier)
+            offer(catalogue, identifier, name, vercel_usage(identifier, kind))
+    for identifier in sorted(catalogue["members"] - free):
+        catalogue["notices"].setdefault(identifier, {"what": "paid"})
+
+
 def read_flagged(pages):
     """Cerebras and SambaNova: an OpenAI-style list, with a "deprecated" flag where there is one."""
     catalogue = new_catalogue()
@@ -1956,6 +2242,9 @@ PROVIDERS = (
     ("zai", "https://api.z.ai/api/paas/v4/models", "MODEL_DRIFT_ZAI_API_KEY", bearer, read_plain, None),
     ("centai", "https://api.cent-ai.dev/v1/models", "MODEL_DRIFT_CENT_AI_API_KEY", bearer, read_plain, None),
     ("aionlabs", "https://api.aionlabs.ai/v1/models", None, None, read_aionlabs, None),
+    # Vercel AI Gateway's catalogue is public too, and lists every model it relays, free tier or not. Its models page
+    # says which ones are free (FREE_PAGES), the API does not.
+    ("vercel", "https://ai-gateway.vercel.sh/v1/models", None, None, read_vercel, None),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # The providers whose catalogue omits models they serve. An entry of theirs that the catalogue does not
@@ -2005,7 +2294,11 @@ INCOMPLETE_CATALOGUES = {
 # could carry it.
 ACCOUNT_VARIABLES = {"cloudflare": "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID"}
 ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
-FREE_READABLE = {"openrouter", "kilo", "requesty"}
+FREE_READABLE = {"openrouter", "kilo", "requesty", "vercel"}
+# A second source read for a provider, after its catalogue: the page that states which of its models are free, and
+# how it is read into the catalogue. A page that cannot be read is that provider's error, and what the catalogue
+# alone says stands (see run_online).
+FREE_PAGES = {"vercel": (VERCEL_FREE_PAGE, add_vercel_free_page)}
 
 # Where each other provider says what is free, which the report links under "to examine": its API
 # does not say, so whoever checks a NEW model is sent to the page that does. Cerebras and Groq are
@@ -2290,7 +2583,9 @@ def diff(provider, catalogue, active, commented, ignored):
     """The findings for one provider: dicts with a "kind", an "id" and what explains it."""
     members = catalogue["members"]
     findings = []
-    incomplete = INCOMPLETE_CATALOGUES.get(provider)
+    # A catalogue whose second source could not be read is incomplete for the run: Vercel's page lists models its API
+    # omits, so what the API alone does not list may be listed by the page.
+    incomplete = INCOMPLETE_CATALOGUES.get(provider) or catalogue.get("partial")
 
     def absent(kind, identifier, names):
         if incomplete:
@@ -2761,6 +3056,20 @@ def run_online(text, environment, opener, today):
                 report["status"] = "error"
                 report["error"] = "its pricing page: " + shown_error(error, environment)
                 report["error_class"] = error_class(error)
+        free_page = FREE_PAGES.get(name)
+        if free_page:
+            try:
+                free_page[1](opener, free_page[0], catalogue)
+            except FetchError as error:
+                # The page lists models the API omits, so without it an entry the API does not list may be listed
+                # all the same: its absence is a NOTICE and deletes nothing. What the API announced stands, and
+                # the unread page is the provider's error.
+                report["status"] = "error"
+                report["error"] = "its models page: " + shown_error(error, environment)
+                report["error_class"] = error_class(error)
+                catalogue["partial"] = {"reason": (
+                    "its models page, which lists models its API omits, could not be read",
+                    "sa page des modèles, qui liste des modèles que son API omet, n'a pas pu être lue")}
         report["members"] = len(catalogue["members"])
         report["candidates"] = len(catalogue["candidates"])
         report["unsafe"] = catalogue["unsafe"]
@@ -3905,6 +4214,200 @@ def router_contracts(text, result, path):
         return {"status": "error", "kind": error.__class__.__name__}
 
 
+# ------------------------------------------------------------------------------------------------
+# The figures of the catalogue: what this run read of Artificial Analysis and of Epoch AI, per entry
+# ------------------------------------------------------------------------------------------------
+
+# "docs/catalog_scores.json" holds the figures that "docs/CATALOG.md" shows for each entry. The CI cannot read the
+# sites they come from, so the weekly run does, and rewrites the file in each pull request it opens; the check of
+# every pull request then holds the file to its shape (below) and the catalogue to the file. The file is data
+# and nothing else: the figures are numbers, within bounds that no real figure leaves, and each belongs to an
+# entry of the template, so that what a compromised reader could put in it steers nothing and says nothing.
+SCORES = ROOT / "docs" / "catalog_scores.json"
+SCORE_SOURCES = (
+    ("artificial_analysis_read", ("aa_index", "aa_first_answer_seconds")),
+    ("epoch_read", ("epoch_eci", "epoch_code_position")),
+)
+SCORE_KEYS = tuple(key for _, keys in SCORE_SOURCES for key in keys)
+# The widest range each figure can take, a bound and not a judgement: a figure outside it is no figure of its kind.
+SCORE_BOUNDS = {"aa_index": (0, 200), "aa_first_answer_seconds": (0, 3600), "epoch_eci": (0, 1000),
+                "epoch_code_position": (0, 100)}
+SCORE_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+SCORE_TOP = tuple(read for read, _ in SCORE_SOURCES) + ("entries",)
+
+
+def score_figure(value, key):
+    """The figure as the file writes it, or None when it is no figure of this kind: a number, finite, within its
+    bounds, to two decimals so that a revised source does not rewrite the file for a digit nobody reads."""
+    number = figure(value)
+    low, high = SCORE_BOUNDS[key]
+    return round(number, 2) if number is not None and low <= number <= high else None
+
+
+def scores_problems(document, names):
+    """Why "document" is not a file of figures for the entries "names", as a list: a list of nothing means the shape
+    is the one the generator reads. Every figure is a number, every key one of the four, every entry one of the
+    template's, every date a real day or none, and a figure of a source that was never read is refused."""
+    if not isinstance(document, dict) or set(document) != set(SCORE_TOP):
+        return ["the file is not an object with exactly the keys %s" % ", ".join(SCORE_TOP)]
+    problems = []
+    dates = {}
+    for read, _ in SCORE_SOURCES:
+        value = document[read]
+        if value is not None:
+            try:
+                datetime.date.fromisoformat(value)
+            except (TypeError, ValueError):
+                value = False
+            if value is False or not SCORE_DATE.fullmatch(value):
+                problems.append("%s is not a day written YYYY-MM-DD, or null" % read)
+                value = None
+        dates[read] = value
+    entries = document["entries"]
+    if not isinstance(entries, dict):
+        return problems + ["entries is not an object"]
+    for name, figures in entries.items():
+        if name not in names:
+            problems.append("%s is no entry of the template" % safe_text(name, 60))
+        elif not isinstance(figures, dict) or not figures:
+            problems.append("%s holds no figure" % name)
+        else:
+            for key, value in figures.items():
+                if key not in SCORE_KEYS:
+                    problems.append("%s: %s is no kind of figure" % (name, safe_text(key, 40)))
+                elif score_figure(value, key) is None:
+                    problems.append("%s: %s is not a number within %s and %s" % ((name, key) + SCORE_BOUNDS[key]))
+                elif score_figure(value, key) != value:
+                    problems.append("%s: %s is not written to two decimals at most" % (name, key))
+                elif dates[next(read for read, keys in SCORE_SOURCES if key in keys)] is None:
+                    problems.append("%s: %s comes from a source the file says was never read" % (name, key))
+    return problems
+
+
+def render_scores(document):
+    """The file as it is written, and the only way it is: the entries by name, the figures in the order of
+    SCORE_KEYS, one space of indentation, a newline at the end. A copy that is not exactly this is refused, so that
+    the file has one spelling and no room in it."""
+    ordered = {read: document[read] for read, _ in SCORE_SOURCES}
+    ordered["entries"] = {name: {key: document["entries"][name][key] for key in SCORE_KEYS
+                                 if key in document["entries"][name]} for name in sorted(document["entries"])}
+    return json.dumps(ordered, indent=1) + "\n"
+
+
+def parse_scores(text):
+    """(document, problems) of the text of the file: a key written twice and anything but an object are refused."""
+    def pairs(items):
+        keys = [key for key, _ in items]
+        if len(set(keys)) != len(keys):
+            raise ValueError("a key is written twice")
+        return dict(items)
+    try:
+        return json.loads(text, object_pairs_hook=pairs), []
+    except (ValueError, RecursionError) as error:
+        return None, ["the file is not JSON (%s)" % error.__class__.__name__]
+
+
+def scores_file_problems(text, names):
+    """(document, problems) of the text of the figures file against the entries "names": the problems of its shape, or
+    that it is not written the one way it is."""
+    document, problems = parse_scores(text)
+    problems = problems or scores_problems(document, names)
+    if not problems and text != render_scores(document):
+        problems = ["the file is not written the way the generator writes it (entries by name, one space of "
+                    "indentation, a newline at the end)"]
+    return document, problems
+
+
+def read_scores(path, names):
+    """(document, problems) of the file at "path" against the entries "names". A file that is absent is a problem, so
+    that nothing is checked against figures nobody committed."""
+    try:
+        text = Path(path).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return None, ["the file cannot be read (%s)" % error.__class__.__name__]
+    return scores_file_problems(text, names)
+
+
+def code_position_of(mapping, archive):
+    """The measured code position of an entry in the archive read, or None."""
+    return member_quality(mapping, archive)["position"]
+
+
+def catalog_scores(text, contracts, ranking, epoch, previous, today):
+    """The document of the figures for the template "text": what this run read of each source for each entry the
+    contracts map, and, for a source this run did not read (no key, an error, none asked), what the file already
+    held of it, with its day. An entry that is no entry of the template is left out whichever source says
+    something of it, which is how a deletion takes its figures with it. Never raises: a source that cannot be
+    turned into figures counts as not read."""
+    template, _ = read_template(text)
+    names = [entry["name"] for entry in template["active"] if isinstance(entry["name"], str)]
+    held = previous.get("entries") if isinstance(previous, dict) and isinstance(previous.get("entries"), dict) else {}
+    mappings = contracts.get("models") if isinstance(contracts, dict) and isinstance(contracts.get("models"), dict) else {}
+    fresh = {name: {} for name in names}
+    read = {}
+    for source, keys in SCORE_SOURCES:
+        before = previous.get(source) if isinstance(previous, dict) else None
+        read[source] = before if isinstance(before, str) else None
+        try:
+            if source == "artificial_analysis_read" and (ranking or {}).get("status") == "read":
+                by_slug, families = ranking_families(ranking["models"])
+                for name in names:
+                    mapping = mappings.get(name)
+                    found = describe_entry(mapping, by_slug, families) if isinstance(mapping, dict) else None
+                    if found and found["state"] == "resolved" and not found["unverified"]:
+                        record = found["record"]
+                        for key, value in (("aa_index", record["intelligence"]),
+                                           ("aa_first_answer_seconds", record["first_answer"])):
+                            if score_figure(value, key) is not None:
+                                fresh[name][key] = score_figure(value, key)
+                read[source] = today
+                continue
+            if source == "epoch_read" and (epoch or {}).get("status") == "read":
+                for name in names:
+                    mapping = mappings.get(name)
+                    if not isinstance(mapping, dict):
+                        continue
+                    found = {"epoch_eci": (epoch.get("eci") or {}).get(mapping.get("eci")),
+                             "epoch_code_position": code_position_of(mapping, epoch)}
+                    for key, value in found.items():
+                        if score_figure(value, key) is not None:
+                            fresh[name][key] = score_figure(value, key)
+                read[source] = today
+                continue
+        except Exception:
+            fresh = {name: {key: value for key, value in figures.items() if key not in keys}
+                     for name, figures in fresh.items()}
+        if read[source] is None:
+            continue
+        for name in names:
+            old = held.get(name) if isinstance(held.get(name), dict) else {}
+            for key in keys:
+                if key in old and score_figure(old[key], key) == old[key]:
+                    fresh[name][key] = old[key]
+    document = {source: read[source] for source, _ in SCORE_SOURCES}
+    document["entries"] = {name: figures for name, figures in fresh.items() if figures}
+    return document
+
+
+def scores_text(text, contracts, ranking, epoch, previous, today):
+    """The text of the figures file for the template "text", as it is written, or None when the template cannot be
+    read."""
+    template, _ = read_template(text)
+    if template is None:
+        return None
+    return render_scores(catalog_scores(text, contracts, ranking, epoch, previous, today))
+
+
+def previous_scores(path):
+    """The figures file as the checkout has it, or None when it is absent or no figures file: a run then holds on to
+    nothing and writes what it read."""
+    try:
+        document, _ = parse_scores(Path(path).read_bytes().decode("utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
 def level_text(record):
     return record["level"] if record["level"] else "niveau unique"
 
@@ -4376,31 +4879,40 @@ def head_row_text(router, row, chain):
     return "%s'%s': %s%s" % (row["lead"], router, chain, row["comma"])
 
 
+class HeadFallbacks(dict):
+    """The cascades of head_fallbacks, which is keyed by the sets of the providers the file reads: "read" is
+    them, and a set of any providers stands for its intersection with it."""
+    read = frozenset()
+
+
 def head_fallbacks(text, rows):
-    """{frozenset of providers: {router: [members]}} of the fallback cascades for EVERY set of
-    providers, empty set included, read from "text" with each row of the table replaced by a name that
-    is always set: a router whose row is empty would have no cascade to read, and the row is what is
-    being worked out. None when a set does not render."""
+    """{frozenset of providers: {router: [members]}} of the fallback cascades for the sets of providers that
+    key_set_plan gives, empty set included, read from "text" with each row of the table replaced by a name that
+    is always set: a router whose row is empty would have no cascade to read, and the row is what is being worked
+    out. None when a set does not render or the file reads more keys in a condition than the sets can cover."""
     lines = text.split("\n")
     for router, row in rows.items():
         lines[row["line"]] = head_row_text(router, row, HEAD_PLACEHOLDER)
     probe = "\n".join(lines)
-    found = {}
-    for size in range(len(HEAD_PROVIDERS) + 1):
-        for chosen in itertools.combinations(HEAD_PROVIDERS, size):
-            document = render_keyset(
-                probe, ["Artificial_Intelligence_LiteLLM_%s_API_key" % provider for provider in chosen])
-            if not isinstance(document, dict):
-                return None
-            found[frozenset(chosen)] = {
-                source: members for (where, source), members in fallback_lists(document).items()
-                if where == "router_settings.fallbacks" and source is not None}
+    found = HeadFallbacks()
+    try:
+        plan = key_set_plan(probe, with_empty=True)
+    except KeySetRefusal:
+        return None
+    found.read = frozenset(provider_name(variable) for variable in plan.keys)
+    for given in plan.sets:
+        document = render_keyset(probe, given)
+        if not isinstance(document, dict):
+            return None
+        found[frozenset(provider_name(variable) for variable in given)] = {
+            source: members for (where, source), members in fallback_lists(document).items()
+            if where == "router_settings.fallbacks" and source is not None}
     return found
 
 
 def head_chains(text, rows):
     """{router: the row's chain, written from the cascades} for each router of "rows" that has a
-    cascade; None when a row cannot be written so that it gives, for every set of providers, the
+    cascade; None when a row cannot be written so that it gives, for each of the sets of providers, the
     first member of the cascade -- the table is a decision list over providers, and a cascade that
     is not one is not something to rewrite."""
     fallbacks = head_fallbacks(text, rows)
@@ -4413,10 +4925,10 @@ def head_chains(text, rows):
             continue
 
         def first(chosen):
-            members = fallbacks[frozenset(chosen)].get(router)
+            members = fallbacks[frozenset(chosen) & fallbacks.read].get(router)
             return members[0] if members else None
 
-        full = fallbacks[everything].get(router) or []
+        full = fallbacks[everything & fallbacks.read].get(router) or []
         default = first(())
         if default is not None and default not in full:
             return None
@@ -4519,6 +5031,10 @@ def read_layout(text, template):
     file's: the lines are found in the file as written, Jinja made parsable, and the two are held
     to say the same thing before a line is trusted."""
     lines = text.splitlines()
+    try:
+        keysets = keyset_documents(text)
+    except KeySetRefusal as refusal:
+        return None, str(refusal)
     neutral = neutralise_jinja(text)
     if len(neutral.splitlines()) != len(lines):
         return None, "the file with its Jinja made parsable does not keep its line numbers"
@@ -4632,7 +5148,7 @@ def read_layout(text, template):
             "commented": commented, "owner": owner, "runs": runs, "by_key": by_key,
             "references": references, "groups": groups, "strays": strays, "heads": heads,
             "jinja": structure[0], "jinja_single": structure[1], "jinja_spanning": spanning,
-            "keysets": keyset_documents(text)}, None
+            "keysets": keysets}, None
 
 
 def comments_above(layout, start, entry=None):
@@ -5301,7 +5817,7 @@ PROVIDER_LABELS = {
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
     "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
-    "aionlabs": "Aion Labs",
+    "aionlabs": "Aion Labs", "vercel": "Vercel AI Gateway",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -5604,7 +6120,7 @@ NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
                  "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
                  "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
-                 "aionlabs": "-aion-labs"}
+                 "aionlabs": "-aion-labs", "vercel": "-vercel"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
                  "ovhcloud": "http://ovhcloud_relay:8080/v1",
                  "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",
@@ -5622,7 +6138,7 @@ DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare"
                "openrouter": "Public-Data-Only", "groq": "Public-Data-Only", "deepseek": "Public-Data-Only",
                "zai": "Public-Data-Only", "requesty": "Public-Data-Only", "nvidia": "Public-Data-Only",
                "centai": "Public-Data-Only", "kilo": "Public-Data-Only", "cerebras": "Public-Data-Only",
-               "sambanova": "Public-Data-Only"}
+               "sambanova": "Public-Data-Only", "vercel": "Public-Data-Only"}
 DEFAULT_DATA_GROUP = "Public-Data-Only"
 
 
@@ -5929,7 +6445,8 @@ def summary_body(result, config_name, link, snippets):
                  "à vérifier."),
         "new_free": ("Nouveaux modèles gratuits",
                      "Gratuité lue dans l'API de leur fournisseur (OpenRouter : `:free` et à 0 $ ; Kilo Gateway : "
-                     "`isFree` ; Requesty : prix d'entrée et de sortie à 0), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
+                     "`isFree` ; Requesty : prix d'entrée et de sortie à 0) ou sur sa page des modèles (Vercel AI "
+                     "Gateway : `availableToFreeTier`), quel que soit l'usage du modèle. À ajouter, ou à commenter avec "
                      "sa raison, ou à écarter par une ligne `# drift-ignore: <fournisseur>/<id> -- "
                      "<raison>` dans le fichier." + UNPROPOSED_ELSEWHERE
                      + (" " + help_text if snippets else "")),
@@ -6178,11 +6695,12 @@ def render_pr_body(result, link=None):
         "disparaissent du rapport à l'exécution d'après.",
         "",
         "Elle se fusionne seule quand aucune section « À relire » n'y figure, que les lignes "
-        "supprimées sont uniquement des entrées entières, les places de cascade qui les nomment, "
-        "des commentaires ou des lignes vides, qu'elle reste sous les plafonds d'entrées et de "
-        "lignes fixés par `.github/workflows/dependabot-auto-merge.yml`, que sa branche contient "
-        "tout `main` et que les contrôles que ce workflow attend sont verts. Sinon elle attend "
-        "une personne.",
+        "supprimées du modèle sont uniquement des entrées entières, les places de cascade qui les "
+        "nomment, des commentaires ou des lignes vides, que le catalogue `docs/CATALOG.md`, généré "
+        "à partir du modèle et commité avec lui, ne fait que perdre des lignes, qu'elle reste sous "
+        "les plafonds d'entrées et de lignes fixés par `.github/workflows/dependabot-auto-merge.yml`, "
+        "que sa branche contient tout `main` et que les contrôles que ce workflow attend sont verts. "
+        "Sinon elle attend une personne.",
         "",
         "## %s" % ("Suppression" if len(applied) == 1 else "Suppressions"),
         "",
@@ -6213,7 +6731,7 @@ def render_pr_body(result, link=None):
                 "fournisseurs données : elle recopie l'ordre des listes de secours. Une suppression "
                 "qui retire le premier modèle d'un fournisseur la change, et le workflow a **réécrit "
                 "les lignes concernées à partir des listes qui restent**, puis relu le résultat pour "
-                "chaque ensemble de clés. Cette pull request ajoute donc des lignes : elle ne se "
+                "les ensembles de clés qui couvrent chaque cas. Cette pull request ajoute donc des lignes : elle ne se "
                 "fusionne pas seule, une personne relit celles-ci.", "", "```diff"]
         for router, before, after in heads:
             out += ["-  '%s': %s" % (router, before), "+  '%s': %s" % (router, after)]
@@ -6324,8 +6842,8 @@ def render_commit_message(result):
     written_again = ("\n\n" + wrapped(
         "The head table of the template repeats the order of the cascades and names the model each "
         "router is an alias of. A deletion took a model it names, so its rows were written again "
-        "from the cascades that are left, and the result was read back for every set of provider "
-        "keys.")) if heads else ""
+        "from the cascades that are left, and the result was read back for the sets of provider "
+        "keys that cover each case of the keys a condition reads.")) if heads else ""
     return (
         "Delete the models their provider has retired from the LiteLLM model list (#243)\n\n"
         + wrapped("The drift check read each provider's own model catalogue on %s "
@@ -6524,7 +7042,8 @@ def addition_anchor(entries, provider, usage=CHAT):
 # The catalogue that states a provider's free tier, for the providers whose API does (FREE_READABLE,
 # which the selftest holds it to): the comment above the entry of such a model cites it.
 FREE_CATALOGUES = {"openrouter": "openrouter.ai/api/v1/models", "kilo": "ai-gateway.kilo.ai/api/v1/models",
-                   "requesty": "router.eu.requesty.ai/v1/models"}
+                   "requesty": "router.eu.requesty.ai/v1/models",
+                   "vercel": "vercel.com/ai-gateway/models?freeTier=true"}
 # Of those, the ones whose free ids all end in a suffix: OpenRouter's ":free". Kilo flags a model free and
 # spells some of them without it ("reflection/beam-free", "stealth/glyph-cluster"), and Requesty prices them at 0
 # under ids that say nothing of it, so no suffix is asked.
@@ -6591,7 +7110,7 @@ ROUTER_PROVIDERS = {"stt": {"groq", "gemini", "mistral"}, "tts": {"gemini"}, "de
 SLOT_CONDITIONS = {"gemini": "has.Gemini", "mistral": "has.Mistral", "groq": "has.Groq",
                    "openrouter": "has.OpenRouter", "deepseek": "has.DeepSeek", "cloudflare": "has.Cloudflare",
                    "zai": "has.Zai", "requesty": "has.Requesty", "nvidia": "has.NVIDIA", "centai": "has.Cent_AI",
-                   "aionlabs": "has.Aion_Labs", "kilo": None, "ovhcloud": None}
+                   "aionlabs": "has.Aion_Labs", "vercel": "has.Vercel_AI_Gateway", "kilo": None, "ovhcloud": None}
 ROUTER_NAMES = ROUTER_PUBLIC_NAMES
 SLOT_INDENT = "        - "
 JINJA_IF_LINE = re.compile(r"\{%-?\s*if\b.*%\}")
@@ -7049,11 +7568,12 @@ def carried_sections(result, kind, back, snippets):
     return out
 
 
-def write_proposals(directory, proposals, date):
+def write_proposals(directory, proposals, date, scores=None):
     """"proposals.json" (the date, and for each kind whether it is complete and its items: what the job
     that writes builds from), and for each kind that has items its body, its commit message and the
-    file as built here, which that job requires its own to equal. A file of an earlier run is removed
-    first."""
+    file as built here, which that job requires its own to equal, and, when "scores" is given (a function
+    of the text of a template that returns the figures file for it, or None), the figures of the
+    entries of that file. A file of an earlier run is removed first."""
     folder = Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
     data = {"date": date}
@@ -7065,6 +7585,11 @@ def write_proposals(directory, proposals, date):
             path.unlink(missing_ok=True)
             if part["items"]:
                 path.write_bytes(part[key].encode("utf-8"))
+        path = folder / ("%s_scores.json" % kind)
+        path.unlink(missing_ok=True)
+        written = scores(part["text"]) if scores and part["items"] else None
+        if written is not None:
+            path.write_bytes(written.encode("utf-8"))
     (folder / "proposals.json").write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
 
 
@@ -7242,8 +7767,10 @@ MISSING_HOWTO = {
 # How each catalogue that states a free tier says it, for the body of the pull request of the ready models.
 FREE_READINGS = {"openrouter": "un identifiant `:free`, un prix de 0 en entrée comme en sortie, le texte pour seule sortie",
                  "kilo": "le drapeau `isFree`, le texte pour seule sortie",
-                 "requesty": "`input_price` et `output_price` à 0"}
-FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], catalogue_url(name), reading)
+                 "requesty": "`input_price` et `output_price` à 0",
+                 "vercel": "`availableToFreeTier` à `true` sur sa page des modèles (son API ne le dit pas)"}
+FREE_READING = " ; ".join("chez %s, <%s> : %s" % (PROVIDER_LABELS[name], FREE_PAGES[name][0] if name in FREE_PAGES
+                                                  else catalogue_url(name), reading)
                           for name, reading in FREE_READINGS.items())
 
 
@@ -7500,6 +8027,11 @@ def main(argv=None, opener=urllib_opener, environment=None):
                              "to DIR what the workflow keeps them with: "
                              "proposals.json, and for each pull request with something to propose its "
                              "body, its commit message and the file with the entries added")
+    parser.add_argument("--scores", metavar="PATH",
+                        help="with --online, the file of the figures the catalogue shows (Artificial Analysis "
+                             "and Epoch AI, per entry): it is read as the figures of the run before, rewritten "
+                             "in place when --apply deleted something, and written for each pull request of "
+                             "additions beside its template, as \"<kind>_scores.json\"")
     parser.add_argument("--config", metavar="PATH", default=str(CONFIG),
                         help="the LiteLLM configuration to read (default: %(default)s)")
     parser.add_argument("--contracts", metavar="PATH",
@@ -7513,8 +8045,8 @@ def main(argv=None, opener=urllib_opener, environment=None):
         import check_LiteLLM_model_drift_selftest
         return check_LiteLLM_model_drift_selftest.run_selftest()
     if (arguments.summary or arguments.coverage or arguments.undeleted or arguments.proposals
-            or arguments.unreadable) and not arguments.online:
-        parser.error("--summary, --coverage, --undeleted, --proposals and --unreadable need --online")
+            or arguments.unreadable or arguments.scores) and not arguments.online:
+        parser.error("--summary, --coverage, --undeleted, --proposals, --unreadable and --scores need --online")
     if arguments.apply and not arguments.online:
         parser.error("--apply needs --online")
     if (arguments.pr_body or arguments.commit_message) and not arguments.apply:
@@ -7568,14 +8100,19 @@ def main(argv=None, opener=urllib_opener, environment=None):
     if contracts_file is not None and (result.get("rankings") or {}).get("status") == "read":
         result["epoch"] = read_epoch(opener, today)
     result["contracts"] = router_contracts(text, result, contracts_file)
+    scores = scores_writer(arguments, contracts_file, result, today)
     if arguments.apply and not result["unreadable"]:
         new_text = apply_to_result(text, result)
         if new_text != text:
             path.write_bytes(new_text.encode("utf-8"))
+            # The figures follow the template in the same pull request, and lose those of the entries it lost.
+            written = scores(new_text) if scores else None
+            if written is not None:
+                Path(arguments.scores).write_bytes(written.encode("utf-8"))
     if arguments.proposals:
         # Made on the file as main has it, whatever was deleted: the additions are pull requests of
         # their own, built on main.
-        write_proposals(arguments.proposals, propose_additions(text, result, run_link()), today)
+        write_proposals(arguments.proposals, propose_additions(text, result, run_link()), today, scores)
     sys.stdout.write(render_text(result, shown))
     if arguments.coverage:
         Path(arguments.coverage).write_text(
@@ -7607,6 +8144,20 @@ def main(argv=None, opener=urllib_opener, environment=None):
             if deleted:
                 Path(target).write_text(render(), encoding="utf-8")
     return exit_status(result)
+
+
+def scores_writer(arguments, contracts_file, result, today):
+    """A function of the text of a template that returns the figures file for it, or None where there is nothing to
+    write them from: no "--scores", no contracts, a model list that could not be read or contracts that are not
+    well formed. What the file held before the run is read once, here, since the deletion rewrites it before the
+    proposals are made."""
+    if not arguments.scores or contracts_file is None or result["unreadable"]:
+        return None
+    contracts, problems = load_contracts(contracts_file)
+    if problems or not isinstance(contracts, dict):
+        return None
+    previous = previous_scores(arguments.scores)
+    return lambda body: scores_text(body, contracts, result.get("rankings"), result.get("epoch"), previous, today)
 
 
 def guarded(entry, argv=None):

@@ -28,6 +28,7 @@ import difflib
 import http.client
 import http.server
 import io
+import itertools
 import json
 import multiprocessing
 import os
@@ -65,7 +66,8 @@ from check_LiteLLM_model_drift import (
     contracts_report, contracts_section, derivation_differences, derivation_lines, describe_entry,
     eci_scale, eci_to_index, epoch_member_name, epoch_position, error_class, exit_status,
     fallback_lists, fetch_json, floor_text, given_text, guarded, index_to_position, is_bare,
-    is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents,
+    is_comment, is_complete, is_zero, jinja_balance, jinja_refusal, keyed, keyset_documents, KEY_SET_STRENGTH_LIMIT,
+    KeySetRefusal, covering_array, covering_key_sets, key_set_plan,
     left_behind, left_outside_pull_requests, litellm_id, main, match_ranking, median_position, member_quality,
     offline_contract_notices, offline_contract_problems, place, plan_lines, pricing_page_problems,
     propose_additions, propose_name, proposed, ranking_families, read_catalogue, read_epoch, read_head,
@@ -73,6 +75,7 @@ from check_LiteLLM_model_drift import (
     render_pr_body, render_summary, render_text, render_with_keys, rewrite_heads, router_quality,
     run_online, seconds_figure, slots_text, split_level, squash, TEMPLATE_SWITCHES, time_ties,
     undeleted_count, unreadable_providers, urllib_opener, usage_of_id, verify_removal, OMNIROUTE_BASE,
+    catalog_scores, render_scores, scores_file_problems, scores_text,
 )
 
 
@@ -131,6 +134,10 @@ credential_list:
     credential_info: {}
     credential_values:
       api_key: "os.environ/CENT_AI_API_KEY"
+  - credential_name: vercel-ai-gateway
+    credential_info: {}
+    credential_values:
+      api_key: "os.environ/VERCEL_AI_GATEWAY_API_KEY"
 model_list:
   - model_name: flash
     litellm_params:
@@ -471,6 +478,54 @@ def aion_model(identifier, modality="text->text", expires=None, replacement=None
             "expires_at": expires, "replacement_model_id": replacement}
 
 
+def vercel_model(identifier, kind="language", price="0.000001", deprecated_at=None, free=True):
+    """A model of Vercel AI Gateway's public catalogue: a "type" and a price, and no flag for the free tier. "free"
+    is no field of the API: it says what the canned models page (vercel_page_of) flags that model as."""
+    model = {"id": identifier, "object": "model", "name": identifier, "type": kind,
+             "pricing": {"input": price, "output": price}, "selftest_free": free}
+    if deprecated_at is not None:
+        model["deprecated_at"] = deprecated_at
+    return model
+
+
+def vercel_page(models, decoys=True, flag="availableToFreeTier"):
+    """The HTML of Vercel's models page the way Next.js streams it: chunks of a script that push a piece of text, which
+    together are lines of RSC data, one of them holding the "models" array, split in two chunks in the middle
+    of it. "models" is a list of (id, free, type, extras), "extras" being what to add to the object. With
+    "decoys", the flag is written outside the objects of the array too: in a nested object of one, in
+    another object of the page, in an array "models" that holds no model, in a text and in the markup."""
+    objects = []
+    for identifier, is_free, kind, *extra in models:
+        model = {"slug": identifier.split("/")[-1], "displayName": identifier.title(), "copyString": identifier,
+                 "type": kind, flag: is_free, "metrics": {"model": identifier}}
+        model.update(extra[0] if extra else {})
+        objects.append(model)
+    if decoys and objects:
+        objects[0]["providerModelVariants"] = [{"copyString": "vendor/vc-nested", "availableToFreeTier": True}]
+    lines = []
+    if decoys:
+        lines.append('0:{"models":[{"id":"vendor/vc-not-a-record","availableToFreeTier":true},'
+                     '{"copyString":"vendor/vc-string-flag","availableToFreeTier":"true"}],'
+                     '"help":"a model with \\"availableToFreeTier\\":true is free",'
+                     '"related":[{"copyString":"vendor/vc-outside","availableToFreeTier":true}]}\n')
+    lines.append('15b:["$","$L15f",null,{"isPublic":false,"models":%s}]\n' % json.dumps(objects))
+    text = "".join(lines)
+    cut = len(text) - len(lines[-1]) // 2
+    chunks = [text[:cut], text[cut:]]
+    scripts = "".join("<script>self.__next_f.push([1,%s])</script>" % json.dumps(chunk) for chunk in chunks)
+    return ("<!DOCTYPE html><html><body>%s<p>\"availableToFreeTier\":true %s</p>%s</body></html>"
+            % ("<script>self.__next_f.push([0])</script>", "vendor/vc-markup", scripts))
+
+
+def vercel_page_of(answer):
+    """The models page that goes with a canned answer of the API when a case serves none of its own: every model
+    of it, flagged as its "free" says, and one paid model nobody knows, so that a page of an API that lists nothing
+    still has a model with the flag."""
+    models = [(model["id"], model.get("selftest_free", True), "chat" if model.get("type") == "language"
+               else model.get("type", "chat")) for model in answer.get("data", [])]
+    return vercel_page(models + [("vendor/vc-selftest-paid", False, "chat")])
+
+
 def selftest_answers():
     """Canned catalogues matching SELFTEST_TEMPLATE exactly: no drift at all."""
     return {
@@ -513,13 +568,14 @@ def selftest_answers():
         # SELFTEST_TEMPLATE has no Cloudflare entry: its catalogue holds a model that is no chat model.
         "cloudflare": [{"result": [{"name": "@cf/vendor/embed-9", "task": {"name": "Text Embeddings"}}],
                         "success": True}],
-        # SELFTEST_TEMPLATE has no entry of NVIDIA, OVHcloud, Requesty, Z AI or Cent AI, which have catalogues
+        # SELFTEST_TEMPLATE has no entry of NVIDIA, OVHcloud, Requesty, Z AI, Cent AI or Vercel, which have catalogues
         # that list nothing here: the cases that play them have a template of their own.
         "nvidia": {"object": "list", "data": []},
         "ovhcloud": {"object": "list", "data": []},
         "requesty": {"object": "list", "data": []},
         "zai": {"object": "list", "data": []},
         "centai": {"object": "list", "data": []},
+        "vercel": {"object": "list", "data": []},
     }
 
 
@@ -558,6 +614,7 @@ def answers_listing(text, without=()):
         "requesty": {"data": [requesty_model(i) for i in sorted(ids["requesty"])]},
         "zai": {"data": [{"id": i} for i in sorted(ids["zai"])]},
         "centai": {"data": [{"id": i} for i in sorted(ids["centai"])]},
+        "vercel": {"data": [vercel_model(i) for i in sorted(ids["vercel"])]},
     }
 
 
@@ -670,6 +727,12 @@ def canned_opener(answers, calls):
             return probe_answer(answers["probes"][model])
         if url == drift.INCOMPLETE_CATALOGUES["zai"]["free_listing"]:
             answer = answers.get("zai_pricing", ZAI_PRICING_NONE_FREE)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer if isinstance(answer, bytes) else answer.encode()
+        if url == drift.VERCEL_FREE_PAGE:
+            # Vercel's models page: a case serves one in "answers", and the others get the page of their API's answer.
+            answer = answers.get("vercel_page") or vercel_page_of(answers["vercel"])
             if isinstance(answer, Exception):
                 raise answer
             return answer if isinstance(answer, bytes) else answer.encode()
@@ -2651,7 +2714,7 @@ KEYSET_CASES = (
 
 
 def run_keyset_cases():
-    """A cascade is judged for every set of provider keys, not on the union: the one that holds a
+    """A cascade is judged for each of the sets of provider keys, not on the union: the one that holds a
     provider's members alone is empty for each set that leaves the provider out."""
     failures = 0
     # The cascade above lists only-groq and only-mistral after "always", so "always" keeps it
@@ -4844,6 +4907,145 @@ def run_command_line_cases():
 
 
 # ------------------------------------------------------------------------------------------------
+# The figures of the catalogue: what a run writes into "docs/catalog_scores.json"
+
+SCORES_RANKING = {"status": "read", "models": [
+    {"name": "Flash (High)", "slug": "flash-high", "intelligence": 50.123, "first_answer": 12.3456},
+    {"name": "Flash (Low)", "slug": "flash-low", "intelligence": 30.0, "first_answer": 4.0},
+    {"name": "Large", "slug": "large", "intelligence": 20.0, "first_answer": None}]}
+SCORES_EPOCH = {"status": "read", "date": "2026-11-24", "skipped": {}, "eci": {"Flash X": 150.456},
+                "files": {"deepswe_external": {"scores": {"f": 0.5, "g": 0.4, "h": 0.3}, "rows": 3, "bad": 0},
+                          "ale_bench_external": {"scores": {"f": 0.9, "a": 0.1, "b": 0.2, "c": 0.3}, "rows": 4,
+                                                 "bad": 0}}}
+SCORES_CONTRACTS = {"models": {
+    "flash": {"slug": "flash-high", "level": "high", "eci": "Flash X",
+              "epoch": {"deepswe_external": ["f"], "ale_bench_external": ["f"]}},
+    "large": {"slug": "large", "level": "unknown"},
+    "free-one": {"slug": "flash-high", "level": "unknown", "eci": "Flash X", "epoch": {"deepswe_external": ["f"]}},
+    "gone": {"slug": "flash-high", "level": "high"}}}
+SCORES_FOUND = {"artificial_analysis_read": "2026-11-24", "epoch_read": "2026-11-24", "entries": {
+    "flash": {"aa_index": 50.12, "aa_first_answer_seconds": 12.35, "epoch_eci": 150.46, "epoch_code_position": 29.17},
+    "free-one": {"epoch_eci": 150.46}, "large": {"aa_index": 20.0}}}
+SCORES_BEFORE = {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-17", "entries": {
+    "flash": {"aa_index": 10.0, "epoch_eci": 100.0}, "gone": {"aa_index": 9.0}, "fast": {"aa_index": 8.0},
+    "large": {"aa_index": 999999.0}}}
+
+
+def run_catalog_scores_cases():
+    """The figures file of the catalogue: what a run writes of each source and carries of the one it did not read, what
+    is left out, what the shape of the file refuses, and the command line that writes it."""
+    failures = 0
+    names = [entry["name"] for entry in read_template(SELFTEST_TEMPLATE)[0]["active"]]
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def found(ranking=SCORES_RANKING, epoch=SCORES_EPOCH, previous=None, contracts=SCORES_CONTRACTS, text=SELFTEST_TEMPLATE):
+        return catalog_scores(text, contracts, ranking, epoch, previous, "2026-11-24")
+
+    def same(document, wanted):
+        return first_wrong((document == wanted, "%r" % document))
+
+    judged("both sources read: the figures of the record and the model each entry is mapped to, rounded to two decimals",
+           same(found(), SCORES_FOUND))
+    judged("a record whose level is not the one the entry is called at gives no figure of Artificial Analysis, and "
+           "an entry the template has not is left out",
+           first_wrong(("aa_index" not in found()["entries"]["free-one"], "free-one has an index"),
+                       ("gone" not in found()["entries"], "a deleted entry has figures")))
+    judged("a source that was not read is carried from the file with its day, the other one is read",
+           same(found(ranking=None, previous=SCORES_BEFORE),
+                {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-24", "entries": {
+                    "flash": {"aa_index": 10.0, "epoch_eci": 150.46, "epoch_code_position": 29.17},
+                    "free-one": {"epoch_eci": 150.46}, "fast": {"aa_index": 8.0}}}))
+    judged("a figure of a source that was read and no longer gives it is dropped, not carried",
+           same(found(previous=dict(SCORES_BEFORE, entries={"large": {"aa_index": 5.0}, "free-one": {"aa_index": 6.0}})),
+                SCORES_FOUND))
+    judged("neither source read: no day and no figure with nothing before, and with a file before it, what it held of the "
+           "template's entries only",
+           first_wrong((found(ranking=None, epoch=None) == {"artificial_analysis_read": None, "epoch_read": None,
+                                                          "entries": {}}, "%r" % found(ranking=None, epoch=None)),
+                       (found(ranking={"status": "error"}, epoch={"status": "error"}, previous=SCORES_BEFORE)
+                        == {"artificial_analysis_read": "2026-11-17", "epoch_read": "2026-11-17", "entries": {
+                            "flash": {"aa_index": 10.0, "epoch_eci": 100.0}, "fast": {"aa_index": 8.0}}},
+                        "%r" % found(ranking={"status": "error"}, epoch={"status": "error"}, previous=SCORES_BEFORE))))
+    judged("a figure the file held that is out of its bounds is not carried",
+           first_wrong(("large" not in found(ranking=None, previous=SCORES_BEFORE)["entries"],
+                        "a figure out of bounds was carried")))
+    judged("a source that cannot be turned into figures counts as not read, and what the file held of it stays",
+           same(found(contracts={"models": {"flash": {"slug": "flash-high", "level": "high", "eci": ["not", "hashable"]}}},
+                      previous=SCORES_BEFORE),
+                {"artificial_analysis_read": "2026-11-24", "epoch_read": "2026-11-17", "entries": {
+                    "flash": {"aa_index": 50.12, "aa_first_answer_seconds": 12.35, "epoch_eci": 100.0}}}))
+    text = scores_text(SELFTEST_TEMPLATE, SCORES_CONTRACTS, SCORES_RANKING, SCORES_EPOCH, None, "2026-11-24")
+    judged("the text of the file is the canonical one, which the shape check accepts, and a template that cannot be "
+           "read gives no text",
+           first_wrong((scores_file_problems(text, names) == (json.loads(text), []), "the check refuses it"),
+                       (text == render_scores(json.loads(text)) and text.endswith("}\n"), "it is not canonical"),
+                       (scores_text("model_list: [\n", SCORES_CONTRACTS, None, None, None, "2026-11-24") is None,
+                        "a template that cannot be read gave a text")))
+
+    # The command line: the file is the figures of the run before, rewritten in place when something was deleted,
+    # and written beside the template of each pull request of additions.
+    answers = proposal_answers()
+    answers["groq"]["data"] = [model for model in answers["groq"]["data"] if model["id"] != "vendor/fast"]
+    with tempfile.TemporaryDirectory() as directory:
+        config = os.path.join(directory, "config.yaml.j2")
+        contracts = os.path.join(directory, "contracts.yaml")
+        scores = os.path.join(directory, "scores.json")
+        folder = os.path.join(directory, "proposals")
+        Path(contracts).write_text(yaml.safe_dump(SCORES_CONTRACTS), encoding="utf-8")
+        before = render_scores(SCORES_BEFORE | {"entries": {"flash": {"aa_index": 10.0}, "fast": {"aa_index": 8.0}}})
+
+        def run(flags):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    return main(["--config", config, "--contracts", contracts] + flags,
+                                opener=canned_opener(answers, []), environment=SELFTEST_KEYS)
+                except SystemExit as error:
+                    return error.code
+
+        def reset():
+            Path(config).write_text(SELFTEST_TEMPLATE, encoding="utf-8")
+            Path(scores).write_text(before, encoding="utf-8")
+
+        reset()
+        status = run(["--online", "--scores", scores, "--proposals", folder])
+        judged("without --apply nothing is deleted and the file is not touched, but each pull request of additions "
+               "gets the figures of the entries of its own template",
+               first_wrong((Path(scores).read_text(encoding="utf-8") == before, "the file was rewritten"),
+                           (status == 1, "status %r" % status),
+                           (json.loads(Path(folder, "to_verify_scores.json").read_text(encoding="utf-8"))["entries"]
+                            == {"flash": {"aa_index": 10.0}, "fast": {"aa_index": 8.0}}, "the figures of a proposal")))
+        reset()
+        run(["--online", "--apply", "--scores", scores, "--proposals", folder])
+        after = json.loads(Path(scores).read_text(encoding="utf-8"))
+        judged("--apply that deletes an entry rewrites the file without the entry, in place; the proposals still hold "
+               "the figures of main, which they are built on",
+               first_wrong(("fast" not in after["entries"] and after["entries"].get("flash") == {"aa_index": 10.0},
+                            "the entry's figures stayed: %r" % after),
+                           ("fast" in json.loads(Path(folder, "to_verify_scores.json").read_text(encoding="utf-8"))["entries"],
+                            "a proposal lost the figures of an entry main has")))
+        judged("a run with no --scores writes no figures file, whatever is proposed",
+               first_wrong((run(["--online", "--proposals", folder]) == 1, "status"),
+                           (not os.path.exists(os.path.join(folder, "to_verify_scores.json")), "a proposal has figures")))
+        reset()
+        Path(scores).write_text("not json", encoding="utf-8")
+        run(["--online", "--apply", "--scores", scores])
+        judged("a figures file that is no figures file is read as nothing before, and replaced",
+               first_wrong((json.loads(Path(scores).read_text(encoding="utf-8"))["entries"] == {}, "it was kept")))
+        judged("--scores without --online is refused", first_wrong((run(["--scores", scores]) == 2, "it was accepted")))
+    return failures
+
+
+# ------------------------------------------------------------------------------------------------
 # The real model list. The cases above delete from small templates written for them; this one deletes
 # from "templates/LiteLLM_config.yaml.j2" itself what a run's retirements could ask for, so that a
 # shape of the file the deletion cannot take fails here and not in the drift run, whose pull request
@@ -4852,7 +5054,7 @@ def run_command_line_cases():
 REAL_PAIR_STEP = 4  # bound: one pair of neighbours in four, since a deletion costs what an entry does
 REAL_CRLF_CASES = 2  # bound: the CRLF replay is of the first scenarios only
 # A statement of the file that reads one provider's key and no other: the only kind of condition the
-# bounded sets of keys below can stand in for every set of.
+# bounded sets of keys below can stand in for the covering sets of.
 ONE_KEY_CONDITION = re.compile(r"\{%-?\s*(?:el)?if\s+(?:not\s+)?has\.\w+\s*-?%\}")
 
 
@@ -4862,12 +5064,12 @@ plain_keyset_documents = keyset_documents
 
 
 def bounded_keyset_documents(text):
-    """keyset_documents over each key alone, every key, and every key but one, rather than every set of
-    them: 2n + 1 renderings for n keys where every set is 2^n - 1, which doubled with each provider. A
-    condition of the file that reads one key decides the same way whatever the other keys are, and a
+    """keyset_documents over each key alone, every key, and every key but one, rather than over the covering sets
+    of the drift run: 2n + 1 renderings for n keys, which a deletion from the real model list repeats hundreds of
+    times. A condition of the file that reads one key decides the same way whatever the other keys are, and a
     head of the "head" table is the value of the first provider given along its chain, so a cascade left
     empty, a slot or an alias left naming nothing, show with a key alone or a key missing. A file with
-    any other condition, two keys read at once say, gets every set, as the drift run always does."""
+    any other condition, two keys read at once say, gets the covering sets, as the drift run always does."""
     import jinja2.meta
     from jinja2.sandbox import SandboxedEnvironment
     tree = SandboxedEnvironment().parse(text)
@@ -4897,7 +5099,7 @@ def bounded_key_sets():
 
 @contextlib.contextmanager
 def quick_rendering():
-    """A deletion renders the file for every set of keys, several times over, and parsing the results is
+    """A deletion renders the file for each of its sets of keys, several times over, and parsing the results is
     most of the time: here a text is compiled and parsed once, by the C loader where there is one. The
     first rendering of a text is the plain one, which the quick one is held to. What every scenario reads,
     cached while the real file is set up, is kept; what one scenario caches is forgotten once it is
@@ -5082,8 +5284,8 @@ def real_failure(text, keys, new_text, outcomes, layout, known):
 
 
 def run_bounded_key_set_cases():
-    """bounded_keyset_documents renders 2n + 1 sets for a file whose conditions each read one key, and
-    every set for one with a condition that reads two: four keys, where the two counts differ."""
+    """bounded_keyset_documents renders 2n + 1 sets for a file whose conditions each read one key, and the
+    covering sets for one with a condition that reads two, which hold every case of those two keys."""
     keys = PROVIDER_KEY_VARIABLES[:4]
     head = "{%% set has = {%s} %%}\n" % ", ".join("'%s': %s" % pair for pair in zip("ABCD", keys))
     one = head + "{% if has.A %}a: 1\n{% endif %}{% if not has.B %}b: 1\n{% endif %}" \
@@ -5091,11 +5293,14 @@ def run_bounded_key_set_cases():
     two = head + "{% if has.A and has.B %}a: 1\n{% endif %}{% if has.C %}c: 1\n{% endif %}" \
                  "{% if has.D %}d: 1\n{% endif %}"
     failures = 0
-    for text, wanted, what in ((one, 2 * 4 + 1, "one key per condition"), (two, 2 ** 4 - 1, "a condition on two keys")):
+    pair = {tuple(each in given for each in keys[:2]) for given, _ in bounded_keyset_documents(two)}
+    for text, wanted, what in ((one, 2 * 4 + 1, "one key per condition"),
+                               (two, len(key_set_plan(two).sets), "a condition on two keys")):
         got = len(bounded_keyset_documents(text))
-        if got != wanted:
+        if got != wanted or (text is two and len(pair) != 4):
             failures += 1
-            print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted" % (what, got, wanted))
+            print("selftest: FAILED (bounded sets of keys, %s) -- %d sets rendered, %d wanted, %d cases of the "
+                  "two keys" % (what, got, wanted, len(pair)))
         else:
             print("selftest: ok -- the bounded sets of keys of a file with %s are %d" % (what, wanted))
     # While the sets are bounded, keyset_documents is bounded_keyset_documents, which must still reach
@@ -5105,11 +5310,125 @@ def run_bounded_key_set_cases():
             got = len(keyset_documents(two))
         except RecursionError:
             got = None
-    if got != 2 ** 4 - 1:
+    wanted = len(key_set_plan(two).sets)
+    if got != wanted:
         failures += 1
-        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, 2 ** 4 - 1))
+        print("selftest: FAILED (bounded sets of keys, while bounded) -- %r sets rendered, %d wanted" % (got, wanted))
     else:
-        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets every set")
+        print("selftest: ok -- while the sets are bounded, a file they do not fit still gets its covering sets")
+    return failures
+
+
+def covering_failure(sets, keys, columns):
+    """What is missing from "sets" (tuples of the names of the keys given) for every case of "columns" (names
+    among "keys") to be rendered, or None: each of the 2^len(columns) assignments of them has to be a set's."""
+    seen = {tuple(each in given for each in columns) for given in sets}
+    if len(seen) != 2 ** len(columns):
+        return "%d of the %d cases of %s are rendered" % (len(seen), 2 ** len(columns), ", ".join(columns))
+    return None
+
+
+def key_condition_template(names, conditions):
+    """A Jinja file that sets "has" for the keys "names" the way the real one does, and carries "conditions", each
+    the text of one condition, as statements around one line of text."""
+    head = "{%% set has = {%s} %%}\n" % ", ".join("'%s': %s is string and %s | length > 0" % (name, key, key)
+                                               for name, key in names)
+    return head + "".join("{%% if %s %%}x: 1\n{%% endif %%}" % condition for condition in conditions)
+
+
+def run_covering_key_set_cases():
+    """The sets of keys a file is rendered for are a covering array of the most keys one of its conditions reads:
+    every case of those keys is rendered, a condition past the limit is refused, a file that reads no key is
+    rendered once, and the number of sets stays small as the keys grow."""
+    failures = 0
+    judged = []
+
+    def case(purpose, why):
+        judged.append((purpose, why))
+
+    real = [("K%d" % number, "Artificial_Intelligence_LiteLLM_%s_API_key" % provider)
+            for number, provider in enumerate(("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek"))]
+    names, variables = zip(*real)
+    plan = key_set_plan(key_condition_template(real, ["has.K0 and has.K1", "has.K2", "has.K3 or has.K4"]))
+    case("a condition on two keys renders all four of their cases",
+         covering_failure(plan.sets, variables, variables[:2]) or (None if plan.strength == 2 else
+                                                                 "its strength is %d" % plan.strength))
+    plan = key_set_plan(key_condition_template(real, ["has.K0 and (has.K1 or has.K2)", "has.K4"]))
+    case("a condition on three keys renders all eight of their cases",
+         covering_failure(plan.sets, variables, variables[:3]) or (None if plan.strength == 3 else
+                                                                 "its strength is %d" % plan.strength))
+    chain = ("{% set head = {'x': 'a' if has.K0 else 'b' if has.K1 else 'c' if has.K2 else false} %}"
+             "{% if head['x'] %}x: 1\n{% endif %}")
+    plan = key_set_plan(key_condition_template(real, ["has.K4"]) + chain)
+    case("a router's head, which reads the keys of its chain and not those of the other heads, renders their cases",
+         covering_failure(plan.sets, variables, variables[:3]) or (None if plan.strength == 3 else
+                                                                 "its strength is %d" % plan.strength))
+    case("the empty set is never one of them", None if all(plan.sets) else "a set gives no key")
+    plan = key_set_plan("a: 1\n")
+    case("a file that reads no key renders once, for none",
+         None if plan.sets == ((),) and plan.strength == 0 else "%r, strength %d" % (plan.sets, plan.strength))
+    rendered = keyset_documents("a: 1\n")
+    case("and its one rendering is its document",
+         None if rendered == [((), {"a": 1})] else "%r" % (rendered,))
+
+    # The limit: a condition at it is covered, one above it is refused, naming its line and its keys.
+    wide = [("W%d" % number, "W%d" % number) for number in range(KEY_SET_STRENGTH_LIMIT + 1)]
+
+    def reading(count):
+        return key_condition_template(wide, ["has.W0 and " + " and ".join("has.W%d" % number
+                                                                         for number in range(1, count))])
+    try:
+        at_limit = key_set_plan(reading(KEY_SET_STRENGTH_LIMIT), tuple(each[1] for each in wide)).strength
+    except KeySetRefusal as refusal:
+        at_limit = str(refusal)
+    case("a condition on as many keys as the limit allows is covered",
+         None if at_limit == KEY_SET_STRENGTH_LIMIT else "got %r" % (at_limit,))
+    try:
+        key_set_plan(reading(KEY_SET_STRENGTH_LIMIT + 1), tuple(each[1] for each in wide))
+        refused = "nothing was refused"
+    except KeySetRefusal as refusal:
+        text = str(refusal)
+        refused = None if all(fragment in text for fragment in (
+            "line 2", "W0", "W%d" % KEY_SET_STRENGTH_LIMIT, "has.W0 and",
+            "KEY_SET_STRENGTH_LIMIT")) else "the refusal does not name the condition: %s" % text
+    case("a condition on more keys than that is refused, with its line and its keys", refused)
+
+    # The number of sets stays small: sixteen keys, one condition on two of them.
+    sixteen = [("S%d" % number, "S%d" % number) for number in range(16)]
+    plan = key_set_plan(key_condition_template(sixteen, ["has.S0 and has.S1", "has.S7"] + [
+        "has.S%d" % number for number in range(2, 16)]), tuple(each[1] for each in sixteen))
+    case("sixteen keys with a condition on two of them take %d sets, a few dozen and not 65535" % len(plan.sets),
+         covering_failure(plan.sets, plan.keys, plan.keys[:2]) or (None if len(plan.sets) <= 64 else
+                                                                 "%d sets" % len(plan.sets)))
+
+    # The array itself: every case of every group of columns, for sizes the file does not need, and the same
+    # array each time it is built.
+    for count, strength in ((5, 2), (6, 3), (7, 4), (8, 3), (9, 5)):
+        sets = covering_key_sets(count, strength)
+        missing = next((columns for columns in itertools.combinations(range(count), strength)
+                        if len({tuple(index in each for index in columns) for each in sets}) != 2 ** strength),
+                       None)
+        case("%d keys, strength %d: every case of every %d of them is rendered, with no empty set"
+             % (count, strength, strength),
+             None if missing is None and all(sets) else "columns %r are not covered, or a set is empty" % (missing,))
+    case("the array built twice is the same", None if covering_array.__wrapped__(9, 4) == covering_array(9, 4)
+         else "it is not")
+
+    # The real file: its strength and its sets, printed, and every condition of it rendered in every case.
+    text = CONFIG.read_text(encoding="utf-8")
+    plan = key_set_plan(text)
+    broken = next((covering_failure(plan.sets, plan.keys, sorted(keys)) for _, _, keys in plan.conditions
+                   if covering_failure(plan.sets, plan.keys, sorted(keys))), None)
+    case("the model list reads %d keys, at most %d in one condition, and is rendered for %d sets that hold every "
+         "case of each of its %d conditions" % (len(plan.keys), plan.strength, len(plan.sets), len(plan.conditions)),
+         broken or (None if plan.strength <= KEY_SET_STRENGTH_LIMIT else "its strength is above the limit"))
+
+    for purpose, why in judged:
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
     return failures
 
 
@@ -5130,7 +5449,7 @@ def real_text_and_layout(ending):
     if ending not in real_layouts:
         text = CONFIG.read_text(encoding="utf-8").replace("\n", ending)
         template, problems = read_template(text)
-        # Reading the layout renders the file for every set of keys, which only the patches make quick.
+        # Reading the layout renders the file for each of its sets of keys, which only the patches make quick.
         with contextlib.ExitStack() as stack:
             if real_list_session is None:
                 stack.enter_context(quick_rendering())
@@ -5267,6 +5586,9 @@ def run_pricing_page_cases():
         ("a page for the provider whose free tier is machine-readable is refused",
          PROVIDER_NAMES, FREE_READABLE, dict(pages, openrouter="https://example.invalid/"),
          "openrouter has a pricing page"),
+        ("a page for the provider whose free tier is machine-readable on a page of models is refused",
+         PROVIDER_NAMES, FREE_READABLE, dict(pages, vercel="https://example.invalid/"),
+         "vercel has a pricing page"),
         ("a page for a provider that does not exist is refused",
          PROVIDER_NAMES, FREE_READABLE, dict(pages, ghost="https://example.invalid/"),
          "ghost has a pricing page"),
@@ -7549,6 +7871,11 @@ COVERAGE_BLOCK = """\
       api_base: "https://api.cent-ai.dev/v1"
       litellm_credential_name: "cent-ai"
 
+  - model_name: vc-one
+    litellm_params:
+      model: vercel_ai_gateway/vendor/vc-one
+      litellm_credential_name: "vercel-ai-gateway"
+
   # drift-ignore: nvidia/vendor/nv-embed-9 -- selftest: not a chat model, not routed to
   # drift-ignore: ovhcloud/OvhSet -- selftest: looked at and turned down
   # drift-ignore: requesty/vendor/req-set -- selftest: looked at and turned down
@@ -7578,6 +7905,9 @@ def coverage_answers(**changes):
         "zai": {"object": "list", "data": [{"id": "glm-9-flash", "object": "model", "owned_by": "z-ai"},
                                            {"id": "glm-9-set"}]},
         "centai": {"object": "list", "data": [{"id": "hy9-flash:free"}, {"id": "hy9-set"}]},
+        "vercel": {"object": "list", "data": [vercel_model("vendor/vc-one"),
+                                              vercel_model("vendor/vc-free-listed", price="0", free=False),
+                                              vercel_model("vendor/vc-painter", "image", free=False)]},
     })
     answers.update(changes)
     return answers
@@ -7623,6 +7953,8 @@ def run_coverage_cases():
                (attribute("nvidia_nim/meta/x-1", None) == ("nvidia", "meta/x-1"), "NVIDIA"),
                (attribute("nvidia/meta/x-1", None) is None, "a prefix that is nobody's was attributed"),
                (attribute("zai/glm-9", None) == ("zai", "glm-9"), "Z AI"),
+               (attribute("vercel_ai_gateway/vendor/x-1", None) == ("vercel", "vendor/x-1"), "Vercel AI Gateway"),
+               (attribute("vercel/vendor/x-1", None) is None, "a prefix that is nobody's was attributed (vercel)"),
                (attribute("openai/X-1", "http://ovhcloud_relay:8080/v1") == ("ovhcloud", "X-1"), "OVHcloud, through its relay"),
                (attribute("openai/X-1", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1") is None,
                 "OVHcloud's own address was attributed, which no entry may name"),
@@ -7638,6 +7970,7 @@ def run_coverage_cases():
            first_wrong(
                (litellm_id("nvidia", "meta/x-1") == ("nvidia_nim/meta/x-1", ""), "NVIDIA"),
                (litellm_id("zai", "glm-9") == ("zai/glm-9", ""), "Z AI"),
+               (litellm_id("vercel", "vendor/x-1") == ("vercel_ai_gateway/vendor/x-1", ""), "Vercel AI Gateway"),
                (litellm_id("ovhcloud", "X-1") == ("openai/X-1", " on OVHcloud"), "OVHcloud"),
                (litellm_id("requesty", "a/b") == ("openai/a/b", " on Requesty"), "Requesty"),
                (litellm_id("centai", "hy9:free") == ("openai/hy9:free", " on Cent AI"), "Cent AI"),
@@ -7648,8 +7981,8 @@ def run_coverage_cases():
     # The baseline: every catalogue lists what the template holds, the three public ones without a credential.
     result, calls, report, body = run(coverage_answers())
     keyless = {host: asked(calls, host) for host in ("integrate.api.nvidia.com", "oai.endpoints.kepler.ai.cloud.ovh.net",
-                                                      "router.eu.requesty.ai")}
-    judged("the five catalogues are read, the public three without a credential and the keyed two with a bearer "
+                                                      "router.eu.requesty.ai", "ai-gateway.vercel.sh")}
+    judged("the six catalogues are read, the public four without a credential and the keyed two with a bearer "
            "token in a header and never in an address, and nothing is found",
            first_wrong(
                (found(result) == [] and exit_status(result) == 0, "findings %r" % found(result)),
@@ -7670,6 +8003,7 @@ def run_coverage_cases():
                ("requesty    read, 4 model(s), 2 candidate(s); 1 active, 1 commented-out id(s) here" in report, report),
                ("zai         read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
                ("centai      read, 2 model(s), 2 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
+               ("vercel      read, 4 model(s), 1 candidate(s); 1 active, 0 commented-out id(s) here" in report, report),
                (result["unattributed"] == ["openai/auto/best-free"], "an entry of the five is of no catalogue: %r"
                 % result["unattributed"]),
                (is_complete(result), "the coverage is partial")))
@@ -7683,7 +8017,9 @@ def run_coverage_cases():
                                                                        requesty_model("vendor/req-paid", (1, 1))]},
              "openai/vendor/req-one"),
             ("zai", "glm-9-flash", {"object": "list", "data": [{"id": "glm-9-set"}]}, "zai/glm-9-flash"),
-            ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free")):
+            ("centai", "hy9-flash:free", {"object": "list", "data": [{"id": "hy9-set"}]}, "openai/hy9-flash:free"),
+            ("vercel", "vendor/vc-one", {"object": "list", "data": [vercel_model("vendor/vc-painter", "image", free=False)]},
+             "vercel_ai_gateway/vendor/vc-one")):
         incomplete = name in drift.INCOMPLETE_CATALOGUES
         # Z AI's list is not believed alone: its probe says the model does not exist, the code its documentation
         # gives, and the entry is retired like the others.
@@ -7732,6 +8068,29 @@ def run_coverage_cases():
                ("## Nouveaux modèles gratuits" not in body, "a model of the five was listed as free"),
                (all("[%s](%s)" % (name, PRICING_PAGES[name]) in section for name in ("nvidia", "ovhcloud", "zai", "centai")),
                 "a pricing page is not linked: %s" % section)))
+
+    # Vercel AI Gateway: its API says nothing of the free tier, which its models page does (run_vercel_page_cases),
+    # so a model of the API that the page does not flag free is no new one, whatever its type and its price.
+    answers = coverage_answers()
+    answers["vercel"]["data"] += [vercel_model("vendor/vc-new", free=False), vercel_model("vendor/vc-new-free", price="0", free=False),
+                                  vercel_model("vendor/vc-new-image", "image", free=False)]
+    result, calls, report, body = run(answers)
+    judged("a new Vercel AI Gateway model the models page does not flag free is never offered, whatever its type and "
+           "its price, and the status stays 0",
+           first_wrong(
+               (found(result) == [], "findings %r" % found(result)),
+               ("vc-new" not in report and "vc-new" not in body, "a new model of Vercel AI Gateway was reported"),
+               (exit_status(result) == 0, "the status"),
+               (is_complete(result), "the coverage is partial")))
+    answers = coverage_answers(vercel={"object": "list", "data": [
+        vercel_model("vendor/vc-one", deprecated_at=1801112700000), vercel_model("vendor/vc-painter", "image", deprecated_at=True, free=False),
+        vercel_model("vendor/vc-other", deprecated_at="soon", free=False)]})
+    result, calls, report, body = run(answers)
+    judged("a model of Vercel AI Gateway with a deprecation date is a NOTICE with that day, and a date that is no number is none",
+           first_wrong(
+               (found(result) == [("notice", "vendor/vc-one")], "findings %r" % found(result)),
+               ("expires on 2027-01-28" in report, report),
+               (exit_status(result) == 1, "the status")))
 
     # Requesty states both prices: that is how a free one is told.
     answers = coverage_answers()
@@ -7911,6 +8270,198 @@ def run_coverage_cases():
 # ------------------------------------------------------------------------------------------------
 
 # SELFTEST_TEMPLATE with an active Z AI entry and a commented-out one, neither routed through a cascade.
+def run_vercel_page_cases():
+    """Vercel AI Gateway's free tier, read from its models page after its API: a model the page stops flagging free, a new
+    free model, a page that cannot be read and a read that must not match the text outside the model objects."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    def run(page, **changes):
+        """One online run on COVERAGE_TEMPLATE, whose only Vercel entry is "vendor/vc-one", with the page served."""
+        calls = []
+        answers = coverage_answers(vercel_page=page, **changes)
+        result = run_online(COVERAGE_TEMPLATE, COVERAGE_KEYS, canned_opener(answers, calls), "2026-01-01")
+        return result, calls, render_text(result, "selftest"), render_summary(result, "selftest", link=None), answers
+
+    def found(result):
+        return sorted((finding["kind"], finding["id"]) for report in result["providers"]
+                      for finding in report["findings"])
+
+    def report_of(result, name="vercel"):
+        return next(report for report in result["providers"] if report["name"] == name)
+
+    one = ("vendor/vc-one", True, "chat")
+    others = [("vendor/vc-free-listed", False, "chat"), ("vendor/vc-painter", False, "image")]
+
+    # The baseline, and what the page is asked for.
+    result, calls, report, body, answers = run(vercel_page(([one] + others)))
+    pages = [(url, headers) for url, headers in calls if "vercel.com" in url]
+    judged("the models page is read once, after the API, with no credential, and nothing is found when it flags the entry free",
+           first_wrong(
+               (found(result) == [] and exit_status(result) == 0 and is_complete(result), "findings %r" % found(result)),
+               ([url for url, _ in pages] == [drift.VERCEL_FREE_PAGE], "asked %r" % pages),
+               (all(set(headers) <= {"User-Agent", "Accept"} for _, headers in pages), "a header more: %r" % pages),
+               ([url for url, _ in calls if "vercel" in url].index(drift.VERCEL_FREE_PAGE)
+                > [url for url, _ in calls if "vercel" in url].index("https://ai-gateway.vercel.sh/v1/models"),
+                "the page was read before the API"),
+               ("vercel      read, 3 model(s), 1 candidate(s); 1 active, 0 commented-out id(s) here" in report, report)))
+
+    # A model dropped from the free tier: it is still in the API, so no retirement, and nothing is deleted.
+    for purpose, page in (
+            ("a model the page flags false", vercel_page([("vendor/vc-one", False, "chat")] + others)),
+            ("a model the page no longer lists, which the API still does", vercel_page(others))):
+        result, calls, report, body, answers = run(page)
+        outputs = apply_run(COVERAGE_TEMPLATE, answers, COVERAGE_KEYS)
+        judged("%s is a NOTICE that it is no longer free, never RETIRED, and nothing is deleted" % purpose,
+               first_wrong(
+                   (found(result) == [("notice", "vendor/vc-one")], "findings %r" % found(result)),
+                   ("vercel_ai_gateway/vendor/vc-one" in report and "no longer flagged free" in report, report),
+                   ("n'est plus gratuit" in body, body),
+                   (exit_status(result) == 1, "the status"),
+                   (outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
+                   (undeleted_count(outputs[0]) == 0, "a retirement was reported")))
+
+    # What the API announces is kept when the page says the model is not free: a retirement matters more.
+    result, calls, report, body, answers = run(
+        vercel_page([("vendor/vc-one", False, "chat")] + others),
+        vercel={"object": "list", "data": [vercel_model("vendor/vc-one", deprecated_at=1801112700000, free=False),
+                                           vercel_model("vendor/vc-free-listed", free=False),
+                                           vercel_model("vendor/vc-painter", "image", free=False)]})
+    judged("a model that is announced to retire and no longer free says the retirement",
+           first_wrong((found(result) == [("notice", "vendor/vc-one")], "findings %r" % found(result)),
+                       ("expires on 2027-01-28" in report and "no longer flagged free" not in report, report)))
+
+    # Retired is for what neither the API nor the page lists.
+    gone = {"object": "list", "data": [vercel_model("vendor/vc-painter", "image", free=False)]}
+    result, calls, report, body, answers = run(vercel_page([("vendor/vc-painter", False, "image")]), vercel=gone)
+    outputs = apply_run(COVERAGE_TEMPLATE, answers, COVERAGE_KEYS)
+    judged("an entry that neither the API nor the page lists is RETIRED, and the pull request deletes it",
+           first_wrong((found(result) == [("retired", "vendor/vc-one")], "findings %r" % found(result)),
+                       ("vercel_ai_gateway/vendor/vc-one" not in outputs[1], "the entry is still in the file"),
+                       (undeleted_count(outputs[0]) == 0, "something was left to a person")))
+    result, calls, report, body, answers = run(vercel_page([one, ("vendor/vc-painter", False, "image")]), vercel=gone)
+    judged("an entry that only the page lists is no retirement: the models of the page are members too",
+           first_wrong((found(result) == [], "findings %r" % found(result)),
+                       (report_of(result)["members"] == 2, "members: %r" % report_of(result)["members"])))
+
+    # A new free model, whatever its type, and the models that are not free.
+    page = vercel_page([one] + others + [
+        ("vendor/vc-new-free", True, "chat"), ("vendor/vc-new-paid", False, "chat"),
+        ("vendor/vc-new-embed", True, "embedding"), ("vendor/vc-new-voice", True, "speech"),
+        ("vendor/vc-new-pic", True, "image"), ("vendor/vc-new-rank", True, "reranking"),
+        ("vendor/vc-new-tool", True, "tool"), ("vendor/vc-new-guard", True, "chat")])
+    result, calls, report, body, answers = run(page)
+    free_section = body.split("## Nouveaux modèles gratuits")[1].split("\n## ")[0] if "## Nouveaux modèles gratuits" in body else ""
+    new = {finding["id"]: finding for finding in report_of(result)["findings"] if finding["kind"] == "new"}
+    judged("a new model the page flags free is NEW and free, with the usage its type gives, and one it flags false is not offered",
+           first_wrong(
+               (sorted(new) == ["vendor/vc-new-embed", "vendor/vc-new-free", "vendor/vc-new-guard", "vendor/vc-new-pic",
+                                "vendor/vc-new-rank", "vendor/vc-new-tool", "vendor/vc-new-voice"], "findings %r" % found(result)),
+               (all(finding["free"] for finding in new.values()), "one is not free"),
+               ([new[each]["usage"] for each in ("vendor/vc-new-free", "vendor/vc-new-embed", "vendor/vc-new-voice",
+                                                 "vendor/vc-new-pic", "vendor/vc-new-rank", "vendor/vc-new-tool",
+                                                 "vendor/vc-new-guard")]
+                == ["chat", "embeddings", "speech", "image", "rerank", "tool", "moderation"],
+                "usages %r" % {key: value["usage"] for key, value in new.items()}),
+               ("vercel_ai_gateway/vendor/vc-new-free: free -- usage: chat" in report, report),
+               ("vc-new-paid" not in report and "vc-new-paid" not in body, "a model flagged false was offered"),
+               ("- `vercel_ai_gateway/vendor/vc-new-free` :" in free_section, free_section),
+               ("`availableToFreeTier`" in free_section, free_section),
+               (exit_status(result) == 1, "the status")))
+    finding = new["vendor/vc-new-free"]
+    judged("a free Vercel AI Gateway model has its free tier read, so that only its ranking can be missing for it",
+           first_wrong(
+               (drift.FREE_CATALOGUES["vercel"] == "vercel.com/ai-gateway/models?freeTier=true", "its source"),
+               ("vercel" in FREE_READABLE and drift.FREE_PAGES["vercel"][0] == drift.VERCEL_FREE_PAGE, "the tables"),
+               ([what for what, _ in drift.missing_facts(result, "vercel", finding)] == ["ranking"],
+                "missing %r" % drift.missing_facts(result, "vercel", finding))))
+    proposals = drift.propose_additions(COVERAGE_TEMPLATE, result)
+    judged("a new free Vercel AI Gateway model of a kind the workflow can write is proposed for the pull request of the models to verify, "
+           "after its provider's last entry, and one it cannot place is left to a person",
+           first_wrong(
+               (finding.get("proposed") == "to_verify", "it is %r" % (finding.get("proposed") or finding.get("unproposed"))),
+               ({"provider": "vercel", "id": "vendor/vc-new-free", "name": "vc-new-free"} in proposals["to_verify"]["items"],
+                proposals["to_verify"]["items"]),
+               ("model: vercel_ai_gateway/vendor/vc-new-free" in proposals["to_verify"]["text"], "the entry"),
+               ('Proposed by the drift run on 2026-01-01: listed free by "vercel.com/ai-gateway/models?freeTier=true" that day.'
+                in proposals["to_verify"]["text"], "the note"),
+               ("vc-new-embed-vercel" in proposals["to_verify"]["text"] and "mode: embedding" in proposals["to_verify"]["text"],
+                "the embedding model is not written with its mode"),
+               ("vc-new-tool" not in proposals["to_verify"]["text"] and "vc-new-voice" not in proposals["to_verify"]["text"],
+                "a model of a kind the workflow cannot place was written")))
+
+    # A page the check cannot read is that provider's error, which the API's findings survive.
+    api_notice = {"object": "list", "data": [vercel_model("vendor/vc-one", deprecated_at=1801112700000)]}
+    html = vercel_page([one] + others)
+    for purpose, page, wanted in (
+            ("a page whose models carry no flag", vercel_page([one] + others, flag="free"), "answer"),
+            ("a page with no models array", "<html><body>Models</body></html>", "answer"),
+            ("a page whose flag is no boolean",
+             vercel_page([("vendor/vc-one", True, "chat", {"availableToFreeTier": "true"})], decoys=False), "answer"),
+            ("a page that repeats a model", vercel_page([one, one] + others, decoys=False), "answer"),
+            ("a page that is no text", b"\xff\xfe" + html.encode(), "answer"),
+            ("a page of a size nobody reads", " " * (drift.VERCEL_PAGE_LIMIT + 1), "answer"),
+            ("a page that answers 503", http_error(503), "5xx"),
+            ("a page that answers 403", http_error(403), "4xx"),
+            ("a page nobody answers for", urllib.error.URLError("timed out"), "network"),
+            ("a page behind a redirect", http_error(302), "3xx")):
+        result, calls, report, body, answers = run(page, vercel=api_notice)
+        vercel = report_of(result)
+        judged("%s is an unreadable catalogue of the class %s, and what the API says stands" % (purpose, wanted),
+               first_wrong(
+                   (vercel["status"] == "error" and vercel["error"].startswith("its models page: "), "status %r %r" % (
+                       vercel["status"], vercel.get("error"))),
+                   (unreadable_providers(result) == [("vercel", wanted)], "unreadable %r" % unreadable_providers(result)),
+                   (exit_status(result) == 2 and not is_complete(result), "the status"),
+                   (found(result) == [("notice", "vendor/vc-one")]
+                    and "expires on 2027-01-28" in report, "the API's notice is gone: %s" % report),
+                   ("no longer flagged free" not in report, "a notice came from a page nobody read"),
+                   (all(report_of(result, other)["status"] == "read" for other in ("nvidia", "kilo", "requesty")),
+                    "another provider was lost")))
+    outputs = apply_run(COVERAGE_TEMPLATE, coverage_answers(vercel_page=b"nothing here", vercel=gone), COVERAGE_KEYS)
+    judged("a page that cannot be read leaves an entry the API does not list as a NOTICE, since the page lists models the API "
+           "omits, and nothing is deleted",
+           first_wrong(
+               (sorted((finding["kind"], finding["id"]) for finding in report_of(outputs[0])["findings"])
+                == [("notice", "vendor/vc-one")], "findings %r" % report_of(outputs[0])["findings"]),
+               ("not listed; its models page" in outputs[2] and "so the absence is not a retirement" in outputs[2], outputs[2]),
+               (outputs[1] == COVERAGE_TEMPLATE and outputs[4] is None, "something was deleted"),
+               (exit_status(outputs[0]) == 2, "the status")))
+
+    # The read must not match text outside the objects of the "models" array.
+    page = vercel_page([("vendor/vc-one", False, "chat")] + others)
+    result, calls, report, body, answers = run(page)
+    outside = ("vendor/vc-outside", "vendor/vc-nested", "vendor/vc-not-a-record", "vendor/vc-string-flag", "vendor/vc-markup")
+    judged("the flag written in a text, in markup, in a nested object, in another object and in a models array of no model counts for nothing",
+           first_wrong(
+               (page.count("availableToFreeTier") >= 6, "the page has no decoy"),
+               (all(each not in report for each in outside), report),
+               (found(result) == [("notice", "vendor/vc-one")], "findings %r" % found(result)),
+               (report_of(result)["members"] == 3 and report_of(result)["candidates"] == 0,
+                "members %r, candidates %r" % (report_of(result)["members"], report_of(result)["candidates"]))))
+    records = drift.read_vercel_page(page)
+    judged("the page's reader keeps the id, the flag and the type of each model of the array, and no other",
+           first_wrong((sorted(records) == ["vendor/vc-free-listed", "vendor/vc-one", "vendor/vc-painter"],
+                        "records %r" % sorted(records)),
+                       (records["vendor/vc-one"][:2] == (False, "chat"), "one: %r" % (records["vendor/vc-one"],)),
+                       (records["vendor/vc-painter"][1] == "image", "painter: %r" % (records["vendor/vc-painter"],))))
+    first = vercel_page([one], decoys=False)
+    judged("a page that streams the models array across two scripts is read as one text",
+           first_wrong((len(drift.VERCEL_CHUNK.findall(first)) == 2, "the chunks"),
+                       (sorted(drift.read_vercel_page(first)) == ["vendor/vc-one"], "the records")))
+    return failures
+
+
 INCOMPLETE_BLOCK = """\
   - model_name: zai-flash
     litellm_params:
@@ -8730,7 +9281,7 @@ def run_pool_cases():
 #   run_coverage_cases                     1.1
 #   run_contract_cases, run_review_cases   0.9, 0.8
 #   run_online_apply_cases                 0.7
-#   each of the other twenty-three         0.5 or less, about 4 in all
+#   each of the others                     0.5 or less, about 4 in all
 #
 # The deletions come to about 2,400 per part, so the groups are what evens the parts out: the one group
 # that costs as much as eight deletions goes alone to the part whose deletions cost least, and the rest
@@ -8741,6 +9292,7 @@ GROUPS_OF_THE_PARTS = (
     (
         run_coverage_cases,
         run_online_apply_cases,
+        run_vercel_page_cases,
         run_incomplete_catalogue_cases,
         run_proposal_cases,
         run_usage_cases,
@@ -8750,6 +9302,7 @@ GROUPS_OF_THE_PARTS = (
         run_eci_cases,
         run_proposal_command_line_cases,
         run_bounded_key_set_cases,
+        run_covering_key_set_cases,
         run_command_line_cases,
     ),
     (
@@ -8774,6 +9327,7 @@ GROUPS_OF_THE_PARTS = (
     ),
     (
         run_head_cases,
+        run_catalog_scores_cases,
     ),
 )
 

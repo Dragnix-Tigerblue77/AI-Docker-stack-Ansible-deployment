@@ -74,7 +74,7 @@ GitHub fires a cron with "github.event.schedule" spelt as "on.schedule" writes i
 the attempt before it, or lists the runs and artifacts as the made-up one does; no scheduled run can be
 played here. Nor
 that "the rows of the table written again" are right -- "check_compose_template.py" holds each alias
-to the first member of its cascade for every set of keys. Nor that GitHub answers as the made-up one
+to the first member of its cascade for each of its sets of keys. Nor that GitHub answers as the made-up one
 does: its answers are octokit's as the documentation gives them, not recorded, and the refusal of a
 draft is matched on its status and the word "draft" alone. Node is needed on the PATH, and PyYAML
 and Jinja2, since the drift script is imported to compare its build with the step's.
@@ -386,7 +386,12 @@ async function play(scenario) {
         return { data: { tree: { sha: ref.tree } } };
       },
       createBlob: async (args) => { record('git.createBlob', args); return { data: { sha: tree(args.content) } }; },
-      createTree: async (args) => { record('git.createTree', args); return { data: { sha: args.tree[0].sha } }; },
+      createTree: async (args) => {
+        record('git.createTree', args);
+        const sha = args.tree.length === 1 ? args.tree[0].sha
+          : 'tree-' + crypto.createHash('sha1').update(args.tree.map((entry) => entry.sha).join('+')).digest('hex');
+        return { data: { sha } };
+      },
       createCommit: async (args) => { record('git.createCommit', args); return { data: { sha: 'commit-' + commits++ } }; },
       updateRef: async (args) => { record('git.updateRef', args); refs[args.ref.replace(/^heads\//, '')].sha = args.sha; return { data: {} }; },
       createRef: async (args) => { record('git.createRef', args); refs[args.ref.replace(/^refs\/heads\//, '')] = { sha: args.sha, tree: null, commits: [] }; return { data: {} }; },
@@ -480,7 +485,8 @@ def load_builder():
              "stop when the script's build is another text"),
             (r"const content = kept !== null && onlyDaysDiffer\(kept, built\) \? kept : built\.text;",
              "push the text it built, or the branch's own where only the days differ"),
-            (r"publish\(spec\.branch, head, content, message,", "push that text")):
+            (r"publish\(spec\.branch, head, \[\[template, content\], \[catalog, handedCatalog\], \[scores, handedScores\]\], message,",
+             "push that text, the catalogue generated from it and the figures it shows")):
         if not re.search(pattern, script):
             raise SystemExit("the step does not %s" % what)
     return script.split(BUILDER_BEGIN, 1)[1].split(BUILDER_END, 1)[0]
@@ -500,12 +506,14 @@ def item(provider, identifier, name, usage=None):
     return dict({"provider": provider, "id": identifier, "name": name}, **({"usage": usage} if usage else {}))
 
 
-# Kilo's free ids are flagged by its catalogue, and some are spelt without ":free": both are written.
+# Kilo's free ids are flagged by its catalogue, and some are spelt without ":free": both are written. Vercel's free
+# tier is flagged on its models page, and its ids carry no suffix either.
 READY_ITEMS = [item("openrouter", "vendor/fresh-one:free", "fresh-one-free"),
             item("openrouter", "vendor/fresh-two.5:free", "fresh-two-5-free"),
             item("kilo", "vendor/fresh-three:free", "fresh-three-kilo"),
             item("kilo", "vendor/fresh-four", "fresh-four-kilo"),
-            item("requesty", "vendor/fresh-six", "fresh-six-requesty")]
+            item("requesty", "vendor/fresh-six", "fresh-six-requesty"),
+            item("vercel", "vendor/fresh-eleven", "fresh-eleven-vercel")]
 TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendor/fast-9", "fast-9-groq"),
              item("mistral", "magistral-9", "magistral-9"), item("deepseek", "deepseek-v9", "deepseek-v9-direct"),
              item("cerebras", "zai-glm-9", "zai-glm-9-cerebras"),
@@ -517,7 +525,8 @@ TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendo
              item("requesty", "vendor/fresh-nine", "fresh-nine-requesty"),
              item("zai", "glm-9-flash", "glm-9-flash-zai"),
              item("centai", "hy9-flash:free", "hy9-flash-cent-ai"),
-             item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs")]
+             item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs"),
+             item("vercel", "vendor/fresh-ten", "fresh-ten-vercel")]
 
 
 # One model of every usage other than chat, each of a provider that can have it and none of which has to be
@@ -772,6 +781,13 @@ def tree_of(text):
     return "tree-" + hashlib.sha1(base64.b64encode(text.encode("utf-8"))).hexdigest()
 
 
+def tree_of_files(texts):
+    """The tree the made-up GitHub gives a commit of these files, written in this order."""
+    if len(texts) == 1:
+        return tree_of(texts[0])
+    return "tree-" + hashlib.sha1("+".join(tree_of(text) for text in texts).encode("utf-8")).hexdigest()
+
+
 def step_scenarios(real, drift, folder):
     """[(name, scenario, check)]: what the step is given, and a function of what it did that says what
     went wrong, or None. Each scenario's files are written under "folder"."""
@@ -786,8 +802,16 @@ def step_scenarios(real, drift, folder):
     out = []
     count = [0]
     empty_parts = {"ready": {"complete": True, "items": []}, "to_verify": {"complete": True, "items": []}}
+    # The catalogue and the figures each proposal is handed with: the step commits them with the template and reads
+    # nothing of them but their size, and that the figures are a JSON object.
+    catalogs = {"ready": "# Catalogue des ajouts prêts\n", "to_verify": "# Catalogue des ajouts à vérifier\n"}
+    figures = {"ready": '{\n "entries": {"a": 1}\n}\n', "to_verify": '{\n "entries": {"b": 2}\n}\n'}
+    removal_catalog = "# Catalogue après suppression\n"
+    removal_figures = '{\n "entries": {"c": 3}\n}\n'
+    files_of_a_commit = ["templates/LiteLLM_config.yaml.j2", "docs/CATALOG.md", "docs/catalog_scores.json"]
 
-    def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None, **extra):
+    def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None,
+                 without=(), without_figures=(), **extra):
         count[0] += 1
         where = pathlib.Path(folder) / ("s%d" % count[0])
         where.mkdir()
@@ -797,6 +821,10 @@ def step_scenarios(real, drift, folder):
         for kind in ("ready", "to_verify"):
             if parts.get(kind, {}).get("items"):
                 (where / ("%s_template.j2" % kind)).write_text(built[kind], encoding="utf-8")
+                if kind not in without:
+                    (where / ("%s_catalog.md" % kind)).write_text(catalogs[kind], encoding="utf-8")
+                if kind not in without_figures:
+                    (where / ("%s_scores.json" % kind)).write_text(figures[kind], encoding="utf-8")
                 (where / ("%s_body.md" % kind)).write_text(body[kind], encoding="utf-8")
                 (where / ("%s_commit.txt" % kind)).write_text("Propose them\n", encoding="utf-8")
         for name_of, text in (files or {}).items():
@@ -806,7 +834,8 @@ def step_scenarios(real, drift, folder):
         environment.update(NATIVE_CHECKS="false", DRIFT_STATUS="1", COVERED="complete", ISSUE_OUTCOME="success",
                            CHANGED="false", UNDELETED="0", BASE_SHA=BASE_SHA, PROPOSALS=str(where),
                            PR_BODY=str(where / "none"), COMMIT_MESSAGE=str(where / "none"),
-                           TEMPLATE_FILE=str(where / "none"))
+                           TEMPLATE_FILE=str(where / "none"), CATALOG_FILE=str(where / "none"),
+                           SCORES_FILE=str(where / "none"))
         environment.update(env or {})
         environment.update(env_files(str(where)) if env_files else {})
         play = {"env": environment, "refs": refs or {}, "pulls": pulls or [], "ancestry": "ahead"}
@@ -829,9 +858,13 @@ def step_scenarios(real, drift, folder):
     def blob_texts(result):
         return [base64.b64decode(args["content"]).decode("utf-8") for args in calls(result, "git.createBlob")]
 
-    def ours(branch, text):
-        """A branch the workflow made, holding "text"."""
-        return {branch: {"sha": "head-" + branch, "tree": tree_of(text), "text": text,
+    def ours(branch, text, catalog=None, scores=None):
+        """A branch the workflow made, holding "text" as the template, "catalog" as the catalogue and "scores" as the
+        figures, which are the ones the proposals of its kind come with unless others are given."""
+        kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify"}.get(branch)
+        catalog = catalogs.get(kind, removal_catalog) if catalog is None else catalog
+        scores = figures.get(kind, removal_figures) if scores is None else scores
+        return {branch: {"sha": "head-" + branch, "tree": tree_of_files([text, catalog, scores]), "text": text,
                          "commits": [{"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]}]}}
 
     def pull(number, branch, text, draft=False):
@@ -850,7 +883,11 @@ def step_scenarios(real, drift, folder):
                   "the ready pull request was not opened ready for review"),
                  (len(created(r, branches["to_verify"])) == 1 and created(r, branches["to_verify"])[0]["draft"] is True,
                   "the pull request to verify was not opened as a draft"),
-                 (sorted(blob_texts(r)) == sorted(built.values()), "it pushed another text than the one built"),
+                 (sorted(blob_texts(r)) == sorted(list(built.values()) + list(catalogs.values()) + list(figures.values())),
+                  "it pushed another text than the template built and the catalogue and figures handed over"),
+                 (all([entry["path"] for entry in args["tree"]] == files_of_a_commit
+                      for args in calls(r, "git.createTree")) and len(calls(r, "git.createTree")) == 2,
+                  "a commit does not hold the template, the catalogue and the figures, in one tree"),
                  (all(args["parents"] == [BASE_SHA] for args in calls(r, "git.createCommit")),
                   "a commit is not on the commit the other job worked on"),
                  (all("Signed-off-by: github-actions[bot]" in args["message"] for args in calls(r, "git.createCommit")),
@@ -904,7 +941,8 @@ def step_scenarios(real, drift, folder):
     moved = earlier["ready"].replace("model_list:\n", "model_list:\n# a line main no longer has\n", 1)
     scenario("a branch whose other lines differ is built again, with this run's days",
              lambda r: first(
-                 (blob_texts(r) == [built["ready"]], "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]],
+                  "it did not push the new build: %d blob(s)" % len(blob_texts(r))),
                  (len(pushed(r, branches["ready"])) == 1, "the branch was not moved")),
              parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
              refs=ours(branches["ready"], moved), pulls=[pull(7, branches["ready"], body["ready"])])
@@ -1007,16 +1045,21 @@ def step_scenarios(real, drift, folder):
     removals_branch = job_env["REMOVALS_BRANCH"]
     deleted = real.replace("\n".join(real.split("\n")[real.split("\n").index("  - model_name: gemma-4-26b-gemini"):][:5])
                            + "\n", "", 1)
-    removal_files = {"removed.j2": deleted, "removal_body.md": "Suppressions.\n", "removal_commit.txt": "Delete\n"}
+    removal_files = {"removed.j2": deleted, "removal_body.md": "Suppressions.\n", "removal_commit.txt": "Delete\n",
+                     "removed_catalog.md": removal_catalog, "removed_scores.json": removal_figures}
 
     def removal_env(where_files):
         return {"CHANGED": "true", "TEMPLATE_FILE": where_files + "/removed.j2",
+                "CATALOG_FILE": where_files + "/removed_catalog.md", "SCORES_FILE": where_files + "/removed_scores.json",
                 "PR_BODY": where_files + "/removal_body.md", "COMMIT_MESSAGE": where_files + "/removal_commit.txt"}
 
     scenario("the deletions: a template with lines deleted is pushed, and its pull request opened ready for review",
              lambda r: first(
                  (not r["failures"], "it failed: %s" % r["failures"][:1]),
-                 (blob_texts(r) == [deleted], "it pushed another text"),
+                 (blob_texts(r) == [deleted, removal_catalog, removal_figures],
+                  "it pushed another text than the template, its catalogue and its figures"),
+                 ([[entry["path"] for entry in args["tree"]] for args in calls(r, "git.createTree")]
+                  == [files_of_a_commit], "the commit does not hold the template, the catalogue and the figures, in one tree"),
                  ([args["draft"] for args in created(r, removals_branch)] == [False], "it was not opened ready"),
                  (r["outputs"].get("numbers") == "101", "the number to assign is %r" % r["outputs"].get("numbers"))),
              parts=empty_parts, files=removal_files, env_files=removal_env)
@@ -1038,6 +1081,93 @@ def step_scenarios(real, drift, folder):
              parts=empty_parts, pulls=[pull(9, removals_branch, "b")],
              refs={removals_branch: {"sha": "head-r", "tree": "t", "text": real, "commits": [
                  {"sha": "c9", "author": "github-actions[bot]", "parents": ["p"]}]}})
+    scenario("the deletions: a catalogue that is empty is not pushed, and nothing is opened",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (not calls(r, "pulls.create"), "a pull request was opened"),
+                             (any("catalogue the other job handed over is refused" in failure for failure in r["failures"]),
+                              "it did not fail")),
+             parts=empty_parts, files=dict(removal_files, **{"removed_catalog.md": ""}), env_files=removal_env)
+    scenario("the deletions: a catalogue larger than a catalogue is is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("longer than" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=dict(removal_files, **{"removed_catalog.md": "x" * 1000001}),
+             env_files=removal_env)
+    scenario("the deletions: a template handed over with no catalogue is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("the deletion pull request" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=removal_files,
+             env_files=lambda where_files: dict(removal_env(where_files), CATALOG_FILE=where_files + "/missing.md"))
+    scenario("the deletions: a branch whose catalogue is the old one is moved, whatever its template",
+             lambda r: first((len(pushed(r, removals_branch)) == 1, "the branch was not moved"),
+                             (blob_texts(r) == [deleted, removal_catalog, removal_figures], "it pushed another text")),
+             parts=empty_parts, files=removal_files, env_files=removal_env,
+             refs=ours(removals_branch, deleted, "# Catalogue avant\n"), pulls=[pull(9, removals_branch, "b")])
+    scenario("the deletions: a branch whose figures are the old ones is moved, whatever its template and catalogue",
+             lambda r: first((len(pushed(r, removals_branch)) == 1, "the branch was not moved"),
+                             (blob_texts(r) == [deleted, removal_catalog, removal_figures], "it pushed another text")),
+             parts=empty_parts, files=removal_files, env_files=removal_env,
+             refs=ours(removals_branch, deleted, scores='{\n "entries": {}\n}\n'), pulls=[pull(9, removals_branch, "b")])
+    scenario("the deletions: a branch that holds the template, the catalogue and the figures is left as it is",
+             lambda r: first((not calls(r, "git.createCommit"), "a commit was made")),
+             parts=empty_parts, files=removal_files, env_files=removal_env,
+             refs=ours(removals_branch, deleted), pulls=[pull(9, removals_branch, "Suppressions.\n")])
+    scenario("a proposal handed no catalogue: nothing is pushed for it, the other one is opened",
+             lambda r: first(
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                 (any("without the files that go with them" in failure for failure in r["failures"]), "it did not fail"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             without=("ready",))
+    scenario("a proposal's catalogue that is empty: nothing is pushed for it",
+             lambda r: first(
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                 (any("catalogue handed over for" in failure for failure in r["failures"]), "it did not fail"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             files={"ready_catalog.md": ""})
+    scenario("a proposal's catalogue larger than a catalogue is: nothing is pushed for it",
+             lambda r: first(
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                 (any("longer than" in failure for failure in r["failures"]), "it did not fail")),
+             files={"ready_catalog.md": "x" * 1000001})
+    scenario("a branch with the template of the build and a stale catalogue is moved",
+             lambda r: first(
+                 (len(pushed(r, branches["ready"])) == 1, "the branch was not moved"),
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]], "it pushed another text")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], built["ready"], "# Catalogue d'hier\n"),
+             pulls=[pull(7, branches["ready"], body["ready"])])
+    scenario("a branch with the template of the build and the figures of yesterday is moved",
+             lambda r: first(
+                 (len(pushed(r, branches["ready"])) == 1, "the branch was not moved"),
+                 (blob_texts(r) == [built["ready"], catalogs["ready"], figures["ready"]], "it pushed another text")),
+             parts={"ready": {"complete": True, "items": READY_ITEMS}, "to_verify": {"complete": True, "items": []}},
+             refs=ours(branches["ready"], built["ready"], scores='{\n "entries": {}\n}\n'),
+             pulls=[pull(7, branches["ready"], body["ready"])])
+    # The figures file is bounded as a catalogue is, and must be a JSON object; its shape is the generator's.
+    for what, text in (("empty", ""), ("larger than a figures file is", "x" * 1000001), ("not JSON", "not json"),
+                       ("an array", "[1]"), ("null", "null")):
+        scenario("the deletions: figures that are %s are not pushed, and nothing is opened" % what,
+                 lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                                 (not calls(r, "pulls.create"), "a pull request was opened"),
+                                 (any("figures file the other job handed over is refused" in failure
+                                      for failure in r["failures"]), "it did not fail")),
+                 parts=empty_parts, files=dict(removal_files, **{"removed_scores.json": text}), env_files=removal_env)
+        scenario("a proposal's figures that are %s: nothing is pushed for it, the other one is opened" % what,
+                 lambda r: first(
+                     (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                     (any("figures file handed over for" in failure for failure in r["failures"]), "it did not fail"),
+                     (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+                 files={"ready_scores.json": text})
+    scenario("the deletions: a template handed over with no figures is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("the deletion pull request" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, files=removal_files,
+             env_files=lambda where_files: dict(removal_env(where_files), SCORES_FILE=where_files + "/missing.json"))
+    scenario("a proposal handed no figures: nothing is pushed for it, the other one is opened",
+             lambda r: first(
+                 (not pushed(r, branches["ready"]) and not created(r, branches["ready"]), "it was pushed"),
+                 (any("without the files that go with them" in failure for failure in r["failures"]), "it did not fail"),
+                 (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
+             without_figures=("ready",))
     scenario("a commit of the other job that is not on main: nothing is pushed",
              lambda r: first((not calls(r, "git.createCommit"), "a commit was made"),
                              (any("is not on main" in failure for failure in r["failures"]), "it did not fail")),
@@ -1178,8 +1308,12 @@ ADDITION_MUTATIONS = [
     ("model OVHcloud's entries on a plain marker", "label: 'OVHcloud', keyless: true", "label: 'OVHcloud'"),
     ("state Requesty's free tier from its catalogue", "label: 'Requesty', free: 'router.eu.requesty.ai/v1/models'",
      "label: 'Requesty'"),
+    ("state Vercel AI Gateway's free tier from its models page",
+     "label: 'Vercel AI Gateway', free: 'vercel.com/ai-gateway/models?freeTier=true'", "label: 'Vercel AI Gateway'"),
     ("attribute the entries served through Aion Labs' endpoint to it", "apiBase.includes('api.aionlabs.ai')) return 'aionlabs';",
      "apiBase.includes('api.aionlabs.ai')) return null;"),
+    ("attribute the entries of LiteLLM's own Vercel AI Gateway provider to it", "if (prefix === 'vercel_ai_gateway') return 'vercel';",
+     "if (prefix === 'vercel_ai_gateway') return null;"),
     ("write the entry of a provider kept out of LLM in the group of its own",
      "[\"${spec.group ?? (usage ? usage.group : 'LLM')}\", \"${spec.data}\"]",
      "[\"${usage ? usage.group : 'LLM'}\", \"${spec.data}\"]"),
@@ -1201,6 +1335,35 @@ ADDITION_MUTATIONS = [
     ("cap the number of items", "|| items.length > ADDITION_LIMIT", ""),
     ("refuse carriage returns", "|| baseText.includes('\\r')", ""),
     ("push only the text the script built too", "if (handed !== built.text) {", "if (false) {"),
+    ("commit the catalogue and the figures of an addition with its template",
+     "[[template, content], [catalog, handedCatalog], [scores, handedScores]]", "[[template, content]]"),
+    ("commit the figures of an addition with its template",
+     "[[template, content], [catalog, handedCatalog], [scores, handedScores]]",
+     "[[template, content], [catalog, handedCatalog]]"),
+    ("commit the catalogue and the figures of the deletions with their template",
+     "[[template, content], [catalog, catalogText], [scores, scoresText]]", "[[template, content]]"),
+    ("commit the figures of the deletions with their template",
+     "[[template, content], [catalog, catalogText], [scores, scoresText]]",
+     "[[template, content], [catalog, catalogText]]"),
+    ("read the figures each proposal is handed with", "fs.readFileSync(`${folder}/${kind}_scores.json`, 'utf8')", "''"),
+    ("refuse figures that are not JSON", "JSON.parse(text);", "{};"),
+    ("refuse figures that are not an object", "parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)",
+     "false"),
+    ("refuse the figures of an addition that are refused", "const scoresFlaw = scoresProblem(handedScores);",
+     "const scoresFlaw = null;"),
+    ("refuse the figures of the deletions that are refused", "const scoresFlaw = scoresProblem(scoresText);",
+     "const scoresFlaw = null;"),
+    ("read the catalogue each proposal is handed with", "fs.readFileSync(`${folder}/${kind}_catalog.md`, 'utf8')",
+     "''"),
+    ("refuse a catalogue that is empty", "text.length === 0", "false"),
+    ("refuse a catalogue larger than a catalogue is", "Buffer.byteLength(text, 'utf8') > CATALOG_MAX_BYTES",
+     "false"),
+    ("refuse the catalogue of an addition that is refused", "const catalogFlaw = catalogProblem(handedCatalog);",
+     "const catalogFlaw = null;"),
+    ("refuse the catalogue of the deletions that is refused", "const catalogFlaw = catalogProblem(catalogText);",
+     "const catalogFlaw = null;"),
+    ("write both files in one tree", "owner, repo, base_tree: baseCommit.tree.sha, tree: entries,",
+     "owner, repo, base_tree: baseCommit.tree.sha, tree: entries.slice(0, 1),"),
     ("open the one to verify as a draft", "branch: process.env.ADDITIONS_TO_VERIFY_BRANCH, draft: true",
      "branch: process.env.ADDITIONS_TO_VERIFY_BRANCH, draft: false"),
     ("keep the title", "title: ADDITION_TITLES[kind],", "title: 'x',"),

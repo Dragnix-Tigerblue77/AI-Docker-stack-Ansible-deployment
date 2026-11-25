@@ -101,6 +101,9 @@
         # Aion Labs serves models for role-play and fiction, unmoderated, and only through the "Fiction" access group
         # and the "Auto-Fiction" router: no key holding "LLM" reaches them. Its free allowance is 20,000 tokens a day.
         Artificial_Intelligence_LiteLLM_Aion_Labs_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Aion_Labs_API_key }}"
+        # Vercel AI Gateway serves some models out of a small monthly free credit, which needs a payment method on the
+        # team: never buy credit and leave Auto-reload off, since the first purchase ends the free credit for good.
+        Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model
