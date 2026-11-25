@@ -1013,7 +1013,7 @@ améliorer les services sans accord (article IV.7), l'accord de traitement des d
 traitement se fait en général à Singapour. Une carte ou un téléphone exigé à l'inscription, une date d'arrêt des modèles gratuits :
 aucune page lue n'en parle.
 
-### Chaque jour : une pull request pour ce qui se supprime, deux pour ce qui s'ajoute, une issue pour un catalogue illisible
+### Chaque jour : une pull request pour ce qui se supprime, deux pour ce qui s'ajoute, une pour les fiches qui diffèrent, une issue pour un catalogue illisible
 
 La règle du `model_list` ne se tient pas seule : les fournisseurs retirent et publient des modèles
 sans prévenir ce fichier. `check_LiteLLM_model_drift.py` en tient la moitié qui se lit dans le
@@ -1028,8 +1028,11 @@ même temps, et que ce qu'il propose est prêt avant l'usage de la pile (de 17 h
 10 h à 22 h le week-end et les jours fériés).
 
 Le rapport entier, section « Contrats par routeur » comprise, va dans le **résumé du run** (l'onglet
-*Summary* de l'exécution), qui ne notifie personne. Ce qu'une personne doit lire va dans le corps de la
-pull request qu'il concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
+*Summary* de l'exécution), qui ne notifie personne. Le résumé donne aussi, dans une section à part, les
+entrées actives dont la fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`) dit autre chose
+que le catalogue de leur fournisseur, quand ce catalogue publie le champ, avec ce que la pull request des
+fiches (plus bas) en porte et ce qu'elle laisse à corriger à la main. Ce qu'une personne doit lire va dans le
+corps de la pull request qu'il concerne, assignée à tigerblue77 : les retraits annoncés dans celle des
 suppressions, les modèles redevenus gratuits sur OpenRouter dans celle des modèles prêts (dans celle
 des modèles à vérifier quand la première n'est pas ouverte), et les nouveaux modèles qu'aucun ajout ne
 peut porter -- un identifiant d'une autre forme, un fournisseur sans entrée, au-delà du plafond, un
@@ -1086,7 +1089,7 @@ fait pas. Une pull request qui sort de ces conditions
 reste ouverte et attend tigerblue77, comme avant ; les deux plafonds sont `REMOVALS_MAX_ENTRIES` et
 `REMOVALS_MAX_LINES` dans le workflow de fusion, et `check_auto_merge_gate.py` joue ces conditions
 contre des pull requests inventées : celles qui doivent fusionner et, une à une, celles qui ne le
-doivent pas.
+doivent pas. La pull request des fiches, plus bas, se fusionne de la même façon, à ses conditions à elle.
 
 **Un commit de quelqu'un d'autre sur la branche arrête tout, et l'exécution échoue pour le dire**,
 chaque jour, jusqu'à ce que la branche soit supprimée (le workflow la refait alors depuis
@@ -1165,8 +1168,8 @@ ligne du rapport, son entrée s'écrivant alors à la main.
 **Les ajouts arrivent en deux pull requests, qu'aucune fusion automatique ne prend.** Le workflow les
 tient à jour comme celle des suppressions (`main` plus un commit du bot Actions, refaite à chaque
 exécution, écrite avec le jeton de l'App quand il y en a une, assignée à tigerblue77), chacune sur sa
-branche, et `dependabot-auto-merge.yml`, qui ne reconnaît que la branche des suppressions, ne fusionne
-ni l'une ni l'autre (`check_auto_merge_gate.py` joue les deux branches contre lui). Elles se partagent
+branche, et `dependabot-auto-merge.yml`, qui ne reconnaît que les branches des suppressions et des fiches,
+ne fusionne ni l'une ni l'autre (`check_auto_merge_gate.py` joue les deux branches contre lui). Elles se partagent
 les modèles selon ce que l'exécution sait d'eux, jamais selon leur fournisseur :
 
 - **`claude/LiteLLM-model-additions`, les modèles prêts** : ceux dont l'exécution tient toutes les
@@ -1226,6 +1229,45 @@ classement pour celle des modèles prêts) n'a pas pu être lue. Le job qui écr
 qu'un fournisseur, un identifiant, un nom et, hors chat, un usage, qu'il valide, et construit lui-même
 le fichier ; il ne pousse que si c'est le texte que le script a construit et relu
 (`check_drift_publish_guard.py` tient les deux au même résultat).
+
+**Les fiches qui diffèrent du catalogue ont leur pull request, qui se fusionne seule quand elle ne change, dans le modèle de configuration, que la valeur de lignes de fiche.**
+Le `model_info` d'une entrée active porte sa fiche (`max_input_tokens`, `max_output_tokens`, `supports_vision`), que
+le routeur lit pour ne pas envoyer une requête à un membre où elle ne tient pas. Quand le catalogue du fournisseur
+publie le même champ (la table est dans la docstring du script) et dit autre chose, le workflow écrit la valeur du
+catalogue dans une pull request de la branche `claude/LiteLLM-model-drift-sheets`, tenue comme celles des ajouts :
+prête à relire et jamais en brouillon, assignée à tigerblue77, réécrite à chaque exécution qui trouve encore un écart,
+avec le catalogue `docs/CATALOG.md` et les scores `docs/catalog_scores.json` qui suivent son modèle, comme dans toute
+pull request du workflow, et `dependabot-auto-merge.yml` la fusionne, à des conditions que GitHub seul atteste, comme pour les suppressions :
+ouverte par le bot Actions ou par l'App du workflow sur cette branche, un seul commit, celui du bot Actions, un seul
+fichier lu, le modèle de configuration, avec le catalogue et les scores réécrits à côté, aux conditions des suppressions
+(chacun modifié, ni ajouté, ni supprimé, ni renommé, une ligne au moins et au plus 4 000, quelles que soient les lignes
+qu'il gagne ou perd, jamais sans le modèle, et aucun autre fichier), et, pour le modèle seul, lues dans le fichier
+entier de `main` et dans celui de sa tête, non dans le
+seul patch, qui montre trop peu de lignes pour dire de quelle entrée une ligne est : rien d'ajouté, rien de retiré, et
+sur chaque ligne changée la même clé (`max_input_tokens`, `max_output_tokens` ou `supports_vision`), la même
+indentation, le même espacement et le même commentaire, seule la valeur différant (un entier strictement positif, ou
+`true` ou `false` pour `supports_vision`), dans le `model_info` d'une entrée ; au plus `SHEETS_MAX_VALUES` valeurs
+(un catalogue qui devient faux d'un coup attend une personne) ; un corps sans section « À relire » ; une branche qui
+contient tout `main` ; et chaque contrôle du jeu de règles vert sur son dernier commit, `check_compose_template.py`
+refusant la fiche qui contredit une longueur de réponse qu'une entrée fixe. Le texte de la règle sur les lignes est
+écrit deux fois, dans le travail qui pousse et dans la fusion, aucun des deux workflows ne pouvant charger un fichier
+du dépôt : `check_drift_publish_guard.py` refuse deux copies qui diffèrent et joue les deux sur les mêmes cas, et
+`check_auto_merge_gate.py` joue la fusion. Le script ne change que la valeur, sur sa ligne : aucun champ n'est
+ajouté, aucun commentaire touché, et il relit chaque réécriture contre le fichier d'origine. Un écart qu'il ne sait pas écrire ainsi (une ligne écrite avec du Jinja, une
+entrée dans une boucle ou dans un `else`...) reste dans le résumé, et le corps de la pull request le liste. Ce corps
+cite, par valeur, l'entrée, le fournisseur, l'identifiant au catalogue, le champ, la valeur du fichier et celle du
+catalogue, le catalogue lu et le jour, et dit ce qu'une personne fait ensuite : rien tant que la pull request se
+fusionne seule, sinon lire la valeur sur la page du fournisseur que le fichier cite pour sa fiche, un catalogue n'étant
+pas cette page, et corriger par un commit une valeur qu'elle ne confirme pas. Les deux choses qui retiennent la
+fusion sont listées sous une section « À relire », comme pour les suppressions : les écarts que le script n'a pas su
+réécrire, et les entrées dont `check_compose_template.py` refusera la fiche, parce qu'elles fixent une longueur de
+réponse (`max_tokens`) que la nouvelle ne permet plus, longueur qui est un choix et qui s'adapte à la main dans un
+commit sur la branche. Un commit d'une personne fait attendre la fusion, le texte demandant un seul commit. La pull request se ferme, avec un
+commentaire, quand plus aucun écart ne reste, sauf si le catalogue d'un fournisseur dont une entrée déclare une fiche
+n'a pas pu être lu (« rien vu » n'est pas « rien à corriger »), si un écart attend une personne ou si le rapport n'est
+pas fiable ; le commit d'une personne la fige comme les autres. Un `read` compromis lui ferait au pire fusionner,
+sous ce plafond, des valeurs de fiche fausses, et de faux scores dans le catalogue, qui ne pilotent aucun routage : un
+`revert` défait les premières, et les routeurs ne les lisent que pour écarter un membre ou un autre.
 
 **Le classement des nouveaux modèles.** Où placer un nouveau modèle dans une cascade se décide sur des
 chiffres que quelqu'un allait chercher à la main : avec le secret `MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY`,
@@ -1433,9 +1475,11 @@ pull request qui supprime des lignes du fichier, et cette pull request peut se f
 plus haut), à des conditions qui bornent les lignes retirées (cinq entrées et deux cents lignes au plus,
 et rien d'autre que des entrées de modèle, leurs places de cascade, des commentaires et des lignes vides),
 dans un commit que git garde et qu'un `revert` défait -- jamais une ligne ajoutée. Il peut aussi lui faire
-ouvrir les deux pull requests d'ajout, avec des entrées d'une forme fixe, calquées sur celles du fichier (une
-clé et une adresse qu'il a déjà, un identifiant et un nom d'une orthographe étroite), qu'une personne seule
-fusionne. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
+ouvrir, pour les fiches, une pull request qui se fusionne seule sous un plafond de valeurs et ne change, dans le
+modèle, que la valeur de lignes de fiche existantes (le catalogue et les scores réécrits à côté, comme pour les
+suppressions), ou les deux pull requests d'ajout, avec des entrées d'une forme fixe,
+calquées sur celles du fichier (une clé et une adresse qu'il a déjà, un identifiant et un nom d'une orthographe
+étroite), qu'une personne seule fusionne. Il ne garde pas les clés de PyYAML et de Jinja2, avec qui elles
 partagent `read` : c'est pourquoi elles doivent être dédiées et révocables, comme dit plus haut. L'en-tête du workflow développe le pourquoi. Il ne
 s'exécute que sur `main`, jamais sur une pull request : cela protège d'un lancement fait par erreur
 depuis une autre branche, pas d'une personne qui peut pousser sur le dépôt, `main` n'y étant pas

@@ -42,42 +42,39 @@ name: Dependabot auto-merge
 # request is checked out or executed, so no job both holds a write token and runs code nobody has
 # reviewed. The header of "ansible-ci.yml" says why every job runs on hosted runners only.
 #
-# The same step also merges the pull request that "LiteLLM_model_drift.yml" opens to
-# delete the models their provider has retired, and nothing else that workflow's tokens open. It
-# is not Dependabot's, so it is held to what makes it safe in its own terms, all read from GitHub's
-# own account of the pull request, bar the one heading of its body that says a person has to read:
+# The same step also merges two pull requests that "LiteLLM_model_drift.yml" opens, the one that
+# deletes the models their provider has retired and the one that corrects the sheets of entries
+# (the value of a "max_input_tokens", "max_output_tokens" or "supports_vision" line), and nothing
+# else that workflow's tokens open: the two pull requests of additions are a choice, and stay a
+# person's. Neither is Dependabot's, so each is held to what makes it safe in its own terms, all
+# read from GitHub's own account of the pull request, bar the one heading of its body that says a
+# person has to read. What both share:
 #
-#   * it is on that workflow's one fixed branch, from this repository, opened by the Actions bot or
+#   * it is on that workflow's fixed branch for it, from this repository, opened by the Actions bot or
 #     by that workflow's GitHub App (MODEL_DRIFT_APP_SLUG, a repository variable, empty until the
 #     App is configured), and carries one commit, which the Actions bot is the author of in both
 #     cases: the pull request's author widens with the App, the commit's does not. An App only the
 #     repository's administrator can install is what opens it, and nobody else can name it here;
-#   * it changes the model list's template and adds no line to it: a pull request that can only take
-#     lines away cannot bring in a model, an address or a key, whatever made it. Beside it, and in no
-#     other way, it may rewrite two files generated in the same run, the catalogue of what the gateway
-#     serves and the figures file that catalogue shows (the Artificial Analysis and Epoch AI figures of
-#     each entry, which the drift workflow reads online and the CI cannot). Those two are not held to
-#     taking lines away: each must be a file that exists and is modified, not added, removed or renamed,
-#     with at least one changed line and at most REMOVALS_GENERATED_MAX_CHANGES, whatever lines it gains
-#     or loses, and the template must be there with them, never they alone. What they say is proved by
-#     the check every pull request runs, which the last bullet below requires green: it refuses a figures
-#     file that is not numbers, within bounds, for entries of the template, and a catalogue that is not
-#     what the template, the contracts and those figures produce. This is what the gate opens, and it is
-#     said here so that nobody reads it as less: a compromised job that reads the two sites could publish
-#     wrong figures, in the figures file and the catalogue, in a pull request that merges unseen. They
-#     steer no routing -- no cascade, entry or head reads them -- and a person who reads the catalogue
-#     reads them as the figures of the last run;
-#   * what it takes away is read line by line in the diff, not counted: whole model entries, the
-#     cascade slots that name an entry going in the same diff, comments and blank lines, and
-#     nothing else. A setting, an address, or the model of an entry that stays is not a model, and
-#     a person reads a diff that deletes one. Counting alone would let settings through under the
-#     name of a deletion, as long as there were few enough;
-#   * it deletes at least one and at most REMOVALS_MAX_ENTRIES entries and REMOVALS_MAX_LINES
-#     lines, counted in the diff, the entries a commented-out one included: a run that would delete
-#     more has read a catalogue that is wrong, or is being made to, and a person looks first;
-#   * its body has no "À relire" section. The script lists there what a person has to read once
-#     the models are gone (a comment that names one, the reason of a group that lost a member): a
-#     pull request with such a section waits for that person, as it did before it could merge;
+#   * it changes the model list's template, and beside it, in no other way, the two files generated in
+#     the same run: the catalogue of what the gateway serves and the figures file that catalogue shows
+#     (the Artificial Analysis and Epoch AI figures of each entry, which the drift workflow reads online
+#     and the CI cannot). What is allowed of the template is the one thing each kind adds, below. The two
+#     generated files are not held to lines: each is let through for its identity, which must be a file
+#     that exists and is modified, not added, removed or renamed, with at least one changed line and at
+#     most DRIFT_GENERATED_MAX_CHANGES, whatever lines it gains or loses, and the template must be there
+#     with them, never they alone. What they say is proved by the check every pull request runs, which
+#     the last bullet below requires green: it refuses a figures file that is not numbers, within
+#     bounds, for entries of the template, and a catalogue that is not what the template, the contracts
+#     and those figures produce. This is what the gate opens, and it is said here so that nobody reads
+#     it as less: a compromised job that reads the two sites could publish wrong figures, in the
+#     figures file and the catalogue, in a pull request that merges unseen. They steer no routing -- no
+#     cascade, entry or head reads them -- and a person who reads the catalogue reads them as the
+#     figures of the last run. The counts below are of the template's patch alone;
+#   * its body has no "À relire" section. The script lists there what a person has to read (for
+#     the deletions a comment that names a model that is gone, the reason of a group that lost a
+#     member; for the sheets a correction it could not write, and the entries
+#     "check_compose_template.py" will refuse): a pull request with such a section waits for that
+#     person;
 #   * its head contains all of main. The checks ran on that head, and what lands is that head merged
 #     into main as it is when the merge happens: only a head that is not behind makes the two the
 #     same tree, and a head that is behind is rebuilt by the next run;
@@ -86,18 +83,48 @@ name: Dependabot auto-merge
 #     for one opened with the App; without the App it never starts, and the ruleset then keeps that
 #     pull request from merging at all, a human's included.
 #
+# What the deletions add:
+#
+#   * it adds no line to the template: a pull request that can only take lines away cannot bring in a
+#     model, an address or a key, whatever made it;
+#   * what it takes away is read line by line in the diff, not counted: whole model entries, the
+#     cascade slots that name an entry going in the same diff, comments and blank lines, and
+#     nothing else. A setting, an address, or the model of an entry that stays is not a model, and
+#     a person reads a diff that deletes one. Counting alone would let settings through under the
+#     name of a deletion, as long as there were few enough;
+#   * it deletes at least one and at most REMOVALS_MAX_ENTRIES entries and REMOVALS_MAX_LINES
+#     lines, counted in the diff, the entries a commented-out one included: a run that would delete
+#     more has read a catalogue that is wrong, or is being made to, and a person looks first.
+#
+# What the sheet corrections add. A sheet is the "model_info" of an entry, which the routers read
+# to keep a request away from a member it does not fit. A value that comes from a provider's
+# catalogue needs no judgment, and CI refuses the one thing that would contradict an entry, a length
+# it sets that the new sheet no longer allows:
+#
+#   * every changed line of the template is a sheet line rewritten in place, read in the whole file as it
+#     is on main and as it is on the head, not in the patch alone, which shows too few lines to tell which entry
+#     a line is in: the same number of lines, and on each changed line the same key, indentation,
+#     spacing and trailing comment, a positive whole number or true or false, in the "model_info" of
+#     an entry. Nothing is added, removed or moved. The function that asks it is the "sheet guard" of
+#     "LiteLLM_model_drift.yml", copied byte for byte: neither workflow can load a file of the
+#     repository, and "check_drift_publish_guard.py" plays both copies on the same cases and refuses
+#     a pair that differs;
+#   * it rewrites at least one and at most SHEETS_MAX_VALUES values, one line taken out and one put
+#     in for each, counted in the diff: a catalogue that turns wrong all at once (a renamed field,
+#     a unit changed) has one cause and many values, and a person looks first.
+#
 # "check_auto_merge_gate.py" runs the step below against made-up pull requests -- those that must
 # merge and, one by one, the shapes that must not -- and breaks its script and its environment a
 # guard at a time to prove a scenario notices each. A guard that stops guarding is otherwise seen by
 # nobody.
 #
-# The branch name is written here, in the "if:" of the job and in the step below, and in
+# Each branch name is written here, in the "if:" of the job and in the step below, and in
 # "LiteLLM_model_drift.yml", where it is made: "check_required_checks.py" fails CI when they differ.
 #
 # What the step below refuses, and why each refusal is there:
 #
-#   * a pull request neither opened by Dependabot nor the model-drift deletions above, or not based
-#     on main, or whose head is not the commit that was just checked -- the merge is pinned to that
+#   * a pull request neither opened by Dependabot nor one of the model-drift pull requests above, or
+#     not based on main, or whose head is not the commit that was just checked -- the merge is pinned to that
 #     SHA, so a push that lands between the check and the merge makes GitHub refuse the merge
 #     rather than merge unchecked code;
 #   * (Dependabot) any update that is not semver-minor or semver-patch, read from the metadata
@@ -105,7 +132,7 @@ name: Dependabot auto-merge
 #   * (Dependabot) any commit on the branch that is not Dependabot's own and signed as such. A
 #     branch someone pushed to has stopped being a Dependabot update, whatever its title says.
 #     Nothing in this repository writes to a Dependabot branch, so there is no exception to that;
-#   * (the deletions) anything the list above does not allow;
+#   * (the deletions, the sheet corrections) anything the lists above do not allow;
 #   * a required check that is missing, still running, or anything but a success -- cancelled and
 #     skipped included, since neither says the change was checked.
 #
@@ -142,7 +169,7 @@ concurrency:
 
 jobs:
   merge:
-    name: Merge a green Dependabot update or model deletion
+    name: Merge a green Dependabot update or model drift pull request
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # A cheap filter so that the completion of every workflow on every branch does not take a
@@ -151,7 +178,8 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       (startsWith(github.event.workflow_run.head_branch, 'dependabot/') ||
-      github.event.workflow_run.head_branch == 'claude/LiteLLM-model-drift-removals')
+      github.event.workflow_run.head_branch == 'claude/LiteLLM-model-drift-removals' ||
+      github.event.workflow_run.head_branch == 'claude/LiteLLM-model-drift-sheets')
     permissions:
       # Merging a pull request is a write to the repository's contents; nothing else here writes.
       contents: write
@@ -168,26 +196,32 @@ jobs:
         uses: actions/github-script@v9
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          # The model-drift deletions: see the header.
+          # The model-drift deletions and sheet corrections: see the header.
           REMOVALS_BRANCH: claude/LiteLLM-model-drift-removals
-          # The slug of the GitHub App that workflow opens the pull request with, when it has one:
-          # the pull request is then authored by "<slug>[bot]" and not by the Actions bot, which
+          SHEETS_BRANCH: claude/LiteLLM-model-drift-sheets
+          # The slug of the GitHub App that workflow opens its pull requests with, when it has one:
+          # a pull request is then authored by "<slug>[bot]" and not by the Actions bot, which
           # stays accepted. A repository variable only an administrator can set, empty until the
           # App is configured. Used only if it is a slug, which is lowercase letters, digits and
           # hyphens; anything else leaves the Actions bot alone.
           MODEL_DRIFT_APP_SLUG: ${{ vars.MODEL_DRIFT_APP_SLUG }}
-          REMOVALS_FILE: templates/LiteLLM_config.yaml.j2
-          # The catalogue generated from it and the figures file the catalogue shows, the two other files such
-          # a pull request may change: rewritten, under a cap on the lines each changes.
-          REMOVALS_CATALOG_FILE: docs/CATALOG.md
-          REMOVALS_SCORES_FILE: docs/catalog_scores.json
-          REMOVALS_GENERATED_MAX_CHANGES: '4000'
+          # The one model file either changes, and the two files generated from it that either may rewrite
+          # beside it, under a cap on the lines each changes.
+          DRIFT_FILE: templates/LiteLLM_config.yaml.j2
+          DRIFT_CATALOG_FILE: docs/CATALOG.md
+          DRIFT_SCORES_FILE: docs/catalog_scores.json
+          DRIFT_GENERATED_MAX_CHANGES: '4000'
           REMOVALS_MAX_ENTRIES: '5'
           REMOVALS_MAX_LINES: '200'
-          # The title of the section of its body that asks a person to read.
-          # "check_auto_merge_gate.py" reads the script that writes that section, and fails if it
-          # stops fitting.
+          # How many sheet values one pull request may rewrite and still merge itself. A catalogue
+          # that turns wrong at once (a renamed field, a unit changed) rewrites many values with one
+          # cause, and that is a person's to read before it reaches the file the routers read.
+          SHEETS_MAX_VALUES: '10'
+          # The title of the section of the body of each that asks a person to read.
+          # "check_auto_merge_gate.py" reads the script that writes them, and fails if it stops
+          # fitting.
           REMOVALS_REVIEW_HEADING: '## À relire'
+          SHEETS_REVIEW_HEADING: '## À relire'
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -296,6 +330,53 @@ jobs:
             }
 
 
+            // BEGIN sheet guard
+            // What the job that made the template may hand over for the pull request of the sheet
+            // corrections: the template on the commit it worked on with the value of lines written
+            // again, each a "max_input_tokens", "max_output_tokens" or "supports_vision" line of the
+            // "model_info" of an entry, kept as it is but for that value (a positive whole number, or
+            // true or false for the image flag). A line added, removed or changed otherwise, a changed
+            // key, indentation or comment, a line outside the "model_info" of an entry, is refused.
+            // Returns why, or null. The same block stands in LiteLLM_model_drift.yml, where the job that
+            // writes asks it of the template it was handed, and in dependabot-auto-merge.yml, where the gate
+            // asks it of a pull request: neither can load a file of the repository, so each holds its copy.
+            // "check_drift_publish_guard.py" plays both on the same cases and refuses a pair that differs.
+            // Keep the markers.
+            const SHEET_LINE = /^([ \t]+)(max_input_tokens|max_output_tokens|supports_vision):([ \t]+)([0-9]+|true|false)((?:[ \t]+#.*)?[ \t]*)$/;
+            const sheetValueFits = (key, value) =>
+              (key === 'supports_vision' ? /^(true|false)$/ : /^[1-9][0-9]{0,11}$/).test(value);
+            const sheetIndent = (line) => line.length - line.trimStart().length;
+            const sheetParent = (lines, index) => {
+              const own = sheetIndent(lines[index]);
+              for (let at = index - 1; at >= 0; at -= 1) {
+                if (lines[at].trim() === '' || /^\s*#/.test(lines[at])) continue;
+                if (sheetIndent(lines[at]) < own) return { at, line: lines[at] };
+              }
+              return null;
+            };
+            const sheetProblem = (baseText, newText) => {
+              if (typeof baseText !== 'string' || typeof newText !== 'string') return 'a template is no text';
+              if (baseText.includes('\r') || newText.includes('\r')) return 'a template holds a carriage return';
+              const before = baseText.split('\n');
+              const after = newText.split('\n');
+              if (before.length !== after.length) return `it has ${after.length} lines and the base ${before.length}: a line was added or removed`;
+              for (let index = 0; index < before.length; index += 1) {
+                if (before[index] === after[index]) continue;
+                const was = SHEET_LINE.exec(before[index]);
+                const now = SHEET_LINE.exec(after[index]);
+                if (!was || !now) return `line ${index + 1} is changed and is not a sheet line of the base: ${after[index].slice(0, 120)}`;
+                if (was[1] !== now[1] || was[2] !== now[2] || was[3] !== now[3] || was[5] !== now[5]) return `line ${index + 1} changes more than the value of its sheet field`;
+                if (!sheetValueFits(was[2], was[4]) || !sheetValueFits(now[2], now[4])) return `line ${index + 1} gives ${now[2]} a value that is no positive whole number or flag`;
+                const info = sheetParent(before, index);
+                if (!info || !/^\s*model_info:\s*(?:#.*)?$/.test(info.line)) return `line ${index + 1} is not in a model_info`;
+                const entry = sheetParent(before, info.at);
+                if (!entry || !/^\s*-\s+model_name:\s*\S+\s*$/.test(entry.line)) return `line ${index + 1} is in a model_info that is no entry's`;
+              }
+              return null;
+            };
+            // END sheet guard
+
+
             const defaultBranch = context.payload.repository.default_branch;
             const allowedUpdateTypes = new Set([
               'version-update:semver-minor',
@@ -334,16 +415,19 @@ jobs:
             const label = `#${pr.number} (${pr.title})`;
 
             const dependabot = pr.user.login === 'dependabot[bot]';
-            // The model-drift deletions: opened with the workflow's own token or with its GitHub
-            // App's, on its one fixed branch. What else either opens is none of this step's business.
-            // Only the author widens with the App: the one commit below is still the Actions bot's.
+            // The model-drift deletions and sheet corrections: opened with the workflow's own token or
+            // with its GitHub App's, each on its one fixed branch. What else either opens is none of
+            // this step's business. Only the author widens with the App: the one commit below is
+            // still the Actions bot's.
             const appSlug = process.env.MODEL_DRIFT_APP_SLUG ?? '';
-            const removalsAuthors = ['github-actions[bot]'];
-            if (/^[a-z0-9-]+$/.test(appSlug)) removalsAuthors.push(`${appSlug}[bot]`);
-            const removals = removalsAuthors.includes(pr.user.login) &&
+            const driftAuthors = ['github-actions[bot]'];
+            if (/^[a-z0-9-]+$/.test(appSlug)) driftAuthors.push(`${appSlug}[bot]`);
+            const removals = driftAuthors.includes(pr.user.login) &&
               pr.head.ref === process.env.REMOVALS_BRANCH;
-            if ((!dependabot && !removals) || pr.draft) {
-              core.notice(`${label} is neither a Dependabot pull request nor the model deletions, or is a draft. Left alone.`);
+            const sheets = driftAuthors.includes(pr.user.login) &&
+              pr.head.ref === process.env.SHEETS_BRANCH;
+            if ((!dependabot && !removals && !sheets) || pr.draft) {
+              core.notice(`${label} is neither a Dependabot pull request nor the model deletions nor the sheet corrections, or is a draft. Left alone.`);
               return;
             }
 
@@ -376,14 +460,16 @@ jobs:
               // Not signed, unlike Dependabot's: the workflow makes its commit through the API with
               // an author of its own, which GitHub does not sign. The author is told by name, and
               // is no boundary against someone who can push here -- they can push to main. What
-              // bounds this merge is that it can only take lines away, below.
+              // bounds this merge is what the file can change, below: lines taken away for the
+              // deletions, the value of sheet lines for the corrections.
               if (commits.length !== 1 || commits[0].author?.login !== 'github-actions[bot]') {
                 core.notice(`${label}: the branch is not main plus the one commit the workflow made. It is waiting for a human.`);
                 return;
               }
-              const heading = process.env.REMOVALS_REVIEW_HEADING.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const heading = (removals ? process.env.REMOVALS_REVIEW_HEADING : process.env.SHEETS_REVIEW_HEADING)
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
               if (new RegExp(`^${heading}\\s*$`, 'm').test(pr.body ?? '')) {
-                core.notice(`${label} lists what a person has to read once these models are gone. It is waiting for a human.`);
+                core.notice(`${label} lists what a person has to read ${removals ? 'once these models are gone' : 'before these sheets are corrected'}. It is waiting for a human.`);
                 return;
               }
               const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -398,24 +484,22 @@ jobs:
               // step has just required green: it refuses a figures file that is not numbers for entries of
               // the template, and a catalogue that is not what the template, the contracts and those
               // figures produce. So what a compromised reader could still do through them is put wrong
-              // figures in the catalogue, which steer no routing.
-              const generatedNames = [process.env.REMOVALS_CATALOG_FILE, process.env.REMOVALS_SCORES_FILE];
+              // figures in the catalogue, which steer no routing. Every count and rule below is of the
+              // template's patch alone.
+              const generatedNames = [process.env.DRIFT_CATALOG_FILE, process.env.DRIFT_SCORES_FILE];
               const generated = files.filter((each) => generatedNames.includes(each.filename));
               const others = files.filter((each) => !generatedNames.includes(each.filename));
               const file = others[0] ?? {};
-              if (others.length !== 1 || file.filename !== process.env.REMOVALS_FILE ||
-                  file.status !== 'modified' || file.additions !== 0 || !file.patch) {
-                core.notice(`${label} is not a deletion of lines from ${process.env.REMOVALS_FILE} alone, beside ${generatedNames.join(' and ')}. It is waiting for a human.`);
+              if (others.length !== 1 || file.filename !== process.env.DRIFT_FILE ||
+                  file.status !== 'modified' || (removals && file.additions !== 0) || !file.patch) {
+                core.notice(`${label} is not ${removals ? 'a deletion of lines from' : 'a rewrite of sheet values in'} ${process.env.DRIFT_FILE} alone, beside ${generatedNames.join(' and ')}. It is waiting for a human.`);
                 return;
               }
               // A cap that is not a number would let every comparison below pass: refuse to merge
               // anything, loudly, rather than merge without it.
-              const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
-              const maxLines = Number(process.env.REMOVALS_MAX_LINES);
-              const maxGenerated = Number(process.env.REMOVALS_GENERATED_MAX_CHANGES);
-              if (!Number.isInteger(maxEntries) || !Number.isInteger(maxLines) || !Number.isInteger(maxGenerated) ||
-                  maxEntries < 1 || maxLines < 1 || maxGenerated < 1) {
-                core.setFailed(`REMOVALS_MAX_ENTRIES ("${process.env.REMOVALS_MAX_ENTRIES}"), REMOVALS_MAX_LINES ("${process.env.REMOVALS_MAX_LINES}") and REMOVALS_GENERATED_MAX_CHANGES ("${process.env.REMOVALS_GENERATED_MAX_CHANGES}") must be positive whole numbers: no deletion pull request merges until they are.`);
+              const maxGenerated = Number(process.env.DRIFT_GENERATED_MAX_CHANGES);
+              if (!Number.isInteger(maxGenerated) || maxGenerated < 1) {
+                core.setFailed(`DRIFT_GENERATED_MAX_CHANGES ("${process.env.DRIFT_GENERATED_MAX_CHANGES}") must be a positive whole number: no drift pull request merges until it is.`);
                 return;
               }
               const rewritten = generatedNames.map((name) => generated.filter((each) => each.filename === name));
@@ -424,18 +508,44 @@ jobs:
                 core.notice(`${label} does not rewrite ${generatedNames.join(' and ')} as files that exist, changed as text and under ${maxGenerated} changed lines each. It is waiting for a human.`);
                 return;
               }
-              // Every line of a patch that starts with "-" is a deleted one, a YAML list item
-              // included ("-  - model_name: x"): the patch carries no "---" file header.
-              const deleted = file.patch.split('\n').filter((line) => line.startsWith('-'));
-              const entries = deleted.filter((line) => /^-\s*(?:#\s*)?-\s+model_name\s*:/.test(line)).length;
-              if (deleted.length !== file.deletions || entries === 0 || !(entries <= maxEntries) || !(deleted.length <= maxLines)) {
-                core.notice(`${label} deletes ${entries} entries in ${deleted.length} line(s) (${file.deletions} counted by GitHub); only 1 to ${maxEntries} entries and ${maxLines} lines merge themselves. It is waiting for a human.`);
-                return;
-              }
-              const shape = removalsPatchProblem(file.patch);
-              if (shape) {
-                core.notice(`${label}: ${shape}. It is waiting for a human.`);
-                return;
+              if (removals) {
+                // A cap that is not a number would let every comparison below pass: refuse to merge
+                // anything, loudly, rather than merge without it.
+                const maxEntries = Number(process.env.REMOVALS_MAX_ENTRIES);
+                const maxLines = Number(process.env.REMOVALS_MAX_LINES);
+                if (!Number.isInteger(maxEntries) || !Number.isInteger(maxLines) || maxEntries < 1 || maxLines < 1) {
+                  core.setFailed(`REMOVALS_MAX_ENTRIES ("${process.env.REMOVALS_MAX_ENTRIES}") and REMOVALS_MAX_LINES ("${process.env.REMOVALS_MAX_LINES}") must be positive whole numbers: no deletion pull request merges until they are.`);
+                  return;
+                }
+                // Every line of a patch that starts with "-" is a deleted one, a YAML list item
+                // included ("-  - model_name: x"): the patch carries no "---" file header.
+                const deleted = file.patch.split('\n').filter((line) => line.startsWith('-'));
+                const entries = deleted.filter((line) => /^-\s*(?:#\s*)?-\s+model_name\s*:/.test(line)).length;
+                if (deleted.length !== file.deletions || entries === 0 || !(entries <= maxEntries) || !(deleted.length <= maxLines)) {
+                  core.notice(`${label} deletes ${entries} entries in ${deleted.length} line(s) (${file.deletions} counted by GitHub); only 1 to ${maxEntries} entries and ${maxLines} lines merge themselves. It is waiting for a human.`);
+                  return;
+                }
+                const shape = removalsPatchProblem(file.patch);
+                if (shape) {
+                  core.notice(`${label}: ${shape}. It is waiting for a human.`);
+                  return;
+                }
+              } else {
+                const maxValues = Number(process.env.SHEETS_MAX_VALUES);
+                if (!Number.isInteger(maxValues) || maxValues < 1) {
+                  core.setFailed(`SHEETS_MAX_VALUES ("${process.env.SHEETS_MAX_VALUES}") must be a positive whole number: no sheet pull request merges until it is.`);
+                  return;
+                }
+                // One line taken out and one put in for each value, as GitHub counts them and as the
+                // patch holds them; that they stand at the same place, and are sheet lines, is asked
+                // of the two texts below.
+                const patchRows = file.patch.split('\n');
+                const taken = patchRows.filter((line) => line.startsWith('-')).length;
+                const put = patchRows.filter((line) => line.startsWith('+')).length;
+                if (taken !== file.deletions || put !== file.additions || taken !== put || taken === 0 || !(taken <= maxValues)) {
+                  core.notice(`${label} takes out ${taken} line(s) and puts in ${put} (${file.deletions} and ${file.additions} counted by GitHub); only 1 to ${maxValues} sheet values merge themselves, each one line for one line. It is waiting for a human.`);
+                  return;
+                }
               }
               // The checks ran on this head, and what lands is this head merged into main as it is
               // now: only a head that contains all of main makes the two the same tree.
@@ -445,6 +555,22 @@ jobs:
               if (comparison.behind_by !== 0) {
                 core.notice(`${label} is ${comparison.behind_by} commit(s) behind ${defaultBranch}, so the checks did not run on the tree that would land. The next run rebuilds it.`);
                 return;
+              }
+              if (sheets) {
+                // The two whole files, not the patch alone: a patch shows three lines around a change,
+                // too few to tell which "model_info" of which entry a line belongs to. The merge base
+                // is main as it is, the head being level with it.
+                const read = async (ref) => {
+                  const { data: text } = await github.rest.repos.getContent({
+                    owner, repo, path: process.env.DRIFT_FILE, ref, mediaType: { format: 'raw' },
+                  });
+                  return text;
+                };
+                const problem = sheetProblem(await read(comparison.merge_base_commit.sha), await read(headSha));
+                if (problem) {
+                  core.notice(`${label} is not ${process.env.DRIFT_FILE} on ${defaultBranch} with the value of sheet lines written again: ${problem}. It is waiting for a human.`);
+                  return;
+                }
               }
             }
 

@@ -409,9 +409,16 @@ publish nothing. One source announcing is enough and is cited; two that disagree
 because the provider says the model is active, keep the earliest day and print a warning naming
 both. The map never deletes anything, and an unreadable map costs the report only its own signal. A
 model free again or a new model no addition can carry stays a person's from the body of an addition
-pull request. An issue is opened for one thing only, a provider's catalogue still unreadable after
-the day's two retries. What the workflow needs and what it refuses to delete are in its header and
-in the docstring of the script.
+pull request. A sheet (`model_info`'s `max_input_tokens`, `max_output_tokens` and `supports_vision`)
+that differs from what its provider's catalogue states is corrected in a pull request of its own, one
+value to a line, read back like a deletion, carrying the catalogue and the figures file that follow its
+template like every other pull request of the workflow, and merged by CI when the template changes nothing
+but the value of sheet lines and its body leaves nothing to a person (a person otherwise, who reads the
+provider's page);
+its body names, under "À relire", the entries whose length the new sheet no longer allows, which
+`check_compose_template.py` refuses and a person adjusts by hand. An issue is opened for one thing
+only, a provider's catalogue still unreadable after the day's two retries. What the workflow needs
+and what it refuses to delete are in its header and in the docstring of the script.
 
 The checks render that file for a covering array of the provider keys, never for every set of them, which
 doubled with each provider: every case of the keys any one condition reads is rendered, plus each key alone,
@@ -468,8 +475,8 @@ check holds it to that: numbers within bounds, for entries of the template, days
 the drift script writes it, so that nothing a source or a reader could put in it is more than a wrong figure. Nothing
 that changes the template leaves the catalogue behind, the weekly drift run's pull requests included: its `read` job
 generates the catalogue from each template it makes, with the figures of its entries, and its `publish` job commits
-the three together. The gate that merges the deletions lets the two generated files change by any lines (invariant 9
-says what that opens), so the generator no longer has to write a catalogue a deletion only shortens; it still writes no
+the three together. The gate that merges the deletions and the sheet corrections lets the two generated files change by
+any lines (invariant 9 says what that opens), so the generator no longer has to write a catalogue a deletion only shortens; it still writes no
 count, rank or list of names joined on one line, which keeps a deletion's diff small. The free limits of the providers
 are in `ROUTAGE.md`, linked from the catalogue and never copied, and `--check` holds the heading it links to.
 
@@ -773,21 +780,23 @@ required until then either. A change to `main.json`, a rename or an addition of 
 with the maintainer's re-import, and its pull request body says so. `check_required_checks.py` fails
 CI until the file follows the workflows; it cannot see what is imported.
 
-**Dependabot's updates and the model-deletion pull request are merged by CI.**
+**Dependabot's updates and the model-drift deletion and sheet-correction pull requests are merged by CI.**
 `dependabot-auto-merge.yml` merges a minor or patch one only once every check
 `.github/rulesets/main.json` names has succeeded on its head commit (invariant 9), so the gate and the
 ruleset ask the same. Renaming a job or adding one therefore changes what gates those merges, and
 `check_required_checks.py` fails CI until the file follows; renaming a workflow does the same to the
 `workflows:` list of `dependabot-auto-merge.yml`, which matches on the workflow's `name:` and not on
-its file. So is the pull request the model-drift run opens to delete the models their provider has
-retired: the same workflow merges it, but only a diff that adds no line to
-`templates/LiteLLM_config.yaml.j2`, deletes at most five entries and leaves nothing for a person to
-read (the workflow's header lists the conditions), `sign-off` among the checks. That pull request is
-opened with a GitHub App's token where the repository configures one, so that GitHub starts its
-checks itself, `sign-off` included, and the gate hears of them. Without one the workflow dispatches
-the checks itself, nothing starts `sign-off` on that pull request, and the ruleset keeps anybody
-from merging it: the App is what lets it merge (the header of the drift workflow names the
-variables).
+its file. So are the two pull requests the model-drift run opens, one to delete the models their provider
+has retired and one to correct the sheets of entries: the same workflow merges them, but only a
+deletion diff that adds no line to `templates/LiteLLM_config.yaml.j2`, deletes at most five entries
+and leaves nothing for a person to read, and a sheet diff that changes nothing but the value of
+sheet lines of that template, at most ten of them, and leaves nothing for a person to read, each beside
+the catalogue and the figures file rewritten by any lines (the workflow's header lists the conditions),
+`sign-off` among the checks. Those pull requests are opened with a GitHub App's
+token where the repository configures one, so that GitHub starts their checks itself, `sign-off`
+included, and the gate hears of them. Without one the workflow dispatches the checks itself, nothing
+starts `sign-off` on them, and the ruleset keeps anybody from merging them: the App is what lets
+them merge (the header of the drift workflow names the variables).
 
 `.githooks/pre-commit` refuses a commit earlier and locally, and only in a clone where `git config
 core.hooksPath .githooks` has been run. The session-start hook does it for a web session, and only
@@ -889,17 +898,25 @@ the role.
    template and the catalogue is what the three produce. The deletion pull request that workflow opens is merged by `dependabot-auto-merge.yml`
    under conditions of its own, all read from GitHub's account of the pull request and none from
    the text the workflow wrote into it, bar the one section of the body that says a person has to
-   read: no line added to the template, and no file but it and the two generated ones, `docs/CATALOG.md` and
-   `docs/catalog_scores.json`, each only rewritten (modified, never added, removed or renamed, at least one line
-   and at most the cap changed, whatever lines it gains or loses) and never without the template. That is the one
-   thing the gate opens beyond deleting lines, and it is opened on purpose: a compromised `read` job could
-   publish wrong figures in a pull request that merges unseen, figures that steer no routing, and nothing in
-   those two files reaches a cascade, an entry or a head. Five entries and two hundred lines at most, counted on the template, every deleted line a
+   read, for both pull requests: no file but the template and the two generated ones, `docs/CATALOG.md` and
+   `docs/catalog_scores.json`, each of those only rewritten (modified, never added, removed or renamed, at
+   least one line and at most the cap changed, whatever lines it gains or loses) and never without the
+   template. That is the one thing the gate opens beyond what it reads in the template, and it is opened on
+   purpose: a compromised `read` job could publish wrong figures in a pull request that merges unseen,
+   figures that steer no routing, and nothing in those two files reaches a cascade, an entry or a head. The
+   counts and the lines below are the template's alone. For a deletion: no line added to the template, five
+   entries and two hundred lines at most, every deleted line a
    whole entry, a cascade slot of one deleted in the same diff, a comment or a blank line, a head
    that contains all of `main`, and every check the ruleset names, `sign-off` included. Loosen any of
    them and a compromised `read` job gets more of the file deleted: counting lines alone would let it
-   delete settings. `check_auto_merge_gate.py` plays the step against made-up pull requests and breaks
-   its script a guard at a time, so a guard that stops guarding fails CI instead of going unseen.
+   delete settings. The sheet-correction pull request is merged under the same frame, with other
+   lines to read: the two whole template files, on `main` and on its head, equal but for the value of at most
+   ten sheet lines, each in the `model_info` of an entry, with the same key, indentation and comment
+   (the patch alone shows too few lines to tell which entry a line is in). The function that asks it
+   is written twice, in the publish job and in the gate, neither being able to load a file of the
+   repository, and `check_drift_publish_guard.py` refuses two copies that differ. `check_auto_merge_gate.py`
+   plays the step against made-up pull requests and breaks its script a guard at a time, so a guard
+   that stops guarding fails CI instead of going unseen.
 
 10. **`postgres` starts through `sh -c`, and LiteLLM is not its superuser (#159).** The official image
     makes `POSTGRES_USER` the bootstrap superuser, which can never lose the attribute, so LiteLLM logs

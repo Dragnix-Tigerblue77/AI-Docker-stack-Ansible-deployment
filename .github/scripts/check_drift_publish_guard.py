@@ -23,6 +23,16 @@ added or changed, a row naming something that is no entry of the file, one testi
 template does not declare, one with a condition the form does not have, one with Jinja in it, rows
 exchanged, a row moved, a row repeated, a table the base did not have.
 
+The same step keeps the pull request of the sheet corrections, whose template the other job writes and the step
+pushes only if the function between the "BEGIN/END sheet guard" markers finds it equal to main's but for the value
+of lines of a sheet. The gate, "dependabot-auto-merge.yml", asks the same question of that pull request before it
+merges it, and holds the same block between the same markers: neither workflow can load a file of the repository,
+so each carries a copy, and this check refuses a pair that differs by a character and plays both on the same
+cases. That function is played on a miniature template and on the real one: one value, several and
+one before a comment rewritten, accepted; a line added or removed, another key, an entry's name or a comment
+changed, a value that is no number or flag, is zero or has too many digits, a key, a spacing, an indentation or a
+comment after the value changed, a carriage return, and a sheet line outside the "model_info" of an entry refused.
+
 The same step keeps the two pull requests of additions, and builds the template each carries from a
 provider, an id and a name per model, between the "BEGIN/END additions builder" markers. That builder
 is played on the real template and on a miniature one: what it must build -- every provider, active
@@ -44,7 +54,13 @@ commit with the pull request open (left alone) and without (the step fails); the
 differing from the one built; proposals of another shape or a status the step does not know; a failing
 deletion that leaves the additions done; a commit of the other job that is not on main. The deletions,
 which share the step's code with them, are played the same way: pushed and opened ready for review, a
-line added refused, a person's commit failing the step, closed when nothing is left.
+line added refused, a person's commit failing the step, closed when nothing is left. So are the sheet
+corrections: pushed with the catalogue and the figures handed over beside the template, as the others are, and opened
+ready for review, a template that is not main's with sheet values rewritten refused, a catalogue or figures that are
+empty, too large or not JSON refused with nothing pushed, a branch with a stale catalogue or figures moved, the same
+ones again pushing nothing, other values moving the branch, closed only when no difference is
+left and every catalogue it draws on was read and the report trusted, a person's commit leaving the open pull
+request alone, and sheets of another shape refused.
 
 The workflow keeps an issue for one thing, a catalogue still unreadable at the day's last attempt, and
 two more scripts decide it. The gate's, between "BEGIN/END gate", is played on made-up days: a run
@@ -63,7 +79,7 @@ word is no provider and class it knows, when the status and the catalogues named
 earlier time is no time.
 
 "--selftest" proves the scenarios can fail: it breaks the function one guard at a time and requires
-some scenario to notice each, then does the same to the builder and the step, to the gate and to the
+some scenario to notice each, then does the same to the sheet guard, the builder and the step, to the gate and to the
 issue step, and reorders the crons without the gate. A guard no scenario notices is one this check
 cannot vouch for.
 
@@ -95,6 +111,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "LiteLLM_model_drift.yml"
+GATE_WORKFLOW = ROOT / ".github" / "workflows" / "dependabot-auto-merge.yml"
 TEMPLATE = ROOT / "templates" / "LiteLLM_config.yaml.j2"
 STEP = "Open, update or close the drift pull requests"
 BEGIN, END = "// BEGIN template guard", "// END template guard"
@@ -306,6 +323,218 @@ def run_selftest():
         return 1
     print("check_drift_publish_guard selftest: %d scenario(s) judged as expected, %d broken guard(s) noticed."
           % (len(cases), len(MUTATIONS)))
+    return 0
+
+
+# ---------------------------------------------------------------------------------------------------
+# The sheet corrections: the guard on the template the other job hands over
+# ---------------------------------------------------------------------------------------------------
+
+SHEET_BEGIN, SHEET_END = "// BEGIN sheet guard", "// END sheet guard"
+
+SHEET_HARNESS = r"""
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const sheetProblem = new Function(input.guard + '\nreturn sheetProblem;')();
+process.stdout.write(JSON.stringify(input.cases.map((c) => sheetProblem(c.base, c.new))));
+"""
+
+
+def load_sheet_guard():
+    _, step = step_document()
+    script = step["with"]["script"]
+    if script.count(SHEET_BEGIN) != 1 or script.count(SHEET_END) != 1:
+        raise SystemExit("the step's script must hold the markers %r and %r once each" % (SHEET_BEGIN, SHEET_END))
+    # The wiring: the step calls the function on the base it read and on the file the other job handed over, and
+    # a problem stops the push.
+    if not re.search(r"const problem = sheetProblem\(baseText, content\);", script):
+        raise SystemExit("the step does not call sheetProblem on the base it read and the file it was handed")
+    if not re.search(r"if \(problem\) \{\s*core\.setFailed\([^;]*\);\s*return;\s*\}\s*if \(body\.length", script):
+        raise SystemExit("the step does not stop when sheetProblem finds a problem")
+    return script.split(SHEET_BEGIN, 1)[1].split(SHEET_END, 1)[0]
+
+
+def load_gate_sheet_guard():
+    """The same block as the step's, as the gate holds it, after checking that the gate calls it on the two
+    files it read: the merge base and the head."""
+    document = yaml.safe_load(GATE_WORKFLOW.read_text(encoding="utf-8"))
+    steps = [step for step in document["jobs"]["merge"]["steps"] if step.get("id") == "merge"]
+    if len(steps) != 1:
+        raise SystemExit("%s holds %d step(s) with the id 'merge', expected one." % (GATE_WORKFLOW.name, len(steps)))
+    script = steps[0]["with"]["script"]
+    if script.count(SHEET_BEGIN) != 1 or script.count(SHEET_END) != 1:
+        raise SystemExit("the gate's script must hold the markers %r and %r once each" % (SHEET_BEGIN, SHEET_END))
+    if not re.search(r"sheetProblem\(await read\(comparison\.merge_base_commit\.sha\), await read\(headSha\)\)", script):
+        raise SystemExit("the gate does not call sheetProblem on the merge base and the head it read")
+    return script.split(SHEET_BEGIN, 1)[1].split(SHEET_END, 1)[0]
+
+
+def sheet_guards(publish=None, gate=None):
+    """[(where it stands, its text)] for the two copies, after refusing a pair that is not the same text."""
+    publish = load_sheet_guard() if publish is None else publish
+    gate = load_gate_sheet_guard() if gate is None else gate
+    if publish != gate:
+        mine, theirs = publish.split("\n"), gate.split("\n")
+        at = next((n for n, (a, b) in enumerate(zip(mine, theirs)) if a != b), min(len(mine), len(theirs)))
+        raise SystemExit("the sheet guard of %s is not the one of %s, character for character (the first difference is "
+                         "on its line %d): change both together." % (GATE_WORKFLOW.name, WORKFLOW.name, at + 1))
+    return [("the job that writes", publish), ("the gate", gate)]
+
+
+def sheet_scenarios():
+    """[(name, base, new, expected)], expected being None (accepted) or a text the reason contains."""
+    miniature = drift_selftest_module().SHEET_TEMPLATE
+    real = TEMPLATE.read_text(encoding="utf-8")
+    out = []
+
+    def swap(text, old, new):
+        assert old in text, old
+        return text.replace(old, new, 1)
+
+    def exchange(text):
+        """The values of the first two windows written the other way round."""
+        lines = text.split("\n")
+        places = [number for number, line in enumerate(lines) if re.fullmatch(r"      max_input_tokens: [0-9]+", line)]
+        first, second = places[0], places[1]
+        lines[first], lines[second] = lines[second], lines[first]
+        return "\n".join(lines)
+
+    for label, base, window, output, vision, litellm in (
+            ("miniature", miniature, "      max_input_tokens: 131072\n", "      max_output_tokens: 8192\n",
+             "      supports_vision: false\n", "      model: openrouter/vendor/one:free\n"),
+            ("real template", real, "      max_input_tokens: 1048576\n", "      max_output_tokens: 65536\n",
+             "      supports_vision: true\n", "      model: gemini/gemini-4-hydrogen\n")):
+        tag = label + ": "
+        flag = "      supports_vision: %s\n" % ("true" if "false" in vision else "false")
+        add = lambda name, new, expected, base=base, tag=tag: out.append((tag + name, base, new, expected))
+        add("nothing changed", base, None)
+        add("a window rewritten", swap(base, window, "      max_input_tokens: 7\n"), None)
+        add("a longest answer rewritten", swap(base, output, "      max_output_tokens: 4096\n"), None)
+        add("an image flag turned over", swap(base, vision, flag), None)
+        add("several values, of several entries",
+            swap(swap(swap(base, window, "      max_input_tokens: 7\n"), output, "      max_output_tokens: 9\n"),
+                 vision, flag), None)
+        add("two entries given each other's window", exchange(base), None)
+        commented = swap(base, window, window.rstrip("\n") + "  # read on the page\n")
+        was_commented = window.rstrip("\n") + "  # read on the page\n"
+        out.append((tag + "a value rewritten before its comment", commented,
+                    swap(commented, was_commented, "      max_input_tokens: 7  # read on the page\n"), None))
+        add("a line added", swap(base, window, window + "      max_input_tokens: 7\n"), "a line was added or removed")
+        add("a line removed", swap(base, window, ""), "a line was added or removed")
+        add("a blank line added", base + "\n", "a line was added or removed")
+        add("another key changed", swap(base, litellm, litellm.replace("model:", "model_name:")),
+            "is not a sheet line")
+        add("an entry renamed", swap(base, "  - model_name: ", "  - model_name: x"), "is not a sheet line")
+        add("a comment changed", swap(base, "model_list:\n", "model_list:  # x\n"), "is not a sheet line")
+        add("a value that is no number", swap(base, window, "      max_input_tokens: lots\n"), "is not a sheet line")
+        add("a value that is a decimal", swap(base, window, "      max_input_tokens: 1.5\n"), "is not a sheet line")
+        add("a negative value", swap(base, window, "      max_input_tokens: -5\n"), "is not a sheet line")
+        add("a value of zero", swap(base, window, "      max_input_tokens: 0\n"), "no positive whole number")
+        add("a value too long to be a count", swap(base, window, "      max_input_tokens: 1%s\n" % ("0" * 12)),
+            "no positive whole number")
+        add("a flag in a count", swap(base, window, "      max_input_tokens: true\n"), "no positive whole number")
+        add("a number in the image flag", swap(base, vision, "      supports_vision: 1\n"), "no positive whole number")
+        add("a value written through Jinja", swap(base, window, "      max_input_tokens: {{ window }}\n"),
+            "is not a sheet line")
+        add("a key changed to another", swap(base, window, "      max_output_tokens: 1048576\n"),
+            "changes more than the value")
+        add("an indentation changed", swap(base, window, "    max_input_tokens: 7\n"), "changes more than the value")
+        add("a spacing changed", swap(base, window, "      max_input_tokens:  7\n"), "changes more than the value")
+        out.append((tag + "a comment after the value changed", commented,
+                    swap(commented, was_commented, "      max_input_tokens: 7  # elsewhere\n"),
+                    "changes more than the value"))
+        out.append((tag + "a comment after the value dropped", commented,
+                    swap(commented, was_commented, "      max_input_tokens: 7\n"), "changes more than the value"))
+        add("a line with a carriage return", swap(base, window, "      max_input_tokens: 7\r\n"), "carriage return")
+        outside = swap(base, litellm, litellm + "      max_input_tokens: 5\n")
+        out.append((tag + "a window written in litellm_params, left as it is", outside, outside, None))
+        out.append((tag + "a window rewritten in litellm_params", outside,
+                    swap(outside, "      max_input_tokens: 5\n", "      max_input_tokens: 6\n"),
+                    "is not in a model_info"))
+        loose = base.replace("model_list:\n", "model_list:\nrouter_settings:\n  model_info:\n    max_input_tokens: 5\n", 1)
+        out.append((tag + "a window rewritten under a model_info that is no entry's", loose,
+                    swap(loose, "    max_input_tokens: 5\n", "    max_input_tokens: 6\n"),
+                    "is in a model_info that is no entry's"))
+    out.append(("a template that is no text", "model_list:\n", None, "is no text"))
+    return out
+
+
+def play_sheet_guard(guard, cases):
+    if shutil.which("node") is None:
+        raise SystemExit("node is not on the PATH: this check runs the guard with it.")
+    payload = {"guard": guard, "cases": [{"base": base, "new": new} for _, base, new, _ in cases]}
+    results = node(SHEET_HARNESS, payload)
+    if len(results) != len(cases):
+        raise SystemExit("node answered %d sheet scenario(s) out of %d." % (len(results), len(cases)))
+    return results
+
+
+# What breaks in the sheet guard, one at a time: (what it stops doing, the text of the function, its replacement).
+SHEET_GUARD_MUTATIONS = [
+    ("refuse a line added or removed", "if (before.length !== after.length) return", "if (false) return"),
+    ("refuse a changed line that is no sheet line", "if (!was || !now) return", "if (!was || !now) continue; if (false) return"),
+    ("keep the indentation", "was[1] !== now[1] ||", ""),
+    ("keep the key", "|| was[2] !== now[2] ||", "||"),
+    ("keep the spacing", "|| was[3] !== now[3] ||", "||"),
+    ("keep the comment after the value", "|| was[5] !== now[5]) return", ") return"),
+    ("refuse a value that is no positive whole number, or no flag where the key is the image flag",
+     "if (!sheetValueFits(was[2], was[4]) || !sheetValueFits(now[2], now[4])) return", "if (false) return"),
+    ("refuse a count of more than twelve digits", "[1-9][0-9]{0,11}", "[1-9][0-9]*"),
+    ("refuse a count that is zero", "[1-9][0-9]{0,11}", "[0-9]{1,12}"),
+    ("refuse a line outside a model_info", "if (!info || !/^\\s*model_info:\\s*(?:#.*)?$/.test(info.line)) return", "if (!info) return"),
+    ("refuse a model_info that is no entry's", "if (!entry || !/^\\s*-\\s+model_name:\\s*\\S+\\s*$/.test(entry.line)) return", "if (!entry) return"),
+    ("refuse a carriage return", "if (baseText.includes('\\r') || newText.includes('\\r')) return", "if (false) return"),
+]
+
+
+def sheet_guard_wrong(guard=None):
+    guard = load_sheet_guard() if guard is None else guard
+    cases = sheet_scenarios()
+    return judge(cases, play_sheet_guard(guard, cases)), len(cases)
+
+
+def run_sheet_guard_selftest():
+    guards = sheet_guards()
+    for where, guard in guards:
+        wrong, _ = sheet_guard_wrong(guard)
+        if wrong:
+            print("the sheet guard of %s fails its own scenarios before anything is broken:" % where)
+            for name, why in wrong:
+                print("  %s: %s" % (name, why))
+            return 1
+    failures = 0
+    # A pair that differs is refused whatever the difference, so a break made to one copy alone is noticed
+    # by that alone: each copy is broken in turn, and the scenarios play it.
+    for where, guard in guards:
+        for label, old, new in SHEET_GUARD_MUTATIONS:
+            if guard.count(old) != 1:
+                failures += 1
+                print("selftest: the text of the sheet guard of %s that should %s has moved: %r" % (where, label, old))
+                continue
+            try:
+                noticed = bool(sheet_guard_wrong(guard.replace(old, new, 1))[0])
+            except SystemExit as error:
+                failures += 1
+                print("selftest: breaking the sheet guard of %s that should %s left a script that does not run: %s"
+                      % (where, label, str(error)[:200]))
+                continue
+            if noticed:
+                print("selftest: ok -- some scenario notices a sheet guard that stops, in %s: %s" % (where, label))
+            else:
+                failures += 1
+                print("selftest: FAILED -- no scenario notices a sheet guard that stops, in %s: %s" % (where, label))
+    # A pair of copies that differs, by one character, is refused.
+    for where, guard in guards:
+        try:
+            sheet_guards(guard + " ", guard)
+        except SystemExit:
+            print("selftest: ok -- a pair of copies that differs is refused (%s changed)" % where)
+        else:
+            failures += 1
+            print("selftest: FAILED -- a pair of copies that differs is accepted")
+    if failures:
+        return 1
+    print("check_drift_publish_guard selftest: the sheet guard, in both workflows, as expected, %d broken guard(s) "
+          "noticed in each." % len(SHEET_GUARD_MUTATIONS))
     return 0
 
 
@@ -794,6 +1023,7 @@ def step_scenarios(real, drift, folder):
     document, step = step_document()
     job_env = document["jobs"]["publish"]["env"]
     branches = {"ready": job_env["ADDITIONS_BRANCH"], "to_verify": job_env["ADDITIONS_TO_VERIFY_BRANCH"]}
+    sheet_branch = job_env["SHEETS_BRANCH"]
     date = "2026-11-23"
     built = {"ready": drift.build_additions(real, date, "ready", READY_ITEMS)[0],
              "to_verify": drift.build_additions(real, date, "to_verify", TO_VERIFY)[0]}
@@ -808,13 +1038,24 @@ def step_scenarios(real, drift, folder):
     figures = {"ready": '{\n "entries": {"a": 1}\n}\n', "to_verify": '{\n "entries": {"b": 2}\n}\n'}
     removal_catalog = "# Catalogue après suppression\n"
     removal_figures = '{\n "entries": {"c": 3}\n}\n'
+    sheet_catalog = "# Catalogue après correction des fiches\n"
+    sheet_figures = '{\n "entries": {"d": 4}\n}\n'
     files_of_a_commit = ["templates/LiteLLM_config.yaml.j2", "docs/CATALOG.md", "docs/catalog_scores.json"]
 
     def scenario(name, check, parts=None, refs=None, pulls=None, env=None, files=None, env_files=None,
-                 without=(), without_figures=(), **extra):
+                 without=(), without_figures=(), sheets=None, sheet_files=None, **extra):
         count[0] += 1
         where = pathlib.Path(folder) / ("s%d" % count[0])
         where.mkdir()
+        # What the other job hands over of the sheet corrections: by default, nothing to correct, every
+        # catalogue read. "sheets" False hands over no file at all, a dict is the file's content.
+        (where / "sheets").mkdir()
+        if sheets is not False:
+            state = {"date": date, "complete": True, "changes": 0, "left": 0}
+            state.update(sheets or {})
+            (where / "sheets" / "sheets.json").write_text(json.dumps(state), encoding="utf-8")
+        for name_of, text in (sheet_files or {}).items():
+            (where / "sheets" / name_of).write_text(text, encoding="utf-8")
         parts = {"ready": {"complete": True, "items": READY_ITEMS},
                  "to_verify": {"complete": True, "items": TO_VERIFY}} if parts is None else parts
         (where / "proposals.json").write_text(json.dumps(dict({"date": date}, **parts)), encoding="utf-8")
@@ -833,6 +1074,7 @@ def step_scenarios(real, drift, folder):
         environment.update({key: str(value) for key, value in job_env.items()})
         environment.update(NATIVE_CHECKS="false", DRIFT_STATUS="1", COVERED="complete", ISSUE_OUTCOME="success",
                            CHANGED="false", UNDELETED="0", BASE_SHA=BASE_SHA, PROPOSALS=str(where),
+                           SHEETS=str(where / "sheets"),
                            PR_BODY=str(where / "none"), COMMIT_MESSAGE=str(where / "none"),
                            TEMPLATE_FILE=str(where / "none"), CATALOG_FILE=str(where / "none"),
                            SCORES_FILE=str(where / "none"))
@@ -862,19 +1104,21 @@ def step_scenarios(real, drift, folder):
         """A branch the workflow made, holding "text" as the template, "catalog" as the catalogue and "scores" as the
         figures, which are the ones the proposals of its kind come with unless others are given."""
         kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify"}.get(branch)
-        catalog = catalogs.get(kind, removal_catalog) if catalog is None else catalog
-        scores = figures.get(kind, removal_figures) if scores is None else scores
+        sheets_kind = branch == sheet_branch
+        catalog = (sheet_catalog if sheets_kind else catalogs.get(kind, removal_catalog)) if catalog is None else catalog
+        scores = (sheet_figures if sheets_kind else figures.get(kind, removal_figures)) if scores is None else scores
         return {branch: {"sha": "head-" + branch, "tree": tree_of_files([text, catalog, scores]), "text": text,
                          "commits": [{"sha": "c1", "author": "github-actions[bot]", "parents": ["p"]}]}}
 
     def pull(number, branch, text, draft=False):
-        kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify"}.get(branch)
+        kind = {branches["ready"]: "ready", branches["to_verify"]: "to_verify", sheet_branch: "sheets"}.get(branch)
         return {"number": number, "title": titles.get(kind, "x"), "body": text, "draft": draft, "state": "open",
                 "head": {"ref": branch}}
 
     script = step["with"]["script"]
     titles = {"ready": re.search(r"ready: '([^']+)'", script).group(1),
-              "to_verify": re.search(r'to_verify: "([^"]+)"', script).group(1)}
+              "to_verify": re.search(r'to_verify: "([^"]+)"', script).group(1),
+              "sheets": re.search(r"const SHEETS_TITLE = '([^']+)'", script).group(1)}
 
     scenario("nothing open yet: both are opened, the one to verify as a draft, and their checks dispatched",
              lambda r: first(
@@ -1168,6 +1412,176 @@ def step_scenarios(real, drift, folder):
                  (any("without the files that go with them" in failure for failure in r["failures"]), "it did not fail"),
                  (len(created(r, branches["to_verify"])) == 1, "the other one was not opened")),
              without_figures=("ready",))
+
+    # The pull request of the sheet corrections shares the step's code, and has a branch of its own. It carries the
+    # catalogue and the figures that follow its template as every other pull request does, bounded the same way.
+    window = "      max_input_tokens: 1048576\n"
+    corrected = real.replace(window, "      max_input_tokens: 262144\n", 1)
+    older = real.replace(window, "      max_input_tokens: 524288\n", 1)
+    sheet_body = "Corrections.\n\n| Entrée | Champ |\n"
+    one_change = {"complete": True, "changes": 1, "left": 0}
+    sheet_files = {"sheets_template.j2": corrected, "sheets_catalog.md": sheet_catalog, "sheets_scores.json": sheet_figures,
+                   "sheets_body.md": sheet_body, "sheets_commit.txt": "Correct\n"}
+
+    def sheet_pull(number, text=sheet_body):
+        return pull(number, sheet_branch, text)
+
+    def sheet_refs(text, author="github-actions[bot]"):
+        return {sheet_branch: {"sha": "head-sheets", "tree": tree_of_files([text, sheet_catalog, sheet_figures]), "text": text,
+                               "commits": [{"sha": "c1", "author": author, "parents": ["p"]}]}}
+
+    scenario("the sheet corrections: a template with a value rewritten is pushed, its pull request opened ready for "
+             "review and its checks dispatched",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (blob_texts(r) == [corrected, sheet_catalog, sheet_figures],
+                  "it pushed another text than the template, its catalogue and its figures"),
+                 ([[entry["path"] for entry in args["tree"]] for args in calls(r, "git.createTree")] == [files_of_a_commit],
+                  "the commit does not hold the template, the catalogue and the figures, in one tree"),
+                 ([args["draft"] for args in created(r, sheet_branch)] == [False], "it was not opened ready for review"),
+                 ([args["title"] for args in created(r, sheet_branch)] == [titles["sheets"]], "its title is not the fixed one"),
+                 ([args["base"] for args in created(r, sheet_branch)] == ["main"], "it is not against main"),
+                 (all(args["parents"] == [BASE_SHA] for args in calls(r, "git.createCommit")), "the commit is not on the base"),
+                 (all("Signed-off-by: github-actions[bot]" in args["message"] for args in calls(r, "git.createCommit")),
+                  "the commit is not signed off"),
+                 (r["outputs"].get("numbers") == "101", "the number to assign is %r" % r["outputs"].get("numbers")),
+                 (len(calls(r, "actions.createWorkflowDispatch")) == 2, "its checks were not dispatched")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files)
+    scenario("the sheet corrections: with the App's token, no check is dispatched",
+             lambda r: first((not calls(r, "actions.createWorkflowDispatch"), "a check was dispatched"),
+                             (len(created(r, sheet_branch)) == 1, "it was not opened")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, env={"NATIVE_CHECKS": "true"})
+    for why, text, needle in (
+            ("a line added", corrected + "  # added\n", "a line was added"),
+            ("a line removed", corrected.replace("model_list:\n", "", 1), "a line was added or removed"),
+            ("another line changed", corrected.replace("model_list:\n", "model_list:  # changed\n", 1),
+             "is not a sheet line"),
+            ("an entry renamed", corrected.replace("  - model_name: gemini-4-hydrogen\n",
+                                                   "  - model_name: gemini-4-hydrogen-two\n", 1),
+             "is not a sheet line"),
+            ("a value that is no number", corrected.replace("max_input_tokens: 262144", "max_input_tokens: lots", 1),
+             "is not a sheet line")):
+        scenario("the sheet corrections: a template with %s is not pushed" % why,
+                 lambda r, needle=needle: first(
+                     (not calls(r, "git.createCommit") and not created(r, sheet_branch), "it was pushed"),
+                     (any("nothing is pushed" in failure and needle in failure for failure in r["failures"]),
+                      "it did not fail for the right reason: %s" % r["failures"][:1])),
+                 parts=empty_parts, sheets=one_change, sheet_files=dict(sheet_files, **{"sheets_template.j2": text}))
+    scenario("the sheet corrections: a catalogue that is empty is not pushed, and nothing is opened",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (not calls(r, "pulls.create"), "a pull request was opened"),
+                             (any("catalogue handed over for" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, sheets=one_change, sheet_files=dict(sheet_files, **{"sheets_catalog.md": ""}))
+    scenario("the sheet corrections: a catalogue larger than a catalogue is is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                             (any("longer than" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, sheets=one_change, sheet_files=dict(sheet_files, **{"sheets_catalog.md": "x" * 1000001}))
+    for what, text in (("empty", ""), ("larger than a figures file is", "x" * 1000001), ("not JSON", "not json"),
+                       ("an array", "[1]"), ("null", "null")):
+        scenario("the sheet corrections: figures that are %s are not pushed, and nothing is opened" % what,
+                 lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                                 (not calls(r, "pulls.create"), "a pull request was opened"),
+                                 (any("figures file handed over for" in failure for failure in r["failures"]),
+                                  "it did not fail")),
+                 parts=empty_parts, sheets=one_change, sheet_files=dict(sheet_files, **{"sheets_scores.json": text}))
+    for missing in ("sheets_catalog.md", "sheets_scores.json"):
+        scenario("the sheet corrections: a template handed over with no %s is not pushed" % missing,
+                 lambda r: first((not calls(r, "git.createCommit"), "it was pushed"),
+                                 (any("without the files that go with them" in failure for failure in r["failures"]),
+                                  "it did not fail")),
+                 parts=empty_parts, sheets=one_change,
+                 sheet_files={name: text for name, text in sheet_files.items() if name != missing})
+    scenario("the sheet corrections: a branch whose catalogue is the old one is moved, whatever its template",
+             lambda r: first((len(pushed(r, sheet_branch)) == 1, "the branch was not moved"),
+                             (blob_texts(r) == [corrected, sheet_catalog, sheet_figures], "it pushed another text")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files,
+             refs=ours(sheet_branch, corrected, "# Catalogue avant\n"), pulls=[sheet_pull(7)])
+    scenario("the sheet corrections: a branch whose figures are the old ones is moved, whatever its template",
+             lambda r: first((len(pushed(r, sheet_branch)) == 1, "the branch was not moved"),
+                             (blob_texts(r) == [corrected, sheet_catalog, sheet_figures], "it pushed another text")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files,
+             refs=ours(sheet_branch, corrected, scores='{\n "entries": {}\n}\n'), pulls=[sheet_pull(7)])
+    scenario("the sheet corrections: the same ones again rewrite nothing",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (not calls(r, "git.createCommit") and not pushed(r, sheet_branch), "a commit was pushed"),
+                 (not calls(r, "pulls.update") and not calls(r, "pulls.create"), "a pull request was written")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, refs=sheet_refs(corrected),
+             pulls=[sheet_pull(7)])
+    scenario("the sheet corrections: other values move the branch and rewrite the body of the open pull request",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (len(pushed(r, sheet_branch)) == 1 and all(args["force"] for args in calls(r, "git.updateRef")),
+                  "the branch was not moved"),
+                 (not calls(r, "pulls.create"), "a pull request was opened beside the open one"),
+                 (any(args["pull_number"] == 7 and args.get("body") == sheet_body for args in calls(r, "pulls.update")),
+                  "the body was not written again")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, refs=sheet_refs(older),
+             pulls=[sheet_pull(7, "an older body")])
+    scenario("the sheet corrections: no difference left, every catalogue read: closed with a comment",
+             lambda r: first(
+                 ([args["pull_number"] for args in calls(r, "pulls.update") if args.get("state") == "closed"] == [7],
+                  "it was not closed"),
+                 (len(calls(r, "issues.createComment")) == 1, "no comment says why"),
+                 (not calls(r, "git.createCommit"), "something was pushed")),
+             parts=empty_parts, refs=sheet_refs(corrected), pulls=[sheet_pull(7)])
+    for why, state, env in (("a catalogue of a provider that declares a sheet was not read", {"complete": False}, None),
+                            ("a difference was left to a person", {"left": 2}, None),
+                            ("a provider could not be read", {}, {"DRIFT_STATUS": "2"}),
+                            ("the report was not trusted", {}, {"ISSUE_OUTCOME": "failure"})):
+        scenario("the sheet corrections: nothing rewritten, but %s: the pull request stays open" % why,
+                 lambda r: first((not calls(r, "pulls.update") and not calls(r, "issues.createComment"),
+                                  "a pull request was closed or written"),
+                                 (not calls(r, "git.createCommit"), "something was pushed")),
+                 parts=empty_parts, sheets=state, refs=sheet_refs(corrected), pulls=[sheet_pull(7)], env=env)
+    scenario("the sheet corrections: a person's commit with the pull request open: left as it is, with no failure",
+             lambda r: first(
+                 (not r["failures"], "it failed: %s" % r["failures"][:1]),
+                 (not calls(r, "git.createCommit") and not pushed(r, sheet_branch), "the person's branch was overwritten"),
+                 (not calls(r, "pulls.update"), "their pull request was touched")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, refs=sheet_refs(older, "Somebody"),
+             pulls=[sheet_pull(7)])
+    scenario("the sheet corrections: a person's commit, nothing left to correct: the pull request is not closed",
+             lambda r: first((not calls(r, "issues.createComment") and not calls(r, "pulls.update"), "it was closed")),
+             parts=empty_parts, refs=sheet_refs(older, "Somebody"), pulls=[sheet_pull(7)])
+    scenario("the sheet corrections: a person's commit with no pull request open: the step fails and pushes nothing",
+             lambda r: first(
+                 (not calls(r, "git.createCommit") and not pushed(r, sheet_branch), "the person's branch was overwritten"),
+                 (any("delete the branch" in failure for failure in r["failures"]), "it did not fail to say so")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, refs=sheet_refs(older, "Somebody"))
+    for shape, state in (("a coverage that is no boolean", {"complete": "yes"}),
+                         ("a count that is negative", {"changes": -1}),
+                         ("a count that is no number", {"left": "2"}),
+                         ("a date that is no date", {"date": "yesterday"}),
+                         ("a status of nothing at all", None)):
+        scenario("the sheet corrections: sheets of another shape (%s) are refused" % shape,
+                 lambda r: first((any("not of the expected shape" in failure or "no sheets this step can read" in failure
+                                      for failure in r["failures"]), "it did not fail"),
+                                 (not calls(r, "git.createCommit") and not calls(r, "pulls.update"), "something was done")),
+                 parts=empty_parts, sheets=False if state is None else state, sheet_files=sheet_files)
+    scenario("the sheet corrections: a status the step does not know: nothing is done for them",
+             lambda r: first((not calls(r, "git.createCommit") and not calls(r, "pulls.update"), "something was done"),
+                             (any("does not know" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, env={"DRIFT_STATUS": "9"})
+    scenario("the sheet corrections: files missing from what the other job handed over: nothing is pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "something was pushed"),
+                             (any("without the files that go with them" in failure for failure in r["failures"]),
+                              "it did not fail")),
+             parts=empty_parts, sheets=one_change)
+    scenario("the sheet corrections: a body longer than GitHub accepts is not pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "something was pushed"),
+                             (any("longer than GitHub accepts" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, sheets=one_change, sheet_files=dict(sheet_files, **{"sheets_body.md": "x" * 65001}))
+    scenario("the sheet corrections: a commit of the other job that is not on main: nothing is pushed",
+             lambda r: first((not calls(r, "git.createCommit"), "a commit was made"),
+                             (any("is not on main" in failure for failure in r["failures"]), "it did not fail")),
+             parts=empty_parts, sheets=one_change, sheet_files=sheet_files, ancestry="diverged")
+    scenario("the sheet corrections fail, and the additions are still done",
+             lambda r: first(
+                 (any("the pull request of sheet corrections" in failure for failure in r["failures"]), "the failure is not said"),
+                 (len(created(r, branches["ready"])) == 1 and len(created(r, branches["to_verify"])) == 1,
+                  "the additions were not opened")),
+             broken=sheet_branch)
     scenario("a commit of the other job that is not on main: nothing is pushed",
              lambda r: first((not calls(r, "git.createCommit"), "a commit was made"),
                              (any("is not on main" in failure for failure in r["failures"]), "it did not fail")),
@@ -1384,6 +1798,32 @@ ADDITION_MUTATIONS = [
      "if (false) core.setFailed(`${branch} holds ${foreign}, so neither"),
     ("refuse a status it does not know", "if (!['0', '1', '2'].includes(status)) {\n", "if (false) {\n"),
     ("build on main only", "if (!['ahead', 'identical'].includes(ancestry.status))", "if (false)"),
+    ("push the sheet corrections only when the template is main's with sheet values rewritten",
+     "const problem = sheetProblem(baseText, content);", "const problem = null;"),
+    ("leave the sheet pull request a person is working on", "if (existing && foreign) {", "if (false) {"),
+    ("close the sheet pull request only when every catalogue it draws on was read", "|| !sheets.complete ||", "||"),
+    ("close the sheet pull request only when no difference is left to a person", "|| sheets.left !== 0 ||", "||"),
+    ("close the sheet pull request only on a trusted report", "sheets.left !== 0 || process.env.ISSUE_OUTCOME !== 'success'",
+     "sheets.left !== 0"),
+    ("keep the sheet pull request open when a provider could not be read", "if (status === '2' || !sheets.complete",
+     "if (!sheets.complete"),
+    ("commit the catalogue and the figures of the sheet corrections with their template",
+     "[[template, content], [catalog, sheetCatalog], [scores, sheetScores]]", "[[template, content]]"),
+    ("commit the figures of the sheet corrections with their template",
+     "[[template, content], [catalog, sheetCatalog], [scores, sheetScores]]",
+     "[[template, content], [catalog, sheetCatalog]]"),
+    ("read the catalogue the sheet corrections are handed with", "fs.readFileSync(`${folder}/sheets_catalog.md`, 'utf8')", "''"),
+    ("read the figures the sheet corrections are handed with", "fs.readFileSync(`${folder}/sheets_scores.json`, 'utf8')", "''"),
+    ("refuse the catalogue of the sheet corrections that is refused", "const sheetCatalogFlaw = catalogProblem(sheetCatalog);", "const sheetCatalogFlaw = null;"),
+    ("refuse the figures of the sheet corrections that are refused", "const sheetScoresFlaw = scoresProblem(sheetScores);", "const sheetScoresFlaw = null;"),
+    ("refuse sheets of another shape", "typeof sheets.complete !== 'boolean' ||", ""),
+    ("refuse sheets with a date that is no date", "!ADDITION_DATE.test(sheets.date) ||", ""),
+    ("refuse sheets of a status it does not know", "if (!known) {", "if (false) {"),
+    ("open the sheet pull request ready for review", "{ title: SHEETS_TITLE, existing, draft: false, body }",
+     "{ title: SHEETS_TITLE, existing, draft: true, body }"),
+    ("keep the title of the sheet pull request", "{ title: SHEETS_TITLE,", "{ title: 'x',"),
+    ("refuse a body GitHub would refuse for the sheet pull request", "if (body.length > 65000) {\n    core.setFailed(`The body proposed for ${sheetBranch}",
+     "if (false) {\n    core.setFailed(`The body proposed for ${sheetBranch}"),
     ("keep a branch whose days alone differ", "kept !== null && onlyDaysDiffer(kept, built) ? kept : built.text",
      "built.text"),
     ("keep only where the days alone differ", "keptLines.length === builtLines.length && keptLines.every(", "true || ("),
@@ -1848,7 +2288,8 @@ def run_attempts_selftest():
 
 def main(argv):
     if argv[1:] == ["--selftest"]:
-        return run_selftest() or run_additions_selftest() or run_attempts_selftest()
+        return (run_selftest() or run_sheet_guard_selftest() or run_additions_selftest()
+                or run_attempts_selftest())
     if argv[1:]:
         print("usage: check_drift_publish_guard.py [--selftest]", file=sys.stderr)
         return 2
@@ -1860,6 +2301,14 @@ def main(argv):
             print("  %s: %s" % (name, why))
         return 1
     print("Drift pull request guard: %d scenario(s) judged as expected." % len(cases))
+    for where, guard in sheet_guards():
+        wrong, played = sheet_guard_wrong(guard)
+        if wrong:
+            print("%d of %d scenario(s) of the sheet guard of %s went the wrong way:\n" % (len(wrong), played, where))
+            for name, why in wrong:
+                print("  %s: %s" % (name, why))
+            return 1
+        print("Sheet guard of %s: %d scenario(s) judged as expected." % (where, played))
     wrong, built = additions_wrong()
     if wrong:
         print("%d scenario(s) of the additions went the wrong way:\n" % len(wrong))
@@ -1867,7 +2316,7 @@ def main(argv):
             print("  %s: %s" % (name, why))
         return 1
     print("Additions: %d template(s) built alike by the step and the script, or refused by both, and the "
-          "step's handling of the three pull requests as expected." % built)
+          "step's handling of the four pull requests as expected." % built)
     wrong, played = attempts_wrong()
     if wrong:
         print("%d scenario(s) of the gate and the issue went the wrong way:\n" % len(wrong))
