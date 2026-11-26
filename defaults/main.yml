@@ -391,6 +391,17 @@ Artificial_Intelligence_LiteLLM_Aion_Labs_API_key: ""
 # LiteLLM's own "vercel_ai_gateway/" provider, whose base is Vercel's. ONE account: its terms were not read.
 # The container reads the key as "VERCEL_AI_GATEWAY_API_KEY", the name LiteLLM looks for.
 Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key: ""
+# Anthropic's Claude API, with a key of a Claude Console organisation. It has no free tier: every call is paid
+# from the organisation's balance. The Max, Ultra and Team plans of Claude include a monthly credit for this API
+# (100 USD on Max, 200 USD on Ultra, up to 500 USD pooled on Team), claimed once by linking a Console organisation
+# to the plan: a credit that expires at the end of each billing cycle and covers the Claude API but NOT Claude Code
+# ("platform.claude.com/docs/en/about-claude/api-credits-for-subscribers", read 2026-11-25). With no payment
+# method and Auto-reload off on the organisation, nothing is spent past the credit: a request finding none left is
+# refused, and the cascade moves on. So its entries are in one router of their own, "Auto-Paid", and in no other
+# cascade, and the agent's lists never name that router. The container reads the key as
+# "ANTHROPIC_CONSOLE_API_KEY", not "ANTHROPIC_API_KEY": LiteLLM's "/anthropic" pass-through route sends what a
+# caller asks there, a batch of any model included, with the key held under that second name.
+Artificial_Intelligence_LiteLLM_Anthropic_API_key: ""
 
 # GitHub Models retired 2026-07-30 (#109): every "github/*" entry of "LiteLLM_config.yaml.j2" that
 # used to read this key is commented out, so nothing consumes it any more. It is no longer a secret
@@ -633,7 +644,8 @@ Artificial_Intelligence_LibreChat_users: []
 # is left out: its cascade is held to strict tool calls and belongs to the agent. "Auto", which picks one of the
 # routers above for each request, is an entry of the "LLM" group and so is listed with it, without being named.
 # "Fiction" and "Auto-Fiction", the access group and the router of the role-play models, are left out, so that no
-# account inherits them: add either to the key of an account that is to try them. The role applies the list at every
+# account inherits them: add either to the key of an account that is to try them. "Auto-Paid", the router of the
+# models paid from a credit, is named, its models being in "LLM" already. The role applies the list at every
 # run, to the key an account already has as to a new one, so a change here reaches a deployed key by itself.
 # "check_compose_template.py" holds the names to the template's groups and routers.
 Artificial_Intelligence_LibreChat_gateway_key_models:
@@ -642,6 +654,7 @@ Artificial_Intelligence_LibreChat_gateway_key_models:
   - "Auto-Flash"
   - "Auto-Flash-Lite"
   - "Auto-Code"
+  - "Auto-Paid"
 
 # NOT a setting: where the role's "uri" tasks reach LibreChat's own API, on the node that runs them, to give an
 # account its gateway key. Derived from the port LibreChat is published on, so that one place names it.

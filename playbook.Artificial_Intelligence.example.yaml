@@ -104,6 +104,10 @@
         # Vercel AI Gateway serves some models out of a small monthly free credit, which needs a payment method on the
         # team: never buy credit and leave Auto-reload off, since the first purchase ends the free credit for good.
         Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key }}"
+        # Anthropic has no free tier: a key of a Claude Console organisation linked to a Max, Ultra or Team plan spends
+        # that plan's monthly API credit, which does not cover Claude Code. Add no payment method and leave Auto-reload
+        # off on the organisation, so that nothing is spent past the credit. Its models are only in "Auto-Paid".
+        Artificial_Intelligence_LiteLLM_Anthropic_API_key: "{{ vault_Artificial_Intelligence_LiteLLM_Anthropic_API_key }}"
 
         # A LIST (#103), empty by default: one entry per additional person, each becoming their own
         # restricted "internal_user" LiteLLM login with one virtual key -- which reaches every model

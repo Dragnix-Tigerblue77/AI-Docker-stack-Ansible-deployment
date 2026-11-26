@@ -755,7 +755,8 @@ TO_VERIFY = [item("gemini", "gemini-9-pro", "gemini-9-pro"), item("groq", "vendo
              item("zai", "glm-9-flash", "glm-9-flash-zai"),
              item("centai", "hy9-flash:free", "hy9-flash-cent-ai"),
              item("aionlabs", "aion-labs/aion-9", "aion-9-aion-labs"),
-             item("vercel", "vendor/fresh-ten", "fresh-ten-vercel")]
+             item("vercel", "vendor/fresh-ten", "fresh-ten-vercel"),
+             item("anthropic", "claude-fresh-9", "claude-fresh-9-anthropic")]
 
 
 # One model of every usage other than chat, each of a provider that can have it and none of which has to be

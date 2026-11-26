@@ -173,6 +173,11 @@ name: LiteLLM model drift
 #                                 API is expected to give, which no run has read: the catalogue answers
 #                                 401 without a key, and no session of this repository holds one.
 #   MODEL_DRIFT_CENT_AI_API_KEY   Cent AI -- "openai/" entries on its "api_base". Read as Z AI's is.
+#   MODEL_DRIFT_ANTHROPIC_API_KEY Anthropic -- "anthropic/" entries. A key of the organisation whose credit
+#                                 pays for the entries, since the list is of the models that organisation
+#                                 may call; reading it calls no model. Every key of an organisation draws
+#                                 on one balance, so this one is best made in a workspace of its own with
+#                                 a spend limit, which bounds what a leak of it could spend.
 #
 # Announced retirements have a second source that needs no key: the "deprecation_date" of LiteLLM's
 # public price map, which one request per run reads. It doubles what the providers' own APIs announce
@@ -501,6 +506,7 @@ jobs:
           MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID: ${{ secrets.MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID }}
           MODEL_DRIFT_ZAI_API_KEY: ${{ secrets.MODEL_DRIFT_ZAI_API_KEY }}
           MODEL_DRIFT_CENT_AI_API_KEY: ${{ secrets.MODEL_DRIFT_CENT_AI_API_KEY }}
+          MODEL_DRIFT_ANTHROPIC_API_KEY: ${{ secrets.MODEL_DRIFT_ANTHROPIC_API_KEY }}
           MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY: ${{ secrets.MODEL_DRIFT_ARTIFICIAL_ANALYSIS_API_KEY }}
         run: |
           out="$RUNNER_TEMP/drift"
@@ -722,7 +728,7 @@ jobs:
               openrouter: 'OpenRouter', cerebras: 'Cerebras', sambanova: 'SambaNova', gemini: 'Gemini',
               groq: 'Groq', mistral: 'Mistral', deepseek: 'DeepSeek', cloudflare: 'Cloudflare', kilo: 'Kilo Gateway',
               nvidia: 'NVIDIA', ovhcloud: 'OVHcloud', requesty: 'Requesty', zai: 'Z AI', centai: 'Cent AI', aionlabs: 'Aion Labs',
-              vercel: 'Vercel AI Gateway',
+              vercel: 'Vercel AI Gateway', anthropic: 'Anthropic',
             };
             const CLASSES = {
               '3xx': 'HTTP 3xx : une redirection, que le contrôle ne suit jamais puisque la clé voyage dans les en-têtes',
@@ -1078,6 +1084,7 @@ jobs:
               centai: { prefix: 'openai/', label: 'Cent AI', data: 'Public-Data-Only' },
               aionlabs: { prefix: 'openai/', label: 'Aion Labs', group: 'Fiction', data: 'Private-Data' },
               vercel: { prefix: 'vercel_ai_gateway/', label: 'Vercel AI Gateway', free: 'vercel.com/ai-gateway/models?freeTier=true', data: 'Public-Data-Only' },
+              anthropic: { prefix: 'anthropic/', label: 'Anthropic', data: 'Private-Data' },
             };
             // The usages other than chat an item may carry, each with the "model_info.mode" and the access
             // group the template holds its entries to (check_compose_template.py). The first five are served
@@ -1101,8 +1108,8 @@ jobs:
             // through its OpenAI-compatible endpoint, whose address holds the account's identifier.
             const ADDITION_ENV_BASES = { 'os.environ/CLOUDFLARE_EMBEDDINGS_API_BASE': 'cloudflare' };
             // The cascade an active entry is given a slot in, at its tail: an entry whose mode has a router is in
-            // a cascade, or the template fails its checks. A text entry goes to "Auto-Flash-Lite", Aion Labs' to
-            // the router of their own, a typed one to the router of its mode; embeddings and the kinds the gateway
+            // a cascade, or the template fails its checks. A text entry goes to "Auto-Flash-Lite", Aion Labs' and
+            // Anthropic's to the router of their own, a typed one to the router of its mode; embeddings and the kinds the gateway
             // has no router for get none. "providers" are those a router routes to, and "slotIf" the condition a
             // provider's members are written under in a cascade (null for a provider that needs no key).
             const ADDITION_ROUTERS = {
@@ -1112,15 +1119,17 @@ jobs:
               decision: { name: 'Auto-Decision', providers: ['cloudflare'] },
               extraction: { name: 'Auto-Extraction', providers: ['cloudflare'] },
               fiction: { name: 'Auto-Fiction', providers: ['aionlabs'] },
+              paid: { name: 'Auto-Paid', providers: ['anthropic'] },
             };
             const ADDITION_ROUTER_OF_USAGE = { chat: 'flash-lite', speech: 'tts', transcription: 'stt', decision: 'decision', extraction: 'extraction' };
             const ADDITION_SLOT_CONDITIONS = {
               gemini: 'has.Gemini', mistral: 'has.Mistral', groq: 'has.Groq', openrouter: 'has.OpenRouter', deepseek: 'has.DeepSeek',
               cloudflare: 'has.Cloudflare', zai: 'has.Zai', requesty: 'has.Requesty', nvidia: 'has.NVIDIA', centai: 'has.Cent_AI',
-              aionlabs: 'has.Aion_Labs', vercel: 'has.Vercel_AI_Gateway', kilo: null, ovhcloud: null,
+              aionlabs: 'has.Aion_Labs', vercel: 'has.Vercel_AI_Gateway', anthropic: 'has.Anthropic', kilo: null, ovhcloud: null,
             };
             const slotRouter = (provider, usage) => {
               if (provider === 'aionlabs') return usage === 'chat' ? 'fiction' : null;
+              if (provider === 'anthropic') return usage === 'chat' ? 'paid' : null;
               return Object.hasOwn(ADDITION_ROUTER_OF_USAGE, usage) ? ADDITION_ROUTER_OF_USAGE[usage] : null;
             };
             const slotRefusal = (provider, usage) => {
@@ -1169,7 +1178,7 @@ jobs:
             const providerOf = (model, apiBase) => {
               if (typeof model !== 'string' || !model.includes('/')) return null;
               const prefix = model.slice(0, model.indexOf('/'));
-              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai'].includes(prefix)) return prefix;
+              if (['gemini', 'groq', 'mistral', 'deepseek', 'cerebras', 'openrouter', 'cloudflare', 'zai', 'anthropic'].includes(prefix)) return prefix;
               if (prefix === 'nvidia_nim') return 'nvidia';
               if (prefix === 'vercel_ai_gateway') return 'vercel';
               if (prefix === 'openai' && typeof apiBase === 'string' && Object.hasOwn(ADDITION_ENV_BASES, apiBase)) return ADDITION_ENV_BASES[apiBase];

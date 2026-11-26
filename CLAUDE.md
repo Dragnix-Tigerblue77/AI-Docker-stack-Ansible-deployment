@@ -482,7 +482,7 @@ count, rank or list of names joined on one line, which keeps a deletion's diff s
 are in `ROUTAGE.md`, linked from the catalogue and never copied, and `--check` holds the heading it links to.
 
 **A router is published under one name, the one a client types: `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`,
-`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`, `Auto-Fiction`.** It is the key of
+`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`, `Auto-Fiction`, `Auto-Paid`.** It is the key of
 its cascade and of its alias in `templates/LiteLLM_config.yaml.j2`, in the agent's defaults, in `ROUTAGE.md`'s headings and in LibreChat's
 list, and no second name stands beside it: two names for one router are two cascades to keep level, and a
 client choosing between them chooses by luck. The short ids (`pro`, `flash`...) stay the vocabulary of the
