@@ -1214,17 +1214,6 @@ models:
       swe_bench_verified: [gpt-5.2-2025-12-11_high]
       terminalbench_external: [gpt-5.2-2025-12-11_medium, gpt-5.2-2025-12-11_unknown]
       ale_bench_external: [gpt-5.2-2025-12-11_high, gpt-5.2-2025-12-11_medium]
-  gpt-5-vercel:
-    slug: gpt-5
-    level: unknown
-    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
-    eci: "GPT-5"
-    note: "Artificial Analysis has a High, a Medium, a Low and a Minimal record, none with an index"
-    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
-    epoch:
-      swe_bench_verified: [gpt-5-2025-08-07_high, gpt-5-2025-08-07_medium]
-      terminalbench_external: [gpt-5-2025-08-07_medium, gpt-5-2025-08-07_unknown]
-      ale_bench_external: [gpt-5-2025-08-07_high, gpt-5-2025-08-07_minimal]
   gpt-5-mini-vercel:
     slug: gpt-5-mini
     level: unknown
@@ -1733,14 +1722,6 @@ models:
     level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists no reasoning option and says nothing of a default"
     eci: "GPT-4o mini"
     note: "The priority tier of openai/gpt-4o-mini: the same model at a higher price, so the figures of the model describe it"
-    tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
-    epoch: unknown
-  gpt-5-fast-vercel:
-    slug: gpt-5
-    level: unknown
-    level_source: "unknown: the catalogue of ai-gateway.vercel.sh, read 2026-11-24, lists the reasoning efforts minimal, low, medium and high and gives no default"
-    eci: "GPT-5"
-    note: "The priority tier of openai/gpt-5: the same model at a higher price, so the figures of the model describe it"
     tools: {support: "yes", source: "ai-gateway.vercel.sh/v1/models, read 2026-11-24: tools among supported_parameters"}
     epoch: unknown
   gpt-5-mini-fast-vercel:

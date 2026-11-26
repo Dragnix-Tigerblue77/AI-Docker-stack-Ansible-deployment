@@ -151,9 +151,6 @@
   "gpt-5-4-nano-vercel": {
    "epoch_eci": 146.36
   },
-  "gpt-5-fast-vercel": {
-   "epoch_eci": 150.0
-  },
   "gpt-5-mini-fast-vercel": {
    "epoch_eci": 146.04
   },
@@ -163,10 +160,6 @@
   },
   "gpt-5-nano-vercel": {
    "epoch_eci": 139.07
-  },
-  "gpt-5-vercel": {
-   "epoch_eci": 150.0,
-   "epoch_code_position": 40.0
   },
   "gpt-oss-120b-cloudflare": {
    "epoch_eci": 140.21,

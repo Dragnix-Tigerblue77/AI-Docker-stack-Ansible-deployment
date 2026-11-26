@@ -2878,8 +2878,7 @@ model_list:
   # Served, but not routed to: an older version of the Aion line, of the GLM family, replaced by "aion-3-5-aion-labs",
   # which holds 262,144 tokens of context against 131,072, reads no images either and takes tool calls like it
   # (api.aionlabs.ai/v1/models, read 2026-11-26). The free tier counts tokens, every model of the account together,
-  # and no page read says that one tokenizer counts fewer than another: an older version adds no quota, so only the
-  # latest of a line is routed.
+  # and no page read says that one tokenizer counts fewer than another: an older version adds no quota.
   # - model_name: aion-3-0-aion-labs
   #   litellm_params:
   #     model: openai/aion-labs/aion-3.0
@@ -2890,7 +2889,7 @@ model_list:
   # "aion-3-5-mini-aion-labs", of the GLM family, which holds 262,144 tokens of context against 131,072, reads no
   # images either and takes tool calls like it (api.aionlabs.ai/v1/models, read 2026-11-26). The free tier counts
   # tokens, every model of the account together, and no page read says that one tokenizer counts fewer than another:
-  # an older version adds no quota, so only the latest of a line is routed.
+  # an older version adds no quota.
   # - model_name: aion-3-0-mini-aion-labs
   #   litellm_params:
   #     model: openai/aion-labs/aion-3.0-mini
@@ -2901,7 +2900,7 @@ model_list:
   # "aion-3-5-aion-labs", which holds 262,144 tokens of context against 131,072, reads no images either and takes tool
   # calls like it (api.aionlabs.ai/v1/models, read 2026-11-26). The free tier counts tokens, every model of the
   # account together, and no page read says that one tokenizer counts fewer than another: an older version adds no
-  # quota, so only the latest of a line is routed.
+  # quota.
   # - model_name: aion-2-0-aion-labs
   #   litellm_params:
   #     model: openai/aion-labs/aion-2.0
@@ -2957,11 +2956,11 @@ model_list:
   # calls). A model another provider serves, a "-fast" tier, a snapshot or a specialised model is no reason to leave
   # one out: more free quota and more choice is the point, and a person decides from the whole list. The one exception
   # is an older version of a line: the credit being one pool, it adds no quota, so it stays commented out with the
-  # version that replaces it, unless it gives what that one does not (ROUTAGE.md gives the rule; prices read
-  # 2026-11-26, and no page read says that a tokenizer here counts fewer tokens than another). The catalogue
-  # ("ai-gateway.vercel.sh/v1/models", public) does not say which models are in the free tier, and a price of 0 is no
-  # proof of it, so the drift run reads the free tier from the models page, "availableToFreeTier" (read 2026-11-24): a
-  # model it no longer flags free is a notice, and a new free one is reported.
+  # version that replaces it, unless it gives what no newer version of its line, routed, gives (ROUTAGE.md gives the
+  # rule; prices read 2026-11-26, and no page read says that a tokenizer here counts fewer tokens than another). The
+  # catalogue ("ai-gateway.vercel.sh/v1/models", public) does not say which models are in the free tier, and a price
+  # of 0 is no proof of it, so the drift run reads the free tier from the models page, "availableToFreeTier" (read
+  # 2026-11-24): a model it no longer flags free is a notice, and a new free one is reported.
   # ============================================================================
   # Meta's open-weight reasoning model: Artificial Analysis index 24.9 at its Xhigh level, 11.0 s (read 2026-11-21).
   - model_name: muse-spark-open-vercel
@@ -3034,19 +3033,17 @@ model_list:
       model: vercel_ai_gateway/openai/gpt-5.2
       litellm_credential_name: "vercel-ai-gateway"
 
-  # Capabilities index, converted: 17.4, estimated. The same for the OpenAI models below, none of which has an
-  # Artificial Analysis index.
-  - model_name: gpt-5-vercel
-    model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
-      max_input_tokens: 400000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: vercel_ai_gateway/openai/gpt-5
-      litellm_credential_name: "vercel-ai-gateway"
+  # Served, but not routed to: an older version of the GPT line, replaced by "gpt-5-1-thinking-vercel", GPT-5.1, which
+  # the catalogue calls an upgraded version of GPT-5 and which costs the same, 1.25 USD in and 10 out a million
+  # tokens, with the same 400,000 tokens of context and images read by both (ai-gateway.vercel.sh/v1/models, read
+  # 2026-11-26). The credit is one pool for every entry of this provider: an older version adds no quota.
+  # - model_name: gpt-5-vercel
+  #   litellm_params:
+  #     model: vercel_ai_gateway/openai/gpt-5
+  #     litellm_credential_name: "vercel-ai-gateway"
 
-  # Capabilities index 10.9, estimated.
+  # Capabilities index, converted: 10.9, estimated. The same for the OpenAI models below, none of which has an
+  # Artificial Analysis index.
   - model_name: gpt-5-mini-vercel
     model_info:
       access_groups: ["LLM", "Public-Data-Only"]
@@ -3576,7 +3573,7 @@ model_list:
   # Served, but not routed to: an older snapshot of Ling 3.1 Flash, replaced by "ling-3-1-flash-1019-vercel", which
   # costs the same, 0.30 USD in and 0.90 out a million tokens, holds 1,000,000 tokens of context against 262,144 and
   # reads no images either (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry
-  # of this provider, so an older version adds no quota: only the latest of a line is routed.
+  # of this provider: an older version adds no quota.
   # - model_name: ling-3-1-flash-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/inclusionai/ling-3.1-flash
@@ -3634,8 +3631,8 @@ model_list:
 
   # Served, but not routed to: an older version of the Llama 70B line, replaced by "llama-3-3-70b-vercel", which costs
   # the same, 0.72 USD in and out a million tokens, with the same 128,000 tokens of context and reads no images either
-  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider, so an
-  # older version adds no quota: only the latest of a line is routed.
+  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider: an
+  # older version adds no quota.
   # - model_name: llama-3-1-70b-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/meta/llama-3.1-70b
@@ -3673,8 +3670,8 @@ model_list:
 
   # Served, but not routed to: an older version of the MiniMax M line, replaced by "minimax-m2-7-vercel", which costs
   # the same, 0.30 USD in and 1.20 out a million tokens, with the same 204,800 tokens of context and reads no images
-  # either (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider,
-  # so an older version adds no quota: only the latest of a line is routed.
+  # either (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider:
+  # an older version adds no quota.
   # - model_name: minimax-m2-1-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/minimax/minimax-m2.1
@@ -3916,23 +3913,21 @@ model_list:
 
   # Served, but not routed to: an older version of the GPT Codex line, replaced by "gpt-5-1-codex-vercel", which costs
   # the same, 1.25 USD in and 10 out a million tokens, with the same 400,000 tokens of context and images read by both
-  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider, so an
-  # older version adds no quota: only the latest of a line is routed.
+  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider: an
+  # older version adds no quota.
   # - model_name: gpt-5-codex-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/openai/gpt-5-codex
   #     litellm_credential_name: "vercel-ai-gateway"
 
-  # The priority tier of openai/gpt-5: the same model at a higher price, so the figures of the model describe it.
-  - model_name: gpt-5-fast-vercel
-    model_info:
-      access_groups: ["LLM", "Public-Data-Only"]
-      max_input_tokens: 400000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: vercel_ai_gateway/openai/gpt-5-fast
-      litellm_credential_name: "vercel-ai-gateway"
+  # Served, but not routed to: the priority tier of openai/gpt-5, replaced by "gpt-5-1-thinking-fast-vercel", the
+  # priority tier of GPT-5.1, which costs the same, 2.50 USD in and 20 out a million tokens, with the same 400,000
+  # tokens of context and images read by both (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool
+  # for every entry of this provider: an older version adds no quota.
+  # - model_name: gpt-5-fast-vercel
+  #   litellm_params:
+  #     model: vercel_ai_gateway/openai/gpt-5-fast
+  #     litellm_credential_name: "vercel-ai-gateway"
 
   # The priority tier of openai/gpt-5-mini: the same model at a higher price, so the figures of the model describe it.
   - model_name: gpt-5-mini-fast-vercel
@@ -4039,8 +4034,8 @@ model_list:
 
   # Served, but not routed to: an older version of OpenAI's o line, replaced by "o3-vercel", which costs less, 2 USD
   # in and 8 out a million tokens against 15 and 60, with the same 200,000 tokens of context and images read by both
-  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider, so an
-  # older version adds no quota: only the latest of a line is routed.
+  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider: an
+  # older version adds no quota.
   # - model_name: o1-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/openai/o1
@@ -4060,7 +4055,7 @@ model_list:
   # Served, but not routed to: an older version of OpenAI's o mini line, replaced by "o4-mini-vercel", which costs the
   # same, 1.10 USD in and 4.40 out a million tokens, with the same 200,000 tokens of context, and reads images, which
   # this one does not (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of
-  # this provider, so an older version adds no quota: only the latest of a line is routed.
+  # this provider: an older version adds no quota.
   # - model_name: o3-mini-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/openai/o3-mini
@@ -4198,8 +4193,8 @@ model_list:
 
   # Served, but not routed to: an older version of the GLM line, replaced by "glm-4-7-vercel", which costs the same,
   # 0.60 USD in and 2.20 out a million tokens, with 200,000 tokens of context against 128,000 and reads no images
-  # either (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider,
-  # so an older version adds no quota: only the latest of a line is routed.
+  # either (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider:
+  # an older version adds no quota.
   # - model_name: glm-4-5-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/zai/glm-4.5
@@ -4227,8 +4222,8 @@ model_list:
 
   # Served, but not routed to: an older version of the GLM line, replaced by "glm-4-7-vercel", which costs the same,
   # 0.60 USD in and 2.20 out a million tokens, with the same 200,000 tokens of context and reads no images either
-  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider, so an
-  # older version adds no quota: only the latest of a line is routed.
+  # (ai-gateway.vercel.sh/v1/models, read 2026-11-26). The credit is one pool for every entry of this provider: an
+  # older version adds no quota.
   # - model_name: glm-4-6-vercel
   #   litellm_params:
   #     model: vercel_ai_gateway/zai/glm-4.6
@@ -4978,8 +4973,6 @@ router_settings:
         - kimi-k2-7-code-vercel
         - gpt-5-1-thinking-vercel
         - gpt-5-1-thinking-fast-vercel
-        - gpt-5-vercel
-        - gpt-5-fast-vercel
         - qwen3-6-plus-vercel
         - inkling-vercel
         - o3-pro-vercel

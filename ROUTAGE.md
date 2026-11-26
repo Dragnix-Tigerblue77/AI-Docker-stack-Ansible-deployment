@@ -29,7 +29,7 @@ Les cascades ci-dessous sont celles du gabarit rendu avec la clé de tous les fo
 
 **Plusieurs modèles d'un même fournisseur restent dans un même routeur, même quand son quota est compté pour tout le compte.** Quand le quota du compte est épuisé, chacun répond par un refus et la cascade passe au suivant : le second ne coûte qu'un refus d'une fraction de seconde. Mais le routeur passe aussi au membre suivant quand un seul modèle échoue, parce qu'il est en panne ou retiré, que la demande dépasse son contexte ou qu'il tarde à répondre, et là le second modèle du même fournisseur répond. LiteLLM ne sait pas faire la différence pour en tirer parti : il met en pause une entrée qui a échoué, jamais tout son fournisseur (lu dans son code le 2026-11-23). Décision du mainteneur du 2026-11-23.
 
-**Sauf les versions anciennes d'une même gamme.** Chez un fournisseur dont le quota est commun à tous ses modèles (un crédit, un solde, un compte ou une adresse IP), seule la dernière version de chaque gamme est routée : une version ancienne ne rapporte aucun quota, puisqu'elle puise dans le même compteur, et la dernière de sa gamme répond mieux. Une version ancienne reste routée, placée par son chiffre, si elle apporte ce que la dernière n'a pas : une fenêtre plus grande, la lecture des images, les appels d'outils, ou le même texte pour au moins 10 % de moins du compteur commun (son prix au jeton, ou l'unité du quota, fois les jetons que compte son tokenizer, d'après les pages du fournisseur ; les jetons de réflexion, qu'aucune page ne donne, ne comptent pas). Les autres versions anciennes restent dans le gabarit, commentées avec la version qui les remplace. Les gammes différentes d'un même fournisseur, elles, restent ensemble, pour la raison du paragraphe précédent. Règle du mainteneur du 2026-11-25.
+**Sauf les versions anciennes d'une même gamme.** Chez un fournisseur dont le quota est commun à tous ses modèles (un crédit, un solde, un compte ou une adresse IP), seule la dernière version de chaque gamme est routée : une version ancienne ne rapporte aucun quota, puisqu'elle puise dans le même compteur, et la dernière de sa gamme répond mieux. Une version ancienne reste routée, placée par son chiffre, si elle apporte ce qu'aucune version plus récente de sa gamme restée routée n'a : une fenêtre plus grande, la lecture des images, les appels d'outils, ou le même texte pour au moins 10 % de moins du compteur commun (son prix au jeton, ou l'unité du quota, fois les jetons que compte son tokenizer, d'après les pages du fournisseur ; les jetons de réflexion, qu'aucune page ne donne, ne comptent pas). Elle est comparée à chacune de ces versions plus récentes, et non à la dernière seule : une version ancienne qu'une version intermédiaire couvre déjà est commentée aussi. Le but est le plus de quota gratuit et la meilleure réponse pour ce qu'une requête en consomme. Les autres versions anciennes restent dans le gabarit, commentées avec la version qui les remplace. Les gammes différentes d'un même fournisseur, elles, restent ensemble, pour la raison du paragraphe précédent. Règle du mainteneur du 2026-11-25, la comparaison à toutes les versions plus récentes du 2026-11-26.
 
 **`Auto-Fiction` : les modèles de jeu de rôle d'Aion Labs, à part.** Aion Labs les décrit comme réglés pour le jeu de rôle et la narration, y compris les « thèmes adultes et sombres », et n'en modère aucun. Ils sont donc dans un groupe d'accès à eux, `Fiction`, et non dans `LLM`, et dans un routeur à eux, `Auto-Fiction`, qui ne tient qu'eux : aucun autre routeur n'en tient un, et une clé qui a `LLM` ne les atteint pas. Aucun chiffre ne les place, l'ordre est donc écrit à la main, du plus récent et du plus grand au plus petit. Une clé les atteint quand `Fiction` ou `Auto-Fiction` est nommé dans ses modèles.
 
@@ -167,125 +167,123 @@ Tête : `gemini-4-hydrogen`, au niveau `xhigh`, comme `Auto-Pro`. L'assistant de
 | 19 | `kimi-k2-7-code-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 19,5 (estimé) | 36,5 s | indice 19,5 (estimé) en 36,5 s |
 | 20 | `gpt-5-1-thinking-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 19,1 (estimé) | — | indice 19,1 (estimé), délai inconnu |
 | 21 | `gpt-5-1-thinking-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 19,1 (estimé) | — | indice 19,1 (estimé), délai inconnu |
-| 22 | `gpt-5-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 17,4 (estimé) | 45,3 s | indice 17,4 (estimé) en 45,3 s |
-| 23 | `gpt-5-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 17,4 (estimé) | 45,3 s | indice 17,4 (estimé) en 45,3 s |
-| 24 | `qwen3-6-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 15,4 (estimé) | 36,2 s | indice 15,4 (estimé) en 36,2 s |
-| 25 | `inkling-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 14,5 (estimé) | 17,9 s | indice 14,5 (estimé) en 17,9 s |
-| 26 | `o3-pro-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,8 (estimé) | — | indice 12,8 (estimé), délai inconnu |
-| 27 | `qwen3-5-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,5 (estimé) | — | indice 12,5 (estimé), délai inconnu |
-| 28 | `o3-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,0 (estimé) | 7,9 s | indice 12,0 (estimé) en 7,9 s |
-| 29 | `o3-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,0 (estimé) | 7,9 s | indice 12,0 (estimé) en 7,9 s |
-| 30 | `qwen3-6-27b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,7 (estimé) | 42,1 s | indice 11,7 (estimé) en 42,1 s |
-| 31 | `gpt-5-4-nano-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,3 (estimé) | 36,4 s | indice 11,3 (estimé) en 36,4 s |
-| 32 | `deepseek-v3-2-thinking-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,2 (estimé) | 17,9 s | indice 11,2 (estimé) en 17,9 s |
-| 33 | `gpt-5-mini-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,9 (estimé) | 51,1 s | indice 10,9 (estimé) en 51,1 s |
-| 34 | `gpt-5-mini-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,9 (estimé) | 51,1 s | indice 10,9 (estimé) en 51,1 s |
-| 35 | `o4-mini-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,0 (estimé) | 15,7 s | indice 10,0 (estimé) en 15,7 s |
-| 36 | `gpt-oss-120b-groq` | Groq | au jeton | défaut du fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s |
-| 37 | `gpt-oss-120b-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
-| 38 | `gpt-oss-120b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-ovh` chez un autre fournisseur, quota à part ; indice 4,2 (estimé) en 10,3 s |
-| 39 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | indice 10,0 en 5,1 s |
-| 40 | `gemma-4-31b-gemini` | Google AI Studio | à la requête, quota par modèle | non fixé : LiteLLM envoie à Gemma un budget que Google ne documente pas | 8,7 (estimé) | 35,4 s | indice 8,7 en 35,4 s |
-| 41 | `gemma-4-31b-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 42 | `gemma-4-31b-requesty` | Requesty | à la requête, compteur commun | `high` | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 43 | `gemma-4-31b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
-| 44 | `qwen3-6-35b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 8,7 (estimé) | — | indice 8,7 (estimé), délai inconnu |
-| 45 | `qwen3-5-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 8,4 (estimé) | — | indice 8,4 (estimé), délai inconnu |
-| 46 | `glm-4-7-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 7,8 (estimé) | 29,6 s | indice 7,8 (estimé) en 29,6 s |
-| 47 | `kimi-k2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 5,5 (estimé) | 3,5 s | indice 5,5 (estimé) en 3,5 s |
-| 48 | `deepseek-v3-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 5,0 (estimé) | 8,2 s | indice 5,0 (estimé) en 8,2 s |
-| 49 | `gemini-2-5-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,9 (estimé) | 11,2 s | indice 4,9 (estimé) en 11,2 s |
-| 50 | `mistral-medium-3-5-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,6 | 26,8 s | indice 4,6 en 26,8 s |
-| 51 | `gpt-5-nano-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 2,9 (estimé) | 55,1 s | indice 2,9 (estimé) en 55,1 s |
-| 52 | `particle-1-free` | OpenRouter (:free) | à la requête, compteur commun | `xhigh` | — | — | aucun chiffre publié : garde sa place historique |
-| 53 | `particle-1-kilo` | Kilo Gateway | à la requête, par adresse IP | `max` | — | — | aucun chiffre publié : garde sa place historique |
-| 54 | `ernie-5-5-flash-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | — | — | aucun chiffre publié : garde sa place historique |
-| 55 | `ernie-5-5-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | — | — | aucun chiffre publié : garde sa place historique |
-| 56 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s |
-| 57 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s |
-| 58 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
-| 59 | `nemotron-super-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
-| 60 | `muse-glimmer-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 6,3 | 23,7 s | indice 6,3 en 23,7 s |
-| 61 | `muse-glimmer-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 6,3 | 23,7 s | même modèle que `muse-glimmer-nvidia` chez un autre fournisseur, quota à part ; indice 6,3 en 23,7 s |
-| 62 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
-| 63 | `flint-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place historique, devant son jumeau |
-| 64 | `flint-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
-| 65 | `glyph-cluster-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
-| 66 | `dots-3-note-preview-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant le routeur gratuit d'OpenRouter ; gratuit jusqu'au 31 décembre |
-| 67 | `dots-3-note-preview-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `dots-3-note-preview-free` chez un autre fournisseur ; aucun chiffre publié : derrière lui ; gratuit jusqu'au 31 décembre |
-| 68 | `openrouter-auto-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : routeur qui choisit un modèle par requête | — | — | aucun chiffre publié : garde sa place historique |
-| 69 | `kilo-auto-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit de Kilo, qui choisit un modèle par requête : aucun chiffre publié, derrière le routeur gratuit d'OpenRouter |
-| 70 | `kilo-openrouter-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit d'OpenRouter appelé par Kilo : le compteur par adresse IP de Kilo et non celui du compte OpenRouter ; aucun chiffre publié |
-| 71 | `ling-3-2-flash-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié ; refusé par le pool amont partagé la plupart du temps, d'où sa place en fin des gratuits |
-| 72 | `ling-3-2-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `ling-3-2-flash-free` chez un autre fournisseur ; aucun chiffre publié ; mêmes refus du pool amont |
-| 73 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
-| 74 | `qwen-3-14b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
-| 75 | `qwen-3-30b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
-| 76 | `qwen-3-32b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,4 (estimé) | — | indice 0,4 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
-| 77 | `qwen3-coder-30b-a3b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 78 | `qwen3-vl-instruct-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 79 | `qwen3-7-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 80 | `qwen3-8-omni-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 81 | `nova-2-lite-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 82 | `seed-2-1-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 83 | `apex-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 84 | `glimpse-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 85 | `mercury-3-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 86 | `ling-3-0-flash-fin-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 87 | `ling-3-0-flash-sante-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 88 | `ling-3-0-flash-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 89 | `schematron-v2-small-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 90 | `schematron-v2-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 91 | `interfaze-beta-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 92 | `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 93 | `longcat-2-5-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 94 | `llama-3-1-8b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
-| 95 | `muse-ember-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 36,0 | 5,4 s | indice 36,0 en 5,4 s |
-| 96 | `codestral-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 97 | `ministral-14b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 98 | `ministral-3b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 99 | `ministral-8b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 100 | `mistral-nemo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
-| 101 | `toast-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 102 | `morph-v3-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 103 | `morph-v3-large-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 104 | `nemotron-3-super-120b-a12b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 105 | `nemotron-nano-12b-v2-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 106 | `nemotron-nano-9b-v2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 107 | `gpt-5-1-codex-max-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 108 | `gpt-oss-safeguard-120b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 109 | `gpt-oss-safeguard-20b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 110 | `ultramarine-1-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 111 | `sonar-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 112 | `arrow-2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 113 | `arrow-2-telos-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 114 | `flint-v1-0-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 115 | `scaledown-summarize-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 116 | `hy-mt2-lite-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 117 | `hy-mt2-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 118 | `hy-mt2-pro-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 119 | `hy4-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 120 | `glm-4-5v-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | 5,7 s | pas de chiffre |
-| 121 | `glm-4-7-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | 36,2 s | pas de chiffre |
-| 122 | `glm-4-7-flashx-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 123 | `glm-5v-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
-| 124 | `mistral-small-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,3 | 14,9 s | indice 4,3 en 14,9 s |
-| 125 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
-| 126 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 127 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
-| 128 | `llama-3-3-70b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; après les gros modèles d'OVHcloud |
-| 129 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | — | indice 21,9, délai inconnu |
-| 130 | `qwen3-6-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; derrière le modèle qui le remplace |
-| 131 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
-| 132 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 133 | `nemotron3-omni-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | pas d'indice : garde sa place historique |
-| 134 | `mistral-small-3-2-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
-| 135 | `mistral-medium` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr (indice 4,6 en 26,8 s) : au-dessus du plancher de `Auto-Flash` (indice de capacités 141,6 contre 140,8 pour Gemini 2.5 Flash), sous celui de `Auto-Pro` ; devant `mistral-small`, le plus petit |
-| 136 | `mistral-small` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
-| 137 | `ministral-14b` | Mistral | prépayé | défaut du fournisseur | — | 2,3 s | pas d'indice : garde sa place historique |
-| 138 | `ministral-8b` | Mistral | prépayé | défaut du fournisseur | — | 2,0 s | pas d'indice : garde sa place historique |
-| 139 | `deepseek-flash-direct` | DeepSeek | prépayé | défaut du fournisseur | 28,6 | 21,1 s | payant : après tous les gratuits |
-| 140 | `omniroute-free-auto` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
+| 22 | `qwen3-6-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 15,4 (estimé) | 36,2 s | indice 15,4 (estimé) en 36,2 s |
+| 23 | `inkling-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 14,5 (estimé) | 17,9 s | indice 14,5 (estimé) en 17,9 s |
+| 24 | `o3-pro-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,8 (estimé) | — | indice 12,8 (estimé), délai inconnu |
+| 25 | `qwen3-5-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,5 (estimé) | — | indice 12,5 (estimé), délai inconnu |
+| 26 | `o3-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,0 (estimé) | 7,9 s | indice 12,0 (estimé) en 7,9 s |
+| 27 | `o3-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 12,0 (estimé) | 7,9 s | indice 12,0 (estimé) en 7,9 s |
+| 28 | `qwen3-6-27b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,7 (estimé) | 42,1 s | indice 11,7 (estimé) en 42,1 s |
+| 29 | `gpt-5-4-nano-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,3 (estimé) | 36,4 s | indice 11,3 (estimé) en 36,4 s |
+| 30 | `deepseek-v3-2-thinking-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 11,2 (estimé) | 17,9 s | indice 11,2 (estimé) en 17,9 s |
+| 31 | `gpt-5-mini-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,9 (estimé) | 51,1 s | indice 10,9 (estimé) en 51,1 s |
+| 32 | `gpt-5-mini-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,9 (estimé) | 51,1 s | indice 10,9 (estimé) en 51,1 s |
+| 33 | `o4-mini-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 10,0 (estimé) | 15,7 s | indice 10,0 (estimé) en 15,7 s |
+| 34 | `gpt-oss-120b-groq` | Groq | au jeton | défaut du fournisseur | 4,2 (estimé) | 10,3 s | indice 4,2 en 10,3 s |
+| 35 | `gpt-oss-120b-cloudflare` | Cloudflare Workers AI | au neurone | défaut du fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
+| 36 | `gpt-oss-120b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-ovh` chez un autre fournisseur, quota à part ; indice 4,2 (estimé) en 10,3 s |
+| 37 | `qwen3-8-27b-groq` | Groq | au jeton | défaut du fournisseur : ne réfléchit pas par défaut, et `Auto-Flash-Lite` ne monte pas de niveau | 10,0 | 5,1 s | indice 10,0 en 5,1 s |
+| 38 | `gemma-4-31b-gemini` | Google AI Studio | à la requête, quota par modèle | non fixé : LiteLLM envoie à Gemma un budget que Google ne documente pas | 8,7 (estimé) | 35,4 s | indice 8,7 en 35,4 s |
+| 39 | `gemma-4-31b-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 40 | `gemma-4-31b-requesty` | Requesty | à la requête, compteur commun | `high` | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 41 | `gemma-4-31b-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 8,7 (estimé) | 35,4 s | même modèle que `gemma-4-31b-gemini` chez un autre fournisseur, quota à part ; indice 8,7 en 35,4 s |
+| 42 | `qwen3-6-35b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 8,7 (estimé) | — | indice 8,7 (estimé), délai inconnu |
+| 43 | `qwen3-5-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 8,4 (estimé) | — | indice 8,4 (estimé), délai inconnu |
+| 44 | `glm-4-7-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 7,8 (estimé) | 29,6 s | indice 7,8 (estimé) en 29,6 s |
+| 45 | `kimi-k2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 5,5 (estimé) | 3,5 s | indice 5,5 (estimé) en 3,5 s |
+| 46 | `deepseek-v3-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 5,0 (estimé) | 8,2 s | indice 5,0 (estimé) en 8,2 s |
+| 47 | `gemini-2-5-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,9 (estimé) | 11,2 s | indice 4,9 (estimé) en 11,2 s |
+| 48 | `mistral-medium-3-5-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,6 | 26,8 s | indice 4,6 en 26,8 s |
+| 49 | `gpt-5-nano-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 2,9 (estimé) | 55,1 s | indice 2,9 (estimé) en 55,1 s |
+| 50 | `particle-1-free` | OpenRouter (:free) | à la requête, compteur commun | `xhigh` | — | — | aucun chiffre publié : garde sa place historique |
+| 51 | `particle-1-kilo` | Kilo Gateway | à la requête, par adresse IP | `max` | — | — | aucun chiffre publié : garde sa place historique |
+| 52 | `ernie-5-5-flash-free` | OpenRouter (:free) | à la requête, compteur commun | `high` | — | — | aucun chiffre publié : garde sa place historique |
+| 53 | `ernie-5-5-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | `high` | — | — | aucun chiffre publié : garde sa place historique |
+| 54 | `beam-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | 17,7 | 10,8 s | indice 17,7 en 10,8 s |
+| 55 | `nemotron-super-vl-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | indice 13,6 en 12,4 s |
+| 56 | `nemotron-super-vl-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
+| 57 | `nemotron-super-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
+| 58 | `muse-glimmer-nvidia` | NVIDIA | à la requête, 40 par minute | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 6,3 | 23,7 s | indice 6,3 en 23,7 s |
+| 59 | `muse-glimmer-requesty` | Requesty | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | 6,3 | 23,7 s | même modèle que `muse-glimmer-nvidia` chez un autre fournisseur, quota à part ; indice 6,3 en 23,7 s |
+| 60 | `nemotron-super-vl-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | 13,6 | 12,4 s | même modèle que `nemotron-super-vl-free` chez un autre fournisseur, quota à part ; indice 13,6 en 12,4 s |
+| 61 | `flint-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié : garde sa place historique, devant son jumeau |
+| 62 | `flint-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
+| 63 | `glyph-cluster-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : Kilo ne prend pas `reasoning_effort` pour ce modèle | — | — | aucun chiffre publié : garde sa place historique |
+| 64 | `dots-3-note-preview-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : aucun niveau publié pour ce modèle | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant le routeur gratuit d'OpenRouter ; gratuit jusqu'au 31 décembre |
+| 65 | `dots-3-note-preview-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : aucun niveau publié pour ce modèle | — | — | même modèle que `dots-3-note-preview-free` chez un autre fournisseur ; aucun chiffre publié : derrière lui ; gratuit jusqu'au 31 décembre |
+| 66 | `openrouter-auto-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : routeur qui choisit un modèle par requête | — | — | aucun chiffre publié : garde sa place historique |
+| 67 | `kilo-auto-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit de Kilo, qui choisit un modèle par requête : aucun chiffre publié, derrière le routeur gratuit d'OpenRouter |
+| 68 | `kilo-openrouter-free` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | routeur gratuit d'OpenRouter appelé par Kilo : le compteur par adresse IP de Kilo et non celui du compte OpenRouter ; aucun chiffre publié |
+| 69 | `ling-3-2-flash-free` | OpenRouter (:free) | à la requête, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre publié ; refusé par le pool amont partagé la plupart du temps, d'où sa place en fin des gratuits |
+| 70 | `ling-3-2-flash-kilo` | Kilo Gateway | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | même modèle que `ling-3-2-flash-free` chez un autre fournisseur ; aucun chiffre publié ; mêmes refus du pool amont |
+| 71 | `hy4-flash-cent-ai` | Cent AI | gratuit jusqu'au 30 novembre, la suite n'est pas annoncée | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : derrière les membres gratuits auxquels on ne peut pas le comparer, avant OVHcloud |
+| 72 | `qwen-3-14b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
+| 73 | `qwen-3-30b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
+| 74 | `qwen-3-32b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,4 (estimé) | — | indice 0,4 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
+| 75 | `qwen3-coder-30b-a3b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 76 | `qwen3-vl-instruct-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 77 | `qwen3-7-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 78 | `qwen3-8-omni-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 79 | `nova-2-lite-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 80 | `seed-2-1-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 81 | `apex-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 82 | `glimpse-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 83 | `mercury-3-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 84 | `ling-3-0-flash-fin-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 85 | `ling-3-0-flash-sante-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 86 | `ling-3-0-flash-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 87 | `schematron-v2-small-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 88 | `schematron-v2-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 89 | `interfaze-beta-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 90 | `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 91 | `longcat-2-5-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 92 | `llama-3-1-8b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
+| 93 | `muse-ember-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 36,0 | 5,4 s | indice 36,0 en 5,4 s |
+| 94 | `codestral-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 95 | `ministral-14b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 96 | `ministral-3b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 97 | `ministral-8b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 98 | `mistral-nemo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 0,0 (estimé) | — | indice 0,0 (estimé), délai inconnu ; sous le plancher de `Auto-Flash`, mais garde sa place du gabarit |
+| 99 | `toast-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 100 | `morph-v3-fast-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 101 | `morph-v3-large-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 102 | `nemotron-3-super-120b-a12b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 103 | `nemotron-nano-12b-v2-vl-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 104 | `nemotron-nano-9b-v2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 105 | `gpt-5-1-codex-max-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 106 | `gpt-oss-safeguard-120b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 107 | `gpt-oss-safeguard-20b-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 108 | `ultramarine-1-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 109 | `sonar-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 110 | `arrow-2-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 111 | `arrow-2-telos-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 112 | `flint-v1-0-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 113 | `scaledown-summarize-1-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 114 | `hy-mt2-lite-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 115 | `hy-mt2-plus-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 116 | `hy-mt2-pro-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 117 | `hy4-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 118 | `glm-4-5v-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | 5,7 s | pas de chiffre |
+| 119 | `glm-4-7-flash-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | 36,2 s | pas de chiffre |
+| 120 | `glm-4-7-flashx-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 121 | `glm-5v-turbo-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | — | — | pas de chiffre |
+| 122 | `mistral-small-vercel` | Vercel AI Gateway | crédit gratuit mensuel, compteur commun | non fixé : non vérifié chez ce fournisseur | 4,3 | 14,9 s | indice 4,3 en 14,9 s |
+| 123 | `deepseek-v4-1-flash-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 32,0 (estimé) | 21,1 s | indice 32,0 en 21,1 s |
+| 124 | `qwen3-5-397b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 125 | `gpt-oss-120b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 4,2 (estimé) | 10,3 s | même modèle que `gpt-oss-120b-groq` chez un autre fournisseur, quota à part ; indice 4,2 en 10,3 s |
+| 126 | `llama-3-3-70b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; après les gros modèles d'OVHcloud |
+| 127 | `qwen3-8-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | 21,9 (estimé) | — | indice 21,9, délai inconnu |
+| 128 | `qwen3-6-27b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : non vérifié chez ce fournisseur | — | — | aucun chiffre relu : « Being retired » (fin de vie le 2027-02-10), servi jusque-là ; derrière le modèle qui le remplace |
+| 129 | `qwen3-8-27b-cloudflare` | Cloudflare Workers AI | au neurone | non fixé : LiteLLM ne le transmet pas à ce fournisseur | 20,1 | 135,4 s | même modèle que ses jumeaux, chez un autre fournisseur ; réfléchit en Xhigh par défaut, 135 s avant la réponse, au-delà des 90 s de patience : un repli de plus, juste derrière eux |
+| 130 | `qwen3-6-35b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 131 | `nemotron3-omni-30b-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | pas d'indice : garde sa place historique |
+| 132 | `mistral-small-3-2-ovh` | OVHcloud | à la requête, par adresse IP | non fixé : valeurs acceptées non publiées | — | — | aucun chiffre publié : garde sa place historique |
+| 133 | `mistral-medium` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr (indice 4,6 en 26,8 s) : au-dessus du plancher de `Auto-Flash` (indice de capacités 141,6 contre 140,8 pour Gemini 2.5 Flash), sous celui de `Auto-Pro` ; devant `mistral-small`, le plus petit |
+| 134 | `mistral-small` | Mistral | prépayé | défaut du fournisseur | — | — | niveau non vérifié, les chiffres du modèle ne s'appliquent pas à coup sûr : garde sa place historique |
+| 135 | `ministral-14b` | Mistral | prépayé | défaut du fournisseur | — | 2,3 s | pas d'indice : garde sa place historique |
+| 136 | `ministral-8b` | Mistral | prépayé | défaut du fournisseur | — | 2,0 s | pas d'indice : garde sa place historique |
+| 137 | `deepseek-flash-direct` | DeepSeek | prépayé | défaut du fournisseur | 28,6 | 21,1 s | payant : après tous les gratuits |
+| 138 | `omniroute-free-auto` | OmniRoute (local) | sans quota | défaut du fournisseur | — | — | routeur local sans clé et sans chiffre : tout à la fin |
 
 ### `Auto-Flash-Lite`
 
