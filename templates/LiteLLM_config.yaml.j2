@@ -4495,10 +4495,12 @@ model_list:
   # read that day), past the router's 90 s, so each entry waits ten minutes, the length past which Anthropic's own SDKs
   # refuse a request that is not streamed.
   #
-  # Every model the API serves to an organisation that no programme has verified and that is open to new adopters is
-  # here, in the order of Epoch AI's capabilities index (read 2026-11-25), which measures them all, converted and
-  # estimated like the other entries it places; the others are the "drift-ignore" lines below. The prices are a
-  # million tokens' on "platform.claude.com/docs/en/about-claude/pricing", read the same day.
+  # The credit is one quota for all of Anthropic's models, so only the latest version of each of its lines (Fable, Opus,
+  # Sonnet, Haiku) is routed, in the order of Epoch AI's capabilities index (read 2026-11-25), converted and estimated
+  # like the other entries it places; the older versions it still serves are commented out below them, each with the
+  # version that replaces it, and the models it does not serve to an organisation like this one are the "drift-ignore"
+  # lines.
+  # The prices are a million tokens' on "platform.claude.com/docs/en/about-claude/pricing", read the same day.
   # ============================================================================
   # drift-ignore: anthropic/claude-mythos-5-2 -- served only to an organisation that one of Anthropic's verification programmes, such as its Cyber Verification Program, has verified, per "platform.claude.com/docs/en/models/mythos-5-2/overview" (read 2026-11-25); the same model as Claude Fable 5.2, routed below
   # drift-ignore: anthropic/claude-mythos-5-1 -- served only to an organisation that one of Anthropic's verification programmes has verified, per "platform.claude.com/docs/en/models/mythos-5-1/overview" (read 2026-11-25); the same model as Claude Fable 5.1, routed below
@@ -4539,23 +4541,6 @@ model_list:
       stream_timeout: 600
       timeout: 600
 
-  # Claude Fable 5.1, the Fable before, thinking always on, "high" by default: capabilities index 167.06, less than two
-  # points of the intelligence index above Claude Sonnet 5.5 once converted, so the two are not told apart and the
-  # order of the figures stands. 10 USD in, 50 out, the dearest of these.
-  - model_name: claude-fable-5-1-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-fable-5-1
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
-
   # Claude Sonnet 5.5, thinking on by default at its "high" effort: capabilities index 166.6. 2 USD in, 10 out.
   - model_name: claude-sonnet-5-5-anthropic
     model_info:
@@ -4565,36 +4550,6 @@ model_list:
       supports_vision: true
     litellm_params:
       model: anthropic/claude-sonnet-5-5
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
-
-  # Claude Opus 5, "high" by default: capabilities index 164.72. 5 USD in, 25 out.
-  - model_name: claude-opus-5-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-opus-5
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
-
-  # Claude Fable 5, thinking always on, "high" by default: capabilities index 164.18. 10 USD in, 50 out.
-  - model_name: claude-fable-5-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-fable-5
       litellm_credential_name: "anthropic-console"
       cache_control:
         type: ephemeral
@@ -4617,96 +4572,67 @@ model_list:
       stream_timeout: 600
       timeout: 600
 
-  # Claude Opus 4.8, "high" by default: capabilities index 159.9. 5 USD in, 25 out.
-  - model_name: claude-opus-4-8-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-opus-4-8
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
+  # Served, but not routed to: older versions of the Fable line, replaced by "claude-fable-5-2-anthropic", which Epoch
+  # AI's capabilities index places higher (164.18 for Fable 5 and 167.06 for Fable 5.1, against 173.4) and which costs
+  # less, 8 USD in and 40 out against 10 and 50 (read 2026-11-25). The credit is one quota for every model of the
+  # provider, so an older version adds none: only the latest of a line is routed.
+  # - model_name: claude-fable-5-1-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-fable-5-1
+  #     litellm_credential_name: "anthropic-console"
+  #
+  # - model_name: claude-fable-5-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-fable-5
+  #     litellm_credential_name: "anthropic-console"
 
-  # Claude Opus 4.7, "high" by default: capabilities index 157.49. 5 USD in, 25 out.
-  - model_name: claude-opus-4-7-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-opus-4-7
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
+  # Served, but not routed to: older versions of the Opus line, replaced by "claude-opus-5-5-anthropic", which the
+  # capabilities index places higher (156.33 to 164.72, against 168.67) and which costs 4 USD in and 20 out against 5
+  # and 25 (read 2026-11-25). Opus 4.6 alone keeps the tokenizer of the models before Claude 4.7, which the pricing
+  # page says count about 30 % fewer tokens for the same text: the two then cost about as much for the same text. One
+  # quota for every model: only the latest of a line is routed.
+  # - model_name: claude-opus-5-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-opus-5
+  #     litellm_credential_name: "anthropic-console"
+  #
+  # - model_name: claude-opus-4-8-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-opus-4-8
+  #     litellm_credential_name: "anthropic-console"
+  #
+  # - model_name: claude-opus-4-7-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-opus-4-7
+  #     litellm_credential_name: "anthropic-console"
+  #
+  # - model_name: claude-opus-4-6-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-opus-4-6
+  #     litellm_credential_name: "anthropic-console"
 
-  # Claude Sonnet 5, "high" by default: capabilities index 156.9. 2 USD in, 10 out.
-  - model_name: claude-sonnet-5-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-sonnet-5
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
+  # Served, but not routed to: older versions of the Sonnet line, replaced by "claude-sonnet-5-5-anthropic", which the
+  # capabilities index places higher (152.85 and 156.9, against 166.6) and which costs no more: Sonnet 5 at the same
+  # 2 USD in and 10 out, Sonnet 4.6 at 3 and 15, which the tokens it saves with the tokenizer of the models before
+  # Claude 4.7 (about 30 % fewer for the same text) do not make up for (read 2026-11-25). One quota for every model:
+  # only the latest of a line is routed.
+  # - model_name: claude-sonnet-5-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-sonnet-5
+  #     litellm_credential_name: "anthropic-console"
+  #
+  # - model_name: claude-sonnet-4-6-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-sonnet-4-6
+  #     litellm_credential_name: "anthropic-console"
 
-  # Claude Opus 4.6, "high" by default: capabilities index 156.33. 5 USD in, 25 out.
-  - model_name: claude-opus-4-6-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-opus-4-6
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
-
-  # Claude Sonnet 4.6, "high" by default: capabilities index 152.85. 3 USD in, 15 out.
-  - model_name: claude-sonnet-4-6-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 1000000
-      max_output_tokens: 128000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-sonnet-4-6
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
-
-  # Claude Haiku 4.5, which thinks only when a request turns thinking on and takes no effort level: capabilities index
-  # 142.74, the lowest of these, and the smallest window, 200,000 tokens. 1 USD in, 5 out.
-  - model_name: claude-haiku-4-5-anthropic
-    model_info:
-      access_groups: ["LLM", "Private-Data"]
-      max_input_tokens: 200000
-      max_output_tokens: 64000
-      supports_vision: true
-    litellm_params:
-      model: anthropic/claude-haiku-4-5-20251001
-      litellm_credential_name: "anthropic-console"
-      cache_control:
-        type: ephemeral
-      stream_timeout: 600
-      timeout: 600
+  # Served, but not routed to: an older version of the Haiku line, replaced by "claude-haiku-5-5-anthropic", which the
+  # capabilities index places higher (142.74 against 160.33) and which costs a tenth as much a token, 0.10 USD in and
+  # 0.50 out against 1 and 5 (read 2026-11-25). One quota for every model: only the latest of a line is routed.
+  # - model_name: claude-haiku-4-5-anthropic
+  #   litellm_params:
+  #     model: anthropic/claude-haiku-4-5-20251001
+  #     litellm_credential_name: "anthropic-console"
 
 {% endif %}
   # ============================================================================
@@ -5607,23 +5533,15 @@ router_settings:
     # 11. PAID -- the models paid from a credit, Anthropic's, and only those: no other router holds them and no other
     # model is in this one. A free router would spend the credit on every request of every application, and the
     # credit of a Claude plan does not cover Claude Code, whose agent reaches the free routers and never this one.
-    # Ordered by Epoch AI's capabilities index (read 2026-11-25), the one figure that measures every member at once,
-    # converted and estimated as for the other routers; the router's contract says how.
+    # It holds the latest version of each line, the credit being one quota for them all, ordered by Epoch AI's
+    # capabilities index (read 2026-11-25), the one figure that measures every member at once, converted and estimated
+    # as for the other routers; the router's contract says how.
 {% if head['paid'] %}
     - Auto-Paid:
         - claude-fable-5-2-anthropic
         - claude-opus-5-5-anthropic
-        - claude-fable-5-1-anthropic
         - claude-sonnet-5-5-anthropic
-        - claude-opus-5-anthropic
-        - claude-fable-5-anthropic
         - claude-haiku-5-5-anthropic
-        - claude-opus-4-8-anthropic
-        - claude-opus-4-7-anthropic
-        - claude-sonnet-5-anthropic
-        - claude-opus-4-6-anthropic
-        - claude-sonnet-4-6-anthropic
-        - claude-haiku-4-5-anthropic
 {% endif %}
 
   # Transparent alias mappings.

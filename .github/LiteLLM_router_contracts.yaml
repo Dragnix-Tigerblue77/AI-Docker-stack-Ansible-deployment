@@ -1983,14 +1983,6 @@ models:
     epoch:
       cursorbench_external: [claude-opus-5-5_high, claude-opus-5-5_low, claude-opus-5-5_max, claude-opus-5-5_medium, claude-opus-5-5_xhigh]
       ale_bench_external: [claude-opus-5-5_high]
-  claude-fable-5-1-anthropic:
-    slug: claude-fable-5-1-high
-    level: high
-    level_source: "the provider's default: platform.claude.com/docs/en/models/fable-5-1/overview (read 2026-11-25) gives Adaptive thinking always on, default effort high; no entry sets a level"
-    eci: "Claude Fable 5.1"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      ale_bench_external: [claude-fable-5-1_high]
   claude-sonnet-5-5-anthropic:
     slug: claude-sonnet-5-5-high
     level: high
@@ -2000,26 +1992,6 @@ models:
     epoch:
       cursorbench_external: [claude-sonnet-5-5_high, claude-sonnet-5-5_low, claude-sonnet-5-5_max, claude-sonnet-5-5_medium, claude-sonnet-5-5_xhigh]
       ale_bench_external: [claude-sonnet-5-5_high]
-  claude-opus-5-anthropic:
-    slug: claude-opus-5
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/opus-5/overview (read 2026-11-25) gives Adaptive thinking and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Opus 5"
-    note: "Artificial Analysis's record of the Max level carries the bare slug of the model"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      deepswe_external: [claude-opus-5_high, claude-opus-5_low, claude-opus-5_max, claude-opus-5_medium, claude-opus-5_xhigh]
-      ale_bench_external: [claude-opus-5_high]
-  claude-fable-5-anthropic:
-    slug: claude-fable-5
-    level: high
-    level_source: "the provider's default: platform.claude.com/docs/en/models/fable-5/overview (read 2026-11-25) gives Adaptive thinking always on, default effort high; no entry sets a level"
-    eci: "Claude Fable 5"
-    note: "Artificial Analysis has one record of the model, with no index (read 2026-11-25), so the level is not ranked"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      deepswe_external: [claude-fable-5_high, claude-fable-5_low, claude-fable-5_max, claude-fable-5_medium, claude-fable-5_xhigh]
-      ale_bench_external: [claude-fable-5_high]
   claude-haiku-5-5-anthropic:
     slug: claude-haiku-5-5-medium
     level: medium
@@ -2029,67 +2001,3 @@ models:
     epoch:
       cursorbench_external: [claude-haiku-5-5_high, claude-haiku-5-5_low, claude-haiku-5-5_max, claude-haiku-5-5_medium, claude-haiku-5-5_xhigh]
       ale_bench_external: [claude-haiku-5-5_high]
-  claude-opus-4-8-anthropic:
-    slug: claude-opus-4-8
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/opus-4-8/overview (read 2026-11-25) gives Adaptive thinking and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Opus 4.8"
-    note: "Artificial Analysis has one record of the model, at its Max level, with no index (read 2026-11-25)"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      deepswe_external: [claude-opus-4-8_high, claude-opus-4-8_low, claude-opus-4-8_max, claude-opus-4-8_medium, claude-opus-4-8_xhigh]
-      ale_bench_external: [claude-opus-4-8_high, claude-opus-4-8_none]
-  claude-opus-4-7-anthropic:
-    slug: claude-opus-4-7
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/opus-4-7/overview (read 2026-11-25) gives Adaptive thinking and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Opus 4.7"
-    note: "Artificial Analysis has a Max and a non-reasoning record of the model, neither with an index (read 2026-11-25)"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      swe_bench_verified: [claude-opus-4-7_max]
-      terminalbench_external: [claude-opus-4-7_unknown]
-      ale_bench_external: [claude-opus-4-7]
-  claude-sonnet-5-anthropic:
-    slug: claude-sonnet-5
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/sonnet-5/overview (read 2026-11-25) gives Adaptive thinking and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Sonnet 5"
-    note: "Artificial Analysis's record of the Max level carries the bare slug of the model, with no index (read 2026-11-25)"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      deepswe_external: [claude-sonnet-5_high, claude-sonnet-5_low, claude-sonnet-5_max, claude-sonnet-5_medium, claude-sonnet-5_xhigh]
-      ale_bench_external: [claude-sonnet-5_high]
-  claude-opus-4-6-anthropic:
-    slug: claude-opus-4-6-adaptive
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/opus-4-6/overview (read 2026-11-25) gives Adaptive thinking, extended thinking deprecated, and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Opus 4.6"
-    note: "Artificial Analysis has an adaptive and a non-reasoning record of the model, neither with an index (read 2026-11-25)"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      swe_bench_verified: [claude-opus-4-6]
-      terminalbench_external: [claude-opus-4-6, claude-opus-4-6_unknown]
-      ale_bench_external: [claude-opus-4-6]
-  claude-sonnet-4-6-anthropic:
-    slug: claude-sonnet-4-6-adaptive
-    level: unknown
-    level_source: "unknown: platform.claude.com/docs/en/models/sonnet-4-6/overview (read 2026-11-25) gives Adaptive thinking, extended thinking deprecated, and default effort high, and does not say whether a request that asks for no thinking gets it"
-    eci: "Claude Sonnet 4.6"
-    note: "Artificial Analysis has an adaptive and a non-reasoning record of the model, neither with an index (read 2026-11-25)"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      deepswe_external: [claude-sonnet-4-6_high]
-      swe_bench_verified: [claude-sonnet-4-6]
-      terminalbench_external: [claude-sonnet-4-6, claude-sonnet-4-6_unknown]
-      ale_bench_external: [claude-sonnet-4-6_medium]
-  claude-haiku-4-5-anthropic:
-    slug: claude-4-5-haiku
-    level: non-reasoning
-    level_source: "the provider's default: platform.claude.com/docs/en/models/haiku-4-5/overview (read 2026-11-25) gives manual extended thinking, which a request turns on, and no effort level; no entry sets a level"
-    eci: "Claude Haiku 4.5"
-    note: "Artificial Analysis's non-reasoning record carries the bare slug of the model"
-    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
-    epoch:
-      terminalbench_external: [claude-haiku-4-5-20251001, claude-haiku-4-5-20251001_unknown]
-      ale_bench_external: [claude-haiku-4-5-20251001_32K]

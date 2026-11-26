@@ -7468,7 +7468,9 @@ FREE_TIER_CHECKS = {
                  "appel est payé sur le solde de l'organisation de la clé, que le crédit mensuel d'un forfait Claude "
                  "Max, Ultra ou Team peut alimenter et qui ne couvre pas Claude Code. Vérifier sur la fiche que le "
                  "modèle n'est pas réservé aux organisations vérifiées (les modèles Mythos le sont). Un modèle "
-                 "d'Anthropic n'entre que dans `Auto-Paid`, jamais dans un autre routeur",
+                 "d'Anthropic n'entre que dans `Auto-Paid`, jamais dans un autre routeur, et le crédit étant un "
+                 "quota commun à tous ses modèles, seule la dernière version de chaque gamme est routée : la pull "
+                 "request qui en ajoute une nouvelle commente celle qu'elle remplace",
     "cloudflare": "la note qui nomme les modèles demandant un moyen de facturation payant : un modèle qui "
                   "n'y est pas est gratuit dans la limite des 10 000 neurons par jour de tout le compte, "
                   "mais la page ne le dit pas, et rien dans l'API ne le dit : c'est une déduction, que "

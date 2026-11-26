@@ -495,17 +495,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | --- | --- | --- | --- |
 | `claude-fable-5-2-anthropic` | Anthropic | défaut : high | — |
 | `claude-opus-5-5-anthropic` | Anthropic | défaut : medium | — |
-| `claude-fable-5-1-anthropic` | Anthropic | défaut : high | — |
 | `claude-sonnet-5-5-anthropic` | Anthropic | défaut : high | — |
-| `claude-opus-5-anthropic` | Anthropic | — | — |
-| `claude-fable-5-anthropic` | Anthropic | défaut : high | — |
 | `claude-haiku-5-5-anthropic` | Anthropic | défaut : medium | — |
-| `claude-opus-4-8-anthropic` | Anthropic | — | — |
-| `claude-opus-4-7-anthropic` | Anthropic | — | — |
-| `claude-sonnet-5-anthropic` | Anthropic | — | — |
-| `claude-opus-4-6-anthropic` | Anthropic | — | — |
-| `claude-sonnet-4-6-anthropic` | Anthropic | — | — |
-| `claude-haiku-4-5-anthropic` | Anthropic | défaut : non-reasoning | — |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
 
@@ -945,17 +936,8 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `voyage-law-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `claude-fable-5-2-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
 | `claude-opus-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : medium | 1 000 000 | 128 000 | — | — | — |
-| `claude-fable-5-1-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
 | `claude-sonnet-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
-| `claude-opus-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-fable-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
 | `claude-haiku-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : medium | 1 000 000 | 128 000 | — | — | — |
-| `claude-opus-4-8-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-opus-4-7-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-sonnet-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-opus-4-6-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-sonnet-4-6-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | — | 1 000 000 | 128 000 | — | — | — |
-| `claude-haiku-4-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : non-reasoning | 200 000 | 64 000 | — | — | — |
 | `omniroute-free-auto` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | — | — | — | — | — |
 | `omniroute-free-code` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Code` | — | — | — | — | — | — |
 | `omniroute-free-reasoning` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | — | — | — | — | — |
@@ -1134,16 +1116,7 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `mistral-small-vercel` | `mistral-small-4` | — | — | — | — | — |
 | `claude-fable-5-2-anthropic` | `claude-fable-5-2-high` (`high`) | — | — | `Claude Fable 5.2` | 173,4 | 6,79 |
 | `claude-opus-5-5-anthropic` | `claude-opus-5-5-medium` (`medium`) | — | — | `Claude Opus 5.5` | 168,67 | 11,34 |
-| `claude-fable-5-1-anthropic` | `claude-fable-5-1-high` (`high`) | — | — | `Claude Fable 5.1` | 167,06 | — |
 | `claude-sonnet-5-5-anthropic` | `claude-sonnet-5-5-high` (`high`) | — | — | `Claude Sonnet 5.5` | 166,6 | 22,59 |
-| `claude-opus-5-anthropic` | `claude-opus-5` | — | — | `Claude Opus 5` | 164,72 | 5,62 |
-| `claude-fable-5-anthropic` | `claude-fable-5` (`high`) | — | — | `Claude Fable 5` | 164,18 | 13,52 |
 | `claude-haiku-5-5-anthropic` | `claude-haiku-5-5-medium` (`medium`) | — | — | `Claude Haiku 5.5` | 160,33 | 31,7 |
-| `claude-opus-4-8-anthropic` | `claude-opus-4-8` | — | — | `Claude Opus 4.8` | 159,9 | 35,33 |
-| `claude-opus-4-7-anthropic` | `claude-opus-4-7` | — | — | `Claude Opus 4.7` | 157,49 | 5,08 |
-| `claude-sonnet-5-anthropic` | `claude-sonnet-5` | — | — | `Claude Sonnet 5` | 156,9 | 42,12 |
-| `claude-opus-4-6-anthropic` | `claude-opus-4-6-adaptive` | — | — | `Claude Opus 4.6` | 156,33 | 12,12 |
-| `claude-sonnet-4-6-anthropic` | `claude-sonnet-4-6-adaptive` | — | — | `Claude Sonnet 4.6` | 152,85 | 38,16 |
-| `claude-haiku-4-5-anthropic` | `claude-4-5-haiku` (`non-reasoning`) | — | — | `Claude Haiku 4.5` | 142,74 | 69,44 |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
