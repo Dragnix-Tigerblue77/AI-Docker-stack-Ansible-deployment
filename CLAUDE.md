@@ -439,21 +439,24 @@ router's pre-call checks skip a member a request does not fit) or deemed not nee
 apart: it goes by its figure, at the tail of the free members, or by name.
 
 **Under a quota shared between the models of a provider, only the latest version of each line is routed, unless
-an older one gives what it does not.** Where one counter serves every model of a provider -- a credit, a
-balance, an account, an address, which the column "Comptée par" of the table of free limits in `ROUTAGE.md`
+an older one gives what every newer one lacks.** Where one counter serves every model of a provider -- a credit,
+a balance, an account, an address, which the column "Comptée par" of the table of free limits in `ROUTAGE.md`
 gives -- an older version of a line adds no quota, since it spends the same counter, and the latest of its line
-is the more capable one. A line is one model at one tier followed through its versions: the provider's own
-grouping where it gives one (Anthropic's `line`), and otherwise the model's name without its version, a size or
-a tier being a line of its own. An older version stays routed, placed by its figure like any other member, when
-it gives what the latest of its line does not: a larger context window, images it reads, tool calls, or the same
+is the more capable one: the aim is the most free quota and the best answer for what a request spends of it. A
+line is one model at one tier followed through its versions: the provider's own grouping where it gives one
+(Anthropic's `line`), and otherwise the model's name without its version, a size or a tier being a line of its
+own. An older version stays routed, placed by its figure like any other member, when it gives what no newer
+version of its line that stays routed gives: a larger context window, images it reads, tool calls, or the same
 text for at least 10 % less of the shared counter, which is its price per token, or the quota's own unit, times
-the tokens its tokenizer counts for that text, as the provider's pages state them. The margin is there because a
-provider gives what a tokenizer counts as an approximation, and a smaller gap tells nothing apart; thinking
-tokens, which no page states, do not count. Any other older version stays in the template commented out, its
-reason naming the version that replaces it, so that the drift run knows it and deletes it once its provider
-retires it. The pull request that routes a new latest version comments out the one it replaces, or says why it
-keeps it. Different lines of one provider stay side by side: a router falls back to the next member when one
-model fails for a reason of its own, which `ROUTAGE.md` says. The maintainer set it on 2026-11-25.
+the tokens its tokenizer counts for that text, as the provider's pages state them. It is compared with each of
+those newer versions, not with the latest alone, so that an older version an intermediate one already covers
+goes as well. The margin is there because a provider gives what a tokenizer counts as an approximation, and a
+smaller gap tells nothing apart; thinking tokens, which no page states, do not count. Any other older version
+stays in the template commented out, its reason naming the version that replaces it, so that the drift run knows
+it and deletes it once its provider retires it. The pull request that routes a new latest version comments out
+the one it replaces, or says why it keeps it. Different lines of one provider stay side by side: a router falls
+back to the next member when one model fails for a reason of its own, which `ROUTAGE.md` says. The maintainer
+set it on 2026-11-25, and the comparison with every newer version on 2026-11-26.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
