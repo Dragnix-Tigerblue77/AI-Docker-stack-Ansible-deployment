@@ -757,7 +757,10 @@ services:
       # Anthropic's API directly -- #13's compliance point is that whatever this alias resolves to in
       # LiteLLM (#2) is never an Anthropic model backed by a subscription.
       ANTHROPIC_BASE_URL: "http://litellm:4000"
-      ANTHROPIC_API_KEY: {{ Artificial_Intelligence_Claude_code_virtual_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
+      # The key goes out as "Authorization: Bearer", which LiteLLM reads as it reads "x-api-key". Not
+      # "ANTHROPIC_API_KEY": Claude Code asks once, at its first interactive start, whether to use a key found
+      # there, with "No" as the answer Enter gives, and a "No" leads to its login screen instead of the gateway.
+      ANTHROPIC_AUTH_TOKEN: {{ Artificial_Intelligence_Claude_code_virtual_key | replace('$', '$$') | to_json(ensure_ascii=False) }}
       # Every variable Claude Code reads a model from carries the SAME alias (#287). Its background
       # requests (titles, summaries) go to the Haiku-class model and its subagents and aliases to
       # others, each under a name the agent's virtual key does not allow -- the key allows the alias,

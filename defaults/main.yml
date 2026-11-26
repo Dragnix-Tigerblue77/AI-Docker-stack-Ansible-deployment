@@ -501,12 +501,12 @@ Artificial_Intelligence_Claude_code_enabled: true
 # OPTIONAL (#245). A personal access token, set as "GH_TOKEN" and "GITHUB_TOKEN" in the container only
 # when it is given. Claude Code reads both itself, with no "gh" involved, to call the GitHub API: its PR
 # status footer (setting "prStatusFooterEnabled", on by default) asks for the pull request of the
-# current branch with it. The published image carries no "gh" to fall back on, so a deployment without
-# a token gets the footer's hint "install gh for PR status" in its place, and Claude Code's other calls
-# to the GitHub API go out without a token; one with a token has it in the container's environment,
-# readable in every "docker inspect". git reads neither variable. That is a reading of the strings of
-# the 2.1.287 binary, not a run of it. #13 defers real repository access to the MCP GitHub connector
-# (#23), which this token does not stand in for.
+# current branch with it. The published image also carries "gh", which reads the same two variables, so
+# that with a token the agent opens and reads pull requests and issues from its shell; without one the
+# footer reads "gh auth login for PR status" and Claude Code's calls to the GitHub API go out without a
+# token. One with a token has it in the container's environment, readable in every "docker inspect". git
+# reads neither variable. That is a reading of the strings of the Claude Code binary, not a run of it. Real
+# repository access is deferred to the MCP GitHub connector, which this token does not stand in for.
 #
 # "false" rather than "''", like the published network at the top of this file: the template writes
 # "is string" to mean "set". A value that is given must be a non-empty string, and "tasks/main.yml"

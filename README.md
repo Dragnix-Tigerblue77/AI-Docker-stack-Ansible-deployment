@@ -2296,14 +2296,23 @@ l'accès aux outils à la passerelle MCP (#7) ; `Artificial_Intelligence_Claude_
 cet accès, seulement un jeton personnel que le rôle pose dans le conteneur, en `GH_TOKEN` et `GITHUB_TOKEN`, s'il est
 fourni. Ce qui les lit, c'est Claude Code lui-même, sans passer par `gh` : il s'en sert pour interroger l'API GitHub, et
 son pied de page d'état de la pull request de la branche courante (réglage `prStatusFooterEnabled`, activé par défaut) en
-est l'usage établi. C'est une lecture des chaînes du binaire de la 2.1.287, la version mesurée plus haut, et non une
-exécution. L'image ne porte pas `gh`, le repli de Claude Code quand ces variables manquent, et git ne lit ni l'une ni
-l'autre de lui-même : sans jeton, ce même code affiche « install gh for PR status » à la place du pied de page, et ses
-autres appels à l'API GitHub qui se servent du jeton partent sans. Le bloc du service ne pose donc les deux variables
+est l'usage établi. L'image porte aussi `gh`, qui lit les mêmes variables : avec le jeton, l'agent ouvre et lit des
+pull requests et des issues depuis son shell ; sans jeton, le pied de page devient « gh auth login for PR status », et
+les appels de Claude Code à l'API GitHub partent sans jeton. C'est une lecture des chaînes du binaire de Claude Code, et
+non une exécution, et git ne lit ni l'une ni l'autre de ces variables. Le bloc du service ne pose donc les deux variables
 que si le jeton est fourni : un déploiement qui préfère ne mettre aucun jeton GitHub dans l'environnement du
 conteneur -- où chaque `docker inspect` le montre -- n'en donne pas, et perd ce pied de page.
 Fournie, la variable doit être une chaîne non vide : une valeur vide ou qui n'est pas une chaîne fait échouer le rôle
 plutôt que d'être ignorée en silence. `false`, sa valeur par défaut, veut dire « non fourni ».
+
+**La clé arrive en `ANTHROPIC_AUTH_TOKEN`, pas en `ANTHROPIC_API_KEY`.** Claude Code demande, à son premier lancement
+interactif, s'il doit se servir d'une clé trouvée dans `ANTHROPIC_API_KEY`, avec « No (recommended) » présélectionné :
+Entrée la refuse et mène à l'écran « Select login method », qui propose un compte Claude, la Console ou un fournisseur
+tiers, au lieu de la passerelle. Sous `ANTHROPIC_AUTH_TOKEN`, la même clé part en `Authorization: Bearer`, que LiteLLM
+lit comme `x-api-key`, et sans question : le premier lancement ne demande plus que le thème, l'avertissement de sécurité
+et la confiance du dossier, que le volume du dossier personnel garde ensuite. Mesuré le 2026-11-26 avec Claude Code
+2.1.332 dans un terminal virtuel, puis contre un LiteLLM local, où la clé envoyée en `Bearer` est acceptée et une clé
+fausse refusée ; la documentation de Claude Code sur les passerelles conseille la même variable.
 
 **Le modèle est un alias, jamais un nom de modèle Anthropic littéral.** `ANTHROPIC_BASE_URL` pointe sur
 la passerelle interne (`litellm:4000`), jamais sur l'API Anthropic, et `ANTHROPIC_MODEL` porte
