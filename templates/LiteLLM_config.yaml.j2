@@ -4589,8 +4589,9 @@ model_list:
   # Served, but not routed to: older versions of the Opus line, replaced by "claude-opus-5-5-anthropic", which the
   # capabilities index places higher (156.33 to 164.72, against 168.67) and which costs 4 USD in and 20 out against 5
   # and 25 (read 2026-11-25). Opus 4.6 alone keeps the tokenizer of the models before Claude 4.7, which the pricing
-  # page says count about 30 % fewer tokens for the same text: the two then cost about as much for the same text. One
-  # quota for every model: only the latest of a line is routed.
+  # page says count about 30 % fewer tokens for the same text: it then costs about 4 % less than Opus 5.5 for the same
+  # text, short of the 10 % that keeps an older version routed. One quota for every model: only the latest of a line is
+  # routed, unless an older one gives what it does not, which no other version here does.
   # - model_name: claude-opus-5-anthropic
   #   litellm_params:
   #     model: anthropic/claude-opus-5
