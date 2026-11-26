@@ -195,10 +195,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `qwen3-5-flash-vercel` | Vercel AI Gateway | — | — |
 | `glm-4-7-vercel` | Vercel AI Gateway | — | — |
 | `kimi-k2-vercel` | Vercel AI Gateway | — | — |
-| `o1-vercel` | Vercel AI Gateway | — | — |
 | `deepseek-v3-1-vercel` | Vercel AI Gateway | — | — |
 | `gemini-2-5-flash-vercel` | Vercel AI Gateway | — | — |
-| `o3-mini-vercel` | Vercel AI Gateway | — | — |
 | `mistral-medium-3-5-vercel` | Vercel AI Gateway | — | — |
 | `gpt-5-nano-vercel` | Vercel AI Gateway | — | — |
 | `particle-1-free` | OpenRouter | `xhigh` | — |
@@ -243,10 +241,8 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `interfaze-beta-vercel` | Vercel AI Gateway | — | — |
 | `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | — | — |
 | `longcat-2-5-vercel` | Vercel AI Gateway | — | — |
-| `llama-3-1-70b-vercel` | Vercel AI Gateway | — | — |
 | `llama-3-1-8b-vercel` | Vercel AI Gateway | — | — |
 | `muse-ember-vercel` | Vercel AI Gateway | — | — |
-| `minimax-m2-1-vercel` | Vercel AI Gateway | — | — |
 | `codestral-vercel` | Vercel AI Gateway | — | — |
 | `ministral-14b-vercel` | Vercel AI Gateway | — | — |
 | `ministral-3b-vercel` | Vercel AI Gateway | — | — |
@@ -271,9 +267,7 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `hy-mt2-plus-vercel` | Vercel AI Gateway | — | — |
 | `hy-mt2-pro-vercel` | Vercel AI Gateway | — | — |
 | `hy4-flash-vercel` | Vercel AI Gateway | — | — |
-| `glm-4-5-vercel` | Vercel AI Gateway | — | — |
 | `glm-4-5v-vercel` | Vercel AI Gateway | — | — |
-| `glm-4-6-vercel` | Vercel AI Gateway | — | — |
 | `glm-4-7-flash-vercel` | Vercel AI Gateway | — | — |
 | `glm-4-7-flashx-vercel` | Vercel AI Gateway | — | — |
 | `glm-5v-turbo-vercel` | Vercel AI Gateway | — | — |
@@ -337,7 +331,6 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `mistral-large-3-vercel` | Vercel AI Gateway | — | — |
 | `command-a-vercel` | Vercel AI Gateway | — | — |
 | `ling-3-0-flash-vercel` | Vercel AI Gateway | — | — |
-| `gpt-5-codex-vercel` | Vercel AI Gateway | — | — |
 | `gpt-5-1-codex-vercel` | Vercel AI Gateway | — | — |
 | `gpt-5-1-codex-mini-vercel` | Vercel AI Gateway | — | — |
 | `glm-4-5-air-vercel` | Vercel AI Gateway | — | — |
@@ -346,7 +339,6 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `minimax-m2-7-vercel` | Vercel AI Gateway | — | — |
 | `minimax-m2-5-vercel` | Vercel AI Gateway | — | — |
 | `hy3-vercel` | Vercel AI Gateway | — | — |
-| `ling-3-1-flash-vercel` | Vercel AI Gateway | — | — |
 | `gpt-oss-20b-groq` | Groq | défaut : medium | — |
 | `gpt-oss-20b-cloudflare` | Cloudflare | défaut : medium | — |
 | `gpt-oss-20b-vercel` | Vercel AI Gateway | — | — |
@@ -482,9 +474,6 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | --- | --- | --- | --- |
 | `aion-3-5-aion-labs` | Aion Labs | — | — |
 | `aion-3-5-mini-aion-labs` | Aion Labs | — | — |
-| `aion-3-0-aion-labs` | Aion Labs | — | — |
-| `aion-3-0-mini-aion-labs` | Aion Labs | — | — |
-| `aion-2-0-aion-labs` | Aion Labs | — | — |
 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | — | — |
 
 ### `Auto-Paid`
@@ -782,9 +771,6 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `hy4-flash-cent-ai` | Cent AI | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite` | — | 1 048 576 | — | — | — | — |
 | `aion-3-5-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 262 144 | 32 768 | — | — | — |
 | `aion-3-5-mini-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 262 144 | 32 768 | — | — | — |
-| `aion-3-0-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 131 072 | 32 768 | — | — | — |
-| `aion-3-0-mini-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 131 072 | 32 768 | — | — | — |
-| `aion-2-0-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 131 072 | 32 768 | — | — | — |
 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | chat | `Fiction`, `Private-Data` | `Auto-Fiction` | — | 32 768 | 32 768 | — | — | — |
 | `muse-spark-open-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 1 048 576 | — | — | — |
 | `inkling-2-small-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 1 048 576 | 262 144 | — | — | — |
@@ -842,17 +828,14 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `ling-3-0-flash-fin-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
 | `ling-3-0-flash-sante-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
 | `ling-3-0-flash-vl-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 256 000 | 32 000 | — | — | — |
-| `ling-3-1-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 32 768 | — | — | — |
 | `schematron-v2-small-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 4 096 | — | — | — |
 | `schematron-v2-turbo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
 | `interfaze-beta-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 000 000 | 32 000 | — | — | — |
 | `lfm2-5-24b-a2b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 200 | — | — | — |
 | `longcat-2-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 072 | — | — | — |
-| `llama-3-1-70b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
 | `llama-3-1-8b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 8 192 | — | — | — |
 | `llama-4-maverick-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 8 192 | — | — | — |
 | `muse-ember-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 1 048 576 | — | — | — |
-| `minimax-m2-1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 204 800 | 131 072 | — | — | — |
 | `minimax-m2-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 1 000 000 | 8 192 | — | — | — |
 | `minimax-m2-7-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 204 800 | 131 072 | — | — | — |
 | `codestral-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 4 000 | — | — | — |
@@ -876,7 +859,6 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gpt-4o-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
 | `gpt-4o-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
 | `gpt-4o-mini-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 16 384 | — | — | — |
-| `gpt-5-codex-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 400 000 | 128 000 | — | — | — |
 | `gpt-5-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
 | `gpt-5-mini-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
 | `gpt-5-nano-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
@@ -888,9 +870,7 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `gpt-5-2-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Pro`, `Auto-Flash` | — | 400 000 | 128 000 | — | — | — |
 | `gpt-oss-safeguard-120b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 16 000 | — | — | — |
 | `gpt-oss-safeguard-20b-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 16 000 | — | — | — |
-| `o1-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
 | `o3-fast-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
-| `o3-mini-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
 | `o3-pro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 100 000 | — | — | — |
 | `ultramarine-1-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 048 576 | 131 000 | — | — | — |
 | `sonar-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 127 000 | 8 000 | — | — | — |
@@ -904,10 +884,8 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `hy-mt2-pro-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 8 000 | 4 000 | — | — | — |
 | `hy3-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 262 144 | 262 144 | — | — | — |
 | `hy4-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 1 024 000 | 64 000 | — | — | — |
-| `glm-4-5-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 128 000 | 96 000 | — | — | — |
 | `glm-4-5-air-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash-Lite` | — | 128 000 | 96 000 | — | — | — |
 | `glm-4-5v-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 66 000 | 16 000 | — | — | — |
-| `glm-4-6-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 96 000 | — | — | — |
 | `glm-4-7-flash-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 131 000 | — | — | — |
 | `glm-4-7-flashx-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 128 000 | — | — | — |
 | `glm-5v-turbo-vercel` | Vercel AI Gateway | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | 200 000 | 128 000 | — | — | — |
@@ -1073,12 +1051,9 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `ling-3-0-flash-vercel` | `ling-3-0-flash` | — | — | — | — | — |
 | `ling-3-0-flash-fin-vercel` | `ling-3-0-flash-fin` | — | — | — | — | — |
 | `ling-3-0-flash-vl-vercel` | `ling-3-0-flash-vl` | — | — | — | — | — |
-| `ling-3-1-flash-vercel` | `ling-3-1-flash-1001` | — | — | — | — | — |
-| `llama-3-1-70b-vercel` | — | — | — | `Llama 3.1-70B` | 124,7 | — |
 | `llama-3-1-8b-vercel` | — | — | — | `Llama 3.1-8B` | 110,9 | — |
 | `llama-4-maverick-vercel` | `llama-4-maverick` | — | — | `Llama 4 Maverick` | 132,19 | — |
 | `muse-ember-vercel` | `muse-ember` | — | — | — | — | — |
-| `minimax-m2-1-vercel` | `minimax-m2-1` | — | — | — | — | — |
 | `minimax-m2-5-vercel` | `minimax-m2-5` | — | — | — | — | — |
 | `minimax-m2-7-vercel` | `minimax-m2-7` | — | — | — | — | — |
 | `mistral-large-3-vercel` | `mistral-large-3` | — | — | — | — | — |
@@ -1092,7 +1067,6 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `gpt-4o-fast-vercel` | `gpt-4o` | — | — | — | — | — |
 | `gpt-4o-mini-vercel` | `gpt-4o-mini` | — | — | `GPT-4o mini` | 123,81 | — |
 | `gpt-4o-mini-fast-vercel` | `gpt-4o-mini` | — | — | `GPT-4o mini` | 123,81 | — |
-| `gpt-5-codex-vercel` | `gpt-5-codex` | — | — | — | — | — |
 | `gpt-5-fast-vercel` | `gpt-5` | — | — | `GPT-5` | 150 | — |
 | `gpt-5-mini-fast-vercel` | `gpt-5-mini` | — | — | `GPT-5 mini` | 146,04 | — |
 | `gpt-5-nano-vercel` | `gpt-5-nano` | — | — | `GPT-5 nano` | 139,07 | — |
@@ -1101,16 +1075,13 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `gpt-5-1-thinking-vercel` | — | — | — | `GPT-5.1` | 150,93 | — |
 | `gpt-5-1-thinking-fast-vercel` | — | — | — | `GPT-5.1` | 150,93 | — |
 | `gpt-5-2-fast-vercel` | `gpt-5-2` | — | — | `GPT-5.2` | 154,53 | — |
-| `o1-vercel` | `o1` | — | — | `o1` | 141,16 | — |
 | `o3-fast-vercel` | `o3` | — | — | `o3` | 147,02 | — |
-| `o3-mini-vercel` | `o3-mini` | — | — | `o3-mini` | 140,63 | — |
 | `o3-pro-vercel` | `o3-pro` | — | — | `o3-pro` | 147,47 | — |
 | `sonar-vercel` | `sonar` | — | — | — | — | — |
 | `step-3-7-flash-vercel` | `step-3-7-flash` | — | — | — | — | — |
 | `hy3-vercel` | `hy3` | — | — | — | — | — |
 | `glm-4-5-air-vercel` | `glm-4-5-air` | — | — | — | — | — |
 | `glm-4-5v-vercel` | `glm-4-5v` | — | — | — | — | — |
-| `glm-4-6-vercel` | `glm-4-6` | — | — | — | — | — |
 | `glm-4-7-flash-vercel` | `glm-4-7-flash` | — | — | — | — | — |
 | `glm-5v-turbo-vercel` | `glm-5v-turbo` | — | — | — | — | — |
 | `mistral-small-vercel` | `mistral-small-4` | — | — | — | — | — |
