@@ -12,8 +12,8 @@
 # plain run prints a notice and the summary lists it as a stale row, to be removed by a person.
 #
 # A router is named in this file, in the "head" table and in the script by its short id ("pro", "flash",
-# "flash-lite", "code", "claude-code", "fiction"). The template publishes it under the name a client types, "Auto-Pro",
-# "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Claude-Code" and "Auto-Fiction", and the script reads one for the other.
+# "flash-lite", "code", "claude-code", "fiction", "paid"). The template publishes it under the name a client types, "Auto-Pro",
+# "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Claude-Code", "Auto-Fiction" and "Auto-Paid", and the script reads one for the other.
 # "Auto", which picks one of three of these routers for each request by the complexity of the request, has no row below:
 # it has no member of its own to hold to a floor, and the router it picks is held to its own.
 #
@@ -71,7 +71,7 @@
 # the highest level the model takes where requests are counted (Gemini, OpenRouter, Kilo, Requesty), since
 # thinking more then costs time only; none where tokens are counted (Groq, Aion Labs, Cloudflare), since
 # thinking empties the quota and the model keeps the balance its maker chose, and none on a paid provider
-# (Mistral, DeepSeek direct). "flash-lite" is ranked on time, so a model it shares with another router has
+# (Mistral, DeepSeek direct, Anthropic). "flash-lite" is ranked on time, so a model it shares with another router has
 # one entry per level, named "<entry>-<level>", and an entry it holds is never raised. A level is set only where the values the model takes are known, and
 # "check_compose_template.py" holds each to them: LiteLLM forwards none to NVIDIA, Cloudflare and Z AI,
 # and no page gives them for OVHcloud's or Cent AI's models, so those keep the provider's default. A
@@ -214,6 +214,7 @@ inputs:
     cent_ai: "no limit stated: the home page says \"Free until Nov 30 · no daily limit\" (read 2026-11-22) and nothing of what follows the 30th, when the model may be billed; a spending limit set on the key keeps a billed call from costing anything, since the call then fails and the cascade moves on"
     aion_labs: "15 requests a minute, 20,000 tokens a minute and 20,000 tokens a day for the whole account, all models together, on the free tier of the Rate Limits page of its documentation (read 2026-11-23); its terms of 2026-10-17 call free use \"a courtesy that we may change or withdraw at any time\""
     vercel_ai_gateway: "A monthly included credit, \"not an expiring trial\", shared by every entry of the provider and on a subset of its models, per vercel.com/docs/ai-gateway/pricing and its FAQ (read 2026-11-24): its amount is on no page read now (an older version of the pages said 5 USD every 30 days, and a renewal has not been observed yet), the rate limits per model are \"lower\" than the paid tier's and given no figure, a request with no credit answers 402 and a model outside the subset 403; the first purchase of credit ends the free credit for good"
+    anthropic: "No free quota: every call is paid from the balance of the key's organisation, which the monthly credit of a Max, Ultra or Team plan of Claude fills, 100, 200 or up to 500 USD each billing cycle, expiring at its end and covering the Claude API but not Claude Code, per platform.claude.com/docs/en/about-claude/api-credits-for-subscribers (read 2026-11-25); an organisation with no other credit, no payment method and Auto-reload off refuses a request once the credit is spent"
     omniroute: "No quota: local and keyless"
   observed_error_rate: "not measured yet: a future input from the gateway"
 
@@ -327,6 +328,20 @@ routers:
     last_resort:
       members: []
       reason: "No member is paid apart from the others or keyless: all six are the same provider's models on the same account allowance, and none is a last resort."
+  paid:
+    intelligence_floor:
+      none: true
+      reason: "The router exists to spend a credit on the models of the one provider it holds, every one of which that credit pays for and which no other router holds: a floor would only send the cheapest of them to the last resort, so nothing goes under one."
+    level_gain:
+      min_points_per_second: 0
+      reason: "No member has a level the template sets: each is called at the effort its provider sets as its default, thinking being billed, so there is no rate to ask."
+    ranking:
+      criterion: intelligence
+      tie_margin_points: 2
+      reason: "Ranked by capability, as pro is: the index where it is read at the level a member is called at, and otherwise Epoch AI's capabilities index, which measures every member, converted and flagged estimated; under 2 points two members are not told apart, so the shorter time decides."
+    last_resort:
+      members: []
+      reason: "No member is free, keyless or apart from the others: all are paid from the same credit, and none is a last resort."
 
 # One row per entry of the template's model_list. "tools" says whether the entry takes tool calls
 # as its provider or LiteLLM declares it ("yes", "no", or "unknown" where nothing is declared, never
@@ -1950,3 +1965,39 @@ models:
     epoch:
       ale_bench_external: [mistral-small-2603]
     epoch_note: "some ids carry no effort suffix: the effort of those runs is not stated"
+  claude-fable-5-2-anthropic:
+    slug: claude-fable-5-2-high
+    level: high
+    level_source: "the provider's default: platform.claude.com/docs/en/models/fable-5-2/overview (read 2026-11-25) gives Adaptive thinking always on, default effort high; no entry sets a level"
+    eci: "Claude Fable 5.2"
+    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
+    epoch:
+      cursorbench_external: [claude-fable-5-2_high, claude-fable-5-2_low, claude-fable-5-2_max, claude-fable-5-2_medium, claude-fable-5-2_xhigh]
+      ale_bench_external: [claude-fable-5-2_high]
+  claude-opus-5-5-anthropic:
+    slug: claude-opus-5-5-medium
+    level: medium
+    level_source: "the provider's default: platform.claude.com/docs/en/models/opus-5-5/overview (read 2026-11-25) gives Adaptive thinking always on, default effort medium; no entry sets a level"
+    eci: "Claude Opus 5.5"
+    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
+    epoch:
+      cursorbench_external: [claude-opus-5-5_high, claude-opus-5-5_low, claude-opus-5-5_max, claude-opus-5-5_medium, claude-opus-5-5_xhigh]
+      ale_bench_external: [claude-opus-5-5_high]
+  claude-sonnet-5-5-anthropic:
+    slug: claude-sonnet-5-5-high
+    level: high
+    level_source: "the provider's default: platform.claude.com/docs/en/models/sonnet-5-5/overview (read 2026-11-25) gives Adaptive thinking on by default, default effort high; no entry sets a level"
+    eci: "Claude Sonnet 5.5"
+    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
+    epoch:
+      cursorbench_external: [claude-sonnet-5-5_high, claude-sonnet-5-5_low, claude-sonnet-5-5_max, claude-sonnet-5-5_medium, claude-sonnet-5-5_xhigh]
+      ale_bench_external: [claude-sonnet-5-5_high]
+  claude-haiku-5-5-anthropic:
+    slug: claude-haiku-5-5-medium
+    level: medium
+    level_source: "the provider's default: platform.claude.com/docs/en/models/haiku-5-5/overview (read 2026-11-25) gives Adaptive thinking on by default, default effort medium; no entry sets a level"
+    eci: "Claude Haiku 5.5"
+    tools: {support: "yes", source: "platform.claude.com/docs/en/models/overview, read 2026-11-25: all current models support tool use"}
+    epoch:
+      cursorbench_external: [claude-haiku-5-5_high, claude-haiku-5-5_low, claude-haiku-5-5_max, claude-haiku-5-5_medium, claude-haiku-5-5_xhigh]
+      ale_bench_external: [claude-haiku-5-5_high]

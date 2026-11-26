@@ -478,6 +478,15 @@ def aion_model(identifier, modality="text->text", expires=None, replacement=None
             "expires_at": expires, "replacement_model_id": replacement}
 
 
+def anthropic_model(identifier, lifecycle="active", retires=None, window=1000000, output=128000, image=True):
+    """A model of Anthropic's list as the API version the reader asks for gives it: a lifecycle, a retirement once
+    one is scheduled, a window, a longest answer and whether it takes images. No price, none being free."""
+    return {"type": "model", "id": identifier, "display_name": identifier, "created_at": "2026-01-01T00:00:00Z",
+            "lifecycle": lifecycle, "retires_at": retires, "deprecated_at": None if lifecycle == "active" else
+            "2026-01-01T00:00:00Z", "line": None, "max_input_tokens": window, "max_tokens": output,
+            "capabilities": {"image_input": {"supported": image}, "batch": {"supported": True}}}
+
+
 def vercel_model(identifier, kind="language", price="0.000001", deprecated_at=None, free=True):
     """A model of Vercel AI Gateway's public catalogue: a "type" and a price, and no flag for the free tier. "free"
     is no field of the API: it says what the canned models page (vercel_page_of) flags that model as."""
@@ -576,6 +585,7 @@ def selftest_answers():
         "zai": {"object": "list", "data": []},
         "centai": {"object": "list", "data": []},
         "vercel": {"object": "list", "data": []},
+        "anthropic": {"data": [], "has_more": False, "first_id": None, "last_id": None},
     }
 
 
@@ -615,6 +625,7 @@ def answers_listing(text, without=()):
         "zai": {"data": [{"id": i} for i in sorted(ids["zai"])]},
         "centai": {"data": [{"id": i} for i in sorted(ids["centai"])]},
         "vercel": {"data": [vercel_model(i) for i in sorted(ids["vercel"])]},
+        "anthropic": {"data": [anthropic_model(i) for i in sorted(ids["anthropic"])], "has_more": False},
     }
 
 
@@ -627,6 +638,7 @@ SELFTEST_KEYS = {
     "MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID": "0123456789abcdef0123456789abcdef",
     "MODEL_DRIFT_ZAI_API_KEY": "selftest-zai-key-SECRET",
     "MODEL_DRIFT_CENT_AI_API_KEY": "selftest-centai-key-SECRET",
+    "MODEL_DRIFT_ANTHROPIC_API_KEY": "selftest-anthropic-key-SECRET",
 }
 
 
@@ -4586,8 +4598,14 @@ def run_usage_cases():
                 == compose.LITELLM_UNROUTED_MODES, "the kinds with no router are not LITELLM_UNROUTED_MODES"),
                ({router: {provider.lower() for provider in providers}
                  for router, (providers, _) in compose.LITELLM_MEDIA_ROUTERS.items()}
-                == {router: providers for router, providers in drift.ROUTER_PROVIDERS.items() if router != "fiction"},
+                == {router: providers for router, providers in drift.ROUTER_PROVIDERS.items()
+                    if router not in compose.LITELLM_KEPT_APART_ROUTERS},
                 "ROUTER_PROVIDERS is not LITELLM_MEDIA_ROUTERS"),
+               ({router: {provider.lower().replace("_", "") for provider in providers}
+                 for router, (providers, _) in compose.LITELLM_KEPT_APART_ROUTERS.items()}
+                == {router: providers for router, providers in drift.ROUTER_PROVIDERS.items()
+                    if router in compose.LITELLM_KEPT_APART_ROUTERS},
+                "ROUTER_PROVIDERS is not LITELLM_KEPT_APART_ROUTERS"),
                ({drift.ROUTER_OF_USAGE[usage]: drift.USAGE_MODES[usage] for usage in ("speech", "transcription", "decision", "extraction")}
                 == {router: mode for router, (_, mode) in compose.LITELLM_MEDIA_ROUTERS.items()},
                 "ROUTER_OF_USAGE does not send each mode to its router")))
@@ -5555,7 +5573,7 @@ def run_pricing_page_cases():
                    "deepseek": "api-docs.deepseek.com", "cloudflare": "developers.cloudflare.com",
                    "nvidia": "build.nvidia.com", "ovhcloud": "www.ovhcloud.com", "zai": "docs.z.ai",
                    "centai": "cent-ai.dev",
-                   "aionlabs": "www.aionlabs.ai"}
+                   "aionlabs": "www.aionlabs.ai", "anthropic": "platform.claude.com"}
 
     def foreign(table):
         return ["%s -> %s" % (name, urllib.parse.urlparse(url).hostname)
@@ -5635,6 +5653,7 @@ router_settings:
     - code: [alpha, delta, november, oscar, sierra]
     - claude-code: [alpha, echo, november, delta, quebec]
     - fiction: [papa, romeo]
+    - paid: [sierra]
   model_group_alias:
     "pro": "alpha"
     "flash": "bravo"
@@ -5642,6 +5661,7 @@ router_settings:
     "code": "alpha"
     "claude-code": "alpha"
     "fiction": "papa"
+    "paid": "sierra"
 """
 
 
@@ -5694,6 +5714,10 @@ def contract_document():
                         "level_gain": {"min_points_per_second": 0, "reason": "selftest"},
                         "ranking": {"criterion": "intelligence", "tie_margin_points": 0, "reason": "selftest"},
                         "last_resort": {"members": [], "reason": "selftest"}},
+            "paid": {"intelligence_floor": {"none": True, "reason": "selftest"},
+                     "level_gain": {"min_points_per_second": 0, "reason": "selftest"},
+                     "ranking": {"criterion": "intelligence", "tie_margin_points": 2, "reason": "selftest"},
+                     "last_resort": {"members": [], "reason": "selftest"}},
         },
         "models": {
             "alpha": dict(contract_mapping("alpha-medium", "medium"), epoch={"deepswe_external": ["alpha_medium"]}),
@@ -5938,9 +5962,9 @@ def run_contract_cases():
     del without_lite["routers"]["flash-lite"]
     judged("a router with no cascade in the template, or with no contract, is left out of the report",
            first_wrong(
-               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code", "fiction"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
+               ([entry["name"] for entry in fewer["routers"]] == ["pro", "flash", "flash-lite", "code", "fiction", "paid"], "no cascade: %r" % [e["name"] for e in fewer["routers"]]),
                ([entry["name"] for entry in contracts_report(template, contract_ranking(), without_lite)["routers"]]
-                == ["pro", "flash", "code", "claude-code", "fiction"], "no contract")))
+                == ["pro", "flash", "code", "claude-code", "fiction", "paid"], "no contract")))
     routed_template = read_template(CONTRACT_TEMPLATE.replace("router_settings:\n", COMPLEXITY_ROUTER_ENTRY + "router_settings:\n", 1))[0]
     judged("the entry that picks a router by complexity has no mapping to ask for: it is no model of any ranking",
            first_wrong(
@@ -9656,6 +9680,7 @@ def run_deprecation_cases():
                        (drift.litellm_map_key("nvidia", "meta/x") == "nvidia_nim/meta/x", "NVIDIA's prefix"),
                        (drift.litellm_map_key("cloudflare", "@cf/meta/x") == "cloudflare/@cf/meta/x", "Cloudflare"),
                        (drift.litellm_map_key("ovhcloud", "x") == "ovhcloud/x", "OVHcloud"),
+                       (drift.litellm_map_key("anthropic", "claude-x") == "claude-x", "Anthropic's bare id"),
                        (all(drift.litellm_map_key(name, "x") is None
                             for name in ("kilo", "requesty", "centai", "aionlabs")),
                         "a host the map has no provider for")))
@@ -9688,6 +9713,72 @@ def run_template_cases():
                 failures += 1
                 print("selftest: FAILED (%s) -- expected %s, got %r"
                       % (purpose, "no problem" if needle is None else repr(needle), problems))
+    return failures
+
+
+def run_anthropic_cases():
+    """Anthropic's list read the way the API version the reader sends documents it: the models the key's organisation
+    may call, paged after the last id while the page has more, each one's lifecycle, retirement and sheet; and the
+    router of its own that a NEW one is given a slot in."""
+    failures = 0
+
+    def judged(purpose, why):
+        nonlocal failures
+        if why is None:
+            print("selftest: ok -- %s" % purpose)
+        else:
+            failures += 1
+            print("selftest: FAILED (%s) -- %s" % (purpose, why))
+
+    def first_wrong(*checks):
+        return next((message for ok, message in checks if not ok), None)
+
+    pages = [{"data": [anthropic_model("claude-new-9"),
+                       anthropic_model("claude-old-8", "deprecated", "2027-01-22T00:00:00Z", 200000, 64000)],
+              "has_more": True, "first_id": "claude-new-9", "last_id": "claude-old-8"},
+             {"data": [anthropic_model("claude-older-7", "deprecated", None, image=False)], "has_more": False}]
+    catalogue = drift.read_anthropic(pages)
+    judged("every listed model is a member, whatever its lifecycle, on every page",
+           first_wrong((catalogue["members"] == {"claude-new-9", "claude-old-8", "claude-older-7"},
+                        "members %r" % sorted(catalogue["members"]))))
+    judged("an active model is stated not deprecated and offered as a chat model; a deprecated one is not offered",
+           first_wrong((catalogue["not_deprecated"] == {"claude-new-9"}, "not deprecated %r" % catalogue["not_deprecated"]),
+                       (set(catalogue["candidates"]) == {"claude-new-9"}, "candidates %r" % catalogue["candidates"]),
+                       (catalogue["usages"].get("claude-new-9") == "chat", "usage %r" % catalogue["usages"])))
+    judged("a scheduled retirement is an expiration on its day, and a deprecation with none has no day",
+           first_wrong((catalogue["notices"].get("claude-old-8") == {"what": "expiration", "date": "2027-01-22"},
+                        "notice %r" % catalogue["notices"].get("claude-old-8")),
+                       (catalogue["notices"].get("claude-older-7") == {"what": "deprecation"},
+                        "notice %r" % catalogue["notices"].get("claude-older-7"))))
+    judged("the sheet is the window, the longest answer and the image input",
+           first_wrong((catalogue["sheets"].get("claude-new-9") == {"max_input_tokens": 1000000, "max_output_tokens": 128000,
+                                                                    "supports_vision": True},
+                        "sheet %r" % catalogue["sheets"].get("claude-new-9")),
+                       (catalogue["sheets"].get("claude-older-7", {}).get("supports_vision") is False,
+                        "sheet %r" % catalogue["sheets"].get("claude-older-7"))))
+    url = next(url for name, url, _, _, _, _ in PROVIDERS if name == "anthropic")
+    second = drift.anthropic_next(url, pages[0])
+    judged("the next page is asked for after the last id while the page has more, and never past the last",
+           first_wrong((second == url + "&after_id=claude-old-8", "next %r" % second),
+                       (drift.anthropic_next(second, dict(pages[0], last_id="claude-x")) == url + "&after_id=claude-x",
+                        "the cursor is not replaced"),
+                       (drift.anthropic_next(url, pages[1]) is None, "a last page asks for more"),
+                       (drift.anthropic_next(url, dict(pages[0], last_id="a b")) is None, "an unsafe cursor is followed")))
+    headers = next(send for name, _, _, send, _, _ in PROVIDERS if name == "anthropic")("selftest-anthropic-key-SECRET")
+    judged("the key goes as a Bearer token, beside the API version whose list carries the lifecycle",
+           first_wrong((headers == {"Authorization": "Bearer selftest-anthropic-key-SECRET",
+                                    "anthropic-version": drift.ANTHROPIC_VERSION}, "headers %r" % headers)))
+    try:
+        drift.read_anthropic([{"models": []}])
+        why = "an answer with no list was read"
+    except drift.FetchError:
+        why = None
+    judged("an answer with no 'data' list is the provider's error, never a retirement", why)
+    judged("a NEW model is given a slot in the router of its own, which is its alone",
+           first_wrong((drift.slot_router("anthropic", "chat") == "paid", "router %r" % drift.slot_router("anthropic", "chat")),
+                       (drift.slot_refusal("anthropic", "chat") is None, drift.slot_refusal("anthropic", "chat")),
+                       (drift.slot_lines("anthropic", "paid", "claude-new-9-anthropic") == ["        - claude-new-9-anthropic"],
+                        "lines %r" % drift.slot_lines("anthropic", "paid", "claude-new-9-anthropic"))))
     return failures
 
 
@@ -9898,6 +9989,7 @@ GROUPS_OF_THE_PARTS = (
         run_jinja_net_cases,
         run_pricing_page_cases,
         run_lookup_cases,
+        run_anthropic_cases,
     ),
     (
         run_head_cases,

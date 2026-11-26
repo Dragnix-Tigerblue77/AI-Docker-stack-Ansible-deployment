@@ -156,7 +156,8 @@ HOW EACH PROVIDER IS READ
 -------------------------
 An entry belongs to a provider by the prefix of its "model:", which is how LiteLLM itself routes it:
 "gemini/<id>", "groq/<id>", "mistral/<id>", "deepseek/<id>", "cerebras/<id>", "openrouter/<id>",
-"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", "vercel_ai_gateway/<id>", and, as "openai/<id>" with
+"cloudflare/<id>" (whose id starts with "@cf/"), "zai/<id>", "nvidia_nim/<id>", "vercel_ai_gateway/<id>", "anthropic/<id>",
+and, as "openai/<id>" with
 an "api_base" on the provider's host, SambaNova ("api.sambanova.ai"), Kilo Gateway ("ai-gateway.kilo.ai"),
 OVHcloud AI Endpoints (through the relay of the compose file, "ovhcloud_relay"), Requesty ("requesty.ai"), Cent AI
 ("api.cent-ai.dev") and Aion Labs ("api.aionlabs.ai"). Every provider the model list routes to has its catalogue read here, one that needs
@@ -193,6 +194,8 @@ Labs' "aionlabs": the workflow's tables read a name as plain letters.
   aionlabs    api.aionlabs.ai/v1/models -- no key      every model not retired ("expires_at")
   vercel      ai-gateway.vercel.sh/v1/models -- no key  "availableToFreeTier" true, read from the models
               page vercel.com/ai-gateway/models?freeTier=true -- no key
+  anthropic   api.anthropic.com/v1/models, paginated   every model listed, which is every one the key's
+              -- Bearer and "anthropic-version"        organisation may call, none of them free
 
 No filter drops a model for what it is for: every provider and every kind of model is on the same
 footing, so a new speech, transcription, embedding or image model is reported like a new chat one.
@@ -259,6 +262,15 @@ person's call. The page needs no key. It is not documented, so a page that holds
 model twice is that provider's error, which goes through the retries and the issue like an unreadable catalogue,
 and what the API alone says stands meanwhile. Its names are "vercel".
 
+Anthropic lists, to the key of an organisation, the models that organisation may call, "active" or "deprecated",
+and leaves a "retired" one out unless it is asked for: a model it no longer lists is RETIRED. Each model has its
+"lifecycle", and a "retires_at" once its retirement is scheduled, which is a NOTICE with that day; "active" is the
+provider stating the model is not deprecated. The API version that answers with those fields is sent with the key,
+which goes as a Bearer token. No model is free: every call is paid from the organisation's balance, which the
+monthly credit of a Claude plan may fill, so a NEW one is listed to examine and proposed only in the pull request of
+models to verify, with a slot in the router of its own. A model the organisation may not call (one a verification
+programme opens, one closed to new adopters) is absent from its list, and is named by a "drift-ignore:" line.
+
 Kilo Gateway lists all of its models, paid ones included, and flags the free ones with "isFree" (and
 whether it "mayTrainOnYourPrompts"). Its entries are the keyless ones, served without an account, so only
 the free ids are offered as NEW. Every id is a member, though: a model that stops being free is still
@@ -269,7 +281,7 @@ it alone, as OpenRouter's does. It also lists virtual models that pick another a
 
 The keys are read from MODEL_DRIFT_GEMINI_API_KEY, MODEL_DRIFT_GROQ_API_KEY,
 MODEL_DRIFT_MISTRAL_API_KEY, MODEL_DRIFT_DEEPSEEK_API_KEY, MODEL_DRIFT_ZAI_API_KEY,
-MODEL_DRIFT_CENT_AI_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
+MODEL_DRIFT_CENT_AI_API_KEY, MODEL_DRIFT_ANTHROPIC_API_KEY and MODEL_DRIFT_CLOUDFLARE_API_KEY, the last
 with MODEL_DRIFT_CLOUDFLARE_ACCOUNT_ID beside it. An unset or empty one leaves its
 provider "not covered (no key)", which the report says every time rather than skipping it, and says
 which of the two Cloudflare lacks. Gemini's
@@ -365,7 +377,7 @@ NEW        an id the file does not know. Known ids are those of the active and t
            entries, and those a "# drift-ignore: <provider>/<id> -- <reason>" line names, which is
            how a model examined and turned down stops being reported without an entry of its own.
            <provider> is one of the names above: "sambanova/<id>" for SambaNova, "kilo/<id>" for
-           Kilo Gateway, "ovhcloud/<id>", "requesty/<id>" and "centai/<id>", "aionlabs/<id>", and "nvidia/<id>" for
+           Kilo Gateway, "ovhcloud/<id>", "requesty/<id>" and "centai/<id>", "aionlabs/<id>", "anthropic/<id>", and "nvidia/<id>" for
            the entries that read "nvidia_nim/<id>", where the entry itself reads "openai/<id>". A Mistral id is known when one
            of its "aliases" is. Each carries its usage (see above), shown on its line.
 
@@ -410,6 +422,7 @@ positive whole number, 0 being how some lists say "unknown", is no statement). W
   requesty    "context_window"          "max_output_tokens"              "supports_vision"
   ovhcloud    "context_length"          "max_completion_tokens"          -- (no field)
   aionlabs    "context_length"          "max_completion_tokens"          the input side of "architecture"."modality"
+  anthropic   "max_input_tokens"        "max_tokens"                     "capabilities"."image_input"."supported"
 
 NVIDIA's list gives an id and nothing else, Z AI and Cent AI document no such field, and no active entry is
 Cerebras' or SambaNova's, so none of them is compared. A field a catalogue has no name for is never compared whatever the file says,
@@ -682,7 +695,7 @@ none of its cascades is one the template's own checks refuse. The slot is the sa
 cascade, written under the provider's key condition ("{% if has.Groq %}") unless the router has that provider
 alone, so that the cascade holds no name the rendering does not have; the person who reviews moves it. A text
 model goes to the tail of Auto-Flash-Lite (the router that takes every model that answers, held to no floor),
-Aion Labs' to Auto-Fiction. A slot never changes the "head" table: a tail is never the first member, and it is
+Aion Labs' to Auto-Fiction, Anthropic's to Auto-Paid. A slot never changes the "head" table: a tail is never the first member, and it is
 verified for the key sets that matter (slot_keysets_problem). A model whose router does not route to its
 provider (a Groq speech model, since only Gemini has a key that serves Auto-TTS) cannot be given the slot the
 template needs, so it is a report line with that reason, its entry being written by hand along with the "head"
@@ -991,7 +1004,7 @@ DRIFT_IGNORE = re.compile(r"^\s*drift-ignore\s*:\s*(?P<target>\S+)\s+--\s+(?P<re
 PROVIDER_KEY_VARIABLES = tuple(
     "Artificial_Intelligence_LiteLLM_%s_API_key" % provider
     for provider in ("Gemini", "Mistral", "Groq", "OpenRouter", "DeepSeek", "Cloudflare", "Zai", "Requesty", "NVIDIA",
-                     "Cent_AI", "Aion_Labs", "Vercel_AI_Gateway")
+                     "Cent_AI", "Aion_Labs", "Vercel_AI_Gateway", "Anthropic")
 )
 # What the template reads besides the keys: switches of the configuration itself, which have no say in its model
 # list. They are given here at their default, which is the state every deployment starts in, so that reading one is
@@ -1264,7 +1277,7 @@ def comment_content(line):
 # gives the provider.
 LITELLM_PREFIXES = {"nvidia": "nvidia_nim", "vercel": "vercel_ai_gateway"}
 NATIVE_PROVIDERS = ("gemini", "groq", "mistral", "deepseek", "cerebras", "openrouter", "cloudflare", "nvidia", "zai",
-                    "vercel")
+                    "vercel", "anthropic")
 # The providers LiteLLM has no provider of its own for, reached as "openai/<id>" on the host their "api_base" names.
 # OVHcloud's entries name the relay in front of its endpoint, which drops the Authorization header the endpoint refuses;
 # its catalogue is read at the endpoint's own address, below.
@@ -1329,6 +1342,7 @@ ROUTER_PUBLIC_NAMES = {
     "decision": "Auto-Decision",
     "extraction": "Auto-Extraction",
     "fiction": "Auto-Fiction",
+    "paid": "Auto-Paid",
 }
 ROUTER_OF_PUBLIC_NAME = {public: router for router, public in ROUTER_PUBLIC_NAMES.items()}
 
@@ -1903,7 +1917,7 @@ def offer(catalogue, identifier, label="", usage=CHAT):
 SHEET_FIELDS = ("max_input_tokens", "max_output_tokens", "supports_vision")
 # The providers whose catalogue states a field of a sheet (see THE SHEETS): the readers above that record one.
 SHEET_PROVIDERS = frozenset({"openrouter", "kilo", "gemini", "groq", "mistral", "deepseek", "cloudflare",
-                             "requesty", "ovhcloud", "aionlabs"})
+                             "requesty", "ovhcloud", "aionlabs", "anthropic"})
 
 
 def sheet_number(value):
@@ -2066,6 +2080,34 @@ def read_aionlabs(pages):
         else:
             usage = usage_of_id(identifier, CHAT if sides else UNCLASSIFIED)
         offer(catalogue, identifier, model.get("name") or "", usage)
+    return catalogue
+
+
+def read_anthropic(pages):
+    """Anthropic: the models the key's organisation may call, every page of them, each with its "lifecycle" and, once
+    its retirement is scheduled, its "retires_at" (a NOTICE with that day, "deprecated" without one); "active" states
+    that it is not deprecated. A retired model is not listed. Its sheet is "max_input_tokens", "max_tokens" and
+    "capabilities"."image_input"."supported". No model is free, so nothing here says one is: every model not
+    deprecated is offered as NEW, a chat model by its id, and checked by a person."""
+    catalogue = new_catalogue()
+    for page in pages:
+        for model in listed(page):
+            identifier = model["id"]
+            catalogue["members"].add(identifier)
+            capabilities = model.get("capabilities") if isinstance(model.get("capabilities"), dict) else {}
+            image = capabilities.get("image_input")
+            record_sheet(catalogue, (identifier,), sheet_of(
+                model.get("max_input_tokens"), model.get("max_tokens"),
+                image.get("supported") if isinstance(image, dict) else None))
+            lifecycle = model.get("lifecycle")
+            if lifecycle == "active":
+                catalogue["not_deprecated"].add(identifier)
+            elif lifecycle in ("deprecated", "retired"):
+                day = day_of(model.get("retires_at"))
+                catalogue["notices"][identifier] = {"what": "expiration", "date": day} if day else {
+                    "what": "deprecation"}
+                continue
+            offer(catalogue, identifier, model.get("display_name") or "", usage_of_id(identifier))
     return catalogue
 
 
@@ -2370,6 +2412,23 @@ def google_header(key):
     return {"x-goog-api-key": key}
 
 
+# The version of Anthropic's API whose list of models carries a model's "lifecycle" and "retires_at", and takes the
+# key as a Bearer token ("platform.claude.com/docs/en/api/models/list", read 2026-11-25).
+ANTHROPIC_VERSION = "2026-10-21"
+
+
+def anthropic_header(key):
+    return {"Authorization": "Bearer " + key, "anthropic-version": ANTHROPIC_VERSION}
+
+
+def anthropic_next(url, page):
+    """The next page of Anthropic's list: the same address after the page's "last_id", while it "has_more"."""
+    last = page.get("last_id") if isinstance(page, dict) and page.get("has_more") is True else None
+    if not (isinstance(last, str) and SAFE_ID.fullmatch(last)):
+        return None
+    return url.split("&after_id=")[0] + "&after_id=" + urllib.parse.quote(last, safe="")
+
+
 # name, catalogue URL, key variable, how the key is sent, how the answer is read, next page.
 PROVIDERS = (
     ("openrouter", "https://openrouter.ai/api/v1/models?output_modalities=all", None, None,
@@ -2402,6 +2461,9 @@ PROVIDERS = (
     # Vercel AI Gateway's catalogue is public too, and lists every model it relays, free tier or not. Its models page
     # says which ones are free (FREE_PAGES), the API does not.
     ("vercel", "https://ai-gateway.vercel.sh/v1/models", None, None, read_vercel, None),
+    # Anthropic's needs a key, of the organisation whose models it lists; listing them calls no model.
+    ("anthropic", "https://api.anthropic.com/v1/models?limit=1000", "MODEL_DRIFT_ANTHROPIC_API_KEY", anthropic_header,
+     read_anthropic, anthropic_next),
 )
 PROVIDER_NAMES = tuple(provider[0] for provider in PROVIDERS)
 # The providers whose catalogue omits models they serve. An entry of theirs that the catalogue does not
@@ -2474,6 +2536,7 @@ PRICING_PAGES = {
     "zai": "https://docs.z.ai/guides/overview/pricing",
     "centai": "https://cent-ai.dev/",
     "aionlabs": "https://www.aionlabs.ai/docs/rate-limits/",
+    "anthropic": "https://platform.claude.com/docs/en/about-claude/pricing",
 }
 
 
@@ -2798,9 +2861,10 @@ RANKING_SITE = "https://artificialanalysis.ai/"
 # The router and the figure that decides its place. "claude-code" is held to strict tool calls and
 # a long context besides, which a score does not say: the report says so, and nothing here applies. "fiction"
 # has a contract and a table in the document of the routes like the others, but none of its members has a
-# figure, so no new model is ever placed in it and its report lists them unranked.
+# figure, so no new model is ever placed in it and its report lists them unranked. "paid" is ranked like "pro".
 RANKING_ROUTERS = (("pro", "intelligence"), ("flash", "intelligence"), ("flash-lite", "speed"),
-                   ("code", "coding"), ("claude-code", "intelligence"), ("fiction", "intelligence"))
+                   ("code", "coding"), ("claude-code", "intelligence"), ("fiction", "intelligence"),
+                   ("paid", "intelligence"))
 # The routers whose cascade is chosen for its speed: a model slower than the slowest of the members
 # the ranking knows is not placed there, however high it would rank on the figure above. The template's
 # ordering rule makes eligibility a question apart from rank, and a slow model has no place in these.
@@ -3005,8 +3069,10 @@ LITELLM_MAP_MAX = 16 * 1024 * 1024
 # the native ones (LITELLM_PREFIXES where it is not the provider's name) and the provider's own name for the two
 # that the template reaches as "openai/<id>" on their host. The others reached that way (Kilo Gateway,
 # Requesty, Cent AI, Aion Labs) have no key in the map, and looking one up as "openai/<id>" would read the
-# deprecation of OpenAI's own model of that name: their entries are skipped, which says nothing of them.
+# deprecation of OpenAI's own model of that name: their entries are skipped, which says nothing of them. Anthropic's
+# models are keyed by their bare id, as the map keys the models of LiteLLM's oldest providers.
 LITELLM_MAP_PROVIDERS = frozenset(NATIVE_PROVIDERS) | {"sambanova", "ovhcloud"}
+LITELLM_MAP_BARE = frozenset({"anthropic"})
 # What a provider's notice says that is a retirement, as opposed to a model that is no longer free.
 DEPRECATION_KINDS = ("expiration", "deprecation", "inactive")
 DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -3029,6 +3095,8 @@ def litellm_map_key(provider, identifier):
     """The key LiteLLM's map holds the model under, or None when the map has none for this provider."""
     if provider not in LITELLM_MAP_PROVIDERS:
         return None
+    if provider in LITELLM_MAP_BARE:
+        return identifier
     return "%s/%s" % (LITELLM_PREFIXES.get(provider, provider), identifier)
 
 
@@ -6208,7 +6276,7 @@ PROVIDER_LABELS = {
     "cloudflare": "Cloudflare",
     "kilo": "Kilo Gateway",
     "nvidia": "NVIDIA", "ovhcloud": "OVHcloud", "requesty": "Requesty", "zai": "Z AI", "centai": "Cent AI",
-    "aionlabs": "Aion Labs", "vercel": "Vercel AI Gateway",
+    "aionlabs": "Aion Labs", "vercel": "Vercel AI Gateway", "anthropic": "Anthropic",
 }
 # GitHub refuses an issue or pull request body past 65536 characters, and the run's summary is held
 # to the same size.
@@ -6574,7 +6642,7 @@ NAME_SUFFIXES = {"openrouter": "", "gemini": "", "groq": "-groq", "mistral": "",
                  "cerebras": "-cerebras", "sambanova": "-sambanova", "deepseek": "-direct",
                  "cloudflare": "-cloudflare", "kilo": "-kilo", "nvidia": "-nvidia", "zai": "-zai",
                  "ovhcloud": "-ovh", "requesty": "-requesty", "centai": "-cent-ai",
-                 "aionlabs": "-aion-labs", "vercel": "-vercel"}
+                 "aionlabs": "-aion-labs", "vercel": "-vercel", "anthropic": "-anthropic"}
 DEFAULT_BASES = {"sambanova": "https://api.sambanova.ai/v1", "kilo": "https://ai-gateway.kilo.ai/api/v1",
                  "ovhcloud": "http://ovhcloud_relay:8080/v1",
                  "requesty": "https://router.eu.requesty.ai/v1", "centai": "https://api.cent-ai.dev/v1",
@@ -6588,7 +6656,7 @@ DEFAULT_ACCESS_GROUP = "LLM"
 # them, so an entry written here with the wrong one fails that check on the pull request that adds it. A provider
 # whose terms were not read is "Public-Data-Only", which is also what a provider this table lacks gets.
 DATA_GROUPS = {"gemini": "Private-Data", "mistral": "Private-Data", "cloudflare": "Private-Data",
-               "aionlabs": "Private-Data", "ovhcloud": "Private-Data",
+               "aionlabs": "Private-Data", "ovhcloud": "Private-Data", "anthropic": "Private-Data",
                "openrouter": "Public-Data-Only", "groq": "Public-Data-Only", "deepseek": "Public-Data-Only",
                "zai": "Public-Data-Only", "requesty": "Public-Data-Only", "nvidia": "Public-Data-Only",
                "centai": "Public-Data-Only", "kilo": "Public-Data-Only", "cerebras": "Public-Data-Only",
@@ -7396,6 +7464,13 @@ FREE_TIER_CHECKS = {
                 "modèle, dont le catalogue donne un prix ; ses conditions la disent « a courtesy that we may "
                 "change or withdraw at any time ». Un modèle d'Aion Labs n'entre que dans `Auto-Fiction`, avec le "
                 "groupe d'accès `Fiction`, jamais dans `LLM` ni dans un autre routeur",
+    "anthropic": "le prix par million de jetons du modèle, et sa fiche : Anthropic n'a pas d'offre gratuite, chaque "
+                 "appel est payé sur le solde de l'organisation de la clé, que le crédit mensuel d'un forfait Claude "
+                 "Max, Ultra ou Team peut alimenter et qui ne couvre pas Claude Code. Vérifier sur la fiche que le "
+                 "modèle n'est pas réservé aux organisations vérifiées (les modèles Mythos le sont). Un modèle "
+                 "d'Anthropic n'entre que dans `Auto-Paid`, jamais dans un autre routeur, et le crédit étant un "
+                 "quota commun à tous ses modèles, seule la dernière version de chaque gamme est routée : la pull "
+                 "request qui en ajoute une nouvelle commente celle qu'elle remplace",
     "cloudflare": "la note qui nomme les modèles demandant un moyen de facturation payant : un modèle qui "
                   "n'y est pas est gratuit dans la limite des 10 000 neurons par jour de tout le compte, "
                   "mais la page ne le dit pas, et rien dans l'API ne le dit : c'est une déduction, que "
@@ -7550,21 +7625,22 @@ def addition_block(kind, date, item, anchor):
 
 # The cascade an active entry is given a slot in, at its tail, which is where a person reorders it from: an
 # entry whose mode has a router is in a cascade or is an alias target, or the template fails its checks. A text
-# entry goes to "Auto-Flash-Lite", the router that holds every model that answers; Aion Labs' to the router of
-# their own; a typed one to the router of its mode. Embeddings and the kinds the gateway has no router for are
+# entry goes to "Auto-Flash-Lite", the router that holds every model that answers; Aion Labs' and Anthropic's to the
+# router of their own; a typed one to the router of its mode. Embeddings and the kinds the gateway has no router for are
 # reached by their own name and get no slot.
 ROUTER_OF_USAGE = {CHAT: "flash-lite", "speech": "tts", "transcription": "stt", "decision": "decision",
                    "extraction": "extraction"}
-ROUTER_OF_PROVIDER = {"aionlabs": "fiction"}
+ROUTER_OF_PROVIDER = {"aionlabs": "fiction", "anthropic": "paid"}
 # The providers a router routes to (check_compose_template.py's LITELLM_MEDIA_ROUTERS): the router exists
 # when one of them has a key, so a member of another provider could be in none of its renderings.
 ROUTER_PROVIDERS = {"stt": {"groq", "gemini", "mistral"}, "tts": {"gemini"}, "decision": {"cloudflare"},
-                    "extraction": {"cloudflare"}, "fiction": {"aionlabs"}}
+                    "extraction": {"cloudflare"}, "fiction": {"aionlabs"}, "paid": {"anthropic"}}
 # The condition each provider's members are written under in a cascade, None where the provider needs no key.
 SLOT_CONDITIONS = {"gemini": "has.Gemini", "mistral": "has.Mistral", "groq": "has.Groq",
                    "openrouter": "has.OpenRouter", "deepseek": "has.DeepSeek", "cloudflare": "has.Cloudflare",
                    "zai": "has.Zai", "requesty": "has.Requesty", "nvidia": "has.NVIDIA", "centai": "has.Cent_AI",
-                   "aionlabs": "has.Aion_Labs", "vercel": "has.Vercel_AI_Gateway", "kilo": None, "ovhcloud": None}
+                   "aionlabs": "has.Aion_Labs", "vercel": "has.Vercel_AI_Gateway", "anthropic": "has.Anthropic",
+                   "kilo": None, "ovhcloud": None}
 ROUTER_NAMES = ROUTER_PUBLIC_NAMES
 SLOT_INDENT = "        - "
 JINJA_IF_LINE = re.compile(r"\{%-?\s*if\b.*%\}")

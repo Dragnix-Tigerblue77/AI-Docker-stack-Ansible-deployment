@@ -154,6 +154,8 @@ PROVIDER_COLOURS = {
     # The dominant pixel of the favicon, vercel.com/favicon.ico, the black of the square behind the white triangle:
     # the site serves no SVG of its logo at an address of its own.
     "Vercel_AI_Gateway": "000000",
+    # The fill of the mark, in platform.claude.com/favicon.svg, the favicon of the console where the key is made.
+    "Anthropic": "D97757",
     # The fill of the square behind the mark, in kilo.ai/favicon/favicon.svg.
     "Kilo": "FFDD00",
     # The fill of the mark, "cls-1", in www.ovhcloud.com/icon.svg.

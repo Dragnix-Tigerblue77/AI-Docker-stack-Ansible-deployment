@@ -24,6 +24,7 @@ Ce catalogue dit tout ce que la passerelle sert : les groupes d'accès, les rout
   - [`Auto-Decision`](#auto-decision)
   - [`Auto-Extraction`](#auto-extraction)
   - [`Auto-Fiction`](#auto-fiction)
+  - [`Auto-Paid`](#auto-paid)
 - [Les fournisseurs](#les-fournisseurs)
 - [Les modèles](#les-modèles)
   - [Les scores d'Artificial Analysis et d'Epoch AI](#les-scores-dartificial-analysis-et-depoch-ai)
@@ -83,6 +84,7 @@ Un routeur est un nom que le client écrit et derrière lequel LiteLLM essaie le
 | `Auto-Decision` | Clef's typed decisions, for "/v1/systemone" and "/v1/decisions" | `clef-cloudflare` |
 | `Auto-Extraction` | Clairic's typed extraction, for "/v1/extraction" | `clairic-cloudflare` |
 | `Auto-Fiction` | The role-play and fiction models of Aion Labs, and only those | `aion-3-5-aion-labs` |
+| `Auto-Paid` | The models paid from a credit, Anthropic's, and only those | `claude-fable-5-2-anthropic` |
 
 ### `Auto`
 
@@ -485,6 +487,17 @@ Cette entrée n'a pas de cascade : le routeur qu'elle choisit a la sienne.
 | `aion-2-0-aion-labs` | Aion Labs | — | — |
 | `aion-rp-llama-3-1-8b-aion-labs` | Aion Labs | — | — |
 
+### `Auto-Paid`
+
+- Classement : indice d'intelligence
+
+| Entrée | Fournisseur | Niveau | Remarque |
+| --- | --- | --- | --- |
+| `claude-fable-5-2-anthropic` | Anthropic | défaut : high | — |
+| `claude-opus-5-5-anthropic` | Anthropic | défaut : medium | — |
+| `claude-sonnet-5-5-anthropic` | Anthropic | défaut : high | — |
+| `claude-haiku-5-5-anthropic` | Anthropic | défaut : medium | — |
+
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)
 
 ## Les fournisseurs
@@ -507,6 +520,7 @@ Les limites gratuites de chaque fournisseur, avec la page lue et le jour, sont d
 | ![Cent AI](https://img.shields.io/badge/Cent%20AI-FBBF24) Cent AI | `Artificial_Intelligence_LiteLLM_Cent_AI_API_key` |
 | ![Aion Labs](https://img.shields.io/badge/Aion%20Labs-061929) Aion Labs | `Artificial_Intelligence_LiteLLM_Aion_Labs_API_key` |
 | ![Vercel AI Gateway](https://img.shields.io/badge/Vercel%20AI%20Gateway-000000) Vercel AI Gateway | `Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key` |
+| ![Anthropic](https://img.shields.io/badge/Anthropic-D97757) Anthropic | `Artificial_Intelligence_LiteLLM_Anthropic_API_key` |
 | ![Kilo](https://img.shields.io/badge/Kilo-FFDD00) Kilo | sans clé |
 | ![OVHcloud](https://img.shields.io/badge/OVHcloud-000E9C) OVHcloud | sans clé |
 | ![OmniRoute](https://img.shields.io/badge/OmniRoute-E54D5E) OmniRoute | sans clé |
@@ -570,6 +584,11 @@ Les limites gratuites de chaque fournisseur, avec la page lue et le jour, sont d
 
 - Variable de la clé : `Artificial_Intelligence_LiteLLM_Vercel_AI_Gateway_API_key`
 - Routeurs où il figure : `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`
+
+### ![Anthropic](https://img.shields.io/badge/Anthropic-D97757) Anthropic
+
+- Variable de la clé : `Artificial_Intelligence_LiteLLM_Anthropic_API_key`
+- Routeurs où il figure : `Auto-Paid`
 
 ### ![Kilo](https://img.shields.io/badge/Kilo-FFDD00) Kilo
 
@@ -915,6 +934,10 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 | `voyage-code-3-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `voyage-finance-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
 | `voyage-law-2-vercel` | Vercel AI Gateway | `embedding` | `Embeddings`, `Public-Data-Only` | — | — | — | — | — | — | — |
+| `claude-fable-5-2-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
+| `claude-opus-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : medium | 1 000 000 | 128 000 | — | — | — |
+| `claude-sonnet-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : high | 1 000 000 | 128 000 | — | — | — |
+| `claude-haiku-5-5-anthropic` | Anthropic | chat | `LLM`, `Private-Data` | `Auto-Paid` | défaut : medium | 1 000 000 | 128 000 | — | — | — |
 | `omniroute-free-auto` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Flash` | — | — | — | — | — | — |
 | `omniroute-free-code` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Code` | — | — | — | — | — | — |
 | `omniroute-free-reasoning` | OmniRoute | chat | `LLM`, `Public-Data-Only` | `Auto-Pro` | — | — | — | — | — | — |
@@ -926,7 +949,7 @@ Une ligne par entrée de la liste des modèles, dans l'ordre du modèle. La fen�
 
 ### Les scores d'Artificial Analysis et d'Epoch AI
 
-Les chiffres sont ceux d'Artificial Analysis et d'Epoch AI : l'enregistrement et le niveau d'Artificial Analysis, et le modèle d'Epoch AI, sont ceux que dit `.github/LiteLLM_router_contracts.yaml` de l'entrée. La CI ne peut lire aucun de ces deux sites : la vérification hebdomadaire des modèles les lit et réécrit [`docs/catalog_scores.json`](catalog_scores.json) dans chaque pull request qu'elle ouvre. La CI tient ce fichier à sa forme (des nombres, et des entrées du modèle de configuration) et ce catalogue à ce fichier. Jours de lecture : Artificial Analysis le jamais, Epoch AI le 2026-11-24. Un tiret veut dire qu'aucune source ne donne le chiffre : l'enregistrement est introuvable ou n'est pas celui du niveau où l'entrée est appelée, le modèle n'est pas à l'indice d'Epoch AI, ou moins de deux de ses benchmarks de code ont un score pour lui.
+Les chiffres sont ceux d'Artificial Analysis et d'Epoch AI : l'enregistrement et le niveau d'Artificial Analysis, et le modèle d'Epoch AI, sont ceux que dit `.github/LiteLLM_router_contracts.yaml` de l'entrée. La CI ne peut lire aucun de ces deux sites : la vérification hebdomadaire des modèles les lit et réécrit [`docs/catalog_scores.json`](catalog_scores.json) dans chaque pull request qu'elle ouvre. La CI tient ce fichier à sa forme (des nombres, et des entrées du modèle de configuration) et ce catalogue à ce fichier. Jours de lecture : Artificial Analysis le jamais, Epoch AI le 2026-11-25. Un tiret veut dire qu'aucune source ne donne le chiffre : l'enregistrement est introuvable ou n'est pas celui du niveau où l'entrée est appelée, le modèle n'est pas à l'indice d'Epoch AI, ou moins de deux de ses benchmarks de code ont un score pour lui.
 
 - **Indice AA** : l'indice d'intelligence de l'enregistrement, plus haut est meilleur.
 - **Premier mot AA** : le temps moyen jusqu'au premier jeton de la réponse, en secondes, que le temps de réflexion compte.
@@ -937,15 +960,15 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 
 | Entrée | Enregistrement AA | Indice AA | Premier mot AA (s) | Modèle Epoch | ECI Epoch | Position de code Epoch (%) |
 | --- | --- | --- | --- | --- | --- | --- |
-| `gemini-4-hydrogen` | `gemini-4-hydrogen` (`xhigh`) | — | — | `Gemini 4 Hydrogen` | 166,81 | 9,37 |
+| `gemini-4-hydrogen` | `gemini-4-hydrogen` (`xhigh`) | — | — | `Gemini 4 Hydrogen` | 166,81 | 9,98 |
 | `gemini-4-hydrogen-low` | `gemini-4-hydrogen-low` (`low`) | — | — | `Gemini 4 Hydrogen` | 166,81 | — |
-| `gemini-3-8-flash` | `gemini-3-8-flash-medium` (`high`) | — | — | `Gemini 3.8 Flash` | 158,81 | 17,18 |
+| `gemini-3-8-flash` | `gemini-3-8-flash-medium` (`high`) | — | — | `Gemini 3.8 Flash` | 158,81 | 17,66 |
 | `gemini-3-8-flash-low` | `gemini-3-8-flash-low` (`low`) | — | — | `Gemini 3.8 Flash` | 158,81 | — |
-| `gemini-3-7-flash` | `gemini-3-7-flash` | — | — | `Gemini 3.7 Flash` | 158,4 | 45,74 |
-| `gemini-3-6-flash` | `gemini-3-6-flash` (`high`) | — | — | `Gemini 3.6 Flash` | 155,24 | 71,57 |
+| `gemini-3-7-flash` | `gemini-3-7-flash` | — | — | `Gemini 3.7 Flash` | 158,4 | 46,05 |
+| `gemini-3-6-flash` | `gemini-3-6-flash` (`high`) | — | — | `Gemini 3.6 Flash` | 155,24 | 71,78 |
 | `gemini-3-5-flash-lite` | `gemini-3-5-flash-lite` (`minimal`) | — | — | `Gemini 3.5 Flash-Lite` | 145,63 | — |
 | `gemini-3-1-flash-lite` | `gemini-3-1-flash-lite-preview` (`minimal`) | — | — | `Gemini 3.1 Flash-Lite` | 144,97 | — |
-| `gemini-3-flash-preview` | `gemini-3-flash-reasoning` (`reasoning`) | — | — | `Gemini 3 Flash` | 152,35 | 25,87 |
+| `gemini-3-flash-preview` | `gemini-3-flash-reasoning` (`reasoning`) | — | — | `Gemini 3 Flash` | 152,35 | 26,9 |
 | `gemma-4-31b-gemini` | `gemma-4-31b` | — | — | `Gemma 4 31B IT` | 144,12 | — |
 | `gemma-4-26b-gemini` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
 | `mistral-medium` | `mistral-medium-3-5` | — | — | `Mistral Medium 3.5` | 141,58 | — |
@@ -953,10 +976,10 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `ministral-14b` | `ministral-3-14b` | — | — | — | — | — |
 | `ministral-8b` | `ministral-3-8b` | — | — | — | — | — |
 | `ministral-3b` | `ministral-3-3b` | — | — | — | — | — |
-| `gpt-oss-120b-groq` | `gpt-oss-120b` (`medium`) | — | — | `gpt-oss-120b` | 140,21 | 84,28 |
-| `gpt-oss-20b-groq` | `gpt-oss-20b` (`medium`) | — | — | `gpt-oss-20b` | 134,89 | 89,71 |
+| `gpt-oss-120b-groq` | `gpt-oss-120b` (`medium`) | — | — | `gpt-oss-120b` | 140,21 | 84,41 |
+| `gpt-oss-20b-groq` | `gpt-oss-20b` (`medium`) | — | — | `gpt-oss-20b` | 134,89 | 89,84 |
 | `qwen3-8-27b-groq` | `qwen3-8-27b-non-reasoning` (`non-reasoning`) | — | — | `Qwen 3.8 27B` | 152,63 | — |
-| `deepseek-v4-pro-direct` | `deepseek-v4-pro-high` (`high`) | — | — | `DeepSeek V4 Pro 0813` | 155,96 | 21,68 |
+| `deepseek-v4-pro-direct` | `deepseek-v4-pro-high` (`high`) | — | — | `DeepSeek V4 Pro 0813` | 155,96 | 22,19 |
 | `deepseek-flash-direct` | `deepseek-v4-1-flash-1017-high` (`high`) | — | — | `DeepSeek V4.1 Flash 1017` | 159,41 | — |
 | `nemotron-ultra-free` | `nvidia-nemotron-3-ultra-550b-a55b` (`reasoning`) | — | — | `Nemotron 3 Ultra` | 147,02 | — |
 | `nemotron-reasoning-free` | `nemotron-3-nano-omni-30b-a3b` | — | — | — | — | — |
@@ -965,8 +988,8 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `gemma-4-31b-free` | `gemma-4-31b` | — | — | `Gemma 4 31B IT` | 144,12 | — |
 | `gemma-4-26b-free` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
 | `lfm-3-1-7b-free` | `lfm3-1-7b` | — | — | — | — | — |
-| `gpt-oss-120b-cloudflare` | `gpt-oss-120b` (`medium`) | — | — | `gpt-oss-120b` | 140,21 | 84,28 |
-| `gpt-oss-20b-cloudflare` | `gpt-oss-20b` (`medium`) | — | — | `gpt-oss-20b` | 134,89 | 89,71 |
+| `gpt-oss-120b-cloudflare` | `gpt-oss-120b` (`medium`) | — | — | `gpt-oss-120b` | 140,21 | 84,41 |
+| `gpt-oss-20b-cloudflare` | `gpt-oss-20b` (`medium`) | — | — | `gpt-oss-20b` | 134,89 | 89,84 |
 | `gemma-4-26b-cloudflare` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
 | `llama-3-3-70b-cloudflare` | `llama-3-3-instruct-70b` | — | — | `Llama 3.3 70B` | 126,18 | — |
 | `glm-4-7-flash-cloudflare` | `glm-4-7-flash` | — | — | — | — | — |
@@ -980,10 +1003,10 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `lfm-3-1-7b-kilo` | `lfm3-1-7b` | — | — | — | — | — |
 | `beam-kilo` | `reflection-beam` | — | — | `Beam 1.0` | 150,84 | — |
 | `deepseek-v4-1-flash-ovh` | `deepseek-v4-1-flash-1017-high` | — | — | `DeepSeek V4.1 Flash 1017` | 159,41 | — |
-| `gpt-oss-120b-ovh` | `gpt-oss-120b` | — | — | `gpt-oss-120b` | 140,21 | 84,28 |
+| `gpt-oss-120b-ovh` | `gpt-oss-120b` | — | — | `gpt-oss-120b` | 140,21 | 84,41 |
 | `qwen3-8-27b-ovh` | — | — | — | `Qwen 3.8 27B` | 152,63 | — |
 | `nemotron3-omni-30b-ovh` | `nemotron-3-nano-omni-30b-a3b` | — | — | — | — | — |
-| `gpt-oss-20b-ovh` | `gpt-oss-20b` | — | — | `gpt-oss-20b` | 134,89 | 89,71 |
+| `gpt-oss-20b-ovh` | `gpt-oss-20b` | — | — | `gpt-oss-20b` | 134,89 | 89,84 |
 | `gemma-4-26b-ovh` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
 | `nemotron-ultra-requesty` | `nvidia-nemotron-3-ultra-550b-a55b` (`reasoning`) | — | — | `Nemotron 3 Ultra` | 147,02 | — |
 | `nemotron-reasoning-requesty` | `nemotron-3-nano-omni-30b-a3b` (`max`) | — | — | — | — | — |
@@ -997,7 +1020,7 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `nemotron-reasoning-nvidia` | `nemotron-3-nano-omni-30b-a3b` | — | — | — | — | — |
 | `nemotron-lightning-nvidia` | `nemotron-3-5-lightning` | — | — | — | — | — |
 | `nemotron-super-vl-nvidia` | `nemotron-3-5-super-vl` | — | — | — | — | — |
-| `glm-5-3-flash-nvidia` | `glm-5-3-flash` (`max`) | — | — | `GLM-5.3-Flash` | 153,77 | 68,24 |
+| `glm-5-3-flash-nvidia` | `glm-5-3-flash` (`max`) | — | — | `GLM-5.3-Flash` | 153,77 | 68,29 |
 | `minimax-m3-1-flash-nvidia` | `minimax-m3-1-flash` | — | — | — | — | — |
 | `step-5-preview-nvidia` | `step-5` | — | — | — | — | — |
 | `muse-glimmer-nvidia` | `muse-glimmer` | — | — | — | — | — |
@@ -1009,25 +1032,25 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `mimo-v2-6-flash-vercel` | `mimo-v2-6-flash` | — | — | — | — | — |
 | `ling-3-1-flash-1019-vercel` | `ling-3-1-flash` | — | — | — | — | — |
 | `inkling-vercel` | `inkling` | — | — | `Inkling` | 148,39 | — |
-| `gpt-5-2-vercel` | `gpt-5-2` | — | — | `GPT-5.2` | 154,53 | 30,77 |
-| `gpt-5-vercel` | `gpt-5` | — | — | `GPT-5` | 150 | 39,16 |
+| `gpt-5-2-vercel` | `gpt-5-2` | — | — | `GPT-5.2` | 154,53 | 31,72 |
+| `gpt-5-vercel` | `gpt-5` | — | — | `GPT-5` | 150 | 40 |
 | `gpt-5-mini-vercel` | `gpt-5-mini` | — | — | `GPT-5 mini` | 146,04 | 66,1 |
 | `gpt-5-4-nano-vercel` | `gpt-5-4-nano` | — | — | `GPT-5.4 Nano` | 146,36 | — |
-| `o3-vercel` | `o3` | — | — | `o3` | 147,02 | 68,65 |
+| `o3-vercel` | `o3` | — | — | `o3` | 147,02 | 68,98 |
 | `o4-mini-vercel` | `o4-mini` | — | — | `o4-mini` | 145,21 | — |
-| `qwen3-6-plus-vercel` | `qwen3-6-plus` | — | — | `Qwen 3.6 Plus` | 148,87 | 81,47 |
+| `qwen3-6-plus-vercel` | `qwen3-6-plus` | — | — | `Qwen 3.6 Plus` | 148,87 | 81,66 |
 | `qwen3-5-plus-vercel` | — | — | — | `Qwen 3.5 Plus (hosted 397B-A17B)` | 147,29 | — |
 | `qwen3-5-flash-vercel` | — | — | — | `Qwen 3.5 Flash (hosted 35B-A3B)` | 143,83 | — |
 | `qwen3-6-35b-vercel` | — | — | — | `Qwen 3.6 35B-A3B` | 144,07 | — |
 | `deepseek-v3-2-thinking-vercel` | `deepseek-v3-2-reasoning` | — | — | `DeepSeek-V3.2` | 146,26 | — |
 | `deepseek-v3-1-vercel` | `deepseek-v3-1-reasoning` | — | — | `DeepSeek-V3.1` | 140,88 | — |
-| `kimi-k2-7-code-vercel` | `kimi-k2-7-code` | — | — | `Kimi K2.7 Code` | 151,17 | 73,6 |
+| `kimi-k2-7-code-vercel` | `kimi-k2-7-code` | — | — | `Kimi K2.7 Code` | 151,17 | 73,89 |
 | `kimi-k2-vercel` | `kimi-k2` | — | — | `Kimi K2 (Jul 2025)` | 141,27 | — |
-| `glm-4-7-vercel` | `glm-4-7` | — | — | `GLM-4.7` | 143,34 | 77,25 |
+| `glm-4-7-vercel` | `glm-4-7` | — | — | `GLM-4.7` | 143,34 | 77,35 |
 | `mistral-medium-3-5-vercel` | `mistral-medium-3-5` | — | — | `Mistral Medium 3.5` | 141,58 | — |
-| `gemini-2-5-flash-vercel` | `gemini-2-5-flash-reasoning` | — | — | `Gemini 2.5 Flash (Jun 2025)` | 140,79 | 82,97 |
-| `gpt-oss-120b-vercel` | `gpt-oss-120b` | — | — | `gpt-oss-120b` | 140,21 | 84,28 |
-| `gpt-oss-20b-vercel` | `gpt-oss-20b` | — | — | `gpt-oss-20b` | 134,89 | 89,71 |
+| `gemini-2-5-flash-vercel` | `gemini-2-5-flash-reasoning` | — | — | `Gemini 2.5 Flash (Jun 2025)` | 140,79 | 83,16 |
+| `gpt-oss-120b-vercel` | `gpt-oss-120b` | — | — | `gpt-oss-120b` | 140,21 | 84,41 |
+| `gpt-oss-20b-vercel` | `gpt-oss-20b` | — | — | `gpt-oss-20b` | 134,89 | 89,84 |
 | `gemini-2-5-flash-lite-vercel` | `gemini-2-5-flash-lite` | — | — | `Gemini 2.5 Flash-Lite (Jun 2025)` | 133,04 | — |
 | `gemma-4-26b-vercel` | `gemma-4-26b-a4b` | — | — | `Gemma 4 26B A4B` | 141,56 | — |
 | `nemotron-ultra-vercel` | `nvidia-nemotron-3-ultra-550b-a55b` | — | — | `Nemotron 3 Ultra` | 147,02 | — |
@@ -1091,5 +1114,9 @@ Sources : Artificial Analysis (artificialanalysis.ai) et Epoch AI, benchmark dat
 | `glm-4-7-flash-vercel` | `glm-4-7-flash` | — | — | — | — | — |
 | `glm-5v-turbo-vercel` | `glm-5v-turbo` | — | — | — | — | — |
 | `mistral-small-vercel` | `mistral-small-4` | — | — | — | — | — |
+| `claude-fable-5-2-anthropic` | `claude-fable-5-2-high` (`high`) | — | — | `Claude Fable 5.2` | 173,4 | 6,79 |
+| `claude-opus-5-5-anthropic` | `claude-opus-5-5-medium` (`medium`) | — | — | `Claude Opus 5.5` | 168,67 | 11,34 |
+| `claude-sonnet-5-5-anthropic` | `claude-sonnet-5-5-high` (`high`) | — | — | `Claude Sonnet 5.5` | 166,6 | 22,59 |
+| `claude-haiku-5-5-anthropic` | `claude-haiku-5-5-medium` (`medium`) | — | — | `Claude Haiku 5.5` | 160,33 | 31,7 |
 
 [↑ Retour en haut](#catalogue-de-la-passerelle-litellm)

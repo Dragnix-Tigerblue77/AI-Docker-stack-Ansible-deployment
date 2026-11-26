@@ -856,6 +856,18 @@ def check_agent_additional_models_default(defaults, failures):
         missing_effect="the agent could not be told to use it, and the gateway would only say that the key does not "
                        "allow it (#307)",
     )
+    # The models of a router kept apart in "LLM" are paid from a credit that a Claude plan includes and that does not
+    # cover Claude Code: the agent's defaults never name that router, though a caller paying for the API may.
+    paid = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router, (_, group) in LITELLM_KEPT_APART_ROUTERS.items() if not group}
+    additional = defaults.get(CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE)
+    named = [(CLAUDE_CODE_MODEL_VARIABLE, defaults.get(CLAUDE_CODE_MODEL_VARIABLE))] + [
+        (CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE, name) for name in (additional if isinstance(additional, list) else [])]
+    for variable, name in named:
+        if name in paid:
+            failures.append(
+                f"{variable} names {name!r} by default: the credit a Claude plan includes for its models does not "
+                "cover Claude Code, so the agent is never given that router by default"
+            )
 
 
 def check_librechat_gateway_key_models_default(defaults, failures):
@@ -866,13 +878,16 @@ def check_librechat_gateway_key_models_default(defaults, failures):
     agent is left out of what the default must hold, and may be named."""
     routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
     groups = set(LITELLM_ACCESS_GROUPS.values()) | {"LLM", LITELLM_AGENT_GROUP} | set(LITELLM_DATA_GROUP_NAMES)
-    # The models kept apart are a group and a router of the template, so that a key may be given them by name, and
-    # are never in the default: an account that inherited them would reach what they were kept apart for.
+    # The models kept apart in a group of their own are a group and a router of the template, so that a key may be
+    # given them by name, and are never in the default: an account that inherited them would reach what they were
+    # kept apart for. A router kept apart whose models are in "LLM" is a text router the default holds like the others.
     kept_apart = set(LITELLM_KEPT_APART_GROUPS.values()) | {
-        LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_KEPT_APART_ROUTERS}
+        LITELLM_ROUTER_PUBLIC_NAMES[router] for router, (_, group) in LITELLM_KEPT_APART_ROUTERS.items() if group}
+    text_apart = {LITELLM_ROUTER_PUBLIC_NAMES[router]
+                  for router, (_, group) in LITELLM_KEPT_APART_ROUTERS.items() if not group}
     check_key_allow_list_default(
-        defaults, LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE, routers | groups | kept_apart,
-        {"LLM"} | (routers - {LITELLM_ROUTER_PUBLIC_NAMES["claude-code"]}), failures, "",
+        defaults, LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE, routers | groups | kept_apart | text_apart,
+        {"LLM"} | (routers - {LITELLM_ROUTER_PUBLIC_NAMES["claude-code"]}) | text_apart, failures, "",
         unknown_effect="is neither an access group nor a router of LiteLLM_config.yaml.j2: the key would list a name "
                        "that nothing serves",
         missing_effect="a LibreChat account could not pick it, and LiteLLM would only say that its key does not allow it",
@@ -1652,12 +1667,22 @@ AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
      {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: "Auto-Pro"},
      "must default to a list of strings, the key's allow-list (#307), not str"),
     ("no default at all", {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code"}, "it has no default"),
+    ("the router of the models paid from a credit among the routers",
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Claude-Code",
+      CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS + ["Auto-Paid"]},
+     "does not cover Claude Code"),
+    ("the router of the models paid from a credit as the agent's model",
+     {CLAUDE_CODE_MODEL_VARIABLE: "Auto-Paid", CLAUDE_CODE_ADDITIONAL_MODELS_VARIABLE: _ROUTERS_BESIDES_THE_ALIAS},
+     "Artificial_Intelligence_Claude_code_model names 'Auto-Paid' by default"),
 ]
 
 # (name, the parsed defaults, expected substring or None), for the models a LibreChat account's gateway key may call.
-_LIBRECHAT_KEY_DEFAULT = ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]
+_LIBRECHAT_KEY_DEFAULT = ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Paid"]
 LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
-    ("the group of text models and the four routers", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT}, None),
+    ("the group of text models and the five routers", {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT}, None),
+    ("the router of the models paid from a credit forgotten",
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: [name for name in _LIBRECHAT_KEY_DEFAULT if name != "Auto-Paid"]},
+     "leaves out 'Auto-Paid'"),
     ("the router of the agent too is accepted",
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Auto-Claude-Code"]}, None),
     ("another group too is accepted",
@@ -1665,7 +1690,7 @@ LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
     ("a data group too is accepted",
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: _LIBRECHAT_KEY_DEFAULT + ["Private-Data"]}, None),
     ("the group forgotten",
-     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: ["Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code"]},
+     {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: [name for name in _LIBRECHAT_KEY_DEFAULT if name != "LLM"]},
      "leaves out 'LLM'"),
     ("a router forgotten",
      {LIBRECHAT_GATEWAY_KEY_MODELS_VARIABLE: ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Code"]}, "leaves out 'Auto-Flash-Lite'"),
@@ -1761,6 +1786,8 @@ LITELLM_PROVIDERS = {
     "Cent_AI": "CENT_AI_API_KEY",
     "Aion_Labs": "AION_LABS_API_KEY",
     "Vercel_AI_Gateway": "VERCEL_AI_GATEWAY_API_KEY",
+    # Not "ANTHROPIC_API_KEY", which LiteLLM's "/anthropic" pass-through route reads to send what a caller asks there.
+    "Anthropic": "ANTHROPIC_CONSOLE_API_KEY",
 }
 # The five routers: aliases, whatever the keys, of their cascade's first member, and absent when no member
 # of the cascade has a key or needs none. None is an entry of the model list: no provider is first by
@@ -1808,12 +1835,16 @@ LITELLM_MEDIA_ROUTERS = {
 # The name each router is published under, which is the one a client types and the key the rendered file
 # carries. The rules below reason on the short ids above, and "litellm_logical_document" translates a rendering
 # into them before any rule reads it: a failure that says 'claude-code' means "Auto-Claude-Code".
-# The routers of the models kept apart: each with the provider whose models it holds, and the group those are in,
-# which is the only group its cascade may hold and the only cascade that may hold that group. Aliases of their
-# cascade's head like the others, and kept apart from LITELLM_ROUTERS for the reason the media routers are: that
-# tuple is also the set of names the Claude Code agent may be given.
+# The routers of the models kept apart: each with the providers whose models it holds, which are the only ones its
+# cascade may hold and which no other cascade may hold, and the group those are in where it is a group of their own,
+# the only group its cascade may hold and the only cascade that may hold that group. "paid" has none: Anthropic's
+# models are in "LLM", so that a key holding it may call them by name, and kept out of every other cascade because
+# a free router would spend their credit on every request and the agent, which that credit does not cover, reaches
+# the free routers. Aliases of their cascade's head like the others, and kept apart from LITELLM_ROUTERS for the
+# reason the media routers are: that tuple is also the set of names the Claude Code agent may be given.
 LITELLM_KEPT_APART_ROUTERS = {
     "fiction": (frozenset({"Aion_Labs"}), "Fiction"),
+    "paid": (frozenset({"Anthropic"}), None),
 }
 LITELLM_ROUTER_PUBLIC_NAMES = {
     "pro": "Auto-Pro",
@@ -1826,6 +1857,7 @@ LITELLM_ROUTER_PUBLIC_NAMES = {
     "decision": "Auto-Decision",
     "extraction": "Auto-Extraction",
     "fiction": "Auto-Fiction",
+    "paid": "Auto-Paid",
 }
 # The names a router no longer goes by, each with the name that replaced it: the short ids and the "auto-*"
 # aliases that stood beside them. A router keeps one name, since two names for one router are two cascades to
@@ -2167,6 +2199,14 @@ LITELLM_DATA_GROUPS = {
         "no training ('no_training') and to no retention ('zdr'), which varies from model to model and was not "
         "collected entry by entry: a provider whose terms could not be read is Public-Data-Only",
         "ai-gateway.vercel.sh/v1/models, 2026-11-24"),
+    "ANTHROPIC_CONSOLE_API_KEY": (
+        LITELLM_DATA_PRIVATE,
+        "'Anthropic may not train models on Customer Content from Services'; API inputs and outputs deleted within 30 "
+        "days, kept up to 2 years only when flagged as violating the Usage Policy, no personnel reading them by "
+        "default; processed under a data processing addendum with standard contractual clauses, the contracting "
+        "entity being Anthropic Ireland for a customer in the EEA, Switzerland or the UK",
+        "www.anthropic.com/legal/commercial-terms, privacy.claude.com articles 7996866 and 15425996, "
+        "www.anthropic.com/legal/data-processing-addendum, 2026-11-25"),
     # Providers of the drift script's additions with no active entry: nothing was read, hence nothing allowed.
     "CEREBRAS_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
     "SAMBANOVA_API_KEY": (LITELLM_DATA_PUBLIC, "no entry is active and its terms were not read", "none"),
@@ -2678,6 +2718,30 @@ def check_litellm_config(document, keys, failures):
                     f"[{state}] the cascade of {name!r} names {member!r}, which is in the group {group!r}: a model "
                     "kept apart is in the router of its own and in no other cascade, or a key without that group "
                     "would reach it through the router it asked for"
+                )
+    # A router kept apart with no group of its own is held by its providers instead: it holds their models and
+    # nothing else, and no other cascade holds one, since no group keeps a key from them.
+    provider_of = {variable: provider for provider, variable in LITELLM_PROVIDERS.items()}
+    owners = {}
+    for entry in entries:
+        reference = mapping(entry, "litellm_params").get("api_key")
+        if isinstance(reference, str) and reference.startswith("os.environ/"):
+            owners[entry.get("model_name")] = provider_of.get(reference[len("os.environ/"):])
+    held_by = {router: providers for router, (providers, group) in LITELLM_KEPT_APART_ROUTERS.items() if group is None}
+    router_of = {provider: router for router, providers in held_by.items() for provider in providers}
+    for name, members in cascades.items():
+        for member in members:
+            owner = owners.get(member)
+            if name in held_by and owner not in held_by[name]:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, which is no model of "
+                    f"{', '.join(sorted(held_by[name]))}: the router holds the models kept apart and nothing else"
+                )
+            elif name not in held_by and owner in router_of:
+                failures.append(
+                    f"[{state}] the cascade of {name!r} names {member!r}, a model of {owner}, which is kept apart in "
+                    f"{router_of[owner]!r} and in no other cascade: a free router would spend its credit on every "
+                    "request, and the Claude Code agent, which that credit does not cover, reaches the free routers"
                 )
     check_litellm_tier_router(entries, declared, aliases, cascades, state, failures)
     claude_code_expected = bool(keys & LITELLM_CLAUDE_CODE_PROVIDERS)
@@ -3241,6 +3305,41 @@ def _fiction_fault(fault):
     return document
 
 
+def _paid_document(entries=("claude-a", "claude-b"), cascade=True, head=True):
+    """An Anthropic-only rendering: the router of the models paid from a credit, over entries in "LLM"."""
+    document = _litellm_document([(name, "os.environ/ANTHROPIC_CONSOLE_API_KEY") for name in entries], [], {})
+    if cascade:
+        document["router_settings"]["fallbacks"].append({"paid": list(entries)})
+    if head:
+        document["router_settings"]["model_group_alias"]["paid"] = entries[0]
+    return document
+
+
+def _paid_fault(fault):
+    """An Anthropic and OpenRouter rendering with one fault in the way the models paid from a credit are kept apart:
+    OpenRouter's key serves a text router and no router of another kind."""
+    document = _paid_document()
+    document["model_list"].append({"model_name": "chat", "litellm_params": {"model": "x/chat",
+                                                                           "api_key": "os.environ/OPENROUTER_API_KEY"},
+                                   "model_info": {"max_input_tokens": 131072,
+                                                  "access_groups": litellm_access_groups(None, "os.environ/OPENROUTER_API_KEY")}})
+    fallbacks, aliases = document["router_settings"]["fallbacks"], document["router_settings"]["model_group_alias"]
+    if fault == "in-text-cascade":
+        fallbacks.append({"flash": ["chat", "claude-a"]})
+    elif fault == "in-agent-cascade":
+        fallbacks.append({"claude-code": ["chat", "claude-a"]})
+        document["model_list"][-1]["model_info"]["access_groups"].append(LITELLM_AGENT_GROUP)
+        document["model_list"][0]["model_info"]["access_groups"].append(LITELLM_AGENT_GROUP)
+    else:
+        fallbacks.append({"flash": ["chat"]})
+        if fault == "other-member":
+            fallbacks[0]["paid"].append("chat")
+    aliases.setdefault("flash", "chat")
+    if fault == "in-agent-cascade":
+        aliases["claude-code"] = "chat"
+    return document
+
+
 def _tier_router_document(routers=("pro", "flash", "flash-lite"), tier_router=True, **faults):
     """The three text routers over one OpenRouter model, and the router that picks among them as the template writes
     it, with `faults` replacing parts of it: "tiers", "settings" and "configuration" for what its configuration
@@ -3420,6 +3519,19 @@ LITELLM_CONFIG_CASES = [
      "the cascade of 'flash' names 'aion-a'"),
     ("a model that is not kept apart in the router that holds them", _fiction_fault("other-member"),
      {"Aion_Labs", "Gemini"}, "the cascade of 'fiction' names 'chat'"),
+    ("the router of the models paid from a credit, served by its cascade's head", _paid_document(), {"Anthropic"}, None),
+    ("the router of the models paid from a credit, absent although Anthropic has a key", _paid_document(head=False),
+     {"Anthropic"}, "'paid' is absent"),
+    ("the router of the models paid from a credit, served by a Mistral key alone", _paid_document(), {"Mistral"},
+     "'paid' is served"),
+    ("the router of the models paid from a credit beside a free router", _paid_fault("none"), {"Anthropic", "OpenRouter"},
+     None),
+    ("a model paid from a credit in a free cascade", _paid_fault("in-text-cascade"), {"Anthropic", "OpenRouter"},
+     "a model of Anthropic, which is kept apart in 'paid'"),
+    ("a model paid from a credit in the agent's cascade", _paid_fault("in-agent-cascade"), {"Anthropic", "OpenRouter"},
+     "the cascade of 'claude-code' names 'claude-a', a model of Anthropic"),
+    ("a free model in the router of the models paid from a credit", _paid_fault("other-member"), {"Anthropic", "OpenRouter"},
+     "the cascade of 'paid' names 'chat', which is no model of Anthropic"),
     ("an alias with no cascade of its own",
      _litellm_document([("mistral-large", "os.environ/MISTRAL_API_KEY")], [("claude-code", ["mistral-large"])],
                        {"claude-code": "mistral-large", "code": "mistral-large"}),

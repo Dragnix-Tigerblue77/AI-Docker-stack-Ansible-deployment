@@ -431,11 +431,29 @@ A router's `head` row reads the keys of its whole chain, so a chain longer than 
 
 **What a cleanup of the model list may remove.** A cleanup removes only what its provider has retired or
 redirected, what is paid only, what cannot be called, a time-limited trial or one-time quota, what a
-person set aside for a data or operator reason, or a second entry for the same model at the same
-level, which is a duplicate and not a model. A free model that can be called is never removed,
-commented out, set aside by a `drift-ignore:` line or kept out of every cascade for being redundant,
-unmeasured, too small a window (the router's pre-call checks skip a member a request does not fit)
-or deemed not needed: it goes by its figure, at the tail of the free members, or by name.
+person set aside for a data or operator reason, a second entry for the same model at the same
+level, which is a duplicate and not a model, or an older version of a line under a quota its provider shares
+between its models (below). A free model that can be called is never removed, commented out, set aside by a
+`drift-ignore:` line or kept out of every cascade for being redundant, unmeasured, too small a window (the
+router's pre-call checks skip a member a request does not fit) or deemed not needed, that older version
+apart: it goes by its figure, at the tail of the free members, or by name.
+
+**Under a quota shared between the models of a provider, only the latest version of each line is routed, unless
+an older one gives what it does not.** Where one counter serves every model of a provider -- a credit, a
+balance, an account, an address, which the column "Comptée par" of the table of free limits in `ROUTAGE.md`
+gives -- an older version of a line adds no quota, since it spends the same counter, and the latest of its line
+is the more capable one. A line is one model at one tier followed through its versions: the provider's own
+grouping where it gives one (Anthropic's `line`), and otherwise the model's name without its version, a size or
+a tier being a line of its own. An older version stays routed, placed by its figure like any other member, when
+it gives what the latest of its line does not: a larger context window, images it reads, tool calls, or the same
+text for at least 10 % less of the shared counter, which is its price per token, or the quota's own unit, times
+the tokens its tokenizer counts for that text, as the provider's pages state them. The margin is there because a
+provider gives what a tokenizer counts as an approximation, and a smaller gap tells nothing apart; thinking
+tokens, which no page states, do not count. Any other older version stays in the template commented out, its
+reason naming the version that replaces it, so that the drift run knows it and deletes it once its provider
+retires it. The pull request that routes a new latest version comments out the one it replaces, or says why it
+keeps it. Different lines of one provider stay side by side: a router falls back to the next member when one
+model fails for a reason of its own, which `ROUTAGE.md` says. The maintainer set it on 2026-11-25.
 
 The routers' contracts live in `.github/LiteLLM_router_contracts.yaml`: per router a floor (on the
 intelligence index, or on a code scale for `code` and `claude-code`, or none), the gain in index points an
@@ -482,7 +500,7 @@ count, rank or list of names joined on one line, which keeps a deletion's diff s
 are in `ROUTAGE.md`, linked from the catalogue and never copied, and `--check` holds the heading it links to.
 
 **A router is published under one name, the one a client types: `Auto-Pro`, `Auto-Flash`, `Auto-Flash-Lite`,
-`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`, `Auto-Fiction`.** It is the key of
+`Auto-Code`, `Auto-Claude-Code`, `Auto-STT`, `Auto-TTS`, `Auto-Decision`, `Auto-Extraction`, `Auto-Fiction`, `Auto-Paid`.** It is the key of
 its cascade and of its alias in `templates/LiteLLM_config.yaml.j2`, in the agent's defaults, in `ROUTAGE.md`'s headings and in LibreChat's
 list, and no second name stands beside it: two names for one router are two cascades to keep level, and a
 client choosing between them chooses by luck. The short ids (`pro`, `flash`...) stay the vocabulary of the
