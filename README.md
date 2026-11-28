@@ -193,6 +193,7 @@ pour un appelant qui n'en veut pas, et avec lui son volume et les tâches qui en
 | `Artificial_Intelligence_Claude_code_workspace_Docker_volume_name` | `Claude_code_workspace` | Le volume nommé monté sur `/workspace` quand le dossier hôte n'est pas fourni. Déclaré seulement dans ce cas. |
 | `Artificial_Intelligence_Claude_code_model` | `Auto-Claude-Code` | L'alias que LiteLLM résout (#2) -- jamais un nom de modèle Anthropic littéral. C'est aussi la première entrée de la liste blanche de la clé de l'agent, et la valeur de **toutes** les variables de modèle de Claude Code posées dans le conteneur (#287, voir « L'agent Claude Code »). |
 | `Artificial_Intelligence_Claude_code_additional_models` | `[Auto-Pro, Auto-Flash, Auto-Flash-Lite, Auto-Code]` | Les routeurs que l'agent peut aussi demander **par leur nom** (`/model Auto-Flash`), en plus de l'alias ci-dessus. Ils s'ajoutent à la liste blanche de la clé de l'agent et à rien d'autre : le conteneur continue de demander l'alias. `Auto` n'y est pas : sa clé ne porte que des routeurs, et `Auto` peut viser `Auto-Flash-Lite`, dont les membres ne sont pas tenus aux appels d'outils stricts de l'agent. Une liste de chaînes non vides, ou `[]` pour aucun ; `check_compose_template.py` la tient au niveau des routeurs du template. Le groupe `Claude-Code` s'ajoute à la clé quelle que soit cette liste, pour que les cascades fonctionnent : un routeur demandé par son nom garde sa tête, puis ne bascule que sur des modèles de la cascade de l'agent. Le rôle remet à chaque passage la liste d'une clé existante à niveau : un changement atteint un agent déjà déployé au passage suivant (voir « L'agent Claude Code »). `Auto-Paid` n'y est jamais par défaut, et `check_compose_template.py` refuse un défaut qui le nommerait : le crédit d'un forfait Claude qui paie ses modèles ne couvre pas Claude Code. |
+| `Artificial_Intelligence_Claude_code_auto_mode_model` | `Auto-Flash-Lite` | Le routeur auquel le mode automatique de Claude Code demande, avant chaque action qu'aucune règle n'autorise déjà, s'il peut la lancer (`CLAUDE_CODE_AUTO_MODE_MODEL` dans le conteneur). Le rôle l'ajoute à la liste blanche de la clé de l'agent, quelle que soit la liste ci-dessus. Une chaîne non vide ; `check_compose_template.py` tient le défaut à l'un des routeurs que l'agent peut recevoir, jamais `Auto-Paid`. Voir « L'agent Claude Code ». |
 | `Artificial_Intelligence_Claude_code_memory_limit` | `false` | Aucune limite par défaut ; une chaîne (`2g`) limite le service à cette taille, `false` n'en pose aucune. |
 | `Artificial_Intelligence_Claude_code_home_Docker_volume_name` | `Claude_code_home` | Le volume nommé du répertoire personnel **entier** -- voir plus bas pourquoi. |
 
@@ -2245,7 +2246,8 @@ son SHA-256, ce que LiteLLM stocke, pour que le secret n'apparaisse pas dans l'U
 inconnue (404) ou signalée supprimée, la crée par `POST /key/generate` avec cette valeur dans `key`, le
 `key_alias` `claude_code` et pour liste blanche l'alias du modèle
 (`Artificial_Intelligence_Claude_code_model`), les routeurs de
-`Artificial_Intelligence_Claude_code_additional_models` et le groupe `Claude-Code`. Les appels s'authentifient
+`Artificial_Intelligence_Claude_code_additional_models`, celui du mode automatique
+(`Artificial_Intelligence_Claude_code_auto_mode_model`) et le groupe `Claude-Code`. Les appels s'authentifient
 avec la clé maîtresse, que l'agent ne détient jamais, et leurs tâches sont en `no_log`.
 
 **Le groupe `Claude-Code` est ce qui fait fonctionner les cascades.** Avant chaque secours, LiteLLM vérifie que la
@@ -2313,11 +2315,11 @@ la passerelle sert sont payés par la clé d'une organisation de la Claude Conso
 Claude, qui ne couvre pas Claude Code. Ils ne sont que dans `Auto-Paid`, que ni l'alias ni les routeurs que la
 clé de l'agent autorise n'atteignent.
 
-**Toutes les variables de modèle de Claude Code portent ce même alias (#287).** Claude Code n'envoie pas que ses
+**Toutes les variables de modèle de Claude Code portent ce même alias (#287), sauf celle du mode automatique.** Claude Code n'envoie pas que ses
 requêtes principales : ses requêtes d'arrière-plan (titres, résumés courts) partent vers le modèle de classe Haiku, ses
 sous-agents vers le leur, et les alias `sonnet` et `opus` vers d'autres encore. Or la clé de l'agent n'autorise que
-l'alias et les routeurs de `Artificial_Intelligence_Claude_code_additional_models` (voir plus haut) : une requête sous
-un autre nom est refusée par la passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
+l'alias, les routeurs de `Artificial_Intelligence_Claude_code_additional_models` et celui du mode automatique (voir plus
+haut) : une requête sous un autre nom est refusée par la passerelle. Le bloc du service pose donc `ANTHROPIC_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_OPUS_MODEL` et `CLAUDE_CODE_SUBAGENT_MODEL`, toutes sur
 `Artificial_Intelligence_Claude_code_model`, sans second alias : la liste blanche de la clé ne s'élargit que par les
 routeurs de `Artificial_Intelligence_Claude_code_additional_models`, et c'est elle qui tient le conteneur à l'écart du
@@ -2325,11 +2327,27 @@ quota des autres comptes. Le coût : les requêtes d'arrière-plan et les sous-a
 passent par le modèle principal. Les noms viennent de la documentation de Claude Code
 (« Model configuration » et « Environment variables », consultées le 2026-10-31) :
 `ANTHROPIC_SMALL_FAST_MODEL`, l'ancien nom de la variable Haiku, y est déclaré obsolète au profit de
-`ANTHROPIC_DEFAULT_HAIKU_MODEL`, et n'est pas posé. Ne le sont pas non plus `ANTHROPIC_DEFAULT_FABLE_MODEL` (l'alias
-`fable`, que la documentation lie à une sélection explicite et au repli automatique de modèle sur un fournisseur tiers)
-et `CLAUDE_CODE_AUTO_MODE_MODEL` (le classificateur du mode automatique) : ni l'un ni l'autre n'est un chemin que le
-déploiement emprunte tel quel, et leur effet derrière la passerelle n'est pas mesuré. Rien de tout cela n'a été exécuté : ni LiteLLM réel, ni Claude Code
-réel, donc ce que Claude Code affiche quand une requête est refusée reste non mesuré.
+`ANTHROPIC_DEFAULT_HAIKU_MODEL`, et n'est pas posé. Ne l'est pas non plus `ANTHROPIC_DEFAULT_FABLE_MODEL` (l'alias
+`fable`, que la documentation lie à une sélection explicite et au repli automatique de modèle sur un fournisseur tiers) :
+ce n'est pas un chemin que le déploiement emprunte tel quel, et son effet derrière la passerelle n'est pas mesuré. Rien
+de tout cela n'a été exécuté : ni LiteLLM réel, ni Claude Code réel, donc ce que Claude Code affiche quand une requête
+est refusée reste non mesuré.
+
+**Le mode automatique demande à un routeur rapide (`Artificial_Intelligence_Claude_code_auto_mode_model`).** Avant
+chaque action qu'aucune règle n'autorise déjà, le mode automatique de Claude Code demande à un modèle, son
+classificateur, s'il peut la lancer : une requête sans streaming, une seconde quand la première conclut au blocage,
+chacune portant la conversation entière sous une consigne d'environ 35 000 jetons et attendant une réponse au format XML
+strict (`<block>no</block>` pour laisser passer). Sans `CLAUDE_CODE_AUTO_MODE_MODEL`, ce modèle est celui de
+`ANTHROPIC_DEFAULT_SONNET_MODEL`, donc l'alias, dont la cascade peut rester muette plusieurs minutes. Or Claude Code
+coupe chaque requête du classificateur au bout de 60 secondes, sans nouvel essai, et refuse alors l'action ; une erreur
+du routeur (un 429) est retentée sur le même nom, jamais sur l'alias, puis l'action est refusée de même. Le bloc du
+service pose donc `CLAUDE_CODE_AUTO_MODE_MODEL` sur cette variable, `Auto-Flash-Lite` par défaut, classé sur le délai,
+et le rôle ajoute ce nom à la liste blanche de la clé quelle que soit `Artificial_Intelligence_Claude_code_additional_models`.
+La clé n'atteint que la tête de ce routeur, ses autres membres n'étant pas du groupe `Claude-Code` : une fois le
+quota gratuit de cette tête épuisé, les actions à juger sont refusées jusqu'à ce qu'il revienne, jamais lancées sans
+avis. Ce n'est pas un modèle Claude, le seul genre qu'Anthropic prend en charge pour ce rôle, et il juge moins finement.
+Ces comportements ont été mesurés avec Claude Code 2.1.326 face à une passerelle simulée, pas face à LiteLLM ni à un
+vrai modèle.
 
 **Choisir son routeur depuis Claude Code (#307).** Sans rien faire, le conteneur demande `Auto-Claude-Code`. Pour un autre
 routeur, on le nomme : `/model Auto-Flash` en session, ou `claude --model Auto-Flash` au lancement. Claude Code envoie alors ce

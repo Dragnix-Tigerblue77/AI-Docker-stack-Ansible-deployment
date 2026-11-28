@@ -229,6 +229,10 @@ CLAUDE_CODE_MODEL_ENVIRONMENT = (
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
     "CLAUDE_CODE_SUBAGENT_MODEL",
 )
+# The one model variable that does not hold the alias: the router auto mode asks whether an action may run, which
+# the alias's cascade can keep waiting past the 60 s Claude Code gives that answer before it refuses the action.
+CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE = "Artificial_Intelligence_Claude_code_auto_mode_model"
+CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT = "CLAUDE_CODE_AUTO_MODE_MODEL"
 # The two rendered states the token is judged between, named once: a label written twice is one that can
 # drift apart, and "main" would then skip the comparison without a word.
 CLAUDE_CODE_STATE = "Claude Code agent enabled"
@@ -249,6 +253,7 @@ FREE_FORM_WITH_A_DEFAULT = (
     "Artificial_Intelligence_LibreChat_config_file_destination_path",
     "Artificial_Intelligence_OVHcloud_relay_config_file_destination_path",
     CLAUDE_CODE_MODEL_VARIABLE,
+    CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE,
     "Artificial_Intelligence_Claude_code_workspace_directory",
     CLAUDE_CODE_GITHUB_TOKEN_VARIABLE,
 )
@@ -729,6 +734,28 @@ def check_agent_models(document, state, expected, failures):
             )
 
 
+def check_agent_auto_mode_model(document, state, expected, failures):
+    """Hold the agent's environment to naming, as `expected`, the router auto mode asks whether an action may run.
+
+    Without the variable, auto mode asks the Sonnet variable, which holds the alias. `expected` is what the parsed
+    document holds, a "$" doubled, as for the alias.
+    """
+    if CLAUDE_CODE_SERVICE not in mapping(document, "services"):
+        failures.append(f"[{state}] service {CLAUDE_CODE_SERVICE!r} is not rendered: its auto mode model cannot be judged")
+        return
+    value = agent_environment(document).get(CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT)
+    if value is None:
+        failures.append(
+            f"[{state}] {CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT} is missing from the agent's environment: auto mode "
+            "would ask the alias, whose cascade can outlast the 60 s Claude Code waits before refusing the action"
+        )
+    elif value != expected:
+        failures.append(
+            f"[{state}] {CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT} is {value!r} in the agent's environment, "
+            f"expected {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE}, {expected!r}"
+        )
+
+
 def check_token_arrives(document, state, expected, failures):
     """Hold the agent's environment to carrying its GitHub token, as `expected`, in both of its variables.
 
@@ -868,6 +895,25 @@ def check_agent_additional_models_default(defaults, failures):
                 f"{variable} names {name!r} by default: the credit a Claude plan includes for its models does not "
                 "cover Claude Code, so the agent is never given that router by default"
             )
+
+
+def check_agent_auto_mode_model_default(defaults, failures):
+    """Hold the router auto mode asks by default to one of the routers the agent may be given.
+
+    The role writes it into the container and adds it to the key's allow-list, so a name that nothing serves is an
+    answer auto mode never gets, and every action it asks about is refused. The router paid from a credit is no
+    such router: that credit does not cover Claude Code.
+    """
+    routers = {LITELLM_ROUTER_PUBLIC_NAMES[router] for router in LITELLM_ROUTERS}
+    if CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE not in defaults:
+        failures.append(f"{CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE} has no default: the container would carry no router")
+        return
+    value = defaults[CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE]
+    if not isinstance(value, str) or value not in routers:
+        failures.append(
+            f"{CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE} defaults to {value!r}, which is none of the routers the agent may "
+            f"be given ({', '.join(sorted(routers))}): auto mode would get no answer and refuse every action it asks about"
+        )
 
 
 def check_librechat_gateway_key_models_default(defaults, failures):
@@ -1676,6 +1722,20 @@ AGENT_ADDITIONAL_MODELS_DEFAULT_CASES = [
      "Artificial_Intelligence_Claude_code_model names 'Auto-Paid' by default"),
 ]
 
+# (name, the parsed defaults, expected substring or None), for the router auto mode asks.
+AGENT_AUTO_MODE_MODEL_DEFAULT_CASES = [
+    ("the fastest router", {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE: "Auto-Flash-Lite"}, None),
+    ("the alias itself is a router the agent may be given", {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE: "Auto-Claude-Code"},
+     None),
+    ("the router of the models paid from a credit", {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE: "Auto-Paid"},
+     "defaults to 'Auto-Paid', which is none of the routers"),
+    ("a router by its short id", {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE: "flash-lite"},
+     "defaults to 'flash-lite', which is none of the routers"),
+    ("a list rather than a name", {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE: ["Auto-Flash-Lite"]},
+     "which is none of the routers"),
+    ("no default at all", {}, "has no default"),
+]
+
 # (name, the parsed defaults, expected substring or None), for the models a LibreChat account's gateway key may call.
 _LIBRECHAT_KEY_DEFAULT = ["LLM", "Auto-Pro", "Auto-Flash", "Auto-Flash-Lite", "Auto-Code", "Auto-Paid"]
 LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES = [
@@ -1766,6 +1826,20 @@ AGENT_MODEL_CASES = [
             "CLAUDE_CODE_SUBAGENT_MODEL": "a$b"}),
      "a$$b", "CLAUDE_CODE_SUBAGENT_MODEL is 'a$b'"),
     ("the agent not rendered", {"services": {}}, _AGENT_ALIAS, "service 'claude_code' is not rendered"),
+]
+
+# (name, document, the router auto mode asks, expected substring or None).
+_AGENT_AUTO_MODE_MODEL = "flash-lite"
+AGENT_AUTO_MODE_MODEL_CASES = [
+    ("the router written", agent({**_AGENT_ENVIRONMENT, CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT: _AGENT_AUTO_MODE_MODEL}),
+     _AGENT_AUTO_MODE_MODEL, None),
+    ("the variable missing, so auto mode asks the alias", agent(_AGENT_ENVIRONMENT), _AGENT_AUTO_MODE_MODEL,
+     "CLAUDE_CODE_AUTO_MODE_MODEL is missing"),
+    ("the alias written instead", agent({**_AGENT_ENVIRONMENT, CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT: _AGENT_ALIAS}),
+     _AGENT_AUTO_MODE_MODEL, "CLAUDE_CODE_AUTO_MODE_MODEL is 'claude-code'"),
+    ("a '$' arrived single", agent({**_AGENT_ENVIRONMENT, CLAUDE_CODE_AUTO_MODE_MODEL_ENVIRONMENT: "a$b"}), "a$$b",
+     "CLAUDE_CODE_AUTO_MODE_MODEL is 'a$b'"),
+    ("the agent not rendered", {"services": {}}, _AGENT_AUTO_MODE_MODEL, "service 'claude_code' is not rendered"),
 ]
 
 
@@ -4268,6 +4342,15 @@ def selftest():
             continue
         problems.extend(_verdict(name, failures, expected))
 
+    for name, defaults, expected in AGENT_AUTO_MODE_MODEL_DEFAULT_CASES:
+        failures = []
+        try:
+            check_agent_auto_mode_model_default(defaults, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
     for name, defaults, expected in LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES:
         failures = []
         try:
@@ -4281,6 +4364,15 @@ def selftest():
         failures = []
         try:
             check_agent_models(document, "selftest", alias, failures)
+        except Exception as error:  # noqa: BLE001
+            problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
+            continue
+        problems.extend(_verdict(name, failures, expected))
+
+    for name, document, value, expected in AGENT_AUTO_MODE_MODEL_CASES:
+        failures = []
+        try:
+            check_agent_auto_mode_model(document, "selftest", value, failures)
         except Exception as error:  # noqa: BLE001
             problems.append(f"{name!r}: raised {type(error).__name__}: {error}")
             continue
@@ -4349,9 +4441,11 @@ def selftest():
         f"{len(INTACT_CASES)} intact-value case(s), {len(TEMPLATE_LINE_CASES)} template-line case(s), "
         f"{len(AGENT_TOKEN_CASES)} agent token case(s), {len(AGENT_TOKEN_DEFAULT_CASES)} agent token default "
         f"case(s), {len(AGENT_ADDITIONAL_MODELS_DEFAULT_CASES)} agent additional models default "
+        f"case(s), {len(AGENT_AUTO_MODE_MODEL_DEFAULT_CASES)} agent auto mode model default "
         f"case(s), {len(LIBRECHAT_GATEWAY_KEY_MODELS_DEFAULT_CASES)} LibreChat gateway key models default "
         f"case(s), {len(VOLUME_NAME_DEFAULT_CASES)} volume name default "
         f"case(s), {len(TOKEN_ARRIVES_CASES)} token arrival case(s), {len(AGENT_MODEL_CASES)} agent model "
+        f"case(s), {len(AGENT_AUTO_MODE_MODEL_CASES)} agent auto mode model "
         f"case(s), {len(LITELLM_VARIABLE_CASES)} LiteLLM variable case(s), {len(LITELLM_KEY_SET_CASES)} LiteLLM key set "
         f"case(s), {len(LITELLM_CONFIG_CASES)} "
         f"LiteLLM routing case(s), {len(LITELLM_DATA_TABLE_CASES)} data group table case(s), "
@@ -4425,6 +4519,7 @@ def main():
 
     check_agent_token_default(defaults, failures)
     check_agent_additional_models_default(defaults, failures)
+    check_agent_auto_mode_model_default(defaults, failures)
     check_librechat_gateway_key_models_default(defaults, failures)
     check_volume_name_defaults(defaults, failures)
     if CLAUDE_CODE_STATE in documents and CLAUDE_CODE_TOKEN_STATE in documents:
@@ -4465,6 +4560,8 @@ def main():
     for state in (CLAUDE_CODE_STATE, CLAUDE_CODE_TOKEN_STATE, host_state):
         if state in documents:
             check_agent_models(documents[state], state, defaults[CLAUDE_CODE_MODEL_VARIABLE], failures)
+            check_agent_auto_mode_model(
+                documents[state], state, defaults.get(CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE), failures)
     off_state = "Claude Code agent disabled"
     if {"published network unset", host_state, off_state} <= set(documents):
         check_agent_workspace(
@@ -4514,6 +4611,14 @@ def main():
             failures.append(
                 f"[{dollar_state}] {CLAUDE_CODE_MODEL_VARIABLE} was not given a '$' value, so the agent's "
                 "model variables were not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
+            )
+        auto_mode = dollar_values.get(CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE)
+        if isinstance(auto_mode, str):
+            check_agent_auto_mode_model(dollar_document, dollar_state, auto_mode.replace("$", "$$"), failures)
+        else:
+            failures.append(
+                f"[{dollar_state}] {CLAUDE_CODE_AUTO_MODE_MODEL_VARIABLE} was not given a '$' value, so the agent's "
+                "auto mode model was not judged: it must stay in FREE_FORM_WITH_A_DEFAULT"
             )
     check_quote_exemptions(defaults, failures)
     key_sets, key_strength = check_litellm_configs(failures)
