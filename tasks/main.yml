@@ -244,6 +244,19 @@
       empty list for none.
   when: Artificial_Intelligence_Claude_code_enabled
 
+# The router auto mode asks whether an action may run: a name the role writes into the container and adds to the
+# key's "models", so an empty one would be a model nobody can ask for.
+- name: "Check the Claude Code agent's auto mode model is a non-empty string"
+  ansible.builtin.assert:
+    that:
+      - Artificial_Intelligence_Claude_code_auto_mode_model is string
+      - Artificial_Intelligence_Claude_code_auto_mode_model | length > 0
+    quiet: true
+    fail_msg: >-
+      "Artificial_Intelligence_Claude_code_auto_mode_model" must be a non-empty string, the name of the router
+      the agent's auto mode asks whether an action may run.
+  when: Artificial_Intelligence_Claude_code_enabled
+
 # What a LibreChat account's gateway key may call: a list of non-empty strings, the key's "models" as LiteLLM
 # takes them. The same traps as the agent's list above.
 - name: "Check the LibreChat gateway key's models are a list of non-empty strings"
@@ -820,10 +833,10 @@
 # covers the case where it exits meanwhile.
 #
 # The master key authenticates the calls and is never what the agent holds. The allow-list is the
-# model alias the agent asks for, the routers it may also be told to use and "Claude-Code", the
-# access group of the members of the alias's cascade: LiteLLM checks the calling key before each
-# fallback and skips a member the key does not allow, so a key holding the routers' names alone
-# reaches the head of each cascade and nothing behind it. The group holds the models that take strict
+# model alias the agent asks for, the routers it may also be told to use, the one its auto mode asks
+# whether an action may run and "Claude-Code", the access group of the members of the alias's cascade:
+# LiteLLM checks the calling key before each fallback and skips a member the key does not allow, so a
+# key holding the routers' names alone reaches the head of each cascade and nothing behind it. The group holds the models that take strict
 # tool calls on enough context and no other, so a router the agent asks for by name keeps its head and
 # falls back only to models the agent can drive. The alias comes first and a name listed twice is
 # written once.
@@ -847,8 +860,8 @@
     - not ansible_check_mode
   vars:
     Artificial_Intelligence_Claude_code_key_models: >-
-      {{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models + ['Claude-Code'])
-      | unique | list }}
+      {{ ([Artificial_Intelligence_Claude_code_model] + Artificial_Intelligence_Claude_code_additional_models
+      + [Artificial_Intelligence_Claude_code_auto_mode_model, 'Claude-Code']) | unique | list }}
   block:
     - name: "Look up the Claude Code agent's LiteLLM virtual key"
       ansible.builtin.uri:

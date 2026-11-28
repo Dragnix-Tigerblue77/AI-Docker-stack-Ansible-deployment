@@ -549,6 +549,14 @@ Artificial_Intelligence_Claude_code_additional_models:
   - "Auto-Flash-Lite"
   - "Auto-Code"
 
+# The router the agent's auto mode asks whether an action may run, before each one no rule allows already.
+# Without it Claude Code would ask the alias above, whose cascade can stay silent for minutes, while it waits
+# 60 s for each answer and then refuses the action. "Auto-Flash-Lite" is ranked on time, so its head answers
+# well within that. The role adds the name to the key's allow-list, which reaches the head of "Auto-Flash-Lite"
+# and nothing behind it: once that head's free quota is spent, actions are refused until it comes back, never
+# run unjudged. It is not a Claude model, the only kind Anthropic supports for this, and judges less finely.
+Artificial_Intelligence_Claude_code_auto_mode_model: "Auto-Flash-Lite"
+
 # Unlimited by default (for example "2g").
 Artificial_Intelligence_Claude_code_memory_limit: false
 

@@ -218,6 +218,7 @@ jobs:
 
       # What a deployed gateway sees when the agent's list changes: the key exists with the first run's list,
       # and the role must bring it to the new one rather than leave it. Agent off, there is no key to change.
+      # The router auto mode asks stays in the key whatever that list holds.
       - name: Run the example playbook again, with the agent key's list changed
         if: env.ROLE_RUN_CLAUDE_CODE_AGENT == 'on'
         env: *role_run_playbook_environment
@@ -225,7 +226,7 @@ jobs:
           python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash Auto-Flash-Lite Auto-Code Claude-Code
           ansible-playbook -i .github/role_run/inventory.ini -e @.github/role_run/vars.yml \
             -e @.github/role_run/vars.claude_code_key_changed.yml playbook.Artificial_Intelligence.example.yaml
-          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Claude-Code
+          python3 .github/role_run/stand_in_gateway.py --expect-agent-models Auto-Claude-Code Auto-Pro Auto-Flash-Lite Claude-Code
 
   role-run-agent-on:
     name: role run (Claude Code agent on)
